@@ -42,8 +42,13 @@ export class Player {
     const acc = this.y > 0.01 ? 4 : 14;
     this.vel.x += (tvx - this.vel.x) * Math.min(1, dt * acc);
     this.vel.y += (tvz - this.vel.y) * Math.min(1, dt * acc);
-    this.pos.x += this.vel.x * dt; this.pos.z += this.vel.y * dt;
-    collision.resolve(this.pos, 0.38, this.y);
+    // substeps so a low-FPS sprint frame can't step past a thin interior wall
+    const mx = this.vel.x * dt, mz = this.vel.y * dt;
+    const steps = Math.max(1, Math.ceil(Math.hypot(mx, mz) / (0.38 * 0.5)));
+    for (let i = 0; i < steps; i++) {
+      this.pos.x += mx / steps; this.pos.z += mz / steps;
+      collision.resolve(this.pos, 0.38, this.y);
+    }
     this.speed = Math.hypot(this.vel.x, this.vel.y);
     if (this.speed > 0.3 && l > 0.01) {
       const th = Math.atan2(this.vel.x, this.vel.y);

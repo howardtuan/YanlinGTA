@@ -15,6 +15,7 @@ const SENIOR = { skin: '#e2b994', shirt: '#2f6bff', shorts: '#333', pants: true,
 export class Missions {
   constructor(game) {
     this.g = game; this.idx = -1; this.step = null; this.timer = null; this.markers = [];
+    this.rewarded = new Set(); // checkpoint rewards already given (survives mission retries)
     this.free = false; this.done = false;
     const w = game.world;
     const ap = (name) => {
@@ -24,7 +25,7 @@ export class Missions {
     };
     this.P = {
       im: ap('資訊管理學系'), lib: ap('張靜愚紀念圖書館'), sac: ap('學生活動中心'), village: ap('全人教育村'),
-      ee: ap('電學大樓'), dorm: ap('良善樓'), tower: ap('鐘塔') || { x: -16, z: 110 }, history: ap('校史館'),
+      ee: ap('電學大樓'), dorm: ap('良善樓'), tower: ap('鐘塔') || { x: -16, z: 110, name: '鐘塔' }, history: ap('校史館'),
       gym: ap('中原大學體育館'), mgmt: ap('管理大樓'), science: ap('科學館'),
       market: { x: w.nightMarket.x, z: w.nightMarket.z, name: '中原夜市' },
     };
@@ -43,6 +44,8 @@ export class Missions {
     if (fn) fn.call(this); else this.step = null;
   }
   // ----- helpers -----
+  // true the first time a key is seen, so retrying a failed mission doesn't pay out (or build boards) twice
+  once(key) { if (this.rewarded.has(key)) return false; this.rewarded.add(key); return true; }
   talk(lines, cb) { this.g.dialog(lines, cb); }
   goto(target, title, text, onArrive, radius = 7) {
     this.step = { type: 'goto', target, radius, onArrive };
@@ -89,8 +92,9 @@ export class Missions {
         }
       }
     } else if (s.type === 'votes') {
-      const got = this.g.votes - s.base;
-      this.g.hud.setObjective(s.title, `對路上的同學按 <kbd>滑鼠左鍵</kbd> 發傳單拉票：<b>${Math.min(got, s.need)} / ${s.need}</b> 票`);
+      // only flyers handed out count (not golden ballots, guardhouse, etc.)
+      const got = (this.g.flyerVotes || 0) - s.base;
+      if (got !== s.shown) { s.shown = got; this.g.hud.setObjective(s.title, `對路上的同學按 <kbd>滑鼠左鍵</kbd> 發傳單拉票：<b>${Math.min(got, s.need)} / ${s.need}</b> 票`); }
       if (got >= s.need) { this.step = null; this.g.audio.checkpoint(); s.onDone(); }
     }
   }
@@ -130,7 +134,7 @@ Missions.prototype.steps = [
     ], () => {
       const cps = [P.lib, P.sac, P.village, P.ee, P.dorm].filter(Boolean);
       this.checkpoints(cps, '任務一 · 傳單大作戰', (n, t, left) => `把傳單送到公布欄：<b>${n}/${t}</b>　（${left.map(l => l.name).join('、')}）`, 180, false,
-        (c) => { g.addVotes(3, `${c.name} 公布欄 +3 票`); },
+        (c) => { if (this.once('m1:' + this.step.list.indexOf(c))) g.addVotes(3, `${c.name} 公布欄 +3 票`); },
         () => { g.hud.bigToast('任務完成！', '傳單全部貼好了'); g.audio.fanfare(); this.g.after(() => this.goto(P.im, '任務一 · 傳單大作戰', '回到 <b>資訊管理學系館</b> 回報', () => this.next(), 9), 1200); });
     });
   },
@@ -164,7 +168,7 @@ Missions.prototype.steps = [
       ['小安', '去路上找同學聊聊，對他們按滑鼠左鍵（手機按 📄）遞傳單。目標再拿 15 票！'],
       ['小安', '騎車小心，撞到同學會掉票喔 😅'],
     ], () => {
-      this.step = { type: 'votes', base: g.votes, need: 15, title: '任務三 · 掃街拉票', onDone: () => { g.hud.bigToast('任務完成！', '大家都認識彥霖了'); g.audio.fanfare(); this.g.after(() => this.next(), 1500); } };
+      this.step = { type: 'votes', base: g.flyerVotes || 0, need: 15, title: '任務三 · 掃街拉票', onDone: () => { g.hud.bigToast('任務完成！', '大家都認識彥霖了'); g.audio.fanfare(); this.g.after(() => this.next(), 1500); } };
     });
   },
   // 4 — banner race (ordered)
@@ -177,7 +181,7 @@ Missions.prototype.steps = [
     ], () => {
       const cps = [P.tower, P.history, P.lib, P.gym, P.village, P.mgmt].filter(Boolean);
       this.checkpoints(cps, '任務四 · 布條保衛戰', (n, t, left) => `依序掛回布條：<b>${n}/${t}</b>　下一站：${left[0] ? left[0].name : ''}`, 120, true,
-        (c) => { g.addVotes(2, `布條掛好了 +2 票`); g.world.addBoard(c.x + 3, c.z + 3, Math.random() * 6.28, 0.7); },
+        (c) => { if (this.once('m4:' + this.step.list.indexOf(c))) { g.addVotes(2, `布條掛好了 +2 票`); g.world.addBoard(c.x + 3, c.z + 3, Math.random() * 6.28, 0.7); } },
         () => { g.hud.bigToast('任務完成！', '布條全部掛回去了'); g.audio.fanfare(); this.g.after(() => this.next(), 1500); });
     });
   },

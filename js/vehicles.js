@@ -211,7 +211,9 @@ export class Vehicle {
       if (d2 < rr * rr && d2 > 1e-6) {
         const dd = Math.sqrt(d2), push = rr - dd;
         this.pos.x += ddx / dd * push * 0.7; this.pos.z += ddz / dd * push * 0.7;
-        o.pos.x -= ddx / dd * push * 0.3; o.pos.z -= ddz / dd * push * 0.3; o.sync();
+        o.pos.x -= ddx / dd * push * 0.3; o.pos.z -= ddz / dd * push * 0.3;
+        if (!o.ai) collision.resolve(o.pos, o.radius); // parked cars / your scooter: don't shove them into walls (AI cars snap back to their lane)
+        o.sync();
         if (Math.abs(this.speed) > 3 && this.bumpCooldown <= 0) { onBump && onBump(Math.abs(this.speed)); this.bumpCooldown = 0.5; }
         this.speed *= 0.6;
         if (o.ai) o.ai.stunned = 2;

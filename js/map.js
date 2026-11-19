@@ -28,13 +28,15 @@ class Geo {
     this.tri(a, b, c, col, nrm, uvs && uvs[0], uvs && uvs[1], uvs && uvs[2]);
     this.tri(a, c, d, col, nrm, uvs && uvs[0], uvs && uvs[2], uvs && uvs[3]);
   }
-  flatPoly(pts, y, col) {
+  flatPoly(pts, y, col, holes) {
     if (pts.length < 3) return;
-    const contour = pts.map(p => new THREE.Vector2(p[0], p[1]));
+    const v2 = r => r.map(p => new THREE.Vector2(p[0], p[1]));
+    const hs = (holes || []).filter(h => h.length > 2);
+    const all = hs.length ? pts.concat(...hs) : pts;
     let tris;
-    try { tris = THREE.ShapeUtils.triangulateShape(contour, []); } catch (e) { return; }
+    try { tris = THREE.ShapeUtils.triangulateShape(v2(pts), hs.map(v2)); } catch (e) { return; }
     for (const t of tris) {
-      const A = pts[t[0]], B = pts[t[1]], C = pts[t[2]];
+      const A = all[t[0]], B = all[t[1]], C = all[t[2]];
       this.tri([A[0], y, A[1]], [B[0], y, B[1]], [C[0], y, C[1]], col, [0, 1, 0], [A[0] / 8, A[1] / 8], [B[0] / 8, B[1] / 8], [C[0] / 8, C[1] / 8]);
     }
   }
@@ -62,6 +64,7 @@ class Geo {
 }
 
 const col = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+const inArea = (x, z, p) => pointInPoly(x, z, p) && !(p.holes && p.holes.some(h => pointInPoly(x, z, h)));
 
 // ---------- textures ----------
 function canvasTex(w, h, draw, repeat = true) {
@@ -74,7 +77,50 @@ function canvasTex(w, h, draw, repeat = true) {
   return t;
 }
 
-function windowTextures(style, seed) {
+// facade base patterns for OSM building:material; drawn light grey so the
+// per-building vertex tint still sets the colour
+const FACADE = {
+  brick(g, x, y, S) {
+    g.fillStyle = '#f4f4f4'; g.fillRect(x, y, S, S); g.fillStyle = 'rgba(0,0,0,0.16)';
+    for (let k = 0, r = 0; k < S; k += 5, r++) { g.fillRect(x, y + k, S, 1); for (let j = (r % 2) * 6; j < S; j += 12) g.fillRect(x + j, y + k, 1, 5); }
+  },
+  tiles(g, x, y, S) {
+    g.fillStyle = '#f6f6f6'; g.fillRect(x, y, S, S); g.fillStyle = 'rgba(0,0,0,0.1)';
+    for (let k = 0, r = 0; k < S; k += 4, r++) { g.fillRect(x, y + k, S, 1); for (let j = (r % 2) * 8; j < S; j += 16) g.fillRect(x + j, y + k, 1, 4); }
+  },
+  concrete(g, x, y, S, rnd) {
+    g.fillStyle = '#f0f0f0'; g.fillRect(x, y, S, S);
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(0,0,0,${0.03 + rnd() * 0.05})`; g.fillRect(x + rnd() * S, y + rnd() * S, 1.5, 1.5); }
+    g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(x, y + S / 2, S, 1); g.fillRect(x + S / 2, y, 1, S);
+  },
+  stone(g, x, y, S, rnd) {
+    for (let k = 0, r = 0; k < S; k += 10, r++) for (let j = -(r % 2) * 8; j < S; j += 16) {
+      const v = 225 + Math.floor(rnd() * 25); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x + Math.max(0, j), y + k, 16, 10);
+    }
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let k = 0, r = 0; k < S; k += 10, r++) { g.fillRect(x, y + k, S, 1); for (let j = (r % 2) * 8; j < S; j += 16) g.fillRect(x + j, y + k, 1, 10); }
+  },
+  plaster(g, x, y, S, rnd) {
+    g.fillStyle = '#fafafa'; g.fillRect(x, y, S, S);
+    for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(0,0,0,${rnd() * 0.04})`; g.fillRect(x + rnd() * S, y + rnd() * S, 3, 2); }
+  },
+  wood(g, x, y, S, rnd) {
+    for (let j = 0; j < S; j += 6) { const v = 220 + Math.floor(rnd() * 30); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x + j, y, 6, S); }
+    g.fillStyle = 'rgba(0,0,0,0.2)'; for (let j = 0; j < S; j += 6) g.fillRect(x + j, y, 1, S);
+  },
+  metal(g, x, y, S) {
+    for (let j = 0; j < S; j += 4) { g.fillStyle = '#f2f2f2'; g.fillRect(x + j, y, 2, S); g.fillStyle = '#d4d4d4'; g.fillRect(x + j + 2, y, 2, S); }
+  },
+};
+// OSM building:material values -> facade pattern
+const MAT_KEY = {
+  brick: 'brick', concrete: 'concrete', cement_block: 'concrete', reinforced_concrete: 'concrete',
+  glass: 'glass', mirror: 'glass', metal: 'metal', steel: 'metal', aluminium: 'metal', metal_plates: 'metal',
+  stone: 'stone', sandstone: 'stone', limestone: 'stone', granite: 'stone', marble: 'stone',
+  plaster: 'plaster', wood: 'wood', timber_framing: 'wood', bamboo: 'wood', tile: 'tiles', tiles: 'tiles', ceramic: 'tiles',
+};
+
+function windowTextures(style, seed, mat) {
   const rnd = mulberry32(seed);
   const N = 8, S = 64;
   const lit = [];
@@ -84,10 +130,21 @@ function windowTextures(style, seed) {
   const map = canvasTex(N * S, N * S, (g) => {
     for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
       const x = ix * S, y = iy * S;
-      g.fillStyle = '#ffffff'; g.fillRect(x, y, S, S);
-      // subtle tile lines
-      g.fillStyle = 'rgba(0,0,0,0.05)';
-      for (let k = 0; k < S; k += 8) g.fillRect(x, y + k, S, 1);
+      if (mat === 'glass') {
+        // curtain wall: one big pane per bay with mullions and a spandrel band
+        g.fillStyle = '#ffffff'; g.fillRect(x, y, S, S);
+        g.fillStyle = '#5d6f7f'; g.fillRect(x + 2, y + 2, S - 4, S - 14);
+        g.fillStyle = 'rgba(220,235,250,0.35)'; g.fillRect(x + 4, y + 4, (S - 8) / 2, S - 18);
+        g.fillStyle = '#c8ccd0'; g.fillRect(x + S / 2 - 1, y + 2, 2, S - 14);
+        continue;
+      }
+      if (FACADE[mat]) FACADE[mat](g, x, y, S, rnd);
+      else {
+        g.fillStyle = '#ffffff'; g.fillRect(x, y, S, S);
+        // subtle tile lines
+        g.fillStyle = 'rgba(0,0,0,0.05)';
+        for (let k = 0; k < S; k += 8) g.fillRect(x, y + k, S, 1);
+      }
       if (style === 'campus') {
         g.fillStyle = '#2d3b4c'; g.fillRect(x + 6, y + 14, S - 12, S - 26);
         g.fillStyle = 'rgba(160,190,220,0.35)'; g.fillRect(x + 8, y + 16, (S - 16) / 2, S - 30);
@@ -108,7 +165,8 @@ function windowTextures(style, seed) {
     for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
       const l = lit[iy * N + ix]; if (!l) continue;
       g.fillStyle = l;
-      if (style === 'campus') g.fillRect(ix * S + 6, iy * S + 14, S - 12, S - 26);
+      if (mat === 'glass') g.fillRect(ix * S + 2, iy * S + 2, S - 4, S - 14);
+      else if (style === 'campus') g.fillRect(ix * S + 6, iy * S + 14, S - 12, S - 26);
       else g.fillRect(ix * S + 12, iy * S + 16, S - 24, S - 30);
     }
   });
@@ -232,13 +290,17 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // areas
   const waterPolys = [];
   const greenPolys = [];
+  const sportPolys = []; // no trees on pitches / tracks
   {
     const g = new Geo();
     for (const a of data.areas) {
       const c = AREA_COL[a.kind]; if (!c) continue;
-      g.flatPoly(a.pts, 0.02, col(c));
-      if (a.kind === 'water') waterPolys.push(a.pts);
-      if (a.kind === 'park' || a.kind === 'grass') greenPolys.push(a.pts);
+      g.flatPoly(a.pts, 0.02, col(c), a.holes);
+      // holes ride along on the ring array so inArea() can skip them
+      const ring = a.holes ? Object.assign(a.pts.slice(), { holes: a.holes }) : a.pts;
+      if (a.kind === 'water') waterPolys.push(ring);
+      if (a.kind === 'park' || a.kind === 'grass') greenPolys.push(ring);
+      if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
     }
     // waterways
     for (const w of data.waterways) for (let i = 0; i < w.pts.length - 1; i++) { g.strip(w.pts[i], w.pts[i + 1], w.w, 0.02, col('#3a78a8')); g.disc(w.pts[i][0], w.pts[i][1], w.w / 2, 0.02, col('#3a78a8')); }
@@ -292,13 +354,19 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   onProgress(0.4);
 
   // ---------- buildings ----------
-  const wt = { campus: windowTextures('campus', 7), town: windowTextures('town', 11) };
+  // one wall mesh per facade (window style + OSM material); material variants
+  // are only built when some building actually carries the tag
   const wallMat = {}; const wallGeo = {};
-  for (const s of ['campus', 'town']) {
-    wallMat[s] = new THREE.MeshStandardMaterial({ map: wt[s].map, emissiveMap: wt[s].emi, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0, vertexColors: true, roughness: 0.85, metalness: 0.0 });
-    wallGeo[s] = new Geo();
-  }
-  world.windowMats = Object.values(wallMat);
+  const wallFor = (style, mat) => {
+    const k = mat ? style + ':' + mat : style;
+    if (!wallGeo[k]) {
+      const t = windowTextures(style, (style === 'campus' ? 7 : 11) + (mat ? mat.length * 101 : 0), mat);
+      wallMat[k] = new THREE.MeshStandardMaterial({ map: t.map, emissiveMap: t.emi, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0, vertexColors: true, roughness: mat === 'glass' || mat === 'metal' ? 0.4 : 0.85, metalness: mat === 'metal' ? 0.3 : 0.0 });
+      wallGeo[k] = new Geo();
+    }
+    return wallGeo[k];
+  };
+  wallFor('campus'); wallFor('town');
   const roofGeo = new Geo();
   const PAL = {
     campus: ['#d8cfc0', '#c9a48b', '#b8705a', '#e9e4da', '#c4b5a0', '#a86d5d'],
@@ -307,6 +375,63 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     commercial: ['#9fa6ad', '#c0c4c8', '#b0b6a8'],
     church: ['#f0ece2', '#e9e2d0'],
     small: ['#dddddd'],
+  };
+  // OSM building:colour / building:material (rare in this area) override the palette
+  const MAT_COL = { brick: '#a65a43', concrete: '#bdbab3', glass: '#9fb4c2', metal: '#9aa0a6', stone: '#c9c1b2', wood: '#9a7650', plaster: '#e3dccd', tiles: '#cdb9a4' };
+  const NAMED_COL = { white: '#eeeeea', grey: '#a8a8a4', gray: '#a8a8a4', red: '#a85848', brown: '#8a6a50', beige: '#e0d2b4', yellow: '#e2cf8a', blue: '#8fa6bf', black: '#444444' };
+  const ROOF_MAT_COL = { roof_tiles: '#9a4a3a', tile: '#9a4a3a', tiles: '#9a4a3a', metal: '#7d8a94', metal_sheet: '#7d8a94', concrete: '#9a9890', asphalt: '#5a5a5a', glass: '#8aa4b4', grass: '#5d7d44', slate: '#5a6068', wood: '#7a5a3c' };
+  const hexOrNamed = v => {
+    const c = (v || '').trim().toLowerCase();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(c)) return c;
+    return NAMED_COL[c] || null;
+  };
+  const matKey = b => MAT_KEY[(b.material || '').trim().toLowerCase()] || null;
+  const osmCol = b => hexOrNamed(b.colour) || MAT_COL[matKey(b)] || null;
+  const osmRoofCol = b => hexOrNamed(b.roofColour) || ROOF_MAT_COL[(b.roofMaterial || '').trim().toLowerCase()] || null;
+  // pitched roofs from OSM roof:shape; returns false for flat / unsupported
+  const triN = (a, b, c) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+    if (n[1] < 0) n = n.map(v => -v);
+    const l = Math.hypot(...n) || 1; return n.map(v => v / l);
+  };
+  const rtri = (a, b, c, cl) => roofGeo.tri(a, b, c, cl, triN(a, b, c));
+  const pitchedRoof = (b, pts, h, rc, wc) => {
+    const shape = (b.roof || '').trim().toLowerCase();
+    if (!shape || shape === 'flat' || b.holes) return false;
+    // footprint frame along the longest edge
+    let li = 0, ll = 0;
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], c = pts[(i + 1) % pts.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]); if (l > ll) { ll = l; li = i; } }
+    const a0 = pts[li], a1 = pts[(li + 1) % pts.length];
+    const ux = (a1[0] - a0[0]) / ll, uz = (a1[1] - a0[1]) / ll;
+    let v0 = 1e9, v1 = -1e9;
+    for (const p of pts) { const v = (p[0] - a0[0]) * -uz + (p[1] - a0[1]) * ux; v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    const rise = b.roofH || Math.min(6, Math.max(1.2, (v1 - v0) * 0.3));
+    const P = (p, y) => [p[0], y, p[1]];
+    if (pts.length === 4 && (shape === 'gabled' || shape === 'skillion')) {
+      const [p0, p1, p2, p3] = [0, 1, 2, 3].map(k => pts[(li + k) % 4]);
+      if (shape === 'gabled') {
+        const m1 = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2], m2 = [(p3[0] + p0[0]) / 2, (p3[1] + p0[1]) / 2];
+        rtri(P(p0, h), P(p1, h), P(m1, h + rise), rc); rtri(P(p0, h), P(m1, h + rise), P(m2, h + rise), rc);
+        rtri(P(p2, h), P(p3, h), P(m2, h + rise), rc); rtri(P(p2, h), P(m2, h + rise), P(m1, h + rise), rc);
+        // gable ends
+        roofGeo.tri(P(p1, h), P(p2, h), P(m1, h + rise), wc, [p2[1] - p1[1], 0, p1[0] - p2[0]].map(v => v / (Math.hypot(p2[1] - p1[1], p1[0] - p2[0]) || 1)));
+        roofGeo.tri(P(p3, h), P(p0, h), P(m2, h + rise), wc, [p0[1] - p3[1], 0, p3[0] - p0[0]].map(v => v / (Math.hypot(p0[1] - p3[1], p3[0] - p0[0]) || 1)));
+      } else {
+        rtri(P(p0, h), P(p1, h), P(p2, h + rise), rc); rtri(P(p0, h), P(p2, h + rise), P(p3, h + rise), rc);
+        const wn = (a, c) => { const l = Math.hypot(c[0] - a[0], c[1] - a[1]) || 1; return [(c[1] - a[1]) / l, 0, -(c[0] - a[0]) / l]; };
+        roofGeo.tri(P(p1, h), P(p2, h), P(p2, h + rise), wc, wn(p1, p2));
+        roofGeo.tri(P(p3, h), P(p0, h), P(p3, h + rise), wc, wn(p3, p0));
+        roofGeo.quad(P(p2, h), P(p3, h), P(p3, h + rise), P(p2, h + rise), wc, wn(p2, p3));
+      }
+      return true;
+    }
+    // hipped / pyramidal / dome / other pitched shapes: fan to an apex
+    if (shape === 'skillion') return false;
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    if (!pointInPoly(cx, cz, pts)) return false;
+    for (let i = 0; i < pts.length; i++) rtri(P(pts[i], h), P(pts[(i + 1) % pts.length], h), [cx, h + rise, cz], rc);
+    return true;
   };
   const tanks = []; const signs = [];
   world.buildings = data.buildings;
@@ -317,36 +442,42 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       return;
     }
     const pal = PAL[b.kind] || PAL.town;
-    const tint = col(pal[Math.floor(rnd() * pal.length)]);
+    const pick = pal[Math.floor(rnd() * pal.length)];
+    const tint = col(osmCol(b) || pick);
     const style = (b.kind === 'campus' || b.kind === 'dorm' || b.kind === 'commercial' || b.kind === 'church') ? 'campus' : 'town';
-    const g = wallGeo[style];
-    const bay = style === 'campus' ? 3.6 : 3.0, flo = 3.3;
+    const g = wallFor(style, matKey(b));
+    // outer ring is CCW, courtyard rings CW, so the same normal faces outwards
+    const rings = b.holes ? [pts, ...b.holes] : [pts];
+    const bay = style === 'campus' ? 3.6 : 3.0;
+    // whole window rows per storey so the top floor isn't cut in half
+    const floors = b.floors || Math.max(1, Math.round((h - 0.6) / 3.3));
     let acc = Math.floor(rnd() * 8) * bay;
     const vOff = Math.floor(rnd() * 8) / 8;
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i], c = pts[(i + 1) % pts.length];
+    for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], c = ring[(i + 1) % ring.length];
       const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
       if (l < 0.05) continue;
       const n = [dz / l, 0, -dx / l]; // outward for CCW (x,z)
       const u0 = acc / (bay * 8), u1 = (acc + l) / (bay * 8); acc += l;
-      const v1 = h / (flo * 8) + vOff;
+      const v1 = floors / 8 + vOff;
       g.quad([a[0], 0, a[1]], [c[0], 0, c[1]], [c[0], h, c[1]], [a[0], h, a[1]], tint, n,
         [[u0, vOff], [u1, vOff], [u1, v1], [u0, v1]]);
-      if (b.kind === 'town' && l > 4 && rnd() < 0.22 && signs.length < 260) {
+      if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && signs.length < 260) {
         signs.push({ x: (a[0] + c[0]) / 2 + n[0] * 0.7, z: (a[1] + c[1]) / 2 + n[2] * 0.7, y: Math.min(h - 2, 4 + rnd() * 3), rot: Math.atan2(dx, dz) });
       }
     }
-    const rc = tint.map(v => v * 0.62);
-    g; roofGeo.flatPoly(pts, h, rc);
+    const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
+    const pitched = pitchedRoof(b, pts, h, rc, tint.map(v => v * 0.85));
+    if (!pitched) roofGeo.flatPoly(pts, h, rc, b.holes);
     // parapet
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i], c = pts[(i + 1) % pts.length];
+    if (!pitched) for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], c = ring[(i + 1) % ring.length];
       const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) continue;
       const n = [dz / l, 0, -dx / l];
       roofGeo.quad([a[0], h, a[1]], [c[0], h, c[1]], [c[0], h + 0.6, c[1]], [a[0], h + 0.6, a[1]], tint.map(v => v * 0.85), n);
       roofGeo.quad([a[0], h + 0.6, a[1]], [c[0], h + 0.6, c[1]], [c[0] - n[0] * 0.25, h + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, h + 0.6, a[1] - n[2] * 0.25], tint.map(v => v * 0.9), [0, 1, 0]);
     }
-    if (b.kind === 'town' && rnd() < 0.55) {
+    if (b.kind === 'town' && rnd() < 0.55 && !pitched) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
       if (pointInPoly(cx, cz, pts)) tanks.push([cx + (rnd() - .5), h, cz + (rnd() - .5)]);
     }
@@ -356,9 +487,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       world.named[b.name] = { x: cx, z: cz, h, b };
     }
   });
-  for (const s of ['campus', 'town']) {
-    const m = wallGeo[s].mesh(wallMat[s]); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  for (const k in wallGeo) {
+    const m = wallGeo[k].mesh(wallMat[k]); m.castShadow = true; m.receiveShadow = true; scene.add(m);
   }
+  world.windowMats = Object.values(wallMat);
   {
     const m = roofGeo.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })); m.castShadow = true; m.receiveShadow = true; scene.add(m);
   }
@@ -426,7 +558,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     return best;
   };
-  world.isFree = (x, z, r = 1) => !collision.blocked(x, z, r) && !waterPolys.some(p => pointInPoly(x, z, p));
+  world.isFree = (x, z, r = 1) => !collision.blocked(x, z, r) && !waterPolys.some(p => inArea(x, z, p));
 
   // ---------- landmarks ----------
   const poi = name => data.pois.find(p => p.name === name);
@@ -513,7 +645,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   world.addBoard = addBoard;
 
   // Night market stalls 中原夜市
-  world.nightMarket = { x: -200, z: 280 };
+  // centre of OSM relation 13287977 (中原夜市), see tools/build_map.py
+  world.nightMarket = data.nightMarket ? { x: data.nightMarket.x, z: data.nightMarket.z } : { x: -200, z: 280 };
   {
     const nm = world.nightMarket;
     const stallTop = new THREE.BoxGeometry(3.0, 0.3, 2.6);
@@ -611,7 +744,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (x < B.minX + 3 || x > B.maxX - 3 || z < B.minZ + 3 || z > B.maxZ - 3) return;
       if (roadGrid.nearest(x, z).d < 1.0) return;
       if (collision.blocked(x, z, 2.2)) return;
-      if (waterPolys.some(p => pointInPoly(x, z, p))) return;
+      if (waterPolys.some(p => inArea(x, z, p))) return;
+      if (sportPolys.some(p => pointInPoly(x, z, p))) return;
       spots.push([x, z, s]);
       collision.addCircle(x, z, 0.35);
     };
@@ -619,7 +753,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (const p of greenPolys) {
       const [x0, z0, x1, z1] = polyBox(p);
       const n = Math.min(400, Math.floor((x1 - x0) * (z1 - z0) / 140));
-      for (let i = 0; i < n; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (pointInPoly(x, z, p)) tryTree(x, z, 0.8 + rnd() * 0.7); }
+      for (let i = 0; i < n; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (inArea(x, z, p)) tryTree(x, z, 0.8 + rnd() * 0.7); }
     }
     for (const ring of data.campus) {
       const [x0, z0, x1, z1] = polyBox(ring);

@@ -1,0 +1,12 @@
+{
+  "_doc": "Hand-checked building facts that win over OSM tags. Only values with an official source. Match by OSM id (\"w123\"/\"r123\") or by name when no id is given. floors = storeys above ground; h = metres to roof.",
+  "buildings": [
+    {
+      "name": "知行領航館",
+      "floors": 3,
+      "h": 15.6,
+      "source": "https://eooia.cycu.edu.tw/?p=5113",
+      "note": "3F+B1, 5,471 m2 floor area, opened 2019, address 新中北路499號 (all per the source page). Not matched yet: OSM has no footprint named 知行領航館 and the source gives no position precise enough to pick an unnamed footprint, so build_map prints 'override not matched' until an OSM id is added as \"osm\"."
+    }
+  ]
+}

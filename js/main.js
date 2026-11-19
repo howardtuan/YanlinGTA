@@ -323,12 +323,16 @@ class Game {
 
   // ---------- menus ----------
   _menus() {
-    const startGame = (free) => {
-      this.audio.init();
-      $('title').classList.add('hidden'); $('hud').classList.remove('hidden');
+    const startGame = async (free) => {
+      if (this._starting) return; this._starting = true;
+      this.audio.init(); // music starts on this click (browsers need a gesture)
+      $('title').classList.add('hidden');
+      await this._splash(5000);
+      $('hud').classList.remove('hidden');
       if (this.input.touch) $('touch').classList.remove('hidden');
       this.state = 'play'; this.input.enabled = true;
-      if (!this.input.touch) lockPointer(this.renderer.domElement);
+      // pointer lock needs a fresh click after the splash
+      if (!this.input.touch) this.hud.toast('點一下畫面鎖定滑鼠視角', 'good', 3000);
       this.missions.start(free);
       this._checkRotate();
     };
@@ -347,6 +351,22 @@ class Game {
     $('btnRestart').onclick = () => location.reload();
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen) this.pause();
+    });
+  }
+  // artwork + 5 s progress bar shown after pressing Start
+  _splash(ms) {
+    const stages = ['建立地形中', '鋪設中北路與實踐路', '種下校園的樹', '蓋資管系館與電腦教室', '炸好麥當勞的薯條', '幫 SYM JET SL 加滿油', '召喚同學與競選幹部', '印好「資管要贏 票投彥霖」傳單', '準備出發！'];
+    $('loading').classList.remove('hidden');
+    return new Promise(res => {
+      const t0 = performance.now();
+      const tick = () => {
+        const k = Math.min(1, (performance.now() - t0) / ms);
+        const ease = k < 1 ? k * (0.9 + 0.1 * Math.sin(k * 20)) : 1;
+        setLoad(Math.min(1, ease), stages[Math.min(stages.length - 1, Math.floor(k * stages.length))]);
+        if (k < 1) requestAnimationFrame(tick);
+        else setTimeout(() => { $('loading').classList.add('hidden'); res(); }, 250);
+      };
+      tick();
     });
   }
   modal(title, html) {

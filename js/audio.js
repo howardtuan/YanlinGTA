@@ -2,9 +2,9 @@
 //   'default' — built-in synthesized loop
 //   'opera'   — 彥霖歌劇 (assets/music/yanlin-opera.m4a), looped forever
 //   'off'
-const SETTINGS_KEY = 'cycu-rush-settings';
+const SETTINGS_KEY = 'cycu-shun-settings-v2';
 export function loadSettings() {
-  const def = { music: 'default', musicVol: 0.6, sfxVol: 0.8, sens: 1 };
+  const def = { music: 'opera', musicVol: 0.6, sfxVol: 0.8, sens: 1 };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch (e) { return def; }
 }
 export function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { } }

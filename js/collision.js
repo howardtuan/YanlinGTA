@@ -55,6 +55,12 @@ export class CollisionWorld {
     }
     return pi;
   }
+  // free-standing wall (OSM barrier); blocks like a building edge
+  addSegment(ax, az, bx, bz) {
+    const si = this.segs.length;
+    this.segs.push([ax, az, bx, bz]); this.stampS.push(0);
+    this._each(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), (ix, iz) => this._cell(ix, iz).s.push(si));
+  }
   addCircle(x, z, r) {
     const ci = this.circles.length;
     this.circles.push([x, z, r]); this.stampC.push(0);

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>中原順起來 · 資管要贏 票投彥霖</title>
+<meta name="description" content="中原順起來：在瀏覽器裡就能玩的開放世界中原大學。騎著 SYM JET SL 穿梭校園、中原夜市、麥當勞，幫彥霖拉票選上第34屆資管系會長！資管要贏，票投彥霖！">
+<meta name="theme-color" content="#0d1020">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <!-- LOADING -->
+  <div id="loading" class="screen">
+    <div class="load-art"><img id="loadImg" src="assets/loading.jpg" alt="中原順起來" onerror="this.onerror=null;this.src='assets/loading.png';this.addEventListener('error',()=>this.parentNode.classList.add('noimg'),{once:true})"></div>
+    <div class="load-bottom">
+      <div class="load-title"><b>中原順起來</b><span>資管要贏　票投彥霖</span></div>
+      <div class="load-bar"><div id="loadFill"></div></div>
+      <div id="loadText">載入中 LOADING · 0%</div>
+    </div>
+  </div>
+
+  <!-- TITLE MENU -->
+  <div id="title" class="screen hidden">
+    <div class="title-left">
+      <div class="logo-block big">
+        <div class="logo-tag">中原</div>
+        <div class="logo-main">順起來</div>
+      </div>
+      <div class="logo-sub">資管要贏　票投彥霖</div>
+      <div class="candidate">
+        <div class="cand-no">34</div>
+        <div>
+          <div class="cand-name">彥霖 <small>Yanlin</small></div>
+          <div class="cand-role">第34屆 資訊管理學系 系學會會長候選人</div>
+        </div>
+      </div>
+      <button class="menu-btn primary" id="btnStart"><span>▶ 開始遊戲</span><small>START GAME</small></button>
+      <button class="menu-btn" id="btnFree"><span>🛵 自由探索</span><small>FREE ROAM</small></button>
+      <button class="menu-btn" id="btnControls"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
+      <button class="menu-btn" id="btnSettings"><span>⚙ 設定 / 音樂</span><small>SETTINGS</small></button>
+      <button class="menu-btn" id="btnAbout"><span>🗳 關於彥霖</span><small>ABOUT</small></button>
+      <div class="credit">地圖資料 © OpenStreetMap contributors (ODbL) · 中原大學 桃園市中壢區中北路200號</div>
+    </div>
+    <div class="title-right">
+      <div class="title-loc">
+        <span class="loc-line"></span>
+        <b>中原大學 · 二一鐘塔</b>
+        <small>中壢區 · CHUNG YUAN CHRISTIAN UNIV.</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="tipBox" class="panel">
+      <div class="tip-title">🎮 移動</div>
+      <div id="tipText"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路，滑鼠轉視角。<kbd>Shift</kbd> 衝刺，<kbd>Space</kbd> 跳躍。</div>
+    </div>
+    <div id="topRight">
+      <div id="clock">17:30</div>
+      <div id="votes"><span class="v-label">得票</span><span id="voteNum">0</span><span class="v-unit">票</span></div>
+      <div id="ballots">🗳 <span id="ballotNum">0</span>/34</div>
+    </div>
+    <div id="objective" class="hidden">
+      <div id="objTitle">任務</div>
+      <div id="objText"></div>
+      <div id="objTimer" class="hidden"></div>
+    </div>
+    <div id="minimapWrap">
+      <canvas id="minimap" width="220" height="220"></canvas>
+      <div id="compassN">N</div>
+      <div id="locName">中原大學</div>
+    </div>
+    <div id="speedo" class="hidden"><span id="speedNum">0</span><small>km/h</small></div>
+    <div id="prompt" class="hidden"></div>
+    <div id="dialog" class="hidden">
+      <div id="dlgName"></div>
+      <div id="dlgText"></div>
+      <div id="dlgHint">按 <kbd>E</kbd> / <kbd>Enter</kbd> / 點擊 繼續</div>
+    </div>
+    <div id="toast"></div>
+    <div id="bigToast" class="hidden"><div id="bigToastTitle"></div><div id="bigToastSub"></div></div>
+    <div id="crosshair">+</div>
+  </div>
+
+  <!-- BIG MAP -->
+  <div id="bigmap" class="hidden">
+    <div class="bigmap-head"><b>中原大學 地圖</b><span>按 <kbd>M</kbd> 關閉 · 滾輪縮放 · 拖曳移動</span></div>
+    <canvas id="bigmapCanvas"></canvas>
+    <div class="bigmap-legend">
+      <span><i style="background:#ffd23f"></i>任務目標</span>
+      <span><i style="background:#ffb300;border-radius:2px"></i>金色選票</span>
+      <span><i style="background:#3fa9ff"></i>你</span>
+    </div>
+  </div>
+
+  <!-- PAUSE / CONTROLS / ABOUT -->
+  <div id="modal" class="hidden">
+    <div class="modal-card">
+      <div class="modal-head"><b id="modalTitle">暫停</b><button id="modalClose">✕</button></div>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- ENDING -->
+  <div id="ending" class="screen hidden">
+    <div class="end-inner">
+      <div class="end-kicker">第34屆 資訊管理學系 系學會會長選舉</div>
+      <div class="end-title">彥霖 <span>當選！</span></div>
+      <div id="endStats"></div>
+      <div class="end-cta">資管要贏，票投 <b>彥霖</b>！🗳</div>
+      <div class="end-btns">
+        <button class="menu-btn primary" id="btnKeepPlaying"><span>🛵 繼續自由探索</span><small>KEEP PLAYING</small></button>
+        <button class="menu-btn" id="btnRestart"><span>↻ 重新開始</span><small>RESTART</small></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPUTER / VIDEO -->
+  <div id="video" class="hidden">
+    <div class="pc-window">
+      <div class="pc-bar"><span>💻 資管系電腦教室 — YouTube</span><button id="videoClose">✕ 關閉 (E / Esc)</button></div>
+      <div class="pc-frame"><iframe id="videoFrame" title="YouTube video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
+      <div class="pc-foot"><a href="https://youtu.be/-AiDMXovNmA" target="_blank" rel="noopener">在 YouTube 開啟 ↗</a></div>
+    </div>
+  </div>
+
+  <!-- TOUCH CONTROLS -->
+  <div id="touch" class="hidden">
+    <div id="joy"><div id="joyKnob"></div></div>
+    <div id="touchBtns">
+      <button data-key="KeyF" class="tb">F<small>上下車</small></button>
+      <button data-key="KeyE" class="tb">E<small>互動</small></button>
+      <button data-key="Mouse0" class="tb accent">📄<small>發傳單</small></button>
+      <button data-key="Space" class="tb">⤒<small>跳/甩尾</small></button>
+      <button data-key="ShiftLeft" class="tb">»<small>衝刺</small></button>
+      <button data-key="KeyM" class="tb">🗺<small>地圖</small></button>
+      <button data-key="KeyH" class="tb">📯<small>喇叭</small></button>
+      <button data-key="Escape" class="tb">⚙<small>設定</small></button>
+    </div>
+  </div>
+  <div id="rotateHint" class="hidden">橫放手機體驗更佳 ↻</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

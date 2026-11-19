@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CollisionWorld, SegGrid, pointInPoly } from './collision.js';
+import { H, Hmin, terrainGrid, addBridge, clearBridges, DS } from './terrain.js';
 
 export function mulberry32(a) {
   return function () {
@@ -10,9 +11,95 @@ export function mulberry32(a) {
   };
 }
 
+// ---------- terrain draping ----------
+// split a convex polygon [[x,z]..] by the line f(p) = c
+function cut(poly, f, c) {
+  const lo = [], hi = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length];
+    const fp = f(p) - c, fq = f(q) - c;
+    if (fp <= 0) lo.push(p);
+    if (fp >= 0) hi.push(p);
+    if ((fp < 0 && fq > 0) || (fp > 0 && fq < 0)) {
+      const t = fp / (fp - fq), m = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+      lo.push(m); hi.push(m);
+    }
+  }
+  return [lo.length > 2 ? lo : null, hi.length > 2 ? hi : null];
+}
+function sliceBy(poly, f, k0, k1, s, base, out) {
+  let mn = Infinity, mx = -Infinity;
+  for (const p of poly) { const v = f(p); if (v < mn) mn = v; if (v > mx) mx = v; }
+  const a = Math.max(k0, Math.floor((mn - base) / s) + 1), b = Math.min(k1, Math.ceil((mx - base) / s) - 1);
+  let rest = poly;
+  for (let k = a; k <= b && rest; k++) { const [lo, hi] = cut(rest, f, base + k * s); if (lo) out.push(lo); rest = hi; }
+  if (rest) out.push(rest);
+}
+const FX = p => p[0], FZ = p => p[1], FU = p => p[0] - p[1];
+// cut a convex polygon so every piece lies in one terrain triangle (H is linear there)
+function drapePieces(poly) {
+  const T = terrainGrid(); if (!T) return [poly];
+  const { minX, minZ, step: s, nx, nz } = T;
+  const a = [], b = [], c = [];
+  sliceBy(poly, FX, 0, nx - 1, s, minX, a);
+  for (const p of a) sliceBy(p, FZ, 0, nz - 1, s, minZ, b);
+  for (const p of b) sliceBy(p, FU, -(nz - 1), nx - 1, s, minX - minZ, c);
+  return c;
+}
+// Exact draping needs ~3x the triangles, so pieces are only cut as far as needed:
+// a piece is kept when the terrain under it stays within TOL_LO above / TOL_HI
+// below its plane; everything draped is lifted by TOL_LO so it never dips under.
+const TOL_LO = 0.08, TOL_HI = 0.1;
+function triFits(a, b, c, T) {
+  const { minX, minZ, step: s, nx, nz } = T;
+  const ha = H(a[0], a[1]), hb = H(b[0], b[1]), hc = H(c[0], c[1]);
+  const det = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+  if (Math.abs(det) < 1e-6) return true;
+  let ok = true;
+  const test = (x, z) => {
+    const l1 = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (z - c[1])) / det;
+    const l2 = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (z - c[1])) / det;
+    const d = H(x, z) - (l1 * ha + l2 * hb + (1 - l1 - l2) * hc);
+    if (d > TOL_LO || d < -TOL_HI) ok = false;
+  };
+  // the terrain is piecewise linear, so the worst point is a grid node inside
+  // the triangle or a crossing of a triangle edge with a grid line / diagonal
+  const x0 = Math.min(a[0], b[0], c[0]), x1 = Math.max(a[0], b[0], c[0]), z0 = Math.min(a[1], b[1], c[1]), z1 = Math.max(a[1], b[1], c[1]);
+  const i0 = Math.max(0, Math.ceil((x0 - minX) / s)), i1 = Math.min(nx - 1, Math.floor((x1 - minX) / s));
+  const j0 = Math.max(0, Math.ceil((z0 - minZ) / s)), j1 = Math.min(nz - 1, Math.floor((z1 - minZ) / s));
+  for (let j = j0; j <= j1 && ok; j++) for (let i = i0; i <= i1 && ok; i++) {
+    const x = minX + i * s, z = minZ + j * s;
+    if (pointInPoly(x, z, [a, b, c])) test(x, z);
+  }
+  const edge = (p, q, f, base, k0, k1) => {
+    const fp = f(p), fq = f(q); if (fp === fq) return;
+    const lo = Math.max(k0, Math.ceil((Math.min(fp, fq) - base) / s)), hi = Math.min(k1, Math.floor((Math.max(fp, fq) - base) / s));
+    for (let k = lo; k <= hi && ok; k++) { const t = (base + k * s - fp) / (fq - fp); test(p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t); }
+  };
+  for (const [p, q] of [[a, b], [b, c], [c, a]]) {
+    if (!ok) break;
+    edge(p, q, FX, minX, 0, nx - 1); edge(p, q, FZ, minZ, 0, nz - 1); edge(p, q, FU, minX - minZ, -(nz - 1), nx - 1);
+  }
+  return ok;
+}
+function adaptPieces(poly, out, S) {
+  const T = terrainGrid(); if (!T) { out.push(poly); return; }
+  let fits = true;
+  for (let i = 1; i < poly.length - 1 && fits; i++) fits = triFits(poly[0], poly[i], poly[i + 1], T);
+  if (fits) { out.push(poly); return; }
+  if (S <= T.step) { out.push(...drapePieces(poly)); return; }
+  const a = [], b = [];
+  sliceBy(poly, FX, -1e9, 1e9, S, T.minX, a);
+  for (const p of a) sliceBy(p, FZ, -1e9, 1e9, S, T.minZ, b);
+  for (const p of b) adaptPieces(p, out, S / 2);
+}
+
 // ---------- geometry accumulator ----------
+// drape=true: flat helpers (flatPoly/disc/strip) follow the terrain and their
+// y argument becomes the offset above it
+const UP = [0, 1, 0];
 class Geo {
-  constructor() { this.p = []; this.n = []; this.c = []; this.uv = []; }
+  constructor(drape = false) { this.p = []; this.n = []; this.c = []; this.uv = []; this.drape = drape; }
   tri(a, b, c, col, nrm, uva, uvb, uvc) {
     // a,b,c: [x,y,z]; nrm: desired facing; fix winding
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
@@ -28,6 +115,17 @@ class Geo {
     this.tri(a, b, c, col, nrm, uvs && uvs[0], uvs && uvs[1], uvs && uvs[2]);
     this.tri(a, c, d, col, nrm, uvs && uvs[0], uvs && uvs[2], uvs && uvs[3]);
   }
+  // convex polygon of [x,z] at height y (or y above the terrain when draping)
+  fpoly(pts, y, col) {
+    const P = this.drape ? q => [q[0], H(q[0], q[1]) + y + TOL_LO, q[1]] : q => [q[0], y, q[1]];
+    const uv = q => [q[0] / 8, q[1] / 8];
+    let pcs = [pts];
+    if (this.drape) { pcs = []; adaptPieces(pts, pcs, 160); }
+    for (const pc of pcs) {
+      const A = P(pc[0]);
+      for (let i = 1; i < pc.length - 1; i++) this.tri(A, P(pc[i]), P(pc[i + 1]), col, UP, uv(pc[0]), uv(pc[i]), uv(pc[i + 1]));
+    }
+  }
   flatPoly(pts, y, col, holes) {
     if (pts.length < 3) return;
     const v2 = r => r.map(p => new THREE.Vector2(p[0], p[1]));
@@ -35,22 +133,18 @@ class Geo {
     const all = hs.length ? pts.concat(...hs) : pts;
     let tris;
     try { tris = THREE.ShapeUtils.triangulateShape(v2(pts), hs.map(v2)); } catch (e) { return; }
-    for (const t of tris) {
-      const A = all[t[0]], B = all[t[1]], C = all[t[2]];
-      this.tri([A[0], y, A[1]], [B[0], y, B[1]], [C[0], y, C[1]], col, [0, 1, 0], [A[0] / 8, A[1] / 8], [B[0] / 8, B[1] / 8], [C[0] / 8, C[1] / 8]);
-    }
+    for (const t of tris) this.fpoly([all[t[0]], all[t[1]], all[t[2]]], y, col);
   }
   disc(x, z, r, y, col, seg = 8) {
-    for (let i = 0; i < seg; i++) {
-      const a0 = i / seg * Math.PI * 2, a1 = (i + 1) / seg * Math.PI * 2;
-      this.tri([x, y, z], [x + Math.cos(a0) * r, y, z + Math.sin(a0) * r], [x + Math.cos(a1) * r, y, z + Math.sin(a1) * r], col, [0, 1, 0]);
-    }
+    const ring = [];
+    for (let i = 0; i < seg; i++) { const a = i / seg * Math.PI * 2; ring.push([x + Math.cos(a) * r, z + Math.sin(a) * r]); }
+    this.fpoly(ring, y, col);
   }
   strip(a, b, w, y, col) {
     const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
     if (l < 0.01) return;
     const nx = -dz / l * w / 2, nz = dx / l * w / 2;
-    this.quad([a[0] + nx, y, a[1] + nz], [b[0] + nx, y, b[1] + nz], [b[0] - nx, y, b[1] - nz], [a[0] - nx, y, a[1] - nz], col, [0, 1, 0]);
+    this.fpoly([[a[0] + nx, a[1] + nz], [b[0] + nx, b[1] + nz], [b[0] - nx, b[1] - nz], [a[0] - nx, a[1] - nz]], y, col);
   }
   mesh(mat) {
     const g = new THREE.BufferGeometry();
@@ -61,6 +155,37 @@ class Geo {
     g.computeBoundingSphere();
     return new THREE.Mesh(g, mat);
   }
+  get tris() { return this.p.length / 9; }
+}
+
+// ground mesh: the terrain grid plus one 1 km skirt ring holding the edge
+// heights (same values H() returns outside the grid), split like H()
+function groundGeometry(B) {
+  const T = terrainGrid();
+  const xs = [], zs = [];
+  if (T) {
+    xs.push(T.minX - 1000); for (let i = 0; i < T.nx; i++) xs.push(T.minX + i * T.step); xs.push(T.minX + (T.nx - 1) * T.step + 1000);
+    zs.push(T.minZ - 1000); for (let j = 0; j < T.nz; j++) zs.push(T.minZ + j * T.step); zs.push(T.minZ + (T.nz - 1) * T.step + 1000);
+  } else {
+    xs.push(B.minX - 1000, B.maxX + 1000); zs.push(B.minZ - 1000, B.maxZ + 1000);
+  }
+  const X = xs.length, Z = zs.length;
+  const pos = new Float32Array(X * Z * 3);
+  for (let j = 0; j < Z; j++) for (let i = 0; i < X; i++) {
+    const k = (j * X + i) * 3; pos[k] = xs[i]; pos[k + 1] = H(xs[i], zs[j]); pos[k + 2] = zs[j];
+  }
+  const idx = [];
+  for (let j = 0; j < Z - 1; j++) for (let i = 0; i < X - 1; i++) {
+    const a = j * X + i, b = a + 1, c = a + X, d = c + 1;
+    // diagonal a-d, counter-clockwise seen from above (+y)
+    idx.push(a, d, b, a, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
 }
 
 const col = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
@@ -252,7 +377,8 @@ const ROAD_LAYER = { footway: 0, path: 0, cycleway: 0, steps: 0, pedestrian: 0, 
 export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const B = data.bounds;
   const rnd = mulberry32(20240034);
-  const world = { data, bounds: B, labels: [], animated: [], named: {} };
+  const world = { data, bounds: B, labels: [], animated: [], named: {}, tris: {} };
+  clearBridges();
   const collision = new CollisionWorld(B, 16);
   const roadGrid = new SegGrid(20);
   world.collision = collision; world.roadGrid = roadGrid;
@@ -263,36 +389,35 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
 
   // ground layers draw in order without depth writes (no z-fighting)
   let layerOrder = -100;
-  const flatMat = () => {
-    const m = new THREE.MeshLambertMaterial({ vertexColors: true, depthWrite: false });
+  // polygonOffset: draped layers sit a few cm above the terrain; keep them in front at distance
+  const flatMat = () => new THREE.MeshLambertMaterial({ vertexColors: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  const addFlat = (geo, mat, tag) => {
+    const m = geo.mesh(mat || flatMat()); m.receiveShadow = true; m.renderOrder = layerOrder++; scene.add(m);
+    if (tag) world.tris[tag] = (world.tris[tag] || 0) + geo.tris;
     return m;
   };
-  const addFlat = (geo, mat) => {
-    const m = geo.mesh(mat || flatMat()); m.receiveShadow = true; m.renderOrder = layerOrder++; scene.add(m); return m;
-  };
 
-  // base ground
+  // base ground: terrain grid (MOI DTM) with a skirt out to the horizon
   {
-    const g = new THREE.PlaneGeometry(B.maxX - B.minX + 2000, B.maxZ - B.minZ + 2000);
-    g.rotateX(-Math.PI / 2);
+    const g = groundGeometry(B);
     const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: '#6f716a' }));
-    m.position.set((B.minX + B.maxX) / 2, 0, (B.minZ + B.maxZ) / 2);
     m.receiveShadow = true; m.renderOrder = layerOrder++;
     scene.add(m);
     world.groundMesh = m;
+    world.tris.ground = g.index.count / 3;
   }
   // campus paving
   {
-    const g = new Geo();
+    const g = new Geo(true);
     for (const r of data.campus) g.flatPoly(r, 0.01, col('#a8a395'));
-    addFlat(g);
+    addFlat(g, null, 'areas');
   }
   // areas
   const waterPolys = [];
   const greenPolys = [];
   const sportPolys = []; // no trees on pitches / tracks
   {
-    const g = new Geo();
+    const g = new Geo(true);
     for (const a of data.areas) {
       const c = AREA_COL[a.kind]; if (!c) continue;
       g.flatPoly(a.pts, 0.02, col(c), a.holes);
@@ -304,28 +429,51 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     // waterways
     for (const w of data.waterways) for (let i = 0; i < w.pts.length - 1; i++) { g.strip(w.pts[i], w.pts[i + 1], w.w, 0.02, col('#3a78a8')); g.disc(w.pts[i][0], w.pts[i][1], w.w / 2, 0.02, col('#3a78a8')); }
-    addFlat(g);
+    addFlat(g, null, 'areas');
   }
   world.waterPolys = waterPolys;
   onProgress(0.25);
 
   // rail
   {
-    const g = new Geo();
+    const g = new Geo(true);
     for (const r of data.rail) for (let i = 0; i < r.pts.length - 1; i++) { g.strip(r.pts[i], r.pts[i + 1], 4.5, 0.03, col('#6b5d50')); g.disc(r.pts[i][0], r.pts[i][1], 2.25, 0.03, col('#6b5d50')); }
-    addFlat(g);
-    const g2 = new Geo();
+    addFlat(g, null, 'rail');
+    const g2 = new Geo(true);
     for (const r of data.rail) for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i], b = r.pts[i + 1]; const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
       const nx = -dz / l, nz = dx / l;
       for (const s of [-0.75, 0.75]) g2.strip([a[0] + nx * s, a[1] + nz * s], [b[0] + nx * s, b[1] + nz * s], 0.12, 0.04, col('#c9c9c9'));
     }
-    addFlat(g2);
+    addFlat(g2, null, 'rail');
   }
 
   // roads, by layer
-  const layers = [...Array(7)].map(() => new Geo());
-  const marks = new Geo();
+  const layers = [...Array(7)].map(() => new Geo(true));
+  const marks = new Geo(true);
+  const deckSides = new Geo();
+  // bridge deck: height profile from terrain.js addBridge (same <=DS m stations);
+  // visual only, collision stays 2D
+  const deckStrip = (g, a, b, w, d0, yAt, y, c, sides) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.01) return;
+    const n = Math.max(1, Math.ceil(l / DS)), nx = -dz / l * w / 2, nz = dx / l * w / 2;
+    let px = a[0], pz = a[1], py = yAt(d0);
+    for (let k = 1; k <= n; k++) {
+      const qx = a[0] + dx * k / n, qz = a[1] + dz * k / n, qy = yAt(d0 + l * k / n);
+      g.quad([px + nx, py + y, pz + nz], [qx + nx, qy + y, qz + nz], [qx - nx, qy + y, qz - nz], [px - nx, py + y, pz - nz], c, UP);
+      // sides only where the deck clears the ground (> 0.3 m), not on draped spans
+      if (sides && Math.max(py - H(px, pz), qy - H(qx, qz), (py + qy) / 2 - H((px + qx) / 2, (pz + qz) / 2)) > 0.3) for (const sd of [1, -1]) {
+        const ax = px + nx * sd, az = pz + nz * sd, bx = qx + nx * sd, bz = qz + nz * sd, fn = [nx / (w / 2) * sd, 0, nz / (w / 2) * sd];
+        // fascia under the deck edge + a low curb
+        deckSides.quad([ax, py - 0.7, az], [bx, qy - 0.7, bz], [bx, qy + 0.25, bz], [ax, py + 0.25, az], col('#8d8a82'), fn);
+      }
+      px = qx; pz = qz; py = qy;
+    }
+  };
+  const deckDisc = (g, x, z, r, yy, c, seg) => {
+    const P = []; for (let i = 0; i < seg; i++) { const a = i / seg * Math.PI * 2; P.push([x + Math.cos(a) * r, yy, z + Math.sin(a) * r]); }
+    for (let i = 1; i < seg - 1; i++) g.tri(P[0], P[i], P[i + 1], c, UP);
+  };
   const roadCol = (r) => {
     if (ROAD_LAYER[r.type] === 0) {
       return world.inCampus(r.pts[0][0], r.pts[0][1]) ? col('#c7bda7') : col('#9c978b');
@@ -335,22 +483,34 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   for (const r of data.roads) {
     const L = ROAD_LAYER[r.type] ?? 1;
     const g = layers[L]; const c = roadCol(r);
+    const yAt = r.bridge && !r.tunnel ? addBridge(r.pts, r.w) : null;
+    let acc = 0;
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i], b = r.pts[i + 1];
-      g.strip(a, b, r.w, 0.03, c);
+      const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
+      if (yAt) deckStrip(g, a, b, r.w, acc, yAt, 0.03 + TOL_LO, c, true);
+      else g.strip(a, b, r.w, 0.03, c);
       roadGrid.add(a[0], a[1], b[0], b[1], r.w, r);
       if (r.type === 'primary' || r.type === 'secondary' || r.type === 'tertiary') {
-        const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
+        const mc = r.type === 'primary' ? col('#e9c64a') : col('#e8e8e8');
         for (let s = 2; s < l - 3; s += 9) {
-          const t0 = s / l, t1 = (s + 3.5) / l;
-          marks.strip([a[0] + dx * t0, a[1] + dz * t0], [a[0] + dx * t1, a[1] + dz * t1], 0.22, 0.04, r.type === 'primary' ? col('#e9c64a') : col('#e8e8e8'));
+          const t0 = s / l, t1 = (s + 3.5) / l, p0 = [a[0] + dx * t0, a[1] + dz * t0], p1 = [a[0] + dx * t1, a[1] + dz * t1];
+          if (yAt) deckStrip(marks, p0, p1, 0.22, acc + s, yAt, 0.04 + TOL_LO, mc, false);
+          else marks.strip(p0, p1, 0.22, 0.04, mc);
         }
       }
+      acc += l;
     }
-    for (const p of r.pts) g.disc(p[0], p[1], r.w / 2, 0.03, c, L === 0 ? 6 : 10);
+    acc = 0;
+    r.pts.forEach((p, i) => {
+      if (i) acc += Math.hypot(p[0] - r.pts[i - 1][0], p[1] - r.pts[i - 1][1]);
+      if (yAt && i > 0 && i < r.pts.length - 1) deckDisc(g, p[0], p[1], r.w / 2, yAt(acc) + 0.03 + TOL_LO, c, L === 0 ? 6 : 10);
+      else g.disc(p[0], p[1], r.w / 2, 0.03, c, L === 0 ? 6 : 10);
+    });
   }
-  for (const g of layers) addFlat(g);
-  addFlat(marks);
+  for (const g of layers) addFlat(g, null, 'roads');
+  addFlat(marks, null, 'roads');
+  if (deckSides.tris) { const m = deckSides.mesh(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); m.receiveShadow = true; scene.add(m); }
   onProgress(0.4);
 
   // ---------- buildings ----------
@@ -424,21 +584,36 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         roofGeo.tri(P(p3, h), P(p0, h), P(p3, h + rise), wc, wn(p3, p0));
         roofGeo.quad(P(p2, h), P(p3, h), P(p3, h + rise), P(p2, h + rise), wc, wn(p2, p3));
       }
-      return true;
+      return rise;
     }
     // hipped / pyramidal / dome / other pitched shapes: fan to an apex
     if (shape === 'skillion') return false;
     const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
     if (!pointInPoly(cx, cz, pts)) return false;
     for (let i = 0; i < pts.length; i++) rtri(P(pts[i], h), P(pts[(i + 1) % pts.length], h), [cx, h + rise, cz], rc);
-    return true;
+    return rise;
   };
   const tanks = []; const signs = [];
+  // building base: lowest ground along the footprint (corners + every 5 m of edge).
+  // When the plot drops more than h/2 (low shops on a slope) the base moves to
+  // mid-slope so the uphill side isn't buried; walls still reach the low point.
+  let footLo = 0;
+  const footBase = (pts, h) => {
+    let m = Infinity, M = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], c = pts[(i + 1) % pts.length], n = Math.ceil(Math.hypot(c[0] - a[0], c[1] - a[1]) / 5);
+      for (let k = 0; k < n; k++) { const y = H(a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n); if (y < m) m = y; if (y > M) M = y; }
+    }
+    if (m === Infinity) { footLo = 0; return 0; }
+    footLo = m;
+    return M - m > h / 2 ? (m + M) / 2 : m;
+  };
   world.buildings = data.buildings;
   data.buildings.forEach((b, bi) => {
     const pts = b.pts; const h = b.h;
+    const base = b.base = footBase(pts, h); const foot = footLo - 0.5;
     if (b.skip) {
-      if (b.name) world.named[b.name] = { x: pts.reduce((s, p) => s + p[0], 0) / pts.length, z: pts.reduce((s, p) => s + p[1], 0) / pts.length, h: b.labelH || h, b };
+      if (b.name) world.named[b.name] = { x: pts.reduce((s, p) => s + p[0], 0) / pts.length, z: pts.reduce((s, p) => s + p[1], 0) / pts.length, h: b.labelH || h, base, b };
       return;
     }
     const pal = PAL[b.kind] || PAL.town;
@@ -459,32 +634,34 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (l < 0.05) continue;
       const n = [dz / l, 0, -dx / l]; // outward for CCW (x,z)
       const u0 = acc / (bay * 8), u1 = (acc + l) / (bay * 8); acc += l;
-      const v1 = floors / 8 + vOff;
-      g.quad([a[0], 0, a[1]], [c[0], 0, c[1]], [c[0], h, c[1]], [a[0], h, a[1]], tint, n,
-        [[u0, vOff], [u1, vOff], [u1, v1], [u0, v1]]);
+      // wall foot goes 0.5 m below the lowest ground so slopes never show a gap
+      const v1 = floors / 8 + vOff, v0 = vOff - (base - foot) / h * floors / 8;
+      g.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], base + h, c[1]], [a[0], base + h, a[1]], tint, n,
+        [[u0, v0], [u1, v0], [u1, v1], [u0, v1]]);
       if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && signs.length < 260) {
-        signs.push({ x: (a[0] + c[0]) / 2 + n[0] * 0.7, z: (a[1] + c[1]) / 2 + n[2] * 0.7, y: Math.min(h - 2, 4 + rnd() * 3), rot: Math.atan2(dx, dz) });
+        signs.push({ x: (a[0] + c[0]) / 2 + n[0] * 0.7, z: (a[1] + c[1]) / 2 + n[2] * 0.7, y: base + Math.min(h - 2, 4 + rnd() * 3), rot: Math.atan2(dx, dz) });
       }
     }
     const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
-    const pitched = pitchedRoof(b, pts, h, rc, tint.map(v => v * 0.85));
-    if (!pitched) roofGeo.flatPoly(pts, h, rc, b.holes);
+    const top = base + h;
+    const pitched = pitchedRoof(b, pts, top, rc, tint.map(v => v * 0.85));
+    if (!pitched) roofGeo.flatPoly(pts, top, rc, b.holes);
     // parapet
     if (!pitched) for (const ring of rings) for (let i = 0; i < ring.length; i++) {
       const a = ring[i], c = ring[(i + 1) % ring.length];
       const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) continue;
       const n = [dz / l, 0, -dx / l];
-      roofGeo.quad([a[0], h, a[1]], [c[0], h, c[1]], [c[0], h + 0.6, c[1]], [a[0], h + 0.6, a[1]], tint.map(v => v * 0.85), n);
-      roofGeo.quad([a[0], h + 0.6, a[1]], [c[0], h + 0.6, c[1]], [c[0] - n[0] * 0.25, h + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, h + 0.6, a[1] - n[2] * 0.25], tint.map(v => v * 0.9), [0, 1, 0]);
+      roofGeo.quad([a[0], top, a[1]], [c[0], top, c[1]], [c[0], top + 0.6, c[1]], [a[0], top + 0.6, a[1]], tint.map(v => v * 0.85), n);
+      roofGeo.quad([a[0], top + 0.6, a[1]], [c[0], top + 0.6, c[1]], [c[0] - n[0] * 0.25, top + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, top + 0.6, a[1] - n[2] * 0.25], tint.map(v => v * 0.9), [0, 1, 0]);
     }
     if (b.kind === 'town' && rnd() < 0.55 && !pitched) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      if (pointInPoly(cx, cz, pts)) tanks.push([cx + (rnd() - .5), h, cz + (rnd() - .5)]);
+      if (pointInPoly(cx, cz, pts)) tanks.push([cx + (rnd() - .5), top, cz + (rnd() - .5)]);
     }
-    collision.addPolygon(pts);
+    collision.addPolygon(pts, pitched ? top + pitched : top + 0.6);
     if (b.name) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      world.named[b.name] = { x: cx, z: cz, h, b };
+      world.named[b.name] = { x: cx, z: cz, h, base, b };
     }
   });
   for (const k in wallGeo) {
@@ -568,7 +745,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   if (ct) {
     const g = new THREE.Group();
     const brick = standard('#a4553f'), white = standard('#efe9dc');
-    const base = new THREE.Mesh(new THREE.BoxGeometry(4.4, 1, 4.4), white); base.position.y = 0.5;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2, 4.4), white); base.position.y = 0;
     const shaft = new THREE.Mesh(new THREE.BoxGeometry(3.2, 16, 3.2), brick); shaft.position.y = 9;
     const band = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.5, 3.6), white); band.position.y = 13;
     const head = new THREE.Mesh(new THREE.BoxGeometry(3.8, 3.8, 3.8), white); head.position.y = 18.9;
@@ -588,11 +765,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       hg.add(hp, mp); g.add(hg); hands.push([hp, mp]);
     }
     world.clockHands = hands;
-    g.position.set(ct.x, 0, ct.z);
+    const cb = Hmin(ct.x, ct.z, 2.2);
+    g.position.set(ct.x, cb, ct.z);
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     scene.add(g);
     collision.addCircle(ct.x, ct.z, 2.6);
-    world.named['鐘塔'] = { x: ct.x, z: ct.z, h: 25 };
+    world.named['鐘塔'] = { x: ct.x, z: ct.z, h: 25, base: cb };
   }
   // Old gate 舊校門
   const og = poi('舊校門');
@@ -601,11 +779,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const dir = near ? near.dir : 0;
     const g = new THREE.Group();
     const stone = standard('#cfc6b4');
-    for (const s of [-4.2, 4.2]) { const p = new THREE.Mesh(new THREE.BoxGeometry(1.3, 5.5, 1.3), stone); p.position.set(s, 2.75, 0); g.add(p); collision.addCircle(og.x + Math.cos(dir) * s, og.z - Math.sin(dir) * s, 0.9); }
+    for (const s of [-4.2, 4.2]) { const p = new THREE.Mesh(new THREE.BoxGeometry(1.3, 6.5, 1.3), stone); p.position.set(s, 2.25, 0); g.add(p); collision.addCircle(og.x + Math.cos(dir) * s, og.z - Math.sin(dir) * s, 0.9); }
     const top = new THREE.Mesh(new THREE.BoxGeometry(10.4, 1.4, 1.5), stone); top.position.y = 6.1; g.add(top);
     const lt = labelTexture('中原大學', { size: 60, bg: '#7a2b1f', color: '#ffe9a8' });
     for (const s of [1, -1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 1.1), new THREE.MeshBasicMaterial({ map: lt.tex })); pl.position.set(0, 6.1, 0.76 * s); if (s < 0) pl.rotation.y = Math.PI; g.add(pl); }
-    g.position.set(og.x, 0, og.z); g.rotation.y = dir + Math.PI / 2;
+    g.position.set(og.x, Hmin(og.x, og.z, 4.5), og.z); g.rotation.y = dir + Math.PI / 2;
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(g);
   }
@@ -613,17 +791,17 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const fp = data.areas.find(a => a.name === '中原噴水池');
   if (fp) {
     const cx = fp.pts.reduce((s, p) => s + p[0], 0) / fp.pts.length, cz = fp.pts.reduce((s, p) => s + p[1], 0) / fp.pts.length;
-    const N = 260; const pos = new Float32Array(N * 3); const seeds = [];
+    const N = 260; const pos = new Float32Array(N * 3); const seeds = []; const fy = H(cx, cz);
     for (let i = 0; i < N; i++) seeds.push([rnd() * Math.PI * 2, 0.6 + rnd() * 0.8, rnd()]);
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#cfe8ff', size: 0.13, transparent: true, opacity: 0.7 }));
     pts.frustumCulled = false; scene.add(pts);
-    const basin = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 1.2, 16), standard('#bbb3a2')); basin.position.set(cx, 0.6, cz); scene.add(basin);
+    const basin = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 1.2, 16), standard('#bbb3a2')); basin.position.set(cx, fy + 0.6, cz); scene.add(basin);
     world.animated.push((t) => {
       for (let i = 0; i < N; i++) {
         const [a, sp, ph] = seeds[i]; const k = (t * 0.6 + ph) % 1;
         const r = k * 2.6 * sp; pos[i * 3] = cx + Math.cos(a) * r; pos[i * 3 + 2] = cz + Math.sin(a) * r;
-        pos[i * 3 + 1] = 1.2 + 4.5 * k * (1 - k) * 4 * sp - 0.3;
+        pos[i * 3 + 1] = fy + 1.2 + 4.5 * k * (1 - k) * 4 * sp - 0.3;
       }
       geo.attributes.position.needsUpdate = true;
     });
@@ -635,8 +813,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const g = new THREE.Group();
     const board = new THREE.Mesh(new THREE.BoxGeometry(6 * s, 3 * s, 0.15), [standard('#222'), standard('#222'), standard('#222'), standard('#222'), boardMat, boardMat]);
     board.position.y = 2.2 * s + 1.5 * s;
-    for (const sx of [-2.6 * s, 2.6 * s]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4 * s + 1.5 * s), standard('#333', { metalness: 0.6 })); p.position.set(sx, (2.4 * s + 1.5 * s) / 2, 0); g.add(p); }
-    g.add(board); g.position.set(x, 0, z); g.rotation.y = rot;
+    for (const sx of [-2.6 * s, 2.6 * s]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4 * s + 1.5 * s + 1), standard('#333', { metalness: 0.6 })); p.position.set(sx, (2.4 * s + 1.5 * s) / 2 - 0.5, 0); g.add(p); }
+    g.add(board); g.position.set(x, Hmin(x, z, 2.6 * s), z); g.rotation.y = rot;
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(g);
     collision.addCircle(x + Math.cos(rot) * 2.6 * s, z - Math.sin(rot) * 2.6 * s, 0.3);
@@ -676,20 +854,22 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const lantern = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshBasicMaterial({ color: '#ff3b2f' }), spots.length * 2);
     world.stallBodyMat = body.material;
     // warm glow on the street
-    const glow = new THREE.Mesh(new THREE.CircleGeometry(80, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-    glow.position.set(nm.x, 0.07, nm.z); glow.renderOrder = layerOrder++; scene.add(glow);
+    const gg = new Geo(true); gg.disc(nm.x, nm.z, 80, 0.07, [1, 1, 1], 40);
+    const glow = gg.mesh(new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
+    glow.renderOrder = layerOrder++; scene.add(glow);
     world.marketGlow = glow.material;
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
     spots.forEach(([x, z, r, onx, onz], i) => {
+      const y = Hmin(x, z, 1.3);
       Q.setFromAxisAngle(Y, r);
-      P.set(x, 2.5, z); M.compose(P, Q, S); top.setMatrixAt(i, M); top.setColorAt(i, new THREE.Color(cols[i % cols.length]));
-      P.set(x, 0.5, z); M.compose(P, Q, S); body.setMatrixAt(i, M);
+      P.set(x, y + 2.5, z); M.compose(P, Q, S); top.setMatrixAt(i, M); top.setColorAt(i, new THREE.Color(cols[i % cols.length]));
+      P.set(x, y + 0.5, z); M.compose(P, Q, S); body.setMatrixAt(i, M);
       // back panel faces the road: stall local -z points away from the street side
       const Qb = new THREE.Quaternion().setFromAxisAngle(Y, Math.atan2(-onx, -onz));
-      P.set(x, 0, z); M.compose(P, Qb, S); back.setMatrixAt(i, M);
+      P.set(x, y, z); M.compose(P, Qb, S); back.setMatrixAt(i, M);
       const ox = Math.cos(r) * 1.3, oz = -Math.sin(r) * 1.3;
-      P.set(x + ox, 2.15, z + oz); M.compose(P, Q, S); lantern.setMatrixAt(i * 2, M);
-      P.set(x - ox, 2.15, z - oz); M.compose(P, Q, S); lantern.setMatrixAt(i * 2 + 1, M);
+      P.set(x + ox, y + 2.15, z + oz); M.compose(P, Q, S); lantern.setMatrixAt(i * 2, M);
+      P.set(x - ox, y + 2.15, z - oz); M.compose(P, Q, S); lantern.setMatrixAt(i * 2 + 1, M);
       collision.addCircle(x, z, 1.1);
     });
     top.castShadow = true; body.castShadow = true; back.castShadow = true;
@@ -723,15 +903,21 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const lampMat = new THREE.MeshStandardMaterial({ color: '#333', emissive: '#ffd9a0', emissiveIntensity: 0 });
     const headM = new THREE.InstancedMesh(head, lampMat, spots.length);
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
-    spots.forEach(([x, z, r], i) => { Q.setFromAxisAngle(Y, r); P.set(x, 0, z); M.compose(P, Q, S); poleM.setMatrixAt(i, M); armM.setMatrixAt(i, M); headM.setMatrixAt(i, M); collision.addCircle(x, z, 0.2); });
+    spots.forEach(([x, z, r], i) => { Q.setFromAxisAngle(Y, r); P.set(x, H(x, z) - 0.1, z); M.compose(P, Q, S); poleM.setMatrixAt(i, M); armM.setMatrixAt(i, M); headM.setMatrixAt(i, M); collision.addCircle(x, z, 0.2); });
     poleM.castShadow = true;
     scene.add(poleM, armM, headM);
     world.lampMat = lampMat;
     // light pools on the ground (cheap fake lighting at night)
     const pool = new THREE.CircleGeometry(5, 16); pool.rotateX(-Math.PI / 2);
-    const poolMat = new THREE.MeshBasicMaterial({ color: '#ffcf8a', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const poolMat = new THREE.MeshBasicMaterial({ color: '#ffcf8a', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
     const poolM = new THREE.InstancedMesh(pool, poolMat, spots.length);
-    spots.forEach(([x, z, r], i) => { M.makeTranslation(x + Math.sin(r) * 1.5, 0.06, z + Math.cos(r) * 1.5); poolM.setMatrixAt(i, M); });
+    const N = new THREE.Vector3();
+    spots.forEach(([x, z, r], i) => {
+      // tilt each pool to the local slope
+      const px = x + Math.sin(r) * 1.5, pz = z + Math.cos(r) * 1.5;
+      N.set(H(px - 2, pz) - H(px + 2, pz), 4, H(px, pz - 2) - H(px, pz + 2)).normalize();
+      Q.setFromUnitVectors(Y, N); P.set(px, H(px, pz) + 0.08, pz); M.compose(P, Q, S); poolM.setMatrixAt(i, M);
+    });
     poolM.renderOrder = layerOrder++;
     scene.add(poolM);
     world.poolMat = poolMat;
@@ -777,7 +963,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
     const greens = ['#3f6b2f', '#4c7a35', '#2f5a2a', '#5a8a3a', '#3b6e3e', '#6b8f3a'];
     spots.forEach(([x, z, s], i) => {
-      Q.setFromAxisAngle(Y, rnd() * 6.28); S.set(s, s * (0.9 + rnd() * 0.4), s); P.set(x, 0, z); M.compose(P, Q, S);
+      Q.setFromAxisAngle(Y, rnd() * 6.28); S.set(s, s * (0.9 + rnd() * 0.4), s); P.set(x, H(x, z) - 0.15, z); M.compose(P, Q, S);
       trunk.setMatrixAt(i, M); crown.setMatrixAt(i, M); crown.setColorAt(i, new THREE.Color(greens[Math.floor(rnd() * greens.length)]));
     });
     crown.castShadow = true; trunk.castShadow = true; crown.receiveShadow = true;
@@ -795,16 +981,16 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     if (seenLbl.has(n)) continue; seenLbl.add(n);
     const it = world.named[n];
     const s = makeLabel(n, { height: n === '資訊管理學系' ? 4.2 : 2.6, color: n === '資訊管理學系' ? '#ffd23f' : '#fff', border: n === '資訊管理學系' ? '#ffd23f' : null });
-    s.position.set(it.x, it.h + 4, it.z);
+    s.position.set(it.x, (it.base ?? H(it.x, it.z)) + it.h + 4, it.z);
     scene.add(s); world.labels.push(s);
   }
   for (const n of ['中原大學大草坪', '中原噴水池', '中原埤塘生態公園', '普忠公園']) {
     const p = poi(n); if (!p) continue;
-    const s = makeLabel(n, { height: 2.2, color: '#c9f5b0' }); s.position.set(p.x, 5, p.z); scene.add(s); world.labels.push(s);
+    const s = makeLabel(n, { height: 2.2, color: '#c9f5b0' }); s.position.set(p.x, H(p.x, p.z) + 5, p.z); scene.add(s); world.labels.push(s);
   }
   {
     const s = makeLabel('中原夜市', { height: 4, color: '#ffd23f', bg: 'rgba(160,20,20,0.85)', icon: '🏮' });
-    s.position.set(world.nightMarket.x, 9, world.nightMarket.z); scene.add(s); world.labels.push(s);
+    s.position.set(world.nightMarket.x, H(world.nightMarket.x, world.nightMarket.z) + 9, world.nightMarket.z); scene.add(s); world.labels.push(s);
   }
   onProgress(0.95);
 

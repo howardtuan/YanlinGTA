@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Vehicle } from './vehicles.js';
 import { createCharacter, randomStudent } from './character.js';
 import { mulberry32, makeLabel } from './map.js';
+import { surfaceAt } from './terrain.js';
 
 const SPEED_BY_TYPE = { primary: 12, secondary: 11, tertiary: 9.5, unclassified: 8, residential: 7, living_street: 5, service: 5.5 };
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -212,7 +213,7 @@ export class Peds {
           this._place(p, dt);
         }
       }
-      p.ch.root.position.copy(p.pos);
+      p.ch.root.position.set(p.pos.x, surfaceAt(p.pos.x, p.pos.z), p.pos.z);
       p.ch.root.rotation.y = p.heading;
       p.ch.root.visible = dPl < 80;
       p.ch.setDetail(dPl < 16);
@@ -242,7 +243,7 @@ export class Peds {
 // ---------------- mission NPCs (static) ----------------
 export function makeMissionNpc(scene, look, name, x, z, heading = 0) {
   const ch = createCharacter(look);
-  ch.root.position.set(x, 0, z); ch.root.rotation.y = heading;
+  ch.root.position.set(x, surfaceAt(x, z), z); ch.root.rotation.y = heading;
   scene.add(ch.root);
   const lbl = makeLabel(name, { height: 0.28, color: '#ffd23f' });
   lbl.position.set(0, 2.1, 0); ch.root.add(lbl);

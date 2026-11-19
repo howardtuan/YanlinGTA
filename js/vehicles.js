@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { surfaceAt } from './terrain.js';
 
 const MC = {};
 const m = (c, o = {}) => { const k = c + JSON.stringify(o); return MC[k] || (MC[k] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, ...o })); };
@@ -142,14 +143,15 @@ export class Vehicle {
     const pick = a => a[Math.floor(rnd() * a.length)];
     if (kind === 'scooter') {
       this.mesh = opt.jet ? buildJetSL() : buildScooter(pick(SCOOTER_COLORS));
-      Object.assign(this, { radius: 0.75, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: new THREE.Vector3(0, opt.jet ? 0.08 : 0.0, -0.3), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
+      Object.assign(this, { wb: 1.25, radius: 0.75, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: new THREE.Vector3(0, opt.jet ? 0.08 : 0.0, -0.3), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
     } else {
       const taxi = kind === 'taxi';
       this.mesh = buildCar(taxi ? '#ffd000' : pick(CAR_COLORS), taxi);
-      Object.assign(this, { radius: 1.35, maxSpeed: 30, accel: 8, brake: 16, turn: 1.7, grip: 6, seat: new THREE.Vector3(0.38, 0.12, -0.2), exitSide: 2.0, label: taxi ? '計程車' : '汽車' });
+      Object.assign(this, { wb: 2.7, radius: 1.35, maxSpeed: 30, accel: 8, brake: 16, turn: 1.7, grip: 6, seat: new THREE.Vector3(0.38, 0.12, -0.2), exitSide: 2.0, label: taxi ? '計程車' : '汽車' });
     }
     this.pos = new THREE.Vector3();
-    this.heading = 0; this.moveAng = 0; this.speed = 0; this.steer = 0; this.lean = 0;
+    this.heading = 0; this.moveAng = 0; this.speed = 0; this.steer = 0; this.lean = 0; this.pitch = 0;
+    this.mesh.rotation.order = 'YXZ'; // yaw, then pitch, then lean
     this.driver = null; // 'player' | 'ai' | null
     this.ai = null; this.bumpCooldown = 0; this.wheelRot = 0;
     this.mesh.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.castShadow = o.geometry.boundingSphere.radius > 0.4; } });
@@ -157,8 +159,14 @@ export class Vehicle {
   place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.sync(); }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }
   sync(dt = 0) {
-    this.mesh.position.copy(this.pos);
-    this.mesh.rotation.set(0, this.heading, 0);
+    // pos stays on the 2D plane (y = 0); the mesh sits on the ground under both
+    // wheels and pitches with it (visual only, handling is unchanged)
+    const fx = Math.sin(this.heading) * this.wb / 2, fz = Math.cos(this.heading) * this.wb / 2;
+    const hf = surfaceAt(this.pos.x + fx, this.pos.z + fz), hb = surfaceAt(this.pos.x - fx, this.pos.z - fz);
+    const pt = -Math.atan2(hf - hb, this.wb);
+    this.pitch = dt > 0 ? this.pitch + (pt - this.pitch) * Math.min(1, dt * 10) : pt;
+    this.mesh.position.set(this.pos.x, (hf + hb) / 2, this.pos.z);
+    this.mesh.rotation.set(this.pitch, this.heading, 0);
     if (this.kind === 'scooter') {
       const targetLean = -this.steer * Math.min(1, Math.abs(this.speed) / 10) * 0.35;
       this.lean += (targetLean - this.lean) * Math.min(1, dt * 6);

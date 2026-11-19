@@ -39,11 +39,12 @@ export class CollisionWorld {
     const z0 = Math.floor(minz / cs), z1 = Math.floor(maxz / cs);
     for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) fn(ix, iz);
   }
-  addPolygon(pts) {
+  // top: render height of the roof (world y), used by the camera occlusion test
+  addPolygon(pts, top = Infinity) {
     let minx = 1e9, minz = 1e9, maxx = -1e9, maxz = -1e9;
     for (const [x, z] of pts) { minx = Math.min(minx, x); maxx = Math.max(maxx, x); minz = Math.min(minz, z); maxz = Math.max(maxz, z); }
     const pi = this.polys.length;
-    this.polys.push({ pts, minx, minz, maxx, maxz }); this.stampP.push(0);
+    this.polys.push({ pts, minx, minz, maxx, maxz, top }); this.stampP.push(0);
     this._each(minx, minz, maxx, maxz, (ix, iz) => this._cell(ix, iz).p.push(pi));
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
@@ -58,6 +59,16 @@ export class CollisionWorld {
     const ci = this.circles.length;
     this.circles.push([x, z, r]); this.stampC.push(0);
     this._each(x - r, z - r, x + r, z + r, (ix, iz) => this._cell(ix, iz).c.push(ci));
+  }
+  // highest roof over (x,z), or -Infinity outside every building
+  topAt(x, z) {
+    const c = this.grid.get(this._key(Math.floor(x / this.cell), Math.floor(z / this.cell)));
+    let t = -Infinity;
+    if (c) for (const pi of c.p) {
+      const p = this.polys[pi];
+      if (p.top > t && x >= p.minx && x <= p.maxx && z >= p.minz && z <= p.maxz && pointInPoly(x, z, p.pts)) t = p.top;
+    }
+    return t;
   }
   insideAny(x, z) {
     const c = this.grid.get(this._key(Math.floor(x / this.cell), Math.floor(z / this.cell)));

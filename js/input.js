@@ -15,10 +15,16 @@ export class Input {
       this.keys.add(e.code);
     });
     addEventListener('keyup', e => this.keys.delete(e.code));
-    addEventListener('blur', () => this.keys.clear());
+    addEventListener('blur', () => this.releaseAll());
+    // iOS control-center / app switch doesn't always fire blur
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.releaseAll(); });
+    // older Safari: requestPointerLock returns no Promise, failure only fires this event.
+    // Only count failures of our own click-to-lock request; game.js retries (resume, closeVideo) may be refused briefly after Esc.
+    document.addEventListener('pointerlockerror', () => { if (this._lockPending) this.lockFailed = true; this._lockPending = false; });
     canvas.addEventListener('mousedown', e => {
       if (!this.enabled || this.touch) return;
       if (!this.locked && !this.lockFailed) {
+        this._lockPending = true;
         try { const r = canvas.requestPointerLock?.(); if (r && r.catch) r.catch(() => { this.lockFailed = true; }); } catch (err) { this.lockFailed = true; }
         return;
       }
@@ -26,7 +32,7 @@ export class Input {
       this.pressed.add('Mouse' + e.button); this.keys.add('Mouse' + e.button);
     });
     addEventListener('mouseup', e => { this.keys.delete('Mouse' + e.button); this.dragging = false; });
-    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; });
+    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; this._lockPending = false; });
     addEventListener('mousemove', e => { if (this.locked || this.dragging) { this.mdx += e.movementX; this.mdy += e.movementY; } });
     addEventListener('wheel', e => { this.wheel += Math.sign(e.deltaY); }, { passive: true });
     if (this.touch) this._setupTouch();
@@ -52,8 +58,15 @@ export class Input {
     for (const b of document.querySelectorAll('#touchBtns .tb')) {
       const k = b.dataset.key;
       b.addEventListener('touchstart', e => { e.preventDefault(); this.pressed.add(k); this.keys.add(k); }, { passive: false });
-      b.addEventListener('touchend', e => { e.preventDefault(); this.keys.delete(k); }, { passive: false });
+      const up = e => { e.preventDefault(); this.keys.delete(k); };
+      b.addEventListener('touchend', up, { passive: false });
+      b.addEventListener('touchcancel', up, { passive: false }); // interrupted touches would otherwise stick (e.g. handbrake held)
     }
+  }
+  releaseAll() {
+    this.keys.clear(); this.dragging = false;
+    this.joy.active = false; this.joy.x = this.joy.y = 0; this.joy.id = null;
+    const knob = document.getElementById('joyKnob'); if (knob) knob.style.left = knob.style.top = '';
   }
   down(...codes) { return codes.some(c => this.keys.has(c)); }
   hit(...codes) { return codes.some(c => this.pressed.has(c)); }

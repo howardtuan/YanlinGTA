@@ -85,7 +85,7 @@ export class Traffic {
       if (a.dormant) { if (this.rnd() < 0.05) this.spawn(v, p.x, p.z, 90, 260); continue; }
       const dPl = Math.hypot(v.pos.x - p.x, v.pos.z - p.z);
       if (dPl > 330) { a.dormant = true; v.mesh.visible = false; continue; }
-      if (a.stunned > 0) { a.stunned -= dt; v.speed *= 0.9; v.sync(dt); continue; }
+      if (a.stunned > 0) { a.stunned -= dt; v.speed *= Math.pow(0.9, dt * 60); v.sync(dt); continue; } // frame-rate independent decay
       const target = SPEED_BY_TYPE[a.edge.road.type] || 7;
       // look ahead for obstacles
       const [fx, fz] = v.forward();

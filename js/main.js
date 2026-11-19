@@ -42,6 +42,8 @@ class Game {
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 2600);
+    // rAF stops in background tabs but the WebAudio engine drone would keep humming
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.audio?.setEngine(false, 0); });
     addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this._checkRotate(); });
 
     this._sky();
@@ -290,6 +292,7 @@ class Game {
     const crowd = [];
     const p = this.player.worldPos();
     if (this.player.vehicle) this.player.exit(this.scene, this.world.collision);
+    this.audio.setEngine(false, 0);
     this.player.frozen = true;
     const face = Math.atan2(at.x - p.x, at.z - p.z);
     for (let i = 0; i < 22; i++) {
@@ -297,6 +300,7 @@ class Game {
       const x = this.player.pos.x + Math.sin(a) * r, z = this.player.pos.z + Math.cos(a) * r;
       if (!this.world.isFree(x, z, 0.4)) continue;
       const ch = createCharacter(randomStudent(rnd));
+      ch.cheerPose = rnd() < 0.5 ? 'cheer' : 'wave'; // fixed per person, not re-rolled every frame
       ch.root.position.set(x, 0, z); ch.root.rotation.y = Math.atan2(this.player.pos.x - x, this.player.pos.z - z);
       this.scene.add(ch.root); crowd.push(ch);
     }
@@ -313,8 +317,14 @@ class Game {
       this.after(() => { this.speechOn = false; this.player.frozen = false; cb(); }, 2600);
     }), 2200);
   }
+  _clearCrowd() {
+    if (!this.crowd) return;
+    for (const c of this.crowd) this.scene.remove(c.root);
+    this.crowd = null;
+  }
   showEnding() {
     this.state = 'ending';
+    this.audio.setEngine(false, 0);
     document.exitPointerLock?.();
     const t = Math.floor(this.playTime);
     $('endStats').innerHTML = `得票數 <b style="color:#ffd23f;font-size:24px">${this.votes}</b> 票<br>金色選票 ${this.ballotsTaken} / 34　·　遊玩時間 ${Math.floor(t / 60)} 分 ${t % 60} 秒`;
@@ -344,7 +354,7 @@ class Game {
     $('videoClose').onclick = () => this.closeVideo();
     $('modalClose').onclick = () => this.closeModal();
     $('btnKeepPlaying').onclick = () => {
-      $('ending').classList.add('hidden'); this.state = 'play';
+      $('ending').classList.add('hidden'); this.state = 'play'; this._clearCrowd(); // crowd stays for the ending shot, then goes
       this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！');
       if (!this.input.touch) lockPointer(this.renderer.domElement);
     };
@@ -378,6 +388,7 @@ class Game {
   }
   pause() {
     this.state = 'paused';
+    this.audio.setEngine(false, 0); // _update stops while paused, so silence the engine here
     this.modal('暫停 · 設定', this._settingsHTML() + `<div class="modal-btns" style="margin-top:14px">
       <button class="menu-btn primary" id="mResume"><span>▶ 繼續遊戲</span><small>RESUME</small></button>
       <button class="menu-btn" id="mCtrl"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
@@ -409,7 +420,7 @@ class Game {
   openSettings() { this.audio.init(); this.modal('設定 / 音樂', this._settingsHTML()); this._bindSettings(); }
   // ---------- computer lab video ----------
   openVideo() {
-    this.videoOpen = true; document.exitPointerLock?.();
+    this.videoOpen = true; document.exitPointerLock?.(); this.audio.setEngine(false, 0);
     $('videoFrame').src = 'https://www.youtube-nocookie.com/embed/-AiDMXovNmA?autoplay=1&rel=0&playsinline=1';
     $('video').classList.remove('hidden'); this.audio.duck(true);
   }
@@ -541,7 +552,7 @@ class Game {
     this.traffic.update(dt, info, this.audio);
     this.peds.update(dt, { pos: wp }, w.collision);
     for (const n of this.npcs) { n.ch.update(dt, { speed: 0, pose: n.pose }); n.mark.position.y = 2.75 + Math.sin(this.time * 3) * 0.08; }
-    if (this.crowd) for (const c of this.crowd) c.update(dt, { speed: 0, pose: this.speechOn ? (Math.random() < 0.5 ? 'cheer' : 'wave') : null });
+    if (this.crowd) for (const c of this.crowd) c.update(dt, { speed: 0, pose: this.speechOn ? c.cheerPose : null });
 
     // ---- ballots ----
     for (const b of this.ballotList) {
@@ -591,7 +602,7 @@ class Game {
     p.heading = Math.atan2(this.player.pos.x - p.pos.x, this.player.pos.z - p.pos.z);
     this.player.heading = Math.atan2(p.pos.x - this.player.pos.x, p.pos.z - this.player.pos.z);
     const r = this.peds.giveFlyer(p);
-    if (r.ok) this.addVotes(1, `「${r.text}」 +1 票`);
+    if (r.ok) { this.flyerVotes = (this.flyerVotes || 0) + 1; this.addVotes(1, `「${r.text}」 +1 票`); }
     else { this.hud.toast(`「${r.text}」`, 'bad', 1500); }
   }
 }

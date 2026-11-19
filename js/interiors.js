@@ -119,7 +119,8 @@ function M(key) {
     mcYellow: () => std({ color: '#ffc72c' }),
     mcWood: () => std({ color: '#8b5a35' }),
     steel: () => std({ color: '#c9ccd0', metalness: 0.8, roughness: 0.25 }),
-    sac: () => std({ color: '#d9cfc0' }),
+    // matches 學生活動中心 colour in tools/overrides.json
+    sac: () => std({ color: '#e3e1db' }),
     screen: () => new THREE.MeshStandardMaterial({ map: T.screen(), emissive: '#ffffff', emissiveMap: T.screen(), emissiveIntensity: 0.9 }),
   }[key];
   return (MATS[key] = m ? m() : std({ color: key }));

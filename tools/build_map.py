@@ -16,8 +16,12 @@ tools/osm_raw.json is the verbatim result of tools/overpass_query.overpassql
     python3 tools/build_map.py
 
 Anything outside BOUNDS is dropped here, so the query may over-fetch.
-tools/overrides.json holds hand-checked facts (floors/height) with a source URL
-per entry; it wins over OSM tags and the height estimate.
+tools/overrides.json holds hand-checked facts with a source URL per entry; it
+wins over OSM tags and the height estimate. Building entries may set floors, h,
+colour, material, roof, roofColour, facade (window style), feature (list of
+named extras drawn by js/map.js) and split (cut one footprint into blocks of
+different heights). The 'landmarks' section describes the hand-built landmarks
+in js/map.js and is copied to cycu.json without its source/note fields.
 
 Height model: floors first (building:levels > height > estimate by type/area),
 then h = floors * 3.3 + 0.6. Neighbouring look-alike buildings share a seed so
@@ -339,8 +343,84 @@ def poly_hits_box(pts, box):
 
 def load_overrides():
     if not os.path.exists(OVR):
-        return []
-    return json.load(open(OVR, encoding='utf8')).get('buildings', [])
+        return {}
+    return json.load(open(OVR, encoding='utf8'))
+
+
+def clip_half(pts, p, q, keep):
+    """Clip a ring to one side of the line p->q: keep=-1 left of it (cross < 0),
+    keep=1 right of it. Works for the simple notched shapes used here."""
+    side = lambda a: ((q[0] - p[0]) * (a[1] - p[1]) - (q[1] - p[1]) * (a[0] - p[0])) * keep
+    out = []
+    for i in range(len(pts)):
+        a, b = pts[i - 1], pts[i]
+        sa, sb = side(a), side(b)
+        if sb >= 0:
+            if sa < 0:
+                t = sa / (sa - sb); out.append([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
+            out.append(b)
+        elif sa >= 0:
+            t = sa / (sa - sb); out.append([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
+    res = []
+    for v in out:
+        v = [round(v[0], 1), round(v[1], 1)]
+        if not res or res[-1] != v:
+            res.append(v)
+    if len(res) > 1 and res[0] == res[-1]:
+        res.pop()
+    return despike(res)
+
+
+def despike(r, tol=0.5):
+    """Drop zero-width spikes that clipping a notched ring leaves along the cut
+    (a vertex where the outline doubles back on itself)."""
+    r = r[:]
+    changed = True
+    while changed and len(r) > 3:
+        changed = False
+        for i in range(len(r)):
+            a, b, c = r[i - 1], r[i], r[(i + 1) % len(r)]
+            ux, uz, vx, vz = b[0] - a[0], b[1] - a[1], c[0] - b[0], c[1] - b[1]
+            l = math.hypot(c[0] - a[0], c[1] - a[1])
+            d = abs((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / l if l > 1e-6 else math.hypot(ux, uz)
+            if (ux * vx + uz * vz < 0 and d < tol) or d < 0.02:
+                r.pop(i); changed = True
+                break
+    return r
+
+
+def thin_edge(r, w=2.0):
+    """True if some edge (> 4 m) has the outside again within w behind it: a
+    sliver left by a cut line that runs on past the wing it was meant for."""
+    for i in range(len(r)):
+        a, b = r[i - 1], r[i]
+        l = math.dist(a, b)
+        if l < 4:
+            continue
+        nx, nz = -(b[1] - a[1]) / l, (b[0] - a[0]) / l  # inward for CCW x/z
+        if not point_in_poly((a[0] + b[0]) / 2 + nx * w, (a[1] + b[1]) / 2 + nz * w, r):
+            return True
+    return False
+
+
+def split_parts(pts, sp):
+    """Override 'split': cut a footprint into blocks along lines. cuts[i] = [p, q];
+    block 0 lies left of cut 0 (cross < 0), block i between cut i-1 and cut i."""
+    cuts, fl = sp['cuts'], sp['floors']
+    out = []
+    for i, f in enumerate(fl):
+        r = pts
+        if i > 0:
+            r = clip_half(r, *cuts[i - 1], 1)
+        if i < len(cuts):
+            r = clip_half(r, *cuts[i], -1)
+        if area(r) < 0:
+            r = r[::-1]
+        part = dict(pts=r, floors=int(f), h=round(f * FLOOR_H + ROOF_H, 1))
+        if sp.get('labels'):
+            part['label'] = sp['labels'][i]
+        out.append(part)
+    return out
 
 
 def main():
@@ -417,7 +497,8 @@ def main():
             b['floors_part'] = base
     blds = [b for b in blds if not b.get('drop')] + extra
 
-    ovr = load_overrides()
+    ovr_all = load_overrides()
+    ovr = ovr_all.get('buildings', [])
     used_ovr = set()
 
     def find_ovr(b):
@@ -441,12 +522,13 @@ def main():
         else:
             b['floors'], b['src'] = tag_floors(t)
         lv, h = parse_num(t.get('building:levels')), parse_num(t.get('height'))
-        if lv and h and h / lv > 4.5:
+        if lv and h and h / lv > 4.5 and not b['ovr']:
             stats['warn'].append('%s %s: height %.1f / levels %g = %.1f m per floor (using levels)'
                                  % (osm_id(b['e']), t.get('name', '?'), h, lv, h / lv))
 
     # neighbours with similar footprints share one seed -> same height in a row
-    est = [b for b in blds if not b['floors'] and not b['ovr']]
+    # overrides that only set looks still need a floor estimate
+    est = [b for b in blds if not b['floors'] and not (b['ovr'] and b['ovr'].get('floors'))]
     for b in est:
         b['cls'], b['lo'], b['hi'] = floor_range(b['t'], b['kind'], b['a'])
     dsu = DSU(len(est))
@@ -478,7 +560,7 @@ def main():
         name = t.get('name')
         h = b['floors'] * FLOOR_H + ROOF_H
         o = b['ovr']
-        if o:
+        if o and (o.get('floors') or o.get('h')):
             if o.get('floors'):
                 b['floors'] = int(o['floors'])
             h = float(o['h']) if o.get('h') else b['floors'] * FLOOR_H + ROOF_H
@@ -500,6 +582,21 @@ def main():
                 rec[j] = parse_num(t[k]) if j == 'roofH' else t[k].strip()
         if rec.get('roofH') is None:
             rec.pop('roofH', None)
+        if o:
+            # hand-checked looks win over OSM tags (see overrides.json sources)
+            for k in ('colour', 'material', 'roof', 'roofColour', 'facade', 'feature'):
+                if o.get(k):
+                    rec[k] = o[k]
+            if o.get('split'):
+                rec['parts'] = split_parts(pts, o['split'])
+                a0 = abs(area(pts)); a1 = sum(abs(area(q['pts'])) for q in rec['parts'])
+                if abs(a0 - a1) > 0.02 * a0:
+                    stats['warn'].append('%s split area %.0f != %.0f' % (oid, a1, a0))
+                for q in rec['parts']:
+                    if thin_edge(q['pts']):
+                        stats['warn'].append('%s split part %s has a strip < 2 m wide' % (oid, q.get('label', '')))
+                rec['floors'] = max(q['floors'] for q in rec['parts'])
+                rec['h'] = max(q['h'] for q in rec['parts'])
         out['buildings'].append(rec)
     for i, o in enumerate(ovr):
         if i not in used_ovr:
@@ -669,6 +766,10 @@ def main():
     order = {'residential': 0, 'industrial': 0, 'commercial': 0, 'construction': 1, 'school': 1,
              'parking': 2, 'park': 3, 'grass': 4, 'pitch': 5, 'track': 5, 'water': 6}
     out['areas'].sort(key=lambda a: (order.get(a['kind'], 3), -abs(area(a['pts']))))
+
+    # hand-built landmarks (map.js): looks checked against the sources in overrides.json
+    out['landmarks'] = {k: {j: v for j, v in o.items() if j not in ('source', 'note')}
+                        for k, o in ovr_all.get('landmarks', {}).items()}
 
     if not out['nightMarket']:
         stats['warn'].append('night market relation %d missing' % NIGHT_MARKET_REL)

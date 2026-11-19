@@ -276,6 +276,7 @@ const MAT_KEY = {
 //   town     透天: 二丁掛 tiles, one window per bay with iron grille, AC units
 //   apt      公寓: tiles, wide grilled windows, balcony rail, more AC units
 //   wash     洗石子 / plaster, small aluminium windows
+//   arcade   one round-arched opening per bay and storey (懷恩樓 loggias)
 const TILE2 = (g, x, y, S, a) => {
   // 二丁掛: long thin tiles in running bond
   g.fillStyle = `rgba(0,0,0,${a})`;
@@ -305,6 +306,13 @@ function cellBase(style, mat, g, x, y, S, rnd) {
 const WIN = {
   campus: [0, 18, 64, 26], concrete: [14, 16, 36, 30], glass: [2, 2, 60, 50],
   town: [14, 16, 36, 32], apt: [8, 14, 48, 30], wash: [18, 18, 28, 26],
+  arcade: [12, 12, 40, 52],
+};
+// round-arched opening inside the arcade window rect (open at the bottom)
+const archPath = (g, x, y, k = 1) => {
+  const [wx, wy, ww, wh] = WIN.arcade, r = ww / 2 * k;
+  g.beginPath(); g.moveTo(x + wx * k, y + (wy + wh) * k); g.lineTo(x + wx * k, y + wy * k + r);
+  g.arc(x + (wx + ww / 2) * k, y + wy * k + r, r, Math.PI, 0); g.lineTo(x + (wx + ww) * k, y + (wy + wh) * k); g.closePath();
 };
 function windowTextures(style, seed, mat) {
   const rnd = mulberry32(seed);
@@ -326,6 +334,15 @@ function windowTextures(style, seed, mat) {
       }
       cellBase(style, mat, g, x, y, S, rnd);
       const [wx, wy, ww, wh] = WIN[style] || WIN.town;
+      if (style === 'arcade') {
+        // deep loggia: dark opening, lit soffit band, brick voussoir ring
+        g.fillStyle = '#3e3832'; archPath(g, x, y); g.fill();
+        g.fillStyle = 'rgba(255,240,215,0.18)'; g.fillRect(x + wx + 3, y + wy + ww / 2, ww - 6, 6);
+        g.fillStyle = '#5d554c'; g.fillRect(x + wx + 4, y + wy + wh - 18, ww - 8, 18);
+        g.strokeStyle = 'rgba(0,0,0,0.28)'; g.lineWidth = 2.5; archPath(g, x, y); g.stroke();
+        g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(x, y + S - 3, S, 3);
+        continue;
+      }
       if (style === 'campus') {
         // ribbon: the band runs across the whole cell so neighbours join up
         g.fillStyle = '#2d3b4c'; g.fillRect(x, y + wy, S, wh);
@@ -370,6 +387,7 @@ function windowTextures(style, seed, mat) {
     for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
       const l = lit[iy * N + ix]; if (!l) continue;
       g.fillStyle = l;
+      if (style === 'arcade') { archPath(g, ix * E, iy * E, k); g.fill(); continue; }
       g.fillRect(ix * E + wx * k, iy * E + wy * k, ww * k, wh * k);
     }
   });
@@ -525,16 +543,6 @@ export function bannerTexture() {
     g.fillText('資管要贏', 292, 236);
     g.fillStyle = '#ffd23f';
     g.fillText('票投彥霖', 292, 400);
-  }, false);
-}
-
-function clockFaceTexture() {
-  return canvasTex(256, 256, (g) => {
-    g.fillStyle = '#7a3b2a'; g.fillRect(0, 0, 256, 256);
-    g.fillStyle = '#f6f1e2'; g.beginPath(); g.arc(128, 128, 110, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#222'; g.lineWidth = 6; g.stroke();
-    g.fillStyle = '#222';
-    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.fillRect(128 + Math.sin(a) * 92 - 4, 128 - Math.cos(a) * 92 - 4, 8, 8); }
   }, false);
 }
 
@@ -840,7 +848,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // one wall mesh per facade (window style + OSM material); material variants
   // are only built when some building actually carries the tag
   const wallMat = {}; const wallGeo = {};
-  const SEED = { campus: 7, town: 11, apt: 13, wash: 17, glass: 19, concrete: 23 };
+  const SEED = { campus: 7, town: 11, apt: 13, wash: 17, glass: 19, concrete: 23, arcade: 29 };
   const wallFor = (style, mat) => {
     const k = mat ? style + ':' + mat : style;
     if (!wallGeo[k]) {
@@ -962,6 +970,56 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (let i = 0; i < pts.length; i++) rtri(P(pts[i], h), P(pts[(i + 1) % pts.length], h), [cx, h + rise, cz], rc);
     return rise;
   };
+  // named roof extras from overrides.json 'feature' (visual only, merged into roofGeo)
+  const landmarkRoof = (b, pts, top) => {
+    const f = obb(pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
+    const inside = (u0, u1, v0, v1) => {
+      const um = (u0 + u1) / 2, vm = (v0 + v1) / 2;
+      return [[u0, v0], [u1, v0], [u1, v1], [u0, v1], [um, v0], [um, v1], [u0, vm], [u1, vm], [um, vm]].every(([u, v]) => { const p = f.P(u, v); return pointInPoly(p[0], p[1], pts); });
+    };
+    if (b.feature.includes('observatory')) {
+      // observatory: short drum + low-poly dome at the roof centre
+      const um = (f.u0 + f.u1) / 2, vm = (f.v0 + f.v1) / 2, r = Math.max(2.5, Math.min(4, Math.min(L, W) * 0.12));
+      if (inside(um - r, um + r, vm - r, vm + r)) {
+        const [cx, cz] = f.P(um, vm), S = 12, R = 4, y0 = top + 0.6, dh = 1.6;
+        const wc = col('#d9d6cf'), dc = col('#eceae4');
+        const ring = k => { const a = k / S * Math.PI * 2; return [Math.cos(a), Math.sin(a)]; };
+        for (let k = 0; k < S; k++) {
+          const [c0, s0] = ring(k), [c1, s1] = ring(k + 1), nx = (c0 + c1) / 2, nz = (s0 + s1) / 2;
+          roofGeo.quad([cx + c0 * r, y0, cz + s0 * r], [cx + c1 * r, y0, cz + s1 * r], [cx + c1 * r, y0 + dh, cz + s1 * r], [cx + c0 * r, y0 + dh, cz + s0 * r], wc, [nx, 0, nz]);
+          for (let j = 0; j < R; j++) {
+            const p0 = j / R * Math.PI / 2, p1 = (j + 1) / R * Math.PI / 2;
+            const P = (c, s, p) => [cx + c * r * Math.cos(p), y0 + dh + r * Math.sin(p), cz + s * r * Math.cos(p)];
+            const n = [nx * Math.cos((p0 + p1) / 2), Math.sin((p0 + p1) / 2), nz * Math.cos((p0 + p1) / 2)];
+            if (j === R - 1) roofGeo.tri(P(c0, s0, p0), P(c1, s1, p0), P(c0, s0, p1), dc, n);
+            else roofGeo.quad(P(c0, s0, p0), P(c1, s1, p0), P(c1, s1, p1), P(c0, s0, p1), dc, n);
+          }
+        }
+      }
+    }
+    if (b.feature.includes('pitched_section')) {
+      // 體育館: flat roof with a pitched (gabled) section over the middle
+      // widest band across the middle third that stays on the footprint (L-shaped plans)
+      const u0 = f.u0 + L * 0.28, u1 = f.u1 - L * 0.28;
+      let v0 = 0, v1 = -1;
+      for (const k of [0.9, 0.7, 0.5, 0.4, 0.3]) {
+        const w = W * k - 4; let best = null;
+        for (let c = f.v0 + 2 + w / 2; c <= f.v1 - 2 - w / 2 + 1e-6; c += W * 0.025) {
+          if (inside(u0, u1, c - w / 2, c + w / 2) && (!best || Math.abs(c - (f.v0 + f.v1) / 2) < Math.abs(best - (f.v0 + f.v1) / 2))) best = c;
+        }
+        if (best !== null) { v0 = best - w / 2; v1 = best + w / 2; break; }
+      }
+      if (v1 - v0 > 6) {
+        const y = top + 0.6, rise = Math.min(4, (v1 - v0) * 0.18), vm = (v0 + v1) / 2;
+        const rc = col('#8e969b'), wc = col('#cfcac0');
+        const Q = (u, v, yy) => Q3(f, u, v, yy);
+        rtri(Q(u0, v0, y), Q(u1, v0, y), Q(u1, vm, y + rise), rc); rtri(Q(u0, v0, y), Q(u1, vm, y + rise), Q(u0, vm, y + rise), rc);
+        rtri(Q(u1, v1, y), Q(u0, v1, y), Q(u0, vm, y + rise), rc); rtri(Q(u1, v1, y), Q(u0, vm, y + rise), Q(u1, vm, y + rise), rc);
+        roofGeo.tri(Q(u0, v0, y), Q(u0, v1, y), Q(u0, vm, y + rise), wc, [-f.ux, 0, -f.uz]);
+        roofGeo.tri(Q(u1, v0, y), Q(u1, v1, y), Q(u1, vm, y + rise), wc, [f.ux, 0, f.uz]);
+      }
+    }
+  };
   const tanks = []; const shopWalls = world.shopWalls = []; let oldSigns = 0;
   // building base: lowest ground along the footprint (corners + every 5 m of edge).
   // When the plot drops more than h/2 (low shops on a slope) the base moves to
@@ -1000,56 +1058,65 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const q = rb();
       style = mk || b.kind === 'church' || b.kind === 'dorm' ? 'campus' : q < 0.22 && floors >= 3 ? 'glass' : q < 0.4 && b.kind === 'campus' ? 'concrete' : 'campus';
     } else style = floors >= 5 ? 'apt' : rb() < 0.3 ? 'wash' : 'town';
+    // overrides.json facade (e.g. 懷恩樓 arcade); rb() above is still drawn so the stream is unchanged
+    if (b.facade) style = b.facade;
     const g = wallFor(style, mk);
-    // outer ring is CCW, courtyard rings CW, so the same normal faces outwards
-    const rings = b.holes ? [pts, ...b.holes] : [pts];
     const bay = civic ? 3.6 : 3.0;
     let acc = Math.floor(rnd() * 8) * bay;
     const vOff = Math.floor(rnd() * 8) / 8;
-    const vAt = y => vOff + (y - base) / h * floors / 8;
     // water stains at the wall foot, slightly darker under the roof line
     const cLo = tint.map(v => v * 0.7), cTop = tint.map(v => v * 0.88);
-    const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass');
+    const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass') && !b.parts;
     let sAcc = Math.floor(rb() * 8) * 4;
-    for (const ring of rings) for (let i = 0; i < ring.length; i++) {
-      const a = ring[i], c = ring[(i + 1) % ring.length];
-      const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
-      if (l < 0.05) continue;
-      const n = [dz / l, 0, -dx / l]; // outward for CCW (x,z)
-      const u0 = acc / (bay * 8), u1 = (acc + l) / (bay * 8); acc += l;
-      const top = base + h;
-      const shop = shops && ring === pts && l > 2.5 && facesStreet(a, c, n);
-      const yS = shop ? Math.min(base + 3.6, top - 0.3) : Math.min(base + 1.2, top);
-      // wall foot goes 0.5 m below the lowest ground so slopes never show a gap
-      if (shop) {
-        // 4 m shop bays; u runs right-to-left along the ring so signs read correctly
-        const s0 = -sAcc / 32, s1 = -(sAcc + l) / 32, w0 = (foot - base) / 3.6, w1 = (yS - base) / 3.6; sAcc += l;
-        shopGeo.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [SHOP_LO, SHOP_LO, SHOP_HI, SHOP_HI], n,
-          [[s0, w0], [s1, w0], [s1, w1], [s0, w1]]);
-        // street-facing shop walls: furniture.js hangs POI signs and parks scooters here
-        shopWalls.push({ a, c, n, base, h, floors, bi });
-      } else {
-        g.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [cLo, cLo, tint, tint], n,
-          [[u0, vAt(foot)], [u1, vAt(foot)], [u1, vAt(yS)], [u0, vAt(yS)]]);
-      }
-      if (top > yS + 0.01) g.quad([a[0], yS, a[1]], [c[0], yS, c[1]], [c[0], top, c[1]], [a[0], top, a[1]], [tint, tint, cTop, cTop], n,
-        [[u0, vAt(yS)], [u1, vAt(yS)], [u1, vAt(top)], [u0, vAt(top)]]);
-      // the old fixed-word signs are gone (POI signs in furniture.js); their
-      // draws stay so the shared rnd sequence (stalls, trees...) is unchanged
-      if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && oldSigns < 260) { oldSigns++; rnd(); }
-    }
     const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
-    const top = base + h;
-    const pitched = pitchedRoof(b, pts, top, rc, tint.map(v => v * 0.85));
-    if (!pitched) roofGeo.flatPoly(pts, top, rc, b.holes);
-    // parapet
-    if (!pitched) for (const ring of rings) for (let i = 0; i < ring.length; i++) {
-      const a = ring[i], c = ring[(i + 1) % ring.length];
-      const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) continue;
-      const n = [dz / l, 0, -dx / l];
-      roofGeo.quad([a[0], top, a[1]], [c[0], top, c[1]], [c[0], top + 0.6, c[1]], [a[0], top + 0.6, a[1]], tint.map(v => v * 0.85), n);
-      roofGeo.quad([a[0], top + 0.6, a[1]], [c[0], top + 0.6, c[1]], [c[0] - n[0] * 0.25, top + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, top + 0.6, a[1] - n[2] * 0.25], tint.map(v => v * 0.9), [0, 1, 0]);
+    // blocks of different height (overrides.json split, e.g. 全人教育村) share the base
+    const vols = b.parts || [{ pts, h, floors, holes: b.holes }];
+    let pitched = false;
+    for (const V of vols) {
+      const vp = V.pts, vh = V.h, vf = V.floors || floors;
+      // outer ring is CCW, courtyard rings CW, so the same normal faces outwards
+      const rings = V.holes ? [vp, ...V.holes] : [vp];
+      const vAt = y => vOff + (y - base) / vh * vf / 8;
+      const top = base + vh;
+      for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], c = ring[(i + 1) % ring.length];
+        const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
+        if (l < 0.05) continue;
+        const n = [dz / l, 0, -dx / l]; // outward for CCW (x,z)
+        const u0 = acc / (bay * 8), u1 = (acc + l) / (bay * 8); acc += l;
+        const shop = shops && ring === pts && l > 2.5 && facesStreet(a, c, n);
+        const yS = shop ? Math.min(base + 3.6, top - 0.3) : Math.min(base + 1.2, top);
+        // wall foot goes 0.5 m below the lowest ground so slopes never show a gap
+        if (shop) {
+          // 4 m shop bays; u runs right-to-left along the ring so signs read correctly
+          const s0 = -sAcc / 32, s1 = -(sAcc + l) / 32, w0 = (foot - base) / 3.6, w1 = (yS - base) / 3.6; sAcc += l;
+          shopGeo.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [SHOP_LO, SHOP_LO, SHOP_HI, SHOP_HI], n,
+            [[s0, w0], [s1, w0], [s1, w1], [s0, w1]]);
+          // street-facing shop walls: furniture.js hangs POI signs and parks scooters here
+          shopWalls.push({ a, c, n, base, h, floors, bi });
+        } else {
+          g.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [cLo, cLo, tint, tint], n,
+            [[u0, vAt(foot)], [u1, vAt(foot)], [u1, vAt(yS)], [u0, vAt(yS)]]);
+        }
+        if (top > yS + 0.01) g.quad([a[0], yS, a[1]], [c[0], yS, c[1]], [c[0], top, c[1]], [a[0], top, a[1]], [tint, tint, cTop, cTop], n,
+          [[u0, vAt(yS)], [u1, vAt(yS)], [u1, vAt(top)], [u0, vAt(top)]]);
+        // the old fixed-word signs are gone (POI signs in furniture.js); their
+        // draws stay so the shared rnd sequence (stalls, trees...) is unchanged
+        if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && oldSigns < 260) { oldSigns++; rnd(); }
+      }
+      pitched = !b.parts && pitchedRoof(b, vp, top, rc, tint.map(v => v * 0.85));
+      if (!pitched) roofGeo.flatPoly(vp, top, rc, V.holes);
+      // parapet
+      if (!pitched) for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], c = ring[(i + 1) % ring.length];
+        const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) continue;
+        const n = [dz / l, 0, -dx / l];
+        roofGeo.quad([a[0], top, a[1]], [c[0], top, c[1]], [c[0], top + 0.6, c[1]], [a[0], top + 0.6, a[1]], tint.map(v => v * 0.85), n);
+        roofGeo.quad([a[0], top + 0.6, a[1]], [c[0], top + 0.6, c[1]], [c[0] - n[0] * 0.25, top + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, top + 0.6, a[1] - n[2] * 0.25], tint.map(v => v * 0.9), [0, 1, 0]);
+      }
     }
+    const top = base + h;
+    if (b.feature) landmarkRoof(b, pts, top);
     // rooftop extras on flat town roofs: ~45% 鐵皮加蓋, ~30% stair house
     let extraH = 0, tankAt = null;
     if (b.kind === 'town' && !pitched && !b.holes && floors >= 2) {
@@ -1082,7 +1149,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
       if (pointInPoly(cx, cz, pts)) { const p = [cx + (rnd() - .5), top, cz + (rnd() - .5)]; if (tankAt !== false) tanks.push(tankAt || p); }
     }
-    collision.addPolygon(pts, Math.max(pitched ? top + pitched : top + 0.6, top + extraH));
+    if (b.parts) {
+      // whole footprint blocks movement; each block gives its own roof to topAt
+      collision.addPolygon(pts, -Infinity);
+      for (const V of b.parts) collision.addPolygon(V.pts, base + V.h + 0.6);
+    } else collision.addPolygon(pts, Math.max(pitched ? top + pitched : top + 0.6, top + extraH));
     if (b.name) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
       world.named[b.name] = { x: cx, z: cz, h, base, b };
@@ -1156,52 +1227,107 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // ---------- landmarks ----------
   const poi = name => data.pois.find(p => p.name === name);
   const standard = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, ...o });
-  // Clock tower 二一鐘
+  const LM = data.landmarks || {};
+  // merge box-like parts [geometry, x, y, z] into one mesh
+  const mergedMesh = (parts, mat) => {
+    const gs = parts.map(([geo, x, y, z]) => { geo.translate(x, y, z); return geo; });
+    const m = new THREE.Mesh(mergeGeometries(gs, false), mat);
+    gs.forEach(geo => geo.dispose());
+    return m;
+  };
+  // 二一鐘 (OSM 鐘塔): two fair-faced concrete pylons joined at the top, a bell
+  // between them and a cross on top (Commons photos, see overrides.json)
   const ct = poi('鐘塔');
-  if (ct) {
+  if (ct && (LM['鐘塔'] || {}).style === 'cross_bell') {
+    const T = LM['鐘塔'], h = T.h || 19, ch = T.cross || 5;
     const g = new THREE.Group();
-    const brick = standard('#a4553f'), white = standard('#efe9dc');
-    const base = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2, 4.4), white); base.position.y = 0;
-    const shaft = new THREE.Mesh(new THREE.BoxGeometry(3.2, 16, 3.2), brick); shaft.position.y = 9;
-    const band = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.5, 3.6), white); band.position.y = 13;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(3.8, 3.8, 3.8), white); head.position.y = 18.9;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(3.3, 4, 4), standard('#5b2b22')); roof.position.y = 22.8; roof.rotation.y = Math.PI / 4;
-    g.add(base, shaft, band, head, roof);
-    const face = new THREE.MeshStandardMaterial({ map: clockFaceTexture(), roughness: 0.5, emissive: '#fff1c8', emissiveIntensity: 0 });
-    world.clockFaceMat = face;
-    const hands = [];
-    for (let i = 0; i < 4; i++) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 3.3), face);
-      const a = i * Math.PI / 2;
-      f.position.set(Math.sin(a) * 1.92, 18.9, Math.cos(a) * 1.92); f.rotation.y = a; g.add(f);
-      const hg = new THREE.Group(); hg.position.copy(f.position).multiplyScalar(1.005); hg.position.y = 18.9; hg.rotation.y = a;
-      const hh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.85, 0.03), standard('#111')); hh.geometry.translate(0, 0.42, 0.03);
-      const mh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.25, 0.03), standard('#111')); mh.geometry.translate(0, 0.62, 0.04);
-      const hp = new THREE.Group(); hp.add(hh); const mp = new THREE.Group(); mp.add(mh);
-      hg.add(hp, mp); g.add(hg); hands.push([hp, mp]);
-    }
-    world.clockHands = hands;
+    const pylon = (x) => {
+      // folded-plate pylon, slightly tapered
+      const geo = new THREE.BoxGeometry(1.0, h, 1.5, 1, 1, 1); const p = geo.attributes.position;
+      for (let i = 0; i < p.count; i++) if (p.getY(i) > 0) { p.setX(i, p.getX(i) * 0.7); p.setZ(i, p.getZ(i) * 0.75); }
+      geo.computeVertexNormals();
+      return [geo, x, h / 2, 0];
+    };
+    const conc = mergedMesh([
+      [new THREE.BoxGeometry(3.6, 0.4, 2.2), 0, 0.2, 0], pylon(-1.15), pylon(1.15),
+      [new THREE.BoxGeometry(2.4, 0.9, 1.0), 0, h - 0.45, 0],
+      [new THREE.BoxGeometry(0.28, ch + 1, 0.28), 0, h + (ch + 1) / 2 - 1, 0],
+      [new THREE.BoxGeometry(1.9, 0.28, 0.28), 0, h + ch * 0.62, 0],
+    ], standard('#bdbab2', { roughness: 0.9 }));
+    const bell = mergedMesh([
+      [new THREE.CylinderGeometry(0.3, 0.55, 0.9, 10), 0, h - 1.6, 0],
+      [new THREE.CylinderGeometry(0.05, 0.05, 0.5, 4), 0, h - 0.95, 0],
+    ], standard('#5e4b33', { roughness: 0.5, metalness: 0.5 }));
+    g.add(conc, bell);
     const cb = Hmin(ct.x, ct.z, 2.2);
     g.position.set(ct.x, cb, ct.z);
-    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    g.traverse(o => { if (o.isMesh) { o.castShadow = !opts.low; o.receiveShadow = true; } });
     scene.add(g);
+    collision.addCircle(ct.x, ct.z, 2.6);
+    world.named['鐘塔'] = { x: ct.x, z: ct.z, h: Math.round(h + ch), base: cb };
+  } else if (ct) {
+    // fallback without landmark data: a plain tower
+    const g = new THREE.Group();
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(3.2, 20, 3.2), standard('#bdbab2')); shaft.position.y = 10; g.add(shaft);
+    const cb = Hmin(ct.x, ct.z, 2.2);
+    g.position.set(ct.x, cb, ct.z); scene.add(g);
     collision.addCircle(ct.x, ct.z, 2.6);
     world.named['鐘塔'] = { x: ct.x, z: ct.z, h: 25, base: cb };
   }
-  // Old gate 舊校門
+  // Old gate 舊校門: three white concrete round arches on twin columns, plaques
+  // 中 原 大 學 on the column groups (Commons photo, see overrides.json).
+  // Sizes are estimates; the road runs under the middle arch.
   const og = poi('舊校門');
   if (og) {
     const near = world.nearestRoadPoint(og.x, og.z);
     const dir = near ? near.dir : 0;
+    // centred on the road (the POI sits ~0.5 m off it)
+    const gx = near && Math.hypot(near.x - og.x, near.z - og.z) < 3 ? near.x : og.x, gz = gx === og.x ? og.z : near.z;
     const g = new THREE.Group();
-    const stone = standard('#cfc6b4');
-    for (const s of [-4.2, 4.2]) { const p = new THREE.Mesh(new THREE.BoxGeometry(1.3, 6.5, 1.3), stone); p.position.set(s, 2.25, 0); g.add(p); collision.addCircle(og.x + Math.cos(dir) * s, og.z - Math.sin(dir) * s, 0.9); }
-    const top = new THREE.Mesh(new THREE.BoxGeometry(10.4, 1.4, 1.5), stone); top.position.y = 6.1; g.add(top);
-    const lt = labelTexture('中原大學', { size: 60, bg: '#7a2b1f', color: '#ffe9a8' });
-    for (const s of [1, -1]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 1.1), new THREE.MeshBasicMaterial({ map: lt.tex })); pl.position.set(0, 6.1, 0.76 * s); if (s < 0) pl.rotation.y = Math.PI; g.add(pl); }
-    g.position.set(og.x, Hmin(og.x, og.z, 4.5), og.z); g.rotation.y = dir + Math.PI / 2;
-    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    const SPAN = 5.6, COL = 0.7, HC = 5.2, STEP = SPAN + COL * 2 + 0.15, D = 0.9, R = SPAN / 2;
+    // base at the highest column foot; each column reaches down to its own ground
+    const wx = x => [gx + Math.cos(dir) * x, gz - Math.sin(dir) * x];
+    const cxs = [-STEP, 0, STEP].flatMap(c => [c - R - COL / 2, c + R + COL / 2]);
+    const gb = Math.max(...cxs.map(x => H(...wx(x))));
+    const parts = [];
+    for (const x of cxs) {
+      const drop = gb - H(...wx(x)) + 0.3;
+      parts.push([new THREE.BoxGeometry(COL, HC + drop, D), x, (HC - drop) / 2, 0]);
+    }
+    for (const c of [-STEP, 0, STEP]) {
+      // semicircular arch ring from short boxes
+      const N = 12;
+      for (let k = 0; k < N; k++) {
+        const t = (k + 0.5) / N * Math.PI, len = (R + 0.6) * Math.PI / N + 0.04;
+        const geo = new THREE.BoxGeometry(len, 0.6, D); geo.rotateZ(t - Math.PI / 2);
+        parts.push([geo, c - Math.cos(t) * (R + 0.3), HC + Math.sin(t) * (R + 0.3), 0]);
+      }
+    }
+    const arch = mergedMesh(parts, standard('#e9e6de', { roughness: 0.85 }));
+    arch.castShadow = !opts.low; arch.receiveShadow = true; g.add(arch);
+    // plaques: one canvas with the four characters, one quad per column group and side
+    const pt = canvasTex(256, 64, (cx) => {
+      cx.fillStyle = '#f4f1ea'; cx.fillRect(0, 0, 256, 64);
+      cx.fillStyle = '#1b1b1b'; cx.font = '900 46px "Noto Sans TC","Microsoft JhengHei",sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      [...'中原大學'].forEach((t, i) => { cx.fillText(t, i * 64 + 32, 34); cx.strokeStyle = '#555'; cx.lineWidth = 3; cx.strokeRect(i * 64 + 3, 3, 58, 58); });
+    }, false);
+    const pg = [];
+    const xs = [-STEP - R - COL / 2, -STEP / 2, STEP / 2, STEP + R + COL / 2];
+    xs.forEach((x, i) => {
+      for (const sd of [1, -1]) {
+        const q = new THREE.PlaneGeometry(1.0, 1.0); const uv = q.attributes.uv;
+        for (let k = 0; k < uv.count; k++) uv.setX(k, (i + uv.getX(k)) / 4);
+        if (sd < 0) q.rotateY(Math.PI);
+        pg.push([q, x, HC + 0.3, sd * (D / 2 + 0.02)]);
+      }
+    });
+    g.add(mergedMesh(pg, new THREE.MeshLambertMaterial({ map: pt })));
+    // rotation dir: local x runs across the road, matching the colliders
+    g.position.set(gx, gb, gz); g.rotation.y = dir;
     scene.add(g);
+    for (const x of [-STEP - R - COL / 2, -STEP / 2, STEP / 2, STEP + R + COL / 2]) {
+      collision.addCircle(gx + Math.cos(dir) * x, gz - Math.sin(dir) * x, 0.7);
+    }
   }
   // Fountain 中原噴水池
   const fp = data.areas.find(a => a.name === '中原噴水池');
@@ -1544,11 +1670,6 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     if (world.marketGlow) world.marketGlow.opacity = night * 0.12;
     if (world.stallBodyMat) world.stallBodyMat.emissiveIntensity = night * 0.18;
     if (world.signMats) for (const m of world.signMats) m.emissiveIntensity = 0.15 + night * 0.9;
-    if (world.clockFaceMat) world.clockFaceMat.emissiveIntensity = night * 0.6;
-    if (world.clockHands) {
-      const h = (clockMin / 60) % 12, mm = clockMin % 60;
-      for (const [hp, mp] of world.clockHands) { hp.rotation.z = -h / 12 * Math.PI * 2; mp.rotation.z = -mm / 60 * Math.PI * 2; }
-    }
     if (playerPos) for (const l of world.labels) {
       const d = Math.hypot(l.position.x - playerPos.x, l.position.z - playerPos.z);
       l.visible = d < 230;

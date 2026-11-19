@@ -613,6 +613,15 @@ def main():
                 r['width'] = parse_num(t['width'])
             if t.get('surface'):
                 r['surface'] = t['surface']
+            if hw == 'service' and t.get('service'):
+                r['service'] = t['service']
+            # carriageway width from width= or lanes= (lanes count both ways
+            # unless oneway); 3.3 m per lane plus a small shoulder
+            if hw in DRIVABLE and t.get('area') != 'yes':
+                if r.get('width') and 3 <= r['width'] <= 40:
+                    r['w'] = round(r['width'], 1)
+                elif r.get('lanes'):
+                    r['w'] = round(max(4.2, r['lanes'] * 3.3 + (0.8 if r.get('oneway') else 1.4)), 1)
             out['roads'].append(r)
             continue
 

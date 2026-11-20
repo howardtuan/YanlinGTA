@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildWorld, mulberry32, makeLabel } from './map.js';
+import { buildWorld, buildSkyline, mulberry32, makeLabel } from './map.js';
 import { Vehicle } from './vehicles.js';
 import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
@@ -18,6 +18,9 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 const lerp = (a, b, t) => a + (b - a) * t;
 const lockPointer = el => { try { const r = el.requestPointerLock?.(); if (r && r.catch) r.catch(() => { }); } catch (e) { } };
 const cLerp = (a, b, t) => a.clone().lerp(b, t);
+const DAY_FOG = new THREE.Color('#b9c4cc'), GREY = new THREE.Color('#888');
+const isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
+const qualityLow = q => q === 'low' || (q !== 'high' && isTouch());
 
 class Game {
   async init() {
@@ -38,11 +41,13 @@ class Game {
     const M = MCD_SPEC;
     const reserved = [imFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint)];
     this.settings = loadSettings();
+    // quality: 'auto' picks low on touch devices; MSAA can only change with a new renderer (reload)
+    this.lowQ = qualityLow(this.settings.quality);
     // renderer
-    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    r.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: !this.lowQ, powerPreference: 'high-performance' });
+    r.setPixelRatio(Math.min(devicePixelRatio, this.lowQ ? 1 : 1.6));
     r.setSize(innerWidth, innerHeight);
-    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    r.shadowMap.enabled = true; r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
     r.domElement.id = 'game';
     document.getElementById('app').prepend(r.domElement);
@@ -55,7 +60,8 @@ class Game {
     this._sky();
     await nextFrame();
     setLoad(0.08, '搭建中原大學');
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved });
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, low: this.lowQ });
+    this.skyline = buildSkyline(this.scene, this.lowQ ? 70 : 180);
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
     this.interiors = buildInteriors(this.scene, data, this.world.collision);
@@ -66,8 +72,8 @@ class Game {
     this.hud = new HUD(this.world);
     this.player = new Player(this.scene);
     this.rig = new CameraRig(this.camera);
-    this.traffic = new Traffic(this.scene, this.world, 26);
-    this.peds = new Peds(this.scene, this.world, 32);
+    this.traffic = new Traffic(this.scene, this.world, this.lowQ ? 14 : 26);
+    this.peds = new Peds(this.scene, this.world, this.lowQ ? 18 : 32);
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
     // 彥霖 campaign billboards at key campus spots
@@ -108,24 +114,26 @@ class Game {
   // ---------- sky & lighting ----------
   _sky() {
     const geo = new THREE.SphereGeometry(2200, 32, 16);
-    this.skyU = { top: { value: new THREE.Color('#3b4a8a') }, hor: { value: new THREE.Color('#ff9a5a') }, sunDir: { value: new THREE.Vector3(0, 0.1, -1) }, sunCol: { value: new THREE.Color('#ffd0a0') }, night: { value: 0 } };
+    this.skyU = { top: { value: new THREE.Color('#3b4a8a') }, hor: { value: new THREE.Color('#ff9a5a') }, sunDir: { value: new THREE.Vector3(0, 0.1, -1) }, sunCol: { value: new THREE.Color('#ffd0a0') }, night: { value: 0 }, fogc: { value: new THREE.Color('#b9c4cc') } };
     const mat = new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false, uniforms: this.skyU,
       vertexShader: `varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      fragmentShader: `uniform vec3 top; uniform vec3 hor; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night; varying vec3 vP;
+      fragmentShader: `uniform vec3 top; uniform vec3 hor; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night; uniform vec3 fogc; varying vec3 vP;
         float h(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,45.164)))*43758.5453); }
         void main(){ float y = max(vP.y, 0.0); vec3 c = mix(hor, top, pow(y, 0.55));
           float s = max(dot(normalize(vP), normalize(sunDir)), 0.0);
           c += sunCol * (pow(s, 600.0)*3.0 + pow(s, 12.0)*0.35) * (1.0-night);
           vec3 q = floor(vP*380.0); float st = step(0.9975, h(q)) * night * smoothstep(0.05,0.4,y);
           c += vec3(st);
-          if (vP.y < 0.0) c = hor*0.6;
+          // below the horizon: the fog colour as lit materials show it (tone mapped + sRGB)
+          vec3 fo = linearToOutputTexel(vec4(toneMapping(fogc), 1.0)).rgb;
+          if (vP.y < 0.0) c = fo; else c = mix(fo, c, smoothstep(0.0, 0.04, vP.y));
           gl_FragColor = vec4(c,1.0); }`,
     });
     this.sky = new THREE.Mesh(geo, mat); this.scene.add(this.sky);
     this.hemi = new THREE.HemisphereLight('#bcd4ff', '#5a5040', 1.0); this.scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight('#ffd7a8', 2.2);
-    this.sun.castShadow = true; this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.castShadow = true; this.sun.shadow.mapSize.set(this.lowQ ? 1024 : 2048, this.lowQ ? 1024 : 2048);
     const sc = this.sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 1; sc.far = 400;
     this.sun.shadow.bias = -0.0005; this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.sun, this.sun.target);
@@ -155,7 +163,18 @@ class Game {
     let top = cLerp(D.top, S.top, sunset), hor = cLerp(D.hor, S.hor, sunset);
     top = cLerp(top, N.top, night); hor = cLerp(hor, N.hor, night);
     this.skyU.top.value.copy(top); this.skyU.hor.value.copy(hor); this.skyU.sunDir.value.copy(sunDir); this.skyU.night.value = night;
-    this.scene.fog.color.copy(hor).lerp(new THREE.Color('#888'), 0.15);
+    // grey-blue daytime haze (#b9c4cc), sky-tinted at dusk and night
+    this.scene.fog.color.copy(hor).lerp(GREY, 0.15).lerp(DAY_FOG, (1 - Math.max(sunset, night)) * 0.85);
+    this.skyU.fogc.value.copy(this.scene.fog.color);
+    if (this.skyline) {
+      const cp = this.camera.position, gy0 = surfaceAt(cp.x, cp.z);
+      // backdrop only reads right from street height; from high above it floats
+      this.skyline.visible = cp.y - gy0 < 80;
+      if (this.skyline.visible) {
+        this.skyline.position.set(cp.x, gy0, cp.z);
+        this.skyline.userData.update(this.scene.fog.color);
+      }
+    }
     const p = this.player.worldPos();
     const ld = elev > 0.05 ? sunDir : new THREE.Vector3(0.3, 0.8, 0.4).normalize(); // moonlight
     const gy = surfaceAt(p.x, p.z);
@@ -412,10 +431,13 @@ class Game {
   _settingsHTML() {
     const s = this.settings;
     const opt = (v, t) => `<button data-music="${v}" class="${s.music === v ? 'on' : ''}">${t}</button>`;
+    const q = (v, t) => `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
     return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('off', '關閉')}</div></div>
       <div class="set-row"><label>音樂音量</label><input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="${s.musicVol}"><span class="set-val" id="vMusic">${Math.round(s.musicVol * 100)}%</span></div>
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
-      <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>`;
+      <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
+      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('high', '高')}${q('low', '低')}</div></div>
+      <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">目前：${this.lowQ ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）${qualityLow(s.quality) !== this.lowQ ? '・重新整理後套用' : ''}</small></div>`;
   }
   _bindSettings() {
     const s = this.settings, save = () => saveSettings(s);
@@ -426,6 +448,14 @@ class Game {
     $('setMusicVol').oninput = (e) => { s.musicVol = +e.target.value; $('vMusic').textContent = Math.round(s.musicVol * 100) + '%'; this.audio.applyVolumes(); save(); };
     $('setSfxVol').oninput = (e) => { s.sfxVol = +e.target.value; $('vSfx').textContent = Math.round(s.sfxVol * 100) + '%'; this.audio.applyVolumes(); this.audio.blip(); save(); };
     $('setSens').oninput = (e) => { s.sens = +e.target.value; $('vSens').textContent = s.sens.toFixed(1); save(); };
+    for (const b of document.querySelectorAll('#setQuality button')) b.onclick = () => {
+      s.quality = b.dataset.q; save();
+      for (const o of document.querySelectorAll('#setQuality button')) o.classList.toggle('on', o === b);
+      const low = qualityLow(s.quality);
+      // pixel ratio applies now; MSAA, shadows and crowd sizes need a reload
+      this.renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1 : 1.6));
+      $('qNote').textContent = low === this.lowQ ? `目前：${low ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）` : `已存檔：${low ? '低' : '高'}畫質，陰影與抗鋸齒在重新整理後套用`;
+    };
   }
   openSettings() { this.audio.init(); this.modal('設定 / 音樂', this._settingsHTML()); this._bindSettings(); }
   // ---------- computer lab video ----------

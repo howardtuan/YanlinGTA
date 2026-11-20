@@ -185,14 +185,22 @@ export class HUD {
     if (!this.dialogQueue.length) { d.classList.add('hidden'); const cb = this.dialogCb; this.dialogCb = null; cb && cb(); return; }
     const [name, text] = this.dialogQueue.shift();
     d.classList.remove('hidden'); $('dlgName').textContent = name; this.fullText = text; this.typing = 0; $('dlgText').textContent = '';
+    this._typeT = performance.now();
   }
+  // one press = finish the line if it is still typing, otherwise go to the next line.
+  // A second press within 180 ms is ignored, so one click / tap can never skip two lines.
   advanceDialog() {
-    if (this.typing < this.fullText.length) { this.typing = this.fullText.length; $('dlgText').textContent = this.fullText; return; }
-    this._showNext();
+    const now = performance.now();
+    if (now - (this._advAt || 0) < 180) return false;
+    this._advAt = now;
+    if (this.typing < this.fullText.length) { this.typing = this.fullText.length; $('dlgText').textContent = this.fullText; return true; }
+    this._showNext(); return true;
   }
   update(dt) {
     if (this.inDialog && this.typing < this.fullText.length) {
-      this.typing = Math.min(this.fullText.length, this.typing + dt * 40);
+      // wall-clock based: frame dt is capped at 50 ms, which made the text crawl on slower machines
+      const now = performance.now(), rdt = Math.min(0.5, (now - (this._typeT || now)) / 1000); this._typeT = now;
+      this.typing = Math.min(this.fullText.length, this.typing + Math.max(dt, rdt) * 45);
       $('dlgText').textContent = this.fullText.slice(0, Math.floor(this.typing));
     }
   }

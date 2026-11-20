@@ -110,6 +110,12 @@ class Game {
     this.phone = new Phone(this);
     this.job = new McShift(this); // 麥當勞打工值班
     this.gate = new GateDuty(this); // A6 側門門禁任務
+    // gamepad: button layout follows whatever has the controls right now
+    this.input.padContext = () => this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
+    this.input.onPad = (on) => {
+      this.hud.toast(on ? '🎮 搖桿已連線：左搖桿移動、右搖桿視角、A 互動／對話' : '🎮 搖桿已中斷', on ? 'good' : 'bad', 3200);
+      document.body.classList.toggle('pad', on);
+    };
     // 彩蛋 (tools/overrides.json pois[].egg): toast once per game when you walk / ride past
     this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
     // 彥霖 campaign billboards at key campus spots
@@ -511,6 +517,15 @@ class Game {
     this.state = 'play';
     if (!this.input.touch && !this.job?.active) lockPointer(this.renderer.domElement); // the shift panel needs a free mouse
   }
+  // gamepad on screens where game input is off (title, pause / settings modal, ending, video)
+  _padMenus() {
+    const h = this.input.pad.hits; if (!h.size) return;
+    const A = h.has(0), B = h.has(1), S = h.has(9);
+    if (this._modalOpen) { if (A || B || S) this.closeModal(); return; }
+    if (this.state === 'title' && !this._starting && (A || S)) { $('btnStart').click(); return; }
+    if (this.state === 'ending' && (A || S)) { $('btnKeepPlaying').click(); return; }
+    if (this.videoOpen && (B || S)) this.closeVideo();
+  }
   _checkRotate() {
     $('rotateHint').classList.toggle('hidden', !(this.input && this.input.touch && innerHeight > innerWidth && this.state === 'play'));
   }
@@ -521,6 +536,7 @@ class Game {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
     this.time = (this.time || 0) + dt;
+    if (this.input) { this.input.pollPad(dt); this._padMenus(); }
     if (this.state === 'title') this._titleCam(dt);
     else if (this.state === 'play') this._update(dt);
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
@@ -551,7 +567,7 @@ class Game {
     this.phone.tick(); // Peachgram / Pcard get new posts every 30 game minutes
     hud.update(dt);
     const inDialog = hud.inDialog;
-    if (inDialog && inp.hit('KeyE', 'Enter', 'Space', 'Mouse0')) { hud.advanceDialog(); this.audio.talk(); inp.pressed.clear(); }
+    if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) { if (hud.advanceDialog()) this.audio.talk(); inp.pressed.clear(); }
     // McDonald's shift and the i-Piyan phone take the keyboard while they are up
     if (!this.job.active) this.job.update(dt, inp); // off duty: only walks the last customers out of the shop
     if (this.job.active && !inDialog) { this.job.update(dt, inp); inp.pressed.clear(); }
@@ -757,6 +773,23 @@ const CONTROLS_HTML = `
 <div class="ctrl-grid">
 <div><span>地圖</span><kbd>M</kbd></div>
 <div><span>暫停</span><kbd>Esc</kbd></div>
+</div>
+<div class="ctrl-sec">🎮 搖桿 GAMEPAD（Xbox / PS / Switch Pro，插上或藍牙連線後按任一鍵）</div>
+<div class="ctrl-grid">
+<div><span>移動 / 轉向</span><span>左搖桿</span></div>
+<div><span>視角</span><span>右搖桿</span></div>
+<div><span>油門 / 煞車倒車</span><span><kbd>RT</kbd> / <kbd>LT</kbd></span></div>
+<div><span>互動・對話・掏手機</span><kbd>A</kbd></div>
+<div><span>上車 / 下車</span><kbd>B</kbd></div>
+<div><span>發傳單拉票</span><kbd>X</kbd></div>
+<div><span>比 ✌</span><kbd>Y</kbd></div>
+<div><span>跳躍 / 甩尾</span><kbd>RB</kbd></div>
+<div><span>喇叭</span><kbd>LB</kbd></div>
+<div><span>衝刺</span><span>按下左搖桿</span></div>
+<div><span>地圖 / 暫停</span><span><kbd>View</kbd> / <kbd>Menu</kbd></span></div>
+<div><span>手機：選擇 / 開啟 / 返回 / 收起</span><span>十字鍵 / <kbd>A</kbd> / <kbd>B</kbd> / <kbd>Y</kbd></span></div>
+<div><span>側門門禁：放行 / 擋下</span><span><kbd>A</kbd> / <kbd>B</kbd></span></div>
+<div><span>麥當勞：餐點 1–6 / 出餐 / 拿掉 / 下班</span><span>十字鍵 <kbd>X</kbd> <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>B</kbd> / <kbd>Menu</kbd></span></div>
 </div>
 <p style="margin-top:10px;color:#a9adbf">手機：左下搖桿移動，右側拖曳轉視角，按鈕操作上下車 / 發傳單。</p>`;
 

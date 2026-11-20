@@ -1,15 +1,17 @@
-// 呼叫載具 (phone app): an EVA Air (長榮航空) helicopter flies in with your JET SL hanging under it on a cable, lowers it
+// Played as a short film: 21:9 letterbox, HUD hidden, the player can't move, and a street-level camera
+// follows the helicopter in, watches the scooter touch down and the helicopter leave, then hands back.
+// 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JET SL hanging under it on a cable, lowers it
 // onto the road next to you, lets go and flies off again.
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
-const T_IN = 7, T_LOWER = 4.5, T_OUT = 8, HOVER = 16;
+const T_IN = 7, T_LOWER = 4.5, T_OUT = 8, HOVER = 16, CINE_OUT = 4.5; // the film ends 4.5 s into the fly-away
 
 function buildHeli() {
   const g = new THREE.Group();
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.2, ...o });
-  // 長榮航空 livery: white body, dark green belly stripe and tail with a thin orange line, green lettering
+  // 彥霖航空 livery: white body, dark green belly stripe and tail with a thin orange line, green lettering
   const white = mat('#f2f3f5'), green = mat('#00664f'), orange = mat('#f39800'), dark = mat('#26282d'), glass = mat('#1d3550', { roughness: 0.1, metalness: 0.6 });
   const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; g.add(o); return o; };
   add(new THREE.CapsuleGeometry(1.05, 2.4, 6, 16), white, 0, 0, 0, Math.PI / 2, 0, 0).scale.set(1, 1, 0.92);   // cabin
@@ -29,19 +31,46 @@ function buildHeli() {
   for (const a of [0, Math.PI / 2]) { const b = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.05, 0.28), dark); b.rotation.y = a; rotor.add(b); }
   const tail = new THREE.Group(); tail.position.set(0.18, 0.5, -5.75); g.add(tail);
   for (const a of [0, Math.PI / 2]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.4, 0.14), dark); b.rotation.x = a; tail.add(b); }
-  // green 長榮航空 / EVA AIR on both sides of the cabin
+  // green 彥霖航空 / YANLIN AIR on both sides of the cabin
   const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const c = cv.getContext('2d');
   c.fillStyle = '#00664f'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.font = '900 68px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.fillText('長榮航空', 256, 50);
-  c.font = '800 30px "Arial",sans-serif'; c.fillText('EVA AIR', 256, 106);
+  c.font = '900 68px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.fillText('彥霖航空', 256, 50);
+  c.font = '800 30px "Arial",sans-serif'; c.fillText('YANLIN AIR', 256, 106);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); p.position.set(s * 1.02, 0.28, -0.3); p.rotation.y = s * Math.PI / 2; g.add(p); }
   return { g, rotor, tail };
 }
 
 export class Airdrop {
-  constructor(game) { this.g = game; this.run = null; }
+  constructor(game) { this.g = game; this.run = null; this.cinema = false; this._look = new THREE.Vector3(); }
   get busy() { return !!this.run; }
+  // letterbox to a 21:9 picture, hide the HUD; the game freezes the player while this is on
+  _cinema(on) {
+    this.cinema = on;
+    let el = document.getElementById('cinema');
+    if (!el) { el = document.createElement('div'); el.id = 'cinema'; el.innerHTML = '<i class="cb cb-a"></i><i class="cb cb-b"></i>'; document.body.appendChild(el); addEventListener('resize', () => this._bars()); }
+    this._bars();
+    document.body.classList.toggle('cinema', on);
+    if (on) { this.g.input.releaseAll(); this.g.audio.setEngine(false, 0); }
+    else if (this._fov) { const c = this.g.camera; c.fov = this._fov; c.updateProjectionMatrix(); this._fov = null; }
+    else this.g.hud.toast('🛵 機車送到了，騎上去吧！', 'good', 2600);
+  }
+  _bars() {
+    const el = document.getElementById('cinema'); if (!el) return;
+    const W = innerWidth, Hh = innerHeight, A = 21 / 9, tall = W / A <= Hh;
+    el.classList.toggle('side', !tall);
+    el.style.setProperty('--bar', (tall ? (Hh - W / A) / 2 : (W - Hh * A) / 2) + 'px');
+  }
+  // the film camera (called after the normal camera rig)
+  camera(cam, dt) {
+    const R = this.run; if (!R || !this.cinema) return;
+    const h = R.H.g.position, s = R.v.mesh.position;
+    // lowering: aim at the middle of the cable so the helicopter and the touch-down both stay in the 21:9 frame
+    const want = R.phase === 'lower' ? new THREE.Vector3().lerpVectors(h, s, 0.5) : h;
+    this._look.lerp(want, Math.min(1, dt * 3));
+    cam.position.copy(R.cam); cam.lookAt(this._look);
+    if (cam.fov !== 70) { this._fov = this._fov ?? cam.fov; cam.fov = 70; cam.updateProjectionMatrix(); }
+  }
   // returns an error message, or null when the helicopter is on its way
   call() {
     const g = this.g, pl = g.player, v = g.myScooter;
@@ -64,14 +93,28 @@ export class Airdrop {
     const H = buildHeli(); g.scene.add(H.g);
     const cable = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#222' }));
     cable.frustumCulled = false; g.scene.add(cable);
-    const ang = Math.random() * Math.PI * 2, gy = surfaceAt(spot.x, spot.z);
+    const gy = surfaceAt(spot.x, spot.z);
     v.place(spot.x, spot.z, spot.h); v.mesh.visible = true;
+    // film camera: on the street 28 m from the drop spot (along the road if that is open), 3.5 m up
+    let cdir = null;
+    for (const da of [0, Math.PI, Math.PI / 4, -Math.PI / 4, Math.PI * 3 / 4, -Math.PI * 3 / 4, Math.PI / 2, -Math.PI / 2]) {
+      const a = spot.h + da, x = spot.x + Math.sin(a) * 28, z = spot.z + Math.cos(a) * 28;
+      if (w.isFree(x, z, 0.8)) { cdir = a; break; }
+    }
+    if (cdir === null) cdir = spot.h;
+    const cx = spot.x + Math.sin(cdir) * 28, cz = spot.z + Math.cos(cdir) * 28;
+    // the helicopter crosses the picture sideways (its side and the 彥霖航空 lettering face the camera):
+    // in from one side, hover over the spot, out the other side
+    const side = cdir + Math.PI / 2;
     this.run = {
       H, cable, v, spot, gy, t: 0, phase: 'in', chop: 0,
-      from: new THREE.Vector3(spot.x + Math.cos(ang) * 150, gy + 60, spot.z + Math.sin(ang) * 150),
+      from: new THREE.Vector3(spot.x + Math.sin(side) * 130, gy + 28, spot.z + Math.cos(side) * 130),
       hover: new THREE.Vector3(spot.x, gy + HOVER, spot.z),
-      away: new THREE.Vector3(spot.x - Math.cos(ang) * 180, gy + 75, spot.z - Math.sin(ang) * 180),
+      away: new THREE.Vector3(spot.x - Math.sin(side) * 170, gy + 34, spot.z - Math.cos(side) * 170),
+      cam: new THREE.Vector3(cx, Math.max(gy, surfaceAt(cx, cz)) + 3.5, cz),
     };
+    this._look.copy(this.run.from);
+    this._cinema(true);
     return null;
   }
   update(dt) {
@@ -93,13 +136,14 @@ export class Airdrop {
       if (k >= 1) {
         R.phase = 'out'; R.t = 0;
         v.place(R.spot.x, R.spot.z, R.spot.h); g.scene.remove(R.cable);
-        g.audio.land?.(1.2); g.hud.toast('🛵 你的 JET SL 送到了！', 'good', 2600);
+        g.audio.land?.(1.2);
       }
     } else {
       const k = Math.min(1, R.t / T_OUT); at.lerpVectors(R.hover, R.away, k * k);
       const dx = R.away.x - R.hover.x, dz = R.away.z - R.hover.z;
       H.g.rotation.set(0.22 * Math.min(1, k * 4), Math.atan2(dx, dz), 0);
-      if (k >= 1) { g.scene.remove(H.g); this.run = null; return; }
+      if (R.t > CINE_OUT && this.cinema) this._cinema(false);
+      if (k >= 1) { g.scene.remove(H.g); this.run = null; if (this.cinema) this._cinema(false); return; }
     }
     H.g.position.copy(at);
     if (R.phase !== 'out') {

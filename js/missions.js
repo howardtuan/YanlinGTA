@@ -50,8 +50,24 @@ export class Missions {
     if (free) { this.g.hud.setObjective('自由探索', '收集校園裡的 <b>34 張金色選票</b>，對同學按 <kbd>滑鼠左鍵</kbd> 發傳單拉票！'); return; }
     this.next();
   }
+  // Where you are inside the current mission, for the save: whether its opening talk is over, which
+  // objective (goto / checkpoint run) you are on, checkpoints already reached, the flyer count it started at.
+  progress() {
+    const s = this.step;
+    return { talked: !!this.talked, sub: Math.max(0, this.sub - 1), hits: s && s.type === 'cps' ? s.list.map(c => c.hit) : null, base: s && s.type === 'votes' ? s.base : null };
+  }
+  // Resume a saved game exactly there: the talk that was already done is skipped, earlier objectives are
+  // passed through silently (no toasts or fanfare), checkpoints keep their hits. Nobody is teleported.
+  resumeAt(idx, prog) {
+    this.idx = idx - 1; this.resume = prog || null;
+    const g = this.g, bt = g.hud.bigToast, ff = g.audio.fanfare, ob = g.audio.objective;
+    g.hud.bigToast = () => {}; g.audio.fanfare = () => {}; g.audio.objective = () => {};
+    try { this.next(); } finally { g.hud.bigToast = bt; g.audio.fanfare = ff; g.audio.objective = ob; }
+    if (prog && this.step && this.step.type === 'votes' && prog.base != null) this.step.base = prog.base;
+    this.resume = null;
+  }
   next() {
-    this.idx++;
+    this.idx++; this.talked = false; this.sub = 0;
     this.g._saveT = 9.5; // save half a second into the new step
     this.markers = []; this.timer = null; this.g.hud.setTimer(null); this.g.setBeam(null);
     const fn = this.steps[this.idx];
@@ -60,15 +76,23 @@ export class Missions {
   // ----- helpers -----
   // true the first time a key is seen, so retrying a failed mission doesn't pay out (or build boards) twice
   once(key) { if (this.rewarded.has(key)) return false; this.rewarded.add(key); return true; }
-  talk(lines, cb) { this.g.dialog(lines, cb); }
+  talk(lines, cb) {
+    if (this.resume?.talked) { this.talked = true; cb(); return; } // already heard it before the save
+    this.g.dialog(lines, () => { this.talked = true; cb(); });
+  }
   goto(target, title, text, onArrive, radius = 7) {
+    const i = this.sub++;
+    if (this.resume && i < this.resume.sub) { onArrive(); return; } // reached before the save
     this.step = { type: 'goto', target, radius, onArrive };
     this.markers = [{ x: target.x, z: target.z, big: true, icon: '★' }];
     this.g.setBeam(target, radius);
     this.g.hud.setObjective(title, text);
   }
   checkpoints(list, title, textFn, seconds, ordered, onCp, onDone, onFail, radius = 7) {
-    this.step = { type: 'cps', list: list.map(p => ({ ...p, hit: false })), ordered, onCp, onDone, onFail, radius, textFn, title };
+    const i = this.sub++;
+    if (this.resume && i < this.resume.sub) { onDone(); return; } // finished before the save
+    const hits = this.resume && i === this.resume.sub ? this.resume.hits : null;
+    this.step = { type: 'cps', list: list.map((p, k) => ({ ...p, hit: !!(hits && hits[k]) })), ordered, onCp, onDone, onFail, radius, textFn, title };
     this.timer = seconds;
     this._refreshCps();
   }
@@ -120,9 +144,6 @@ Missions.prototype.steps = [
   // 0 — intro at the old gate
   function () {
     const g = this.g, P = this.P;
-    // the prologue always plays at the start point (also when a saved game resumes here)
-    const s = g.startPos, wp = g.player.worldPos();
-    if (!g.player.vehicle && Math.hypot(wp.x - s.x, wp.z - s.z) > 12) { g.player.place(s.x, s.z, s.h); g.player.y = 0; g.rig.yaw = s.h; }
     this.spawnNpcs(0);
     g.hud.setObjective('序章 · 投票前一天', '和 小安 對話');
     this.talk([

@@ -467,7 +467,7 @@ class Game {
         const m = applySave(this, d);
         this.missions.spawnNpcs(m.done ? 99 : (m.idx ?? 0));
         if (m.done) { this.missions.done = true; this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！'); }
-        else { this.missions.idx = Math.max(-1, (m.idx ?? 0) - 1); this.missions.next(); }
+        else this.missions.resumeAt(Math.max(0, m.idx ?? 0), m.prog); // right where you left off
         this.hud.toast('💾 已讀取上次的進度', 'good', 2600);
       } else { this.clock = 6 * 60; this.ledger[0].at = this.clock; this.missions.start(); } // a new game starts at 06:00
       this._checkRotate();
@@ -721,7 +721,7 @@ class Game {
     }
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this._sleeping || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen;
+    pl.frozen = inDialog || this._sleeping || this.airdrop.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -843,6 +843,7 @@ class Game {
     this.rig.update(dt, hud.bigOpen ? { mdx: 0, mdy: 0 } : inp, pl, w.collision, this.settings.sens, this.interiors);
     if (this.job.active) this.job.camera(this.camera, dt); // over-the-shoulder shot of the counter
     else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
+    if (this.airdrop.cinema) this.airdrop.camera(this.camera, dt); // 呼叫載具 film
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];
     if (this.interiors.yh) { const d = this.interiors.yh.door; markers.push({ x: d[0], z: d[1], icon: '🏠', color: '#ff8fb1', label: '彥霖的家', near: 120 }); }

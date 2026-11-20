@@ -682,3 +682,12 @@ kbd.pb-nin.pb-face{background:#3b3d44}
 /* sleeping: fade to black and back */
 #sleepFade{position:fixed;inset:0;z-index:57;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;letter-spacing:2px;opacity:0;pointer-events:none;transition:opacity 1.1s}
 #sleepFade.on{opacity:1}
+
+/* 呼叫載具 film: 21:9 letterbox bars slide in, HUD and touch controls hidden */
+#cinema{position:fixed;inset:0;z-index:56;pointer-events:none;--bar:0px}
+#cinema .cb{position:absolute;left:0;right:0;height:var(--bar);background:#000;transition:transform .6s ease}
+#cinema .cb-a{top:0;transform:translateY(-100%)}#cinema .cb-b{bottom:0;transform:translateY(100%)}
+#cinema.side .cb{top:0;bottom:0;height:auto;width:var(--bar);left:auto;right:auto}
+#cinema.side .cb-a{left:0;transform:translateX(-100%)}#cinema.side .cb-b{right:0;transform:translateX(100%)}
+body.cinema #cinema .cb{transform:none}
+body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}

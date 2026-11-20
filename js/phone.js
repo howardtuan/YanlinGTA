@@ -230,12 +230,12 @@ export class Phone {
     const c = this._frame('呼叫載具', `<div class="ph-garage">
         <div class="ph-gcard"><span>🛵</span><div><b>我的 SYM JET SL</b><small>粉白配色 · ${riding ? '騎乘中' : busy ? '空投中…' : `距離你 ${d} 公尺`}</small></div></div>
         <button class="ph-gbtn" ${riding || busy ? 'disabled' : ''}>🚁 直升機空投到我旁邊</button>
-        <div class="ph-note">長榮航空直升機會把機車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。</div>
+        <div class="ph-note">彥霖航空直升機會把機車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。</div>
       </div>`);
     c.querySelector('.ph-gbtn').onclick = () => {
       const err = g.airdrop.call();
       if (err) { g.hud.toast(err, 'bad', 2400); return; }
-      g.audio.notify?.(); g.hud.toast('🚁 長榮航空直升機起飛了，抬頭看！', 'good', 2600);
+      g.audio.notify?.(); g.hud.toast('🚁 彥霖航空直升機起飛了，抬頭看！', 'good', 2600);
       this.close(); this._last = null; g.lockPointer();
     };
   }

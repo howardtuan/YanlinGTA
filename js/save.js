@@ -16,8 +16,8 @@ export function writeSave(g) {
     v: 1, at: Date.now(),
     votes: g.votes, money: g.money, ledger: g.ledger.slice(-80), clock: g.clock, playTime: g.playTime, flyerVotes: g.flyerVotes || 0,
     ballots: g.ballotList.map((b, i) => (b.got ? i : -1)).filter(i => i >= 0),
-    // a mission in progress restarts from its beginning
-    mission: { idx: M.idx, rewarded: [...M.rewarded], done: M.done, free: M.free },
+    // where you are inside the current mission (talk heard, objective, checkpoints): missions.resumeAt()
+    mission: { idx: M.idx, rewarded: [...M.rewarded], done: M.done, free: M.free, prog: M.progress() },
     eggs: g.eggs.filter(e => e.found).map(e => e.title),
     pos: { x: wp.x, z: wp.z, h: pl.worldHeading(), y: pl.vehicle || pl.seat ? 0 : pl.y },
     look: pl.look || null,

@@ -205,8 +205,11 @@ class Game {
   }
   _spawnParked() {
     const rnd = mulberry32(5150), w = this.world;
+    // OSM lots: until 60 vehicles exist. 補建 (synthetic) lots come last in data.areas, so each 補建 round
+    // (blk < 2000: round 1, >= 2000: round 2) gets its own 20
+    const synParked = [0, 0], synRound = a => (a.blk || 0) >= 2000 ? 1 : 0;
     for (const a of this.data.areas) {
-      if (a.kind !== 'parking' || this.vehicles.length > 60) continue;
+      if (a.kind !== 'parking' || (a.synthetic ? synParked[synRound(a)] >= 20 : this.vehicles.length > 60)) continue;
       let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const [x, z] of a.pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
       const area = (x1 - x0) * (z1 - z0);
       const moto = (a.name || '').includes('機車');
@@ -217,7 +220,7 @@ class Game {
         if (!pointInPoly(x, z, a.pts) || !w.isFree(x, z, moto ? 1 : 2.2)) continue;
         if (this.vehicles.some(v => Math.hypot(v.pos.x - x, v.pos.z - z) < (moto ? 1.6 : 5))) continue;
         this._addVehicle(moto || rnd() < 0.5 ? 'scooter' : (rnd() < 0.3 ? 'taxi' : 'car'), x, z, moto ? Math.PI / 2 : rnd() * 6.28, rnd);
-        placed++;
+        placed++; if (a.synthetic) synParked[synRound(a)]++;
       }
     }
     // roadside scooters (Taiwan streets are full of them)

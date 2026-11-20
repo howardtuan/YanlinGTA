@@ -127,5 +127,6 @@ GitHub Pages：Repo → Settings → Pages → Source 選 `main` 分支根目錄
 ## 授權與來源
 - 地圖資料 © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors，ODbL 授權。
 - 地形資料：內政部 20m 網格數值地形模型（DTM），依[政府資料開放授權條款第1版](https://data.gov.tw/license)使用。`data/terrain.json` 是由它取樣、平滑並把可進入的建物周圍壓平後的衍生資料。
+- 部分建築外觀（樓層、外牆色、屋頂造型）參考 Google 街景目視判斷，僅用眼睛觀看比對，未下載、未儲存也未使用其影像；所有材質都是程式生成。各筆依據見 `tools/overrides.json` 的 `source`。
 - [Three.js](https://threejs.org/)（MIT）位於 `vendor/`。
 - 這是學生競選宣傳用的非商業同人作品；遊戲中出現的店家、品牌名稱屬於各自的權利人。

@@ -1,12 +1,13 @@
 {
-  "_doc": "Hand-checked building facts that win over OSM tags. Only values with a public source. Match by OSM id (\"osm\": \"w123\"/\"r123\") or by name when no id is given. floors = storeys above ground; h = metres to roof. colour/material/roof/roofColour use OSM building:colour / building:material / roof:shape / roof:colour values. facade = window style in js/map.js (campus, glass, concrete, wash, arcade). feature = named extras drawn by js/map.js. split = cut the footprint into blocks: cuts[i] = [[x,z],[x,z]] (block 0 lies left of cut 0 seen from its first point), floors per block. Colours and materials judged from the photos listed (viewed only; nothing from them is used as a texture, all textures are generated in js/map.js).",
+  "_doc": "Hand-checked building facts that win over OSM tags. Only values with a public source. Match by OSM id (\"osm\": \"w123\"/\"r123\") or by name when no id is given. floors = storeys above ground; h = metres to roof. colour/material/roof/roofColour use OSM building:colour / building:material / roof:shape / roof:colour values. facade = window style in js/map.js (campus, glass, concrete, wash, arcade). feature = named extras drawn by js/map.js. split = cut the footprint into blocks: cuts[i] = [[x,z],[x,z]] (block 0 lies left of cut 0 seen from its first point), floors per block. Colours and materials judged from the photos listed (viewed only; nothing from them is used as a texture, all textures are generated in js/map.js). Sources written as 'Google 街景目視判斷（影像 YYYY-MM，觀看點 lat,lon，朝向）' were looked at in Google Street View only: no image was saved or used, only medium/high-confidence sightings are applied (2026-11).",
   "buildings": [
     {
       "name": "知行領航館",
       "floors": 3,
       "h": 15.6,
-      "source": "https://eooia.cycu.edu.tw/?p=5113",
-      "note": "3F+B1, 5,471 m2 floor area, opened 2019, address 新中北路499號 (all per the source page). Not matched yet: OSM has no footprint named 知行領航館. Checked 2026-11: no unnamed OSM footprint within 90 m of 新中北路 east of the 465號 7-Eleven is large enough (5,471 m2 over 4 storeys needs ~1,300 m2; the largest is 735 m2), so build_map prints 'override not matched' until an OSM id is added as \"osm\"."
+      "colour": "#2f5fc4",
+      "source": ["https://eooia.cycu.edu.tw/?p=5113", "Google 街景目視判斷（影像 2019-05，使用者 360 照片，觀看點 24.958383,121.246160，朝東北 0~60 度）"],
+      "note": "3F+B1, 5,471 m2 floor area, opened 2019, address 新中北路499號 (all per the source page). Street view (medium): about 3 storeys (top not fully in frame), box volume with white / royal-blue / light-blue panel boxes and glass bands, flat roof, a large paved forecourt; Google's place marker is at 24.9583988,121.2462024 (game x 373, z -44) with the building to its north-east. Not matched yet: OSM has no footprint named 知行領航館. Checked 2026-11: no unnamed OSM footprint within 90 m of 新中北路 east of the 465號 7-Eleven is large enough (5,471 m2 over 4 storeys needs ~1,300 m2; the largest is 735 m2), and the only footprint within 70 m of the marker is 薄膜中心 (307 m2), so build_map prints 'override not matched' until an OSM id is added as \"osm\"."
     },
     {
       "name": "全人教育村",
@@ -19,7 +20,7 @@
         "labels": ["北棟", "中棟", "南棟"]
       },
       "source": ["https://www.cycu.edu.tw/?p=26101", "https://commons.wikimedia.org/wiki/File:Cycu_holistic_village.jpg"],
-      "note": "Official: 北棟 6F, 中棟 5F, 南棟 9F, B1 parking. The OSM way is one footprint (OSM tags 7F / 24.5 m); it is cut along its notch at z=-100 and along the diagonal of the joint (-19.3,-81.1)-(-11.5,-80.3) (a straight cut at z=-81 left a 0.8 m wide 9F strip beside the east wing) into the north bar, the east connecting wing and the south block, which are taken as 北/中/南棟 by position (assumption: the source names the blocks but has no plan). Colour: light greyish beige walls in the Commons photo."
+      "note": "Official: 北棟 6F, 中棟 5F, 南棟 9F, B1 parking. The OSM way is one footprint (OSM tags 7F / 24.5 m); it is cut along its notch at z=-100 and along the diagonal of the joint (-19.3,-81.1)-(-11.5,-80.3) (a straight cut at z=-81 left a 0.8 m wide 9F strip beside the east wing) into the north bar, the east connecting wing and the south block, which are taken as 北/中/南棟 by position (assumption: the source names the blocks but has no plan). Colour: light greyish beige walls in the Commons photo. Street view 2017-09 / 2021-02 was checked but only with low confidence (see unverified), so nothing here was changed."
     },
     {
       "name": "懷恩樓",
@@ -28,24 +29,24 @@
       "material": "brick",
       "facade": "arcade",
       "source": ["https://www.mplus.org.hk/en/collection/objects/slides-grace-building-chung-yuan-christian-university-chung-li-zhongli-taiwan-ca39-4-2-3-1/", "https://commons.wikimedia.org/wiki/File:中原大學_懷恩樓_-_panoramio.jpg", "https://commons.wikimedia.org/wiki/File:中原大學懷恩樓_夜晚_-_panoramio.jpg"],
-      "note": "M+ catalogue text: beige building, flat roof, a horizontal block with arches on both levels. Commons photos: continuous round arches on both storeys, light tan face-brick tiles. Floors stay at OSM building:levels=2."
+      "note": "M+ catalogue text: beige building, flat roof, a horizontal block with arches on both levels. Commons photos: continuous round arches on both storeys, light tan face-brick tiles. Floors stay at OSM building:levels=2. (Street view 2017-09 from the fountain shows a beige arcaded building north of it, consistent.)"
     },
     {
       "name": "張靜愚紀念圖書館",
       "osm": "w392023426",
-      "colour": "#9a8d81",
+      "colour": "#7a6a5c",
       "material": "tiles",
-      "source": ["https://eng.cycu.edu.tw/?p=32646", "https://commons.wikimedia.org/wiki/File:Chung_Yuan_Christian_University_Chang_Ching_Yu_Memorial_Library_2020-02-17.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Library_20230402.jpg", "https://commons.wikimedia.org/wiki/File:Cycu_lib.jpg"],
-      "note": "Official: exterior tiles restored in 2014 to the original design; three dome skylights over 修德廳 (1F) and a sunken garden. Photos: grey-brown small brick-format tiles, horizontal window bands. The skylights and sunken garden are not modelled: no source gives their position on the footprint. Floors stay at OSM 5F."
+      "source": ["https://eng.cycu.edu.tw/?p=32646", "https://commons.wikimedia.org/wiki/File:Chung_Yuan_Christian_University_Chang_Ching_Yu_Memorial_Library_2020-02-17.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Library_20230402.jpg", "https://commons.wikimedia.org/wiki/File:Cycu_lib.jpg", "Google 街景目視判斷（影像 2017-09，觀看點 24.958189,121.241310，朝西 290 度）"],
+      "note": "Official: exterior tiles restored in 2014 to the original design; three dome skylights over 修德廳 (1F) and a sunken garden. Photos and street view (medium): grey-brown brick-format tiles, deep-set horizontal window bands, about 5 storeys, flat roof; colour darkened from #9a8d81 to the street-view #7a6a5c. Not modelled: the upper floors stepping out over the lower ones (inverted steps), the skylights and the sunken garden (no source gives their position; the skylights are not visible from the ground and the aerial view is blocked by 科學館). Floors stay at OSM 5F."
     },
     {
       "name": "科學館",
       "osm": "w392023392",
-      "colour": "#a8604c",
+      "colour": "#9a4b3c",
       "material": "brick",
       "feature": ["observatory"],
-      "source": ["https://commons.wikimedia.org/wiki/File:CYCU_Science_Building_with_Observatory.JPG"],
-      "note": "Photo: red-brown brick-tile facade, observatory dome on the roof. The dome's spot on the roof is approximate (placed at the roof centre)."
+      "source": ["https://commons.wikimedia.org/wiki/File:CYCU_Science_Building_with_Observatory.JPG", "Google 街景目視判斷（影像 2021-02，使用者 360 空拍環景，觀看點 24.956844,121.242195，朝西北 310~345 度）"],
+      "note": "Photo and street view (high): red-brick tile facade with white window frames and horizontal window bands, flat roof, about 7 storeys plus a raised stair/core tower carrying the white observatory dome (counts as ~8F, matching OSM 8F). The dome now stands on a raised core in the west-middle part of the roof (js/map.js 'observatory'), not at the roof centre; its exact spot is approximate. A thin antenna mast is drawn beside it."
     },
     {
       "name": "工學館",
@@ -77,23 +78,28 @@
       "colour": "#e3e1db",
       "material": "tiles",
       "source": ["https://commons.wikimedia.org/wiki/File:CYCU_activity_center_20230402.jpg", "https://commons.wikimedia.org/wiki/File:Chung_Yuan_Christian_University_activity_center_20160519.jpg", "https://oosa.cycu.edu.tw/wp-content/uploads/中原大學活動中心管理細則-1100414.doc.pdf"],
-      "note": "Photos: white square tiles, colonnade along the ground floor. Colour/material only: the footprint, the McDonald's interior on its east side and the B1 open-air amphitheatre (management rules PDF) are left as they are."
+      "note": "Photos: white square tiles, colonnade along the ground floor. Colour/material only: the footprint, the McDonald's interior on its east side and the B1 open-air amphitheatre (management rules PDF) are left as they are. Street view 2017-09 could not see it (trees), see unverified."
     },
     {
       "name": "恩惠堂",
       "osm": "w492487890",
-      "colour": "#ecebe6",
+      "colour": "#f2f2ee",
       "roof": "gabled",
       "roofColour": "#7f8283",
-      "source": ["https://commons.wikimedia.org/wiki/File:基督教浸信會恩惠堂_20111020.jpg", "https://commons.wikimedia.org/wiki/File:Grace_Baptist_Church,_Taoyuan_20160519.jpg"],
-      "note": "Photos: white walls, steep pitched roof with grey eaves, white spire with a cross (spire not modelled: its position is not clear from the photos). Floors stay at the estimate (no source)."
+      "feature": ["spire"],
+      "source": ["https://commons.wikimedia.org/wiki/File:基督教浸信會恩惠堂_20111020.jpg", "https://commons.wikimedia.org/wiki/File:Grace_Baptist_Church,_Taoyuan_20160519.jpg", "Google 街景目視判斷（影像 2017-01，使用者 360 照片，觀看點 24.957367,121.243017，朝北北東 5~25 度；拍攝位置由上傳者標定）"],
+      "note": "Photos and street view (medium): white walls, pitched roof (grey eaves per the photos; roof colour not readable in the backlit street view), a slender white spire with a cross at the front (south, entrance) end, a single white arched entrance frame and a dark stone sign 基督教浸信會 恩惠堂. The spire is drawn on the ridge near the south gable end (js/map.js 'spire'); its sizes are estimates. Floors stay at the estimate (no source)."
     },
     {
       "name": "中原大學體育館",
       "osm": "w392023437",
-      "feature": ["pitched_section"],
-      "source": ["https://www.mplus.org.hk/en/collection/objects/slides-gymnasium-and-swimming-pool-19871991-chung-yuan-christian-university-chung-li-zhongli-taiwan-ca39-4-8-3-1/"],
-      "note": "M+ catalogue text: flat roof with a pitched section, glass exterior on one side. Height stays at OSM height=10m (no source for another value). The pitched section is drawn over the middle of the roof (its exact extent is not in the source); the glass side is not modelled (side unknown)."
+      "floors": 3,
+      "h": 13.5,
+      "colour": "#b8b2a6",
+      "facade": "campus",
+      "feature": ["entrance_canopy", "stair_drum"],
+      "source": ["https://www.mplus.org.hk/en/collection/objects/slides-gymnasium-and-swimming-pool-19871991-chung-yuan-christian-university-chung-li-zhongli-taiwan-ca39-4-8-3-1/", "Google 街景目視判斷（影像 2017-09，觀看點 24.960248,121.242085，朝 110~180 度；觀看點 24.960620,121.242579，朝 200~245 度）"],
+      "note": "M+ catalogue text: flat roof with a pitched section, glass exterior on one side. Street view (medium): about 3 storeys, 12-15 m (h 13.5 m, the middle of that range, instead of OSM height=10m); grey-beige walls with terracotta bands above and below two horizontal window bands on the north and east sides (no glass there); main roof flat with a parapet from the ground, and the pitched red-tile roof belongs to the covered walkway at the south-west entrance, so the old 'pitched_section' over the middle of the roof was replaced by 'entrance_canopy' (drawn along the west part of the most south-west facing wall; its exact extent is an estimate); a round stair tower ('stair_drum', size estimated; position uncertain: the observation says 'south-east side', but both viewpoints (24.960248,121.242085 and 24.960620,121.242579) are north / north-west of the hall and cannot see its geometric south-east corner, so 'south-east' may be relative to the view; it is drawn at the geometric south-east corner as a literal reading until confirmed). The terracotta bands are not modelled. The glass side (south or west, not seen) is not modelled."
     },
     {
       "name": "望樓",
@@ -110,6 +116,42 @@
       "facade": "wash",
       "source": ["https://commons.wikimedia.org/wiki/File:Tumugongchengguan_20160519.jpg"],
       "note": "Photo: grey granite-chip render (洗石子 look). Floors stay at OSM levels=5; OSM height=28 (5.6 m per floor) is not used, the photo does not show the whole height."
+    },
+    {
+      "name": "良善樓",
+      "osm": "w392023419",
+      "colour": "#d9d9d4",
+      "material": "tiles",
+      "feature": ["roof_drum"],
+      "source": ["Google 街景目視判斷（影像 2024-08，觀看點 24.95535,121.24208（大仁街 80 號前），朝北 345~20 度）", "Google 街景目視判斷（影像 2021-02，使用者 360 空拍環景，觀看點 24.956844,121.242195，朝 178 度）"],
+      "note": "Street view (medium): about 9 rows of windows (matches OSM 9F, kept), flat roof with a white cylindrical crown ('roof_drum', drawn near the roof middle: its spot is approximate). The south face on 大仁街 is light grey-white tiles with a blue glass curtain strip and stacked balconies; the north face seen from the aerial view looks dark grey-brown. The game has one wall tint per building, so the south (street) face colour is used; the glass strip and the north colour are not modelled."
+    },
+    {
+      "name": "信實樓",
+      "osm": "w392023441",
+      "colour": "#8a8078",
+      "material": "tiles",
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.959581,121.245610，朝東 90~110 度）"],
+      "note": "Street view (medium): taupe tiles with light horizontal balcony bands (blue band on the left wing), flat roof with a framed parapet, multi-wing dorm around a planted courtyard, canopy entrance. About 10-11 storeys including the ground floor, so OSM 10F is kept. Image is from 2017; later changes cannot be checked. The balcony bands and roof frame are not modelled."
+    },
+    {
+      "name": "設計學院",
+      "osm": "w587171779",
+      "colour": "#e8e4d8",
+      "roof": "gabled",
+      "roofColour": "#55585a",
+      "feature": ["gable_row"],
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.955807,121.244432，朝東南 110 度）"],
+      "note": "Street view (medium): a single-storey building (OSM levels=1 is right, kept) with off-white walls, deep eaves and a row of continuous dark-grey gabled roofs (Japanese-style bungalow look), garden with stone seats in front. Drawn as a row of small gables along the long side ('gable_row'); the number of gables (~one per 7 m) is an estimate."
+    },
+    {
+      "name": "室設系館",
+      "osm": "w587175196",
+      "floors": 4,
+      "colour": "#d4d6d6",
+      "material": "tiles",
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.955911,121.244803，朝東北 30~45 度）"],
+      "note": "Street view (medium): 4 rows of windows, light grey-white tiles with horizontal window rows, flat roof, canopy over the ground-floor entrance. OSM levels=3 / height=21 replaced by 4F (h = 4 x 3.3 + 0.6 = 13.8 m, within the 13-14 m seen)."
     }
   ],
   "landmarks": {
@@ -118,23 +160,33 @@
       "h": 19,
       "cross": 5,
       "source": ["https://commons.wikimedia.org/wiki/File:CYCU_Bell_Tower.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Clock_Tower,_Taoyuan,_Dec_2024.jpg", "https://commons.wikimedia.org/wiki/Category:The_cross_and_bell,_CYCU"],
-      "note": "Photos: two slender fair-faced concrete pylons joined at the top, a bell hung between them and a cross on top; no clock faces, no brick. Height has no written source: the total (19 m pylons + 5 m cross) is kept close to the old model (24.8 m). OSM node 4845066050 man_made=tower, alt_name=二一鐘."
+      "note": "Photos: two slender fair-faced concrete pylons joined at the top, a bell hung between them and a cross on top; no clock faces, no brick. Height has no written source: the total (19 m pylons + 5 m cross) is kept close to the old model (24.8 m). OSM node 4845066050 man_made=tower, alt_name=二一鐘. Street view 2021-02 aerial suggests 15-20 m but with low confidence, so the height was not changed (see unverified)."
     },
     "舊校門": {
       "style": "three_arches",
-      "source": ["https://commons.wikimedia.org/wiki/File:Cycu_gate.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Gate_New.jpg"],
-      "note": "Photo Cycu_gate.jpg (described 中原大學校門): three white concrete round arches side by side on twin columns, with the characters 中原大學 on plaques. The current main gate (CYCU_Gate_New.jpg) is a twisted metal sculpture, so the arches are taken to be the old gate. INFERENCE, not verified: the photo caption only says 中原大學校門 (uploaded 2011) and names neither 舊校門 nor this POI's position; no history page or news item describing the old gate was found (searched 2026-11). Sizes (~21 m wide, 5.6 m arch span) have no written source and are estimates (the road passes under the middle arch)."
+      "colH": 4.5,
+      "col": 0.55,
+      "source": ["https://commons.wikimedia.org/wiki/File:Cycu_gate.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Gate_New.jpg", "Google 街景目視判斷（影像 2017-09，觀看點 24.957505,121.240461，朝西 290~300 度）"],
+      "note": "Photo Cycu_gate.jpg (described 中原大學校門): three white concrete round arches side by side, with the characters 中原大學 on plaques. The current main gate (CYCU_Gate_New.jpg) is a twisted metal sculpture. Street view (high) at this POI's position confirms the structure: a free-standing frame of three equal semicircular white concrete arches (slightly weathered) on slim columns, no deck, no roof, the middle arch over the stone-paved driveway. Scaled from cars: columns ~4-5 m, ~7-8 m overall, so colH 4.5 m (was 5.2) and slimmer 0.55 m columns (was 0.7) give 4.5 + 2.8 + 0.6 = 7.9 m. The name 舊校門 comes from the OSM POI. The width (~21 m, 5.6 m arch span) is still an estimate."
+    },
+    "中原噴水池": {
+      "style": "round_basin",
+      "d": 13,
+      "rim": 0.45,
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.957505,121.240461，朝東 60~85 度）"],
+      "note": "Street view (high): a low round raised basin of light grey stone, ~12-15 m across (d 13 m; the OSM water polygon is only ~8.7 m), rim ~0.4-0.5 m high, in a round grey stone-paved plaza with concentric curved stone benches / planters, palms beside it and the beige arcade building (懷恩樓) to the north. The basin was dry or low when photographed; the game keeps shallow water and the small spray. The plaza rings and four bench arcs are drawn in js/map.js; their radii are estimates."
     }
   },
   "unverified": [
-    {"name": "喜樂樓", "issue": "no OSM levels/height, dorm estimate", "searched": "no public source for its floors (2026-11)"},
-    {"name": "設計學院", "issue": "OSM levels=1 (3.9 m) looks low", "searched": "no public source for its floors"},
-    {"name": "景觀系館 / 室設系館", "issue": "OSM levels=3 but height=21", "searched": "Commons photos do not show the full height; levels kept"},
-    {"name": "中原大學體育館", "issue": "OSM height=10m may be low for ~3,000 seats", "searched": "no source for the height"},
-    {"name": "良善樓 / 信實樓 / 管理大樓", "issue": "facade colour", "searched": "no photo or text found"},
-    {"name": "鐘塔", "issue": "height", "searched": "no written source"},
-    {"name": "舊校門", "issue": "three-arch look is an inference from a photo captioned only 中原大學校門; width estimated", "searched": "museum.cycu.edu.tw and web search for 舊校門 拱門 校史 found nothing (2026-11)"},
-    {"name": "資訊管理學系館", "issue": "not applicable / unchanged: skipped in js/main.js and built by js/interiors.js", "searched": "not researched, the interior shell owns its look"},
-    {"name": "中原噴水池", "issue": "basin size and look unchanged", "searched": "web search 中原大學 噴水池 found no description or photo source (2026-11)"}
+    {"name": "喜樂樓", "issue": "no OSM levels/height, dorm estimate (5F)", "searched": "no public source for its floors (2026-11). Google 街景 2017-09 (24.959849,121.240672 朝西 255~270 度) and 2026-05 (新中北路 363 號 朝 300 度): a 5-6 storey building with dark-green / white striped end walls, probably 喜樂樓, but low confidence (partly hidden by a canopy), so floors and colour unchanged"},
+    {"name": "景觀系館", "issue": "OSM levels=3 but height=21; levels kept", "searched": "Commons photos do not show the full height. Google 街景 2017-09 (24.955911,121.244803 朝 175 度): fully hidden by trees, not checked"},
+    {"name": "中原大學體育館", "issue": "glass side not modelled; terracotta bands not modelled; stair_drum position unconfirmed", "searched": "M+ text says glass on one side; Google 街景 2017-09 shows no glass on the north and east sides, the south / west sides were not seen; the round stair tower was reported on the \"south-east side\", but both viewpoints are north / north-west of the hall and cannot see the geometric south-east corner where it is drawn"},
+    {"name": "管理大樓", "issue": "facade colour", "searched": "Google 街景 user 360 photo 2017-01 (24.957367,121.243017 朝東 100 度): a ~5-storey light grey ribbon-window block, but low confidence it is 管理大樓 (the front is hidden by trees), so nothing changed; 5F matches"},
+    {"name": "全人教育村", "issue": "which block is tallest / block colours", "searched": "Google 街景 2017-09 garden plaza (24.958754,121.241848) and 2021-02 aerial: dark grey stone panels and glass, sky bridges, but trees hide the floors; the 11-12 storey twin towers seen to the north may be off campus. Low confidence, the official 6/5/9F split is kept"},
+    {"name": "學生活動中心", "issue": "white tiles and 4F not confirmed by street view", "searched": "Google 街景 2017-09 (24.958189,121.241310 朝 345 度; 24.958859,121.241451 朝 300 度): hidden by trees, a nearby grey stone building with a glazed ground floor could not be identified"},
+    {"name": "鐘塔", "issue": "height (model 19 m + 5 m cross)", "searched": "no written source. Google 街景 2021-02 aerial (24.956844,121.242195 朝 30 度) suggests ~15-20 m (about tree-top height) but with low confidence; 2017-09 ground views are blocked by trees. Height unchanged"},
+    {"name": "舊校門", "issue": "width (~21 m) estimated; the name 舊校門 is from the OSM POI", "searched": "museum.cycu.edu.tw and web search for 舊校門 拱門 校史 found nothing (2026-11). The three-arch form and height were confirmed by Google 街景 2017-09 (see landmarks)"},
+    {"name": "資訊管理學系館", "issue": "not applicable / unchanged: skipped in js/main.js and built by js/interiors.js", "searched": "no Google 街景 viewpoint found that shows it (2026-11); the interior shell owns its look"},
+    {"name": "張靜愚紀念圖書館", "issue": "dome skylights / sunken garden / stepped-out upper floors not modelled", "searched": "Google 街景 2017-09: skylights not visible from the ground, the aerial view is blocked by 科學館"}
   ]
 }

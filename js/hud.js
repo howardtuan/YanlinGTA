@@ -1,7 +1,7 @@
 import { pointInPoly } from './collision.js';
 
 const $ = id => document.getElementById(id);
-const AREA_C = { park: '#4f7a3a', grass: '#5a8a44', pitch: '#4a8a42', water: '#3b84c4', parking: '#555a62', construction: '#7a6a50', school: '#77766a', commercial: '#6a6964', industrial: '#605e58' };
+const AREA_C = { park: '#4f7a3a', grass: '#5a8a44', pitch: '#4a8a42', water: '#3b84c4', parking: '#555a62', construction: '#7a6a50', school: '#77766a', commercial: '#6a6964', industrial: '#605e58', farm: '#76804c', dirt: '#86704f', wood: '#3c5e33' };
 
 export class HUD {
   constructor(world) {

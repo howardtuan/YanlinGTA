@@ -211,10 +211,11 @@ export function buildFurniture(scene, world, data, ctx) {
     const gates = data.furniture.filter(f => f.t === 'barrier:gate' || f.t === 'barrier:lift_gate');
     const WALL = col('#aca89f'), CAP = col('#8c8880'), HEDGE = col('#3c6a2e'), HTOP = col('#4f8236');
     let segs = 0, len = 0;
-    const emit = (ax, az, bx, bz, hedge, first, last, hj) => {
+    // fence: 鐵皮圍籬 colour (補建街區 sheet_fence barriers) -> 2.2 m sheet, thin, no cap
+    const emit = (ax, az, bx, bz, hedge, first, last, hj, fence = null) => {
       const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz); if (l < 0.05) return;
-      const hh = hedge ? 1.2 + hj : 1.8, th = hedge ? 0.8 : 0.2, ux = dz / l, uz = -dx / l;
-      const ya = H(ax, az), yb = H(bx, bz), c = hedge ? HEDGE : WALL;
+      const hh = fence ? 2.2 : hedge ? 1.2 + hj : 1.8, th = fence ? 0.08 : hedge ? 0.8 : 0.2, ux = dz / l, uz = -dx / l;
+      const ya = H(ax, az), yb = H(bx, bz), c = fence || (hedge ? HEDGE : WALL);
       const side = (o, top0, top1, cc, s) => {
         const ox = ux * o * s, oz = uz * o * s;
         furn.quad([ax + ox, ya + top0, az + oz], [bx + ox, yb + top0, bz + oz], [bx + ox, yb + top1, bz + oz], [ax + ox, ya + top1, az + oz], cc, [ux * s, 0, uz * s]);
@@ -225,20 +226,21 @@ export function buildFurniture(scene, world, data, ctx) {
         furn.quad([x + ux * o, y - 0.4, z + uz * o], [x - ux * o, y - 0.4, z - uz * o], [x - ux * o, y + top, z - uz * o], [x + ux * o, y + top, z + uz * o], c, [tx, 0, tz]);
       };
       side(th / 2, -0.4, hh, c, 1); side(th / 2, -0.4, hh, c, -1);
-      if (hedge) cap(th / 2, hh, HTOP);
+      if (fence) { const dk = fence.map(v => v * 0.6); side(th / 2 + 0.01, -0.4, 0.25, dk, 1); side(th / 2 + 0.01, -0.4, 0.25, dk, -1); cap(th / 2 + 0.02, hh, dk); }
+      else if (hedge) cap(th / 2, hh, HTOP);
       else { side(th / 2 + 0.04, hh, hh + 0.1, CAP, 1); side(th / 2 + 0.04, hh, hh + 0.1, CAP, -1); cap(th / 2 + 0.04, hh + 0.1, CAP); }
       if (first) end(ax, az, ya, -1, th / 2, hh); if (last) end(bx, bz, yb, 1, th / 2, hh);
       if (inB(ax, az) || inB(bx, bz)) { coll.addSegment(ax, az, bx, bz); segs++; }
       len += l;
     };
     data.barriers.forEach((b, bi) => {
-      if (b.type !== 'wall' && b.type !== 'hedge') return;
-      const hedge = b.type === 'hedge', th = hedge ? 0.8 : 0.2;
+      if (b.type !== 'wall' && b.type !== 'hedge' && b.type !== 'sheet_fence') return;
+      const hedge = b.type === 'hedge', fence = b.type === 'sheet_fence' ? col(b.colour || '#2f6aa8') : null, th = fence ? 0.08 : hedge ? 0.8 : 0.2;
       // onArea: the barrier tag sits on a landuse outline (here the 山葉 factory
       // and 中壢簡易庭 enclosures). They are real walls, but landuse outlines are
       // often traced along kerbs or road centres, so these keep 1.5 m off any
       // carriageway (plain walls: 0.3 m); results go to furnitureLog.onArea
-      const roadPad = b.onArea ? 1.5 : 0.3;
+      const roadPad = b.onArea ? 1.5 : fence ? 0.5 : 0.3;
       // 1 m steps flagged keep / drop; drops are road crossings, gates,
       // building interiors and keep-clear zones
       const st = [];
@@ -261,7 +263,7 @@ export function buildFurniture(scene, world, data, ctx) {
       const gap = st.map((s, i) => s.road || (st[i - 1] && st[i - 1].road) || (st[i + 1] && st[i + 1].road));
       const hj = hedge ? (bi % 3) * 0.08 : 0;
       let run = null, cnt = 0;
-      const flush = (last) => { if (run) emit(run.x0, run.z0, run.x1, run.z1, hedge, run.first, last, hj); run = null; cnt = 0; };
+      const flush = (last) => { if (run) emit(run.x0, run.z0, run.x1, run.z1, hedge, run.first, last, hj, fence); run = null; cnt = 0; };
       for (let i = 0; i < st.length; i++) {
         const s = st[i], ok = s.ok && !gap[i];
         if (!ok) { flush(true); continue; }
@@ -271,7 +273,7 @@ export function buildFurniture(scene, world, data, ctx) {
         const nextOk = st[i + 1] && st[i + 1].ok && !gap[i + 1];
         // split every 8 m and at polyline corners so the wall follows the terrain
         if (!nextOk) flush(true);
-        else if (cnt >= 8 || s.brk) { emit(run.x0, run.z0, run.x1, run.z1, hedge, run.first, false, hj); run = null; cnt = 0; }
+        else if (cnt >= 8 || s.brk) { emit(run.x0, run.z0, run.x1, run.z1, hedge, run.first, false, hj, fence); run = null; cnt = 0; }
       }
       flush(true);
     });

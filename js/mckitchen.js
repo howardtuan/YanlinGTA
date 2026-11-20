@@ -302,6 +302,7 @@ export class McKitchen {
         if (p >= 1 && !s.beeped) { s.beeped = true; for (let i = 0; i < 3; i++) g.audio.tone?.(1760, 0.07, 'square', 0.05, i * 0.12); g.hud.toast(`${def.icon} ${def.name}好了！按 ${KEY(g, def)} 起鍋`, 'good', 1000); }
         if (p >= MAXP) { s.on = false; s.lastP = p; s.show = 0.7; this.wasted++; g.hud.toast(`${def.icon} ${def.what}${this.pick(BURNT)}`, 'bad', 1600); g.audio.bad(); this._puff(def.k); this._renderStats(); }
       }
+      g.audio.sizzle(STATIONS.filter(d => this.st[d.k].on).length);
       // tickets
       this.spawnT -= dt;
       if (this.spawned < SHIFT_TICKETS && this.tickets.length < MAX_WAIT && this.spawnT <= 0) { this._spawnTicket(); this.spawnT = 9 + this.rnd() * 5; }

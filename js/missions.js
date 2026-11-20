@@ -42,7 +42,7 @@ export class Missions {
     this.g._saveT = 9.5; // save half a second into the new step
     this.markers = []; this.timer = null; this.g.hud.setTimer(null); this.g.setBeam(null);
     const fn = this.steps[this.idx];
-    if (fn) fn.call(this); else this.step = null;
+    if (fn) { this.g.audio.objective(); fn.call(this); } else this.step = null;
   }
   // ----- helpers -----
   // true the first time a key is seen, so retrying a failed mission doesn't pay out (or build boards) twice
@@ -70,14 +70,15 @@ export class Missions {
   fail(reason, retry) {
     this.step = null; this.timer = null; this.g.hud.setTimer(null); this.g.setBeam(null); this.markers = [];
     this.g.hud.bigToast('任務失敗', reason);
-    this.g.audio.bad();
+    this.g.audio.fail();
     this.g.after(() => { this.idx--; this.next(); }, 2600);
   }
   update(dt) {
     const s = this.step; if (!s || this.g.hud.inDialog) return;
     const p = this.g.player.worldPos();
     if (this.timer !== null) {
-      this.timer -= dt; this.g.hud.setTimer(this.timer);
+      const sec = Math.ceil(this.timer); this.timer -= dt; this.g.hud.setTimer(this.timer);
+      if (this.timer > 0 && this.timer <= 10 && Math.ceil(this.timer) !== sec) this.g.audio.tick(this.timer <= 5);
       if (this.timer <= 0) { const f = s.onFail; this.timer = null; f ? f() : this.fail('時間到了！'); return; }
     }
     if (s.type === 'goto') {

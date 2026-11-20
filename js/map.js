@@ -665,6 +665,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     world.animated.push((t) => { wn.offset.set(t * 0.012, t * 0.008); });
   }
   world.waterPolys = waterPolys;
+  // lawns / parks (incl. 補建 greens) — footstep surface
+  world.greenAt = (x, z) => greenPolys.some(p => inArea(x, z, p)) || fillGreens.some(f => inArea(x, z, f.ring));
   onProgress(0.25);
 
   // rail

@@ -218,7 +218,7 @@ export class McShift {
       const got = this._grant(n, `${msg} +${n} 票${fast ? '（出餐快）' : ''}`);
       if (!got) g.hud.toast(msg, 'good', 1800);
       g.hud.toast(`💰 小費 +NT$ ${tip}`, 'good', 1400);
-      g.audio.pickup();
+      g.audio.pickup(); g.audio.register();
       g.player.setPose('give', 0.9);
       c.ch.update(0, { speed: 0, pose: 'wave' }); c.wave = 1.2;
       this._leave(c, '😋');

@@ -1487,6 +1487,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     let best = null, bd = 1e9;
     for (const r of data.roads) {
       if (driveOnly && !r.drive) continue;
+      if (r.tunnel) continue; // underground (e.g. basement parking aisles): not reachable from the surface
       for (let i = 0; i < r.pts.length - 1; i++) {
         const a = r.pts[i], b = r.pts[i + 1];
         const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;

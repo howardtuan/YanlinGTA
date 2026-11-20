@@ -5,7 +5,7 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, IM_SPEC } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, IM_SPEC, YH_SPEC, yhFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -17,6 +17,7 @@ import { Phone } from './phone.js';
 import { GateDuty } from './gateduty.js';
 import { McShift } from './mcshift.js';
 import { Prompts, dual } from './prompts.js';
+import { controlsHTML, bindControls } from './controls.js';
 import { Race } from './race.js';
 
 const $ = id => document.getElementById(id);
@@ -56,9 +57,12 @@ class Game {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
       if (b.name === '警衛室') b.skip = true;
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
+      if (b.id === YH_SPEC.id) b.skip = true; // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it)
     }
+    // that building carries its own shop sign
+    for (const p of data.pois) if (p.name === '孫師傅牛肉拉麵') p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint)];
+    const reserved = [imFootprint(), yhFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint)];
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {
@@ -410,7 +414,7 @@ class Game {
     };
     $('btnStart').onclick = () => startGame(false);
     $('btnFree').onclick = () => startGame(true);
-    $('btnControls').onclick = () => this.modal('操作說明', CONTROLS_HTML);
+    $('btnControls').onclick = () => this.showControls();
     $('btnAbout').onclick = () => this.modal('關於彥霖', ABOUT_HTML);
     $('btnSettings').onclick = () => this.openSettings();
     $('videoClose').onclick = () => this.closeVideo();
@@ -441,8 +445,15 @@ class Game {
       tick();
     });
   }
-  modal(title, html) {
-    $('modalTitle').textContent = title; $('modalBody').innerHTML = html; $('modal').classList.remove('hidden'); this._modalOpen = true;
+  modal(title, html, sub = '') {
+    $('modalTitle').innerHTML = title + (sub ? ` <small class="mh-sub">${sub}</small>` : ''); $('modalBody').innerHTML = html; $('modal').classList.remove('hidden'); this._modalOpen = true;
+    $('modal').classList.toggle('wide', sub === 'CONTROLS');
+  }
+  // 操作說明: keyboard & mouse / gamepad / touch tabs (js/controls.js); opens on the device in use
+  showControls(fromPause = false) {
+    this.modal('操作說明', controlsHTML(this) + (fromPause ? '<div class="modal-btns" style="margin-top:14px"><button class="menu-btn primary" id="mBack"><span>▶ 繼續遊戲</span><small>RESUME</small></button></div>' : ''), 'CONTROLS');
+    bindControls($('modalBody'));
+    if (fromPause) $('mBack').onclick = () => this.closeModal();
   }
   closeModal() {
     $('modal').classList.add('hidden'); this._modalOpen = false;
@@ -457,7 +468,7 @@ class Game {
       <button class="menu-btn" id="mRestart"><span>↻ 重新開始</span><small>RESTART</small></button></div>`);
     this._bindSettings();
     $('mResume').onclick = () => this.closeModal();
-    $('mCtrl').onclick = () => { $('modalBody').innerHTML = CONTROLS_HTML + '<br><button class="menu-btn primary" id="mBack"><span>▶ 繼續遊戲</span><small>RESUME</small></button>'; $('mBack').onclick = () => this.closeModal(); };
+    $('mCtrl').onclick = () => this.showControls(true);
     $('mRestart').onclick = () => location.reload();
   }
   // ---------- settings (music / volume / sensitivity) ----------
@@ -748,60 +759,6 @@ class Game {
     else { this.hud.toast(`「${r.text}」`, 'bad', 1500); }
   }
 }
-
-const CONTROLS_HTML = `
-<div class="ctrl-sec">步行 ON FOOT</div>
-<div class="ctrl-grid">
-<div><span>移動</span><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span></div>
-<div><span>視角</span><span>滑鼠</span></div>
-<div><span>衝刺</span><kbd>Shift</kbd></div>
-<div><span>跳躍</span><kbd>Space</kbd></div>
-<div><span>發傳單拉票</span><kbd>滑鼠左鍵</kbd></div>
-<div><span>比 ✌</span><kbd>G</kbd></div>
-<div><span>上車 / 下車</span><kbd>F</kbd></div>
-<div><span>對話 / 繼續</span><span><kbd>E</kbd> <kbd>Enter</kbd></span></div>
-<div><span>📱 i-Piyan 手機（附近沒有互動時）</span><kbd>E</kbd></div>
-</div>
-<div class="ctrl-sec">手機與打工 PHONE & JOB</div>
-<div class="ctrl-grid">
-<div><span>訊息：選擇回覆</span><span><kbd>↑</kbd><kbd>↓</kbd> / <kbd>1</kbd><kbd>2</kbd></span></div>
-<div><span>訊息：傳送</span><kbd>Tab</kbd></div>
-<div><span>手機：返回 / 收起</span><span><kbd>Esc</kbd> / <kbd>E</kbd></span></div>
-<div><span>麥當勞值班：放餐點 / 出餐</span><span><kbd>1</kbd>～<kbd>6</kbd> / <kbd>Enter</kbd></span></div>
-<div><span>麥當勞值班：拿掉最後一樣 / 下班</span><span><kbd>⌫</kbd> / <kbd>E</kbd></span></div>
-</div>
-<div class="ctrl-sec">駕駛 機車與汽車 DRIVING</div>
-<div class="ctrl-grid">
-<div><span>油門</span><kbd>W</kbd></div>
-<div><span>煞車 / 倒車</span><kbd>S</kbd></div>
-<div><span>轉向</span><span><kbd>A</kbd><kbd>D</kbd></span></div>
-<div><span>手煞車甩尾</span><kbd>Space</kbd></div>
-<div><span>喇叭</span><kbd>H</kbd></div>
-<div><span>下車</span><kbd>F</kbd></div>
-</div>
-<div class="ctrl-sec">介面 MENUS</div>
-<div class="ctrl-grid">
-<div><span>地圖</span><kbd>M</kbd></div>
-<div><span>暫停</span><kbd>Esc</kbd></div>
-</div>
-<div class="ctrl-sec">🎮 搖桿 GAMEPAD（Xbox / PS / Switch Pro，插上或藍牙連線後按任一鍵）</div>
-<div class="ctrl-grid">
-<div><span>移動 / 轉向</span><span>左搖桿</span></div>
-<div><span>視角</span><span>右搖桿</span></div>
-<div><span>油門 / 煞車倒車</span><span><kbd>RT</kbd> / <kbd>LT</kbd></span></div>
-<div><span>互動・對話・掏手機</span><kbd>A</kbd></div>
-<div><span>上車 / 下車</span><kbd>B</kbd></div>
-<div><span>發傳單拉票</span><kbd>X</kbd></div>
-<div><span>比 ✌</span><kbd>Y</kbd></div>
-<div><span>跳躍 / 甩尾</span><kbd>RB</kbd></div>
-<div><span>喇叭</span><kbd>LB</kbd></div>
-<div><span>衝刺</span><span>按下左搖桿</span></div>
-<div><span>地圖 / 暫停</span><span><kbd>View</kbd> / <kbd>Menu</kbd></span></div>
-<div><span>手機：選擇 / 開啟 / 返回 / 收起</span><span>十字鍵 / <kbd>A</kbd> / <kbd>B</kbd> / <kbd>Y</kbd></span></div>
-<div><span>側門門禁：放行 / 擋下</span><span><kbd>A</kbd> / <kbd>B</kbd></span></div>
-<div><span>麥當勞：餐點 1–6 / 出餐 / 拿掉 / 下班</span><span>十字鍵 <kbd>X</kbd> <kbd>Y</kbd> / <kbd>A</kbd> / <kbd>B</kbd> / <kbd>Menu</kbd></span></div>
-</div>
-<p style="margin-top:10px;color:#a9adbf">手機：左下搖桿移動，右側拖曳轉視角，按鈕操作上下車 / 發傳單。</p>`;
 
 const ABOUT_HTML = `<div class="about">
 <p><b style="font-size:20px;color:#ffd23f">彥霖 Yanlin</b>　第34屆 中原大學 資訊管理學系 系學會會長候選人</p>

@@ -1,4 +1,5 @@
-// Enterable buildings: 資管系館 (multi-floor, classrooms, stairs, elevator), 麥當勞 (in 活動中心), 警衛室.
+// Enterable buildings: 資管系館 (multi-floor, classrooms, stairs, elevator), 麥當勞 (in 活動中心), 警衛室,
+// 孫師傅牛肉拉麵 with 彥霖's old room upstairs.
 // Provides height-aware walls, walkable surfaces (floors/stairs) and E-key actions.
 // All y values here are relative to the building's ground; tools/build_terrain.py
 // flattens the terrain around each footprint so that ground is one constant height.
@@ -1307,6 +1308,304 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
   });
 }
 
+// =====================================================================
+// 孫師傅牛肉拉麵 (中北路 52 號) and 彥霖以前住的地方 on its 2F. Replaces the 補建街區 town house
+// f899 that the shop sign used to hang on. 1F: noodle shop behind glass (not enterable) and, on its
+// right, the small side door to a straight stair. At the top of the stair the room door is on the
+// right; the room is modelled on the user's photo, seen from that door: wardrobe on the left wall,
+// bed with the mattress standing against the back wall, window AC, pink floral curtains over the
+// street window with a black table under it, and the bathroom on the near right.
+// The terrain is NOT flattened here (the town row around it keeps its slope); floors are levelled
+// by giving the walkable surfaces the building's base height minus the local ground (see surf()).
+// =====================================================================
+export const YH_SPEC = { id: 'f899', ox: -566.8, oz: 221.9, ang: Math.atan2(-1.6, 4.0), W: 4.31, D: 16.03, H: 17.1, NF: 5 };
+export function yhFootprint() {
+  const { ox, oz, ang, W, D } = YH_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
+  const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
+  return [w(0, -1.2), w(W, -1.2), w(W, D), w(0, D)]; // + the pavement in front of the doors
+}
+const YHT = {
+  facade: () => ctex('yhFacade', 128, 128, (g) => { // 2 cm mosaic tiles of a 透天 facade
+    g.fillStyle = '#cbc6bc'; g.fillRect(0, 0, 128, 128); const r = lcg(3);
+    for (let y = 0; y < 128; y += 8) for (let x = 0; x < 128; x += 8) { const v = 226 + (r() * 16 | 0); g.fillStyle = `rgb(${v},${v - 2},${v - 8})`; g.fillRect(x + 1, y + 1, 7, 7); }
+  }),
+  tile: () => ctex('yhTile', 128, 128, (g) => { // 60 cm white floor tiles
+    g.fillStyle = '#eceae4'; g.fillRect(0, 0, 128, 128); const r = lcg(7);
+    for (let i = 0; i < 240; i++) { g.fillStyle = `rgba(150,150,140,${0.04 + r() * 0.06})`; g.fillRect(r() * 128, r() * 128, 2 + r() * 5, 2 + r() * 5); }
+    g.fillStyle = '#c4c2bb'; g.fillRect(0, 0, 128, 3); g.fillRect(0, 0, 3, 128);
+  }),
+  ceil: () => ctex('yhCeil', 128, 128, (g) => { // embossed lay-in panels in a black T-bar grid
+    g.fillStyle = '#f3f2ee'; g.fillRect(0, 0, 128, 128); g.strokeStyle = 'rgba(0,0,0,0.08)'; g.lineWidth = 2;
+    for (let y = 8; y < 128; y += 16) for (let x = 8 + ((y - 8) / 16 % 2) * 8; x < 128; x += 16) { g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.closePath(); g.stroke(); }
+    g.fillStyle = '#232326'; g.fillRect(0, 0, 128, 4); g.fillRect(0, 0, 4, 128);
+  }),
+  pine: () => ctex('yhPine', 256, 256, (g) => { // knotty pine (wardrobe, bed)
+    g.fillStyle = '#d6a15a'; g.fillRect(0, 0, 256, 256); const r = lcg(11);
+    for (let i = 0; i < 70; i++) {
+      const x = r() * 256; g.strokeStyle = `rgba(${140 + r() * 40 | 0},${78 + r() * 30 | 0},30,${0.15 + r() * 0.2})`; g.lineWidth = 1 + r() * 2;
+      g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + (r() - 0.5) * 30, 85, x + (r() - 0.5) * 30, 170, x + (r() - 0.5) * 20, 256); g.stroke();
+    }
+    for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(110,60,20,0.55)'; g.beginPath(); g.ellipse(r() * 256, r() * 256, 3 + r() * 4, 6 + r() * 6, 0, 0, 7); g.fill(); }
+  }),
+  bath: () => ctex('yhBath', 128, 128, (g) => { // 15 cm bathroom tiles
+    g.fillStyle = '#b9c4c8'; g.fillRect(0, 0, 128, 128);
+    for (let y = 0; y < 128; y += 32) for (let x = 0; x < 128; x += 32) { g.fillStyle = (x + y) % 64 ? '#e9eef0' : '#dfe8ec'; g.fillRect(x + 1, y + 1, 30, 30); }
+  }),
+  curtain: () => ctex('yhCurtain', 256, 512, (g) => { // pink curtain with small embroidered flowers
+    g.fillStyle = '#d8aeab'; g.fillRect(0, 0, 256, 512);
+    for (let x = 0; x < 256; x += 32) {
+      const gr = g.createLinearGradient(x, 0, x + 32, 0); gr.addColorStop(0, 'rgba(255,255,255,0.14)'); gr.addColorStop(0.5, 'rgba(60,0,0,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0.14)');
+      g.fillStyle = gr; g.fillRect(x, 0, 32, 512);
+    }
+    const r = lcg(5);
+    for (let i = 0; i < 80; i++) {
+      const x = 8 + r() * 240, y = 8 + r() * 490;
+      g.strokeStyle = 'rgba(245,240,232,0.75)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y + 6); g.quadraticCurveTo(x + 9, y + 16, x + 2, y + 28); g.stroke();
+      g.fillStyle = 'rgba(190,80,98,0.8)'; for (let p = 0; p < 5; p++) { const a = p * 1.2566; g.beginPath(); g.arc(x + Math.cos(a) * 4, y + Math.sin(a) * 4, 3, 0, 7); g.fill(); }
+      g.fillStyle = '#f3e3c8'; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill();
+    }
+    g.fillStyle = '#f5f1ea'; g.fillRect(0, 498, 256, 14); // lace hem
+  }, false),
+  valance: () => ctex('yhValance', 512, 96, (g) => { // gathered valance with a white lace edge
+    g.clearRect(0, 0, 512, 96); g.fillStyle = '#d8aeab'; g.fillRect(0, 0, 512, 46);
+    for (let x = 0; x < 512; x += 64) { g.beginPath(); g.moveTo(x, 44); g.quadraticCurveTo(x + 32, 84, x + 64, 44); g.fill(); }
+    g.strokeStyle = '#f7f3ec'; g.lineWidth = 6; g.setLineDash([3, 3]);
+    for (let x = 0; x < 512; x += 64) { g.beginPath(); g.moveTo(x, 48); g.quadraticCurveTo(x + 32, 90, x + 64, 48); g.stroke(); }
+    g.setLineDash([]); g.fillStyle = 'rgba(255,255,255,0.15)'; for (let x = 0; x < 512; x += 16) g.fillRect(x, 0, 6, 50);
+  }, false),
+  mattress: () => ctex('yhMattress', 256, 320, (g) => { // yellow quilted top with a maroon border
+    g.fillStyle = '#6b1f2a'; g.fillRect(0, 0, 256, 320); g.fillStyle = '#e6cd7c'; g.fillRect(14, 14, 228, 292);
+    g.save(); g.beginPath(); g.rect(14, 14, 228, 292); g.clip(); g.strokeStyle = 'rgba(150,118,48,0.35)'; g.lineWidth = 2;
+    for (let y = -120; y < 330; y += 12) { g.beginPath(); g.moveTo(14, y + 114); g.lineTo(128, y); g.lineTo(242, y + 114); g.stroke(); }
+    g.restore(); g.strokeStyle = '#ece4d6'; g.lineWidth = 3; g.strokeRect(14, 14, 228, 292);
+  }, false),
+  win: () => ctex('yhWin', 256, 160, (g) => { // aluminium sliding window behind an iron grille (鐵窗)
+    g.fillStyle = '#c8cbcf'; g.fillRect(0, 0, 256, 160); g.fillStyle = '#5d6f7d'; g.fillRect(10, 10, 236, 140);
+    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(18, 14, 50, 132); g.fillRect(140, 14, 30, 132);
+    g.fillStyle = '#c8cbcf'; g.fillRect(124, 0, 8, 160);
+    g.fillStyle = 'rgba(48,48,46,0.92)'; for (let x = 16; x < 256; x += 20) g.fillRect(x, 0, 3, 160); g.fillRect(0, 52, 256, 3); g.fillRect(0, 108, 256, 3);
+  }, false),
+  menu: () => ctex('yhMenu', 512, 256, (g) => {
+    g.fillStyle = '#7a1a14'; g.fillRect(0, 0, 512, 256); g.fillStyle = '#f6e7c4'; g.fillRect(10, 10, 492, 236);
+    g.fillStyle = '#7a1a14'; g.font = font(30); g.textAlign = 'center'; g.fillText('孫師傅 招牌牛肉拉麵', 256, 48);
+    g.font = font(22, 700); g.textAlign = 'left';
+    [['紅燒牛肉麵', 160], ['清燉牛肉麵', 160], ['番茄牛肉麵', 170], ['牛肉湯麵', 90], ['酸辣湯餃', 80], ['小菜', 30]].forEach(([n, p], i) => {
+      const x = 30 + (i % 2) * 240, y = 98 + Math.floor(i / 2) * 50; g.fillStyle = '#2a1a12'; g.fillText(n, x, y); g.fillStyle = '#b3121f'; g.fillText('$' + p, x + 150, y);
+    });
+  }, false),
+};
+function buildYanlinHome(I, scene) {
+  const S = YH_SPEC, { W, D } = S, FH = S.H / S.NF, F = FH, top = S.H;
+  const k = new Kit(I, S.ox, S.oz, S.ang), base = k.base;
+  const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
+  // indoor surfaces get a small emissive lift (the fluorescent tube), like the McDonald's materials
+  const std = (o, lift = 0) => {
+    const m = new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+    if (lift) { m.emissive.set('#fffaf0'); m.emissiveMap = o.map || null; if (!o.map) m.emissive.set(o.color); m.emissiveIntensity = lift; }
+    return m;
+  };
+  const MT = {
+    plaster: def('yhPlaster', () => std({ color: '#efede6' }, 0.28)),
+    facade: def('yhFacade', () => std({ map: YHT.facade() })),
+    tile: def('yhTile', () => std({ map: YHT.tile(), roughness: 0.35 }, 0.2)),
+    ceil: def('yhCeil', () => std({ map: YHT.ceil(), roughness: 0.95 }, 0.55)),
+    pine: def('yhPine', () => std({ map: YHT.pine(), roughness: 0.55 })),
+    bath: def('yhBath', () => std({ map: YHT.bath(), roughness: 0.3 })),
+    black: def('yhBlack', () => std({ color: '#1d1d20', roughness: 0.45 })),
+    alu: def('yhAlu', () => std({ color: '#b7babd', metalness: 0.6, roughness: 0.4 })),
+    maroon: def('yhMaroon', () => std({ color: '#6b1f2a', roughness: 0.8 })),
+    stair: def('yhStair', () => std({ color: '#a19f98', roughness: 0.7 })),
+    ac: def('yhAC', () => std({ color: '#e6e2d6', roughness: 0.6 })),
+    door: def('yhDoor', () => std({ color: '#8a5a3a', roughness: 0.6 })),
+    ironDoor: def('yhIronDoor', () => std({ color: '#6f7c78', metalness: 0.35, roughness: 0.55 })),
+    porcelain: def('yhPorcelain', () => std({ color: '#f7f7f4', roughness: 0.2 })),
+    shopRed: def('yhShopRed', () => std({ color: '#a3141d', roughness: 0.6 })),
+  };
+  const off = base - H(...k.w(W / 2, 3)); // the ground under the room sits this far below the building base
+  // walkable surface, levelled to the building base (heights here are relative to the local ground)
+  const surf = (x0, x1, z0, z1, hf) => I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => { const [lx, lz] = k.l(x, z); return base + hf(lx, lz) - H(x, z); });
+  const SX0 = 3.12, SX1 = W - 0.2;           // stair strip (right of the shop)
+  const SZ0 = 0.9, SZ1 = 4.6, NS = 14;        // straight flight, 14 risers up to 2F
+  const RX1 = 2.95, RZ1 = 5.75;               // 2F room: lx 0.2..RX1, lz 0.2..RZ1
+  const DZ0 = 4.62, DZ1 = 5.55;                 // room door (right-hand wall at the top of the stair)
+  const BX0 = 1.85, BZ1 = 1.5;                // bathroom: lx BX0..RX1, lz 0.2..BZ1 (near right corner)
+  const CH = F + 2.88;                        // room's dropped ceiling
+
+  // ---------------- shell ----------------
+  k.box(0, 0.2, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
+  k.box(W - 0.2, W, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
+  k.box(0.2, W - 0.2, -0.6, top, D - 0.2, D, MT.facade, { tile: [0.6, 0.6] });
+  k.box(0, W, top - 0.2, top, 0, D, 'gray', { col: false });
+  k.box(0, W, top, top + 0.9, -0.05, 0.15, MT.facade, { col: false, tile: [0.6, 0.6] }); // parapet
+  k.box(0.3, W - 0.3, top, top + 2.5, 7, D - 0.3, '#7f8b95', { col: false });          // 頂樓加蓋 sheet-metal room
+  k.box(0.6, 1.8, top, top + 1.1, 2.0, 3.2, 'steel', { col: false });                   // water tank
+  // front: 1F shop glass + pier + stair door; 2F street window of the room; 3F-5F solid
+  k.box(0.2, RX1, -0.6, 0.0, 0, 0.2, MT.facade, { col: false });
+  k.box(0.2, RX1, 0.0, 2.75, 0.06, 0.12, 'glass');
+  for (const x of [0.25, 1.1, 1.95, 2.9]) k.box(x - 0.04, x + 0.04, 0, 2.75, 0.04, 0.14, MT.alu, { col: false });
+  k.box(0.2, RX1, 2.72, 2.8, 0.04, 0.14, MT.alu, { col: false });
+  k.box(0.2, RX1, 2.8, F, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
+  k.box(RX1, 3.15, -0.6, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(3.15, SX1, 2.15, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(0.2, 0.4, F, 2 * F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(0.4, 1.7, F - 0.2, F + 0.95, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(0.4, 1.7, F + 2.2, 2 * F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(1.7, SX1, F, 2 * F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(0.4, 1.7, F + 0.95, F + 2.2, 0.08, 0.11, 'glass');
+  k.box(0.35, 1.75, F + 0.9, F + 0.95, -0.06, 0.2, MT.alu, { col: false });             // sill
+  k.box(0.2, SX1, 2 * F, top - 0.2, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
+  // outside details: shop sign over the glass, window grilles, outdoor AC units
+  k.box(0.05, W - 0.05, 2.78, 3.62, -0.2, 0, MT.shopRed, { col: false });
+  k.plane(T.sign('孫師傅 招牌牛肉拉麵', '#a3141d', '#fff4d0', 'yhShop', 1024, 192, 112), W - 0.2, 0.8, W / 2, 3.2, -0.205, Math.PI, { emissive: 0.35 });
+  k.plane(T.sign('營業中', '#2a2a2a', '#ffcf3a', 'yhOpen', 256, 96, 56), 0.6, 0.22, 1.5, 2.3, -0.01, Math.PI, { emissive: 0.6 });
+  k.plane(YHT.win(), 0.55, 0.4, 2.45, F + 1.55, -0.01, Math.PI);                         // bathroom window
+  k.plane(YHT.win(), 0.7, 1.0, 3.6, F + 1.6, -0.01, Math.PI);                            // stair window
+  for (let f = 2; f < S.NF; f++) {
+    const y = f * F;
+    k.plane(YHT.win(), 2.4, 1.4, 1.5, y + 1.55, -0.01, Math.PI);
+    k.plane(YHT.win(), 0.7, 1.0, 3.6, y + 1.6, -0.01, Math.PI);
+    k.box(1.3, 1.7, y + 0.85, y + 0.9, -0.3, 0, MT.alu, { col: false });
+    if (f < 4) k.box(2.85, 3.55, y + 0.35, y + 0.9, -0.4, -0.02, MT.ac, { col: false });
+  }
+
+  // ---------------- 1F: noodle shop (seen through the glass) ----------------
+  k.box(0.2, SX1, -0.3, 0.06, 0.2, D - 0.2, MT.tile, { col: false, tile: [0.6, 0.6] });
+  surf(0.2, SX1, -0.05, 6.0, () => 0.06);
+  k.box(RX1, SX0, 0, F, 0.2, 6.0, MT.plaster);                    // shop | stair
+  k.box(0.2, RX1, 0, F, 6.0, 6.15, MT.plaster);                   // shop back wall (kitchen beyond)
+  k.box(0.2, RX1, F - 0.25, F - 0.2, 0.2, 6.0, 'white', { col: false });
+  k.box(0.9, 2.3, F - 0.3, F - 0.25, 2.6, 2.75, 'light', { col: false });
+  k.plane(YHT.menu(), 1.6, 0.8, 1.4, 2.1, 5.99, Math.PI, { emissive: 0.4 });
+  k.box(0.3, RX1 - 0.05, 0, 0.95, 4.7, 5.4, 'steel');          // counter with the soup pots
+  for (const [x, r] of [[0.75, 0.22], [1.35, 0.2], [2.4, 0.16]]) {
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.95, 0.42, 18), M('chrome')); pot.position.set(x, 1.16, 5.05); k.group.add(pot);
+  }
+  for (const z of [1.5, 3.2]) {
+    k.box(0.55, 1.35, 0.72, 0.76, z - 0.4, z + 0.4, 'steel', { col: false });
+    k.box(0.9, 1.0, 0, 0.72, z - 0.05, z + 0.05, MT.alu, { col: false });
+    for (const [sx, sz] of [[0.35, z], [1.55, z], [0.95, z - 0.62], [0.95, z + 0.62]]) {
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.45, 14), M('red')); st.position.set(sx, 0.225, sz); k.group.add(st);
+    }
+  }
+
+  // ---------------- side door + stair ----------------
+  const leaf = new THREE.Group(); leaf.position.set(SX1 - 0.03, 0, 0.13); k.group.add(leaf);
+  const lm = new THREE.Mesh(new THREE.BoxGeometry(0.92, 2.1, 0.05), M(MT.ironDoor)); lm.position.set(-0.46, 1.05, 0); leaf.add(lm);
+  const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.08), M('chrome')); hdl.position.set(-0.82, 1.0, 0); leaf.add(hdl);
+  k.box(3.15, SX1, 2.1, 2.15, -0.02, 0.2, MT.alu, { col: false });
+  k.plane(T.sign('2F', '#f2f0ea', '#333333', 'yh2F', 128, 64, 40), 0.22, 0.11, 3.0, 1.55, -0.01, Math.PI);
+  const run = (SZ1 - SZ0) / NS;
+  for (let j = 0; j < NS; j++) k.box(SX0, SX1, (j + 1) * F / NS - 0.45, (j + 1) * F / NS, SZ0 + j * run, SZ0 + (j + 1) * run, MT.stair, { col: false });
+  surf(SX0, SX1, SZ0, SZ1, (lx, lz) => Math.max(0, Math.min(1, (lz - SZ0) / (SZ1 - SZ0))) * F);
+  k.box(SX0, SX1, F - 0.2, F, SZ1, RZ1, MT.tile, { col: false, tile: [0.6, 0.6] });           // landing
+  surf(SX0, SX1, SZ1, RZ1, () => F);
+  k.box(SX0, SX1, 0, F, 5.9, 6.05, MT.plaster);                                                  // end of the 1F hallway
+  k.box(SX0 + 0.02, SX0 + 0.06, 0.9, F + 0.95, SZ0, SZ1, MT.alu, { col: false });               // handrail
+  k.box(SX0, SX1, 2 * F - 0.2, 2 * F, 0.2, RZ1, 'white', { col: false });
+  k.box(3.45, 3.75, 2 * F - 0.26, 2 * F - 0.2, 3.0, 3.3, 'light', { col: false });
+  k.box(3.45, 3.75, F - 0.26, F - 0.2, 0.4, 0.7, 'light', { col: false });
+
+  // ---------------- 2F: 彥霖's old room ----------------
+  k.box(0.2, RX1, F - 0.2, F, 0.2, RZ1, MT.tile, { col: false, tile: [0.6, 0.6] });
+  surf(0.2, SX0, 0.2, RZ1, () => F);
+  k.box(0.2, SX1, F, 2 * F, RZ1, RZ1 + 0.15, MT.plaster);                      // back of room + landing
+  k.box(RX1, SX0, F, 2 * F, 0.2, DZ0, MT.plaster);                            // room | stair well
+  k.box(RX1, SX0, F, 2 * F, DZ1, RZ1, MT.plaster);
+  k.box(RX1, SX0, F + 2.1, 2 * F, DZ0, DZ1, MT.plaster, { col: false });     // over the door
+  k.box(SX0, SX0 + 0.75, F, F + 2.05, DZ1 - 0.05, DZ1, MT.door, { col: false }); // door leaf, open onto the landing
+  k.box(0.2, RX1, CH + 0.04, 2 * F, 0.2, RZ1, 'white', { col: false });
+  k.box(0.85, 2.15, CH - 0.06, CH, 2.55, 2.75, MT.alu, { col: false });       // fluorescent fitting
+  k.box(0.9, 2.1, CH - 0.1, CH - 0.06, 2.6, 2.7, 'light', { col: false });
+  k.box(0.2, BX0, F, F + 0.08, 0.2, 0.22, MT.black, { col: false });        // skirting under the window
+  k.box(0.22, 0.24, F + 0.3, F + 0.4, 4.2, 4.3, 'white', { col: false });   // socket
+  // window: curtains drawn, valance with lace on top
+  for (const [x0, x1] of [[0.3, 1.08], [1.02, 1.8]]) k.plane(YHT.curtain(), x1 - x0, 1.45, (x0 + x1) / 2, F + 1.55, 0.3, 0, { double: true });
+  k.plane(YHT.valance(), 1.56, 0.3, 1.05, F + 2.2, 0.34, 0, { transparent: true, double: true });
+  k.box(0.25, 1.85, F + 2.3, F + 2.33, 0.26, 0.29, MT.alu, { col: false });
+  // black table under the window, glass jug and a sheet of paper on it
+  const dk = (x0, x1, z0, z1, y1) => k.wallRect(x0, x1, z0, z1, F - 0.2, F + y1);
+  k.box(0.5, 1.75, F + 0.72, F + 0.76, 0.3, 0.95, MT.black, { col: false });
+  for (const [x, z] of [[0.55, 0.35], [1.7, 0.35], [0.55, 0.9], [1.7, 0.9]]) k.box(x - 0.025, x + 0.025, F, F + 0.72, z - 0.025, z + 0.025, MT.black, { col: false });
+  dk(0.5, 1.75, 0.3, 0.95, 0.9);
+  const jug = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.07, 0.24, 16), M('glass')); jug.position.set(1.45, F + 0.88, 0.62); k.group.add(jug);
+  k.box(0.9, 1.15, F + 0.761, F + 0.764, 0.5, 0.68, 'white', { col: false });
+  // window AC on the back wall, near the right corner
+  k.box(0.2, 0.46, F + 1.95, F + 2.4, 1.25, 1.95, MT.ac, { col: false });
+  k.box(0.46, 0.47, F + 2.0, F + 2.2, 1.3, 1.9, 'gray', { col: false });
+  // bed: pine frame, low headboard toward the window, mattress standing against the back wall, black bag
+  k.box(0.22, 1.45, F, F + 0.4, 2.4, 4.4, MT.pine, { col: false });
+  k.box(0.22, 1.45, F + 0.4, F + 0.42, 2.45, 4.35, MT.pine, { col: false, tile: [0.6, 0.6] });
+  k.box(0.22, 1.45, F, F + 0.75, 2.3, 2.4, MT.pine, { col: false });
+  dk(0.22, 1.45, 2.3, 4.4, 0.9);
+  k.box(0.22, 0.4, F + 0.42, F + 1.95, 2.55, 4.25, MT.maroon, { col: false });
+  k.plane(YHT.mattress(), 1.66, 1.49, 0.405, F + 1.185, 3.4, Math.PI / 2);
+  k.box(0.85, 1.25, F + 0.42, F + 0.64, 3.3, 3.62, MT.black, { col: false });
+  k.box(0.95, 1.15, F + 0.64, F + 0.66, 3.43, 3.49, MT.black, { col: false }); // handle
+  // wardrobe on the left wall
+  k.box(0.22, 1.5, F, F + 2.05, 4.95, RZ1, MT.pine, { col: false });
+  k.box(0.18, 1.54, F + 2.05, F + 2.12, 4.9, RZ1, MT.pine, { col: false });
+  k.box(0.85, 0.87, F + 0.1, F + 1.95, 4.94, 4.95, '#6a4424', { col: false });
+  for (const x of [0.8, 0.92]) k.box(x - 0.01, x + 0.01, F + 0.95, F + 1.15, 4.92, 4.94, MT.alu, { col: false });
+  k.box(0.22, 1.5, F, F + 0.25, 4.94, 4.95, '#6a4424', { col: false });
+  dk(0.22, 1.5, 4.95, RZ1, 2.0);
+  // two black chairs in front of the wardrobe
+  for (const [cx, cz] of [[1.75, 4.68], [1.75, 5.42]]) {
+    k.box(cx - 0.22, cx + 0.22, F + 0.44, F + 0.48, cz - 0.21, cz + 0.21, MT.black, { col: false });
+    k.box(cx - 0.22, cx + 0.22, F + 0.6, F + 0.9, cz + 0.19, cz + 0.22, MT.black, { col: false });
+    for (const [lx, lz] of [[-0.19, -0.18], [0.19, -0.18], [-0.19, 0.19], [0.19, 0.19]]) k.box(cx + lx - 0.012, cx + lx + 0.012, F, F + 0.6 + (lz > 0 ? 0.3 : -0.16), cz + lz - 0.012, cz + lz + 0.012, 'chrome', { col: false });
+    dk(cx - 0.22, cx + 0.22, cz - 0.21, cz + 0.22, 0.6);
+  }
+  // bathroom (near right): tiled inside, toilet, basin, shower
+  k.box(BX0, BX0 + 0.08, F, CH, 0.2, BZ1, MT.plaster);
+  k.box(BX0, 2.0, F, CH, BZ1 - 0.08, BZ1, MT.plaster);
+  k.box(2.85, RX1, F, CH, BZ1 - 0.08, BZ1, MT.plaster);
+  k.box(2.0, 2.85, F + 2.05, CH, BZ1 - 0.08, BZ1, MT.plaster, { col: false });
+  k.box(BX0 + 0.08, BX0 + 0.09, F, F + 2.4, 0.2, BZ1 - 0.08, MT.bath, { col: false, tile: [0.6, 0.6] });
+  k.box(BX0 + 0.08, RX1, F, F + 2.4, BZ1 - 0.09, BZ1 - 0.08, MT.bath, { col: false, tile: [0.6, 0.6] });
+  k.box(BX0 + 0.08, RX1, F, F + 2.4, 0.2, 0.21, MT.bath, { col: false, tile: [0.6, 0.6] });
+  k.box(RX1 - 0.01, RX1, F, F + 2.4, 0.2, BZ1 - 0.08, MT.bath, { col: false, tile: [0.6, 0.6] });
+  k.box(BX0 + 0.08, RX1, F, F + 0.02, 0.2, BZ1 - 0.08, MT.bath, { col: false, tile: [0.3, 0.3] });
+  k.box(BX0, RX1, F + 2.4, F + 2.44, 0.2, BZ1, 'white', { col: false });
+  k.box(2.3, 2.6, F + 2.34, F + 2.4, 0.7, 0.9, 'light', { col: false });
+  k.box(2.4, 2.8, F, F + 0.4, 0.42, 0.85, MT.porcelain, { col: false });     // toilet
+  k.box(2.38, 2.82, F + 0.4, F + 0.44, 0.4, 0.87, MT.porcelain, { col: false });
+  k.box(2.42, 2.78, F + 0.44, F + 0.8, 0.21, 0.4, MT.porcelain, { col: false });
+  k.box(1.95, 2.25, F + 0.78, F + 0.86, 0.85, 1.3, MT.porcelain, { col: false }); // basin
+  k.box(2.05, 2.15, F, F + 0.78, 1.02, 1.12, MT.porcelain, { col: false });
+  k.box(1.94, 1.95, F + 1.1, F + 1.6, 0.9, 1.25, 'glass', { col: false });         // mirror
+  k.box(2.9, 2.94, F + 1.85, F + 1.95, 1.1, 1.2, 'chrome', { col: false });        // shower head
+  k.box(RX1 - 0.04, RX1 - 0.01, F, F + 2.0, BZ1 - 0.7, BZ1 - 0.08, MT.porcelain, { col: false }); // door, open inward
+  dk(2.38, 2.82, 0.21, 0.87, 0.5);
+
+  // plaster skins over the inside faces of the (mosaic-tiled) shell walls
+  const skin = (x0, x1, y0, y1, z0, z1) => k.box(x0, x1, y0, y1, z0, z1, MT.plaster, { col: false });
+  skin(0.2, 0.21, 0, F - 0.25, 0.2, 6.0);                                    // shop, left wall
+  skin(SX1 - 0.01, SX1, 0, 2 * F - 0.2, 0.2, RZ1);                           // stair well, right wall
+  skin(SX0, SX1, 2.15, 2 * F - 0.2, 0.2, 0.21);                              // stair well, front wall
+  skin(0.2, 0.21, F, CH, 0.21, RZ1);                                         // room: back wall
+  skin(0.21, 0.4, F, CH, 0.2, 0.21); skin(1.7, BX0, F, CH, 0.2, 0.21);       // room: street wall around the window
+  skin(0.4, 1.7, F, F + 0.95, 0.2, 0.21); skin(0.4, 1.7, F + 2.2, CH, 0.2, 0.21);
+  k.box(0.2, RX1, CH, CH + 0.04, 0.2, RZ1, MT.ceil, { col: false, tile: [0.6, 0.6] });
+
+  k.finish(scene);
+  // zones (camera ceiling + location name) and the E actions
+  I.zones.push({ name: '孫師傅牛肉拉麵 樓梯間', pts: k.rect(SX0, SX1, 0.2, RZ1), y0: 0, y1: 2 * F - 0.4, ceil: () => 2 * F - 0.45 + off });
+  I.zones.push({ name: '彥霖以前住的地方', pts: k.rect(0.2, SX0, 0.2, RZ1), y0: F - 0.3, y1: 2 * F - 0.4, ceil: () => CH - 0.1 + off });
+  const at = (lx, lz) => { const p = k.w(lx, lz); return { x: p[0], z: p[1], y: F + base - H(p[0], p[1]) }; };
+  const memories = ['🛏️ 以前每天早上都是被樓下牛肉麵的香味叫醒的', '🛏️ 期末趕報告趕到天亮，就是倒在這張床上補眠', '🛏️ 夏天把床墊立起來，直接睡木板比較涼'];
+  let mi = 0;
+  I.actions.push({ ...at(1.0, 3.0), r: 1.05, label: () => '按 <kbd>E</kbd> 在舊床上躺一下', fn: (g) => { g.hud.toast(memories[mi++ % memories.length], 'good', 2800); g.audio.blip(); } });
+  I.actions.push({ ...at(1.1, 1.25), r: 0.7, label: () => '按 <kbd>E</kbd> 看桌上的紙', fn: (g) => g.hud.toast('📄 紙條：「房租月底前交喔！——房東」', 'good', 2800) });
+  I.actions.push({ ...at(2.4, 1.15), r: 0.55, label: () => '按 <kbd>E</kbd> 洗把臉', fn: (g) => { g.hud.toast('💧 洗把臉，清醒多了', 'good', 1800); g.audio.blip(); } });
+  // the street door swings open when you walk up to it
+  const doorAt = k.w(3.6, 0.1);
+  I.updaters.push((dt, g) => {
+    const p = g.player.worldPos(), near = !g.player.vehicle && Math.hypot(p.x - doorAt[0], p.z - doorAt[1]) < 2.6;
+    leaf.rotation.y += ((near ? Math.PI / 2 : 0) - leaf.rotation.y) * Math.min(1, dt * 5);
+  });
+  return { k, door: doorAt, room: k.w(1.5, 3) };
+}
+
 // ---------------- entry point ----------------
 export function nearestRoadDir(data, x, z) {
   let best = null, bd = 1e9;
@@ -1345,6 +1644,7 @@ export function buildInteriors(scene, data, collision) {
   const I = new Interiors(scene);
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene);
+  I.yh = buildYanlinHome(I, scene);
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

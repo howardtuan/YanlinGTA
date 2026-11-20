@@ -192,10 +192,10 @@
   "pois_doc": "Shops OSM lacks, drawn as data-driven shop signs like OSM pois (lat/lon = just inside the shop front). egg = easter egg: coming within r metres of egg.at (lat, lon) shows the toast once per game.",
   "pois": [
     {"name": "孫師傅牛肉拉麵", "kind": "restaurant", "lat": 24.955979, "lon": 121.236906,
-     "egg": {"at": [24.956024, 121.236897], "r": 6, "title": "🍜 彩蛋：孫師傅牛肉拉麵", "text": "樓上二樓，是彥霖以前住的地方"},
+     "egg": {"at": [24.956024, 121.236897], "r": 6, "title": "🍜 彩蛋：孫師傅牛肉拉麵", "text": "店旁邊的小門可以上二樓，那是彥霖以前住的地方"},
      "source": ["Google 地圖地點資訊：孫師傅牛肉拉麵館，桃園市中壢區中北路52號，Plus Code X64P+9Q（約 24.955938,121.236938）",
                 "使用者提供的 Google 街景畫面（影像 2026年5月，中北路52號前）：一樓招牌「孫師傅 招牌牛肉拉麵」，位在中北路西南側一排街屋中",
                 "樓上二樓曾是主角彥霖的住處：使用者提供（2026-11）"],
-     "note": "OSM 沒有這家店。這一排街屋在遊戲裡是補建（synthetic）示意建物，招牌掛在離店門最近的店面牆上；補建街區關閉時沒有招牌，但彩蛋照樣會觸發。"}
+     "note": "OSM 沒有這家店。這一排街屋在遊戲裡是補建（synthetic）示意建物；店所在的那棟（補建 f899）改由 js/interiors.js 自己蓋：一樓店面和招牌、右邊上二樓的小門，二樓是彥霖以前的房間（依使用者提供的房間照片，2026-11）。"}
   ]
 }

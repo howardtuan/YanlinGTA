@@ -597,7 +597,7 @@ export function buildFurniture(scene, world, data, ctx) {
     const used = new Map(); // wall -> [[t0,t1]]
     const picks = [];
     for (const p of data.pois) {
-      if (!p.name || !SIGN_KINDS.has(p.kind) || !inB(p.x, p.z, 10)) continue;
+      if (!p.name || p.noSign || !SIGN_KINDS.has(p.kind) || !inB(p.x, p.z, 10)) continue;
       const text = signText(p.name); if (!text) continue;
       let bi = -1;
       for (let i = 0; i < bb.length && bi < 0; i++) { const q = bb[i]; if (p.x >= q[0] && p.x <= q[2] && p.z >= q[1] && p.z <= q[3] && pointInPoly(p.x, p.z, data.buildings[i].pts)) bi = i; }

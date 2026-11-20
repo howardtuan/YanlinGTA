@@ -1,4 +1,4 @@
-// 呼叫載具 (phone app): a helicopter flies in with your JET SL hanging under it on a cable, lowers it
+// 呼叫載具 (phone app): an EVA Air (長榮航空) helicopter flies in with your JET SL hanging under it on a cable, lowers it
 // onto the road next to you, lets go and flies off again.
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
@@ -9,13 +9,15 @@ const T_IN = 7, T_LOWER = 4.5, T_OUT = 8, HOVER = 16;
 function buildHeli() {
   const g = new THREE.Group();
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.2, ...o });
-  const white = mat('#f2f3f5'), red = mat('#d0151f'), dark = mat('#26282d'), glass = mat('#1d3550', { roughness: 0.1, metalness: 0.6 });
+  // 長榮航空 livery: white body, dark green belly stripe and tail with a thin orange line, green lettering
+  const white = mat('#f2f3f5'), green = mat('#00664f'), orange = mat('#f39800'), dark = mat('#26282d'), glass = mat('#1d3550', { roughness: 0.1, metalness: 0.6 });
   const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; g.add(o); return o; };
   add(new THREE.CapsuleGeometry(1.05, 2.4, 6, 16), white, 0, 0, 0, Math.PI / 2, 0, 0).scale.set(1, 1, 0.92);   // cabin
-  add(new THREE.BoxGeometry(2.12, 0.32, 3.2), red, 0, -0.15, -0.2);                                          // stripe
+  add(new THREE.BoxGeometry(2.12, 0.34, 3.2), green, 0, -0.45, -0.2);                                        // green stripe
+  add(new THREE.BoxGeometry(2.14, 0.07, 3.1), orange, 0, -0.24, -0.2);                                       // orange pinstripe
   add(new THREE.SphereGeometry(0.95, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), glass, 0, 0.05, 1.45, Math.PI / 2.4, 0, 0); // windscreen
   add(new THREE.CylinderGeometry(0.28, 0.13, 4.6, 10), white, 0, 0.35, -3.6, Math.PI / 2, 0, 0);              // tail boom
-  add(new THREE.BoxGeometry(0.12, 1.3, 0.8), red, 0, 0.9, -5.7, -0.3, 0, 0);                                   // fin
+  add(new THREE.BoxGeometry(0.12, 1.3, 0.8), green, 0, 0.9, -5.7, -0.3, 0, 0);                                 // fin
   add(new THREE.BoxGeometry(1.6, 0.08, 0.45), white, 0, 0.45, -5.4);                                           // stabiliser
   for (const x of [-0.85, 0.85]) {                                                                            // skids
     add(new THREE.BoxGeometry(0.08, 0.08, 3.6), dark, x, -1.35, 0.1);
@@ -27,11 +29,13 @@ function buildHeli() {
   for (const a of [0, Math.PI / 2]) { const b = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.05, 0.28), dark); b.rotation.y = a; rotor.add(b); }
   const tail = new THREE.Group(); tail.position.set(0.18, 0.5, -5.75); g.add(tail);
   for (const a of [0, Math.PI / 2]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.4, 0.14), dark); b.rotation.x = a; tail.add(b); }
-  // 彥霖空運 on both doors
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const c = cv.getContext('2d');
-  c.fillStyle = '#d0151f'; c.font = '900 40px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('彥霖空運', 128, 34);
+  // green 長榮航空 / EVA AIR on both sides of the cabin
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const c = cv.getContext('2d');
+  c.fillStyle = '#00664f'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = '900 68px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.fillText('長榮航空', 256, 50);
+  c.font = '800 30px "Arial",sans-serif'; c.fillText('EVA AIR', 256, 106);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); p.position.set(s * 1.0, 0.35, -0.2); p.rotation.y = s * Math.PI / 2; g.add(p); }
+  for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); p.position.set(s * 1.02, 0.28, -0.3); p.rotation.y = s * Math.PI / 2; g.add(p); }
   return { g, rotor, tail };
 }
 

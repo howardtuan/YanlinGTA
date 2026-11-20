@@ -230,12 +230,12 @@ export class Phone {
     const c = this._frame('呼叫載具', `<div class="ph-garage">
         <div class="ph-gcard"><span>🛵</span><div><b>我的 SYM JET SL</b><small>粉白配色 · ${riding ? '騎乘中' : busy ? '空投中…' : `距離你 ${d} 公尺`}</small></div></div>
         <button class="ph-gbtn" ${riding || busy ? 'disabled' : ''}>🚁 直升機空投到我旁邊</button>
-        <div class="ph-note">彥霖空運：直升機把機車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。</div>
+        <div class="ph-note">長榮航空直升機會把機車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。</div>
       </div>`);
     c.querySelector('.ph-gbtn').onclick = () => {
       const err = g.airdrop.call();
       if (err) { g.hud.toast(err, 'bad', 2400); return; }
-      g.audio.notify?.(); g.hud.toast('🚁 直升機起飛了，抬頭看！', 'good', 2600);
+      g.audio.notify?.(); g.hud.toast('🚁 長榮航空直升機起飛了，抬頭看！', 'good', 2600);
       this.close(); this._last = null; g.lockPointer();
     };
   }
@@ -243,9 +243,9 @@ export class Phone {
   _missions() {
     const g = this.g, M = g.missions;
     const LIST = [
-      ['序章 · 競選之夜', '和總幹事小安會合，前往資訊管理學系館'],
+      ['序章 · 投票前一天', '一早和總幹事小安會合，前往資訊管理學系館'],
       ['任務一 · 傳單大作戰', '3 分鐘內把傳單送到 5 個公布欄'],
-      ['任務二 · 宵夜補給', '去中原夜市幫競選小組買宵夜'],
+      ['任務二 · 早餐補給', '去中原夜市那條街幫競選小組買早餐'],
       ['任務三 · 掃街拉票', '對路上的同學發傳單，拉到 15 票'],
       ['任務四 · 布條保衛戰', '依序把競選布條掛好，限時完成'],
       ['終章 · 政見發表會', '到學生活動中心發表政見'],
@@ -264,7 +264,7 @@ export class Phone {
       <div class="ph-msec">支線與收集</div>
       <div class="ph-row"><span>🗳 金色選票</span><b>${g.ballotsTaken} / 34</b></div>
       <div class="ph-row"><span>🍟 麥當勞值班</span><b>${g.job.shifts ? g.job.shifts + ' 班' : '未開始'}</b></div>
-      <div class="ph-row"><span>🚧 A6 側門門禁</span><b>${g.gate.shifts ? g.gate.shifts + ' 班' : '未開始'}</b></div>
+      <div class="ph-row"><span>🚧 新中北路側門門禁</span><b>${g.gate.shifts ? g.gate.shifts + ' 班' : '未開始'}</b></div>
       <div class="ph-row"><span>🏁 新中北路障礙賽</span><b>${g.race.runs ? `${g.race.runs} 場 · 冠軍 ${g.race.wins} 次` : '未參加'}</b></div>`);
     const nb = c.querySelector('.ph-mnav');
     if (nb) nb.onclick = () => { g.nav.set(tgt.x, tgt.z); g.hud.toast('🧭 已設定導航到任務目標', 'good', 2000); this.close(); g.lockPointer(); };
@@ -310,7 +310,7 @@ export class Phone {
       this._frame('選情', `<div class="ph-big"><small>目前得票</small><b>${g.votes}</b><span>票</span></div>
         <div class="ph-row"><span>金色選票</span><b>${g.ballotsTaken} / 34</b></div>
         <div class="ph-row"><span>發傳單成功</span><b>${g.flyerVotes || 0} 人</b></div>
-        <div class="ph-row"><span>🚧 支線：A6 側門門禁<small>坐進側門警衛室，別讓怪人進來</small></span><b>${g.gate?.shifts ? `完成 ${g.gate.shifts} 班` : '未開始'}</b></div>
+        <div class="ph-row"><span>🚧 支線：新中北路側門門禁<small>坐進活動中心旁的側門警衛室，別讓怪人進來</small></span><b>${g.gate?.shifts ? `完成 ${g.gate.shifts} 班` : '未開始'}</b></div>
         <div class="ph-row"><span>目前任務</span><b class="ph-wrap">${esc(obj)}</b></div>
         <div class="ph-note">資管要贏，票投彥霖！🗳</div>`);
       return;

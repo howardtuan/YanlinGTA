@@ -1,4 +1,4 @@
-// 側門門禁任務「別讓怪人進來」：坐進 A6 側門警衛室就開始。
+// 側門門禁任務「別讓怪人進來」：坐進新中北路側門（活動中心旁）警衛室就開始。
 // 訪客一個個走到柵欄前，看證件、聽他說什麼，按 1 放行、2 擋下。按 E 提早下班。
 import { createCharacter, randomStudent } from './character.js';
 import { surfaceAt } from './terrain.js';
@@ -140,7 +140,7 @@ export class GateDuty {
     const el = this.el;
     if (!this.active) { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
-    const v = this.v, st = this.stats, head = `<div class="gp-head">🚧 ${this.gate?.name === '活動中心側門警衛室' ? '新中北路側門' : 'A6 側門'}門禁 <span>${Math.min(this.n + 1, SHIFT)} / ${SHIFT}</span></div>
+    const v = this.v, st = this.stats, head = `<div class="gp-head">🚧 新中北路側門門禁 <span>${Math.min(this.n + 1, SHIFT)} / ${SHIFT}</span></div>
       <div class="gp-stat">✅ ${st.ok}　🛡️ 擋下怪人 ${st.blocked}　⚠️ 失誤 ${st.wrong}</div>`;
     if (!v || v.state === 'in') { el.innerHTML = head + `<div class="gp-wait">${v ? '有人走過來了…' : '等待下一位訪客…'}</div><div class="gp-foot"><kbd>E</kbd> 提早下班</div>`; return; }
     const d = v.d, decided = v.state !== 'wait';

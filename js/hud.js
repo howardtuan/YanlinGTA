@@ -89,6 +89,7 @@ export class HUD {
     g.restore();
     // markers (clamped to edge)
     for (const mk of markers) {
+      if (mk.near && Math.hypot(mk.x - px, mk.z - pz) > mk.near) continue; // e.g. 🏠 only shows when you are close
       let dx = (mk.x - px) * pxPerM, dz = (mk.z - pz) * pxPerM;
       // rotate into screen space
       const c = Math.cos(-rot), s = Math.sin(-rot);
@@ -171,7 +172,11 @@ export class HUD {
       g.beginPath(); g.moveTo(X, Z); g.bezierCurveTo(X - 11, Z - 14, X - 9, Z - 26, X, Z - 26); g.bezierCurveTo(X + 9, Z - 26, X + 11, Z - 14, X, Z); g.fill(); g.stroke();
       g.fillStyle = '#fff'; g.beginPath(); g.arc(X, Z - 17, 3.5, 0, 7); g.fill();
     }
-    for (const mk of markers) { g.fillStyle = mk.color || '#ffd23f'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(tx(mk.x), tz(mk.z), 9, 0, 7); g.fill(); g.stroke(); if (mk.icon) { g.fillStyle = '#000'; g.font = '900 11px system-ui'; g.fillText(mk.icon, tx(mk.x), tz(mk.z) + 1); } }
+    for (const mk of markers) {
+      g.fillStyle = mk.color || '#ffd23f'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(tx(mk.x), tz(mk.z), 9, 0, 7); g.fill(); g.stroke();
+      if (mk.icon) { g.fillStyle = '#000'; g.font = '900 11px system-ui'; g.fillText(mk.icon, tx(mk.x), tz(mk.z) + 1); }
+      if (mk.label) { g.font = `800 ${fs}px "Noto Sans TC","Microsoft JhengHei",sans-serif`; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.8)'; g.fillStyle = mk.color || '#fff'; g.strokeText(mk.label, tx(mk.x), tz(mk.z) + 20); g.fillText(mk.label, tx(mk.x), tz(mk.z) + 20); }
+    }
     // crosshair: keyboard / gamepad pin goes here (Enter / A)
     g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(W / 2 - 9, H / 2); g.lineTo(W / 2 + 9, H / 2); g.moveTo(W / 2, H / 2 - 9); g.lineTo(W / 2, H / 2 + 9); g.stroke();
     g.save(); g.translate(tx(px), tz(pz)); g.rotate(Math.PI - heading);

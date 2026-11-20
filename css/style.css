@@ -678,3 +678,7 @@ kbd.pb-nin.pb-face{background:#3b3d44}
 .ph-mrow.now{background:#eef3ff;border-radius:10px}.ph-mrow.now b{color:#2f6bff}.ph-mrow.todo{opacity:.55}
 /* computer wallpaper: assets/pc/wallpaper.jpg when present, otherwise the blue gradient */
 .pc-screen{background:url(../assets/pc/wallpaper.jpg) center/cover no-repeat,radial-gradient(circle at 70% 30%,#3a7bd5 0,#1c3f7a 45%,#0f2147 100%)}
+
+/* sleeping: fade to black and back */
+#sleepFade{position:fixed;inset:0;z-index:57;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;letter-spacing:2px;opacity:0;pointer-events:none;transition:opacity 1.1s}
+#sleepFade.on{opacity:1}

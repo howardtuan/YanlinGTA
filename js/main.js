@@ -5,7 +5,7 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, IM_SPEC, YH_SPEC, yhFootprint } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -64,7 +64,11 @@ class Game {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
       if (b.name === '警衛室') b.skip = true;
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
-      if (b.id === YH_SPEC.id) b.skip = true; // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it)
+      if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
+      if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
+        const c = Math.cos(YH_SPEC.ang), s = Math.sin(YH_SPEC.ang), ext = YH_SPEC.W * (YH_SPEC.k - 1);
+        b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
+      }
     }
     // that building carries its own shop sign
     for (const p of data.pois) if (p.name === '孫師傅牛肉拉麵') p.noSign = true;
@@ -122,7 +126,7 @@ class Game {
     this.hud.setMoney(this.money);
     this.phone = new Phone(this);
     this.job = new McShift(this); // 麥當勞打工值班
-    this.gate = new GateDuty(this); // A6 側門門禁任務
+    this.gate = new GateDuty(this); // 新中北路側門門禁任務
     this.race = new Race(this); // 新中北路障礙賽 (sign up at 力行大樓)
     this.pc = new PC(this);             // 彥霖's old computer (2F of 孫師傅牛肉拉麵)
     this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
@@ -376,6 +380,24 @@ class Game {
     else if (!this.input.touch && this.state === 'play') lockPointer(this.renderer.domElement);
     this.mapSrc = null;
   }
+  // sleeping (bed in 彥霖's old room): only from 21:00 to 05:00, wakes up at 06:00 the next morning
+  canSleep() { const m = ((this.clock % 1440) + 1440) % 1440; return m >= 21 * 60 || m < 5 * 60; }
+  sleep() {
+    if (this._sleeping || !this.canSleep()) return;
+    this._sleeping = true; this.audio.setEngine(false, 0);
+    let el = $('sleepFade');
+    if (!el) { el = document.createElement('div'); el.id = 'sleepFade'; document.body.appendChild(el); }
+    el.textContent = '💤 Zzz…'; el.classList.add('on');
+    setTimeout(() => {
+      const m = ((this.clock % 1440) + 1440) % 1440, day = Math.floor(this.clock / 1440);
+      this.clock = (m >= 21 * 60 ? day + 1 : day) * 1440 + 6 * 60;
+      this.hud.setClock(this.clock); el.textContent = '☀️ 隔天早上 06:00';
+      setTimeout(() => {
+        el.classList.remove('on'); this._sleeping = false;
+        this.hud.toast('睡飽了！新的一天開始 ☀️', 'good', 2600); writeSave(this);
+      }, 1700);
+    }, 1300);
+  }
   openPhone() {
     this.phone.show(); // sets phone.open first so losing the pointer lock doesn't pause the game
     document.exitPointerLock?.();
@@ -399,7 +421,7 @@ class Game {
       this.scene.add(ch.root); crowd.push(ch);
     }
     this.crowd = crowd;
-    this.clock = Math.max(this.clock, 19 * 60);
+    { const m = ((this.clock % 1440) + 1440) % 1440; if (m < 19 * 60) this.clock += 19 * 60 - m; } // the speech is at 19:00 of the day you get there
     this.speechOn = true;
     this.player.heading = face + Math.PI;
     this.rig.yaw = face; this.rig.pitch = 0.15;
@@ -447,7 +469,7 @@ class Game {
         if (m.done) { this.missions.done = true; this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！'); }
         else { this.missions.idx = Math.max(-1, (m.idx ?? 0) - 1); this.missions.next(); }
         this.hud.toast('💾 已讀取上次的進度', 'good', 2600);
-      } else this.missions.start();
+      } else { this.clock = 6 * 60; this.ledger[0].at = this.clock; this.missions.start(); } // a new game starts at 06:00
       this._checkRotate();
       // autosave
       this._saveT = 0;
@@ -699,7 +721,7 @@ class Game {
     }
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen;
+    pl.frozen = inDialog || this._sleeping || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -823,7 +845,8 @@ class Game {
     else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];
-    // side quest: A6 側門門禁 (always on the map)
+    if (this.interiors.yh) { const d = this.interiors.yh.door; markers.push({ x: d[0], z: d[1], icon: '🏠', color: '#ff8fb1', label: '彥霖的家', near: 120 }); }
+    // side quest: 新中北路側門門禁 (always on the map)
     if (!this.gate.active) for (const gq of Object.values(this.interiors.gates || {})) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }
     const range = pl.vehicle ? 170 : 110;
     hud.drawMinimap(wp.x, wp.z, this.rig.yaw, pl.worldHeading(), range, markers, this.ballotList);
@@ -869,7 +892,7 @@ const ABOUT_HTML = `<div class="about">
 <p style="font-size:20px;font-weight:900">資管要贏　票投彥霖</p>
 <p>《中原順起來》是彥霖的競選宣傳小遊戲。整個地圖依照真實的中原大學與周邊街區（中北路、實踐路、新中北路、中原夜市）搭建，建築位置與高度來自 OpenStreetMap。</p>
 <p>在遊戲裡，你就是彥霖：</p>
-<ul><li>騎著粉白色 SYM JET SL 穿梭校園送傳單</li><li>走進資管系館上樓、進教室，用電腦教室的電腦上網、玩踩地雷</li><li>去活動中心的麥當勞點餐，或從櫃台後面的員工入口打工值班、幫同學出餐賺錢拉票</li><li>坐進警衛室值班</li><li>衝去中原夜市買雞排宵夜</li><li>對路上的同學發傳單拉票</li><li>在學生活動中心發表政見</li></ul>
+<ul><li>騎著粉白色 SYM JET SL 穿梭校園送傳單</li><li>走進資管系館上樓、進教室，用電腦教室的電腦上網、玩踩地雷</li><li>去活動中心的麥當勞點餐，或從櫃台後面的員工入口打工值班、幫同學出餐賺錢拉票</li><li>坐進警衛室值班</li><li>一早衝去中原夜市那條街買早餐</li><li>對路上的同學發傳單拉票</li><li>在學生活動中心發表政見</li></ul>
 <p>真實的投票日，資管要贏，票投 <b style="color:#ffd23f">彥霖</b> 🗳✌</p>
 <p style="color:#a9adbf;font-size:12px">地圖資料 © OpenStreetMap contributors，依 ODbL 授權使用。<br>地形資料：內政部 20m 網格數值地形模型（政府資料開放授權條款第1版）。</p></div>`;
 

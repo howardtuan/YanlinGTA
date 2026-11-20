@@ -221,15 +221,16 @@ export class Interiors {
 
 // ---------------- local-frame building kit ----------------
 class Kit {
-  constructor(I, ox, oz, ang) {
-    this.I = I; this.ox = ox; this.oz = oz; this.c = Math.cos(ang); this.s = Math.sin(ang); this.ang = ang;
+  // sc: uniform scale of the whole building (local units * sc = metres); collision walls and surfaces follow it
+  constructor(I, ox, oz, ang, sc = 1) {
+    this.I = I; this.ox = ox; this.oz = oz; this.c = Math.cos(ang); this.s = Math.sin(ang); this.ang = ang; this.sc = sc;
     this.parts = new Map();
     // render base = terrain at the (flattened) building origin
     this.base = H(ox, oz);
-    this.group = new THREE.Group(); this.group.position.set(ox, this.base, oz); this.group.rotation.y = -ang;
+    this.group = new THREE.Group(); this.group.position.set(ox, this.base, oz); this.group.rotation.y = -ang; this.group.scale.setScalar(sc);
   }
-  w(lx, lz) { return [this.ox + lx * this.c - lz * this.s, this.oz + lx * this.s + lz * this.c]; }
-  l(x, z) { const dx = x - this.ox, dz = z - this.oz; return [dx * this.c + dz * this.s, -dx * this.s + dz * this.c]; }
+  w(lx, lz) { lx *= this.sc; lz *= this.sc; return [this.ox + lx * this.c - lz * this.s, this.oz + lx * this.s + lz * this.c]; }
+  l(x, z) { const dx = x - this.ox, dz = z - this.oz; return [(dx * this.c + dz * this.s) / this.sc, (-dx * this.s + dz * this.c) / this.sc]; }
   rect(x0, x1, z0, z1) { return [this.w(x0, z0), this.w(x1, z0), this.w(x1, z1), this.w(x0, z1)]; }
   heading(localAngle = 0) { return localAngle - this.ang; } // three rotation.y for local-forward
   box(x0, x1, y0, y1, z0, z1, mat, o = {}) {
@@ -244,14 +245,14 @@ class Kit {
     if (!this.parts.has(mat)) this.parts.set(mat, []);
     this.parts.get(mat).push(g);
     if (o.col !== false) this.wallRect(x0, x1, z0, z1, y0, y1);
-    if (o.surface) this.I.addSurface(this.rect(x0, x1, z0, z1), y1);
+    if (o.surface) this.I.addSurface(this.rect(x0, x1, z0, z1), y1 * this.sc);
     return g;
   }
   wallRect(x0, x1, z0, z1, y0, y1) {
     const p = this.rect(x0, x1, z0, z1);
-    for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; this.I.addWall(a[0], a[1], b[0], b[1], y0, y1); }
+    for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; this.I.addWall(a[0], a[1], b[0], b[1], y0 * this.sc, y1 * this.sc); }
   }
-  wallLine(x0, z0, x1, z1, y0, y1) { const a = this.w(x0, z0), b = this.w(x1, z1); this.I.addWall(a[0], a[1], b[0], b[1], y0, y1); }
+  wallLine(x0, z0, x1, z1, y0, y1) { const a = this.w(x0, z0), b = this.w(x1, z1); this.I.addWall(a[0], a[1], b[0], b[1], y0 * this.sc, y1 * this.sc); }
   plane(tex, w, h, x, y, z, rotY = 0, o = {}) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, transparent: !!o.transparent, roughness: 0.8, emissive: o.emissive ? '#ffffff' : '#000000', emissiveMap: o.emissive ? tex : null, emissiveIntensity: o.emissive || 0, side: o.double ? THREE.DoubleSide : THREE.FrontSide }));
     m.position.set(x, y, z); m.rotation.y = rotY; this.group.add(m); return m;
@@ -1230,7 +1231,7 @@ function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
 }
 
 // =====================================================================
-// 警衛室 (main gate on 中北路 + side gate A6): enterable, sit and stand guard
+// 警衛室 (main gate on 中北路, side gates A6 and 新中北路): enterable, sit and stand guard; the 新中北路 one runs the 門禁 quest
 // =====================================================================
 function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null) {
   const k = new Kit(I, x, z, ang);
@@ -1291,15 +1292,15 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
   let duty = 0, dutyVotes = 0;
   I.actions.push({
     x: seat[0], z: seat[1], r: 1.1, y: 0,
-    label: (g) => g.player.seat ? '按 <kbd>E</kbd> 起身' : gateOpt ? '按 <kbd>E</kbd> 坐下值班：🚧 門禁任務「別讓怪人進來」' : '按 <kbd>E</kbd> 坐下值班',
+    label: (g) => g.player.seat ? '按 <kbd>E</kbd> 起身' : gateOpt?.quest ? '按 <kbd>E</kbd> 坐下值班：🚧 新中北路側門門禁「別讓怪人進來」' : '按 <kbd>E</kbd> 坐下值班',
     fn: (g) => {
       if (g.player.seat) { g.player.standUp(); g.hud.toast('下班囉', 'good', 1000); return; }
-      if (gateOpt && g.gate) { g.player.sitAt(seat[0], seat[1], k.heading(Math.PI)); g.gate.start(gate); return; }
+      if (gate && g.gate) { g.player.sitAt(seat[0], seat[1], k.heading(Math.PI)); g.gate.start(gate); return; }
       g.player.sitAt(seat[0], seat[1], k.heading(Math.PI)); // face the desk/window (-z local)
       g.hud.toast('👮 值班中…同學經過會跟你打招呼', 'good', 2200);
     },
   });
-  const gate = gateOpt ? (I.gates = I.gates || {})[name] = { k, W, D, off: gateOpt.off, roadW: gateOpt.roadW, barX: hingeLX, seat, forceOpen: false, name } : null;
+  const gate = gateOpt?.quest ? (I.gates = I.gates || {})[name] = { k, W, D, off: gateOpt.off, roadW: gateOpt.roadW, barX: hingeLX, seat, forceOpen: false, name } : null;
   I.updaters.push((dt, g) => {
     // a barrier opens when the player drives up to it (or the guard lets a visitor through)
     const p = g.player.worldPos();
@@ -1326,11 +1327,19 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
 // The terrain is NOT flattened here (the town row around it keeps its slope); floors are levelled
 // by giving the walkable surfaces the building's base height minus the local ground (see surf()).
 // =====================================================================
-export const YH_SPEC = { id: 'f899', ox: -566.8, oz: 221.9, ang: Math.atan2(-1.6, 4.0), W: 4.31, D: 16.03, H: 17.1, NF: 5 };
+// k: the whole house is built 1.35x (roomier rooms, stair and corridor); W is in local units (5.8 m wide),
+// D in metres (the depth of the plot stays 16 m). It takes the first 1.5 m of the town house next door (f900, trimmed in main.js).
+export const YH_SPEC = { id: 'f899', next: 'f900', ox: -566.8, oz: 221.9, ang: Math.atan2(-1.6, 4.0), W: 4.31, D: 16.03, k: 1.35, NF: 4 };
 export function yhFootprint() {
-  const { ox, oz, ang, W, D } = YH_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
+  const { ox, oz, ang, W, D, k } = YH_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
   const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
-  return [w(0, -1.2), w(W, -1.2), w(W, D), w(0, D)]; // + the pavement in front of the doors
+  return [w(0, -1.2), w(W * k, -1.2), w(W * k, D), w(0, D)]; // + the pavement in front of the doors
+}
+// the house's outline on the ground (for the maps)
+export function yhOutline() {
+  const { ox, oz, ang, W, D, k } = YH_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
+  const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
+  return [w(0, 0), w(W * k, 0), w(W * k, D), w(0, D)];
 }
 const YHT = {
   facade: () => ctex('yhFacade', 128, 128, (g) => { // 2 cm mosaic tiles of a 透天 facade
@@ -1403,8 +1412,8 @@ const YHT = {
   }, false),
 };
 function buildYanlinHome(I, scene) {
-  const S = YH_SPEC, { W, D } = S, FH = S.H / S.NF, F = FH, top = S.H;
-  const k = new Kit(I, S.ox, S.oz, S.ang), base = k.base;
+  const S = YH_SPEC, K = S.k, W = S.W, D = S.D / K, FH = 3.42, F = FH, top = FH * S.NF; // local units (x K = metres)
+  const k = new Kit(I, S.ox, S.oz, S.ang, K), base = k.base;
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
   // indoor surfaces get a small emissive lift (the fluorescent tube), like the McDonald's materials
   const std = (o, lift = 0) => {
@@ -1432,12 +1441,12 @@ function buildYanlinHome(I, scene) {
   };
   const off = base - H(...k.w(W / 2, 3)); // the ground under the room sits this far below the building base
   // walkable surface, levelled to the building base (heights here are relative to the local ground)
-  const surf = (x0, x1, z0, z1, hf) => I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => { const [lx, lz] = k.l(x, z); return base + hf(lx, lz) - H(x, z); });
-  const SX0 = 3.12, SX1 = W - 0.2;           // stair strip (right of the shop): 1F hallway, then the stair
-  const PX0 = 2.95;                           // shop / hallway partition
+  const surf = (x0, x1, z0, z1, hf) => I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => { const [lx, lz] = k.l(x, z); return base + hf(lx, lz) * K - H(x, z); });
+  const SX0 = 2.92, SX1 = W - 0.2;           // stair strip (right of the shop): 1F hallway, then the stair (1.6 m wide)
+  const PX0 = 2.75;                           // shop / hallway partition
   const SZ0 = 5.6, SZ1 = 9.3, NS = 14;        // straight flight at the back, 14 risers up to 2F
   const LZ1 = 10.4;                           // end of the 2F landing
-  const CX0 = 2.1;                            // 2F corridor: lx CX0..SX0, from the landing back to the room
+  const CX0 = 1.75;                           // 2F corridor: lx CX0..SX0, from the landing back to the room (1.6 m wide)
   const RZ1 = 4.4;                            // 彥霖's room: full width lx 0.2..SX1, lz 0.2..RZ1
   const DX0 = 3.2, DX1 = 4.05;                // room door, bottom-right corner (bottom wall)
   const BX0 = 2.85, BZ1 = 2.6;                // bathroom: lx BX0..SX1, lz 0.2..BZ1 (top-right corner)
@@ -1456,11 +1465,11 @@ function buildYanlinHome(I, scene) {
   // front: 1F shop glass + pier + stair door; 2F street window of the room; 3F-5F solid
   k.box(0.2, PX0, -0.6, 0.0, 0, 0.2, MT.facade, { col: false });
   k.box(0.2, PX0, 0.0, 2.75, 0.06, 0.12, 'glass');
-  for (const x of [0.25, 1.1, 1.95, 2.9]) k.box(x - 0.04, x + 0.04, 0, 2.75, 0.04, 0.14, MT.alu, { col: false });
+  for (const x of [0.25, 1.05, 1.85, 2.7]) k.box(x - 0.04, x + 0.04, 0, 2.75, 0.04, 0.14, MT.alu, { col: false });
   k.box(0.2, PX0, 2.72, 2.8, 0.04, 0.14, MT.alu, { col: false });
   k.box(0.2, PX0, 2.8, F, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
-  k.box(PX0, 3.15, -0.6, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
-  k.box(3.15, SX1, 2.15, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(PX0, SX0 + 0.03, -0.6, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  k.box(SX0 + 0.03, SX1, 2.15, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
   k.box(0.2, WX0w, F, 2 * F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
   k.box(WX0w, WX1w, F - 0.2, F + 0.95, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
   k.box(WX0w, WX1w, F + 2.2, 2 * F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
@@ -1506,10 +1515,11 @@ function buildYanlinHome(I, scene) {
   // back of it so the whole width of the 2F front can be 彥霖's room. Upstairs a corridor runs back
   // toward the street to the room door in the room's bottom-right corner (as in the user's floor plan).
   const leaf = new THREE.Group(); leaf.position.set(SX1 - 0.03, 0, 0.13); k.group.add(leaf);
-  const lm = new THREE.Mesh(new THREE.BoxGeometry(0.92, 2.1, 0.05), M(MT.ironDoor)); lm.position.set(-0.46, 1.05, 0); leaf.add(lm);
-  const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.08), M('chrome')); hdl.position.set(-0.82, 1.0, 0); leaf.add(hdl);
-  k.box(3.15, SX1, 2.1, 2.15, -0.02, 0.2, MT.alu, { col: false });
-  k.plane(T.sign('2F', '#f2f0ea', '#333333', 'yh2F', 128, 64, 40), 0.22, 0.11, 3.0, 1.55, -0.01, Math.PI);
+  const LW = SX1 - SX0 - 0.08; // door leaf width
+  const lm = new THREE.Mesh(new THREE.BoxGeometry(LW, 2.1, 0.05), M(MT.ironDoor)); lm.position.set(-LW / 2, 1.05, 0); leaf.add(lm);
+  const hdl = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.08), M('chrome')); hdl.position.set(-LW + 0.1, 1.0, 0); leaf.add(hdl);
+  k.box(SX0 + 0.03, SX1, 2.1, 2.15, -0.02, 0.2, MT.alu, { col: false });
+  k.plane(T.sign('2F', '#f2f0ea', '#333333', 'yh2F', 128, 64, 40), 0.22, 0.11, SX0 - 0.09, 1.55, -0.01, Math.PI);
   k.box(PX0, SX0, 0, F, 6.0, SZ1, MT.plaster);                                                    // shop / stair partition, back part
   k.box(SX0, SX1, 0, 2 * F, LZ1, LZ1 + 0.15, MT.plaster);                                          // end wall behind the landing
   const run = (SZ1 - SZ0) / NS;
@@ -1546,7 +1556,7 @@ function buildYanlinHome(I, scene) {
   k.box(DX1, SX1, F, 2 * F, RZ1, RZ1 + 0.15, MT.plaster);
   k.box(DX0, DX1, F + 2.1, 2 * F, RZ1, RZ1 + 0.15, MT.plaster, { col: false });
   k.box(DX0 - 0.05, DX1 + 0.03, F + 2.06, F + 2.12, RZ1 - 0.03, RZ1 + 0.18, MT.door, { col: false });
-  // dark green door with a gold panel frame, hinged in the corner; swings into the room when you come near
+  // dark green door with a gold panel frame, hinged in the corner; swings out onto the landing when you come near
   const rdoor = new THREE.Group(); rdoor.position.set(DX1 + 0.02, F, RZ1 + 0.075); k.group.add(rdoor);
   const dmat = new THREE.MeshStandardMaterial({ map: DOOR_TEX, roughness: 0.55, emissive: '#ffffff', emissiveMap: DOOR_TEX, emissiveIntensity: 0.15 });
   const edge = M('#173a2a');
@@ -1646,9 +1656,7 @@ function buildYanlinHome(I, scene) {
   k.box(BX0 + 0.08, BX0 + 0.5, F + 0.78, F + 0.86, 1.15, 1.6, MT.porcelain, { col: false }); // basin
   k.box(BX0 + 0.18, BX0 + 0.28, F, F + 0.78, 1.33, 1.43, MT.porcelain, { col: false });
   k.box(BX0 + 0.09, BX0 + 0.1, F + 1.1, F + 1.65, 1.15, 1.6, 'glass', { col: false });        // mirror
-  // bathroom door: hinged at the bottom-left corner, standing open into the bathroom (diagonal, as drawn)
-  { const bd = new THREE.Group(); bd.position.set(BX0 + 0.1, F, BZ1 - 0.04); bd.rotation.y = Math.PI / 3; k.group.add(bd);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.88, 2.0, 0.04), M(MT.porcelain)); m.position.set(0.44, 1.0, 0); bd.add(m); }
+  // (no bathroom door: just the opening)
 
   // plaster skins over the inside faces of the (mosaic-tiled) shell walls
   const skin = (x0, x1, y0, y1, z0, z1) => k.box(x0, x1, y0, y1, z0, z1, MT.plaster, { col: false });
@@ -1664,26 +1672,28 @@ function buildYanlinHome(I, scene) {
 
   k.finish(scene);
   // zones (camera ceiling + location name) and the E actions
-  I.zones.push({ name: '孫師傅牛肉拉麵 樓梯間', pts: k.rect(SX0, SX1, 0.2, SZ0), y0: 0, y1: F - 0.4, ceil: () => F - 0.3 + off });
-  I.zones.push({ name: '孫師傅牛肉拉麵 樓梯間', pts: k.rect(SX0, SX1, SZ0, LZ1), y0: 0, y1: 2 * F - 0.4, ceil: () => 2 * F - 0.45 + off });
-  I.zones.push({ name: '孫師傅牛肉拉麵 二樓', pts: k.rect(CX0, SX1, RZ1, LZ1), y0: F - 0.3, y1: 2 * F - 0.4, ceil: () => 2 * F - 0.45 + off });
-  I.zones.push({ name: '彥霖以前住的地方', pts: k.rect(0.2, SX1, 0.2, RZ1), y0: F - 0.3, y1: 2 * F - 0.4, ceil: () => CH - 0.1 + off });
-  const at = (lx, lz) => { const p = k.w(lx, lz); return { x: p[0], z: p[1], y: F + base - H(p[0], p[1]) }; };
+  I.zones.push({ name: '孫師傅牛肉拉麵 樓梯間', pts: k.rect(SX0, SX1, 0.2, SZ0), y0: 0, y1: (F - 0.4) * K, ceil: () => (F - 0.3) * K + off });
+  I.zones.push({ name: '孫師傅牛肉拉麵 樓梯間', pts: k.rect(SX0, SX1, SZ0, LZ1), y0: 0, y1: (2 * F - 0.4) * K, ceil: () => (2 * F - 0.45) * K + off });
+  I.zones.push({ name: '孫師傅牛肉拉麵 二樓', pts: k.rect(CX0, SX1, RZ1, LZ1), y0: (F - 0.3) * K, y1: (2 * F - 0.4) * K, ceil: () => (2 * F - 0.45) * K + off });
+  I.zones.push({ name: '彥霖以前住的地方', pts: k.rect(0.2, SX1, 0.2, RZ1), y0: (F - 0.3) * K, y1: (2 * F - 0.4) * K, ceil: () => (CH - 0.1) * K + off });
+  const at = (lx, lz) => { const p = k.w(lx, lz); return { x: p[0], z: p[1], y: F * K + base - H(p[0], p[1]) }; };
   const memories = ['🛏️ 以前每天早上都是被樓下牛肉麵的香味叫醒的', '🛏️ 期末趕報告趕到天亮，就是倒在這張床上補眠', '🛏️ 窗外就是中北路，半夜還聽得到機車聲'];
   let mi = 0;
-  I.actions.push({ ...at(0.95, 2.75), r: 0.6, label: () => '按 <kbd>E</kbd> 在床上躺一下', fn: (g) => { g.hud.toast(memories[mi++ % memories.length], 'good', 2800); g.audio.blip(); } });
+  I.actions.push({ ...at(0.95, 2.75), r: 0.6,
+    label: (g) => g.canSleep() ? '按 <kbd>E</kbd> 睡覺（睡到隔天早上 6:00）' : '按 <kbd>E</kbd> 在床上躺一下（晚上 9 點後才能睡覺）',
+    fn: (g) => { if (g.canSleep()) { g.sleep(); return; } g.hud.toast(memories[mi++ % memories.length], 'good', 2800); g.audio.blip(); } });
   I.actions.push({ ...at(1.98, 1.35), r: 0.5, label: () => '按 <kbd>E</kbd> 使用電腦', fn: (g) => g.pc?.open() });
   I.actions.push({ ...at(2.05, 0.62), r: 0.35, label: () => '按 <kbd>E</kbd> 看桌上的紙', fn: (g) => g.hud.toast('📄 紙條：「房租月底前交喔！——房東」', 'good', 2800) });
   I.actions.push({ ...at((WX0 + WX1) / 2, WD0 - 0.45), r: 0.65, label: () => '按 <kbd>E</kbd> 打開衣櫃換衣服', fn: (g) => g.wardrobe?.open() });
   I.actions.push({ ...at(3.5, 1.4), r: 0.5, label: () => '按 <kbd>E</kbd> 洗把臉', fn: (g) => { g.hud.toast('💧 洗把臉，清醒多了', 'good', 1800); g.audio.blip(); } });
   // the street door and the room door swing open when you walk up; the wardrobe opens while you change
-  const doorAt = k.w(3.6, 0.1), roomDoorAt = k.w((DX0 + DX1) / 2, RZ1 + 0.075);
+  const doorAt = k.w((SX0 + SX1) / 2, 0.1), roomDoorAt = k.w((DX0 + DX1) / 2, RZ1 + 0.075);
   I.updaters.push((dt, g) => {
     const p = g.player.worldPos(), foot = !g.player.vehicle;
     const near = foot && Math.hypot(p.x - doorAt[0], p.z - doorAt[1]) < 2.6;
     leaf.rotation.y += ((near ? Math.PI / 2 : 0) - leaf.rotation.y) * Math.min(1, dt * 5);
-    const nr = foot && g.player.y > F - 1 && Math.hypot(p.x - roomDoorAt[0], p.z - roomDoorAt[1]) < 1.9;
-    rdoor.rotation.y += ((nr ? -Math.PI / 2 : 0) - rdoor.rotation.y) * Math.min(1, dt * 5);
+    const nr = foot && g.player.y > (F - 1) * K && Math.hypot(p.x - roomDoorAt[0], p.z - roomDoorAt[1]) < 1.9;
+    rdoor.rotation.y += ((nr ? Math.PI / 2 : 0) - rdoor.rotation.y) * Math.min(1, dt * 5); // opens out onto the landing
     wOpen += (wTarget - wOpen) * Math.min(1, dt * 5);
     for (const d of wDoors) d.hg.rotation.y = d.dir * wOpen * 1.9;
   });
@@ -1715,7 +1725,7 @@ export const GUARD_SPECS = (data) => {
   if (q) {
     const qang = -Math.sin(q.ang) < 0 ? q.ang + Math.PI : q.ang; // booth side (left normal) must point east
     const qnx = -Math.sin(qang), qnz = Math.cos(qang), qoff = q.w / 2 + 2.2;
-    out.push({ x: q.x + qnx * qoff, z: q.z + qnz * qoff, ang: qang, name: '活動中心側門警衛室', gate: { off: qoff, roadW: q.w, sign: '中原大學 新中北路側門' } });
+    out.push({ x: q.x + qnx * qoff, z: q.z + qnz * qoff, ang: qang, name: '活動中心側門警衛室', gate: { off: qoff, roadW: q.w, sign: '中原大學 新中北路側門', quest: true } });
   }
   return out;
 };

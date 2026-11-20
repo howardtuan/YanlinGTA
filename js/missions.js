@@ -124,15 +124,15 @@ Missions.prototype.steps = [
     const s = g.startPos, wp = g.player.worldPos();
     if (!g.player.vehicle && Math.hypot(wp.x - s.x, wp.z - s.z) > 12) { g.player.place(s.x, s.z, s.h); g.player.y = 0; g.rig.yaw = s.h; }
     this.spawnNpcs(0);
-    g.hud.setObjective('序章 · 競選之夜', '和 小安 對話');
+    g.hud.setObjective('序章 · 投票前一天', '和 小安 對話');
     this.talk([
-      ['小安', '彥霖！明天就是 <第34屆資管系會長> 投票日了，今晚是最後衝刺！'],
+      ['小安', '早安彥霖！明天就是 <第34屆資管系會長> 投票日了，今天是最後衝刺，從早上拉票到晚上的政見發表會！'],
       ['彥霖', '放心，我準備好了 ✌'],
-      ['小安', '大家都在資訊管理學系館等你。系館在二一鐘塔的東邊，跟著地圖上的黃色★走！'],
+      ['小安', '大家一早就在資訊管理學系館集合等你。系館在二一鐘塔的東邊，跟著地圖上的黃色★走！'],
       ['小安', '小提示：按 [[M|View]] 打開大地圖；路邊的機車走過去按 [[F|B]] 就能騎。'],
     ], () => {
       g.player.setPose('peace', 1.5);
-      this.goto(P.im, '序章 · 競選之夜', '前往 <b>資訊管理學系館</b>', () => this.next(), 9);
+      this.goto(P.im, '序章 · 投票前一天', '前往 <b>資訊管理學系館</b>', () => this.next(), 9);
     });
   },
   // 1 — flyers to bulletin boards (timed, any order)
@@ -141,7 +141,7 @@ Missions.prototype.steps = [
     this.spawnNpcs(1);
     g.bringMyScooter(P.im.x, P.im.z);
     this.talk([
-      ['阿哲', '主角終於來了！傳單剛印好，還熱熱的。'],
+      ['阿哲', '早安！主角終於來了！傳單一早剛印好，還熱熱的。'],
       ['阿哲', '幫我把傳單送到 5 個公布欄：圖書館、學生活動中心、全人教育村、電學大樓、良善樓宿舍。'],
       ['阿哲', '限時 3 分鐘！你的 JET SL 我幫你牽到系館前面了，騎它比較快 🛵'],
     ], () => {
@@ -151,22 +151,22 @@ Missions.prototype.steps = [
         () => { g.hud.bigToast('任務完成！', '傳單全部貼好了'); g.audio.fanfare(); this.g.after(() => this.goto(P.im, '任務一 · 傳單大作戰', '回到 <b>資訊管理學系館</b> 回報', () => this.next(), 9), 1200); });
     });
   },
-  // 2 — night-market supper run
+  // 2 — breakfast run (the breakfast shops on the 中原夜市 street)
   function () {
     const g = this.g, P = this.P;
     this.talk([
-      ['阿哲', '太神啦！不過大家忙到現在都餓扁了…'],
-      ['小安', '彥霖，可以幫大家去中原夜市買雞排跟珍奶嗎？'],
-      ['阿哲', '雞排冷掉就不好吃了，2 分鐘內來回！'],
+      ['阿哲', '太神啦！不過大家一大早就來幫忙，到現在都還沒吃早餐…'],
+      ['小安', '彥霖，可以幫大家去中原夜市那條街的早餐店買蛋餅跟豆漿嗎？'],
+      ['阿哲', '蛋餅冷掉就不好吃了，2 分鐘內來回！'],
     ], () => {
       this.timer = 120;
-      this.goto(P.market, '任務二 · 宵夜補給', '騎去 <b>中原夜市</b> 買雞排和珍奶', () => {
-        g.hud.toast('🍗 雞排 ×6、🧋 珍奶 ×6 買到了！', 'good', 2500);
+      this.goto(P.market, '任務二 · 早餐補給', '騎去 <b>中原夜市</b> 那條街買蛋餅和豆漿', () => {
+        g.hud.toast('🥞 蛋餅 ×6、🥛 豆漿 ×6 買到了！', 'good', 2500);
         this.timer = Math.max(this.timer, 60);
-        this.goto(P.im, '任務二 · 宵夜補給', '趁熱把宵夜送回 <b>資訊管理學系館</b>', () => {
+        this.goto(P.im, '任務二 · 早餐補給', '趁熱把早餐送回 <b>資訊管理學系館</b>', () => {
           this.timer = null; g.hud.setTimer(null);
           g.addVotes(5, '幹部士氣大增 +5 票');
-          g.hud.bigToast('任務完成！', '雞排還是熱的 🍗'); g.audio.fanfare();
+          g.hud.bigToast('任務完成！', '蛋餅還是熱的 🥞'); g.audio.fanfare();
           this.g.after(() => this.next(), 1500);
         }, 9);
       }, 12);
@@ -202,7 +202,7 @@ Missions.prototype.steps = [
   function () {
     const g = this.g, P = this.P;
     this.talk([
-      ['小安', '晚上 7 點，政見發表會要開始了！'],
+      ['小安', '忙了一整天，晚上 7 點的政見發表會要開始了！'],
       ['小安', '大家都在 學生活動中心 等你，快過去！'],
     ], () => {
       this.goto(P.sac, '終章 · 政見發表會', '前往 <b>學生活動中心</b> 參加政見發表會', () => {

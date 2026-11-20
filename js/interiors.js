@@ -1,9 +1,12 @@
 // Enterable buildings: 資管系館 (multi-floor, classrooms, stairs, elevator), 麥當勞 (in 活動中心), 警衛室.
 // Provides height-aware walls, walkable surfaces (floors/stairs) and E-key actions.
+// All y values here are relative to the building's ground; tools/build_terrain.py
+// flattens the terrain around each footprint so that ground is one constant height.
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { pointInPoly, closestOnSeg } from './collision.js';
 import { createCharacter } from './character.js';
+import { H } from './terrain.js';
 
 // ---------------- textures ----------------
 const TEX = {};
@@ -178,7 +181,7 @@ export class Interiors {
     });
     return b || this.zones.some(zn => zn.solid && pointInPoly(x, z, zn.pts));
   }
-  // first hit fraction along a 3D segment (walls only)
+  // first hit fraction along a 3D segment (walls only); ay/by are world y
   ray(ax, ay, az, bx, by, bz) {
     let best = 1;
     const len = Math.hypot(bx - ax, bz - az);
@@ -194,7 +197,7 @@ export class Interiors {
         const den = d1x * d2z - d1z * d2x; if (Math.abs(den) < 1e-9) continue;
         const s = ((w[0] - ax) * d2z - (w[1] - az) * d2x) / den, u = ((w[0] - ax) * d1z - (w[1] - az) * d1x) / den;
         if (s < 0 || s > 1 || u < 0 || u > 1) continue;
-        const hy = ay + (by - ay) * s;
+        const hy = ay + (by - ay) * s - H(ax + d1x * s, az + d1z * s);
         if (hy >= w[4] && hy <= w[5] && s < best) best = s;
       }
     }
@@ -222,7 +225,9 @@ class Kit {
   constructor(I, ox, oz, ang) {
     this.I = I; this.ox = ox; this.oz = oz; this.c = Math.cos(ang); this.s = Math.sin(ang); this.ang = ang;
     this.parts = new Map();
-    this.group = new THREE.Group(); this.group.position.set(ox, 0, oz); this.group.rotation.y = -ang;
+    // render base = terrain at the (flattened) building origin
+    this.base = H(ox, oz);
+    this.group = new THREE.Group(); this.group.position.set(ox, this.base, oz); this.group.rotation.y = -ang;
   }
   w(lx, lz) { return [this.ox + lx * this.c - lz * this.s, this.oz + lx * this.s + lz * this.c]; }
   l(x, z) { const dx = x - this.ox, dz = z - this.oz; return [dx * this.c + dz * this.s, -dx * this.s + dz * this.c]; }
@@ -269,6 +274,8 @@ class Kit {
 // green dado + red doors on the ground floor, glass lift tower with red frame (left),
 // beige-tile stair tower with vertical 「資訊管理學系」 (right), roof band with diamonds.
 // =====================================================================
+// NOTE: tools/build_terrain.py flattens the terrain under this footprint from a
+// copy of these numbers; after changing them, sync it and rerun the script.
 export const IM_SPEC = { ox: 79.9, oz: 92.6, ang: Math.atan2(16.9, 49.3), L: 46, D: 12.5, FH: 3.8, NF: 3 };
 export function imFootprint() {
   const { ox, oz, ang, L, D } = IM_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
@@ -422,6 +429,8 @@ function buildIM(I, scene) {
 // =====================================================================
 // 麥當勞 inside the east end of 學生活動中心
 // =====================================================================
+// NOTE: tools/build_terrain.py flattens the terrain under this footprint from a
+// copy of these numbers; after changing them, sync it and rerun the script.
 export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14 };
 export function sacTrimmedPts() {
   return [[-194.7, -128.6], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5]];
@@ -464,7 +473,7 @@ function buildMcD(I, scene) {
   I.zones.push({ name: '麥當勞 中原店', pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.4 });
   // staff
   const staff = createCharacter({ skin: '#efd0b5', shirt: '#c8102e', shorts: '#222', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
-  const sp = k.w(2.4, 10); staff.root.position.set(sp[0], 0, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
+  const sp = k.w(2.4, 10); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
   scene.add(staff.root);
   I.updaters.push((dt) => staff.update(dt, { speed: 0 }));
   let ordered = false;
@@ -554,6 +563,8 @@ export function nearestRoadDir(data, x, z) {
   }
   return best;
 }
+// NOTE: tools/build_terrain.py flattens the terrain under this footprint from a
+// copy of these numbers; after changing them, sync it and rerun the script.
 export const GUARD_SPECS = (data) => {
   // main gate: replace OSM 警衛室 (中北路 正門); side gate: A6 校門
   const out = [{ x: -201.2, z: 79.6, ang: Math.atan2(78.1 - 79.7, -195.6 + 200.0), name: '正門警衛室' }];

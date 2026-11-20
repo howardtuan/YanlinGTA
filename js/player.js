@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createCharacter } from './character.js';
+import { surfaceAt } from './terrain.js';
 
 // Yanlin — modelled after the reference photo:
 // black bowl-cut with full bangs, thin round light frames, black tee with small white chest logo,
@@ -21,12 +22,13 @@ export class Player {
     this.speed = 0;
   }
   setPose(p, t = 1.2) { this.pose = p; this.poseT = t; }
-  place(x, z, h = 0) { this.pos.set(x, 0, z); this.heading = h; this.ch.root.rotation.y = h; }
-  sitAt(x, z, h) { this.seat = { x, z, h }; this.pos.set(x, this.y, z); this.heading = h; this.vel.set(0, 0); }
+  // this.y is height above the ground; render y adds the terrain under (x,z)
+  place(x, z, h = 0) { this.pos.set(x, surfaceAt(x, z), z); this.heading = h; this.ch.root.rotation.y = h; }
+  sitAt(x, z, h) { this.seat = { x, z, h }; this.pos.set(x, this.y + surfaceAt(x, z), z); this.heading = h; this.vel.set(0, 0); }
   standUp() { if (!this.seat) return; const s = this.seat; this.seat = null; this.pos.x += Math.sin(s.h) * -0.7; this.pos.z += Math.cos(s.h) * -0.7; }
   updateFoot(dt, input, camYaw, collision, interiors) {
     if (this.seat) {
-      this.pos.set(this.seat.x, this.y, this.seat.z); this.heading = this.seat.h; this.ch.root.rotation.y = this.heading;
+      this.pos.set(this.seat.x, this.y + surfaceAt(this.seat.x, this.seat.z), this.seat.z); this.heading = this.seat.h; this.ch.root.rotation.y = this.heading;
       this.speed = 0; this.ch.update(dt, { mode: 'sit' }); return;
     }
     const ax = this.frozen ? { x: 0, y: 0 } : input.axis();
@@ -62,7 +64,7 @@ export class Player {
     // stick to stairs/slopes when walking down, land on floors
     if (this.y < ground || (onGround && this.vy <= 0 && this.y - ground < 0.45)) { this.y = ground; this.vy = 0; }
     this.ground = ground;
-    this.pos.y = this.y;
+    this.pos.y = this.y + surfaceAt(this.pos.x, this.pos.z);
     this.ch.root.rotation.y = this.heading;
     this.poseT -= dt; if (this.poseT <= 0) this.pose = null;
     this.ch.update(dt, { speed: this.speed, air: this.y > (this.ground || 0) + 0.05, mode: 'foot', pose: this.speed > 1 && this.pose !== 'give' ? null : this.pose });
@@ -85,9 +87,9 @@ export class Player {
     let placed = false;
     for (const [cx, cz] of cands) {
       const x = v.pos.x + cx * v.exitSide, z = v.pos.z + cz * v.exitSide;
-      if (!collision.blocked(x, z, 0.4)) { this.pos.set(x, 0, z); placed = true; break; }
+      if (!collision.blocked(x, z, 0.4)) { this.pos.set(x, surfaceAt(x, z), z); placed = true; break; }
     }
-    if (!placed) this.pos.set(v.pos.x + fz * 2.5, 0, v.pos.z - fx * 2.5);
+    if (!placed) this.pos.set(v.pos.x + fz * 2.5, surfaceAt(v.pos.x + fz * 2.5, v.pos.z - fx * 2.5), v.pos.z - fx * 2.5);
     this.heading = v.heading; this.ch.root.rotation.set(0, v.heading, 0);
     v.driver = null; v.speed = 0; this.vehicle = null; this.y = 0; this.seat = null; this.vy = 0; this.vel.set(0, 0);
   }
@@ -121,14 +123,16 @@ export class CameraRig {
     const zone = !v && interiors ? interiors.zoneAt(player.pos.x, player.pos.z, player.y) : null;
     if (zone) dist = 2.6;
     this.dist += (dist - this.dist) * Math.min(1, dt * 3);
-    this.target.set(wp.x, (v ? 0 : player.y) + h, wp.z);
+    // ground under the player as drawn (vehicles: averaged over the wheels)
+    const gy = v ? v.mesh.position.y : surfaceAt(wp.x, wp.z);
+    this.target.set(wp.x, (v ? 0 : player.y) + gy + h, wp.z);
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
     let d = this.dist;
     // camera collision: pull in if a building is between target and camera
     for (let s = 0.6; s <= this.dist; s += 0.4) {
       const x = this.target.x - Math.sin(this.yaw) * cp * s, z = this.target.z - Math.cos(this.yaw) * cp * s;
       const y = this.target.y + sp * s;
-      if (y < 30 && collision.insideAny(x, z)) { d = Math.max(0.8, s - 0.4); break; }
+      if (y < collision.topAt(x, z)) { d = Math.max(0.8, s - 0.4); break; }
     }
     if (interiors) {
       const ex = this.target.x - Math.sin(this.yaw) * cp * d, ez = this.target.z - Math.cos(this.yaw) * cp * d, ey = this.target.y + sp * d;
@@ -137,8 +141,8 @@ export class CameraRig {
     }
     const px = this.target.x - Math.sin(this.yaw) * cp * d;
     const pz = this.target.z - Math.cos(this.yaw) * cp * d;
-    let py = Math.max(0.3, this.target.y + sp * d);
-    if (zone) py = Math.min(py, zone.ceil(player.y));
+    let py = Math.max(surfaceAt(px, pz) + 0.3, this.target.y + sp * d);
+    if (zone) py = Math.min(py, zone.ceil(player.y) + gy);
     if (this.first) { this.cur.set(px, py, pz); this.first = false; }
     this.cur.lerp(new THREE.Vector3(px, py, pz), Math.min(1, dt * 14));
     this.cam.position.copy(this.cur);

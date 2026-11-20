@@ -10,6 +10,7 @@ import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
 import { pointInPoly } from './collision.js';
+import { loadTerrain, surfaceAt } from './terrain.js';
 
 const $ = id => document.getElementById(id);
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
@@ -21,7 +22,12 @@ const cLerp = (a, b, t) => a.clone().lerp(b, t);
 class Game {
   async init() {
     setLoad(0.02, '載入地圖資料');
-    const data = await (await fetch('data/cycu.json')).json();
+    // terrain is optional: without data/terrain.json the world stays flat
+    const [data, terrain] = await Promise.all([
+      fetch('data/cycu.json').then(r => r.json()),
+      fetch('data/terrain.json').then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+    loadTerrain(terrain);
     this.data = data;
     // custom-built enterable buildings replace these OSM footprints
     for (const b of data.buildings) {
@@ -130,6 +136,8 @@ class Game {
     this.playerLight = new THREE.PointLight('#ffd9a0', 0, 18, 1.5); this.scene.add(this.playerLight);
   }
   _updateSky(dt) {
+    // keep the sky dome centred on the camera; at the map edge the far side was beyond camera.far and rendered black
+    this.sky.position.copy(this.camera.position);
     const m = this.clock % 1440;
     // night factor
     let night;
@@ -150,8 +158,9 @@ class Game {
     this.scene.fog.color.copy(hor).lerp(new THREE.Color('#888'), 0.15);
     const p = this.player.worldPos();
     const ld = elev > 0.05 ? sunDir : new THREE.Vector3(0.3, 0.8, 0.4).normalize(); // moonlight
-    this.sun.position.set(p.x + ld.x * 150, ld.y * 150, p.z + ld.z * 150);
-    this.sun.target.position.set(p.x, 0, p.z);
+    const gy = surfaceAt(p.x, p.z);
+    this.sun.position.set(p.x + ld.x * 150, gy + ld.y * 150, p.z + ld.z * 150);
+    this.sun.target.position.set(p.x, gy, p.z);
     this.sun.intensity = elev > 0.05 ? lerp(0.6, 2.6, Math.min(1, elev * 2)) * (1 - night * 0.8) : 0.35 * night + 0.1;
     this.sun.color.set(elev > 0.05 ? (sunset > 0.4 ? '#ffb27a' : '#fff1de') : '#9fb4ff');
     this.hemi.intensity = lerp(1.05, 0.6, night);
@@ -244,8 +253,9 @@ class Game {
     for (const s of spots) if (!final.some(f => Math.hypot(f[0] - s[0], f[1] - s[1]) < 12)) final.push(s);
     while (final.length < 34) { const n = w.walkNodes[Math.floor(rnd() * w.walkNodes.length)]; if (Math.hypot(n.x, n.z - 60) < 600 && !final.some(f => Math.hypot(f[0] - n.x, f[1] - n.z) < 25)) final.push([n.x, n.z]); }
     final.slice(0, 34).forEach(([x, z], i) => {
-      const m = new THREE.Mesh(geo, mat); m.position.set(x, 1.3, z); m.castShadow = true; this.scene.add(m);
-      this.ballotList.push({ x, z, mesh: m, taken: false, ph: i });
+      const y0 = surfaceAt(x, z) + 1.3;
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, y0, z); m.castShadow = true; this.scene.add(m);
+      this.ballotList.push({ x, z, y0, mesh: m, taken: false, ph: i });
     });
   }
   _beam() {
@@ -255,7 +265,7 @@ class Game {
     for (let i = 0; i < 6; i++) {
       const b = new THREE.Mesh(g, m); b.visible = false; this.scene.add(b);
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffd23f', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
-      ring.position.y = 0.1; b.add(ring);
+      ring.position.y = 0.25; b.add(ring);
       this.beams.push(b);
     }
   }
@@ -264,7 +274,7 @@ class Game {
     this.beams.forEach((b, i) => {
       const t = list[i];
       b.visible = !!t;
-      if (t) { b.position.set(t.x, 0, t.z); b.scale.set(radius * (i ? 0.6 : 1), 1, radius * (i ? 0.6 : 1)); }
+      if (t) { b.position.set(t.x, surfaceAt(t.x, t.z), t.z); b.scale.set(radius * (i ? 0.6 : 1), 1, radius * (i ? 0.6 : 1)); }
     });
   }
 
@@ -301,7 +311,7 @@ class Game {
       if (!this.world.isFree(x, z, 0.4)) continue;
       const ch = createCharacter(randomStudent(rnd));
       ch.cheerPose = rnd() < 0.5 ? 'cheer' : 'wave'; // fixed per person, not re-rolled every frame
-      ch.root.position.set(x, 0, z); ch.root.rotation.y = Math.atan2(this.player.pos.x - x, this.player.pos.z - z);
+      ch.root.position.set(x, surfaceAt(x, z), z); ch.root.rotation.y = Math.atan2(this.player.pos.x - x, this.player.pos.z - z);
       this.scene.add(ch.root); crowd.push(ch);
     }
     this.crowd = crowd;
@@ -448,7 +458,7 @@ class Game {
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
     this._updateSky(dt);
     this.world.update(this.time, this.night, this.clock, this.state === 'title' ? this._titlePos : this.player.worldPos());
-    for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = 1.3 + Math.sin(this.time * 3 + b.ph) * 0.15; }
+    for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = b.y0 + Math.sin(this.time * 3 + b.ph) * 0.15; }
     for (const b of this.beams) if (b.visible) b.material.opacity = 0.22 + Math.sin(this.time * 4) * 0.06;
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
@@ -456,9 +466,9 @@ class Game {
   _titleCam(dt) {
     this.titleT += dt;
     const t = this.world.named['鐘塔'] || { x: 0, z: 100 };
-    const a = this.titleT * 0.06;
-    this.camera.position.set(t.x + Math.sin(a) * 60, 26 + Math.sin(a * 0.7) * 6, t.z + Math.cos(a) * 60);
-    this.camera.lookAt(t.x - 10, 14, t.z);
+    const a = this.titleT * 0.06, ty = t.base ?? surfaceAt(t.x, t.z);
+    this.camera.position.set(t.x + Math.sin(a) * 60, ty + 26 + Math.sin(a * 0.7) * 6, t.z + Math.cos(a) * 60);
+    this.camera.lookAt(t.x - 10, ty + 14, t.z);
     this._titlePos = { x: t.x, z: t.z };
     this.clock = 17 * 60 + 35;
     this.traffic.update(dt, { pos: new THREE.Vector3(t.x, 0, t.z), vehicle: null }, null);
@@ -518,8 +528,8 @@ class Game {
       // headlight
       const [fx, fz] = v.forward();
       this.headlight.intensity = this.night * 60;
-      this.headlight.position.set(v.pos.x + fx * 1.2, 1.1, v.pos.z + fz * 1.2);
-      this.headlight.target.position.set(v.pos.x + fx * 15, 0, v.pos.z + fz * 15);
+      this.headlight.position.set(v.pos.x + fx * 1.2, v.mesh.position.y + 1.1, v.pos.z + fz * 1.2);
+      this.headlight.target.position.set(v.pos.x + fx * 15, surfaceAt(v.pos.x + fx * 15, v.pos.z + fz * 15), v.pos.z + fz * 15);
     } else {
       pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors);
       // push out of vehicles
@@ -535,7 +545,7 @@ class Game {
     }
     this.playerLight.intensity = this.night * 6;
     const wp = pl.worldPos();
-    this.playerLight.position.set(wp.x, 3, wp.z);
+    this.playerLight.position.set(wp.x, (pl.vehicle ? pl.vehicle.mesh.position.y : surfaceAt(wp.x, wp.z) + pl.y) + 3, wp.z);
 
     // ---- prompts ----
     if (!pl.vehicle && !pl.frozen) {
@@ -642,7 +652,7 @@ const ABOUT_HTML = `<div class="about">
 <p>在遊戲裡，你就是彥霖：</p>
 <ul><li>騎著粉白色 SYM JET SL 穿梭校園送傳單</li><li>走進資管系館上樓、進教室，電腦教室裡有彩蛋影片</li><li>去活動中心的麥當勞點餐、坐進警衛室值班</li><li>衝去中原夜市買雞排宵夜</li><li>對路上的同學發傳單拉票</li><li>在學生活動中心發表政見</li></ul>
 <p>真實的投票日，資管要贏，票投 <b style="color:#ffd23f">彥霖</b> 🗳✌</p>
-<p style="color:#a9adbf;font-size:12px">地圖資料 © OpenStreetMap contributors，依 ODbL 授權使用。</p></div>`;
+<p style="color:#a9adbf;font-size:12px">地圖資料 © OpenStreetMap contributors，依 ODbL 授權使用。<br>地形資料：內政部 20m 網格數值地形模型（政府資料開放授權條款第1版）。</p></div>`;
 
 window.game = new Game();
 window.game.init().catch(e => { console.error(e); $('loadText').textContent = '載入失敗：' + e.message; });

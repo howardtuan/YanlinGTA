@@ -115,13 +115,17 @@ GitHub Pages：Repo → Settings → Pages → Source 選 `main` 分支根目錄
 | `js/vehicles.js` | 機車（含 SYM JET SL）/ 汽車模型與物理 |
 | `js/npc.js` | 車流、路人、任務 NPC |
 | `js/map.js` | 由地圖資料生成建築、道路、樹、路燈、夜市、鐘塔、舊校門、噴水池 |
+| `js/terrain.js` | 地形高度查詢（`H(x,z)`）與橋面；遊戲邏輯的高度都是「離地高度」，只有畫面位置加上地形 |
 | `js/hud.js` / `js/audio.js` / `js/input.js` | 小地圖與大地圖 / 音效與音樂 / 鍵盤滑鼠觸控 |
 | `data/cycu.json` | 處理過的地圖資料 |
+| `data/terrain.json` | 10 m 地形格網（由內政部 DTM 產生，相對高程 135 m） |
 | `assets/music/yanlin-opera.m4a` | 彥霖歌劇 |
 | `tools/build_map.py` | 由 `tools/osm_raw.json`（OSM 原始資料）重新產生 `data/cycu.json`：`python tools/build_map.py` |
+| `tools/build_terrain.py` | 由內政部 20m DTM（分幅_桃園市DEM，圖幅 96224020）產生 `data/terrain.json`；原始 zip 放 `tools/.cache/`（不進 repo），下載網址寫在檔案開頭 |
 | `Dockerfile`, `docker-compose.yml`, `docker/nginx.conf` | Docker 部署 |
 
 ## 授權與來源
 - 地圖資料 © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors，ODbL 授權。
+- 地形資料：內政部 20m 網格數值地形模型（DTM），依[政府資料開放授權條款第1版](https://data.gov.tw/license)使用。`data/terrain.json` 是由它取樣、平滑並把可進入的建物周圍壓平後的衍生資料。
 - [Three.js](https://threejs.org/)（MIT）位於 `vendor/`。
 - 這是學生競選宣傳用的非商業同人作品；遊戲中出現的店家、品牌名稱屬於各自的權利人。

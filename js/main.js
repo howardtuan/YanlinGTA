@@ -42,8 +42,8 @@ class Game {
     setLoad(0.02, '載入地圖資料');
     // terrain is optional: without data/terrain.json the world stays flat
     const [data, terrain] = await Promise.all([
-      fetch('data/cycu.json').then(r => r.json()),
-      fetch('data/terrain.json').then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('data/cycu.json' + (window.__q || '')).then(r => r.json()),
+      fetch('data/terrain.json' + (window.__q || '')).then(r => (r.ok ? r.json() : null)).catch(() => null),
     ]);
     loadTerrain(terrain);
     this.data = data;

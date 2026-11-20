@@ -6,10 +6,7 @@
 <title>中原順起來 · 資管要贏 票投彥霖</title>
 <meta name="description" content="中原順起來：在瀏覽器裡就能玩的開放世界中原大學。騎著 SYM JET SL 穿梭校園、中原夜市、麥當勞，幫彥霖拉票選上第34屆資管系會長！資管要贏，票投彥霖！">
 <meta name="theme-color" content="#0d1020">
-<link rel="stylesheet" href="css/style.css">
-<script type="importmap">
-{ "imports": { "three": "./vendor/three.module.js" } }
-</script>
+<link rel="stylesheet" href="css/style.css" id="mainCss">
 </head>
 <body>
 <div id="app">
@@ -150,6 +147,29 @@
   </div>
   <div id="rotateHint" class="hidden">橫放手機體驗更佳 ↻</div>
 </div>
-<script type="module" src="js/main.js"></script>
+<script>
+// GitHub Pages lets browsers keep every file for 10 minutes and we can't change that. Right after an
+// update a browser could then run an old js/*.js next to a new one and fail to load. So: ask for the
+// deploy time with the cache bypassed, and load every script (through the import map) and the CSS
+// with it as ?v=… — each deploy gets fresh URLs and one consistent set of files.
+// New files in js/ belong in MODS (a missing one still loads, just without the stamp).
+(async () => {
+  const MODS = ['audio', 'bodymesh', 'character', 'chats', 'collision', 'controls', 'feeds', 'furniture', 'gateduty', 'hud', 'input', 'interiors', 'main', 'map', 'mckitchen', 'mcshift', 'mcuniform', 'missions', 'modeling', 'nano', 'nav', 'npc', 'pc', 'phone', 'player', 'post', 'prompts', 'race', 'save', 'scooters', 'sky', 'terrain', 'textures', 'vegetation', 'vehicles', 'wardrobe'];
+  let v = '';
+  try {
+    const r = await fetch('js/main.js', { method: 'HEAD', cache: 'no-store' });
+    v = (r.headers.get('last-modified') || r.headers.get('etag') || '').replace(/[^0-9A-Za-z]+/g, '');
+  } catch (e) { /* offline or blocked: load without a stamp */ }
+  const q = v ? '?v=' + v : '';
+  window.__q = q;
+  const imports = { three: './vendor/three.module.js' };
+  for (const m of MODS) imports['./js/' + m + '.js'] = './js/' + m + '.js' + q;
+  const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({ imports });
+  document.head.appendChild(map);
+  if (q) document.getElementById('mainCss').href = 'css/style.css' + q;
+  const main = document.createElement('script'); main.type = 'module'; main.src = 'js/main.js' + q;
+  document.body.appendChild(main);
+})();
+</script>
 </body>
 </html>

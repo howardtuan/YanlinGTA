@@ -169,6 +169,23 @@ def interior_zones(data):
     _, rang, rw = best
     off = rw / 2 + 2.2
     specs.append(dict(x=a6['x'] - math.sin(rang) * off, z=a6['z'] + math.cos(rang) * off, ang=rang, name='側門警衛室'))
+    # 全人大道 side gate by the activity centre (mirror of GUARD_SPECS in js/interiors.js)
+    best = None
+    for r in data['roads']:
+        if not r.get('drive'):
+            continue
+        for a, b in zip(r['pts'], r['pts'][1:]):
+            d = seg_d(-91.4, -117, a[0], a[1], b[0], b[1])
+            if best is None or d < best[0]:
+                ax, az, bx, bz = a[0], a[1], b[0], b[1]
+                L2 = (bx - ax) ** 2 + (bz - az) ** 2 or 1
+                t = max(0, min(1, ((-91.4 - ax) * (bx - ax) + (-117 - az) * (bz - az)) / L2))
+                best = (d, math.atan2(bz - az, bx - ax), r['w'], ax + (bx - ax) * t, az + (bz - az) * t)
+    _, qang, qw, qx, qz = best
+    if -math.sin(qang) < 0:
+        qang += math.pi
+    qoff = qw / 2 + 2.2
+    specs.append(dict(x=qx - math.sin(qang) * qoff, z=qz + math.cos(qang) * qoff, ang=qang, name='活動中心側門警衛室'))
     for s in specs:
         k = Kit(s['x'], s['z'], s['ang'])
         zones.append((s['name'], [k.rect(-0.6, 5, -0.6, 3.8)], k.w(0.7, 2.8 + 0.6)))

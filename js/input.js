@@ -7,6 +7,8 @@ export const PAD_MAPS = {
   phone: [[0, 'Enter'], [1, 'Escape'], [2, 'Tab'], [3, 'KeyE'], [9, 'KeyE'], [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],
   // full-screen map: B / View / Start close it
   map: [[1, 'Escape'], [8, 'KeyM'], [9, 'Escape']],
+  // race results: A continue, X / Y race again
+  race: [[0, 'Enter'], [9, 'Enter'], [2, 'KeyR'], [3, 'KeyR']],
   // side-gate duty: A let in, B turn away, Y / Start leave the booth
   gate: [[0, 'Digit1'], [1, 'Digit2'], [3, 'KeyE'], [9, 'KeyE']],
   // McDonald's shift: D-pad up/right/down/left + X / Y pick items 1-6, A serve, B remove last, Start clock out
@@ -24,6 +26,7 @@ export class Input {
     // gamepad (browser Gamepad API, standard mapping: Xbox / PlayStation / Switch Pro)
     this.pad = { connected: false, axis: { x: 0, y: 0 }, held: new Set(), btn: [], hits: new Set(), ctx: 'play', block: new Set() };
     this.padContext = () => 'play'; // main.js swaps in the phone / gate / job layouts
+    this.padDriving = () => false;  // main.js: true while riding / driving
     this.onPad = null;
     // last device used ('kb' = keyboard / mouse / touch, 'pad'); prompts.js swaps the on-screen key hints
     this.device = 'kb'; this.onDevice = null;
@@ -131,7 +134,8 @@ export class Input {
       for (const [i, code] of PAD_MAPS[ctx] || PAD_MAPS.play) if (b(i) && !P.block.has(i)) want.add(code);
       if (ctx === 'play') {
         // left stick moves / steers; RT = throttle, LT = brake / reverse
-        P.axis.x = lx; P.axis.y = Math.max(-1, Math.min(1, -ly + val(7) - val(6)));
+        // on foot the left stick walks; on a scooter / in a car it only steers: RT is the throttle, LT brake / reverse
+        P.axis.x = lx; P.axis.y = Math.max(-1, Math.min(1, (this.padDriving() ? 0 : -ly) + val(7) - val(6)));
         // right stick looks around (same units as mouse movement)
         this.mdx += Math.sign(rx) * rx * rx * 1100 * dt; this.mdy += Math.sign(ry) * ry * ry * 700 * dt;
       } else {

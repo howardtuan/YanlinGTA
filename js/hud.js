@@ -73,6 +73,11 @@ export class HUD {
       if (Math.abs(dx) > W || Math.abs(dz) > H) continue;
       g.fillRect(dx - 3, dz - 3, 6, 6);
     }
+    if (this.route) { // race course (race.js)
+      g.strokeStyle = '#ff4fa3'; g.lineWidth = 4; g.lineJoin = 'round'; g.globalAlpha = 0.85; g.beginPath();
+      this.route.forEach(([x, z], i) => { const dx = (x - px) * pxPerM, dz = (z - pz) * pxPerM; i ? g.lineTo(dx, dz) : g.moveTo(dx, dz); });
+      g.closePath(); g.stroke(); g.globalAlpha = 1;
+    }
     g.restore();
     // markers (clamped to edge)
     for (const mk of markers) {

@@ -1224,7 +1224,7 @@ function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
 // =====================================================================
 // 警衛室 (main gate on 中北路 + side gate A6): enterable, sit and stand guard
 // =====================================================================
-function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null) {
+function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null) {
   const k = new Kit(I, x, z, ang);
   const W = 3.4, D = 2.8, H = 2.8;
   k.box(0, W, 0, 0.1, 0, D, 'floor', { col: false, surface: true });
@@ -1246,31 +1246,37 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null) {
   k.box(2.4, 2.65, 0.8, 0.86, 0.3, 0.5, 'dark', { col: false });
   k.box(1.5, 1.95, 0.45, 0.5, 1.15, 1.6, 'dark', { col: false }); k.box(1.5, 1.95, 0.5, 1.0, 1.58, 1.62, 'dark', { col: false });
   k.box(1.68, 1.77, 0, 0.45, 1.33, 1.42, 'metal', { col: false });
-  // boom barrier next to the house
-  const arm = new THREE.Group();
-  const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), M('gray')); post.position.set(0, 0.55, 0);
+  // boom barriers. Each one pivots on a post next to the booth and points straight across its lane
+  // (local -z or +z: the booth's x axis runs along the road). Rz lifts the bar, Ry turns it across.
   const barCv = ctex('bar', 128, 16, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#fff' : '#d0151f'; g.fillRect(i * 16, 0, 16, 16); } }, true);
   const barMat = new THREE.MeshStandardMaterial({ map: barCv }); barCv.repeat.set(3, 1);
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(5, 0.1, 0.1), barMat); bar.position.set(2.5, 0, 0);
-  const hinge = new THREE.Group(); hinge.position.set(0, 1.0, 0); hinge.add(bar);
-  arm.add(post, hinge);
-  let hingeLX = W + 0.8, hingeLZ = D + 0.8;
+  const hinges = [];
+  const boom = (lx, lz, dir, L) => {
+    const arm = new THREE.Group();
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), M('gray')); post.position.set(0, 0.55, 0);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(L, 0.1, 0.1), barMat); bar.position.set(L / 2, 0, 0);
+    const hinge = new THREE.Group(); hinge.position.set(0, 1.0, 0); hinge.add(bar); hinge.rotation.y = dir < 0 ? Math.PI / 2 : -Math.PI / 2;
+    arm.add(post, hinge); arm.position.set(lx, 0, lz); k.group.add(arm);
+    hinges.push({ hinge, at: k.w(lx, lz + dir * L / 2) });
+  };
+  let hingeLX = W + 0.7;
   if (gateOpt) {
-    // local z < 0 is the road (booth front faces it); the boom swings across the whole lane
-    const off = gateOpt.off, rw = gateOpt.roadW, L = rw + 1.9;
-    hingeLX = W + 0.7; hingeLZ = -0.55;
-    // same striped boom, just longer and turned to point across the lane (Rz lifts it, then Ry swings it to -z)
-    bar.geometry = new THREE.BoxGeometry(L, 0.1, 0.1); bar.position.set(L / 2, 0, 0); hinge.rotation.y = Math.PI / 2;
+    // side gates: local z < 0 is the road (booth front faces it); one boom across the whole lane
+    const off = gateOpt.off, rw = gateOpt.roadW;
+    boom(hingeLX, -0.55, -1, rw + 1.9);
     // gate posts either side of the road + arched sign
     const gx = W + 2.2, zNear = -0.25, zFar = -(off + rw / 2 + 0.6);
     k.box(gx - 0.35, gx + 0.35, 0, 4.6, zNear - 0.7, zNear, 'white'); k.box(gx - 0.35, gx + 0.35, 0, 4.6, zFar, zFar + 0.7, 'white');
     k.box(gx - 0.4, gx + 0.4, 4.6, 4.75, zNear - 0.75, zNear + 0.05, 'gray', { col: false }); k.box(gx - 0.4, gx + 0.4, 4.6, 4.75, zFar - 0.05, zFar + 0.75, 'gray', { col: false });
     k.box(gx - 0.25, gx + 0.25, 4.0, 4.7, zFar + 0.35, zNear - 0.35, 'gray', { col: false });
-    const sg = T.sign('中原大學 A6 側門', '#1f3b73', '#ffffff', 'gateA6', 512, 96, 54), span = zNear - zFar - 0.9;
+    const label = gateOpt.sign || '中原大學 A6 側門';
+    const sg = T.sign(label, '#1f3b73', '#ffffff', 'gate' + label, 512, 96, 54), span = zNear - zFar - 0.9;
     k.plane(sg, span, 0.62, gx + 0.26, 4.35, (zNear + zFar) / 2, Math.PI / 2);
     k.plane(sg, span, 0.62, gx - 0.26, 4.35, (zNear + zFar) / 2, -Math.PI / 2);
-  }
-  arm.position.set(hingeLX, 0, hingeLZ); k.group.add(arm);
+  } else if (lanes) {
+    // main gate: the booth sits on the island between the in and out lanes -> one boom across each
+    for (const ln of lanes) boom(ln.dir < 0 ? W + 0.5 : -0.5, ln.from, ln.dir, ln.len);
+  } else boom(W + 0.8, D + 0.8, 1, 5);
   k.finish(scene);
   I.zones.push({ name, pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.3 });
   const seat = k.w(1.72, 1.38);
@@ -1285,13 +1291,14 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null) {
       g.hud.toast('👮 值班中…同學經過會跟你打招呼', 'good', 2200);
     },
   });
-  const hingeWorld = k.w(hingeLX, hingeLZ);
   const gate = gateOpt ? (I.gates = I.gates || {})[name] = { k, W, D, off: gateOpt.off, roadW: gateOpt.roadW, barX: hingeLX, seat, forceOpen: false, name } : null;
   I.updaters.push((dt, g) => {
-    // barrier opens when the player drives up (or the guard lets a visitor through)
+    // a barrier opens when the player drives up to it (or the guard lets a visitor through)
     const p = g.player.worldPos();
-    const near = (Math.hypot(p.x - hingeWorld[0], p.z - hingeWorld[1]) < 10 && g.player.vehicle) || gate?.forceOpen;
-    hinge.rotation.z += ((near ? 1.4 : 0) - hinge.rotation.z) * Math.min(1, dt * 4);
+    for (const h of hinges) {
+      const near = (Math.hypot(p.x - h.at[0], p.z - h.at[1]) < 10 && g.player.vehicle) || gate?.forceOpen;
+      h.hinge.rotation.z += ((near ? 1.4 : 0) - h.hinge.rotation.z) * Math.min(1, dt * 4);
+    }
     if (gate) return; // the side gate's seat runs the gate-check mission instead of idle duty votes
     if (g.player.seat && Math.hypot(g.player.seat.x - seat[0], g.player.seat.z - seat[1]) < 0.1) {
       duty += dt;
@@ -1313,11 +1320,20 @@ export function nearestRoadDir(data, x, z) {
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const GUARD_SPECS = (data) => {
   // main gate: replace OSM 警衛室 (中北路 正門); side gate: A6 校門
-  const out = [{ x: -201.2, z: 79.6, ang: Math.atan2(78.1 - 79.7, -195.6 + 200.0), name: '正門警衛室' }];
+  // 正門: booth on the island between the two one-way lanes of 中北路 (local -z: lane up to 4.6 m out, local +z: lane 4.6-8.8 m)
+  const out = [{ x: -201.2, z: 79.6, ang: Math.atan2(78.1 - 79.7, -195.6 + 200.0), name: '正門警衛室', lanes: [{ from: -0.25, dir: -1, len: 5.0 }, { from: 3.4, dir: 1, len: 5.8 }] }];
   const a6 = data.pois.find(p => p.name === 'A6校門') || { x: 128.4, z: -14.5 };
   const r = nearestRoadDir(data, a6.x, a6.z);
   const nx = -Math.sin(r.ang), nz = Math.cos(r.ang), off = r.w / 2 + 2.2;
   out.push({ x: a6.x + nx * off, z: a6.z + nz * off, ang: r.ang, name: '側門警衛室', gate: { off, roadW: r.w }, sideCandidate: [a6.x - nx * (off + 3.4), a6.z - nz * (off + 3.4)] });
+  // 新中北路 side entrance by the student activity centre / McDonald's: 全人大道, booth on the east side
+  // (the McDonald's building is on the west), gate across the road just inside campus
+  const q = nearestRoadDir(data, -91.4, -117);
+  if (q) {
+    const qang = -Math.sin(q.ang) < 0 ? q.ang + Math.PI : q.ang; // booth side (left normal) must point east
+    const qnx = -Math.sin(qang), qnz = Math.cos(qang), qoff = q.w / 2 + 2.2;
+    out.push({ x: q.x + qnx * qoff, z: q.z + qnz * qoff, ang: qang, name: '活動中心側門警衛室', gate: { off: qoff, roadW: q.w, sign: '中原大學 新中北路側門' } });
+  }
   return out;
 };
 export function guardFootprint(s) {
@@ -1329,7 +1345,7 @@ export function buildInteriors(scene, data, collision) {
   const I = new Interiors(scene);
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene);
-  for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null);
+  for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;
   return I;

@@ -17,6 +17,7 @@ import { Phone } from './phone.js';
 import { GateDuty } from './gateduty.js';
 import { McShift } from './mcshift.js';
 import { Prompts, dual } from './prompts.js';
+import { Race } from './race.js';
 
 const $ = id => document.getElementById(id);
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
@@ -111,8 +112,10 @@ class Game {
     this.phone = new Phone(this);
     this.job = new McShift(this); // 麥當勞打工值班
     this.gate = new GateDuty(this); // A6 側門門禁任務
+    this.race = new Race(this); // 新中北路障礙賽 (sign up at 力行大樓)
     // gamepad: button layout follows whatever has the controls right now
-    this.input.padContext = () => this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
+    this.input.padDriving = () => !!this.player.vehicle;
+    this.input.padContext = () => this.race.state === 'results' ? 'race' : this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
     // on-screen key hints follow the last device used (keyboard <-> gamepad buttons)
     this.prompts = new Prompts(this.input, () => ({ ctx: this.input.padContext(), vehicle: !!this.player.vehicle }));
     this.hud.keyLabel = (kb, pad) => this.prompts.pad ? this.prompts.label(pad) : kb;
@@ -584,7 +587,7 @@ class Game {
     if (inp.hit('KeyM')) hud.toggleBig();
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) hud.toggleBig(false); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active;
+    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -613,7 +616,7 @@ class Game {
     if (pl.vehicle) {
       const v = pl.vehicle;
       const a = pl.frozen ? { x: 0, y: 0 } : inp.axis();
-      const others = [...this.traffic.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
+      const others = [...this.traffic.vehicles(), ...this.race.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
       v.drive(dt, { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') }, w.collision, others, (imp) => { this.audio.bump(imp / 3); this.rig.cur.y += Math.min(0.3, imp * 0.02); });
       pl.ch.update(dt, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
       // hit pedestrians
@@ -666,9 +669,10 @@ class Game {
     } else hud.setPrompt(null);
 
     // ---- world sims ----
-    const info = { pos: wp, vehicle: pl.vehicle, extraObstacles: this.vehicles.filter(v => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25) };
+    const info = { pos: wp, vehicle: pl.vehicle, extraObstacles: [...this.vehicles.filter(v => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25), ...this.race.vehicles()] };
     this.traffic.update(dt, info, this.audio);
     this.peds.update(dt, { pos: wp }, w.collision);
+    this.race.update(dt);
     for (const n of this.npcs) { n.ch.update(dt, { speed: 0, pose: n.pose }); n.mark.position.y = 2.75 + Math.sin(this.time * 3) * 0.08; }
     if (this.crowd) for (const c of this.crowd) c.update(dt, { speed: 0, pose: this.speechOn ? c.cheerPose : null });
 
@@ -690,7 +694,7 @@ class Game {
         } else this.addVotes(1, '重生的金色選票 +1 票（2 分鐘後再生）');
       }
     }
-    this.missions.update(dt);
+    if (!this.race.active) this.missions.update(dt); // story timers wait while you race
     // ---- 彩蛋 ---- after the missions so their big toasts win this frame; while another big toast
     // (任務完成／失敗、選票) is on screen the egg waits instead of overwriting it or being lost
     const btBusy = !$('bigToast').classList.contains('hidden');
@@ -703,10 +707,9 @@ class Game {
     if (this.job.active) this.job.camera(this.camera, dt); // over-the-shoulder shot of the counter
     else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
     hud.setClock(this.clock);
-    const markers = [...this.missions.markers];
+    const markers = [...this.missions.markers, ...this.race.markers()];
     // side quest: A6 側門門禁 (always on the map)
-    const gq = this.interiors.gates?.['側門警衛室'];
-    if (gq && !this.gate.active) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }
+    if (!this.gate.active) for (const gq of Object.values(this.interiors.gates || {})) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }
     const range = pl.vehicle ? 170 : 110;
     hud.drawMinimap(wp.x, wp.z, this.rig.yaw, pl.worldHeading(), range, markers, this.ballotList);
     hud.drawBig(wp.x, wp.z, pl.worldHeading(), markers, this.ballotList);

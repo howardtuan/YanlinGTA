@@ -1604,6 +1604,16 @@ def main():
     out['landmarks'] = {k: {j: v for j, v in o.items() if j not in ('source', 'note')}
                         for k, o in ovr_all.get('landmarks', {}).items()}
 
+    # shops OSM lacks (overrides.json 'pois'); egg = easter-egg trigger (js/main.js)
+    out['eggs'] = []
+    for p in ovr_all.get('pois', []):
+        x, z = proj(p['lat'], p['lon'])
+        # prio: js/furniture.js gives these a shop-sign atlas cell before OSM pois
+        out['pois'].append(dict(name=p['name'], x=round(x, 1), z=round(z, 1), kind=p['kind'], prio=1))
+        if p.get('egg'):
+            e = p['egg']; ex, ez = proj(*e['at'])
+            out['eggs'].append(dict(x=round(ex, 1), z=round(ez, 1), r=e.get('r', 6), title=e['title'], text=e['text']))
+
     if not out['nightMarket']:
         stats['warn'].append('night market relation %d missing' % NIGHT_MARKET_REL)
 

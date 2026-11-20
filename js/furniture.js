@@ -611,7 +611,8 @@ export function buildFurniture(scene, world, data, ctx) {
       }
       if (best) picks.push({ p, text, w: best[0], t: best[1], d: bd });
     }
-    picks.sort((a, b) => a.d - b.d);
+    // hand-added shops (overrides.json pois, prio=1) first: the atlas fills up long before the POI list ends
+    picks.sort((a, b) => (b.p.prio || 0) - (a.p.prio || 0) || a.d - b.d);
     let n = 0, full = 0, low2 = 0;
     for (const { p, text, w, t } of picks) {
       const [ax, az] = w.a, [cx, cz] = w.c, l = Math.hypot(cx - ax, cz - az), dx = (cx - ax) / l, dz = (cz - az) / l, nx = w.n[0], nz = w.n[2];

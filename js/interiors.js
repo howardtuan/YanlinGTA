@@ -470,13 +470,28 @@ const MCT = {
   floor: () => ctex('mcTile', 256, 256, (g) => {
     const r = lcg(7);
     for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
-      const v = 86 + Math.floor(r() * 16); g.fillStyle = `rgb(${v},${v + 2},${v + 5})`; g.fillRect(i * 128, j * 128, 128, 128);
-      for (let n = 0; n < 700; n++) { const q = Math.floor(v + (r() - 0.5) * 30); g.fillStyle = `rgba(${q},${q},${q + 3},0.35)`; g.fillRect(i * 128 + r() * 128, j * 128 + r() * 128, 1.5, 1.5); }
+      const v = 116 + Math.floor(r() * 14); g.fillStyle = `rgb(${v + 6},${v + 3},${v})`; g.fillRect(i * 128, j * 128, 128, 128);
+      for (let n = 0; n < 700; n++) { const q = Math.floor(v + (r() - 0.5) * 30); g.fillStyle = `rgba(${q + 5},${q + 2},${q},0.35)`; g.fillRect(i * 128 + r() * 128, j * 128 + r() * 128, 1.5, 1.5); }
     }
-    g.fillStyle = 'rgba(52,53,56,0.95)'; for (const k of [0, 128]) { g.fillRect(k, 0, 2, 256); g.fillRect(0, k, 256, 2); }
+    g.fillStyle = 'rgba(78,74,70,0.9)'; for (const k of [0, 128]) { g.fillRect(k, 0, 2, 256); g.fillRect(0, k, 256, 2); }
+  }),
+  lobby: () => ctex('mcLobby', 256, 256, (g) => {
+    // the corridor floor in the photo: big beige tiles framed by terracotta bands, laid on the diagonal
+    const r = lcg(5); g.fillStyle = '#d9c39a'; g.fillRect(0, 0, 256, 256);
+    for (let n = 0; n < 900; n++) { const q = 200 + Math.floor((r() - 0.5) * 30); g.fillStyle = `rgba(${q},${q - 22},${q - 60},0.3)`; g.fillRect(r() * 256, r() * 256, 2, 2); }
+    g.save(); g.translate(128, 128); g.rotate(Math.PI / 4); g.strokeStyle = 'rgba(140,110,70,0.5)'; g.lineWidth = 2;
+    for (let i = -4; i <= 4; i++) { g.beginPath(); g.moveTo(i * 45, -200); g.lineTo(i * 45, 200); g.stroke(); g.beginPath(); g.moveTo(-200, i * 45); g.lineTo(200, i * 45); g.stroke(); }
+    g.restore();
+    g.fillStyle = '#a4553a'; g.fillRect(0, 0, 256, 18); g.fillRect(0, 0, 18, 256);
+    g.fillStyle = 'rgba(70,35,20,0.6)'; for (let i = 0; i < 256; i += 18) { g.fillRect(i, 0, 1.5, 18); g.fillRect(0, i, 18, 1.5); }
+  }),
+  quarry: () => ctex('mcQuarry', 128, 128, (g) => {
+    const r = lcg(9);
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) { const v = Math.floor(r() * 14); g.fillStyle = `rgb(${150 + v},${70 + v},${50 + v})`; g.fillRect(i * 64, j * 64, 64, 64); }
+    g.fillStyle = '#5c3a2c'; g.fillRect(0, 0, 128, 2); g.fillRect(0, 64, 128, 2); g.fillRect(0, 0, 2, 128); g.fillRect(64, 0, 2, 128);
   }),
   ceil: () => ctex('mcCeil', 128, 128, (g) => {
-    const r = lcg(3); g.fillStyle = '#eceae5'; g.fillRect(0, 0, 128, 128);
+    const r = lcg(3); g.fillStyle = '#f6f4ef'; g.fillRect(0, 0, 128, 128);
     for (let n = 0; n < 900; n++) { g.fillStyle = `rgba(150,148,140,${0.08 + r() * 0.12})`; g.fillRect(r() * 128, r() * 128, 1.3, 1.3); }
     g.fillStyle = '#c9c7c1'; g.fillRect(0, 0, 128, 3); g.fillRect(0, 0, 3, 128);
   }),
@@ -575,102 +590,142 @@ const MCT = {
 };
 function mcdMaterials() {
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
-  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+  // the store is lit by warm 3000 K downlights; the scene's lights are the (cool) sky, so each surface gets a
+  // small warm emissive lift (following its texture) — brighter and warmer without adding real lights
+  const std = (o, lift = 0) => {
+    const m = new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+    if (lift) { m.emissive.set(o.map ? '#ffe4c4' : new THREE.Color(o.color || '#ffffff').lerp(new THREE.Color('#ffd9a8'), 0.25)); m.emissiveMap = o.map || null; m.emissiveIntensity = lift; }
+    return m;
+  };
   return {
-    floor: def('mcdFloor', () => std({ map: MCT.floor(), roughness: 0.42, metalness: 0.05 })),
-    ceil: def('mcdCeil', () => std({ map: MCT.ceil(), roughness: 0.95 })),
-    oak: def('mcdOak', () => std({ map: MCT.oak(), roughness: 0.6 })),
-    oakTop: def('mcdOakTop', () => std({ color: '#c49a6c', roughness: 0.45 })),
+    floor: def('mcdFloor', () => std({ map: MCT.floor(), roughness: 0.42, metalness: 0.05 }, 0.22)),
+    lobby: def('mcdLobby', () => std({ map: MCT.lobby(), roughness: 0.35 }, 0.2)),
+    quarry: def('mcdQuarry', () => std({ map: MCT.quarry(), roughness: 0.6 }, 0.15)),
+    cove: def('mcdCove', () => new THREE.MeshStandardMaterial({ color: '#fff2d6', emissive: '#ffe7b8', emissiveIntensity: 0.55 })),
+    ceil: def('mcdCeil', () => std({ map: MCT.ceil(), roughness: 0.95 }, 0.42)),
+    wall: def('mcdWall', () => std({ color: '#f4f2ec', roughness: 0.8 }, 0.3)),
+    oak: def('mcdOak', () => std({ map: MCT.oak(), roughness: 0.6 }, 0.2)),
+    oakTop: def('mcdOakTop', () => std({ color: '#c9a072', roughness: 0.45 }, 0.15)),
     blackTile: def('mcdBlackTile', () => std({ map: MCT.blackTile(), roughness: 0.3 })),
-    counter: def('mcdCounter', () => std({ color: '#f3f2ee', roughness: 0.35 })),
-    top: def('mcdTop', () => std({ color: '#dcdad4', roughness: 0.25 })),
+    counter: def('mcdCounter', () => std({ color: '#f6f5f1', roughness: 0.35 }, 0.3)),
+    top: def('mcdTop', () => std({ color: '#e2e0da', roughness: 0.25 }, 0.18)),
     black: def('mcdBlack', () => std({ color: '#161719', roughness: 0.45 })),
-    bench: def('mcdBench', () => std({ color: '#3b3d42', roughness: 0.95 })),
-    walnut: def('mcdWalnut', () => std({ color: '#5a3a26', roughness: 0.45, side: THREE.DoubleSide })),
-    yellow: def('mcdYellow', () => std({ color: '#ffbc0d', roughness: 0.35 })),
+    bench: def('mcdBench', () => std({ color: '#4a4b50', roughness: 0.95 }, 0.06)),
+    walnut: def('mcdWalnut', () => std({ color: '#6a4630', roughness: 0.45, side: THREE.DoubleSide }, 0.1)),
+    yellow: def('mcdYellow', () => std({ color: '#ffbc0d', roughness: 0.35 }, 0.22)),
     frame: def('mcdFrame', () => std({ color: '#3a3c40', roughness: 0.5, metalness: 0.3 })),
-    pillar: def('mcdPillar', () => std({ color: '#45474b', roughness: 0.6 })),
+    pillar: def('mcdPillar', () => std({ color: '#45474b', roughness: 0.6 }, 0.05)),
     fasciaBox: def('mcdFasciaBox', () => std({ color: '#2f3134', roughness: 0.6 })),
-    vent: def('mcdVent', () => std({ color: '#d5d4cf', roughness: 0.6 })),
+    vent: def('mcdVent', () => std({ color: '#e2e0da', roughness: 0.6 }, 0.25)),
     warm: def('mcdWarm', () => new THREE.MeshStandardMaterial({ color: '#ffb35a', emissive: '#ff9a3c', emissiveIntensity: 0.9 })),
     fryer: def('mcdFryer', () => std({ color: '#5b5f64', metalness: 0.7, roughness: 0.35 })),
     tray: def('mcdTray', () => std({ color: '#a6362c', roughness: 0.5 })),
-    lamp: def('mcdLamp', () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff4dc', emissiveIntensity: 1.15, roughness: 0.6 })),
+    lamp: def('mcdLamp', () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff1d6', emissiveIntensity: 1.2, roughness: 0.6 })),
   };
 }
 function buildMcD(I, scene) {
   const S = MCD_SPEC; const k = new Kit(I, S.x0, S.z0, 0);
   const W = S.x1 - S.x0, D = S.z1 - S.z0, H = S.H;
-  const MT = mcdMaterials(); // textures / materials of the real store (see MCT below)
+  const MT = mcdMaterials(); // textures / materials of the real store (see MCT above)
   const put = (mat, g) => { if (!k.parts.has(mat)) k.parts.set(mat, []); k.parts.get(mat).push(g); };
-  // ---- shell: dark grey 60 cm floor tiles, walls, east glass front with door ----
-  k.box(0, W, 0, 0.1, 0, D, MT.floor, { col: false, surface: true, tile: [1.2, 1.2] });
-  k.box(0, 0.3, 0, H, 0, D, 'white');
+  // Layout like the real store: you walk in facing the counter (front lobby on the corridor's beige /
+  // terracotta tiles, kitchen behind the counter, golden-arches pillar at its right end), and the long
+  // dining room opens on the counter's LEFT. The numbers below are written in a "design frame" whose z
+  // is mirrored into the shop (mz): design z 0..10.25 = dining = the north part of the shop.
+  //   lobby   x 16.2..W   design z 10.4..D   door in the east glass front at design z 12.6..16.6
+  //   counter x 15.2..16.2 design z 11.4..18.6 (customers on the east side), kitchen x 9.5..15.2 behind it
+  //   dining  x 0.3..W    design z 0.3..10.25 (mural + banquette on the partition, striped wall at the far west end)
+  //   x 0.3..9.3 / design z 10.4..D is back of house (closed)
+  const DZ = 10.25, KX = 9.5, CX0 = 15.2, CX1 = 16.2, CZ0 = 11.4, CZ1 = 18.6, DOOR0 = 12.6, DOOR1 = 16.6;
+  const mz = (z) => D - z; // design frame -> shop (mirror in z; planes are turned, not mirrored, so text still reads)
+  const km = {
+    box: (x0, x1, y0, y1, z0, z1, mat, o) => k.box(x0, x1, y0, y1, mz(z1), mz(z0), mat, o),
+    wallRect: (x0, x1, z0, z1, y0, y1) => k.wallRect(x0, x1, mz(z1), mz(z0), y0, y1),
+    plane: (tex, w, h, x, y, z, rotY = 0, o = {}) => k.plane(tex, w, h, x, y, mz(z), Math.PI - rotY, o),
+  };
+  // ---- shell ----
+  km.box(0, W, 0, 0.1, 0, D, MT.floor, { col: false, surface: true, tile: [1.2, 1.2] });
+  km.box(CX0 - 0.2, W, 0.1, 0.104, DZ + 0.15, D, MT.lobby, { col: false, tile: [2.4, 2.4] }); // corridor tiles up to the counter
+  km.box(KX, CX0 + 1.0, 0.1, 0.106, DZ + 0.15, D, MT.quarry, { col: false, tile: [0.6, 0.6] }); // red quarry tiles behind it
+  km.box(0, 0.3, 0, H, 0, D, 'white');
   k.box(0, W, 0, H, 0, 0.3, 'white');
   k.box(0, W, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] }); // outside face keeps the 活動中心 windows
-  k.box(W - 0.15, W, 0, 0.35, 0, D, MT.frame, { col: false });
-  k.box(W - 0.15, W, 0, H, 0, 7.5, 'glass'); k.box(W - 0.15, W, 0, H, 12.5, D, 'glass');
-  k.box(W - 0.15, W, 2.6, H, 7.5, 12.5, 'glass', { col: false });
-  for (const z of [0, 7.5, 12.5, D]) k.box(W - 0.22, W + 0.04, 0, H, z - 0.08, z + 0.08, MT.frame, { col: false });
-  k.box(W - 0.22, W + 0.04, 2.55, 2.65, 7.5, 12.5, MT.frame, { col: false }); // door transom
-  // ---- outside: dark fascia with white "McDonald's", dark grey pillar with the golden arches ----
-  k.box(-0.05, W + 0.4, H, H + 1.2, -0.05, D + 0.05, MT.fasciaBox, { col: false });
-  k.plane(MCT.fascia(), 7.2, 1.0, W + 0.42, H + 0.6, D / 2, Math.PI / 2, { emissive: 0.55 });
-  k.box(W, W + 0.9, 0, H + 1.2, 0.05, 0.95, MT.pillar);
-  k.plane(MCT.arches('#ffbc0d'), 0.8, 0.7, W + 0.91, 3.0, 0.5, Math.PI / 2, { emissive: 0.9, transparent: true });
-  k.box(0, W, H + 1.2, S.top, 0, D, 'sac', { col: false });
-  // ---- ceiling: white 60 cm grid with square downlights and A/C diffusers ----
-  k.box(0, W, H - 0.1, H, 0, D, MT.ceil, { col: false, tile: [0.6, 0.6] });
-  const inSoffit = (x, z) => x > 1.8 && x < 5.4 && z > 2.2 && z < 17.8;
-  for (let x = 6.3; x < W - 0.5; x += 1.8) for (let z = 1.5; z < D - 0.5; z += 1.8) {
-    if (inSoffit(x, z) || (Math.abs(z - 5.1) < 1.2 && x > 8.5 && x < 17.5)) continue;
-    k.box(x - 0.09, x + 0.09, H - 0.115, H - 0.1, z - 0.09, z + 0.09, 'light', { col: false });
+  km.box(0.3, CX1, 0, H, DZ, DZ + 0.15, MT.wall);                 // dining / kitchen partition
+  km.box(KX - 0.2, KX, 0, H, DZ + 0.15, D - 0.3, MT.wall);        // kitchen back wall (back of house beyond)
+  km.box(KX, CX1, 0, H - 0.1, D - 0.34, D - 0.3, MT.wall, { col: false }); // kitchen side of the north wall
+  km.box(CX1, W - 0.15, 2.7, H, DZ, DZ + 0.15, MT.wall, { col: false }); // header over the dining opening
+  km.box(W - 0.15, W, 0, 0.35, 0, D, MT.frame, { col: false });
+  km.box(W - 0.15, W, 0, H, 0, DOOR0, 'glass'); km.box(W - 0.15, W, 0, H, DOOR1, D, 'glass');
+  km.box(W - 0.15, W, 2.6, H, DOOR0, DOOR1, 'glass', { col: false });
+  for (const z of [0, 5.2, DZ + 0.1, DOOR0, DOOR1, D]) km.box(W - 0.22, W + 0.04, 0, H, z - 0.08, z + 0.08, MT.frame, { col: false });
+  km.box(W - 0.22, W + 0.04, 2.55, 2.65, DOOR0, DOOR1, MT.frame, { col: false }); // door transom
+  // ---- outside: dark fascia with white "McDonald's" over the door, dark pillar with the golden arches ----
+  km.box(-0.05, W + 0.4, H, H + 1.2, -0.05, D + 0.05, MT.fasciaBox, { col: false });
+  km.plane(MCT.fascia(), 7.2, 1.0, W + 0.42, H + 0.6, (DOOR0 + DOOR1) / 2, Math.PI / 2, { emissive: 0.55 });
+  km.box(W, W + 0.9, 0, H + 1.2, 0.05, 0.95, MT.pillar);
+  km.plane(MCT.arches('#ffbc0d'), 0.8, 0.7, W + 0.91, 3.0, 0.5, Math.PI / 2, { emissive: 0.9, transparent: true });
+  km.box(0, W, H + 1.2, S.top, 0, D, 'sac', { col: false });
+  // ---- ceiling: white 60 cm grid; square downlights over the dining room, troffers over lobby and kitchen ----
+  km.box(0, W, H - 0.1, H, 0, D, MT.ceil, { col: false, tile: [0.6, 0.6] });
+  for (let x = 1.5; x < W - 0.5; x += 1.8) for (let z = 1.4; z < DZ - 0.4; z += 1.8) {
+    if (Math.abs(z - 5.1) < 1.0 && x > 4.6 && x < 15.4) continue; // the pendants' cove
+    km.box(x - 0.09, x + 0.09, H - 0.115, H - 0.1, z - 0.09, z + 0.09, 'light', { col: false });
   }
-  for (const [x, z] of [[7.2, 9.9], [12.6, 9.9], [18, 9.9], [9.9, 15.3], [15.3, 15.3], [20.7, 2.7]]) k.box(x - 0.3, x + 0.3, H - 0.112, H - 0.1, z - 0.3, z + 0.3, MT.vent, { col: false });
-  // dropped soffit over the counter (as in the photo) with its own downlights
-  k.box(1.8, 5.4, 3.35, H - 0.1, 2.2, 17.8, 'white', { col: false });
-  for (let z = 3.0; z < 17.5; z += 1.2) k.box(4.55, 4.75, 3.335, 3.35, z - 0.1, z + 0.1, 'light', { col: false });
-  // ---- counter: white body on a black plinth, pale top, grey M, POS terminals ----
-  k.box(3.3, 4.1, 0, 0.16, 3, 17, MT.black, { col: false });
-  k.box(3.2, 4.2, 0.16, 1.05, 3, 17, MT.counter);
-  k.box(3.1, 4.3, 1.05, 1.1, 3, 17, MT.top, { col: false });
-  for (const z of [6.5, 13.5]) k.plane(MCT.arches('#8f9296'), 0.42, 0.36, 4.205, 0.66, z, Math.PI / 2);
-  for (const z of [6.2, 10, 13.8]) {
-    k.box(3.62, 3.68, 1.1, 1.24, z - 0.04, z + 0.04, MT.black, { col: false });
-    k.box(3.56, 3.62, 1.2, 1.46, z - 0.19, z + 0.19, MT.black, { col: false });
-    k.plane(MCT.pos(), 0.34, 0.22, 3.555, 1.33, z, -Math.PI / 2, { emissive: 0.85 });
-    k.plane(MCT.pos(), 0.16, 0.1, 3.625, 1.36, z, Math.PI / 2, { emissive: 0.85 });
-  }
-  // digital menu boards hanging under the soffit, facing the dining room
+  km.box(4.4, 15.6, H - 0.35, H - 0.1, 3.7, 6.5, MT.wall, { col: false }); // cove frame over the communal table
+  km.box(4.6, 15.4, H - 0.36, H - 0.35, 3.9, 6.3, MT.cove, { col: false });
+  for (const [x, z] of [[18.6, 12.6], [21.6, 12.6], [18.6, 17.4], [21.6, 17.4], [11.0, 12.6], [11.0, 17.4]]) km.box(x - 0.6, x + 0.6, H - 0.115, H - 0.1, z - 0.3, z + 0.3, 'light', { col: false });
+  for (const [x, z] of [[6.0, 1.6], [12.6, 8.8], [20.4, 6.6], [18.0, 15.0]]) km.box(x - 0.3, x + 0.3, H - 0.112, H - 0.1, z - 0.3, z + 0.3, MT.vent, { col: false });
+  // dropped soffit over the counter with its own downlights, menu boards hanging under it
+  km.box(13.6, 17.2, 3.35, H - 0.1, CZ0 - 0.4, CZ1 + 0.4, MT.wall, { col: false });
+  for (let z = CZ0 + 0.2; z < CZ1; z += 1.2) km.box(16.55, 16.75, 3.335, 3.35, z - 0.1, z + 0.1, 'light', { col: false });
   for (let i = 0; i < 6; i++) {
-    const z = 6.0 + i * 1.6;
-    k.box(2.2, 2.28, 2.62, 3.3, z - 0.56, z + 0.56, MT.black, { col: false });
-    k.plane(MCT.menu(i), 1.06, 0.6, 2.285, 2.96, z, Math.PI / 2, { emissive: 0.9 });
-    k.box(2.22, 2.25, 3.3, 3.35, z - 0.02, z + 0.02, 'steel', { col: false });
+    const z = CZ0 + 0.45 + i * 1.26;
+    km.box(14.92, 15.0, 2.62, 3.3, z - 0.56, z + 0.56, MT.black, { col: false });
+    km.plane(MCT.menu(i), 1.06, 0.6, 15.005, 2.96, z, Math.PI / 2, { emissive: 0.9 });
+    km.box(14.94, 14.97, 3.3, 3.35, z - 0.02, z + 0.02, 'steel', { col: false });
   }
+  // ---- counter: white body on a black plinth, pale top, grey M, POS terminals (customers on the east side) ----
+  km.box(CX0 + 0.1, CX1 - 0.1, 0, 0.16, CZ0, CZ1, MT.black, { col: false });
+  km.box(CX0, CX1, 0.16, 1.05, CZ0, CZ1, MT.counter);
+  km.box(CX0 - 0.1, CX1 + 0.1, 1.05, 1.1, CZ0, CZ1, MT.top, { col: false });
+  for (const z of [12.9, 17.1]) km.plane(MCT.arches('#8f9296'), 0.42, 0.36, CX1 + 0.005, 0.66, z, Math.PI / 2);
+  for (const z of [12.6, 15.0, 17.4]) {
+    km.box(15.62, 15.68, 1.1, 1.24, z - 0.04, z + 0.04, MT.black, { col: false });
+    km.box(15.56, 15.62, 1.2, 1.46, z - 0.19, z + 0.19, MT.black, { col: false });
+    km.plane(MCT.pos(), 0.34, 0.22, 15.555, 1.33, z, -Math.PI / 2, { emissive: 0.85 });
+    km.plane(MCT.pos(), 0.16, 0.1, 15.625, 1.36, z, Math.PI / 2, { emissive: 0.85 });
+  }
+  // dark grey pillar with the golden arches at the counter's left end (as in the photo)
+  km.box(CX1, CX1 + 0.8, 0, H - 0.1, CZ1 + 0.1, D - 0.3, MT.pillar);
+  km.plane(MCT.arches('#ffbc0d'), 0.66, 0.58, CX1 + 0.805, 2.5, (CZ1 + 0.1 + D - 0.3) / 2, Math.PI / 2, { emissive: 0.9, transparent: true });
+  km.box(CX1 + 0.8, W - 0.15, 0, H - 0.1, D - 0.34, D - 0.3, MT.oak, { col: false, tile: [1.2, H] });
   // ---- kitchen: black tiled back wall, stainless back counter and equipment ----
-  k.box(0.3, 0.32, 1.0, 2.5, 2, 18, MT.blackTile, { col: false, tile: [0.3, 0.3] });
-  k.box(0.3, 2.2, 0, 1.0, 2, 18, 'steel', { col: false });
-  k.box(0.45, 1.15, 1.0, 1.72, 4.0, 5.3, 'steel', { col: false }); // drink tower
-  k.box(0.45, 1.2, 1.72, 1.78, 4.0, 5.3, MT.black, { col: false });
-  for (let n = 0; n < 6; n++) put('chrome', new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8).translate(1.12, 1.62, 4.15 + n * 0.2));
-  k.box(0.45, 0.95, 1.0, 1.55, 5.8, 6.5, MT.black, { col: false }); // coffee machine
-  k.box(0.5, 1.7, 1.0, 1.55, 8.4, 11.6, 'steel', { col: false }); // warming cabinet
-  k.box(1.69, 1.71, 1.08, 1.47, 8.5, 11.5, MT.warm, { col: false });
-  k.box(0.35, 1.7, 0, 1.08, 13.8, 16.2, MT.fryer, { col: false }); // fryers
-  for (const z of [14.2, 14.9, 15.6]) k.box(0.7, 1.5, 1.08, 1.22, z - 0.25, z + 0.25, 'steel', { col: false });
-  k.box(0.45, 1.05, 1.0, 1.85, 16.6, 17.4, 'steel', { col: false }); // ice-cream machine
-  for (let n = 0; n < 4; n++) k.box(1.6, 2.1, 1.0 + n * 0.02, 1.015 + n * 0.02, 2.4, 3.0, MT.tray, { col: false }); // tray stack
-  // ---- south wall: charcoal banquette under the black & white mural, oak panels ----
-  k.plane(MCT.mural(), 12.4, 2.6, 11.2, 2.55, 0.32);
-  k.box(17.4, W - 0.15, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
-  k.box(4.2, 5.0, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
-  k.box(5.0, 17.4, 0, 0.42, 0.34, 1.0, MT.oak, { col: false, tile: [1.2, 0.42] });
-  k.box(5.0, 17.4, 0.42, 0.62, 0.34, 1.0, MT.bench, { col: false });
-  k.box(5.0, 17.4, 0.62, 1.15, 0.34, 0.52, MT.bench, { col: false });
-  k.wallRect(5.0, 17.4, 0.3, 1.0, 0, 1.15);
+  km.box(KX, KX + 0.02, 1.0, 2.5, DZ + 0.3, D - 0.4, MT.blackTile, { col: false, tile: [0.3, 0.3] });
+  km.box(KX, KX + 1.9, 0, 1.0, DZ + 0.4, D - 0.4, 'steel', { col: false });
+  km.box(KX + 0.15, KX + 0.85, 1.0, 1.72, 11.0, 12.3, 'steel', { col: false }); // drink tower
+  km.box(KX + 0.15, KX + 0.9, 1.72, 1.78, 11.0, 12.3, MT.black, { col: false });
+  for (let n = 0; n < 6; n++) put('chrome', new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8).translate(KX + 0.82, 1.62, mz(11.15 + n * 0.2)));
+  km.box(KX + 0.15, KX + 0.65, 1.0, 1.55, 12.8, 13.5, MT.black, { col: false }); // coffee machine
+  km.box(KX + 0.2, KX + 1.4, 1.0, 1.55, 13.9, 15.9, 'steel', { col: false }); // warming cabinet
+  km.box(KX + 1.39, KX + 1.41, 1.08, 1.47, 14.0, 15.8, MT.warm, { col: false });
+  km.box(KX + 0.05, KX + 1.4, 0, 1.08, 16.3, 18.4, MT.fryer, { col: false }); // fryers
+  for (const z of [16.7, 17.35, 18.0]) km.box(KX + 0.4, KX + 1.2, 1.08, 1.22, z - 0.25, z + 0.25, 'steel', { col: false });
+  km.box(KX + 0.15, KX + 0.75, 1.0, 1.85, 18.7, 19.3, 'steel', { col: false }); // ice-cream machine
+  for (let n = 0; n < 4; n++) km.box(KX + 1.3, KX + 1.8, 1.0 + n * 0.02, 1.015 + n * 0.02, 12.5, 13.1, MT.tray, { col: false }); // tray stack
+  // ---- dining room (design frame, mirrored into the north part of the shop). Looking in from the lobby:
+  //      banquette under the mural on the left (outer wall), striped wall at the far end, four-seat tables and
+  //      the Happy Meal column on the right (partition), yellow trash cabinets in the left foreground ----
+  km.box(0.3, CX1, 0, H - 0.1, DZ - 0.04, DZ, MT.oak, { col: false, tile: [1.2, H] }); // partition, dining side
+  km.plane(MCT.mural(), 12.4, 2.6, 9.5, 2.55, 0.32);
+  km.box(15.7, W - 0.15, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  km.box(0.3, 3.3, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  km.box(3.0, 16.2, 0, 0.42, 0.34, 1.0, MT.oak, { col: false, tile: [1.2, 0.42] });
+  km.box(3.0, 16.2, 0.42, 0.62, 0.34, 1.0, MT.bench, { col: false });
+  km.box(3.0, 16.2, 0.62, 1.15, 0.34, 0.52, MT.bench, { col: false });
+  km.wallRect(3.0, 16.2, 0.3, 1.0, 0, 1.15);
+  km.plane(MCT.stripes(), DZ - 0.3, H - 0.1, 0.32, (H - 0.1) / 2, (DZ + 0.3) / 2, Math.PI / 2);
   // ---- furniture (merged per material) ----
-  const place = (list, a, x, z) => list.map(g => g.clone().rotateY(a).translate(x, 0, z));
+  const place = (list, a, x, z) => list.map(g => g.clone().rotateY(Math.PI - a).translate(x, 0, mz(z)));
   const chairParts = (bar) => {
     const sy = bar ? 0.66 : 0.46, wood = [], metal = [];
     wood.push(new THREE.BoxGeometry(0.42, 0.03, 0.4).translate(0, sy, 0.02));
@@ -688,45 +743,45 @@ function buildMcD(I, scene) {
   };
   const BAR = chairParts(true), LOW = chairParts(false), STOOL = stoolParts();
   const chair = (P, a, x, z) => { for (const g of place(P.wood, a, x, z)) put(MT.walnut, g); for (const g of place(P.metal, a, x, z)) put('chrome', g); };
-  const pedestal = (x, z, top, r = 0.2) => { put('chrome', new THREE.CylinderGeometry(0.035, 0.035, top, 10).translate(x, top / 2, z)); put('chrome', new THREE.CylinderGeometry(r, r * 1.08, 0.025, 20).translate(x, 0.0125, z)); };
+  const pedestal = (x, z, top, r = 0.2) => { put('chrome', new THREE.CylinderGeometry(0.035, 0.035, top, 10).translate(x, top / 2, mz(z))); put('chrome', new THREE.CylinderGeometry(r, r * 1.08, 0.025, 20).translate(x, 0.0125, mz(z))); };
   // oak high tables along the banquette, bentwood bar chairs opposite
   for (let i = 0; i < 7; i++) {
-    const x = 6.0 + i * 1.7;
-    k.box(x - 0.55, x + 0.55, 0.98, 1.02, 1.2, 1.9, MT.oakTop, { col: false }); k.wallRect(x - 0.55, x + 0.55, 1.2, 1.9, 0, 1.02);
+    const x = 4.0 + i * 1.7;
+    km.box(x - 0.55, x + 0.55, 0.98, 1.02, 1.2, 1.9, MT.oakTop, { col: false }); km.wallRect(x - 0.55, x + 0.55, 1.2, 1.9, 0, 1.02);
     pedestal(x, 1.55, 0.98, 0.22);
     chair(BAR, Math.PI, x, 2.4);
   }
   // long stainless communal table under the drum pendants, black stools both sides
-  k.box(8.6, 17.4, 0.98, 1.03, 4.65, 5.55, 'steel', { col: false }); k.wallRect(8.6, 17.4, 4.65, 5.55, 0, 1.03);
-  for (const x of [9.6, 13.0, 16.4]) pedestal(x, 5.1, 0.98, 0.3);
-  for (let i = 0; i < 10; i++) {
-    const x = 9.1 + i * 0.87;
+  km.box(5.0, 15.0, 0.98, 1.03, 4.65, 5.55, 'steel', { col: false }); km.wallRect(5.0, 15.0, 4.65, 5.55, 0, 1.03);
+  for (const x of [6.0, 10.0, 14.0]) pedestal(x, 5.1, 0.98, 0.3);
+  for (let i = 0; i < 11; i++) {
+    const x = 5.55 + i * 0.87;
     for (const [z, a] of [[4.05, 0], [6.15, Math.PI]]) { for (const g of place(STOOL.seat, a, x, z)) put(MT.black, g); for (const g of place(STOOL.metal, a, x, z)) put('chrome', g); }
   }
-  for (const x of [10.2, 13.0, 15.8]) {
-    put(MT.lamp, new THREE.CylinderGeometry(0.46, 0.46, 0.52, 28).translate(x, 2.95, 5.1));
-    put('chrome', new THREE.CylinderGeometry(0.004, 0.004, H - 0.1 - 3.21, 4).translate(x, (H - 0.1 + 3.21) / 2, 5.1));
+  for (const x of [6.8, 10.0, 13.2]) {
+    put(MT.lamp, new THREE.CylinderGeometry(0.46, 0.46, 0.52, 28).translate(x, 2.85, mz(5.1)));
+    put('chrome', new THREE.CylinderGeometry(0.004, 0.004, H - 0.36 - 3.11, 4).translate(x, (H - 0.36 + 3.11) / 2, mz(5.1)));
   }
-  // north side: striped accent wall, oak panels, four-seat tables with bentwood chairs
-  k.plane(MCT.stripes(), 9.2, H - 0.1, 10.6, (H - 0.1) / 2, D - 0.32, Math.PI);
-  k.box(15.2, W - 0.15, 0, H - 0.1, D - 0.34, D - 0.3, MT.oak, { col: false, tile: [1.2, H] });
-  k.box(4.2, 6.0, 0, H - 0.1, D - 0.34, D - 0.3, MT.oak, { col: false, tile: [1.2, H] });
-  for (const z of [14.0, 17.0]) for (let i = 0; i < 6; i++) {
-    const x = 7.0 + i * 2.6;
-    k.box(x - 0.4, x + 0.4, 0.72, 0.76, z - 0.4, z + 0.4, MT.oakTop, { col: false }); k.wallRect(x - 0.4, x + 0.4, z - 0.4, z + 0.4, 0, 0.76);
+  // four-seat tables along the partition (the right-hand side as you look in)
+  for (let i = 0; i < 5; i++) {
+    const x = 3.5 + i * 2.7, z = 8.4;
+    km.box(x - 0.4, x + 0.4, 0.72, 0.76, z - 0.4, z + 0.4, MT.oakTop, { col: false }); km.wallRect(x - 0.4, x + 0.4, z - 0.4, z + 0.4, 0, 0.76);
     pedestal(x, z, 0.72, 0.24);
     chair(LOW, 0, x, z - 0.66); chair(LOW, Math.PI, x, z + 0.66);
   }
-  // Happy Meal screen on an orange/red stripe column + yellow display box (north wall, near the door)
-  k.plane(MCT.column(), 0.5, H - 0.1, 21.2, (H - 0.1) / 2, D - 0.355, Math.PI);
-  k.box(20.85, 21.55, 1.55, 2.6, D - 0.48, D - 0.36, MT.black, { col: false });
-  k.plane(MCT.kids(), 0.62, 0.95, 21.2, 2.075, D - 0.485, Math.PI, { emissive: 0.8 });
-  k.box(20.8, 21.6, 0.9, 1.35, D - 0.66, D - 0.34, MT.yellow, { col: false });
-  // yellow trash / tray-return cabinets with the stick-figure panel (south wall, near the door)
-  k.box(19.6, 22.0, 0, 1.12, 0.34, 0.95, MT.yellow); k.box(19.6, 22.0, 1.12, 1.5, 0.34, 0.6, MT.black, { col: false });
-  k.box(19.6, 22.0, 1.5, 2.65, 0.34, 0.95, MT.yellow, { col: false });
-  k.plane(MCT.bin('一般垃圾', '🗑', 'binA'), 0.9, 0.42, 20.2, 0.86, 0.955); k.plane(MCT.bin('資源回收', '♻', 'binB'), 0.9, 0.42, 21.4, 0.86, 0.955);
-  k.plane(MCT.toss(), 2.2, 1.05, 20.8, 2.07, 0.955);
+  // Happy Meal screen on an orange / red stripe column + yellow display box (partition, near the opening)
+  km.plane(MCT.column(), 0.5, H - 0.1, 15.75, (H - 0.1) / 2, DZ - 0.045, Math.PI);
+  km.box(15.4, 16.1, 1.55, 2.6, DZ - 0.17, DZ - 0.05, MT.black, { col: false });
+  km.plane(MCT.kids(), 0.62, 0.95, 15.75, 2.075, DZ - 0.175, Math.PI, { emissive: 0.8 });
+  km.box(15.35, 16.15, 0.9, 1.35, DZ - 0.36, DZ - 0.04, MT.yellow, { col: false });
+  // oak pillar with a poster between the two dining openings (seen from the lobby)
+  km.box(19.8, 20.6, 0, H - 0.1, DZ - 0.25, DZ + 0.4, MT.oak, { tile: [1.2, H] });
+  km.plane(MCT.kids(), 0.5, 0.78, 20.605, 1.65, DZ + 0.075, Math.PI / 2, { emissive: 0.7 });
+  // yellow trash / tray-return cabinets with the stick-figure panel (dining room, by the entrance)
+  km.box(19.6, 22.0, 0, 1.12, 0.34, 0.95, MT.yellow); km.box(19.6, 22.0, 1.12, 1.5, 0.34, 0.6, MT.black, { col: false });
+  km.box(19.6, 22.0, 1.5, 2.65, 0.34, 0.95, MT.yellow, { col: false });
+  km.plane(MCT.bin('一般垃圾', '🗑', 'binA'), 0.9, 0.42, 21.4, 0.86, 0.955); km.plane(MCT.bin('資源回收', '♻', 'binB'), 0.9, 0.42, 20.2, 0.86, 0.955);
+  km.plane(MCT.toss(), 2.2, 1.05, 20.8, 2.07, 0.955);
   // pole sign outside
   k.box(W + 4, W + 4.3, 0, 7, D + 1, D + 1.3, 'metal', { col: false });
   k.wallRect(W + 4, W + 4.3, D + 1, D + 1.3, 0, 7);
@@ -735,12 +790,12 @@ function buildMcD(I, scene) {
   I.zones.push({ name: '麥當勞 中原店', pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.4 });
   // staff
   const staff = createCharacter({ skin: '#efd0b5', shirt: '#c8102e', shorts: '#222', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
-  const sp = k.w(2.4, 10); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
+  const sp = k.w(14.6, mz(15.0)); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
   staff.home = staff.root.position.clone(); staff.homeRot = staff.root.rotation.y; // the 值班 moves her to the fryers and back
   scene.add(staff.root);
   I.updaters.push((dt) => staff.update(dt, { speed: 0 }));
   let ordered = false;
-  const cp = k.w(5.0, 10);
+  const cp = k.w(17.0, mz(15.0));
   I.actions.push({
     x: cp[0], z: cp[1], r: 2.6, y: 0, label: () => '按 <kbd>E</kbd> 點餐', cond: () => !(I.mcd && I.mcd.busy),
     fn: (g) => {
@@ -762,19 +817,20 @@ function buildMcD(I, scene) {
       });
     },
   });
-  // part-time job (值班, see mcshift.js): staff entrance behind the counter — walk round its north end —
-  // with the time clock on the north wall; you work the middle register, the queue forms across the counter
-  const se = k.w(2.4, 18.4);
+  // part-time job (值班, see mcshift.js): staff entrance through the gap at the counter's dining end, time
+  // clock on the partition just inside; you work the middle register, the queue forms across the counter
+  const se = k.w(14.4, mz(11.0));
   I.actions.push({
-    x: se[0], z: se[1], r: 1.5, y: 0, cond: () => !(I.mcd && I.mcd.busy),
+    x: se[0], z: se[1], r: 1.3, y: 0, cond: () => !(I.mcd && I.mcd.busy),
     label: () => '按 <kbd>E</kbd> 打卡上班打工（時薪 NT$196）',
     fn: (g) => g.job.start(),
   });
-  k.plane(T.mcStaff(), 1.4, 0.45, 0.33, 2.4, 18.4, Math.PI / 2, { emissive: 0.5 });
-  const clockBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.1), M('dark')); clockBox.position.set(1.6, 1.45, D - 0.36); k.group.add(clockBox);
-  k.plane(T.sign('打卡鐘', '#ffc72c', '#1b1b1b', 'mcclock', 256, 128, 54), 0.46, 0.23, 1.6, 1.62, D - 0.415, Math.PI);
-  k.plane(T.sign('打工值班 → 員工入口在櫃台後面', '#c8102e', '#ffffff', 'mcstaffway', 1024, 128, 56), 1.0, 0.125, 3.7, 0.86, 17.01, 0, { emissive: 0.25 });
-  return { entrance: k.w(W + 3, 10), k, W, D, staff, busy: false };
+  const bulk = new THREE.Mesh(new THREE.BoxGeometry(1.0, H - 2.5, 1.0), M(MT.wall)); bulk.position.set(15.7, (H + 2.5) / 2, mz(10.9)); k.group.add(bulk); // header over the gap
+  km.plane(T.mcStaff(), 0.96, 0.31, 16.21, 2.3, 10.9, Math.PI / 2, { emissive: 0.5 });
+  const clockBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.1), M('dark')); clockBox.position.set(13.3, 1.45, mz(10.45)); k.group.add(clockBox);
+  km.plane(T.sign('打卡鐘', '#ffc72c', '#1b1b1b', 'mcclock', 256, 128, 54), 0.46, 0.23, 13.3, 1.62, 10.505, 0);
+  km.plane(T.sign('打工值班 → 員工入口在櫃台左側', '#c8102e', '#ffffff', 'mcstaffway', 1024, 128, 56), 1.0, 0.125, 16.205, 0.86, 12.0, Math.PI / 2, { emissive: 0.25 });
+  return { entrance: k.w(W + 3, mz(14.6)), k, W, D, staff, busy: false };
 }
 
 // =====================================================================

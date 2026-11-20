@@ -24,10 +24,11 @@ const VOTE_CAP = 24; // votes one player can earn from all shifts together (the 
 const WALK = 1.9;
 export const WAGE = 196; // hourly wage, one full shift = one hour
 
-// shop-local layout (see buildMcD): counter at x 3.2–4.2, customers on x > 4.2, door on the east wall at z 7.5–12.5
-const REGISTER = [2.45, 10];
-const SLOT = (i) => [5.0 + i * 1.15, 10];
-const LEAVE_Z = 8.9; // walk out beside the queue, between it and the first row of tables
+// shop-local layout (see buildMcD): you walk in facing the counter (x 15.2–16.2, z 1.4–8.6, customers on
+// its east side), the door is in the east glass front at z 3.4–7.4, the dining room is on its left (north)
+const REGISTER = [14.6, 5.0];
+const LINE_Z = 5.0, SLOT = (i) => [17.0 + i * 1.15, LINE_Z];
+const LEAVE_Z = 6.6; // walk out beside the queue, still inside the door opening
 
 const GREET = ['學長好！', '你好～', '嗨嗨！', '不好意思～', '哈囉！'];
 const RECOG = ['欸！你不是那個資管系的候選人彥霖嗎？', '咦，彥霖學長怎麼在這裡打工？', '是競選海報上那個人耶！'];
@@ -71,7 +72,7 @@ export class McShift {
     pl.pos.x = rx; pl.pos.z = rz; pl.heading = this.k.heading(Math.PI / 2); pl.vel.set(0, 0); pl.ch.root.rotation.y = pl.heading;
     this._uniform(true);
     const s = this.mcd.staff;
-    s.root.position.copy(this.wpos(2.6, 15.0)); s.root.rotation.y = this.k.heading(-Math.PI / 2); // at the fryers
+    s.root.position.copy(this.wpos(11.4, 2.65)); s.root.rotation.y = this.k.heading(-Math.PI / 2); // at the fryers
     // camera eases from wherever it is to the over-the-shoulder shot
     this._camT = 0; this._camFrom.copy(g.camera.position);
     g.camera.getWorldDirection(this._lookFrom).multiplyScalar(5).add(g.camera.position);
@@ -139,7 +140,7 @@ export class McShift {
     const ch = createCharacter({ ...look, face: true });
     const W = this.mcd.W;
     // the first one is already inside (was reading the menu board); the rest come in through the door
-    const c = { ch, slot: this.customers.filter(o => o.state !== 'leaving').length, state: 'walk', lx: i === 0 ? 10.5 : W + 1.2, lz: 10, path: [], order: new Map(), said: '', recog: this.rnd() < 0.35, label: null, t: 0 };
+    const c = { ch, slot: this.customers.filter(o => o.state !== 'leaving').length, state: 'walk', lx: i === 0 ? 21.5 : W + 1.2, lz: LINE_Z, path: [], order: new Map(), said: '', recog: this.rnd() < 0.35, label: null, t: 0 };
     // order: later customers order more
     const lines = Math.min(3, 1 + Math.floor(this.rnd() * (1.6 + i * 0.35)));
     const pool = [...MENU]; for (let n = 0; n < lines; n++) { const m = pool.splice(Math.floor(this.rnd() * pool.length), 1)[0]; c.order.set(m.k, this.rnd() < 0.25 ? 2 : 1); }
@@ -283,14 +284,14 @@ export class McShift {
   camera(cam, dt) {
     this._camT = Math.min(1, (this._camT || 0) + dt / 0.7);
     const e = this._camT * this._camT * (3 - 2 * this._camT);
-    this._camPos.copy(this.wpos(0.9, 8.4, 2.15));
-    this._look.copy(this.wpos(5.4, 10.4, 0.95));
+    this._camPos.copy(this.wpos(13.05, 6.6, 2.15));
+    this._look.copy(this.wpos(17.55, 4.6, 0.95));
     cam.position.lerpVectors(this._camFrom, this._camPos, e);
     this._lookFrom.lerp(this._look, e);
     cam.lookAt(e >= 1 ? this._look : this._lookFrom);
   }
 
-  // ------------------------------------------------------------------ crew cap + name badge
+  // ------------------------------------------------------------------ crew cap, name badge, apron
   _uniform(on) {
     const ch = this.g.player.ch;
     if (on) {
@@ -306,10 +307,20 @@ export class McShift {
         cap.traverse(o => { if (o.isMesh) o.castShadow = true; });
         const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.03), new THREE.MeshStandardMaterial({ map: badgeTex(), roughness: 0.5 }));
         badge.position.set(-0.08, 0.42, 0.139); badge.rotation.y = -0.12;
-        this._cap = cap; this._badge = badge;
+        // crew apron: charcoal bib-less waist apron with the arches, tied round the waist
+        const apron = new THREE.Group();
+        const cloth = new THREE.MeshStandardMaterial({ color: '#2a2b2f', roughness: 0.9, side: THREE.DoubleSide });
+        const panel = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.27, 0.46, 16, 1, true, -1.05, 2.1), cloth);
+        panel.scale.set(1, 1, 0.78); panel.position.set(0, -0.2, 0); apron.add(panel);
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 6, 28), cloth);
+        band.rotation.x = Math.PI / 2; band.scale.set(1.12, 0.86, 1); band.position.y = 0.03; apron.add(band);
+        const am = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.052), new THREE.MeshStandardMaterial({ map: mTex(), transparent: true, roughness: 0.6 }));
+        am.position.set(0.07, -0.08, 0.205); am.rotation.y = 0.32; apron.add(am);
+        apron.traverse(o => { if (o.isMesh) o.castShadow = true; });
+        this._cap = cap; this._badge = badge; this._apron = apron;
       }
-      ch.head.add(this._cap); ch.torso.add(this._badge);
-    } else if (this._cap) { ch.head.remove(this._cap); ch.torso.remove(this._badge); }
+      ch.head.add(this._cap); ch.torso.add(this._badge); ch.hips.add(this._apron);
+    } else if (this._cap) { ch.head.remove(this._cap); ch.torso.remove(this._badge); ch.hips.remove(this._apron); }
   }
 
   // ------------------------------------------------------------------ UI

@@ -1,6 +1,6 @@
 // Keyboard / mouse / touch / gamepad input
 // Standard mapping: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back/View, 9 Start/Menu, 10 L3, 11 R3, 12-15 D-pad U/D/L/R
-const PAD_MAPS = {
+export const PAD_MAPS = {
   play: [[0, 'KeyE'], [1, 'KeyF'], [2, 'Mouse0'], [3, 'KeyG'], [4, 'KeyH'], [5, 'Space'], [8, 'KeyM'], [9, 'Escape'], [10, 'ShiftLeft'],
     [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],
   // i-Piyan: A open / send, B back, X send, Y or Start put the phone away
@@ -25,9 +25,12 @@ export class Input {
     this.pad = { connected: false, axis: { x: 0, y: 0 }, held: new Set(), btn: [], hits: new Set(), ctx: 'play', block: new Set() };
     this.padContext = () => 'play'; // main.js swaps in the phone / gate / job layouts
     this.onPad = null;
+    // last device used ('kb' = keyboard / mouse / touch, 'pad'); prompts.js swaps the on-screen key hints
+    this.device = 'kb'; this.onDevice = null;
     addEventListener('gamepadconnected', e => { this.pad.connected = true; this.onPad?.(true, e.gamepad.id); });
     addEventListener('gamepaddisconnected', () => { this.pad.connected = !!this._firstPad(); this.onPad?.(this.pad.connected, ''); });
     addEventListener('keydown', e => {
+      this._use('kb');
       if (!this.enabled) return;
       if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
@@ -40,6 +43,8 @@ export class Input {
     // older Safari: requestPointerLock returns no Promise, failure only fires this event.
     // Only count failures of our own click-to-lock request; game.js retries (resume, closeVideo) may be refused briefly after Esc.
     document.addEventListener('pointerlockerror', () => { if (this._lockPending) this.lockFailed = true; this._lockPending = false; });
+    addEventListener('mousedown', () => this._use('kb'));
+    addEventListener('touchstart', () => this._use('kb'), { passive: true });
     canvas.addEventListener('mousedown', e => {
       if (!this.enabled || this.touch) return;
       this.pressed.add('Tap'); // any click on the game view (even the one that only grabs the mouse) can advance a dialog
@@ -53,10 +58,11 @@ export class Input {
     });
     addEventListener('mouseup', e => { this.keys.delete('Mouse' + e.button); this.dragging = false; });
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; this._lockPending = false; });
-    addEventListener('mousemove', e => { if (this.locked || this.dragging) { this.mdx += e.movementX; this.mdy += e.movementY; } });
+    addEventListener('mousemove', e => { if (Math.abs(e.movementX) + Math.abs(e.movementY) > 6) this._use('kb'); if (this.locked || this.dragging) { this.mdx += e.movementX; this.mdy += e.movementY; } });
     addEventListener('wheel', e => { this.wheel += Math.sign(e.deltaY); }, { passive: true });
     if (this.touch) this._setupTouch();
   }
+  _use(d) { if (d !== this.device) { this.device = d; this.onDevice?.(d, this.pad.id || ''); } }
   _setupTouch() {
     document.body.classList.add('touch');
     const joy = document.getElementById('joy'), knob = document.getElementById('joyKnob');
@@ -109,13 +115,15 @@ export class Input {
     const want = new Set();
     if (!gp) { P.axis.x = P.axis.y = 0; P.connected = false; }
     else {
-      P.connected = true;
+      P.connected = true; P.id = gp.id;
       const b = i => !!gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5);
       const val = i => gp.buttons[i] ? gp.buttons[i].value : 0;
       // raw button edges for menus that run while keyboard input is off (title, pause, ending)
       for (let i = 0; i < gp.buttons.length; i++) { const on = b(i); if (on && !P.btn[i]) P.hits.add(i); P.btn[i] = on; }
+      if (P.hits.size) this._use('pad');
       const dz = v => Math.abs(v) < 0.2 ? 0 : (v - Math.sign(v) * 0.2) / 0.8;
       const lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
+      if (Math.max(Math.abs(lx), Math.abs(ly), Math.abs(rx), Math.abs(ry), val(6), val(7)) > 0.5) this._use('pad');
       const ctx = this.padContext();
       // a button still held when the layout changes (A opens the phone, then means "open app") is ignored until released
       if (ctx !== P.ctx) { P.ctx = ctx; P.block = new Set(); for (let i = 0; i < gp.buttons.length; i++) if (b(i)) P.block.add(i); }

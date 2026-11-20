@@ -8,7 +8,10 @@
 import * as THREE from 'three';
 import { mulberry32 } from './map.js';
 import { dressCrew } from './mcuniform.js';
+import { dual } from './prompts.js';
 
+// station key as shown to the player: 1 / 2 / 3 on keyboard, D-pad on a gamepad (input.js job layout)
+const KEY = (g, def) => g.hud.keyLabel(String(def.key), ['Up', 'Right', 'Down', 'Left', 'X', 'Y'][def.key - 1]);
 const STATIONS = [
   { k: 'beef', key: 1, name: '煎台', what: '牛肉餅', icon: '🥩', time: 6.5, yield: 2 },
   { k: 'chick', key: 2, name: '炸雞爐', what: '炸雞', icon: '🍗', time: 7.5, yield: 2 },
@@ -168,7 +171,8 @@ export class McKitchen {
     g.audio.setEngine(false, 0);
     g.hud.bigToast('內場上工！', '麥當勞 中原店 · 煎台＋炸爐', 1800);
     g._tipMode = 'mckitchen';
-    g.hud.setTip('🍔 麥當勞內場', '<kbd>1</kbd> 煎台 · <kbd>2</kbd> 炸雞 · <kbd>3</kbd> 薯條（按一次下鍋，嗶聲後再按起鍋）<br><kbd>Enter</kbd> 出餐 · <kbd>E</kbd>／<kbd>Esc</kbd> 下班');
+    g.hud.setTip('🍔 麥當勞內場', dual('<kbd>1</kbd> 煎台 · <kbd>2</kbd> 炸雞 · <kbd>3</kbd> 薯條（按一次下鍋，嗶聲後再按起鍋）<br><kbd>Enter</kbd> 出餐 · <kbd>E</kbd>／<kbd>Esc</kbd> 下班',
+      '{Up} 煎台 · {Right} 炸雞 · {Down} 薯條（按一次下鍋，嗶聲後再按起鍋）<br>{A} 出餐 · {Menu} 下班'));
     this.ui.root.classList.remove('hidden'); this.ui.summary.classList.add('hidden'); this.ui.pos.classList.remove('hidden');
     this._renderTickets(); this._renderStock(); this._renderStats(); this._drawKVS();
   }
@@ -295,7 +299,7 @@ export class McKitchen {
         const s = this.st[def.k];
         if (!s.on) continue;
         s.t += dt; const p = s.t / def.time;
-        if (p >= 1 && !s.beeped) { s.beeped = true; for (let i = 0; i < 3; i++) g.audio.tone?.(1760, 0.07, 'square', 0.05, i * 0.12); g.hud.toast(`${def.icon} ${def.name}好了！按 ${def.key} 起鍋`, 'good', 1000); }
+        if (p >= 1 && !s.beeped) { s.beeped = true; for (let i = 0; i < 3; i++) g.audio.tone?.(1760, 0.07, 'square', 0.05, i * 0.12); g.hud.toast(`${def.icon} ${def.name}好了！按 ${KEY(g, def)} 起鍋`, 'good', 1000); }
         if (p >= MAXP) { s.on = false; s.lastP = p; s.show = 0.7; this.wasted++; g.hud.toast(`${def.icon} ${def.what}${this.pick(BURNT)}`, 'bad', 1600); g.audio.bad(); this._puff(def.k); this._renderStats(); }
       }
       // tickets
@@ -410,7 +414,7 @@ export class McKitchen {
     for (const def of STATIONS) {
       const s = this.st[def.k], u = this.ui.st[def.k], p = s.on ? s.t / def.time : 0;
       u.p.style.width = Math.min(100, p / MAXP * 100).toFixed(1) + '%';
-      const txt = !s.on ? `空的 · 按 ${def.key} 下鍋` : p < READY ? `${def.name === '煎台' ? '煎' : '炸'}中… ${Math.round(p * 100)}%` : p <= BURN ? `好了！按 ${def.key} 起鍋` : '要焦了！！';
+      const txt = !s.on ? `空的 · 按 ${KEY(this.g, def)} 下鍋` : p < READY ? `${def.name === '煎台' ? '煎' : '炸'}中… ${Math.round(p * 100)}%` : p <= BURN ? `好了！按 ${KEY(this.g, def)} 起鍋` : '要焦了！！';
       if (u.state.textContent !== txt) u.state.textContent = txt;
       u.b.classList.toggle('ready', s.on && p >= READY && p <= BURN);
       u.b.classList.toggle('burn', s.on && p > BURN);

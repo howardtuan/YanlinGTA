@@ -463,3 +463,21 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .gp-btns kbd{background:rgba(255,255,255,.25);color:#fff;box-shadow:none;margin-right:4px}
 .gp-wait{padding:14px 0;text-align:center;color:#cfd8ea}.gp-foot{margin-top:8px;font-size:11px;color:#8792a8;text-align:right}
 @media (max-width:760px){#gatePanel{top:auto;bottom:12px;right:12px;left:12px;width:auto;transform:none;padding:10px}.gp-card p{margin:4px 0 6px}}
+
+/* ---- gamepad button prompts (prompts.js): shown instead of keyboard keys while the pad is the last device used ---- */
+body:not(.pad-mode) .pad-only, body.pad-mode .kb-only{display:none}
+kbd.pb{font-family:system-ui,"Segoe UI Symbol",sans-serif;box-shadow:0 2px 0 rgba(0,0,0,.45);color:#fff;background:#2b2f3a;border:1px solid rgba(255,255,255,.35)}
+kbd.pb-face{min-width:0;width:1.65em;height:1.65em;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;line-height:1}
+kbd.pb-sh{border-radius:7px;padding:1px 6px;font-size:11px}
+kbd.pb-stick{min-width:0;width:1.65em;height:1.65em;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;background:radial-gradient(circle at 50% 40%,#555b6a,#20232b);border:2px solid #9aa3b5}
+kbd.pb-dpad{min-width:0;width:1.55em;height:1.55em;padding:0;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;background:#3a3f4c}
+/* Xbox colours */
+kbd.pb-xbox.pb-A{background:#3fae49;border-color:#3fae49}
+kbd.pb-xbox.pb-B{background:#e0473c;border-color:#e0473c}
+kbd.pb-xbox.pb-X{background:#2f7fd8;border-color:#2f7fd8}
+kbd.pb-xbox.pb-Y{background:#e8b923;border-color:#e8b923;color:#222}
+/* PlayStation: dark buttons with coloured symbols */
+kbd.pb-ps.pb-face{background:#1d1f26;font-size:13px}
+kbd.pb-ps.pb-A{color:#8fb4ff}kbd.pb-ps.pb-B{color:#ff6f6f}kbd.pb-ps.pb-X{color:#ff8fd8}kbd.pb-ps.pb-Y{color:#3fd6a5}
+/* Nintendo: plain dark grey */
+kbd.pb-nin.pb-face{background:#3b3d44}

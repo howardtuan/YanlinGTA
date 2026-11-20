@@ -971,7 +971,7 @@ function buildMcD(I, scene) {
       // 大麥克套餐 NT$155 (menu board price): earn more by working the counter (staff entrance behind it)
       if (g.money < 155) {
         g.dialog([['麥當勞店員', '歡迎光臨！大麥克套餐一份 155 元～'], ['彥霖', '（翻錢包）……只剩 ' + g.money + ' 元 😅'],
-          ['麥當勞店員', '我們有在徵打工喔！從櫃檯旁邊繞到後面的員工入口，按 E 就能上班。']]);
+          ['麥當勞店員', '我們有在徵打工喔！從櫃檯旁邊繞到後面的員工入口，按 [[E|A]] 就能上班。']]);
         return;
       }
       g.spend(155, '麥當勞 大麥克套餐');

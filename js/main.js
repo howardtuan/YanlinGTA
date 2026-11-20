@@ -16,6 +16,7 @@ import { PostFX } from './post.js';
 import { Phone } from './phone.js';
 import { GateDuty } from './gateduty.js';
 import { McShift } from './mcshift.js';
+import { Prompts, dual } from './prompts.js';
 
 const $ = id => document.getElementById(id);
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
@@ -112,9 +113,13 @@ class Game {
     this.gate = new GateDuty(this); // A6 側門門禁任務
     // gamepad: button layout follows whatever has the controls right now
     this.input.padContext = () => this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
-    this.input.onPad = (on) => {
-      this.hud.toast(on ? '🎮 搖桿已連線：左搖桿移動、右搖桿視角、A 互動／對話' : '🎮 搖桿已中斷', on ? 'good' : 'bad', 3200);
-      document.body.classList.toggle('pad', on);
+    // on-screen key hints follow the last device used (keyboard <-> gamepad buttons)
+    this.prompts = new Prompts(this.input, () => ({ ctx: this.input.padContext(), vehicle: !!this.player.vehicle }));
+    this.hud.keyLabel = (kb, pad) => this.prompts.pad ? this.prompts.label(pad) : kb;
+    this.input.onDevice = (d, id) => this.prompts.setPad(d === 'pad', id);
+    this.input.onPad = (on, id) => {
+      if (on) { this.prompts.setPad(true, id); this.hud.toast(`🎮 搖桿已連線：左搖桿移動、右搖桿視角、${this.prompts.label('A')} 互動／對話`, 'good', 3200); }
+      else { this.input._use('kb'); this.hud.toast('🎮 搖桿已中斷', 'bad', 3200); }
     };
     // 彩蛋 (tools/overrides.json pois[].egg): toast once per game when you walk / ride past
     this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
@@ -396,7 +401,7 @@ class Game {
       if (this.input.touch) $('touch').classList.remove('hidden');
       this.state = 'play'; this.input.enabled = true;
       // pointer lock needs a fresh click after the splash
-      if (!this.input.touch) this.hud.toast('點一下畫面鎖定滑鼠視角', 'good', 3000);
+      if (!this.input.touch && !this.prompts.pad) this.hud.toast('點一下畫面鎖定滑鼠視角', 'good', 3000);
       this.missions.start(free);
       this._checkRotate();
     };
@@ -536,7 +541,7 @@ class Game {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
     this.time = (this.time || 0) + dt;
-    if (this.input) { this.input.pollPad(dt); this._padMenus(); }
+    if (this.input) { this.input.pollPad(dt); this._padMenus(); this.prompts?.tick(); }
     if (this.state === 'title') this._titleCam(dt);
     else if (this.state === 'play') this._update(dt);
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
@@ -599,7 +604,8 @@ class Game {
           if (v.ai !== null && v.ai !== undefined) { this.traffic.hijack(v); this.vehicles.push(v); hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : '不好意思，借一下車！', 'bad'); }
           pl.enter(v); this.audio.mount();
           if (v.hint) { v.mesh.remove(v.hint); v.hint = null; }
-          hud.setTip('🛵 駕駛', '<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車');
+          hud.setTip('🛵 駕駛', dual('<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車',
+            '{RT} 油門 {LT} 煞車/倒車 {L} 轉向<br>{RB} 甩尾 {LB} 喇叭 {B} 下車'));
         }
       }
     }
@@ -711,7 +717,8 @@ class Game {
       for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160;
     }
     // tip box fades after a while on foot
-    if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定'); }
+    if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', dual('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定',
+      '{L} 走路 · {R} 視角 · {LS} 衝刺 · {RB} 跳<br>{B} 上車 · {A} 互動／📱手機 · {X} 發傳單 · {Y} ✌ · {View} 地圖 · {Menu} 設定')); }
     if (pl.vehicle) this._tipMode = 'car';
   }
   _nearestVehicle(r) {

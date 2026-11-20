@@ -2,6 +2,7 @@
 // App：訊息（兩種回覆擇一，Tab 傳送）、相機、照片、Peach Pay 錢包、地圖、音樂、選情、天氣、麥當勞、設定。
 import { CONTACTS } from './chats.js';
 import { Nano } from './nano.js';
+import { dual } from './prompts.js';
 import { PEOPLE, FEED, FEED_POOL, STORIES, STORY_POOL, FEED_IMAGES, PCARD, PCARD_POOL } from './feeds.js';
 
 const PEACH = (fill = '#fff') => `<svg viewBox="0 0 64 64" class="peach-logo" aria-hidden="true">
@@ -568,7 +569,7 @@ export class Phone {
     st.choice = Math.min(st.choice, opts.length - 1);
     box.innerHTML = `<div class="ph-choices">${opts.map((ch, i) => `<button class="ph-choice ${i === st.choice ? 'on' : ''}" data-i="${i}"><kbd>${i + 1}</kbd>${esc(ch.t)}</button>`).join('')}</div>
       <div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy ? 'disabled' : ''}>↑</button></div>
-      <div class="ph-tabhint"><kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送${Nano.on ? '　· ✨ AI 無限對話' : ''}</div>`;
+      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話' : ''}</div>`;
     box.querySelectorAll('.ph-choice').forEach(b => b.onclick = () => this._pick(+b.dataset.i));
     box.querySelector('.ph-send').onclick = () => this._send();
     const t = this.view.querySelector('.ph-thread'); if (t) t.scrollTop = t.scrollHeight; // compose height changed

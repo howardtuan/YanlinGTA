@@ -10,6 +10,7 @@ import { createCharacter, randomStudent } from './character.js';
 import { mulberry32, makeLabel } from './map.js';
 import { dressCrew } from './mcuniform.js';
 import { McKitchen } from './mckitchen.js';
+import { dual } from './prompts.js';
 
 // same six items as the menu board above the counter
 export const MENU = [
@@ -94,7 +95,8 @@ export class McShift {
     g.audio.setEngine(false, 0);
     g.hud.bigToast('打卡上班！', '麥當勞 中原店 · 值班開始', 1800);
     g._tipMode = 'mcshift';
-    g.hud.setTip('🍟 麥當勞值班', '<kbd>1</kbd>–<kbd>6</kbd> 放餐點 · 點托盤可拿掉<br><kbd>⌫</kbd> 拿掉最後一樣 · <kbd>Enter</kbd> 出餐 · <kbd>E</kbd>／<kbd>Esc</kbd> 下班');
+    g.hud.setTip('🍟 麥當勞值班', dual('<kbd>1</kbd>–<kbd>6</kbd> 放餐點 · 點托盤可拿掉<br><kbd>⌫</kbd> 拿掉最後一樣 · <kbd>Enter</kbd> 出餐 · <kbd>E</kbd>／<kbd>Esc</kbd> 下班',
+      '{Up}{Right}{Down}{Left}{X}{Y} 放餐點 1–6<br>{B} 拿掉最後一樣 · {A} 出餐 · {Menu} 下班'));
     this.ui.root.classList.remove('hidden'); this.ui.summary.classList.add('hidden'); this.ui.pos.classList.remove('hidden');
     this._renderTicket(); this._renderTray(); this._renderStats();
   }

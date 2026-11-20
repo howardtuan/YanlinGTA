@@ -10,6 +10,7 @@ export class HUD {
     this.big = $('bigmapCanvas'); this.bigg = this.big.getContext('2d');
     this.scale = 1.3; // px per metre in the prerendered map
     this._prerender();
+    this.keyLabel = (kb) => kb; // main.js: keyboard key or gamepad button name, by last device used
     this.dialogQueue = []; this.dialogCb = null; this.typing = 0; this.fullText = '';
     this.bigView = { cx: 0, cz: 60, zoom: 0 };
     this.markers = [];
@@ -183,7 +184,8 @@ export class HUD {
   _showNext() {
     const d = $('dialog');
     if (!this.dialogQueue.length) { d.classList.add('hidden'); const cb = this.dialogCb; this.dialogCb = null; cb && cb(); return; }
-    const [name, text] = this.dialogQueue.shift();
+    const [name, raw] = this.dialogQueue.shift();
+    const text = raw.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, kb, pad) => this.keyLabel(kb, pad)); // [[M|View]]
     d.classList.remove('hidden'); $('dlgName').textContent = name; this.fullText = text; this.typing = 0; $('dlgText').textContent = '';
     this._typeT = performance.now();
   }

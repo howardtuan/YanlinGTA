@@ -303,8 +303,8 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .ph-done{font-size:12px;color:#8e8e93;text-align:center;padding:10px 0}
 
 /* ---------- 麥當勞值班 (js/mcshift.js) ---------- */
-#mcShift{position:fixed;inset:0;z-index:40;pointer-events:auto;font-family:inherit}
-#mcShift.hidden{display:none}
+#mcShift,#mcKitchen{position:fixed;inset:0;z-index:40;pointer-events:auto;font-family:inherit}
+#mcShift.hidden,#mcKitchen.hidden{display:none}
 .mc-pos{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(900px,calc(100vw - 500px));min-width:min(640px,96vw);background:rgba(14,15,24,.92);border-radius:10px;border-top:4px solid #ffc72c;box-shadow:0 10px 40px rgba(0,0,0,.45);color:var(--text);overflow:hidden}
 .mc-pos.hidden{display:none}
 .mc-head{display:flex;align-items:center;gap:14px;padding:8px 12px;background:#c8102e}
@@ -357,3 +357,31 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .mc-sum-boss small{color:var(--muted)}
 @media (max-width:900px){.mc-pos{width:96vw;min-width:0;bottom:8px}.mc-body{grid-template-columns:1fr 1.4fr 1fr;gap:6px;padding:6px}.mc-menu button em{font-size:20px}.mc-menu button b{font-size:11px}.mc-ticket,.mc-tray{min-height:120px}}
 .mc-sum-pay{font-size:14px;color:#ffe9b0;margin:-2px 0 10px}.mc-sum-pay b{color:#8ef0a8;font-size:17px}
+/* ---------- 麥當勞內場 (js/mckitchen.js) ---------- */
+.mk-body{display:grid;grid-template-columns:1.25fr 1.5fr .9fr;gap:10px;padding:10px}
+.mk-kvs,.mk-uhc{background:rgba(255,255,255,.05);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;min-height:150px}
+.mk-tickets{display:flex;gap:6px;flex:1}
+.mk-tk{flex:1;min-width:0;background:#20232b;border-radius:5px;padding:5px 6px;display:flex;flex-direction:column;cursor:pointer;border:2px solid transparent}
+.mk-tk.ok{border-color:#3ad07a}
+.mk-tk-h{display:flex;align-items:center;justify-content:space-between;font-size:13px}
+.mk-tk-h b{color:#ffc72c;font-size:15px}.mk-tk-h span{color:#3ad07a;font-size:11px;font-weight:800}
+.mk-tk ul{list-style:none;margin:4px 0;padding:0;flex:1}
+.mk-tk li{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;padding:2px 0;white-space:nowrap}
+.mk-tk li b{margin-left:auto;color:#ffc72c}.mk-tk em{font-style:normal}
+.mk-stations{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mk-st{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;border-radius:6px;background:#f4f2ea;color:#1b1b1b;padding:8px 6px;transition:transform .08s,background .1s}
+.mk-st:hover{background:#fff;transform:translateY(-2px)}.mk-st:active{transform:scale(.96)}
+.mk-st kbd{position:absolute;left:5px;top:4px;font-size:10px}
+.mk-st em{font-style:normal;font-size:26px;line-height:1.1}.mk-st b{font-size:13px;font-weight:900}
+.mk-st small{font-size:11px;font-weight:800;color:#555;min-height:15px}
+.mk-st.on{background:#ffe9b0}.mk-st.ready{background:#b8f5c8;animation:mkPulse .5s infinite alternate}.mk-st.burn{background:#ffb3a8}
+.mk-st.ready small{color:#0d6b32}.mk-st.burn small{color:#b3140c}
+@keyframes mkPulse{to{box-shadow:0 0 0 4px rgba(58,208,122,.55)}}
+.mk-bar{position:relative;display:block;width:100%;height:8px;border-radius:4px;background:#d8d4c8;overflow:hidden}
+.mk-bar .z{position:absolute;top:0;bottom:0;background:#3ad07a;opacity:.55}
+.mk-bar .p{position:absolute;left:0;top:0;bottom:0;width:0;background:#c8102e;opacity:.85}
+.mk-stock{flex:1;display:flex;flex-direction:column;gap:6px;margin:2px 0 6px}
+.mk-row{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800}.mk-row em{font-style:normal}
+.mk-row span{margin-left:auto;display:flex;gap:3px}
+.mk-row i{width:11px;height:11px;border-radius:3px;background:rgba(255,255,255,.14)}.mk-row i.on{background:#ffc72c}
+@media (max-width:900px){.mk-body{grid-template-columns:1.2fr 1.4fr .9fr;gap:6px;padding:6px}.mk-st em{font-size:20px}.mk-kvs,.mk-uhc{min-height:120px}}

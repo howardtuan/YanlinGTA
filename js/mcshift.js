@@ -3,10 +3,13 @@
 // when you leave early) plus a tip per order (faster = more), and every happy customer is worth votes;
 // wrong trays and slow service cost you. interiors.js hands over the shop layout (Kit frame, staff NPC);
 // main.js keeps the player frozen while `active`, calls update() every frame and camera() after the
-// camera rig. shifts / earned / best feed the phone's 麥當勞 app.
+// camera rig. shifts / earned / best feed the phone's 麥當勞 app. The kitchen-line position (mckitchen.js,
+// startKitchen) runs through here too and shares the wage, those stats and the vote cap.
 import * as THREE from 'three';
 import { createCharacter, randomStudent } from './character.js';
 import { mulberry32, makeLabel } from './map.js';
+import { dressCrew } from './mcuniform.js';
+import { McKitchen } from './mckitchen.js';
 
 // same six items as the menu board above the counter
 export const MENU = [
@@ -52,9 +55,20 @@ export class McShift {
     this.shifts = 0; this.earned = 0; this.best = 0; // completed shifts / total pay / best single shift (phone app)
     this.rnd = mulberry32((Date.now() & 0xffff) ^ 0x5eed); // own stream: never touches the world/NPC randomness
     this._camPos = new THREE.Vector3(); this._camFrom = new THREE.Vector3(); this._look = new THREE.Vector3(); this._lookFrom = new THREE.Vector3();
+    this.wage = WAGE;
     this._buildUI();
+    this.kitchen = new McKitchen(game, this); // the kitchen-line shift (mckitchen.js) shares wage, stats and vote cap
   }
-  get active() { return this.state !== 'off'; }
+  get active() { return this.state !== 'off' || this.kitchen.active; }
+  startKitchen() { if (!this.active) this.kitchen.start(); }
+  // pay / stats shared by both positions (phone app)
+  book(pay, full) { if (pay > 0) { this.earned += pay; this.best = Math.max(this.best, pay); } if (full) this.shifts++; }
+  // votes from both positions share one cap
+  grantShared(n, msg) {
+    const left = Math.max(0, VOTE_CAP - this.totalVotes), got = Math.min(n, left);
+    if (got > 0) { this.totalVotes += got; this.g.addVotes(got, msg.replace(/\+\d+ 票/, `+${got} 票`)); }
+    return got;
+  }
 
   // ------------------------------------------------------------------ helpers (shop-local -> world)
   wpos(lx, lz, y = 0) { const [x, z] = this.k.w(lx, lz); return new THREE.Vector3(x, this.k.base + y, z); }
@@ -72,7 +86,7 @@ export class McShift {
     pl.pos.x = rx; pl.pos.z = rz; pl.heading = this.k.heading(Math.PI / 2); pl.vel.set(0, 0); pl.ch.root.rotation.y = pl.heading;
     this._uniform(true);
     const s = this.mcd.staff;
-    s.root.position.copy(this.wpos(11.4, 2.65)); s.root.rotation.y = this.k.heading(-Math.PI / 2); // at the fryers
+    s.root.position.copy(this.wpos(...this.mcd.kitchen.fryStaff)); s.root.rotation.y = this.k.heading(-Math.PI / 2); // at the fryers
     // camera eases from wherever it is to the over-the-shoulder shot
     this._camT = 0; this._camFrom.copy(g.camera.position);
     g.camera.getWorldDirection(this._lookFrom).multiplyScalar(5).add(g.camera.position);
@@ -98,10 +112,9 @@ export class McShift {
     const wage = full ? WAGE : Math.round(WAGE * handled / SHIFT_CUSTOMERS), pay = wage + this.tips;
     if (pay > 0) {
       g.earn(pay, `麥當勞打工（${this.served} 位客人）`);
-      this.earned += pay; this.best = Math.max(this.best, pay);
       g.clock += full ? 60 : 10 * handled;
     }
-    if (full) this.shifts++;
+    this.book(pay, full);
     const line = BOSS_END.find(([n]) => this.served >= n)[1];
     this.ui.summary.innerHTML = `<div class="mc-sum-card">
       <div class="mc-sum-kicker">麥當勞 中原店 · 值班結算</div>
@@ -217,15 +230,12 @@ export class McShift {
       this._renderStats();
     }
   }
-  _grant(n, msg) {
-    const left = Math.max(0, VOTE_CAP - this.totalVotes), got = Math.min(n, left);
-    if (got > 0) { this.totalVotes += got; this.shiftVotes += got; this.g.addVotes(got, msg.replace(/\+\d+ 票/, `+${got} 票`)); }
-    return got;
-  }
+  _grant(n, msg) { const got = this.grantShared(n, msg); this.shiftVotes += got; return got; }
 
   // ------------------------------------------------------------------ per frame
   update(dt, inp = this.g.input) {
     const g = this.g;
+    this.kitchen.update(dt, inp); // reads input only while the kitchen shift runs
     if (this.state === 'shift') {
       for (let i = 0; i < MENU.length; i++) if (inp.hit('Digit' + (i + 1), 'Numpad' + (i + 1))) this.add(MENU[i].k);
       if (inp.hit('Backspace')) this.removeLast();
@@ -282,6 +292,7 @@ export class McShift {
   }
   // over-the-shoulder shot from the kitchen: 彥霖 at the register, the queue across the counter
   camera(cam, dt) {
+    if (this.kitchen.active) { this.kitchen.camera(cam, dt); return; }
     this._camT = Math.min(1, (this._camT || 0) + dt / 0.7);
     const e = this._camT * this._camT * (3 - 2 * this._camT);
     this._camPos.copy(this.wpos(13.05, 6.6, 2.15));
@@ -291,36 +302,10 @@ export class McShift {
     cam.lookAt(e >= 1 ? this._look : this._lookFrom);
   }
 
-  // ------------------------------------------------------------------ crew cap, name badge, apron
+  // ------------------------------------------------------------------ crew uniform (mcuniform.js)
   _uniform(on) {
-    const ch = this.g.player.ch;
-    if (on) {
-      if (!this._cap) {
-        const black = new THREE.MeshStandardMaterial({ color: '#17171a', roughness: 0.7 });
-        const cap = new THREE.Group();
-        const crown = new THREE.Mesh(new THREE.SphereGeometry(0.13, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), black);
-        crown.scale.set(1.0, 0.78, 1.06); crown.position.y = 0.135; cap.add(crown);
-        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.105, 0.105, 0.012, 24, 1, false, -Math.PI / 2, Math.PI), black);
-        brim.scale.set(1, 1, 0.9); brim.position.set(0, 0.14, 0.085); brim.rotation.x = 0.12; cap.add(brim);
-        const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.055), new THREE.MeshStandardMaterial({ map: mTex(), transparent: true, roughness: 0.6 }));
-        logo.position.set(0, 0.19, 0.122); logo.rotation.x = -0.32; cap.add(logo);
-        cap.traverse(o => { if (o.isMesh) o.castShadow = true; });
-        const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.03), new THREE.MeshStandardMaterial({ map: badgeTex(), roughness: 0.5 }));
-        badge.position.set(-0.08, 0.42, 0.139); badge.rotation.y = -0.12;
-        // crew apron: charcoal bib-less waist apron with the arches, tied round the waist
-        const apron = new THREE.Group();
-        const cloth = new THREE.MeshStandardMaterial({ color: '#2a2b2f', roughness: 0.9, side: THREE.DoubleSide });
-        const panel = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.27, 0.46, 16, 1, true, -1.05, 2.1), cloth);
-        panel.scale.set(1, 1, 0.78); panel.position.set(0, -0.2, 0); apron.add(panel);
-        const band = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 6, 28), cloth);
-        band.rotation.x = Math.PI / 2; band.scale.set(1.12, 0.86, 1); band.position.y = 0.03; apron.add(band);
-        const am = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.052), new THREE.MeshStandardMaterial({ map: mTex(), transparent: true, roughness: 0.6 }));
-        am.position.set(0.07, -0.08, 0.205); am.rotation.y = 0.32; apron.add(am);
-        apron.traverse(o => { if (o.isMesh) o.castShadow = true; });
-        this._cap = cap; this._badge = badge; this._apron = apron;
-      }
-      ch.head.add(this._cap); ch.torso.add(this._badge); ch.hips.add(this._apron);
-    } else if (this._cap) { ch.head.remove(this._cap); ch.torso.remove(this._badge); ch.hips.remove(this._apron); }
+    if (on && !this._undress) this._undress = dressCrew(this.g.player.ch, { name: '彥霖' });
+    else if (!on && this._undress) { this._undress(); this._undress = null; }
   }
 
   // ------------------------------------------------------------------ UI
@@ -378,22 +363,4 @@ export class McShift {
   _renderStats() {
     this.ui.stats.innerHTML = `服務 <b>${this.served}</b>/${SHIFT_CUSTOMERS}　出錯 <b>${this.mistakes}</b>　小費 <b class="v">NT$${this.tips}</b>　拉票 <b class="v">+${this.shiftVotes}</b>`;
   }
-}
-
-// ------------------------------------------------------------------ small textures
-let _m = null, _b = null;
-function mTex() {
-  if (_m) return _m;
-  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 96; const g = cv.getContext('2d');
-  g.fillStyle = '#ffc72c'; g.font = '900 96px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.save(); g.scale(1.25, 1); g.fillText('M', 51, 52); g.restore();
-  _m = new THREE.CanvasTexture(cv); _m.colorSpace = THREE.SRGBColorSpace; return _m;
-}
-function badgeTex() {
-  if (_b) return _b;
-  const cv = document.createElement('canvas'); cv.width = 160; cv.height = 64; const g = cv.getContext('2d');
-  g.fillStyle = '#f4f2ea'; g.fillRect(0, 0, 160, 64); g.fillStyle = '#c8102e'; g.fillRect(0, 0, 36, 64);
-  g.fillStyle = '#ffc72c'; g.font = '900 34px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('M', 18, 34);
-  g.fillStyle = '#1b1b1b'; g.font = '900 34px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('彥霖', 98, 34);
-  _b = new THREE.CanvasTexture(cv); _b.colorSpace = THREE.SRGBColorSpace; return _b;
 }

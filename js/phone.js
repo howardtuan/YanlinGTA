@@ -159,7 +159,7 @@ export class Phone {
         <div class="ph-row"><span>已完成班數</span><b>${j.shifts} 班</b></div>
         <div class="ph-row"><span>打工總收入</span><b>NT$ ${j.earned}</b></div>
         <div class="ph-row"><span>最佳單班</span><b>NT$ ${j.best}</b></div>
-        <div class="ph-note">走進麥當勞，從櫃檯側邊繞到後面的<b>員工入口</b>，按 <kbd>E</kbd> 開始上班。</div>
+        <div class="ph-note">走進麥當勞，從櫃檯側邊繞到後面的<b>員工入口</b>：打卡鐘旁按 <kbd>E</kbd> 上櫃台，走到內場煎台前按 <kbd>E</kbd> 上內場。</div>
         <div class="ph-sec">菜單</div>
         <div class="ph-row"><span>大麥克套餐</span><b>NT$ 155</b></div>`, { cls: 'ph-red' });
       return;

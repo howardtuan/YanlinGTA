@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { pointInPoly, closestOnSeg } from './collision.js';
 import { createCharacter } from './character.js';
+import { dressCrew, CREW_SHIRT } from './mcuniform.js';
 import { H } from './terrain.js';
 
 // ---------------- textures ----------------
@@ -587,7 +588,145 @@ const MCT = {
     g.fillStyle = '#ffffff'; g.font = '900 40px "Noto Sans TC",sans-serif'; g.textAlign = 'center'; g.fillText('開心樂園餐', 128, 70);
     g.fillStyle = '#ffbc0d'; g.font = '800 26px "Noto Sans TC",sans-serif'; g.fillText('玩具 · 好好玩', 128, 352);
   }, false),
+  // ---- 內場 (kitchen + back corridor, photo 內場.jpg) ----
+  galv: () => ctex('mcGalv', 256, 256, (g, w, h) => {
+    // galvanised walk-in panel: mottled spangle, faint vertical brushing, seam at the panel edge
+    const r = lcg(31); g.fillStyle = '#d4d7da'; g.fillRect(0, 0, w, h);
+    for (let n = 0; n < 160; n++) {
+      const x = r() * w, y = r() * h, s = 8 + r() * 26, v = 205 + Math.floor((r() - 0.5) * 22);
+      g.fillStyle = `rgba(${v},${v + 2},${v + 4},0.35)`; g.beginPath(); g.moveTo(x, y);
+      for (let i = 1; i < 6; i++) { const a = i / 6 * Math.PI * 2 + r(); g.lineTo(x + Math.cos(a) * s * (0.5 + r() * 0.5), y + Math.sin(a) * s * (0.5 + r() * 0.5)); }
+      g.closePath(); g.fill();
+    }
+    g.fillStyle = 'rgba(255,255,255,0.05)'; for (let x = 0; x < w; x += 3) g.fillRect(x, 0, 1, h);
+    g.fillStyle = '#7d8186'; g.fillRect(0, 0, 3, h); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(3, 0, 2, h);
+  }),
+  whiteTile: () => ctex('mcWhiteTile', 128, 128, (g) => {
+    const r = lcg(13); g.fillStyle = '#c3c8c6'; g.fillRect(0, 0, 128, 128);
+    for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const v = 238 + Math.floor(r() * 10); g.fillStyle = `rgb(${v},${v + 1},${v - 1})`; g.fillRect(i * 32 + 1, j * 32 + 1, 30, 30); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(i * 32 + 3, j * 32 + 3, 10, 2); }
+  }),
+  katlas: () => ctex('mcKAtlas', 1024, 1024, (g) => { for (const [name, [x, y, w, h]] of Object.entries(KR)) { g.save(); g.translate(x, y); g.beginPath(); g.rect(0, 0, w, h); g.clip(); KDRAW[name](g, w, h); g.restore(); } }, false),
 };
+// Kitchen decal atlas: every small picture of the kitchen (control panels, screens, labels, box prints, the
+// grill and oil surfaces…) lives in this one 1024² canvas and is put on flat quads (atlasUV), which are merged
+// into two meshes (lit + glowing) — the way taipei-rush.app dresses its shop interiors, so the whole kitchen
+// costs a handful of draw calls however many details it has.
+const KR = {
+  grill: [0, 0, 256, 128], oil: [256, 0, 128, 128], uhc: [384, 0, 256, 128], kvs: [640, 0, 256, 160], fryPanel: [896, 0, 128, 64], hot: [896, 64, 128, 48],
+  drink: [0, 160, 256, 128], fire: [256, 160, 128, 128], net: [384, 160, 64, 96], cold: [448, 160, 128, 48], freeze: [448, 208, 128, 48], syrupA: [576, 160, 192, 128], syrupB: [768, 160, 192, 128],
+  drain: [0, 320, 128, 128], louver: [128, 320, 128, 128], sop: [256, 320, 128, 160], fries: [384, 320, 128, 96], toaster: [512, 320, 128, 96], board: [640, 320, 256, 160], bag: [896, 320, 64, 96], carton: [960, 320, 64, 64],
+  staffRoom: [0, 480, 256, 64], backDoor: [0, 544, 256, 64], caution: [256, 480, 128, 160], coffee: [384, 480, 128, 96], icecream: [512, 480, 128, 128], wrap: [640, 480, 128, 64], kvs2: [768, 480, 256, 160],
+};
+const KF = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+function kvsDraw(g, w, h, orders) {
+  g.fillStyle = '#0b0c10'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#1f2a44'; g.fillRect(0, 0, w, 18); g.fillStyle = '#9fb3d9'; g.font = KF(12, 700); g.fillText('KVS 內場出餐  ●  ' + orders.length + ' 單', 6, 13);
+  const cw = (w - 8) / orders.length;
+  orders.forEach(([no, col, lines], i) => {
+    const x = 4 + i * cw; g.fillStyle = '#20232b'; g.fillRect(x + 2, 22, cw - 4, h - 26);
+    g.fillStyle = col; g.fillRect(x + 2, 22, cw - 4, 18); g.fillStyle = '#111'; g.font = KF(13); g.fillText('#' + no, x + 6, 36);
+    g.fillStyle = '#f2f2f2'; g.font = KF(12, 700); lines.forEach((l, j) => g.fillText(l, x + 6, 56 + j * 18));
+  });
+}
+const KDRAW = {
+  grill: (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#2a2b2e'); gr.addColorStop(0.5, '#3a3b3f'); gr.addColorStop(1, '#232427'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const r = lcg(41); g.strokeStyle = 'rgba(200,200,205,0.08)'; for (let i = 0; i < 40; i++) { g.lineWidth = 1 + r() * 2; const y = r() * h; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + (r() - 0.5) * 6); g.stroke(); }
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(70,40,20,${0.15 + r() * 0.25})`; g.beginPath(); g.ellipse(r() * w, r() * h, 6 + r() * 16, 4 + r() * 10, r() * 3, 0, 7); g.fill(); }
+    g.strokeStyle = '#141416'; g.lineWidth = 6; g.strokeRect(0, 0, w, h);
+  },
+  oil: (g, w, h) => {
+    const gr = g.createRadialGradient(w * 0.4, h * 0.4, 4, w / 2, h / 2, w * 0.7); gr.addColorStop(0, '#f0c25a'); gr.addColorStop(1, '#a8701c'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const r = lcg(43); for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(255,236,170,${0.2 + r() * 0.4})`; g.lineWidth = 1; g.beginPath(); g.arc(r() * w, r() * h, 1 + r() * 4, 0, 7); g.stroke(); }
+    g.strokeStyle = 'rgba(90,55,15,0.28)'; g.lineWidth = 5; for (let x = 22; x < w; x += 28) { g.beginPath(); g.moveTo(x, 6); g.lineTo(x, h - 6); g.stroke(); } // heating coils seen through the oil
+  },
+  uhc: (g, w, h) => {
+    g.fillStyle = '#5d6268'; g.fillRect(0, 0, w, h);
+    const lbl = ['10:1', '4:1', '雞', '雞塊', '辣雞', '早餐'];
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 2; i++) {
+      const x = 6 + i * 125, y = 6 + j * 40;
+      g.fillStyle = '#131416'; g.fillRect(x, y + 12, 118, 24); g.fillStyle = '#b9bec4'; g.fillRect(x, y + 32, 118, 4);
+      g.fillStyle = '#1a0f05'; g.fillRect(x, y, 118, 12);
+      g.fillStyle = '#ff8a1c'; g.font = '700 11px monospace'; g.fillText(lbl[j * 2 + i], x + 4, y + 10); g.fillText(`${(j * 7 + i * 5) % 18 + 2}:0${(i + j) % 6}`, x + 80, y + 10);
+    }
+  },
+  kvs: (g, w, h) => kvsDraw(g, w, h, [['118', '#3ad07a', ['大麥克 ×1', '薯條(大) ×1', '可樂 ×1']], ['119', '#ffc72c', ['麥香雞 ×2', '雞塊 6塊 ×1']], ['120', '#ff6b5a', ['薯條(中) ×2', '冰炫風 ×1']]]),
+  kvs2: (g, w, h) => kvsDraw(g, w, h, [['121', '#3ad07a', ['雙層牛肉 ×1', '薯條(小) ×1']], ['122', '#3ad07a', ['大麥克 ×2', '可樂 ×2', '蘋果派 ×1']]]),
+  fryPanel: (g, w, h) => {
+    g.fillStyle = '#18191b'; g.fillRect(0, 0, w, h);
+    for (const x of [6, 68]) { g.fillStyle = '#2a0606'; g.fillRect(x, 8, 54, 22); g.fillStyle = '#ff3b2b'; g.font = '700 18px monospace'; g.fillText(x < 50 ? '3:10' : '2:45', x + 4, 26); }
+    for (let i = 0; i < 8; i++) { g.fillStyle = i % 4 === 3 ? '#3ad07a' : '#5b5e63'; g.beginPath(); g.arc(12 + i * 15, 46, 5, 0, 7); g.fill(); }
+  },
+  hot: (g, w, h) => { g.fillStyle = '#ffcc00'; g.fillRect(0, 0, w, h); g.fillStyle = '#111'; g.font = KF(24); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⚠ 高溫注意', w / 2, h / 2 + 1); },
+  drink: (g, w, h) => {
+    g.fillStyle = '#c9ccd0'; g.fillRect(0, 0, w, h);
+    const d = [['可樂', '#c8102e'], ['零卡可樂', '#1b1b1b'], ['雪碧', '#1f8a3a'], ['柳橙', '#f28c28'], ['紅茶', '#7a3b1c'], ['冰水', '#2d7fd0']];
+    d.forEach(([t, c], i) => { const x = 4 + i * 42; g.fillStyle = c; g.fillRect(x, 10, 38, 64); g.fillStyle = '#fff'; g.font = KF(t.length > 2 ? 10 : 14); g.textAlign = 'center'; g.fillText(t, x + 19, 48); });
+    g.textAlign = 'left'; g.fillStyle = '#2b2c2f'; g.fillRect(0, 86, w, 42);
+  },
+  fire: (g, w, h) => {
+    g.fillStyle = '#efe9d8'; g.fillRect(0, 0, w, h); g.fillStyle = '#8b8574'; g.fillRect(0, 0, w, 6);
+    g.fillStyle = '#2b2b2b'; g.fillRect(36, 16, 74, 92);
+    for (let j = 0; j < 4; j++) for (let i = 0; i < 2; i++) { g.fillStyle = (i + j) % 3 ? '#c8202a' : '#3ad07a'; g.fillRect(44 + i * 34, 22 + j * 21, 24, 14); }
+    g.fillStyle = '#c8202a'; g.font = KF(11); g.fillText('火警受信總機', 30, 122);
+    g.fillStyle = '#9b9584'; for (let i = 0; i < 5; i++) g.fillRect(8, 30 + i * 8, 20, 3);
+  },
+  net: (g, w, h) => { g.fillStyle = '#ecece8'; g.fillRect(0, 0, w, h); g.fillStyle = '#c9c9c4'; g.fillRect(4, 4, w - 8, h - 8); g.fillStyle = '#3ad07a'; g.beginPath(); g.arc(w / 2, h - 18, 5, 0, 7); g.fill(); },
+  cold: (g, w, h) => { g.fillStyle = '#ffd200'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8102e'; g.fillRect(0, 0, 10, h); g.fillStyle = '#111'; g.font = KF(28); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('冷藏庫', w / 2 + 5, h / 2 + 1); },
+  freeze: (g, w, h) => { g.fillStyle = '#ffd200'; g.fillRect(0, 0, w, h); g.fillStyle = '#1d5bbf'; g.fillRect(0, 0, 10, h); g.fillStyle = '#111'; g.font = KF(28); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('冷凍庫', w / 2 + 5, h / 2 + 1); },
+  syrupA: (g, w, h) => syrupBox(g, w, h, '可樂 汽水糖漿袋 20L', '#c8102e', '0504114'),
+  syrupB: (g, w, h) => syrupBox(g, w, h, '檸檬紅茶 糖漿袋 20L', '#3d8b3d', '0504262'),
+  drain: (g, w, h) => {
+    g.fillStyle = '#e8ece9'; g.fillRect(0, 0, w, h); g.fillStyle = '#9aa29e';
+    for (let j = 0; j < 9; j++) for (let i = 0; i < 6; i++) { g.beginPath(); g.roundRect(8 + i * 19, 6 + j * 13, 14, 7, 3); g.fill(); }
+    g.strokeStyle = '#43b26a'; g.lineWidth = 5; g.strokeRect(2, 2, w - 4, h - 4);
+  },
+  louver: (g, w, h) => { g.fillStyle = '#b8bcc1'; g.fillRect(0, 0, w, h); for (let y = 10; y < h - 8; y += 12) { g.fillStyle = '#4c5056'; g.fillRect(8, y, w - 16, 6); g.fillStyle = '#e4e7ea'; g.fillRect(8, y + 6, w - 16, 2); } },
+  sop: (g, w, h) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h); g.fillStyle = '#1d5bbf'; g.fillRect(0, 0, w, 30); g.fillStyle = '#fff'; g.font = KF(17); g.fillText('洗手 SOP', 22, 22);
+    for (let i = 0; i < 6; i++) { const x = 8 + (i % 2) * 58, y = 38 + Math.floor(i / 2) * 40; g.fillStyle = '#e3eefb'; g.fillRect(x, y, 54, 34); g.fillStyle = '#1d5bbf'; g.font = KF(12); g.fillText(String(i + 1), x + 4, y + 14); g.fillStyle = '#f0c8a8'; g.beginPath(); g.ellipse(x + 32, y + 20, 12, 8, 0.3, 0, 7); g.fill(); }
+  },
+  fries: (g, w, h) => {
+    g.fillStyle = '#5e5f63'; g.fillRect(0, 0, w, h); const r = lcg(47);
+    for (let i = 0; i < 260; i++) { g.save(); g.translate(8 + r() * (w - 16), 8 + r() * (h - 16)); g.rotate(r() * Math.PI); const v = Math.floor(r() * 40); g.fillStyle = `rgb(${225 + v / 3},${170 + v},${60 + v / 2})`; g.fillRect(-12, -2.5, 24, 5); g.restore(); }
+  },
+  toaster: (g, w, h) => { g.fillStyle = '#26282c'; g.fillRect(0, 0, w, h); g.fillStyle = '#ff7a1a'; g.fillRect(10, 14, w - 20, 6); g.fillStyle = '#ffb35a'; g.font = '700 16px monospace'; g.fillText('BUN 0:17', 14, 50); g.fillStyle = '#3ad07a'; g.beginPath(); g.arc(w - 18, 74, 6, 0, 7); g.fill(); },
+  board: (g, w, h) => {
+    g.fillStyle = '#fbfbf8'; g.fillRect(0, 0, w, h); g.strokeStyle = '#a7abb0'; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6);
+    g.fillStyle = '#c8102e'; g.font = KF(20); g.fillText('今日備料 / 尖峰', 14, 30);
+    g.fillStyle = '#1d4fa8'; g.font = KF(15, 700); ['牛肉餅 3 箱　雞腿排 2 箱', '薯條 8 包　麵包 12 盤', '★ 油溫 168°C 記得量', '★ 嗶聲響了就起鍋！'].forEach((t, i) => g.fillText(t, 16, 58 + i * 24));
+  },
+  bag: (g, w, h) => { g.fillStyle = '#c49a62'; g.fillRect(0, 0, w, h); g.fillStyle = '#a77f4b'; g.fillRect(0, 0, w, 10); g.strokeStyle = '#ffbc0d'; archPath(g, 12, 36, 40, 26, 7); },
+  carton: (g, w, h) => { g.fillStyle = '#db0007'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ffbc0d'; archPath(g, 14, 18, 36, 26, 6); },
+  staffRoom: (g, w, h) => { g.fillStyle = '#2f3134'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = KF(26); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('員工休息室 STAFF', w / 2, h / 2 + 2); },
+  backDoor: (g, w, h) => { g.fillStyle = '#1e5a3a'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.font = KF(26); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('後門・收貨 隨手關門', w / 2, h / 2 + 2); },
+  caution: (g, w, h) => {
+    g.fillStyle = '#ffd200'; g.fillRect(0, 0, w, h); g.fillStyle = '#111'; g.beginPath(); g.moveTo(w / 2, 14); g.lineTo(w - 14, 86); g.lineTo(14, 86); g.closePath(); g.fill();
+    g.fillStyle = '#ffd200'; g.beginPath(); g.moveTo(w / 2, 28); g.lineTo(w - 26, 78); g.lineTo(26, 78); g.closePath(); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(w / 2 + 4, 44, 5, 0, 7); g.fill(); g.fillRect(w / 2 - 10, 52, 22, 5); g.fillRect(w / 2 - 14, 66, 30, 4);
+    g.font = KF(24); g.textAlign = 'center'; g.fillText('小心地滑', w / 2, 124);
+  },
+  coffee: (g, w, h) => { g.fillStyle = '#16171a'; g.fillRect(0, 0, w, h); g.fillStyle = '#0e2a4a'; g.fillRect(12, 10, w - 24, 40); g.fillStyle = '#7fc4ff'; g.font = KF(14); g.fillText('美式  拿鐵', 22, 36); for (let i = 0; i < 4; i++) { g.fillStyle = '#3a3c40'; g.beginPath(); g.arc(22 + i * 28, 72, 9, 0, 7); g.fill(); } },
+  icecream: (g, w, h) => {
+    g.fillStyle = '#cfd3d7'; g.fillRect(0, 0, w, h); g.fillStyle = '#26282c'; g.fillRect(14, 12, w - 28, 30); g.fillStyle = '#7dff9a'; g.font = '700 14px monospace'; g.fillText('READY  -4°C', 20, 32);
+    g.fillStyle = '#9aa0a6'; for (let i = 0; i < 3; i++) g.fillRect(20 + i * 34, 60, 22, 46); g.fillStyle = '#c8102e'; g.font = KF(14); g.fillText('冰淇淋', 40, 122);
+  },
+  wrap: (g, w, h) => { const c = ['#ffbc0d', '#2b6cb0', '#db0007', '#ffbc0d']; c.forEach((cc, i) => { g.fillStyle = cc; g.fillRect(i * 32, 0, 30, h); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(i * 32 + 4, 6, 22, 4); }); },
+};
+function syrupBox(g, w, h, title, col, code) {
+  g.fillStyle = '#c69c6d'; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(90,60,30,0.15)'; for (let i = 0; i < 30; i++) g.fillRect(0, i * 4.3, w, 1);
+  g.fillStyle = col; g.fillRect(10, 12, 26, 26); g.fillStyle = '#fff'; g.font = KF(18); g.fillText('糖', 14, 32);
+  g.fillStyle = '#1b1b1b'; g.font = KF(15); g.fillText(title, 42, 32); g.font = '700 18px Arial'; g.fillText(code, w - 82, 64);
+  g.strokeStyle = '#3b3b3b'; g.lineWidth = 2; for (let i = 0; i < 3; i++) g.strokeRect(14 + i * 34, 52, 28, 28);
+  g.fillStyle = '#f4f2ea'; g.fillRect(w * 0.62, 0, 12, h); g.fillRect(0, h * 0.78, w, 10); // white strapping bands
+}
+// map a PlaneGeometry onto one atlas region (1 px inset against bleeding)
+function atlasUV(geo, name) {
+  const [x, y, w, h] = KR[name], A = 1024, uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (x + 1 + uv.getX(i) * (w - 2)) / A, 1 - (y + 1 + (1 - uv.getY(i)) * (h - 2)) / A);
+  return geo;
+}
 function mcdMaterials() {
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
   // the store is lit by warm 3000 K downlights; the scene's lights are the (cool) sky, so each surface gets a
@@ -621,6 +760,22 @@ function mcdMaterials() {
     fryer: def('mcdFryer', () => std({ color: '#5b5f64', metalness: 0.7, roughness: 0.35 })),
     tray: def('mcdTray', () => std({ color: '#a6362c', roughness: 0.5 })),
     lamp: def('mcdLamp', () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff1d6', emissiveIntensity: 1.2, roughness: 0.6 })),
+    // 內場
+    kSteel: def('mcdKSteel', () => std({ color: '#d3d7dc', metalness: 0.5, roughness: 0.3 }, 0.14)),
+    kSteelDk: def('mcdKSteelDk', () => std({ color: '#9aa0a7', metalness: 0.55, roughness: 0.36 }, 0.08)),
+    kBlack: def('mcdKBlack', () => std({ color: '#1f2023', roughness: 0.5, metalness: 0.2 })),
+    galv: def('mcdGalv', () => std({ map: MCT.galv(), metalness: 0.25, roughness: 0.5 }, 0.2)),
+    whiteTile: def('mcdWhiteTile', () => std({ map: MCT.whiteTile(), roughness: 0.3 }, 0.28)),
+    wallGrey: def('mcdWallGrey', () => std({ color: '#c3c2bd', roughness: 0.8 }, 0.22)),
+    wainscot: def('mcdWainscot', () => std({ color: '#5b4c45', roughness: 0.6 }, 0.06)),
+    blackMetal: def('mcdBlackMetal', () => std({ color: '#161719', roughness: 0.5, metalness: 0.4 })),
+    cardboard: def('mcdCardboard', () => std({ color: '#c49a68', roughness: 0.9 }, 0.16)),
+    blue: def('mcdBlue', () => std({ color: '#2f86d6', roughness: 0.35 }, 0.16)),
+    redBin: def('mcdRedBin', () => std({ color: '#d0242c', roughness: 0.45 }, 0.16)),
+    bun: def('mcdBun', () => std({ color: '#d9a25a', roughness: 0.7 }, 0.16)),
+    cup: def('mcdCup', () => std({ color: '#f4f3ef', roughness: 0.5 }, 0.25)),
+    kdecal: def('mcdKDecal', () => std({ map: MCT.katlas(), roughness: 0.55 }, 0.14)),
+    kglow: def('mcdKGlow', () => { const t = MCT.katlas(); return new THREE.MeshStandardMaterial({ map: t, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.85, roughness: 0.4 }); }),
   };
 }
 function buildMcD(I, scene) {
@@ -646,12 +801,13 @@ function buildMcD(I, scene) {
   // ---- shell ----
   km.box(0, W, 0, 0.1, 0, D, MT.floor, { col: false, surface: true, tile: [1.2, 1.2] });
   km.box(CX0 - 0.2, W, 0.1, 0.104, DZ + 0.15, D, MT.lobby, { col: false, tile: [2.4, 2.4] }); // corridor tiles up to the counter
-  km.box(KX, CX0 + 1.0, 0.1, 0.106, DZ + 0.15, D, MT.quarry, { col: false, tile: [0.6, 0.6] }); // red quarry tiles behind it
+  km.box(KX, CX0 + 1.0, 0.1, 0.106, DZ + 0.15, D, MT.quarry, { col: false, tile: [0.3, 0.3] }); // red 15 cm quarry tiles behind it
   km.box(0, 0.3, 0, H, 0, D, 'white');
   k.box(0, W, 0, H, 0, 0.3, 'white');
   k.box(0, W, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] }); // outside face keeps the 活動中心 windows
   km.box(0.3, CX1, 0, H, DZ, DZ + 0.15, MT.wall);                 // dining / kitchen partition
-  km.box(KX - 0.2, KX, 0, H, DZ + 0.15, D - 0.3, MT.wall);        // kitchen back wall (back of house beyond)
+  km.box(KX - 0.2, KX, 0, H, 11.55, D - 0.3, MT.wall);           // kitchen back wall (back of house beyond)
+  km.box(KX - 0.2, KX, 2.25, H, DZ + 0.15, 11.55, MT.wall, { col: false }); // …with the doorway to the back corridor
   km.box(KX, CX1, 0, H - 0.1, D - 0.34, D - 0.3, MT.wall, { col: false }); // kitchen side of the north wall
   km.box(CX1, W - 0.15, 2.7, H, DZ, DZ + 0.15, MT.wall, { col: false }); // header over the dining opening
   km.box(W - 0.15, W, 0, 0.35, 0, D, MT.frame, { col: false });
@@ -699,19 +855,8 @@ function buildMcD(I, scene) {
   km.box(CX1, CX1 + 0.8, 0, H - 0.1, CZ1 + 0.1, D - 0.3, MT.pillar);
   km.plane(MCT.arches('#ffbc0d'), 0.66, 0.58, CX1 + 0.805, 2.5, (CZ1 + 0.1 + D - 0.3) / 2, Math.PI / 2, { emissive: 0.9, transparent: true });
   km.box(CX1 + 0.8, W - 0.15, 0, H - 0.1, D - 0.34, D - 0.3, MT.oak, { col: false, tile: [1.2, H] });
-  // ---- kitchen: black tiled back wall, stainless back counter and equipment ----
-  km.box(KX, KX + 0.02, 1.0, 2.5, DZ + 0.3, D - 0.4, MT.blackTile, { col: false, tile: [0.3, 0.3] });
-  km.box(KX, KX + 1.9, 0, 1.0, DZ + 0.4, D - 0.4, 'steel', { col: false });
-  km.box(KX + 0.15, KX + 0.85, 1.0, 1.72, 11.0, 12.3, 'steel', { col: false }); // drink tower
-  km.box(KX + 0.15, KX + 0.9, 1.72, 1.78, 11.0, 12.3, MT.black, { col: false });
-  for (let n = 0; n < 6; n++) put('chrome', new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8).translate(KX + 0.82, 1.62, mz(11.15 + n * 0.2)));
-  km.box(KX + 0.15, KX + 0.65, 1.0, 1.55, 12.8, 13.5, MT.black, { col: false }); // coffee machine
-  km.box(KX + 0.2, KX + 1.4, 1.0, 1.55, 13.9, 15.9, 'steel', { col: false }); // warming cabinet
-  km.box(KX + 1.39, KX + 1.41, 1.08, 1.47, 14.0, 15.8, MT.warm, { col: false });
-  km.box(KX + 0.05, KX + 1.4, 0, 1.08, 16.3, 18.4, MT.fryer, { col: false }); // fryers
-  for (const z of [16.7, 17.35, 18.0]) km.box(KX + 0.4, KX + 1.2, 1.08, 1.22, z - 0.25, z + 0.25, 'steel', { col: false });
-  km.box(KX + 0.15, KX + 0.75, 1.0, 1.85, 18.7, 19.3, 'steel', { col: false }); // ice-cream machine
-  for (let n = 0; n < 4; n++) km.box(KX + 1.3, KX + 1.8, 1.0 + n * 0.02, 1.015 + n * 0.02, 12.5, 13.1, MT.tray, { col: false }); // tray stack
+  // ---- 內場: kitchen line + back corridor (buildMcKitchen) ----
+  const kitchen = buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D });
   // ---- dining room (design frame, mirrored into the north part of the shop). Looking in from the lobby:
   //      banquette under the mural on the left (outer wall), striped wall at the far end, four-seat tables and
   //      the Happy Meal column on the right (partition), yellow trash cabinets in the left foreground ----
@@ -788,12 +933,36 @@ function buildMcD(I, scene) {
   const pole = k.plane(T.mcLogo(), 3.2, 1.6, W + 4.15, 7.6, D + 1.15, Math.PI / 2, { emissive: 0.5, double: true });
   k.finish(scene);
   I.zones.push({ name: '麥當勞 中原店', pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.4 });
-  // staff
-  const staff = createCharacter({ skin: '#efd0b5', shirt: '#c8102e', shorts: '#222', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
+  // crew in the real store's uniform (mcuniform.js): the counter girl at the middle register, and two in the
+  // kitchen with hairnets — one on the first grill, one at the assembly island. They go through the motions
+  // (reach / turn) while the player is close enough to see them.
+  const staff = createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
+  dressCrew(staff, { name: '小芸' });
   const sp = k.w(14.6, mz(15.0)); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
   staff.home = staff.root.position.clone(); staff.homeRot = staff.root.rotation.y; // the 值班 moves her to the fryers and back
   scene.add(staff.root);
-  I.updaters.push((dt) => staff.update(dt, { speed: 0 }));
+  const crew = [
+    [{ skin: '#d9ad88', hair: '#111', hairStyle: 'short' }, '阿凱', kitchen.crewGrill],
+    [{ skin: '#f3d9c4', hair: '#2b1d14', hairStyle: 'pony' }, '佳穎', kitchen.crewAssembly],
+  ].map(([look, name, [x, z]]) => {
+    const c = createCharacter({ ...look, shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, face: true, shoes: '#111' });
+    dressCrew(c, { name, hairnet: true });
+    const p = k.w(x, z); c.root.position.set(p[0], k.base, p[1]); c.root.rotation.y = k.heading(-Math.PI / 2);
+    c.homeRot = c.root.rotation.y; c.workT = 1 + Math.random() * 2; c.reach = 0;
+    scene.add(c.root); return c;
+  });
+  const mid = k.w(12, mz(15));
+  I.updaters.push((dt, game) => {
+    const pp = game?.player?.pos;
+    if (pp && (pp.x - mid[0]) ** 2 + (pp.z - mid[1]) ** 2 > 70 * 70) return; // nobody is watching
+    staff.update(dt, { speed: 0 });
+    for (const c of crew) {
+      if ((c.workT -= dt) <= 0) { c.workT = 1.6 + Math.random() * 2.6; c.reach = 0.7; c.turn = (Math.random() - 0.5) * 0.7; }
+      c.reach -= dt;
+      c.root.rotation.y += (c.homeRot + (c.reach > 0 ? c.turn : 0) - c.root.rotation.y) * Math.min(1, dt * 4);
+      c.update(dt, { speed: 0, pose: c.reach > 0 ? 'give' : null });
+    }
+  });
   let ordered = false;
   const cp = k.w(17.0, mz(15.0));
   I.actions.push({
@@ -822,15 +991,234 @@ function buildMcD(I, scene) {
   const se = k.w(14.4, mz(11.0));
   I.actions.push({
     x: se[0], z: se[1], r: 1.3, y: 0, cond: () => !(I.mcd && I.mcd.busy),
-    label: () => '按 <kbd>E</kbd> 打卡上班打工（時薪 NT$196）',
+    label: () => '按 <kbd>E</kbd> 打卡上班：櫃台點餐（時薪 NT$196）',
     fn: (g) => g.job.start(),
+  });
+  // …or work the kitchen line (mckitchen.js): punch in at the second grill
+  const kp = k.w(...kitchen.player);
+  I.actions.push({
+    x: kp[0], z: kp[1], r: 1.1, y: 0, cond: () => !(I.mcd && I.mcd.busy),
+    label: () => '按 <kbd>E</kbd> 上內場：煎台＋炸爐（時薪 NT$196）',
+    fn: (g) => g.job.startKitchen(),
   });
   const bulk = new THREE.Mesh(new THREE.BoxGeometry(1.0, H - 2.5, 1.0), M(MT.wall)); bulk.position.set(15.7, (H + 2.5) / 2, mz(10.9)); k.group.add(bulk); // header over the gap
   km.plane(T.mcStaff(), 0.96, 0.31, 16.21, 2.3, 10.9, Math.PI / 2, { emissive: 0.5 });
   const clockBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.1), M('dark')); clockBox.position.set(13.3, 1.45, mz(10.45)); k.group.add(clockBox);
   km.plane(T.sign('打卡鐘', '#ffc72c', '#1b1b1b', 'mcclock', 256, 128, 54), 0.46, 0.23, 13.3, 1.62, 10.505, 0);
-  km.plane(T.sign('打工值班 → 員工入口在櫃台左側', '#c8102e', '#ffffff', 'mcstaffway', 1024, 128, 56), 1.0, 0.125, 16.205, 0.86, 12.0, Math.PI / 2, { emissive: 0.25 });
-  return { entrance: k.w(W + 3, mz(14.6)), k, W, D, staff, busy: false };
+  km.plane(T.sign('打工值班（櫃台／內場）→ 員工入口在櫃台左側', '#c8102e', '#ffffff', 'mcstaffway2', 1024, 128, 46), 1.0, 0.125, 16.205, 0.86, 12.0, Math.PI / 2, { emissive: 0.25 });
+  return { entrance: k.w(W + 3, mz(14.6)), k, W, D, staff, crew, kitchen, busy: false };
+}
+
+// =====================================================================
+// 麥當勞 內場 — the kitchen behind the counter and the back corridor, in buildMcD's design frame (km / mz).
+// Laid out like a real McDonald's line, so it reads from the lobby over the counter:
+//   front pass   x 13.15–13.8: drink tower, coffee machine, heat-lamp pass with bags and trays, KVS order
+//                screens, ice-cream machine (all facing the register aisle x 13.8–15.2)
+//   island       x 11.45–12.3: UHC holding cabinet + assembly rail (condiments, wrap papers)
+//   cooking line x 9.5–10.4 on the black-tiled back wall under a stainless hood: 2 clamshell grills, bun
+//                toaster, chicken fryer, fries fryer, fry dump under a heat lamp, hand sink
+//   back corridor x 0.3–9.3, z 10.4–12.0 through a door in the back wall, after the photo 內場.jpg:
+//                galvanised walk-in freezer / cooler with yellow labels, louvred steel doors, fire-alarm panel,
+//                black shelf of syrup boxes with the delivery bag, water filter with blue hoses, red pedal bin,
+//                white wall tiles, terracotta quarry floor, LED ceiling panels
+// Small details are atlas pictures (KR) on quads merged into two meshes. Returns shop-local anchors for the
+// crew and for the kitchen job (mckitchen.js), which animates the grill platen, baskets and food itself.
+// =====================================================================
+function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
+  const box = (x0, x1, y0, y1, z0, z1, mat) => km.box(x0, x1, y0, y1, z0, z1, mat, { col: false });
+  const solid = (x0, x1, z0, z1, y1 = 1.3) => km.wallRect(x0, x1, z0, z1, 0, y1);
+  const cyl = (mat, rt, rb, h, x, y, z, seg = 12) => put(mat, new THREE.CylinderGeometry(rt, rb, h, seg).translate(x, y, mz(z)));
+  const barZ = (mat, r, len, x, y, z) => put(mat, new THREE.CylinderGeometry(r, r, len, 8).rotateX(Math.PI / 2).translate(x, y, mz(z)));
+  const quad = (name, w, h, x, y, z, rotY, glow = false) => put(glow ? MT.kglow : MT.kdecal, atlasUV(new THREE.PlaneGeometry(w, h), name).rotateY(Math.PI - rotY).translate(x, y, mz(z)));
+  // lying on a top surface: wz along z, dx along x
+  const quadUp = (name, wz, dx, x, y, z, glow = false) => put(glow ? MT.kglow : MT.kdecal, atlasUV(new THREE.PlaneGeometry(wz, dx), name).rotateX(-Math.PI / 2).rotateY(Math.PI / 2).translate(x, y, mz(z)));
+  const E = KX + 0.9; // front edge of the cooking line
+
+  // ---------------- cooking line ----------------
+  km.box(KX, KX + 0.02, 0.9, 2.08, 11.75, D - 0.35, MT.blackTile, { col: false, tile: [0.3, 0.3] }); // tiled splash
+  solid(KX, E + 0.05, 11.8, D - 0.3);
+  const cabinet = (z0, z1, top = 0.84) => {
+    box(KX, E, 0.1, top, z0, z1, MT.kSteel); box(KX, E - 0.06, 0, 0.1, z0, z1, MT.kBlack); // body + recessed kick
+    box(E, E + 0.006, 0.18, top - 0.08, z0 + 0.05, z1 - 0.05, MT.kSteelDk);                   // door panel
+  };
+  const grill = (z0, z1, raised) => {
+    const m = (z0 + z1) / 2;
+    cabinet(z0, z1);
+    box(KX, E + 0.04, 0.84, 0.9, z0, z1, MT.kBlack);                 // griddle plate
+    quadUp('grill', z1 - z0 - 0.08, 0.7, KX + 0.47, 0.902, m);
+    box(E, E + 0.07, 0.8, 0.88, z0 + 0.02, z1 - 0.02, MT.kSteel);     // grease trough at the front
+    box(KX, KX + 0.1, 0.9, 1.15, z0, z1, MT.kSteel);                  // hinge housing
+    quad('hot', 0.24, 0.09, E + 0.009, 0.7, z0 + 0.24, Math.PI / 2);
+    for (let i = 0; i < 3; i++) put('chrome', new THREE.CylinderGeometry(0.02, 0.02, 0.025, 10).rotateZ(Math.PI / 2).translate(E + 0.018, 0.7, mz(m + 0.08 + i * 0.16)));
+    if (raised) { // clamshell platen standing open
+      box(KX + 0.1, KX + 0.17, 0.95, 1.58, z0 + 0.05, z1 - 0.05, MT.kSteel);
+      box(KX + 0.17, KX + 0.175, 1.0, 1.54, z0 + 0.1, z1 - 0.1, MT.kBlack);
+      barZ('chrome', 0.012, z1 - z0 - 0.3, KX + 0.21, 1.52, m);
+    }
+  };
+  grill(11.9, 13.3, true); grill(13.4, 14.8, false); // the second grill's platen belongs to mckitchen.js
+  // vertical bun toaster + a tray of buns
+  cabinet(14.9, 15.5, 0.88); box(KX, E + 0.02, 0.88, 0.92, 14.9, 15.5, MT.kSteel);
+  box(KX + 0.04, KX + 0.5, 0.92, 1.62, 14.95, 15.45, MT.kSteelDk);
+  quad('toaster', 0.42, 0.3, KX + 0.502, 1.36, 15.2, Math.PI / 2, true);
+  box(KX + 0.55, E - 0.02, 0.92, 0.95, 14.95, 15.45, MT.tray);
+  for (let i = 0; i < 6; i++) put(MT.bun, new THREE.SphereGeometry(0.05, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.55, 1).translate(KX + 0.62 + (i % 2) * 0.13, 0.95, mz(15.03 + Math.floor(i / 2) * 0.16)));
+  // fryers: two vats each, control tower at the back, basket hanger
+  const fryer = (z0, z1) => {
+    const m = (z0 + z1) / 2, x0 = KX + 0.22, x1 = E - 0.08;
+    cabinet(z0, z1, 0.8);
+    box(KX, x0, 0.8, 1.34, z0, z1, MT.kSteel);
+    quad('fryPanel', 0.5, 0.25, x0 + 0.002, 1.14, m, Math.PI / 2, true);
+    box(x1, E, 0.8, 0.9, z0, z1, MT.kSteel);
+    for (const zz of [z0, m - 0.02, z1 - 0.04]) box(x0, x1, 0.8, 0.9, zz, zz + 0.04, MT.kSteel);
+    for (const [a, b] of [[z0 + 0.04, m - 0.02], [m + 0.02, z1 - 0.04]]) quadUp('oil', b - a, x1 - x0, (x0 + x1) / 2, 0.85, (a + b) / 2);
+    barZ('chrome', 0.01, z1 - z0 - 0.1, KX + 0.18, 1.38, m);
+    quad('hot', 0.24, 0.09, E + 0.009, 0.62, z0 + 0.24, Math.PI / 2);
+  };
+  fryer(15.6, 16.8); fryer(16.9, 18.1);
+  // fry dump station under a heat lamp, with red fry cartons
+  cabinet(18.2, 19.0, 0.86);
+  box(KX + 0.06, E - 0.04, 0.86, 0.9, 18.25, 18.95, MT.kSteelDk);
+  quadUp('fries', 0.66, 0.6, KX + 0.45, 0.902, 18.6);
+  box(KX, KX + 0.06, 0.9, 1.56, 18.2, 19.0, MT.kSteel);
+  box(KX, E, 1.56, 1.62, 18.2, 19.0, MT.kSteel); box(KX + 0.12, E - 0.12, 1.55, 1.56, 18.3, 18.9, MT.warm);
+  for (let i = 0; i < 3; i++) { box(E - 0.13, E - 0.02, 0.9, 1.02, 18.3 + i * 0.2, 18.42 + i * 0.2, '#db0007'); quad('carton', 0.1, 0.1, E - 0.018, 0.96, 18.36 + i * 0.2, Math.PI / 2); }
+  // hand sink + SOP poster at the end of the line
+  box(KX, KX + 0.4, 0.3, 0.78, 19.15, 19.55, MT.kSteel); box(KX, KX + 0.5, 0.78, 0.9, 19.1, 19.6, MT.kSteel);
+  box(KX + 0.05, KX + 0.45, 0.9, 0.902, 19.15, 19.55, MT.kSteelDk);
+  cyl('chrome', 0.012, 0.012, 0.26, KX + 0.07, 1.03, 19.35); put('chrome', new THREE.CylinderGeometry(0.01, 0.01, 0.16, 8).rotateZ(Math.PI / 2).translate(KX + 0.15, 1.15, mz(19.35)));
+  quad('sop', 0.32, 0.4, KX + 0.025, 1.45, 19.35, Math.PI / 2);
+  // stainless hood over the line with lamps and filters, duct to the ceiling
+  box(KX, E + 0.35, 2.08, 2.7, 11.8, 18.3, MT.kSteel);
+  box(KX + 0.02, E + 0.3, 2.04, 2.08, 11.85, 18.25, MT.kSteelDk);
+  for (const z of [12.6, 14.1, 16.2, 17.5]) box(E - 0.05, E + 0.25, 2.035, 2.04, z - 0.28, z + 0.28, 'light');
+  box(KX, KX + 0.7, 2.7, H - 0.1, 14.6, 15.6, MT.kSteel);
+
+  // ---------------- assembly island with the UHC ----------------
+  const IX0 = 11.45, IX1 = 12.3;
+  box(IX0, IX1, 0.1, 0.88, 12.4, 17.6, MT.kSteel); box(IX0 + 0.06, IX1 - 0.06, 0, 0.1, 12.45, 17.55, MT.kBlack);
+  box(IX0 - 0.02, IX1 + 0.02, 0.88, 0.92, 12.38, 17.62, MT.kSteel);
+  for (const x of [IX0 - 0.006, IX1]) box(x, x + 0.006, 0.18, 0.78, 12.5, 17.5, MT.kSteelDk);
+  solid(IX0, IX1, 12.4, 17.6);
+  box(IX0 + 0.06, IX1 - 0.06, 0.92, 1.66, 12.9, 15.2, MT.kSteelDk);
+  box(IX0 + 0.04, IX1 - 0.04, 1.66, 1.7, 12.88, 15.22, MT.kSteel);
+  quad('uhc', 2.2, 0.68, IX0 + 0.055, 1.29, 14.05, -Math.PI / 2); quad('uhc', 2.2, 0.68, IX1 - 0.055, 1.29, 14.05, Math.PI / 2);
+  box(IX0 + 0.28, IX0 + 0.58, 0.92, 1.0, 15.5, 17.4, MT.kSteel); // condiment rail
+  ['#7fb24a', '#f1eee4', '#3f6b2a', '#ffcc33', '#e9d8b4', '#c0392b'].forEach((c, i) => box(IX0 + 0.31, IX0 + 0.55, 1.0, 1.005, 15.55 + i * 0.3, 15.8 + i * 0.3, c));
+  quadUp('wrap', 0.5, 0.2, IX1 - 0.13, 0.925, 16.0);
+  for (let i = 0; i < 4; i++) box(IX0 + 0.06, IX0 + 0.2, 0.92, 0.98, 15.6 + i * 0.4, 15.74 + i * 0.4, i % 2 ? '#2b6cb0' : '#f2c230');
+
+  // ---------------- front pass (behind the registers) ----------------
+  const PX0 = 13.15, PX1 = 13.8;
+  box(PX0, PX1, 0.1, 0.9, 11.7, 18.6, MT.kSteel); box(PX0 + 0.06, PX1 - 0.06, 0, 0.1, 11.75, 18.55, MT.kBlack);
+  box(PX1, PX1 + 0.006, 0.18, 0.8, 11.8, 18.5, MT.kSteelDk);
+  box(PX0 - 0.02, PX1 + 0.02, 0.9, 0.94, 11.68, 18.62, MT.kSteel);
+  solid(PX0, PX1, 11.7, 18.6);
+  // drink tower: six taps, drip tray, cup stacks on top
+  box(PX0 + 0.05, PX1 - 0.05, 0.94, 1.78, 11.8, 13.1, MT.kSteel);
+  quad('drink', 1.2, 0.6, PX1 - 0.045, 1.48, 12.45, Math.PI / 2);
+  for (let i = 0; i < 6; i++) cyl('chrome', 0.014, 0.01, 0.07, PX1 - 0.09, 1.22, 11.95 + i * 0.2, 8);
+  box(PX1 - 0.25, PX1 - 0.02, 0.94, 0.97, 11.85, 13.05, MT.kBlack);
+  for (let i = 0; i < 3; i++) cyl(MT.cup, 0.045, 0.035, 0.3, PX0 + 0.2, 1.93, 11.98 + i * 0.2, 14);
+  // coffee machine
+  box(PX0 + 0.05, PX1 - 0.08, 0.94, 1.6, 13.2, 13.72, MT.kBlack);
+  quad('coffee', 0.44, 0.33, PX1 - 0.078, 1.32, 13.46, Math.PI / 2, true);
+  // heat-lamp pass: bags, trays and wrapped burgers waiting to go out
+  box(PX0, PX1, 1.52, 1.57, 13.85, 16.8, MT.kSteel);
+  for (const z of [13.85, 16.75]) box(PX0, PX0 + 0.05, 0.94, 1.52, z, z + 0.05, MT.kSteel);
+  box(PX0 + 0.1, PX1 - 0.1, 1.515, 1.52, 13.95, 16.7, MT.warm);
+  for (let i = 0; i < 3; i++) { const z = 14.05 + i * 0.45; box(PX0 + 0.2, PX0 + 0.42, 0.94, 1.24, z, z + 0.14, MT.cardboard); quad('bag', 0.14, 0.21, PX0 + 0.422, 1.1, z + 0.07, Math.PI / 2); }
+  for (const z of [15.5, 16.1]) {
+    box(PX0 + 0.12, PX1 - 0.06, 0.94, 0.955, z, z + 0.45, MT.tray);
+    box(PX0 + 0.2, PX0 + 0.32, 0.955, 1.01, z + 0.06, z + 0.18, '#f2c230'); box(PX0 + 0.4, PX0 + 0.5, 0.955, 1.07, z + 0.22, z + 0.32, '#db0007');
+  }
+  // KVS order screens hanging over the pass
+  for (const [z, n] of [[14.45, 'kvs'], [16.1, 'kvs2']]) {
+    box(PX0 + 0.26, PX0 + 0.32, 1.76, 2.2, z - 0.36, z + 0.36, MT.kBlack);
+    quad(n, 0.66, 0.41, PX0 + 0.322, 1.98, z, Math.PI / 2, true);
+    for (const dz of [-0.25, 0.25]) cyl('chrome', 0.008, 0.008, H - 0.1 - 2.2, PX0 + 0.29, (H - 0.1 + 2.2) / 2, z + dz, 6);
+  }
+  // ice-cream machine, cups and lids, tray stack
+  box(PX0 + 0.05, PX1 - 0.05, 0.94, 1.8, 16.95, 17.65, MT.kSteel);
+  quad('icecream', 0.6, 0.6, PX1 - 0.045, 1.4, 17.3, Math.PI / 2);
+  for (let i = 0; i < 4; i++) cyl(MT.cup, 0.045, 0.035, 0.32, PX0 + 0.25 + (i % 2) * 0.14, 1.1, 17.9 + Math.floor(i / 2) * 0.2, 14);
+  for (let n = 0; n < 5; n++) box(PX0 + 0.1, PX1 - 0.1, 0.94 + n * 0.02, 0.955 + n * 0.02, 18.2, 18.55, MT.tray);
+  // whiteboard of the day's prep on the partition, steel frame round the back door
+  quad('board', 1.1, 0.69, 11.6, 1.75, DZ + 0.155, 0);
+  box(KX - 0.22, KX + 0.02, 0, 2.28, 11.5, 11.58, MT.kSteel); box(KX - 0.22, KX + 0.02, 2.2, 2.28, DZ + 0.15, 11.58, MT.kSteel);
+
+  // ---------------- back corridor (photo 內場.jpg) ----------------
+  const NZ = DZ + 0.15, CZ = 12.0, BX = KX - 0.2; // corridor z NZ..CZ, x 0.3..BX
+  km.box(0.3, KX, 0.1, 0.106, NZ, CZ, MT.quarry, { col: false, tile: [0.3, 0.3] });
+  km.box(0.3, BX, 2.75, 2.8, NZ, CZ + 0.12, MT.ceil, { col: false, tile: [0.6, 0.6] });
+  for (const x of [1.6, 4.6, 7.6]) box(x - 0.6, x + 0.6, 2.735, 2.75, 10.9, 11.5, 'light');
+  box(3.0, 3.6, 2.74, 2.75, 11.05, 11.35, MT.vent);
+  km.box(0.3, BX, 0, 2.8, CZ, CZ + 0.12, MT.wallGrey); // walk-in side (collides)
+  // louvred stainless door to the crew room
+  box(0.75, 1.75, 0, 2.15, CZ - 0.035, CZ, MT.kSteel);
+  quad('louver', 0.7, 0.42, 1.25, 1.78, CZ - 0.037, Math.PI);
+  box(0.9, 1.6, 0.98, 1.02, CZ - 0.08, CZ - 0.035, 'chrome');
+  box(0.7, 1.8, 2.15, 2.22, CZ - 0.045, CZ, MT.kSteel); for (const x of [0.7, 1.75]) box(x, x + 0.05, 0, 2.15, CZ - 0.045, CZ, MT.kSteel);
+  quad('staffRoom', 0.84, 0.21, 1.25, 2.42, CZ - 0.005, Math.PI);
+  // grey wall with a dark wainscot, fire-alarm panel and network boxes
+  box(1.8, 3.0, 0, 1.05, CZ - 0.02, CZ, MT.wainscot);
+  box(2.12, 2.6, 1.2, 1.78, CZ - 0.1, CZ, '#efe9d8'); quad('fire', 0.46, 0.56, 2.36, 1.49, CZ - 0.102, Math.PI);
+  box(2.15, 2.55, 2.0, 2.5, CZ - 0.09, CZ, '#e8e8e4'); quad('net', 0.26, 0.4, 2.35, 2.25, CZ - 0.092, Math.PI);
+  box(2.62, 2.85, 2.1, 2.4, CZ - 0.06, CZ, '#f4f4f0');
+  // walk-in freezer + cooler: galvanised panels, white bump rails, two doors with yellow labels and thermometers
+  km.box(3.0, BX, 0, 2.75, CZ - 0.08, CZ, MT.galv, { col: false, tile: [1.2, 2.75] });
+  for (const y of [0.42, 0.92]) box(3.0, BX - 0.05, y, y + 0.06, CZ - 0.13, CZ - 0.08, MT.cup);
+  for (const [x0, lbl] of [[3.7, 'freeze'], [6.3, 'cold']]) {
+    box(x0, x0 + 0.95, 0.04, 2.05, CZ - 0.15, CZ - 0.08, MT.galv);
+    box(x0 + 0.78, x0 + 0.84, 1.0, 1.25, CZ - 0.21, CZ - 0.15, 'chrome');
+    for (const y of [0.35, 1.7]) box(x0 - 0.03, x0 + 0.06, y, y + 0.14, CZ - 0.18, CZ - 0.08, MT.kSteelDk);
+    quad(lbl, 0.32, 0.12, x0 + 0.47, 1.62, CZ - 0.152, Math.PI);
+    box(x0 + 0.3, x0 + 0.62, 1.82, 1.98, CZ - 0.17, CZ - 0.15, MT.kBlack); quad('fryPanel', 0.3, 0.15, x0 + 0.46, 1.9, CZ - 0.172, Math.PI, true);
+  }
+  cyl('#141414', 0.03, 0.03, 1.8, 8.05, 0.9, CZ - 0.2, 8); // black hose down the cooler wall
+  box(8.35, 8.8, 0, 0.72, CZ - 0.48, CZ - 0.1, MT.redBin); box(8.33, 8.82, 0.72, 0.78, CZ - 0.5, CZ - 0.09, '#a8141c');
+  solid(8.35, 8.8, CZ - 0.5, CZ, 0.8);
+  // partition side: white tiles, water filter with blue hoses, drain mat
+  km.box(0.3, BX, 0, 2.0, NZ, NZ + 0.015, MT.whiteTile, { col: false, tile: [0.6, 0.6] });
+  for (const x of [0.75, 1.0]) cyl(MT.cup, 0.055, 0.055, 0.5, x, 1.55, NZ + 0.09, 14);
+  put(MT.blue, new THREE.CylinderGeometry(0.13, 0.13, 0.34, 18).rotateZ(Math.PI / 2).translate(0.88, 2.25, mz(NZ + 0.16)));
+  for (const x of [0.62, 1.13, 1.2]) cyl(MT.blue, 0.012, 0.012, 2.1, x, 1.05, NZ + 0.05, 6);
+  quadUp('drain', 0.55, 0.9, 1.0, 0.112, NZ + 0.4);
+  // black shelf with bag-in-box syrup and the delivery bag; wire shelf with stock
+  const shelf = (x0, x1, mat, levels) => {
+    for (const x of [x0, x1 - 0.03]) for (const z of [NZ + 0.02, NZ + 0.5]) box(x, x + 0.03, 0, 1.8, z, z + 0.03, mat);
+    for (const y of levels) box(x0, x1, y, y + 0.025, NZ + 0.02, NZ + 0.53, mat);
+    solid(x0, x1, NZ, NZ + 0.55, 1.8);
+  };
+  shelf(1.6, 2.6, MT.blackMetal, [0.12, 0.62, 1.78]);
+  for (const [x, y, n] of [[1.63, 0.145, 'syrupA'], [2.1, 0.145, 'syrupB'], [1.63, 0.645, 'syrupA']]) { box(x, x + 0.45, y, y + 0.34, NZ + 0.08, NZ + 0.48, MT.cardboard); quad(n, 0.45, 0.3, x + 0.225, y + 0.17, NZ + 0.482, 0); }
+  box(1.62, 2.58, 1.805, 2.25, NZ + 0.05, NZ + 0.52, '#1c1d20');
+  shelf(3.3, 4.5, 'chrome', [0.15, 0.7, 1.25, 1.78]);
+  for (const [x, y] of [[3.35, 0.175], [3.9, 0.175], [3.35, 0.725], [3.95, 1.275]]) box(x, x + 0.5, y, y + 0.3, NZ + 0.07, NZ + 0.47, MT.cardboard);
+  // yellow 小心地滑 A-frame in the middle of the corridor
+  const zc = mz(NZ + 0.95);
+  for (const s of [-1, 1]) {
+    put(MT.yellow, new THREE.BoxGeometry(0.32, 0.62, 0.014).translate(0, 0.31, 0).rotateX(-0.16 * s).translate(5.4, 0.106, zc + 0.1 * s));
+    put(MT.kdecal, atlasUV(new THREE.PlaneGeometry(0.28, 0.35), 'caution').rotateY(s > 0 ? 0 : Math.PI).translate(0, 0.38, 0.009 * s).rotateX(-0.16 * s).translate(5.4, 0.106, zc + 0.1 * s));
+  }
+  // end wall: white tiles and the steel back door (deliveries)
+  km.box(0.3, 0.315, 0, 2.0, NZ, CZ, MT.whiteTile, { col: false, tile: [0.6, 0.6] });
+  box(0.3, 0.34, 0, 2.15, 10.55, 11.55, MT.kSteel);
+  quad('louver', 0.7, 0.42, 0.342, 1.78, 11.05, Math.PI / 2);
+  box(0.34, 0.38, 0.98, 1.02, 10.7, 11.4, 'chrome');
+  quad('backDoor', 0.84, 0.21, 0.32, 2.42, 11.05, Math.PI / 2);
+  // low ceiling in the corridor: keep the follow camera under it (zones are matched first come, first served)
+  I.zones.push({ name: '麥當勞 中原店', pts: k.rect(0.3, KX, mz(CZ), mz(NZ)), y0: 0, y1: 2.8, ceil: () => 2.5 });
+
+  const at = (x, z) => [x, mz(z)];
+  return {
+    grill: { hinge: at(KX + 0.13, 14.1), hingeY: 0.95, len: 1.3, patties: [[KX + 0.32, 13.78], [KX + 0.6, 13.78], [KX + 0.32, 14.42], [KX + 0.6, 14.42]].map(([x, z]) => at(x, z)), top: 0.902 },
+    fryers: { chick: [15.91, 16.49].map(z => at(KX + 0.52, z)), fries: [17.21, 17.79].map(z => at(KX + 0.52, z)), oil: 0.85 },
+    kvs: [E + 0.37, 1.84, mz(14.45)],
+    player: at(E + 0.5, 15.55),
+    cam: [E + 2.3, 2.5, mz(16.0)], look: [KX + 0.35, 0.95, mz(15.5)],
+    crewGrill: at(E + 0.5, 12.6), crewAssembly: at(12.72, 16.4), fryStaff: at(E + 0.5, 17.5),
+  };
 }
 
 // =====================================================================

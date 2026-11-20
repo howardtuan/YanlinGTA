@@ -1,4 +1,11 @@
 import * as THREE from 'three';
+import { buildSkinnedBody } from './bodymesh.js';
+
+// Body style: one continuous skinned mesh (bodymesh.js) by default; ?legacy in the URL brings back the old
+// sphere-and-capsule body for side-by-side comparison.
+const SKINNED = !(typeof location !== 'undefined' && /[?&]legacy\b/.test(location.search));
+// small deterministic hash -> 0..1, for per-person face / build variation that stays the same every visit
+const hash01 = (str, salt) => { let h = 2166136261 ^ salt; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10007) / 10007; };
 
 // Shared geometry/material caches
 const G = {}; const M = {};
@@ -73,6 +80,14 @@ export function createCharacter(opts = {}) {
   const soleM = mat('#bdbdb5');
   const sockM = mat('#fafafa');
   const pants = !!opts.pants;
+  const sk = opts.skinned ?? SKINNED;
+  const female = opts.hairStyle === 'long' || opts.hairStyle === 'pony';
+  // face / build sliders (taipei-rush style), derived from the look so every NPC keeps its own face
+  const id = [opts.skin, opts.shirt, opts.shorts, opts.hair, opts.hairStyle, opts.shoes, opts.bag].join('|');
+  const fv = hero ? { eye: 1, gap: 1, jaw: 1, nose: 1, build: 1.04 } : {
+    eye: 0.9 + hash01(id, 1) * 0.24, gap: 0.94 + hash01(id, 2) * 0.12, jaw: 0.92 + hash01(id, 3) * 0.16,
+    nose: 0.85 + hash01(id, 4) * 0.35, build: (female ? 0.94 : 0.97) + hash01(id, 5) * 0.12,
+  };
 
   const root = new THREE.Group();
   const body = pivot(0, 0, 0); root.add(body); // bobbing container
@@ -81,9 +96,9 @@ export function createCharacter(opts = {}) {
   // torso (slightly sturdy build)
   const torso = pivot(0, 0, 0); hips.add(torso);
   const torsoG = geo('torso' + hero, () => { const g = new THREE.CapsuleGeometry(0.17, 0.3, 6, 14); g.scale(1.18, 1, 0.78); g.translate(0, 0.27, 0); return g; });
-  torso.add(mesh(torsoG, shirt));
+  if (!sk) torso.add(mesh(torsoG, shirt));
   // tee hem
-  torso.add(mesh(geo('hem', () => new THREE.CylinderGeometry(0.205, 0.215, 0.07, 16).scale(1, 1, 0.8)), shirt, 0, 0.05, 0));
+  if (!sk) torso.add(mesh(geo('hem', () => new THREE.CylinderGeometry(0.205, 0.215, 0.07, 16).scale(1, 1, 0.8)), shirt, 0, 0.05, 0));
   if (hero) {
     const patch = new THREE.Mesh(geo('patch', () => new THREE.PlaneGeometry(0.06, 0.06)), new THREE.MeshStandardMaterial({ map: logoTexture(), roughness: 0.8 }));
     patch.position.set(0.075, 0.43, 0.137); patch.rotation.y = 0.12; torso.add(patch);
@@ -92,25 +107,32 @@ export function createCharacter(opts = {}) {
     const bag = mesh(geo('bag', () => new THREE.BoxGeometry(0.28, 0.34, 0.13)), mat(opts.bag), 0, 0.32, -0.2); torso.add(bag);
   }
   // neck + head
-  const neck = mesh(geo('neck', () => new THREE.CylinderGeometry(0.055, 0.062, 0.1, 10)), skin, 0, 0.62, 0); torso.add(neck);
+  if (!sk) torso.add(mesh(geo('neck', () => new THREE.CylinderGeometry(0.055, 0.062, 0.1, 10)), skin, 0, 0.62, 0));
   const head = pivot(0, 0.68, 0.005); torso.add(head);
   head.scale.setScalar(hero ? 1.14 : 1.08);
   head.add(mesh(geo('head', () => { const g = new THREE.SphereGeometry(0.115, 24, 18); g.scale(0.95, 1.08, 1.0); g.translate(0, 0.1, 0); return g; }), skin));
   // jaw/cheeks for a rounder face
-  head.add(mesh(geo('cheek', () => { const g = new THREE.SphereGeometry(0.1, 16, 12); g.scale(1.0, 0.8, 0.95); g.translate(0, 0.05, 0.012); return g; }), skin));
+  const cheek = mesh(geo('cheek', () => { const g = new THREE.SphereGeometry(0.1, 16, 12); g.scale(1.0, 0.8, 0.95); g.translate(0, 0.05, 0.012); return g; }), skin);
+  cheek.scale.set(fv.jaw, 1, 1 + (fv.jaw - 1) * 0.5); head.add(cheek);
   for (const s of [-1, 1]) head.add(mesh(geo('ear', () => { const g = new THREE.SphereGeometry(0.026, 8, 8); g.scale(0.5, 1, 0.8); return g; }), skin, 0.108 * s, 0.1, 0));
 
   // face
+  const lids = [];
   if (hero || opts.face !== false) {
     const eyeW = mat('#ffffff', { roughness: 0.3 }), eyeB = mat('#1b120c', { roughness: 0.2 });
     for (const s of [-1, 1]) {
-      const e = mesh(geo('eyeW', () => { const g = new THREE.SphereGeometry(0.016, 10, 8); g.scale(1.25, 0.75, 0.5); return g; }), eyeW, 0.038 * s, 0.103, 0.104);
+      const ex = 0.038 * s * fv.gap;
+      const e = mesh(geo('eyeW', () => { const g = new THREE.SphereGeometry(0.016, 10, 8); g.scale(1.25, 0.75, 0.5); return g; }), eyeW, ex, 0.103, 0.104);
+      e.scale.setScalar(fv.eye);
       head.add(e);
-      head.add(mesh(geo('pupil', () => { const g = new THREE.SphereGeometry(0.0105, 10, 8); g.scale(1, 1, 0.5); return g; }), eyeB, 0.038 * s, 0.102, 0.1095));
+      const pu = mesh(geo('pupil', () => { const g = new THREE.SphereGeometry(0.0105, 10, 8); g.scale(1, 1, 0.5); return g; }), eyeB, ex, 0.102, 0.1095); pu.scale.setScalar(fv.eye); head.add(pu);
+      // eyelid: skin-coloured cap shown for a moment when the character blinks (animate)
+      const lid = mesh(geo('lid', () => { const g = new THREE.SphereGeometry(0.0172, 10, 8); g.scale(1.32, 0.86, 0.62); return g; }), skin, ex, 0.103, 0.1068);
+      lid.scale.setScalar(fv.eye); lid.visible = false; lid.castShadow = false; head.add(lid); lids.push(lid);
       // brows (mostly hidden under the bangs, peek out with expressions)
       head.add(mesh(geo('brow', () => new THREE.BoxGeometry(0.03, 0.006, 0.006)), hairM, 0.04 * s, 0.137, 0.112));
     }
-    head.add(mesh(geo('nose', () => { const g = new THREE.SphereGeometry(0.014, 8, 8); g.scale(1, 0.9, 1); return g; }), skin, 0, 0.07, 0.113));
+    const nose = mesh(geo('nose', () => { const g = new THREE.SphereGeometry(0.014, 8, 8); g.scale(1, 0.9, 1); return g; }), skin, 0, 0.07, 0.113); nose.scale.setScalar(fv.nose); head.add(nose);
     const mouth = mesh(geo('mouth', () => new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI)), mat('#8a4a3e'), 0, 0.035, 0.103);
     mouth.rotation.z = Math.PI; head.add(mouth);
   }
@@ -165,17 +187,20 @@ export function createCharacter(opts = {}) {
   const arms = [];
   for (const s of [-1, 1]) {
     const sh = pivot(0.235 * s, 0.5, 0); torso.add(sh);
-    sh.add(mesh(geo('shoulder', () => { const g = new THREE.SphereGeometry(0.08, 12, 10); g.scale(1, 0.85, 1); return g; }), shirt));
+    if (!sk) sh.add(mesh(geo('shoulder', () => { const g = new THREE.SphereGeometry(0.08, 12, 10); g.scale(1, 0.85, 1); return g; }), shirt));
     const sleeve = mesh(geo('sleeve', () => { const g = new THREE.CylinderGeometry(0.078, 0.072, 0.17, 12); g.translate(0, -0.075, 0); return g; }), shirt);
-    sh.add(sleeve);
+    if (!sk) sh.add(sleeve);
     sh.rotation.order = 'ZYX'; // twist first, then swing — lets the ✌ pose bend the elbow upward
-    sh.add(mesh(geo('uarm', () => { const g = new THREE.CylinderGeometry(0.062, 0.055, 0.16, 12); g.translate(0, -0.2, 0); return g; }), skin));
+    if (!sk) sh.add(mesh(geo('uarm', () => { const g = new THREE.CylinderGeometry(0.062, 0.055, 0.16, 12); g.translate(0, -0.2, 0); return g; }), skin));
     const el = pivot(0, -0.26, 0); sh.add(el);
-    el.add(mesh(geo('elbow', () => new THREE.SphereGeometry(0.055, 10, 8)), skin));
-    el.add(mesh(geo('farm', () => { const g = new THREE.CylinderGeometry(0.054, 0.042, 0.21, 12); g.translate(0, -0.105, 0); return g; }), skin));
+    if (!sk) el.add(mesh(geo('elbow', () => new THREE.SphereGeometry(0.055, 10, 8)), skin));
+    if (!sk) el.add(mesh(geo('farm', () => { const g = new THREE.CylinderGeometry(0.054, 0.042, 0.21, 12); g.translate(0, -0.105, 0); return g; }), skin));
     let hand;
     if (hero) { hand = buildHand(skin, s); hand.position.y = -0.215; el.add(hand); poseHand(hand, 'relaxed', s); }
-    else el.add(mesh(geo('fist', () => { const g = new THREE.SphereGeometry(0.042, 8, 8); g.scale(0.9, 1.2, 0.7); g.translate(0, -0.24, 0); return g; }), skin));
+    else if (sk) { // mitten hand: palm + fingers in one, thumb in front (palms face the thighs)
+      el.add(mesh(geo('mitt', () => { const g = new THREE.CapsuleGeometry(0.026, 0.055, 4, 10); g.scale(1, 1, 0.6); g.translate(0, -0.262, 0); return g; }), skin));
+      el.add(mesh(geo('thumbN', () => { const g = new THREE.CapsuleGeometry(0.0105, 0.03, 3, 6); g.rotateX(-0.45); g.translate(0, -0.238, 0.02); return g; }), skin));
+    } else el.add(mesh(geo('fist', () => { const g = new THREE.SphereGeometry(0.042, 8, 8); g.scale(0.9, 1.2, 0.7); g.translate(0, -0.24, 0); return g; }), skin));
     if (hero && s < 0) { // black wristband on right wrist (character's right = -x)
       el.add(mesh(geo('band', () => new THREE.TorusGeometry(0.04, 0.008, 6, 16).rotateX(Math.PI / 2)), mat('#0c0c0c', { roughness: 0.4 }), 0, -0.19, 0));
     }
@@ -187,20 +212,22 @@ export function createCharacter(opts = {}) {
   const legs = [];
   for (const s of [-1, 1]) {
     const hp = pivot(0.1 * s, 0.02, 0); hips.add(hp);
-    if (pants) hp.add(mesh(geo('pantU', () => { const g = new THREE.CylinderGeometry(0.095, 0.078, 0.44, 12); g.translate(0, -0.2, 0); return g; }), shortsM));
+    if (sk) { /* legs are part of the skinned body */ } else if (pants) hp.add(mesh(geo('pantU', () => { const g = new THREE.CylinderGeometry(0.095, 0.078, 0.44, 12); g.translate(0, -0.2, 0); return g; }), shortsM));
     else {
       hp.add(mesh(geo('shortL', () => { const g = new THREE.CylinderGeometry(0.1, 0.108, 0.3, 12); g.translate(0, -0.12, 0); return g; }), shortsM));
       hp.add(mesh(geo('thigh', () => { const g = new THREE.CylinderGeometry(0.075, 0.064, 0.18, 10); g.translate(0, -0.33, 0); return g; }), skin));
     }
     const kn = pivot(0, -0.43, 0); hp.add(kn);
-    kn.add(mesh(geo('knee', () => new THREE.SphereGeometry(0.064, 10, 8)), pants ? shortsM : skin));
-    kn.add(mesh(geo(pants ? 'pantL' : 'shin', () => { const g = new THREE.CylinderGeometry(pants ? 0.072 : 0.06, pants ? 0.066 : 0.046, 0.38, 10); g.translate(0, -0.2, 0); return g; }), pants ? shortsM : skin));
-    if (!pants) kn.add(mesh(geo('sock', () => { const g = new THREE.CylinderGeometry(0.05, 0.05, 0.06, 10); g.translate(0, -0.39, 0); return g; }), sockM));
+    if (!sk) kn.add(mesh(geo('knee', () => new THREE.SphereGeometry(0.064, 10, 8)), pants ? shortsM : skin));
+    if (!sk) kn.add(mesh(geo(pants ? 'pantL' : 'shin', () => { const g = new THREE.CylinderGeometry(pants ? 0.072 : 0.06, pants ? 0.066 : 0.046, 0.38, 10); g.translate(0, -0.2, 0); return g; }), pants ? shortsM : skin));
+    if (!sk && !pants) kn.add(mesh(geo('sock', () => { const g = new THREE.CylinderGeometry(0.05, 0.05, 0.06, 10); g.translate(0, -0.39, 0); return g; }), sockM));
     const ft = pivot(0, -0.43, 0); kn.add(ft);
     ft.add(mesh(geo('shoe', () => { const g = new THREE.CapsuleGeometry(0.052, 0.13, 4, 10); g.rotateX(Math.PI / 2); g.scale(1.05, 0.85, 1); g.translate(0, -0.035, 0.05); return g; }), shoeM));
     ft.add(mesh(geo('sole', () => { const g = new THREE.BoxGeometry(0.1, 0.022, 0.25); g.translate(0, -0.075, 0.05); return g; }), soleM));
     legs.push({ hp, kn, ft, s });
   }
+  let bodyMesh = null;
+  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { shirt: opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build });
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
   // small parts (eyes, fingers, glasses, hair tips…) don't cast shadows and can be hidden at distance
@@ -210,7 +237,7 @@ export function createCharacter(opts = {}) {
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
     if (o.geometry.boundingSphere.radius < 0.04) { o.castShadow = false; details.push(o); }
   });
-  const ch = { root, body, hips, torso, head, arms, legs, phase: 0, hero, pose: null, poseT: 0, blend: 0, details, detailOn: true };
+  const ch = { root, body, hips, torso, head, arms, legs, phase: 0, hero, pose: null, poseT: 0, blend: 0, details, detailOn: true, bodyMesh, lids, blinkT: 1 + Math.random() * 4 };
   ch.setDetail = (on) => { if (ch.detailOn === on) return; ch.detailOn = on; for (const d of details) d.visible = on; };
   ch.setHandPose = (pose) => { if (hero) for (const a of arms) poseHand(a.hand, pose, a.s); };
   ch.update = (dt, st) => animate(ch, dt, st);
@@ -222,6 +249,8 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // st: {speed, air, mode:'foot'|'ride'|'drive'|'down', pose:'peace'|'cheer'|'wave'|null}
 function animate(ch, dt, st) {
   const sp = st.speed || 0;
+  // blink every 2–6 s (eyelids show for ~0.13 s)
+  if (ch.lids.length) { ch.blinkT -= dt; const shut = ch.blinkT < 0.13 && ch.detailOn; for (const l of ch.lids) l.visible = shut; if (ch.blinkT <= 0) ch.blinkT = 2.2 + Math.random() * 3.6; }
   const k = Math.min(1, dt * 12);
   const [aR, aL] = ch.arms; // s=-1 (right), s=+1 (left)
   const [lR, lL] = ch.legs;

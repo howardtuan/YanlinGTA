@@ -302,20 +302,58 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .ph-tabhint{font-size:10px;color:#8e8e93;text-align:center;margin-top:5px}.ph-tabhint kbd{font-size:9px;padding:0 4px;box-shadow:none;background:#e5e5ea}
 .ph-done{font-size:12px;color:#8e8e93;text-align:center;padding:10px 0}
 
-/* ---------------- McDonald's shift panel ---------------- */
-#mcjob{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:25;width:min(560px,94vw);background:rgba(20,8,8,.9);border:3px solid #ffbc0d;border-radius:14px;padding:12px 14px;color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.5)}
-#mcjob.good{animation:mjGood .35s}#mcjob.bad{animation:mjBad .3s}
-@keyframes mjGood{50%{box-shadow:0 0 0 6px rgba(80,220,120,.7)}}
-@keyframes mjBad{25%{transform:translateX(calc(-50% - 8px))}75%{transform:translateX(calc(-50% + 8px))}}
-.mj-head{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:8px}.mj-head b{color:#ffbc0d}.mj-prog{font-weight:800}
-.mj-ticket{background:#fffbe8;color:#222;border-radius:8px;padding:8px 12px}
-.mj-say{font-size:15px;font-weight:700}.mj-say small{display:block;font-size:11px;color:#c8102e;font-weight:800;letter-spacing:1px}
-.mj-items{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
-.mj-items span{background:#eee;border-radius:14px;padding:3px 10px;font-size:13px;font-weight:700}.mj-items span.ok{background:#bdf0c9;color:#11692b}
-.mj-timer{height:6px;background:#ddd;border-radius:3px;overflow:hidden}.mj-timer i{display:block;height:100%;width:100%;background:#2bb24c;transition:width .1s linear}
-.mj-timer.late i{background:#e8323c}
-.mj-tray{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:22px;min-height:30px}.mj-tray>small{font-size:12px;color:#ffbc0d;font-weight:800}.mj-trayitems small{font-size:12px;color:#aaa}
-.mj-btns{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-.mj-btns button{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;border-radius:8px;background:#c8102e;color:#fff;padding:6px 2px;font-size:12px;font-weight:800}
-.mj-btns button:hover{background:#e01a3a}.mj-btns button span{font-size:24px}.mj-btns kbd{font-size:10px;box-shadow:none}
-.mj-foot{display:flex;justify-content:space-between;font-size:12px;margin-top:8px;color:#ddd}.mj-foot b{color:#8ef0a8;font-size:15px}
+/* ---------- 麥當勞值班 (js/mcshift.js) ---------- */
+#mcShift{position:fixed;inset:0;z-index:40;pointer-events:auto;font-family:inherit}
+#mcShift.hidden{display:none}
+.mc-pos{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:min(900px,calc(100vw - 500px));min-width:min(640px,96vw);background:rgba(14,15,24,.92);border-radius:10px;border-top:4px solid #ffc72c;box-shadow:0 10px 40px rgba(0,0,0,.45);color:var(--text);overflow:hidden}
+.mc-pos.hidden{display:none}
+.mc-head{display:flex;align-items:center;gap:14px;padding:8px 12px;background:#c8102e}
+.mc-brand{font-weight:900;font-size:15px;display:flex;align-items:center;gap:8px}
+.mc-brand i{font-style:normal;font-family:"Arial Black",Arial,sans-serif;color:#ffc72c;font-size:20px;line-height:1}
+.mc-stats{flex:1;text-align:right;font-size:13px;font-weight:700;color:#ffe9b0}
+.mc-stats b{color:#fff;font-size:15px}.mc-stats b.v{color:#ffc72c}
+.mc-head button{border:0;border-radius:4px;background:rgba(0,0,0,.28);color:#fff;font-weight:800;padding:5px 10px;font-size:13px}
+.mc-head button:hover{background:rgba(0,0,0,.45)}
+.mc-body{display:grid;grid-template-columns:1.05fr 1.5fr 1fr;gap:10px;padding:10px}
+.mc-label{font-size:11px;letter-spacing:2px;color:var(--muted);font-weight:800;margin-bottom:4px}
+.mc-ticket,.mc-tray{background:rgba(255,255,255,.05);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;min-height:150px}
+.mc-say{font-size:13px;line-height:1.5;color:#f4f2ea;min-height:38px}
+.mc-recog{display:block;color:#ffc72c;font-weight:800}
+.mc-lines{list-style:none;margin:6px 0;padding:0;flex:1}
+.mc-lines li{display:flex;align-items:center;gap:6px;font-weight:800;font-size:14px;padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.12)}
+.mc-lines li b,.mc-tray-items b{margin-left:auto;color:#ffc72c;font-size:15px}
+.mc-lines em,.mc-menu em,.mc-tray-items em{font-style:normal}
+.mc-pat{height:8px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.mc-pat i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ad07a,#ffc72c);transition:width .2s linear}
+.mc-pat i.low{background:#ff5a5a}
+.mc-menu{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mc-menu button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:0;border-radius:6px;background:#f4f2ea;color:#1b1b1b;padding:8px 4px;transition:transform .08s,background .1s}
+.mc-menu button:hover{background:#fff;transform:translateY(-2px)}
+.mc-menu button:active{transform:scale(.96)}
+.mc-menu button em{font-size:26px;line-height:1.1}
+.mc-menu button b{font-size:13px;font-weight:900}
+.mc-menu button small{font-size:11px;color:#c8102e;font-weight:800}
+.mc-menu button kbd{position:absolute;left:5px;top:4px;font-size:10px}
+.mc-tray-items{flex:1;display:flex;flex-direction:column;gap:4px;overflow:auto;max-height:110px}
+.mc-tray-items button{display:flex;align-items:center;gap:6px;border:0;border-radius:4px;background:rgba(255,255,255,.08);color:#fff;font-weight:800;font-size:13px;padding:4px 8px;text-align:left}
+.mc-tray-items button:hover{background:rgba(255,90,90,.3)}
+.mc-empty{font-size:12px;color:var(--muted)}
+.mc-total{font-size:13px;font-weight:800;color:#ffe9b0;margin:4px 0;min-height:18px}
+.mc-acts{display:flex;gap:6px}
+.mc-acts button{flex:1;border:0;border-radius:5px;padding:8px 6px;font-weight:900;font-size:14px;background:rgba(255,255,255,.14);color:#fff}
+.mc-acts button.go{flex:1.6;background:#ffc72c;color:#1b1b1b;box-shadow:3px 3px 0 #c8102e}
+.mc-acts button:hover{filter:brightness(1.08)}
+.mc-summary{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45)}
+.mc-summary.hidden{display:none}
+.mc-sum-card{width:min(460px,92vw);background:#151829;border-radius:10px;border-top:5px solid #ffc72c;padding:20px 22px;text-align:center;box-shadow:0 12px 50px rgba(0,0,0,.5)}
+.mc-sum-kicker{font-size:12px;letter-spacing:2px;color:var(--muted);font-weight:800}
+.mc-sum-title{font-size:30px;font-weight:900;margin:4px 0 12px;color:#fff}
+.mc-sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.mc-sum-grid div{background:rgba(255,255,255,.06);border-radius:6px;padding:8px 4px;display:flex;flex-direction:column}
+.mc-sum-grid b{font-size:24px;font-weight:900}
+.mc-sum-grid span{font-size:11px;color:var(--muted)}
+.mc-sum-grid .v b{color:#ffc72c}
+.mc-sum-boss{font-size:14px;line-height:1.7;margin-bottom:14px;color:#f4f2ea}
+.mc-sum-boss small{color:var(--muted)}
+@media (max-width:900px){.mc-pos{width:96vw;min-width:0;bottom:8px}.mc-body{grid-template-columns:1fr 1.4fr 1fr;gap:6px;padding:6px}.mc-menu button em{font-size:20px}.mc-menu button b{font-size:11px}.mc-ticket,.mc-tray{min-height:120px}}
+.mc-sum-pay{font-size:14px;color:#ffe9b0;margin:-2px 0 10px}.mc-sum-pay b{color:#8ef0a8;font-size:17px}

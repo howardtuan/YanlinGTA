@@ -14,7 +14,7 @@ import { loadTerrain, surfaceAt } from './terrain.js';
 import { SkySystem } from './sky.js';
 import { PostFX } from './post.js';
 import { Phone } from './phone.js';
-import { McJob } from './mcjob.js';
+import { McShift } from './mcshift.js';
 
 const $ = id => document.getElementById(id);
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
@@ -107,7 +107,7 @@ class Game {
     this.money = 200; this.ledger = [{ what: '媽媽給的零用錢', n: 200, at: this.clock }];
     this.hud.setMoney(this.money);
     this.phone = new Phone(this);
-    this.job = new McJob(this);
+    this.job = new McShift(this); // 麥當勞打工值班
     // 彩蛋 (tools/overrides.json pois[].egg): toast once per game when you walk / ride past
     this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
     // 彥霖 campaign billboards at key campus spots
@@ -507,7 +507,7 @@ class Game {
   }
   resume() {
     this.state = 'play';
-    if (!this.input.touch) lockPointer(this.renderer.domElement);
+    if (!this.input.touch && !this.job?.active) lockPointer(this.renderer.domElement); // the shift panel needs a free mouse
   }
   _checkRotate() {
     $('rotateHint').classList.toggle('hidden', !(this.input && this.input.touch && innerHeight > innerWidth && this.state === 'play'));
@@ -550,6 +550,7 @@ class Game {
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'Space', 'Mouse0')) { hud.advanceDialog(); inp.pressed.clear(); }
     // McDonald's shift and the i-Piyan phone take the keyboard while they are up
+    if (!this.job.active) this.job.update(dt, inp); // off duty: only walks the last customers out of the shop
     if (this.job.active && !inDialog) { this.job.update(dt, inp); inp.pressed.clear(); }
     else if (this.phone.open) {
       if (this.phone.update(dt, inp) === 'closed' && !this.input.touch && !hud.bigOpen) lockPointer(this.renderer.domElement);
@@ -659,6 +660,7 @@ class Game {
     }
     // ---- camera & hud ----
     this.rig.update(dt, hud.bigOpen ? { mdx: 0, mdy: 0 } : inp, pl, w.collision, this.settings.sens, this.interiors);
+    if (this.job.active) this.job.camera(this.camera, dt); // over-the-shoulder shot of the counter
     hud.setClock(this.clock);
     const markers = [...this.missions.markers];
     const range = pl.vehicle ? 170 : 110;
@@ -671,7 +673,7 @@ class Game {
       for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160;
     }
     // tip box fades after a while on foot
-    if (!pl.vehicle && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定'); }
+    if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定'); }
     if (pl.vehicle) this._tipMode = 'car';
   }
   _nearestVehicle(r) {
@@ -717,7 +719,8 @@ const CONTROLS_HTML = `
 <div><span>訊息：選擇回覆</span><span><kbd>↑</kbd><kbd>↓</kbd> / <kbd>1</kbd><kbd>2</kbd></span></div>
 <div><span>訊息：傳送</span><kbd>Tab</kbd></div>
 <div><span>手機：返回 / 收起</span><span><kbd>Esc</kbd> / <kbd>E</kbd></span></div>
-<div><span>麥當勞出餐</span><span><kbd>1</kbd>～<kbd>6</kbd></span></div>
+<div><span>麥當勞值班：放餐點 / 出餐</span><span><kbd>1</kbd>～<kbd>6</kbd> / <kbd>Enter</kbd></span></div>
+<div><span>麥當勞值班：拿掉最後一樣 / 下班</span><span><kbd>⌫</kbd> / <kbd>E</kbd></span></div>
 </div>
 <div class="ctrl-sec">駕駛 機車與汽車 DRIVING</div>
 <div class="ctrl-grid">
@@ -740,7 +743,7 @@ const ABOUT_HTML = `<div class="about">
 <p style="font-size:20px;font-weight:900">資管要贏　票投彥霖</p>
 <p>《中原順起來》是彥霖的競選宣傳小遊戲。整個地圖依照真實的中原大學與周邊街區（中北路、實踐路、新中北路、中原夜市）搭建，建築位置與高度來自 OpenStreetMap。</p>
 <p>在遊戲裡，你就是彥霖：</p>
-<ul><li>騎著粉白色 SYM JET SL 穿梭校園送傳單</li><li>走進資管系館上樓、進教室，電腦教室裡有彩蛋影片</li><li>去活動中心的麥當勞點餐、坐進警衛室值班</li><li>衝去中原夜市買雞排宵夜</li><li>對路上的同學發傳單拉票</li><li>在學生活動中心發表政見</li></ul>
+<ul><li>騎著粉白色 SYM JET SL 穿梭校園送傳單</li><li>走進資管系館上樓、進教室，電腦教室裡有彩蛋影片</li><li>去活動中心的麥當勞點餐，或從櫃台後面的員工入口打工值班、幫同學出餐賺錢拉票</li><li>坐進警衛室值班</li><li>衝去中原夜市買雞排宵夜</li><li>對路上的同學發傳單拉票</li><li>在學生活動中心發表政見</li></ul>
 <p>真實的投票日，資管要贏，票投 <b style="color:#ffd23f">彥霖</b> 🗳✌</p>
 <p style="color:#a9adbf;font-size:12px">地圖資料 © OpenStreetMap contributors，依 ODbL 授權使用。<br>地形資料：內政部 20m 網格數值地形模型（政府資料開放授權條款第1版）。</p></div>`;
 

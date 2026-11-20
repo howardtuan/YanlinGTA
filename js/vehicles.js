@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
+import { buildScooter as buildCommuter } from './scooters.js';
 
 const MC = {};
 const m = (c, o = {}) => { const k = c + JSON.stringify(o); return MC[k] || (MC[k] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, ...o })); };
@@ -95,7 +96,8 @@ function jetWheel(R, w, disc) {
   const tyre = new THREE.Mesh(new THREE.LatheGeometry(prof, 28).rotateZ(Math.PI / 2), m('#141414', { roughness: 0.92 }));
   g.add(tyre);
   const rimM = m('#121214', { roughness: 0.35, metalness: 0.4 }), edgeM = m('#c9ccd0', { roughness: 0.25, metalness: 0.9 });
-  g.add(new THREE.Mesh(new THREE.CylinderGeometry(ri, ri, w * 0.8, 28, 1, true).rotateZ(Math.PI / 2), rimM));
+  // rim barrel is an open cylinder: render both sides so its inside shows between the spokes (no see-through wheel)
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(ri, ri, w * 0.8, 28, 1, true).rotateZ(Math.PI / 2), m('#121214', { roughness: 0.35, metalness: 0.4, side: THREE.DoubleSide })));
   const lip = new THREE.Mesh(new THREE.TorusGeometry(ri - 0.006, 0.006, 6, 28).rotateY(Math.PI / 2), edgeM);
   for (const s of [-1, 1]) { const l = lip.clone(); l.position.x = s * w * 0.38; g.add(l); }
   for (let k = 0; k < 5; k++) for (const o of [-0.09, 0.09]) {
@@ -376,8 +378,8 @@ export class Vehicle {
     this.kind = kind;
     const pick = a => a[Math.floor(rnd() * a.length)];
     if (kind === 'scooter') {
-      this.mesh = opt.jet ? buildJetSL() : buildScooter(pick(SCOOTER_COLORS));
-      Object.assign(this, { wb: 1.25, radius: 0.75, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: new THREE.Vector3(0, opt.jet ? 0.08 : 0.0, -0.3), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
+      this.mesh = opt.jet ? buildJetSL() : buildCommuter(pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (scooters.js)
+      Object.assign(this, { wb: 1.25, radius: 0.75, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
     } else {
       const taxi = kind === 'taxi';
       this.mesh = buildCar(taxi ? '#ffd000' : pick(CAR_COLORS), taxi);
@@ -388,7 +390,7 @@ export class Vehicle {
     this.mesh.rotation.order = 'YXZ'; // yaw, then pitch, then lean
     this.driver = null; // 'player' | 'ai' | null
     this.ai = null; this.bumpCooldown = 0; this.wheelRot = 0;
-    this.mesh.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.castShadow = o.geometry.boundingSphere.radius > 0.4; } });
+    this.mesh.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.castShadow = o.userData.shadow ?? (o.geometry.boundingSphere.radius > 0.4); } });
   }
   place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.sync(); }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }

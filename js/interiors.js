@@ -42,9 +42,6 @@ export const T = {
     g.fillStyle = '#d9d5ca'; g.fillRect(0, 0, 128, 128);
     g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 2; g.strokeRect(0, 0, 64, 64); g.strokeRect(64, 64, 64, 64); g.strokeRect(64, 0, 64, 64); g.strokeRect(0, 64, 64, 64);
   }),
-  mcFloor: () => ctex('mcfloor', 128, 128, (g) => {
-    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#7a2a22' : '#e9e2d4'; g.fillRect(x * 32, y * 32, 32, 32); }
-  }),
   board: () => ctex('board', 512, 256, (g) => {
     g.fillStyle = '#2d5a3b'; g.fillRect(0, 0, 512, 256); g.strokeStyle = '#8a6a44'; g.lineWidth = 14; g.strokeRect(0, 0, 512, 256);
     g.fillStyle = 'rgba(255,255,255,0.85)'; g.font = font(34, 700);
@@ -61,16 +58,6 @@ export const T = {
   }, false),
   sign: (text, bg, fg, key, w = 512, h = 128, size = 72) => ctex('sign' + key, w, h, (g) => {
     g.fillStyle = bg; g.fillRect(0, 0, w, h); g.font = font(size); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = fg; g.fillText(text, w / 2, h / 2 + 4);
-  }, false),
-  mcMenu: () => ctex('mcmenu', 1024, 256, (g) => {
-    g.fillStyle = '#1b1b1b'; g.fillRect(0, 0, 1024, 256);
-    const items = [['大麥克套餐', '$155'], ['麥香雞套餐', '$125'], ['麥克雞塊 6塊', '$69'], ['薯條 大', '$65'], ['可樂 中', '$38'], ['冰炫風', '$59']];
-    items.forEach(([n, p], i) => {
-      const x = 20 + (i % 3) * 335, y = 20 + Math.floor(i / 3) * 118;
-      g.fillStyle = '#c8102e'; g.fillRect(x, y, 320, 100);
-      g.fillStyle = '#ffc72c'; g.beginPath(); g.arc(x + 50, y + 50, 34, 0, 7); g.fill();
-      g.fillStyle = '#fff'; g.font = font(32); g.fillText(n, x + 96, y + 46); g.fillStyle = '#ffc72c'; g.font = font(30, 800); g.fillText(p, x + 96, y + 84);
-    });
   }, false),
   mcStaff: () => ctex('mcstaff', 384, 124, (g) => {
     g.fillStyle = '#c8102e'; g.fillRect(0, 0, 384, 124); g.fillStyle = '#ffbc0d'; g.fillRect(0, 0, 384, 10); g.fillRect(0, 114, 384, 10);
@@ -110,7 +97,6 @@ function M(key) {
     winWall: () => std({ map: T.windowWall() }),
     beige: () => std({ map: T.beige() }),
     floor: () => std({ map: T.floor(), roughness: 0.6 }),
-    mcFloor: () => std({ map: T.mcFloor(), roughness: 0.5 }),
     door: () => std({ color: '#b0353c' }),
     glass: () => new THREE.MeshStandardMaterial({ color: '#9fd3e6', transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.3, depthWrite: false }),
     metal: () => std({ color: '#8d9196', metalness: 0.7, roughness: 0.35 }),
@@ -120,10 +106,8 @@ function M(key) {
     light: () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff8e6', emissiveIntensity: 0.9 }),
     board: () => std({ map: T.board(), roughness: 0.9 }),
     solar: () => std({ color: '#1d2f5a', metalness: 0.6, roughness: 0.3 }),
-    mcRed: () => std({ color: '#c8102e' }),
-    mcYellow: () => std({ color: '#ffc72c' }),
-    mcWood: () => std({ color: '#8b5a35' }),
     steel: () => std({ color: '#c9ccd0', metalness: 0.8, roughness: 0.25 }),
+    chrome: () => std({ color: '#dfe2e6', metalness: 0.95, roughness: 0.18 }),
     // matches 學生活動中心 colour in tools/overrides.json
     sac: () => std({ color: '#e3e1db' }),
     screen: () => new THREE.MeshStandardMaterial({ map: T.screen(), emissive: '#ffffff', emissiveMap: T.screen(), emissiveIntensity: 0.9 }),
@@ -441,36 +425,308 @@ export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14
 export function sacTrimmedPts() {
   return [[-194.7, -128.6], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5]];
 }
+// Look of the real store (photos of 中原大學麥當勞): dark grey 60 cm floor tiles, white grid ceiling with
+// square downlights, white counter on a black plinth under a dropped soffit with digital menu boards,
+// charcoal banquette under a black & white mural, oak tables with bentwood chairs, a long stainless
+// communal table under white drum pendants, a striped accent wall, oak panels, yellow trash cabinets,
+// dark fascia with white "McDonald's". All textures are drawn here (no photos are used).
+const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+function archPath(g, x, y, w, h, lw) {
+  // golden-arches style double hump, drawn as two thick parabolic strokes
+  g.lineWidth = lw; g.lineCap = 'butt'; g.beginPath();
+  const b = y + h, hw = w / 4;
+  g.moveTo(x + lw / 2, b); g.bezierCurveTo(x + lw / 2, y - h * 0.15, x + hw * 2 - lw * 0.1, y - h * 0.15, x + hw * 2, b * 0.55 + y * 0.45);
+  g.bezierCurveTo(x + hw * 2 + lw * 0.1, y - h * 0.15, x + w - lw / 2, y - h * 0.15, x + w - lw / 2, b);
+  g.stroke();
+}
+function foodIcon(g, kind, x, y, s) {
+  g.save(); g.translate(x, y); g.scale(s, s);
+  if (kind === 'burger') {
+    g.fillStyle = '#e0a04a'; g.beginPath(); g.ellipse(0, -10, 34, 20, 0, Math.PI, 0); g.fill();
+    g.fillStyle = '#f2e6c8'; for (let i = 0; i < 7; i++) g.fillRect(-24 + i * 8, -22 + (i % 2) * 4, 3, 2);
+    g.fillStyle = '#5fae3a'; g.fillRect(-36, -10, 72, 5); g.fillStyle = '#ffcc33'; g.fillRect(-34, -5, 68, 4);
+    g.fillStyle = '#6a3518'; g.beginPath(); g.roundRect(-35, -1, 70, 10, 4); g.fill();
+    g.fillStyle = '#d99640'; g.beginPath(); g.roundRect(-33, 9, 66, 11, 6); g.fill();
+  } else if (kind === 'fries') {
+    g.fillStyle = '#f7c948'; for (let i = 0; i < 8; i++) g.fillRect(-20 + i * 5.2, -34 + (i * 7) % 10, 4, 30);
+    g.fillStyle = '#db0007'; g.beginPath(); g.moveTo(-24, -10); g.quadraticCurveTo(0, -18, 24, -10); g.lineTo(18, 22); g.lineTo(-18, 22); g.closePath(); g.fill();
+    g.strokeStyle = '#ffc72c'; g.lineWidth = 3; archPath(g, -9, -4, 18, 10, 3);
+  } else if (kind === 'drink') {
+    g.fillStyle = '#f4f4f2'; g.beginPath(); g.moveTo(-17, -24); g.lineTo(17, -24); g.lineTo(13, 24); g.lineTo(-13, 24); g.closePath(); g.fill();
+    g.fillStyle = '#db0007'; g.fillRect(-15, -4, 30, 12); g.fillStyle = '#ddd'; g.fillRect(-19, -29, 38, 5); g.fillStyle = '#ffbc0d'; g.fillRect(4, -44, 3, 16);
+  } else if (kind === 'nugget') {
+    g.fillStyle = '#db0007'; g.fillRect(-26, -2, 52, 22);
+    g.fillStyle = '#d99a52'; for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(-18 + i * 9, -6 + (i % 2) * 3, 8, 6, i * 0.5, 0, 7); g.fill(); }
+  } else if (kind === 'cone') {
+    g.fillStyle = '#d6a05a'; g.beginPath(); g.moveTo(-11, 0); g.lineTo(11, 0); g.lineTo(0, 30); g.closePath(); g.fill();
+    g.fillStyle = '#fbf7ec'; g.beginPath(); g.arc(0, -6, 13, 0, 7); g.fill(); g.beginPath(); g.arc(0, -18, 8, 0, 7); g.fill();
+  } else if (kind === 'chicken') {
+    g.fillStyle = '#c9772e'; g.beginPath(); g.ellipse(0, 0, 30, 20, -0.3, 0, 7); g.fill();
+    g.fillStyle = '#e3a356'; for (let i = 0; i < 9; i++) { g.beginPath(); g.arc(-18 + (i % 5) * 9, -6 + Math.floor(i / 5) * 10, 4, 0, 7); g.fill(); }
+  }
+  g.restore();
+}
+const MCT = {
+  floor: () => ctex('mcTile', 256, 256, (g) => {
+    const r = lcg(7);
+    for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+      const v = 86 + Math.floor(r() * 16); g.fillStyle = `rgb(${v},${v + 2},${v + 5})`; g.fillRect(i * 128, j * 128, 128, 128);
+      for (let n = 0; n < 700; n++) { const q = Math.floor(v + (r() - 0.5) * 30); g.fillStyle = `rgba(${q},${q},${q + 3},0.35)`; g.fillRect(i * 128 + r() * 128, j * 128 + r() * 128, 1.5, 1.5); }
+    }
+    g.fillStyle = 'rgba(52,53,56,0.95)'; for (const k of [0, 128]) { g.fillRect(k, 0, 2, 256); g.fillRect(0, k, 256, 2); }
+  }),
+  ceil: () => ctex('mcCeil', 128, 128, (g) => {
+    const r = lcg(3); g.fillStyle = '#eceae5'; g.fillRect(0, 0, 128, 128);
+    for (let n = 0; n < 900; n++) { g.fillStyle = `rgba(150,148,140,${0.08 + r() * 0.12})`; g.fillRect(r() * 128, r() * 128, 1.3, 1.3); }
+    g.fillStyle = '#c9c7c1'; g.fillRect(0, 0, 128, 3); g.fillRect(0, 0, 3, 128);
+  }),
+  oak: () => ctex('mcOak', 256, 256, (g) => {
+    const r = lcg(11);
+    for (let p = 0; p < 4; p++) {
+      const base = [164, 124, 86].map(c => c + Math.floor((r() - 0.5) * 18)); g.fillStyle = `rgb(${base})`; g.fillRect(p * 64, 0, 64, 256);
+      for (let n = 0; n < 26; n++) { const x = p * 64 + r() * 64, d = (r() - 0.5) * 30; g.strokeStyle = `rgba(${90 + d},${62 + d},${40 + d},${0.25 + r() * 0.25})`; g.lineWidth = 0.6 + r() * 1.4; g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + (r() - 0.5) * 8, 90, x + (r() - 0.5) * 8, 170, x + (r() - 0.5) * 6, 256); g.stroke(); }
+      g.fillStyle = 'rgba(60,40,26,0.55)'; g.fillRect(p * 64, 0, 1.5, 256);
+    }
+  }),
+  blackTile: () => ctex('mcBlackTile', 64, 64, (g) => { g.fillStyle = '#1c1d20'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#3a3c40'; g.fillRect(0, 0, 64, 2); g.fillRect(0, 0, 2, 64); g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(4, 4, 20, 56); }),
+  stripes: () => ctex('mcStripes', 1024, 64, (g) => {
+    const cols = ['#ffbc0d', '#f3f1ec', '#3a3c40', '#db0007', '#f3f1ec', '#ffbc0d', '#c9c9c9', '#f28c28', '#3a3c40', '#f3f1ec', '#db0007', '#ffbc0d', '#f3f1ec', '#3a3c40', '#f28c28', '#ffbc0d', '#f3f1ec', '#c9c9c9', '#db0007', '#3a3c40'];
+    const w = [70, 38, 22, 40, 60, 30, 46, 52, 18, 64, 26, 58, 40, 24, 48, 66, 34, 50, 36, 28];
+    const tot = w.reduce((a, b) => a + b, 0); let x = 0;
+    cols.forEach((c, i) => { const ww = w[i] / tot * 1024; g.fillStyle = c; g.fillRect(x, 0, ww + 1, 64); x += ww; });
+  }, false),
+  mural: () => ctex('mcMural', 2048, 430, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, '#202124'); gr.addColorStop(0.55, '#2c2d31'); gr.addColorStop(1, '#3d3e42'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const r = lcg(21), words = ['中原', '資管', '順起來', '彥霖', '薯條', '大麥克', '下課了', '宵夜', '期中考', '社團', 'MUSIC', 'PLAY', 'LOVE', '夜市', '同學', '週末'];
+    g.fillStyle = 'rgba(240,240,236,0.75)'; g.font = '700 15px "Noto Sans TC",sans-serif';
+    for (let c = 0; c < 70; c++) { const x = 20 + c * 29 + r() * 8; let y = r() * 60; while (y < h) { g.fillText(words[Math.floor(r() * words.length)], x, y); y += 22 + r() * 30; } }
+    // big headphones (white line art) over a soft spotlight
+    const cx = 1300, cy = 250, sp = g.createRadialGradient(cx, cy, 20, cx, cy, 420); sp.addColorStop(0, 'rgba(255,255,255,0.18)'); sp.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sp; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#f3f2ee'; g.lineWidth = 26; g.beginPath(); g.arc(cx, cy + 60, 210, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+    g.lineWidth = 8; g.beginPath(); g.arc(cx, cy + 60, 240, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
+    for (const s of [-1, 1]) {
+      g.fillStyle = '#121214'; g.beginPath(); g.ellipse(cx + s * 205, cy + 120, 62, 92, s * 0.12, 0, 7); g.fill();
+      g.strokeStyle = '#f3f2ee'; g.lineWidth = 10; g.stroke();
+      g.fillStyle = '#db0007'; g.beginPath(); g.ellipse(cx + s * 205, cy + 120, 30, 50, s * 0.12, 0, 7); g.fill();
+    }
+    g.fillStyle = '#ffbc0d'; g.fillRect(140, h - 70, 520, 8);
+    g.fillStyle = '#f3f2ee'; g.font = '900 64px "Noto Sans TC",sans-serif'; g.fillText('一起・好時光', 140, h - 100);
+  }, false),
+  menu: (i) => ctex('mcMenu' + i, 512, 288, (g, w, h) => {
+    const sets = [
+      ['超值全餐', [['burger', '大麥克', '$155'], ['fries', '薯條', '$65'], ['drink', '可樂', '$38']]],
+      ['雞肉系列', [['chicken', '麥香雞', '$125'], ['nugget', '雞塊 6塊', '$69'], ['drink', '雪碧', '$38']]],
+      ['今日推薦', [['burger', '雙層牛肉堡', '$145'], ['fries', '大薯', '$65'], ['cone', '蛋捲冰淇淋', '$15']]],
+      ['點心', [['nugget', '麥克雞塊', '$69'], ['fries', '中薯', '$55'], ['chicken', '麥脆雞', '$75']]],
+      ['甜點飲料', [['cone', '冰炫風', '$59'], ['drink', '紅茶', '$33'], ['cone', '聖代', '$45']]],
+      ['學生套餐', [['burger', '吉事堡', '$99'], ['drink', '可樂', '$38'], ['fries', '小薯', '$45']]],
+    ];
+    const [title, items] = sets[i % sets.length];
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#103a7a'); gr.addColorStop(1, '#071a3a'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#db0007'; g.fillRect(0, 0, w, 52); g.fillStyle = '#ffbc0d'; g.fillRect(0, 52, w, 5);
+    g.fillStyle = '#ffffff'; g.font = '900 34px "Noto Sans TC",sans-serif'; g.textBaseline = 'middle'; g.fillText(title, 18, 28);
+    g.strokeStyle = '#ffbc0d'; archPath(g, w - 74, 12, 56, 30, 8);
+    items.forEach(([icon, name, price], k) => {
+      const x = 16 + k * 166, y = 70;
+      g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.roundRect(x, y, 152, 204, 12); g.fill();
+      foodIcon(g, icon, x + 76, y + 70, 1.35);
+      g.fillStyle = '#ffffff'; g.font = '800 24px "Noto Sans TC",sans-serif'; g.textAlign = 'center'; g.fillText(name, x + 76, y + 148);
+      g.fillStyle = '#ffbc0d'; g.font = '900 30px Arial,sans-serif'; g.fillText(price, x + 76, y + 182); g.textAlign = 'left';
+    });
+  }, false),
+  pos: () => ctex('mcPos', 128, 80, (g) => {
+    g.fillStyle = '#0d2238'; g.fillRect(0, 0, 128, 80);
+    const cs = ['#db0007', '#ffbc0d', '#2e7d32', '#1565c0', '#f28c28', '#6d4c41'];
+    for (let i = 0; i < 12; i++) { g.fillStyle = cs[i % cs.length]; g.fillRect(6 + (i % 4) * 30, 8 + Math.floor(i / 4) * 22, 26, 18); }
+  }, false),
+  fascia: () => ctex('mcFascia', 1024, 144, (g, w, h) => {
+    g.fillStyle = '#2f3134'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffbc0d'; archPath(g, 40, 22, 150, 96, 22);
+    g.fillStyle = '#ffffff'; g.font = '900 96px "Arial Black","Helvetica Neue",Arial,sans-serif'; g.textBaseline = 'middle'; g.fillText("McDonald's", 230, 78);
+  }, false),
+  arches: (col) => ctex('mcArch' + col, 256, 224, (g) => { g.clearRect(0, 0, 256, 224); g.strokeStyle = col; archPath(g, 14, 18, 228, 196, 40); }, false),
+  bin: (label, icon, key) => ctex('mcBin' + key, 256, 120, (g) => {
+    g.fillStyle = '#ffbc0d'; g.fillRect(0, 0, 256, 120);
+    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect(14, 22, 228, 76, 8); g.fill();
+    g.fillStyle = '#2f3134'; g.fillRect(24, 32, 56, 56); g.fillStyle = '#ffffff'; g.font = '700 38px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(icon, 52, 62);
+    g.fillStyle = '#2f3134'; g.font = '900 34px "Noto Sans TC",sans-serif'; g.fillText(label, 162, 62);
+  }, false),
+  toss: () => ctex('mcToss', 512, 244, (g, w, h) => {
+    g.fillStyle = '#ffbc0d'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 7; g.lineCap = 'round'; g.lineJoin = 'round';
+    // stick figure tossing a cup into a basket (white line drawing, like the panel in the store)
+    g.beginPath(); g.arc(330, 58, 22, 0, 7); g.stroke();
+    g.beginPath(); g.moveTo(330, 80); g.lineTo(326, 160); g.moveTo(326, 160); g.lineTo(306, 226); g.moveTo(326, 160); g.lineTo(348, 226);
+    g.moveTo(328, 104); g.lineTo(286, 76); g.lineTo(256, 62); g.moveTo(328, 104); g.lineTo(366, 132); g.stroke();
+    for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(312 + i * 5, 36); g.lineTo(306 + i * 7, 14 - (i % 3) * 4); g.stroke(); }
+    g.beginPath(); g.moveTo(246, 64); g.quadraticCurveTo(200, 30, 156, 96); g.setLineDash([10, 12]); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.moveTo(110, 120); g.lineTo(200, 120); g.lineTo(188, 214); g.lineTo(122, 214); g.closePath(); g.stroke();
+    for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(128 + i * 18, 124); g.lineTo(132 + i * 16, 210); g.stroke(); }
+  }, false),
+  column: () => ctex('mcColumn', 64, 512, (g) => { const c = ['#f28c28', '#db0007', '#3a3c40', '#db0007', '#f3f1ec']; const ww = [22, 18, 6, 10, 8]; let x = 0; c.forEach((cc, i) => { g.fillStyle = cc; g.fillRect(x, 0, ww[i] + 1, 512); x += ww[i]; }); }, false),
+  kids: () => ctex('mcKids', 256, 384, (g, w, h) => {
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2a7de1'); gr.addColorStop(1, '#0f4fa8'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#db0007'; g.beginPath(); g.moveTo(48, 150); g.lineTo(208, 150); g.lineTo(196, 300); g.lineTo(60, 300); g.closePath(); g.fill();
+    g.strokeStyle = '#ffbc0d'; g.lineWidth = 12; g.beginPath(); g.arc(98, 150, 34, Math.PI, 0); g.stroke(); g.beginPath(); g.arc(158, 150, 34, Math.PI, 0); g.stroke();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(104, 222, 10, 0, 7); g.arc(152, 222, 10, 0, 7); g.fill(); g.lineWidth = 6; g.strokeStyle = '#ffffff'; g.beginPath(); g.arc(128, 246, 30, 0.2, Math.PI - 0.2); g.stroke();
+    g.fillStyle = '#ffffff'; g.font = '900 40px "Noto Sans TC",sans-serif'; g.textAlign = 'center'; g.fillText('開心樂園餐', 128, 70);
+    g.fillStyle = '#ffbc0d'; g.font = '800 26px "Noto Sans TC",sans-serif'; g.fillText('玩具 · 好好玩', 128, 352);
+  }, false),
+};
+function mcdMaterials() {
+  const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
+  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+  return {
+    floor: def('mcdFloor', () => std({ map: MCT.floor(), roughness: 0.42, metalness: 0.05 })),
+    ceil: def('mcdCeil', () => std({ map: MCT.ceil(), roughness: 0.95 })),
+    oak: def('mcdOak', () => std({ map: MCT.oak(), roughness: 0.6 })),
+    oakTop: def('mcdOakTop', () => std({ color: '#c49a6c', roughness: 0.45 })),
+    blackTile: def('mcdBlackTile', () => std({ map: MCT.blackTile(), roughness: 0.3 })),
+    counter: def('mcdCounter', () => std({ color: '#f3f2ee', roughness: 0.35 })),
+    top: def('mcdTop', () => std({ color: '#dcdad4', roughness: 0.25 })),
+    black: def('mcdBlack', () => std({ color: '#161719', roughness: 0.45 })),
+    bench: def('mcdBench', () => std({ color: '#3b3d42', roughness: 0.95 })),
+    walnut: def('mcdWalnut', () => std({ color: '#5a3a26', roughness: 0.45, side: THREE.DoubleSide })),
+    yellow: def('mcdYellow', () => std({ color: '#ffbc0d', roughness: 0.35 })),
+    frame: def('mcdFrame', () => std({ color: '#3a3c40', roughness: 0.5, metalness: 0.3 })),
+    pillar: def('mcdPillar', () => std({ color: '#45474b', roughness: 0.6 })),
+    fasciaBox: def('mcdFasciaBox', () => std({ color: '#2f3134', roughness: 0.6 })),
+    vent: def('mcdVent', () => std({ color: '#d5d4cf', roughness: 0.6 })),
+    warm: def('mcdWarm', () => new THREE.MeshStandardMaterial({ color: '#ffb35a', emissive: '#ff9a3c', emissiveIntensity: 0.9 })),
+    fryer: def('mcdFryer', () => std({ color: '#5b5f64', metalness: 0.7, roughness: 0.35 })),
+    tray: def('mcdTray', () => std({ color: '#a6362c', roughness: 0.5 })),
+    lamp: def('mcdLamp', () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff4dc', emissiveIntensity: 1.15, roughness: 0.6 })),
+  };
+}
 function buildMcD(I, scene) {
   const S = MCD_SPEC; const k = new Kit(I, S.x0, S.z0, 0);
   const W = S.x1 - S.x0, D = S.z1 - S.z0, H = S.H;
-  k.box(0, W, 0, 0.1, 0, D, 'mcFloor', { col: false, surface: true, tile: [1.2, 1.2] });
-  // walls: west solid (kitchen), north & south walls, east glass front with door
+  const MT = mcdMaterials(); // textures / materials of the real store (see MCT below)
+  const put = (mat, g) => { if (!k.parts.has(mat)) k.parts.set(mat, []); k.parts.get(mat).push(g); };
+  // ---- shell: dark grey 60 cm floor tiles, walls, east glass front with door ----
+  k.box(0, W, 0, 0.1, 0, D, MT.floor, { col: false, surface: true, tile: [1.2, 1.2] });
   k.box(0, 0.3, 0, H, 0, D, 'white');
   k.box(0, W, 0, H, 0, 0.3, 'white');
-  k.box(0, W, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] });
-  k.box(W - 0.15, W, 0, 1.0, 0, D, 'mcRed', { col: false });
+  k.box(0, W, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] }); // outside face keeps the 活動中心 windows
+  k.box(W - 0.15, W, 0, 0.35, 0, D, MT.frame, { col: false });
   k.box(W - 0.15, W, 0, H, 0, 7.5, 'glass'); k.box(W - 0.15, W, 0, H, 12.5, D, 'glass');
   k.box(W - 0.15, W, 2.6, H, 7.5, 12.5, 'glass', { col: false });
-  for (const z of [0, 7.5, 12.5, D]) k.box(W - 0.25, W + 0.05, 0, H, z - 0.12, z + 0.12, 'mcRed', { col: false });
-  // facade band + upper floors of 活動中心
-  k.box(-0.05, W + 0.4, H, H + 1.2, -0.05, D + 0.05, 'mcRed', { col: false });
-  k.plane(T.mcLogo(), 6, 3, W + 0.42, H + 0.6, D / 2, Math.PI / 2, { emissive: 0.4 });
+  for (const z of [0, 7.5, 12.5, D]) k.box(W - 0.22, W + 0.04, 0, H, z - 0.08, z + 0.08, MT.frame, { col: false });
+  k.box(W - 0.22, W + 0.04, 2.55, 2.65, 7.5, 12.5, MT.frame, { col: false }); // door transom
+  // ---- outside: dark fascia with white "McDonald's", dark grey pillar with the golden arches ----
+  k.box(-0.05, W + 0.4, H, H + 1.2, -0.05, D + 0.05, MT.fasciaBox, { col: false });
+  k.plane(MCT.fascia(), 7.2, 1.0, W + 0.42, H + 0.6, D / 2, Math.PI / 2, { emissive: 0.55 });
+  k.box(W, W + 0.9, 0, H + 1.2, 0.05, 0.95, MT.pillar);
+  k.plane(MCT.arches('#ffbc0d'), 0.8, 0.7, W + 0.91, 3.0, 0.5, Math.PI / 2, { emissive: 0.9, transparent: true });
   k.box(0, W, H + 1.2, S.top, 0, D, 'sac', { col: false });
-  k.box(0, W, H - 0.1, H, 0, D, 'white', { col: false }); // ceiling
-  // counter, menu, kitchen
-  k.box(3.2, 4.2, 0, 1.1, 3, 17, 'mcRed'); k.box(3.1, 4.3, 1.1, 1.18, 3, 17, 'steel', { col: false });
-  for (const z of [6, 10, 14]) k.box(3.4, 3.8, 1.18, 1.5, z, z + 0.5, 'dark', { col: false });
-  k.plane(T.mcMenu(), 12, 3, 0.32, 3.0, 10, Math.PI / 2, { emissive: 0.6 });
-  k.box(0.3, 2.2, 0, 1.0, 2, 18, 'steel', { col: false });
-  for (let lx = 6; lx < W - 1; lx += 4) for (let lz = 3; lz < D - 1; lz += 5) k.box(lx, lx + 1.2, H - 0.32, H - 0.28, lz, lz + 0.6, 'light', { col: false });
-  // tables with red/yellow seats
-  for (let tx = 8; tx < W - 3; tx += 4) for (let tz = 3; tz < D - 2; tz += 4) {
-    k.box(tx, tx + 1.2, 0.72, 0.78, tz, tz + 1.2, 'mcWood', { col: false });
-    k.box(tx + 0.5, tx + 0.7, 0, 0.72, tz + 0.5, tz + 0.7, 'metal', { col: false });
-    k.wallRect(tx, tx + 1.2, tz, tz + 1.2, 0, 0.78);
-    for (const [cx, cz, c] of [[tx - 0.6, tz + 0.4, 'mcYellow'], [tx + 1.4, tz + 0.4, 'mcRed']]) k.box(cx, cx + 0.4, 0.4, 0.46, cz, cz + 0.4, c, { col: false });
+  // ---- ceiling: white 60 cm grid with square downlights and A/C diffusers ----
+  k.box(0, W, H - 0.1, H, 0, D, MT.ceil, { col: false, tile: [0.6, 0.6] });
+  const inSoffit = (x, z) => x > 1.8 && x < 5.4 && z > 2.2 && z < 17.8;
+  for (let x = 6.3; x < W - 0.5; x += 1.8) for (let z = 1.5; z < D - 0.5; z += 1.8) {
+    if (inSoffit(x, z) || (Math.abs(z - 5.1) < 1.2 && x > 8.5 && x < 17.5)) continue;
+    k.box(x - 0.09, x + 0.09, H - 0.115, H - 0.1, z - 0.09, z + 0.09, 'light', { col: false });
   }
+  for (const [x, z] of [[7.2, 9.9], [12.6, 9.9], [18, 9.9], [9.9, 15.3], [15.3, 15.3], [20.7, 2.7]]) k.box(x - 0.3, x + 0.3, H - 0.112, H - 0.1, z - 0.3, z + 0.3, MT.vent, { col: false });
+  // dropped soffit over the counter (as in the photo) with its own downlights
+  k.box(1.8, 5.4, 3.35, H - 0.1, 2.2, 17.8, 'white', { col: false });
+  for (let z = 3.0; z < 17.5; z += 1.2) k.box(4.55, 4.75, 3.335, 3.35, z - 0.1, z + 0.1, 'light', { col: false });
+  // ---- counter: white body on a black plinth, pale top, grey M, POS terminals ----
+  k.box(3.3, 4.1, 0, 0.16, 3, 17, MT.black, { col: false });
+  k.box(3.2, 4.2, 0.16, 1.05, 3, 17, MT.counter);
+  k.box(3.1, 4.3, 1.05, 1.1, 3, 17, MT.top, { col: false });
+  for (const z of [6.5, 13.5]) k.plane(MCT.arches('#8f9296'), 0.42, 0.36, 4.205, 0.66, z, Math.PI / 2);
+  for (const z of [6.2, 10, 13.8]) {
+    k.box(3.62, 3.68, 1.1, 1.24, z - 0.04, z + 0.04, MT.black, { col: false });
+    k.box(3.56, 3.62, 1.2, 1.46, z - 0.19, z + 0.19, MT.black, { col: false });
+    k.plane(MCT.pos(), 0.34, 0.22, 3.555, 1.33, z, -Math.PI / 2, { emissive: 0.85 });
+    k.plane(MCT.pos(), 0.16, 0.1, 3.625, 1.36, z, Math.PI / 2, { emissive: 0.85 });
+  }
+  // digital menu boards hanging under the soffit, facing the dining room
+  for (let i = 0; i < 6; i++) {
+    const z = 6.0 + i * 1.6;
+    k.box(2.2, 2.28, 2.62, 3.3, z - 0.56, z + 0.56, MT.black, { col: false });
+    k.plane(MCT.menu(i), 1.06, 0.6, 2.285, 2.96, z, Math.PI / 2, { emissive: 0.9 });
+    k.box(2.22, 2.25, 3.3, 3.35, z - 0.02, z + 0.02, 'steel', { col: false });
+  }
+  // ---- kitchen: black tiled back wall, stainless back counter and equipment ----
+  k.box(0.3, 0.32, 1.0, 2.5, 2, 18, MT.blackTile, { col: false, tile: [0.3, 0.3] });
+  k.box(0.3, 2.2, 0, 1.0, 2, 18, 'steel', { col: false });
+  k.box(0.45, 1.15, 1.0, 1.72, 4.0, 5.3, 'steel', { col: false }); // drink tower
+  k.box(0.45, 1.2, 1.72, 1.78, 4.0, 5.3, MT.black, { col: false });
+  for (let n = 0; n < 6; n++) put('chrome', new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8).translate(1.12, 1.62, 4.15 + n * 0.2));
+  k.box(0.45, 0.95, 1.0, 1.55, 5.8, 6.5, MT.black, { col: false }); // coffee machine
+  k.box(0.5, 1.7, 1.0, 1.55, 8.4, 11.6, 'steel', { col: false }); // warming cabinet
+  k.box(1.69, 1.71, 1.08, 1.47, 8.5, 11.5, MT.warm, { col: false });
+  k.box(0.35, 1.7, 0, 1.08, 13.8, 16.2, MT.fryer, { col: false }); // fryers
+  for (const z of [14.2, 14.9, 15.6]) k.box(0.7, 1.5, 1.08, 1.22, z - 0.25, z + 0.25, 'steel', { col: false });
+  k.box(0.45, 1.05, 1.0, 1.85, 16.6, 17.4, 'steel', { col: false }); // ice-cream machine
+  for (let n = 0; n < 4; n++) k.box(1.6, 2.1, 1.0 + n * 0.02, 1.015 + n * 0.02, 2.4, 3.0, MT.tray, { col: false }); // tray stack
+  // ---- south wall: charcoal banquette under the black & white mural, oak panels ----
+  k.plane(MCT.mural(), 12.4, 2.6, 11.2, 2.55, 0.32);
+  k.box(17.4, W - 0.15, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  k.box(4.2, 5.0, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  k.box(5.0, 17.4, 0, 0.42, 0.34, 1.0, MT.oak, { col: false, tile: [1.2, 0.42] });
+  k.box(5.0, 17.4, 0.42, 0.62, 0.34, 1.0, MT.bench, { col: false });
+  k.box(5.0, 17.4, 0.62, 1.15, 0.34, 0.52, MT.bench, { col: false });
+  k.wallRect(5.0, 17.4, 0.3, 1.0, 0, 1.15);
+  // ---- furniture (merged per material) ----
+  const place = (list, a, x, z) => list.map(g => g.clone().rotateY(a).translate(x, 0, z));
+  const chairParts = (bar) => {
+    const sy = bar ? 0.66 : 0.46, wood = [], metal = [];
+    wood.push(new THREE.BoxGeometry(0.42, 0.03, 0.4).translate(0, sy, 0.02));
+    wood.push(new THREE.CylinderGeometry(0.42, 0.42, 0.3, 10, 1, true, Math.PI - 0.5, 1.0).translate(0, sy + 0.36, 0.22));
+    for (const [x, z] of [[-0.18, -0.16], [0.18, -0.16], [-0.18, 0.19], [0.18, 0.19]]) metal.push(new THREE.CylinderGeometry(0.011, 0.011, sy, 6).translate(x, sy / 2, z));
+    for (const x of [-0.17, 0.17]) metal.push(new THREE.CylinderGeometry(0.01, 0.01, 0.42, 6).translate(x, sy + 0.21, -0.18));
+    if (bar) for (const [w, d, x, z] of [[0.38, 0.02, 0, 0.19], [0.38, 0.02, 0, -0.16], [0.02, 0.35, 0.18, 0.015], [0.02, 0.35, -0.18, 0.015]]) metal.push(new THREE.BoxGeometry(w, 0.02, d).translate(x, 0.28, z));
+    return { wood, metal };
+  };
+  const stoolParts = () => {
+    const seat = [new THREE.BoxGeometry(0.36, 0.06, 0.34).translate(0, 0.72, 0)], metal = [];
+    for (const [x, z] of [[-0.15, -0.14], [0.15, -0.14], [-0.15, 0.14], [0.15, 0.14]]) metal.push(new THREE.CylinderGeometry(0.011, 0.011, 0.69, 6).translate(x, 0.345, z));
+    for (const [w, d, x, z] of [[0.32, 0.02, 0, 0.14], [0.32, 0.02, 0, -0.14], [0.02, 0.3, 0.15, 0], [0.02, 0.3, -0.15, 0]]) metal.push(new THREE.BoxGeometry(w, 0.02, d).translate(x, 0.26, z));
+    return { seat, metal };
+  };
+  const BAR = chairParts(true), LOW = chairParts(false), STOOL = stoolParts();
+  const chair = (P, a, x, z) => { for (const g of place(P.wood, a, x, z)) put(MT.walnut, g); for (const g of place(P.metal, a, x, z)) put('chrome', g); };
+  const pedestal = (x, z, top, r = 0.2) => { put('chrome', new THREE.CylinderGeometry(0.035, 0.035, top, 10).translate(x, top / 2, z)); put('chrome', new THREE.CylinderGeometry(r, r * 1.08, 0.025, 20).translate(x, 0.0125, z)); };
+  // oak high tables along the banquette, bentwood bar chairs opposite
+  for (let i = 0; i < 7; i++) {
+    const x = 6.0 + i * 1.7;
+    k.box(x - 0.55, x + 0.55, 0.98, 1.02, 1.2, 1.9, MT.oakTop, { col: false }); k.wallRect(x - 0.55, x + 0.55, 1.2, 1.9, 0, 1.02);
+    pedestal(x, 1.55, 0.98, 0.22);
+    chair(BAR, Math.PI, x, 2.4);
+  }
+  // long stainless communal table under the drum pendants, black stools both sides
+  k.box(8.6, 17.4, 0.98, 1.03, 4.65, 5.55, 'steel', { col: false }); k.wallRect(8.6, 17.4, 4.65, 5.55, 0, 1.03);
+  for (const x of [9.6, 13.0, 16.4]) pedestal(x, 5.1, 0.98, 0.3);
+  for (let i = 0; i < 10; i++) {
+    const x = 9.1 + i * 0.87;
+    for (const [z, a] of [[4.05, 0], [6.15, Math.PI]]) { for (const g of place(STOOL.seat, a, x, z)) put(MT.black, g); for (const g of place(STOOL.metal, a, x, z)) put('chrome', g); }
+  }
+  for (const x of [10.2, 13.0, 15.8]) {
+    put(MT.lamp, new THREE.CylinderGeometry(0.46, 0.46, 0.52, 28).translate(x, 2.95, 5.1));
+    put('chrome', new THREE.CylinderGeometry(0.004, 0.004, H - 0.1 - 3.21, 4).translate(x, (H - 0.1 + 3.21) / 2, 5.1));
+  }
+  // north side: striped accent wall, oak panels, four-seat tables with bentwood chairs
+  k.plane(MCT.stripes(), 9.2, H - 0.1, 10.6, (H - 0.1) / 2, D - 0.32, Math.PI);
+  k.box(15.2, W - 0.15, 0, H - 0.1, D - 0.34, D - 0.3, MT.oak, { col: false, tile: [1.2, H] });
+  k.box(4.2, 6.0, 0, H - 0.1, D - 0.34, D - 0.3, MT.oak, { col: false, tile: [1.2, H] });
+  for (const z of [14.0, 17.0]) for (let i = 0; i < 6; i++) {
+    const x = 7.0 + i * 2.6;
+    k.box(x - 0.4, x + 0.4, 0.72, 0.76, z - 0.4, z + 0.4, MT.oakTop, { col: false }); k.wallRect(x - 0.4, x + 0.4, z - 0.4, z + 0.4, 0, 0.76);
+    pedestal(x, z, 0.72, 0.24);
+    chair(LOW, 0, x, z - 0.66); chair(LOW, Math.PI, x, z + 0.66);
+  }
+  // Happy Meal screen on an orange/red stripe column + yellow display box (north wall, near the door)
+  k.plane(MCT.column(), 0.5, H - 0.1, 21.2, (H - 0.1) / 2, D - 0.355, Math.PI);
+  k.box(20.85, 21.55, 1.55, 2.6, D - 0.48, D - 0.36, MT.black, { col: false });
+  k.plane(MCT.kids(), 0.62, 0.95, 21.2, 2.075, D - 0.485, Math.PI, { emissive: 0.8 });
+  k.box(20.8, 21.6, 0.9, 1.35, D - 0.66, D - 0.34, MT.yellow, { col: false });
+  // yellow trash / tray-return cabinets with the stick-figure panel (south wall, near the door)
+  k.box(19.6, 22.0, 0, 1.12, 0.34, 0.95, MT.yellow); k.box(19.6, 22.0, 1.12, 1.5, 0.34, 0.6, MT.black, { col: false });
+  k.box(19.6, 22.0, 1.5, 2.65, 0.34, 0.95, MT.yellow, { col: false });
+  k.plane(MCT.bin('一般垃圾', '🗑', 'binA'), 0.9, 0.42, 20.2, 0.86, 0.955); k.plane(MCT.bin('資源回收', '♻', 'binB'), 0.9, 0.42, 21.4, 0.86, 0.955);
+  k.plane(MCT.toss(), 2.2, 1.05, 20.8, 2.07, 0.955);
   // pole sign outside
   k.box(W + 4, W + 4.3, 0, 7, D + 1, D + 1.3, 'metal', { col: false });
   k.wallRect(W + 4, W + 4.3, D + 1, D + 1.3, 0, 7);
@@ -480,12 +736,13 @@ function buildMcD(I, scene) {
   // staff
   const staff = createCharacter({ skin: '#efd0b5', shirt: '#c8102e', shorts: '#222', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
   const sp = k.w(2.4, 10); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
+  staff.home = staff.root.position.clone(); staff.homeRot = staff.root.rotation.y; // the 值班 moves her to the fryers and back
   scene.add(staff.root);
   I.updaters.push((dt) => staff.update(dt, { speed: 0 }));
   let ordered = false;
   const cp = k.w(5.0, 10);
   I.actions.push({
-    x: cp[0], z: cp[1], r: 2.6, y: 0, label: () => '按 <kbd>E</kbd> 點餐',
+    x: cp[0], z: cp[1], r: 2.6, y: 0, label: () => '按 <kbd>E</kbd> 點餐', cond: () => !(I.mcd && I.mcd.busy),
     fn: (g) => {
       // 大麥克套餐 NT$155 (menu board price): earn more by working the counter (staff entrance behind it)
       if (g.money < 155) {
@@ -505,16 +762,19 @@ function buildMcD(I, scene) {
       });
     },
   });
-  // part-time job: staff entrance behind the counter (walk round its north end), work spot next to the
-  // crew member, customers step up on the other side of the counter (see mcjob.js)
+  // part-time job (值班, see mcshift.js): staff entrance behind the counter — walk round its north end —
+  // with the time clock on the north wall; you work the middle register, the queue forms across the counter
   const se = k.w(2.4, 18.4);
-  I.mcJob = { work: k.w(2.4, 7.2), workH: k.heading(Math.PI / 2), cust: k.w(5.3, 7.2), custH: k.heading(-Math.PI / 2), base: k.base };
   I.actions.push({
-    x: se[0], z: se[1], r: 1.5, y: 0, label: () => '按 <kbd>E</kbd> 上班打工（時薪 NT$196）',
+    x: se[0], z: se[1], r: 1.5, y: 0, cond: () => !(I.mcd && I.mcd.busy),
+    label: () => '按 <kbd>E</kbd> 打卡上班打工（時薪 NT$196）',
     fn: (g) => g.job.start(),
   });
   k.plane(T.mcStaff(), 1.4, 0.45, 0.33, 2.4, 18.4, Math.PI / 2, { emissive: 0.5 });
-  return { entrance: k.w(W + 3, 10) };
+  const clockBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.1), M('dark')); clockBox.position.set(1.6, 1.45, D - 0.36); k.group.add(clockBox);
+  k.plane(T.sign('打卡鐘', '#ffc72c', '#1b1b1b', 'mcclock', 256, 128, 54), 0.46, 0.23, 1.6, 1.62, D - 0.415, Math.PI);
+  k.plane(T.sign('打工值班 → 員工入口在櫃台後面', '#c8102e', '#ffffff', 'mcstaffway', 1024, 128, 56), 1.0, 0.125, 3.7, 0.86, 17.01, 0, { emissive: 0.25 });
+  return { entrance: k.w(W + 3, 10), k, W, D, staff, busy: false };
 }
 
 // =====================================================================

@@ -141,7 +141,8 @@ export function createCharacter(opts = {}) {
       head.add(mesh(geo('shortFr', () => { const g = new THREE.SphereGeometry(0.131, 20, 8, Math.PI * 0.1, Math.PI * 0.8, Math.PI * 0.25, Math.PI * 0.1); g.translate(0, 0.105, 0); return g; }), hairM));
       head.add(mesh(geo('shortBk', () => { const g = new THREE.SphereGeometry(0.129, 20, 8, Math.PI * 0.9, Math.PI * 1.2, Math.PI * 0.25, Math.PI * 0.3); g.translate(0, 0.103, 0); return g; }), hairM));
     } else {
-      head.add(mesh(geo('longBack', () => { const g = new THREE.CylinderGeometry(0.125, 0.11, 0.34, 18, 1, true, Math.PI * 0.75, Math.PI * 1.5); g.translate(0, 0.0, -0.01); return g; }), hairM));
+      // CylinderGeometry theta 0 is the front (+z): start at 0.25π so the 1.5π sheet wraps the back and sides and leaves the face open
+      head.add(mesh(geo('longBack', () => { const g = new THREE.CylinderGeometry(0.125, 0.11, 0.34, 18, 1, true, Math.PI * 0.25, Math.PI * 1.5); g.translate(0, 0.0, -0.01); return g; }), hairM));
       head.add(mesh(geo('longFr', () => { const g = new THREE.SphereGeometry(0.132, 20, 8, Math.PI * 0.05, Math.PI * 0.9, Math.PI * 0.2, Math.PI * 0.2); g.translate(0, 0.1, 0); return g; }), hairM));
       if (hs === 'pony') head.add(mesh(geo('pony', () => { const g = new THREE.CapsuleGeometry(0.035, 0.16, 4, 8); return g; }), hairM, 0, 0.08, -0.15));
     }

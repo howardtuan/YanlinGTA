@@ -18,7 +18,7 @@ export class Traffic {
       const v = new Vehicle(kind, this.rnd);
       v.driver = 'ai';
       const rider = kind === 'scooter' ? createCharacter({ ...randomStudent(this.rnd), face: false }) : null;
-      if (rider) { rider.root.position.set(0, 0, -0.28); v.mesh.add(rider.root); rider.update(0.1, { mode: 'ride' }); rider.setDetail(false); }
+      if (rider) { rider.root.position.copy(v.seat); v.mesh.add(rider.root); rider.update(0.1, { mode: 'ride' }); rider.setDetail(false); }
       v.rider = rider;
       v.ai = { from: null, to: null, edge: null, d: 0, len: 1, stunned: 0, honkT: 0, waitT: 0 };
       scene.add(v.mesh);

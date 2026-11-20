@@ -865,8 +865,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const facesStreet = (a, c, n) => {
     const mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, px = mx + n[0] * 4, pz = mz + n[2] * 4;
     const q = roadGrid.nearest(px, pz, sg => sg[5].drive && (sg[5].type !== 'service' || sg[5].name));
-    return !!q.seg && q.d < 4 && (q.q[0] - mx) * n[0] + (q.q[1] - mz) * n[2] > 0;
+    // the facing road's props (truthy) or null; type tells main roads from lanes
+    return q.seg && q.d < 4 && (q.q[0] - mx) * n[0] + (q.q[1] - mz) * n[2] > 0 ? q.seg[5] : null;
   };
+  // Google 街景目視（2024-08 中北路／實踐路、2026-05 力行北街）: 鐵皮加蓋 is about
+  // 30-40% of lane houses and 10-20% on main roads. OSM tags 中北路／實踐路 as
+  // residential, so only service / living_street count as lanes here.
+  const LANE_TYPES = new Set(['service', 'living_street']);
+  const SHED_P = { lane: 0.35, main: 0.15 };
   // flat roofs sample the plain half of the roof atlas
   const roofGeo = new Geo(false, () => [0.1, 0.5]);
   // rooftop 鐵皮加蓋 sheds and stair houses, all merged into roofGeo
@@ -907,8 +913,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const PAL = {
     campus: ['#d8cfc0', '#c9a48b', '#b8705a', '#e9e4da', '#c4b5a0', '#a86d5d'],
     dorm: ['#e2d4bd', '#cdb79c', '#d9c9b5'],
-    // 二丁掛 tile colours: off-white, light grey, brick red, dark brown, grey-blue
-    town: ['#d6d2c8', '#bfb8aa', '#e0d6c2', '#a8a8a0', '#cfc4b4', '#b9b0a6', '#d9cdbd', '#c7cfd3', '#e6dccb', '#b7a99a', '#a8604c', '#b06a52', '#7a5a48', '#8a6a55', '#8c9aa6', '#9aa6b0'],
+    // 二丁掛 / 小口磁磚 colours, 20 entries weighted after the Google 街景目視判斷
+    // of 力行北街, 中北路, 實踐路 (2024-08 / 2026-05, viewed only): ~70% off-white /
+    // cream / light grey (14), ~20% light pink / light brown / light green (4),
+    // ~10% dark stone or brick red (2)
+    town: ['#e4e0d6', '#d6d2c8', '#e8dfcc', '#ece6d6', '#d9cdbd', '#cfc9bd', '#c7c6c0', '#bfbcb4', '#e0d6c2', '#d2d4d0', '#e6dccb', '#cfc4b4', '#dcd8cf', '#c9c3b8',
+      '#e3c9c0', '#d8bfae', '#c9b29b', '#c8d3c0',
+      '#7a6a5c', '#a8604c'],
     commercial: ['#9fa6ad', '#c0c4c8', '#b0b6a8'],
     church: ['#f0ece2', '#e9e2d0'],
     small: ['#dddddd'],
@@ -947,6 +958,24 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const P = (p, y) => [p[0], y, p[1]];
     if (pts.length === 4 && (shape === 'gabled' || shape === 'skillion')) {
       const [p0, p1, p2, p3] = [0, 1, 2, 3].map(k => pts[(li + k) % 4]);
+      if (shape === 'gabled' && (b.feature || []).includes('gable_row')) {
+        // 設計學院: a row of small dark-grey gables (Google 街景目視, 2017-09), ridges
+        // across the short side, one every ~7 m along the long edge p0-p1
+        const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), N = Math.max(1, Math.round(len / 7));
+        const rr = b.roofH || Math.min(2.4, len / N * 0.32);
+        const lp = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+        for (let i = 0; i < N; i++) {
+          const t0 = i / N, t1 = (i + 1) / N, tm = (t0 + t1) / 2;
+          const A = lp(p0, p1, t0), B = lp(p0, p1, t1), D = lp(p3, p2, t0), C = lp(p3, p2, t1), MA = lp(p0, p1, tm), MD = lp(p3, p2, tm);
+          rtri(P(A, h), P(MA, h + rr), P(MD, h + rr), rc); rtri(P(A, h), P(MD, h + rr), P(D, h), rc);
+          rtri(P(MA, h + rr), P(B, h), P(C, h), rc); rtri(P(MA, h + rr), P(C, h), P(MD, h + rr), rc);
+          // gable ends on both long walls (outward normal of p0-p1 for a CCW ring)
+          const n0 = [(p1[1] - p0[1]) / len, 0, -(p1[0] - p0[0]) / len];
+          roofGeo.tri(P(A, h), P(B, h), P(MA, h + rr), wc, n0);
+          roofGeo.tri(P(D, h), P(C, h), P(MD, h + rr), wc, n0.map(v => -v));
+        }
+        return rr;
+      }
       if (shape === 'gabled') {
         const m1 = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2], m2 = [(p3[0] + p0[0]) / 2, (p3[1] + p0[1]) / 2];
         rtri(P(p0, h), P(p1, h), P(m1, h + rise), rc); rtri(P(p0, h), P(m1, h + rise), P(m2, h + rise), rc);
@@ -971,17 +1000,42 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return rise;
   };
   // named roof extras from overrides.json 'feature' (visual only, merged into roofGeo)
-  const landmarkRoof = (b, pts, top) => {
+  // vertical cylinder wall (+ optional lid) from S quads
+  const cylinder = (cx, cz, y0, hh, r, wc, S = 12, lid = null) => {
+    for (let k = 0; k < S; k++) {
+      const a0 = k / S * Math.PI * 2, a1 = (k + 1) / S * Math.PI * 2, am = (a0 + a1) / 2;
+      const p0 = [cx + Math.cos(a0) * r, cz + Math.sin(a0) * r], p1 = [cx + Math.cos(a1) * r, cz + Math.sin(a1) * r];
+      roofGeo.quad([p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [p1[0], y0 + hh, p1[1]], [p0[0], y0 + hh, p0[1]], wc, [Math.cos(am), 0, Math.sin(am)]);
+      if (lid) roofGeo.tri([cx, y0 + hh, cz], [p0[0], y0 + hh, p0[1]], [p1[0], y0 + hh, p1[1]], lid, UP);
+    }
+  };
+  const landmarkRoof = (b, pts, top, rise = 0) => {
     const f = obb(pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
     const inside = (u0, u1, v0, v1) => {
       const um = (u0 + u1) / 2, vm = (v0 + v1) / 2;
       return [[u0, v0], [u1, v0], [u1, v1], [u0, v1], [um, v0], [um, v1], [u0, vm], [u1, vm], [um, vm]].every(([u, v]) => { const p = f.P(u, v); return pointInPoly(p[0], p[1], pts); });
     };
+    // u of the footprint end that lies further west (smaller x) / south (larger z)
+    const westU = f.P(f.u0, (f.v0 + f.v1) / 2)[0] < f.P(f.u1, (f.v0 + f.v1) / 2)[0] ? -1 : 1;
+    const southU = f.P(f.u0, (f.v0 + f.v1) / 2)[1] > f.P(f.u1, (f.v0 + f.v1) / 2)[1] ? -1 : 1;
+    const um0 = (f.u0 + f.u1) / 2, vm0 = (f.v0 + f.v1) / 2;
+    // first spot along u (fractions of L from the middle, toward `side`) where a
+    // 2r square fits across the widest band of v
+    const spotAlong = (side, fr, r) => {
+      for (const k of fr) for (const dv of [0, -0.15, 0.15, -0.3, 0.3]) {
+        const u = um0 + side * k * L, v = vm0 + dv * W;
+        if (inside(u - r, u + r, v - r, v + r)) return [u, v];
+      }
+      return null;
+    };
     if (b.feature.includes('observatory')) {
-      // observatory: short drum + low-poly dome at the roof centre
-      const um = (f.u0 + f.u1) / 2, vm = (f.v0 + f.v1) / 2, r = Math.max(2.5, Math.min(4, Math.min(L, W) * 0.12));
-      if (inside(um - r, um + r, vm - r, vm + r)) {
-        const [cx, cz] = f.P(um, vm), S = 12, R = 4, y0 = top + 0.6, dh = 1.6;
+      // 科學館: Google 街景目視（2021-02 大草坪空拍）puts the white dome on a raised
+      // stair/core tower in the west-middle part of the roof, not at an end
+      const r = Math.max(2.5, Math.min(4, Math.min(L, W) * 0.12)), cr = r + 1.2, coreH = 3.3;
+      const at = spotAlong(westU, [0.18, 0.12, 0.24, 0.06, 0.3, 0], cr);
+      if (at) {
+        const [cx, cz] = f.P(at[0], at[1]), y0 = top + 0.6 + coreH, dh = 1.6, S = 12, R = 4;
+        roofBox(f, [at[0] - cr, at[0] + cr, at[1] - cr, at[1] + cr], top, coreH + 0.6, col('#9a4b3c').map(v => v * 0.95), col('#9a9890'));
         const wc = col('#d9d6cf'), dc = col('#eceae4');
         const ring = k => { const a = k / S * Math.PI * 2; return [Math.cos(a), Math.sin(a)]; };
         for (let k = 0; k < S; k++) {
@@ -995,28 +1049,83 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
             else roofGeo.quad(P(c0, s0, p0), P(c1, s1, p0), P(c1, s1, p1), P(c0, s0, p1), dc, n);
           }
         }
+        // thin antenna mast beside the dome
+        const [ax, az] = f.P(at[0] - westU * (r + 0.6), at[1]);
+        cylinder(ax, az, y0, 4.5, 0.08, col('#8a8c8e'), 4);
       }
     }
-    if (b.feature.includes('pitched_section')) {
-      // 體育館: flat roof with a pitched (gabled) section over the middle
-      // widest band across the middle third that stays on the footprint (L-shaped plans)
-      const u0 = f.u0 + L * 0.28, u1 = f.u1 - L * 0.28;
-      let v0 = 0, v1 = -1;
-      for (const k of [0.9, 0.7, 0.5, 0.4, 0.3]) {
-        const w = W * k - 4; let best = null;
-        for (let c = f.v0 + 2 + w / 2; c <= f.v1 - 2 - w / 2 + 1e-6; c += W * 0.025) {
-          if (inside(u0, u1, c - w / 2, c + w / 2) && (!best || Math.abs(c - (f.v0 + f.v1) / 2) < Math.abs(best - (f.v0 + f.v1) / 2))) best = c;
-        }
-        if (best !== null) { v0 = best - w / 2; v1 = best + w / 2; break; }
+    if (b.feature.includes('entrance_canopy')) {
+      // 體育館: Google 街景目視（2017-09）: the main roof is flat with a parapet; the
+      // red-tile gabled roof is the covered walkway at the south-west entrance.
+      // Drawn along the west part of the most south-west facing wall (>= 12 m),
+      // 4 m deep outside it; posts only, no collider (people walk under it).
+      let best = null, bd = -2;
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], c = pts[(i + 1) % pts.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
+        if (l < 12) continue;
+        const d = (dz / l) * -Math.SQRT1_2 + (-dx / l) * Math.SQRT1_2;
+        if (d > bd) { bd = d; best = [a, c, l, [dz / l, 0, -dx / l]]; }
       }
-      if (v1 - v0 > 6) {
-        const y = top + 0.6, rise = Math.min(4, (v1 - v0) * 0.18), vm = (v0 + v1) / 2;
-        const rc = col('#8e969b'), wc = col('#cfcac0');
-        const Q = (u, v, yy) => Q3(f, u, v, yy);
-        rtri(Q(u0, v0, y), Q(u1, v0, y), Q(u1, vm, y + rise), rc); rtri(Q(u0, v0, y), Q(u1, vm, y + rise), Q(u0, vm, y + rise), rc);
-        rtri(Q(u1, v1, y), Q(u0, v1, y), Q(u0, vm, y + rise), rc); rtri(Q(u1, v1, y), Q(u0, vm, y + rise), Q(u1, vm, y + rise), rc);
-        roofGeo.tri(Q(u0, v0, y), Q(u0, v1, y), Q(u0, vm, y + rise), wc, [-f.ux, 0, -f.uz]);
-        roofGeo.tri(Q(u1, v0, y), Q(u1, v1, y), Q(u1, vm, y + rise), wc, [f.ux, 0, f.uz]);
+      if (best) {
+        let [a, c, l, n] = best;
+        if (c[0] < a[0]) [a, c] = [c, a];  // a = west end
+        const len = Math.min(24, l - 2), tx = (c[0] - a[0]) / l, tz = (c[1] - a[1]) / l, D = 4, eave = 3.2, rr = 1.3;
+        const at = (s, d) => [a[0] + tx * s + n[0] * d, a[1] + tz * s + n[2] * d];
+        const y = Hmin(...at(len / 2, D / 2), Math.max(len, D) / 2);
+        const Pq = (s, d, yy) => { const p = at(s, d); return [p[0], yy, p[1]]; };
+        const rc = col('#9a4a3a'), pc = col('#e6e2d8');
+        rtri(Pq(1, 0, y + eave), Pq(1 + len, 0, y + eave), Pq(1 + len, D / 2, y + eave + rr), rc);
+        rtri(Pq(1, 0, y + eave), Pq(1 + len, D / 2, y + eave + rr), Pq(1, D / 2, y + eave + rr), rc);
+        rtri(Pq(1, D, y + eave), Pq(1 + len, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), rc);
+        rtri(Pq(1, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), Pq(1, D / 2, y + eave + rr), rc);
+        roofGeo.tri(Pq(1, 0, y + eave), Pq(1, D, y + eave), Pq(1, D / 2, y + eave + rr), pc, [-tx, 0, -tz]);
+        roofGeo.tri(Pq(1 + len, 0, y + eave), Pq(1 + len, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), pc, [tx, 0, tz]);
+        for (let s = 1.3; s <= len + 0.8; s += len / Math.round(len / 4)) {
+          const p = at(s, D - 0.3);
+          cylinder(p[0], p[1], H(p[0], p[1]) - 0.2, y + eave - H(p[0], p[1]) + 0.2, 0.18, pc, 6);
+        }
+      }
+    }
+    if (b.feature.includes('stair_drum')) {
+      // 體育館: round stair tower (Google 街景目視, 2017-09). POSITION UNVERIFIED: the
+      // observation says "south-east side", but both viewpoints are north / north-west of
+      // the hall and cannot see the geometric SE corner, so "SE" may be relative to the
+      // view. Placed at the footprint's max(x+z) corner as a literal reading only;
+      // centred 2 m inside the corner, rising 2.4 m above the roof
+      let ci = 0, cs = -Infinity;
+      pts.forEach((p, i) => { const s = p[0] + p[1]; if (s > cs) { cs = s; ci = i; } });
+      const p = pts[ci], cx0 = pts.reduce((s, q) => s + q[0], 0) / pts.length, cz0 = pts.reduce((s, q) => s + q[1], 0) / pts.length;
+      const dl = Math.hypot(cx0 - p[0], cz0 - p[1]) || 1, x = p[0] + (cx0 - p[0]) / dl * 2, z = p[1] + (cz0 - p[1]) / dl * 2;
+      const by = Hmin(x, z, 3);
+      cylinder(x, z, by - 0.5, top + 3 - by, 3, col('#b8b2a6'), 14, col('#9a9890'));
+      cylinder(x, z, top + 2.4, 0.6, 3.05, col('#a65a43'), 14);
+      collision.addCircle(x, z, 3);
+    }
+    if (b.feature.includes('spire')) {
+      // 恩惠堂: slender white spire with a cross on the ridge near the south
+      // (entrance) gable end (Google 街景, user 360 photo 2017-01); sizes estimated
+      const at = spotAlong(southU, [0.42, 0.38, 0.34, 0.3], 1);
+      if (at) {
+        const [x, z] = f.P(at[0], at[1]), y0 = top + rise * 0.6, wc = col('#f4f3ef');
+        roofBox(f, [at[0] - 0.9, at[0] + 0.9, at[1] - 0.9, at[1] + 0.9], y0 - 0.5, top + rise + 2.2 - y0, wc, wc);
+        const yb = top + rise + 1.7, sh = 6, S = 8;
+        for (let k = 0; k < S; k++) {
+          const a0 = k / S * Math.PI * 2, a1 = (k + 1) / S * Math.PI * 2;
+          rtri([x + Math.cos(a0) * 0.85, yb, z + Math.sin(a0) * 0.85], [x + Math.cos(a1) * 0.85, yb, z + Math.sin(a1) * 0.85], [x, yb + sh, z], wc);
+        }
+        const cc = col('#e9e7e0'), yc = yb + sh;
+        roofBox(f, [at[0] - 0.08, at[0] + 0.08, at[1] - 0.08, at[1] + 0.08], yc - 0.2, 1.8, cc, cc);
+        roofBox(f, [at[0] - 0.08, at[0] + 0.08, at[1] - 0.55, at[1] + 0.55], yc + 1.05, 0.16, cc, cc);
+      }
+    }
+    if (b.feature.includes('roof_drum')) {
+      // 良善樓: white cylindrical crown on the roof (Google 街景目視 2024-08 大仁街 and
+      // 2021-02 空拍); spot on the roof approximate, nearest the middle that fits
+      const at = spotAlong(1, [0, 0.08, -0.08, 0.16, -0.16, 0.24, -0.24], 3.2);
+      if (at) {
+        const [x, z] = f.P(at[0], at[1]);
+        cylinder(x, z, top, 3.6, 3, col('#ecebe6'), 16, col('#cfcdc6'));
+        cylinder(x, z, top + 2.4, 0.5, 3.05, col('#bfc4c8'), 16);
       }
     }
   };
@@ -1057,7 +1166,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     if (civic) {
       const q = rb();
       style = mk || b.kind === 'church' || b.kind === 'dorm' ? 'campus' : q < 0.22 && floors >= 3 ? 'glass' : q < 0.4 && b.kind === 'campus' ? 'concrete' : 'campus';
-    } else style = floors >= 5 ? 'apt' : rb() < 0.3 ? 'wash' : 'town';
+    // 洗石子 (wash) 0.3 -> 0.15: street view shows mostly small tiles on 透天 (Google 街景目視判斷)
+    } else style = floors >= 5 ? 'apt' : rb() < 0.15 ? 'wash' : 'town';
     // overrides.json facade (e.g. 懷恩樓 arcade); rb() above is still drawn so the stream is unchanged
     if (b.facade) style = b.facade;
     const g = wallFor(style, mk);
@@ -1071,7 +1181,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
     // blocks of different height (overrides.json split, e.g. 全人教育村) share the base
     const vols = b.parts || [{ pts, h, floors, holes: b.holes }];
-    let pitched = false;
+    let pitched = false, onMain = false;
     for (const V of vols) {
       const vp = V.pts, vh = V.h, vf = V.floors || floors;
       // outer ring is CCW, courtyard rings CW, so the same normal faces outwards
@@ -1094,6 +1204,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
             [[s0, w0], [s1, w0], [s1, w1], [s0, w1]]);
           // street-facing shop walls: furniture.js hangs POI signs and parks scooters here
           shopWalls.push({ a, c, n, base, h, floors, bi });
+          if (!LANE_TYPES.has(shop.type)) onMain = true;
         } else {
           g.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [cLo, cLo, tint, tint], n,
             [[u0, vAt(foot)], [u1, vAt(foot)], [u1, vAt(yS)], [u0, vAt(yS)]]);
@@ -1116,13 +1227,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       }
     }
     const top = base + h;
-    if (b.feature) landmarkRoof(b, pts, top);
-    // rooftop extras on flat town roofs: ~45% 鐵皮加蓋, ~30% stair house
+    if (b.feature) landmarkRoof(b, pts, top, pitched);
+    // rooftop extras on flat town roofs: 鐵皮加蓋 35% (lanes) / 15% (shops on a
+    // main road), ~30% stair house (see SHED_P)
     let extraH = 0, tankAt = null;
     if (b.kind === 'town' && !pitched && !b.holes && floors >= 2) {
       const f = obb(pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
       const inside = (u0, u1, v0, v1) => [[u0, v0], [u1, v0], [u1, v1], [u0, v1], [(u0 + u1) / 2, (v0 + v1) / 2]].every(([u, v]) => { const p = f.P(u, v); return pointInPoly(p[0], p[1], pts); });
-      const wantShed = rb() < 0.45, wantStair = rb() < 0.3;
+      const wantShed = rb() < (onMain ? SHED_P.main : SHED_P.lane), wantStair = rb() < 0.3;
       let st = null;
       if (wantStair && L > 6 && W > 4.5) {
         const s = [f.u1 - 3.7, f.u1 - 0.7, f.v0 + 0.7, f.v0 + 3.3];
@@ -1276,7 +1388,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
   // Old gate 舊校門: three white concrete round arches on twin columns, plaques
   // 中 原 大 學 on the column groups (Commons photo, see overrides.json).
-  // Sizes are estimates; the road runs under the middle arch.
+  // Google 街景目視（2017-09）confirms a free-standing frame of three equal
+  // semicircular arches on slim columns, no deck or roof; columns ~4-5 m, ~7-8 m
+  // overall (overrides.json colH / col). Width is still an estimate; the road
+  // runs under the middle arch.
   const og = poi('舊校門');
   if (og) {
     const near = world.nearestRoadPoint(og.x, og.z);
@@ -1284,7 +1399,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // centred on the road (the POI sits ~0.5 m off it)
     const gx = near && Math.hypot(near.x - og.x, near.z - og.z) < 3 ? near.x : og.x, gz = gx === og.x ? og.z : near.z;
     const g = new THREE.Group();
-    const SPAN = 5.6, COL = 0.7, HC = 5.2, STEP = SPAN + COL * 2 + 0.15, D = 0.9, R = SPAN / 2;
+    const OG = LM['舊校門'] || {};
+    const SPAN = 5.6, COL = OG.col || 0.7, HC = OG.colH || 5.2, STEP = SPAN + COL * 2 + 0.15, D = 0.9, R = SPAN / 2;
     // base at the highest column foot; each column reaches down to its own ground
     const wx = x => [gx + Math.cos(dir) * x, gz - Math.sin(dir) * x];
     const cxs = [-STEP, 0, STEP].flatMap(c => [c - R - COL / 2, c + R + COL / 2]);
@@ -1329,21 +1445,71 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       collision.addCircle(gx + Math.cos(dir) * x, gz - Math.sin(dir) * x, 0.7);
     }
   }
-  // Fountain 中原噴水池
+  // Fountain 中原噴水池. Google 街景目視（2017-09，舊校門東側）: a low round raised
+  // basin (~12-15 m across, rim ~0.45 m) of light grey stone in a round stone-paved
+  // plaza with concentric curved stone benches. Sizes in overrides.json landmarks.
   const fp = data.areas.find(a => a.name === '中原噴水池');
   if (fp) {
     const cx = fp.pts.reduce((s, p) => s + p[0], 0) / fp.pts.length, cz = fp.pts.reduce((s, p) => s + p[1], 0) / fp.pts.length;
-    const N = 260; const pos = new Float32Array(N * 3); const seeds = []; const fy = H(cx, cz);
+    const FT = LM['中原噴水池'] || {}, round = FT.style === 'round_basin';
+    const R = round ? (FT.d || 13) / 2 : 1.3, RIM = round ? (FT.rim || 0.45) : 1.2;
+    // rim top sits RIM above the highest ground under the ring
+    let gHi = -Infinity, gLo = Infinity;
+    for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2, y = H(cx + Math.cos(a) * R, cz + Math.sin(a) * R); gHi = Math.max(gHi, y); gLo = Math.min(gLo, y); }
+    const fy = round ? gHi : H(cx, cz);
+    const N = 260; const pos = new Float32Array(N * 3); const seeds = [];
     for (let i = 0; i < N; i++) seeds.push([rnd() * Math.PI * 2, 0.6 + rnd() * 0.8, rnd()]);
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#cfe8ff', size: 0.13, transparent: true, opacity: 0.7 }));
     pts.frustumCulled = false; scene.add(pts);
-    const basin = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 1.2, 16), standard('#bbb3a2')); basin.position.set(cx, fy + 0.6, cz); scene.add(basin);
+    const stone = standard(round ? '#c8c8c4' : '#bbb3a2', { roughness: 0.9 });
+    if (round) {
+      const sg = new Geo(), wall = col('#c8c8c4'), cap = col('#d6d6d2'), inner = col('#a9aaa6');
+      const S = 40, T = 0.45, y0 = gLo - 0.3, yT = fy + RIM;
+      for (let k = 0; k < S; k++) {
+        const a0 = k / S * Math.PI * 2, a1 = (k + 1) / S * Math.PI * 2, am = (a0 + a1) / 2;
+        const o = (a, r, y) => [cx + Math.cos(a) * r, y, cz + Math.sin(a) * r];
+        sg.quad(o(a0, R, y0), o(a1, R, y0), o(a1, R, yT), o(a0, R, yT), wall, [Math.cos(am), 0, Math.sin(am)]);
+        sg.quad(o(a0, R - T, fy - 0.2), o(a1, R - T, fy - 0.2), o(a1, R - T, yT), o(a0, R - T, yT), inner, [-Math.cos(am), 0, -Math.sin(am)]);
+        sg.quad(o(a0, R - T, yT), o(a1, R - T, yT), o(a1, R, yT), o(a0, R, yT), cap, UP);
+        // basin floor
+        sg.tri(o(a0, 0, fy - 0.2), o(a0, R - T, fy - 0.2), o(a1, R - T, fy - 0.2), inner, UP);
+        // plaza: two concentric paving rings that follow the ground (light / darker stone)
+        for (const [r0, r1, c] of [[R, R + 1.5, col('#bdbcb6')], [R + 1.5, R + 1.85, col('#9d9c96')], [R + 1.85, R + 3.3, col('#b4b3ad')]]) {
+          const g = (a, r) => [cx + Math.cos(a) * r, H(cx + Math.cos(a) * r, cz + Math.sin(a) * r) + 0.04, cz + Math.sin(a) * r];
+          sg.quad(g(a0, r0), g(a1, r0), g(a1, r1), g(a0, r1), c, UP);
+        }
+      }
+      const m = sg.mesh(new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; m.castShadow = !opts.low; scene.add(m);
+      // shallow water just below the rim (the basin was dry in 2017-09; kept with water for the game)
+      const wat = new THREE.Mesh(new THREE.CircleGeometry(R - T, 32), new THREE.MeshStandardMaterial({ color: '#7fa6b8', roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.85 }));
+      wat.rotation.x = -Math.PI / 2; wat.position.set(cx, fy + RIM - 0.15, cz); scene.add(wat);
+      const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, RIM + 0.5, 12), stone); basin.position.set(cx, fy + (RIM + 0.5) / 2, cz); scene.add(basin);
+      // curved stone benches on an outer ring, four arcs with gaps for the paths
+      const bg = [];
+      // ring centred at R + 1.9 m, 0.5 m deep (R + 1.65 .. R + 2.15 m), so it stays
+      // inside the trees' clearance from the rim collider (okSpot keeps trunks >= R + 2.2 m)
+      const BR = R + 1.9, BA = Math.PI / 2 - 0.5;
+      for (let q = 0; q < 4; q++) {
+        const a0 = q * Math.PI / 2 + Math.PI / 4 - BA / 2, n = 6;
+        for (let k = 0; k < n; k++) {
+          const a = a0 + (k + 0.5) / n * BA, x = cx + Math.cos(a) * BR, z = cz + Math.sin(a) * BR, len = BR * BA / n + 0.05;
+          const box = new THREE.BoxGeometry(len, 0.45, 0.5); box.rotateY(-a + Math.PI / 2);
+          bg.push([box, x, H(x, z) + 0.22, z]);
+        }
+      }
+      const benches = mergedMesh(bg, stone); benches.castShadow = !opts.low; benches.receiveShadow = true; scene.add(benches);
+      // the raised rim is walked around, not through
+      collision.addCircle(cx, cz, R);
+    } else {
+      const basin = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 1.2, 16), stone); basin.position.set(cx, fy + 0.6, cz); scene.add(basin);
+    }
+    const sprayY = round ? fy + RIM + 0.3 : fy + 1.2;
     world.animated.push((t) => {
       for (let i = 0; i < N; i++) {
         const [a, sp, ph] = seeds[i]; const k = (t * 0.6 + ph) % 1;
         const r = k * 2.6 * sp; pos[i * 3] = cx + Math.cos(a) * r; pos[i * 3 + 2] = cz + Math.sin(a) * r;
-        pos[i * 3 + 1] = fy + 1.2 + 4.5 * k * (1 - k) * 4 * sp - 0.3;
+        pos[i * 3 + 1] = sprayY + 4.5 * k * (1 - k) * 4 * sp - 0.3;
       }
       geo.attributes.position.needsUpdate = true;
     });

@@ -97,7 +97,7 @@ export class Phone {
   toggle() { this.open ? this.close() : this.show(); }
   show() {
     this.open = true; this.el.classList.remove('hidden'); this._scale();
-    this.g.audio.blip?.();
+    this.g.audio.phone?.(true, !this.booted);
     if (!this.booted) {
       this.booted = true;
       const b = this.el.querySelector('.ph-boot'); b.classList.remove('hidden');
@@ -109,6 +109,7 @@ export class Phone {
     else this.home();
   }
   close() {
+    if (this.open) this.g.audio.phone?.(false);
     if (this.story) this._storyClose();
     this._last = this.app ? { app: this.app, cur: this.cur } : null;
     this.open = false; this.el.classList.add('hidden'); this.app = null; this.cur = null; this._frameKey = null;
@@ -226,7 +227,7 @@ export class Phone {
     return this.view.querySelector('.ph-content');
   }
   openApp(id) {
-    this.app = id; this.cur = null;
+    this.app = id; this.cur = null; this.g.audio.tap?.();
     const g = this.g;
     if (id === 'messages') return this._messages();
     if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
@@ -242,7 +243,7 @@ export class Phone {
       const cur = g.settings.music;
       const opt = (v, t, s) => `<button class="ph-row ph-pick ${cur === v ? 'on' : ''}" data-m="${v}"><span>${t}<small>${s}</small></span><b>${cur === v ? '▶' : ''}</b></button>`;
       const c = this._frame('音樂', `<div class="ph-album">🎭</div><div class="ph-sec">播放清單</div>
-        ${opt('opera', '彥霖歌劇', '彥霖 · 競選主題曲')}${opt('default', '遊戲配樂', '中原順起來 OST')}${opt('off', '靜音', '關閉背景音樂')}`);
+        ${opt('opera', '彥霖歌劇', '彥霖 · 競選主題曲')}${opt('default', '遊戲配樂', '中原順起來 OST')}${opt('scene', '情境配樂', '依場景自動換曲')}${opt('off', '靜音', '關閉背景音樂')}`);
       for (const b of c.querySelectorAll('[data-m]')) b.onclick = () => { g.setMusic(b.dataset.m); this.openApp('music'); };
       return;
     }
@@ -433,13 +434,12 @@ export class Phone {
     c.querySelectorAll('[data-id]').forEach(b => b.onclick = () => {
       const it = SHOP.find(x => x.id === b.dataset.id);
       if (!g.spend(it.price, `桃寶：${it.name}`)) { g.audio.bad?.(); g.hud.toast('餘額不足！去麥當勞打工賺錢吧 🍟', 'bad', 2000); return; }
-      g.audio.coin?.();
       this.bought[it.id] = (this.bought[it.id] || 0) + 1;
       this.orders.push({ ...it, at: g.clock, status: it.boost ? '已取貨・喝掉了' : '超商取貨・已送達' });
       if (it.boost) { g.player.boost = Math.max(g.player.boost || 0, it.boost); g.hud.toast(`${it.icon} ${it.name}：衝刺加速 ${it.boost} 秒！`, 'good', 2000); }
       if (it.votes) g.addVotes(it.votes, `${it.icon} ${it.name} +${it.votes} 票`);
       else if (!it.boost) g.hud.toast(`${it.icon} ${it.name} 已送達！`, 'good', 1800);
-      if (it.team) { const t = this.chats.find(x => x.c.id === 'team'); if (t) { t.msgs.push({ who: '阿凱', text: it.team, time: hhmm(g.clock) }); t.unread++; } }
+      if (it.team) { const t = this.chats.find(x => x.c.id === 'team'); if (t) { t.msgs.push({ who: '阿凱', text: it.team, time: hhmm(g.clock) }); t.unread++; g.audio.notify?.(0.6); } }
       const y = c.scrollTop; this._shop('store'); this.view.querySelector('.ph-content').scrollTop = y;
     });
   }
@@ -499,7 +499,7 @@ export class Phone {
       <div class="ph-cam-bar"><button class="ph-thumb">${this.photos[0] ? `<img src="${this.photos[0]}">` : ''}</button><button class="ph-shutter"></button><span></span></div></div>`, { cls: 'ph-dark' });
     c.querySelector('.ph-shutter').onclick = () => this.g.capture(url => {
       this.photos.unshift(url); if (this.photos.length > 24) this.photos.pop();
-      this.g.audio.blip?.(); this.el.classList.add('flash'); setTimeout(() => this.el.classList.remove('flash'), 180);
+      this.g.audio.shutter?.(); this.el.classList.add('flash'); setTimeout(() => this.el.classList.remove('flash'), 180);
       if (this.app === 'camera') this._camera();
     });
     c.querySelector('.ph-thumb').onclick = () => this.openApp('photos');
@@ -590,7 +590,7 @@ export class Phone {
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) });
     if (!ch.ai) st.round++;
     st.choice = 0; st.aiOpts = null;
-    g.audio.blip?.();
+    g.audio.send?.();
     this._renderThread(); this._renderCompose();
     setTimeout(() => { st.read = true; if (this.cur === st) this._renderThread(); }, 350);
     const scripted = ch.r ? ch.r.map(r => Array.isArray(r) ? { who: r[0], text: r[1] } : { who: st.c.id, text: r }) : null;
@@ -627,7 +627,7 @@ export class Phone {
       setTimeout(() => {
         dropTyping();
         st.msgs.push({ ...rp, time: hhmm(g.clock) });
-        if (this.cur === st && this.open) this._renderThread(); else { st.unread++; if (!this.open) g.hud.toast(`📱 ${st.c.group ? rp.who : st.c.name}：${rp.text}`, 'good', 2200); }
+        if (this.cur === st && this.open) this._renderThread(); else { st.unread++; g.audio.notify?.(); if (!this.open) g.hud.toast(`📱 ${st.c.group ? rp.who : st.c.name}：${rp.text}`, 'good', 2200); }
         g.audio.pickup?.();
         if (k === replies.length - 1) {
           st.busy = false;

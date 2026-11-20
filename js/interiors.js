@@ -410,7 +410,7 @@ function buildIM(I, scene) {
     label: () => '按 <kbd>E</kbd> 搭電梯（1F → 2F → 3F）',
     fn: (g) => {
       const p = g.player; const cur = Math.round(p.y / FH); const next = (cur + 1) % NF;
-      liftTarget = next * FH; g.audio.blip(); g.hud.toast(`電梯 → ${next + 1}F`, 'good', 1200);
+      liftTarget = next * FH; g.audio.lift(); g.hud.toast(`電梯 → ${next + 1}F`, 'good', 1200);
       p.y = liftTarget + 0.12; p.vy = 0;
     },
   });
@@ -1299,6 +1299,7 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
     for (const h of hinges) {
       const near = (Math.hypot(p.x - h.at[0], p.z - h.at[1]) < 10 && g.player.vehicle) || gate?.forceOpen;
       h.hinge.rotation.z += ((near ? 1.4 : 0) - h.hinge.rotation.z) * Math.min(1, dt * 4);
+      if (near !== (h.hinge.userData.up ?? near)) g.audio.barrier(near, h.at[0], h.at[1]); h.hinge.userData.up = near;
     }
     if (gate) return; // the side gate's seat runs the gate-check mission instead of idle duty votes
     if (g.player.seat && Math.hypot(g.player.seat.x - seat[0], g.player.seat.z - seat[1]) < 0.1) {

@@ -353,7 +353,7 @@ class Game {
   }
   spend(n, what) {
     if (this.money < n) return false;
-    this.money -= n; this.ledger.push({ what, n: -n, at: this.clock }); this.hud.setMoney(this.money);
+    this.money -= n; this.ledger.push({ what, n: -n, at: this.clock }); this.hud.setMoney(this.money); this.audio.pay();
     return true;
   }
   setMusic(v) { this.settings.music = v; saveSettings(this.settings); this.audio.init(); this.audio.applyMusic(); }
@@ -403,7 +403,7 @@ class Game {
     this.hud.bigToast('政見發表會', '資管要贏　票投彥霖', 2200);
     this.after(() => this.dialog(SPEECH, () => {
       this.player.setPose('peace', 3);
-      this.audio.fanfare();
+      this.audio.fanfare(); this.audio.cheer();
       this.addVotes(20, '全場歡呼！+20 票');
       this.after(() => { this.speechOn = false; this.player.frozen = false; cb(); }, 2600);
     }), 2200);
@@ -415,7 +415,7 @@ class Game {
   }
   showEnding() {
     this.state = 'ending'; writeSave(this);
-    this.audio.setEngine(false, 0);
+    this.audio.setEngine(false, 0); this.audio.ending();
     document.exitPointerLock?.();
     const t = Math.floor(this.playTime);
     $('endStats').innerHTML = `得票數 <b style="color:#ffd23f;font-size:24px">${this.votes}</b> 票<br>金色選票 ${this.ballotsTaken} / 34　·　遊玩時間 ${Math.floor(t / 60)} 分 ${t % 60} 秒`;
@@ -523,9 +523,10 @@ class Game {
     const full = !!document.fullscreenElement;
     const nv = (v, t) => `<button data-nav="${v}" class="${(s.navGround || 'on') === v ? 'on' : ''}">${t}</button>`;
     const fs = (v, t) => `<button data-full="${v}" class="${(v === 'on') === full ? 'on' : ''}">${t}</button>`;
-    return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('off', '關閉')}</div></div>
+    return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('scene', '情境配樂 🎬')}${opt('off', '關閉')}</div></div>
       <div class="set-row"><label>音樂音量</label><input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="${s.musicVol}"><span class="set-val" id="vMusic">${Math.round(s.musicVol * 100)}%</span></div>
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
+      <div class="set-row"><label>🐦 環境音</label><div class="seg" id="setAmb">${['on', 'off'].map(v => `<button data-amb="${v}" class="${(s.amb || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
       <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
       <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this._qualityNote(qNow)}</small></div>
@@ -543,6 +544,10 @@ class Game {
     };
     $('setMusicVol').oninput = (e) => { s.musicVol = +e.target.value; $('vMusic').textContent = Math.round(s.musicVol * 100) + '%'; this.audio.applyVolumes(); save(); };
     $('setSfxVol').oninput = (e) => { s.sfxVol = +e.target.value; $('vSfx').textContent = Math.round(s.sfxVol * 100) + '%'; this.audio.applyVolumes(); this.audio.blip(); save(); };
+    for (const b of document.querySelectorAll('#setAmb button')) b.onclick = () => {
+      s.amb = b.dataset.amb; save(); this.audio.applyVolumes();
+      for (const o of document.querySelectorAll('#setAmb button')) o.classList.toggle('on', o === b);
+    };
     $('setSens').oninput = (e) => { s.sens = +e.target.value; $('vSens').textContent = s.sens.toFixed(1); save(); };
     for (const b of document.querySelectorAll('#setQuality button')) b.onclick = () => {
       s.quality = b.dataset.q; save();
@@ -679,13 +684,13 @@ class Game {
     // ---- vehicle enter / exit ----
     if (!pl.frozen && !pl.seat && pl.y < 1 && inp.hit('KeyF')) {
       if (pl.vehicle) {
-        if (Math.abs(pl.vehicle.speed) < 6) { pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); this.audio.mount(); }
+        if (Math.abs(pl.vehicle.speed) < 6) { this.audio.engineStop(pl.vehicle.kind); pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); this.audio.mount(); }
         else hud.toast('先減速才能下車！', 'bad');
       } else {
         const v = this._nearestVehicle(3.2);
         if (v) {
           if (v.ai !== null && v.ai !== undefined) { this.traffic.hijack(v); this.vehicles.push(v); hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : '不好意思，借一下車！', 'bad'); }
-          pl.enter(v); this.audio.mount();
+          pl.enter(v); this.audio.mount(); this.audio.engineStart(v.kind);
           if (v.hint) { v.mesh.remove(v.hint); v.hint = null; }
           hud.setTip('🛵 駕駛', dual('<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車',
             '{RT} 油門 {LT} 煞車/倒車 {L} 轉向<br>{RB} 甩尾 {LB} 喇叭 {B} 下車'));
@@ -704,11 +709,11 @@ class Game {
       if (sp > 3) for (const p of this.peds.active()) {
         if (Math.hypot(p.pos.x - v.pos.x, p.pos.z - v.pos.z) < v.radius + 0.45) {
           const [fx, fz] = v.forward();
-          if (this.peds.knock(p, fx, fz)) { this.addVotes(-1, '撞到同學了！-1 票 😵'); v.speed *= 0.7; }
+          if (this.peds.knock(p, fx, fz)) { this.audio.hitPed(); this.addVotes(-1, '撞到同學了！-1 票 😵'); v.speed *= 0.7; }
         }
       }
       if (!pl.frozen && inp.hit('KeyH')) { this.audio.horn(v.kind === 'scooter' ? 1.3 : 1); this.peds.scare(v.pos.x, v.pos.z, 14); }
-      this.audio.setEngine(true, Math.min(1, sp / v.maxSpeed), v.kind);
+      this.audio.setEngine(true, Math.min(1, sp / v.maxSpeed), v.kind); this.audio.skid(v.drifting ? Math.min(1, sp / 14) : 0);
       hud.setSpeed(sp * 3.6);
       // headlight
       const [fx, fz] = v.forward();
@@ -719,7 +724,7 @@ class Game {
       pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors);
       if (pl.sfx) {
         const k = pl.sfx; pl.sfx = null;
-        if (k === 'step') pl.y > 0.3 || this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) ? this.audio.step('in', pl.speed > 6) : this.audio.step('out', pl.speed > 6);
+        if (k === 'step') pl.y > 0.3 || this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) ? this.audio.step('in', pl.speed > 6) : this.audio.step(w.greenAt?.(pl.pos.x, pl.pos.z) ? 'grass' : 'out', pl.speed > 6);
         else if (k === 'jump') this.audio.jump();
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
@@ -753,6 +758,7 @@ class Game {
     this.traffic.update(dt, info, this.audio);
     this.peds.update(dt, { pos: wp }, w.collision);
     this.race.update(dt);
+    this.audio.ambient(dt, { x: wp.x, z: wp.z, yaw: this.rig.yaw, night: this.night, indoor: !pl.vehicle && !!this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y), market: w.nightMarket, crowd: this.speechOn, job: this.job.active, timed: this.missions.timer !== null || this.race.active });
     for (const n of this.npcs) { n.ch.update(dt, { speed: 0, pose: n.pose }); n.mark.position.y = 2.75 + Math.sin(this.time * 3) * 0.08; }
     if (this.crowd) for (const c of this.crowd) c.update(dt, { speed: 0, pose: this.speechOn ? c.cheerPose : null });
 

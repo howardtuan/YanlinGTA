@@ -72,6 +72,10 @@ export const T = {
       g.fillStyle = '#fff'; g.font = font(32); g.fillText(n, x + 96, y + 46); g.fillStyle = '#ffc72c'; g.font = font(30, 800); g.fillText(p, x + 96, y + 84);
     });
   }, false),
+  mcStaff: () => ctex('mcstaff', 384, 124, (g) => {
+    g.fillStyle = '#c8102e'; g.fillRect(0, 0, 384, 124); g.fillStyle = '#ffbc0d'; g.fillRect(0, 0, 384, 10); g.fillRect(0, 114, 384, 10);
+    g.fillStyle = '#fff'; g.font = font(50); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('員工入口 STAFF', 192, 64);
+  }),
   mcLogo: () => ctex('mclogo', 512, 256, (g) => {
     g.fillStyle = '#c8102e'; g.fillRect(0, 0, 512, 256);
     g.strokeStyle = '#ffc72c'; g.lineWidth = 30; g.lineCap = 'round';
@@ -483,6 +487,13 @@ function buildMcD(I, scene) {
   I.actions.push({
     x: cp[0], z: cp[1], r: 2.6, y: 0, label: () => '按 <kbd>E</kbd> 點餐',
     fn: (g) => {
+      // 大麥克套餐 NT$155 (menu board price): earn more by working the counter (staff entrance behind it)
+      if (g.money < 155) {
+        g.dialog([['麥當勞店員', '歡迎光臨！大麥克套餐一份 155 元～'], ['彥霖', '（翻錢包）……只剩 ' + g.money + ' 元 😅'],
+          ['麥當勞店員', '我們有在徵打工喔！從櫃檯旁邊繞到後面的員工入口，按 E 就能上班。']]);
+        return;
+      }
+      g.spend(155, '麥當勞 大麥克套餐');
       g.dialog([
         ['麥當勞店員', '歡迎光臨麥當勞！請問要點什麼？'],
         ['彥霖', '一份大麥克套餐，飲料換可樂 🍔'],
@@ -494,6 +505,15 @@ function buildMcD(I, scene) {
       });
     },
   });
+  // part-time job: staff entrance behind the counter (walk round its north end), work spot next to the
+  // crew member, customers step up on the other side of the counter (see mcjob.js)
+  const se = k.w(2.4, 18.4);
+  I.mcJob = { work: k.w(2.4, 7.2), workH: k.heading(Math.PI / 2), cust: k.w(5.3, 7.2), custH: k.heading(-Math.PI / 2), base: k.base };
+  I.actions.push({
+    x: se[0], z: se[1], r: 1.5, y: 0, label: () => '按 <kbd>E</kbd> 上班打工（時薪 NT$196）',
+    fn: (g) => g.job.start(),
+  });
+  k.plane(T.mcStaff(), 1.4, 0.45, 0.33, 2.4, 18.4, Math.PI / 2, { emissive: 0.5 });
   return { entrance: k.w(W + 3, 10) };
 }
 

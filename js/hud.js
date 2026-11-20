@@ -145,6 +145,7 @@ export class HUD {
   // ---------- texts ----------
   setVotes(n) { $('voteNum').textContent = n; }
   setBallots(n) { $('ballotNum').textContent = n; }
+  setMoney(n) { $('moneyNum').textContent = n.toLocaleString('en-US'); }
   setClock(min) { const h = Math.floor(min / 60) % 24, m = Math.floor(min % 60); $('clock').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }
   setLocation(t) { if (this._loc !== t) { this._loc = t; $('locName').textContent = t; } }
   setTip(title, html) { $('tipBox').querySelector('.tip-title').textContent = title; $('tipText').innerHTML = html; }

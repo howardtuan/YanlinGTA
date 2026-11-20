@@ -13,6 +13,8 @@ import { pointInPoly } from './collision.js';
 import { loadTerrain, surfaceAt } from './terrain.js';
 import { SkySystem } from './sky.js';
 import { PostFX } from './post.js';
+import { Phone } from './phone.js';
+import { McJob } from './mcjob.js';
 
 const $ = id => document.getElementById(id);
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
@@ -101,6 +103,11 @@ class Game {
     this.peds = new Peds(this.scene, this.world, this.lowQ ? 18 : 32);
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
+    // pocket money (Peach Pay): start with NT$200, earn more at the McDonald's counter
+    this.money = 200; this.ledger = [{ what: '媽媽給的零用錢', n: 200, at: this.clock }];
+    this.hud.setMoney(this.money);
+    this.phone = new Phone(this);
+    this.job = new McJob(this);
     // 彩蛋 (tools/overrides.json pois[].egg): toast once per game when you walk / ride past
     this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
     // 彥霖 campaign billboards at key campus spots
@@ -308,6 +315,23 @@ class Game {
   dialog(lines, cb) {
     this.hud.dialog(lines, cb);
   }
+  earn(n, what) {
+    this.money += n; this.ledger.push({ what, n, at: this.clock }); this.hud.setMoney(this.money);
+    const el = $('moneyNum'); el.style.transform = 'scale(1.3)'; setTimeout(() => el.style.transform = '', 160);
+  }
+  spend(n, what) {
+    if (this.money < n) return false;
+    this.money -= n; this.ledger.push({ what, n: -n, at: this.clock }); this.hud.setMoney(this.money);
+    return true;
+  }
+  setMusic(v) { this.settings.music = v; saveSettings(this.settings); this.audio.init(); this.audio.applyMusic(); }
+  // grab the next rendered frame as a JPEG (phone camera)
+  capture(cb) { this._shot = cb; }
+  lockPointer() { if (this.state === 'play') lockPointer(this.renderer.domElement); }
+  openPhone() {
+    this.phone.show(); // sets phone.open first so losing the pointer lock doesn't pause the game
+    document.exitPointerLock?.();
+  }
   startSpeech(at, cb) {
     // crowd gathers and cheers
     const rnd = mulberry32(19);
@@ -382,7 +406,7 @@ class Game {
     };
     $('btnRestart').onclick = () => location.reload();
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen) this.pause();
+      if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen && !this.phone?.open && !this.job?.active) this.pause();
     });
   }
   // artwork + 5 s progress bar shown after pressing Start
@@ -503,6 +527,7 @@ class Game {
     for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = b.y0 + Math.sin(this.time * 3 + b.ph) * 0.15; }
     for (const b of this.beams) if (b.visible) b.material.opacity = 0.22 + Math.sin(this.time * 4) * 0.06;
     this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
+    if (this._shot) { const cb = this._shot; this._shot = null; cb(this.renderer.domElement.toDataURL('image/jpeg', 0.85)); }
     this.input.endFrame();
   }
   _titleCam(dt) {
@@ -524,15 +549,23 @@ class Game {
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'Space', 'Mouse0')) { hud.advanceDialog(); inp.pressed.clear(); }
+    // McDonald's shift and the i-Piyan phone take the keyboard while they are up
+    if (this.job.active && !inDialog) { this.job.update(dt, inp); inp.pressed.clear(); }
+    else if (this.phone.open) {
+      if (this.phone.update(dt, inp) === 'closed' && !this.input.touch && !hud.bigOpen) lockPointer(this.renderer.domElement);
+      inp.pressed.clear();
+    }
     if (inp.hit('KeyM')) hud.toggleBig();
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) hud.toggleBig(false); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen;
+    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
     if (act && !pl.frozen && inp.hit('KeyE')) { act.fn(this); inp.pressed.delete('KeyE'); }
     if (pl.seat && !act && inp.hit('KeyE')) pl.standUp();
+    // E with nothing to interact with: take out the phone
+    else if (!act && !pl.seat && !inDialog && !pl.frozen && inp.hit('KeyE')) { this.openPhone(); inp.pressed.delete('KeyE'); }
 
     // ---- vehicle enter / exit ----
     if (!pl.frozen && !pl.seat && pl.y < 1 && inp.hit('KeyF')) {
@@ -638,7 +671,7 @@ class Game {
       for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160;
     }
     // tip box fades after a while on foot
-    if (!pl.vehicle && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定'); }
+    if (!pl.vehicle && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定'); }
     if (pl.vehicle) this._tipMode = 'car';
   }
   _nearestVehicle(r) {
@@ -677,6 +710,14 @@ const CONTROLS_HTML = `
 <div><span>比 ✌</span><kbd>G</kbd></div>
 <div><span>上車 / 下車</span><kbd>F</kbd></div>
 <div><span>對話 / 繼續</span><span><kbd>E</kbd> <kbd>Enter</kbd></span></div>
+<div><span>📱 i-Piyan 手機（附近沒有互動時）</span><kbd>E</kbd></div>
+</div>
+<div class="ctrl-sec">手機與打工 PHONE & JOB</div>
+<div class="ctrl-grid">
+<div><span>訊息：選擇回覆</span><span><kbd>↑</kbd><kbd>↓</kbd> / <kbd>1</kbd><kbd>2</kbd></span></div>
+<div><span>訊息：傳送</span><kbd>Tab</kbd></div>
+<div><span>手機：返回 / 收起</span><span><kbd>Esc</kbd> / <kbd>E</kbd></span></div>
+<div><span>麥當勞出餐</span><span><kbd>1</kbd>～<kbd>6</kbd></span></div>
 </div>
 <div class="ctrl-sec">駕駛 機車與汽車 DRIVING</div>
 <div class="ctrl-grid">

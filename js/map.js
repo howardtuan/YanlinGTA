@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CollisionWorld, SegGrid, pointInPoly } from './collision.js';
 import { H, Hmin, terrainGrid, addBridge, clearBridges, DS } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
+import { buildFurniture } from './furniture.js';
 
 export function mulberry32(a) {
   return function () {
@@ -508,18 +509,6 @@ export function makeLabel(text, opt = {}) {
   return s;
 }
 
-function signTexture(word, bg, fg) {
-  return canvasTex(64, 256, (g) => {
-    g.fillStyle = bg; g.fillRect(0, 0, 64, 256);
-    g.strokeStyle = fg; g.lineWidth = 4; g.strokeRect(4, 4, 56, 248);
-    g.fillStyle = fg; g.font = '900 46px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    const chars = [...word];
-    const step = 236 / chars.length;
-    chars.forEach((ch, i) => g.fillText(ch, 32, 12 + step * (i + 0.5)));
-  }, false);
-}
-
 export function bannerTexture() {
   return canvasTex(1024, 512, (g) => {
     const gr = g.createLinearGradient(0, 0, 1024, 512);
@@ -690,6 +679,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const ax = px + nx * sd, az = pz + nz * sd, bx = qx + nx * sd, bz = qz + nz * sd, fn = [nx / (w / 2) * sd, 0, nz / (w / 2) * sd];
         // fascia under the deck edge + a low curb
         deckSides.quad([ax, py - 0.7, az], [bx, qy - 0.7, bz], [bx, qy + 0.25, bz], [ax, py + 0.25, az], col('#8d8a82'), fn);
+        // 1 m parapet (護欄) on the deck edge, visual only (collision stays 2D)
+        const k = 0.22 / (w / 2), ix = nx * k * sd, iz = nz * k * sd, PAR = col('#b4b0a7');
+        deckSides.quad([ax, py + 0.25, az], [bx, qy + 0.25, bz], [bx, qy + 1.0, bz], [ax, py + 1.0, az], PAR, fn);
+        deckSides.quad([ax - ix, py, az - iz], [bx - ix, qy, bz - iz], [bx - ix, qy + 1.0, bz - iz], [ax - ix, py + 1.0, az - iz], PAR, fn.map(v => -v));
+        deckSides.quad([ax, py + 1.0, az], [bx, qy + 1.0, bz], [bx - ix, qy + 1.0, bz - iz], [ax - ix, py + 1.0, az - iz], col('#9a968d'), UP);
       }
       px = qx; pz = qz; py = qy;
     }
@@ -761,7 +755,44 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (i > 0 && turnAt(r, i) > 0.1) walks.disc(a[0], a[1], r.w / 2 + 2.6, 0.02, SIDEWALK, 12);
     }
   };
+  // tunnels: building passages stay on the surface; underground ones (layer<0,
+  // mostly outside buildings) get no surface strip, only portals where they
+  // join the street. They stay in roadGrid / nearestRoadPoint but not in the
+  // traffic graph.
+  {
+    const inBld = (x, z) => data.buildings.some(b => pointInPoly(x, z, b.pts));
+    for (const r of data.roads) {
+      if (!r.tunnel) continue;
+      let n = 0, inside = 0;
+      for (let i = 0; i < r.pts.length - 1; i++) for (const t of [0.25, 0.5, 0.75]) {
+        const a = r.pts[i], b = r.pts[i + 1]; n++;
+        if (inBld(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)) inside++;
+      }
+      r.under = inside * 2 < n;
+    }
+  }
+  const portal = (p, q, w) => {
+    const dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz) || 1, ex = dx / l, ez = dz / l, nx = -ez, nz = ex;
+    const hw = w / 2 + 0.4, hh = w > 3 ? 4.2 : 2.6, cx = p[0] + ex * 0.3, cz = p[1] + ez * 0.3, y = Hmin(cx, cz, hw);
+    if (data.buildings.some(b => pointInPoly(cx, cz, b.pts)) || collision.reserved.some(rp => pointInPoly(cx, cz, rp))) return;
+    const C = col('#9b978e'), D = [0.03, 0.03, 0.035], F = [-ex, 0, -ez];
+    const P = (o, yy, f = 0) => [cx + nx * o + ex * f, y + yy, cz + nz * o + ez * f];
+    deckSides.quad(P(-hw, -0.3, 0.05), P(hw, -0.3, 0.05), P(hw, hh, 0.05), P(-hw, hh, 0.05), D, F);
+    deckSides.quad(P(-hw - 1, -0.3), P(-hw, -0.3), P(-hw, hh + 1), P(-hw - 1, hh + 1), C, F);
+    deckSides.quad(P(hw, -0.3), P(hw + 1, -0.3), P(hw + 1, hh + 1), P(hw, hh + 1), C, F);
+    deckSides.quad(P(-hw, hh), P(hw, hh), P(hw, hh + 1), P(-hw, hh + 1), C, F);
+    deckSides.quad(P(-hw - 1, hh + 1), P(hw + 1, hh + 1), P(hw + 1, hh + 1, 0.6), P(-hw - 1, hh + 1, 0.6), C, UP);
+  };
   for (const r of data.roads) {
+    if (r.under) {
+      for (let i = 0; i < r.pts.length - 1; i++) roadGrid.add(r.pts[i][0], r.pts[i][1], r.pts[i + 1][0], r.pts[i + 1][1], r.w, r);
+      const n = r.pts.length;
+      if (n > 1 && hasNodes(r)) {
+        if ((nodeUse.get(r.nodes[0]) || 0) >= 2) portal(r.pts[0], r.pts[1], r.w);
+        if ((nodeUse.get(r.nodes[n - 1]) || 0) >= 2) portal(r.pts[n - 1], r.pts[n - 2], r.w);
+      }
+      continue;
+    }
     const L = ROAD_LAYER[r.type] ?? 1;
     const g = layers[L]; const c = roadCol(r);
     const yAt = r.bridge && !r.tunnel ? addBridge(r.pts, r.w) : null;
@@ -931,7 +962,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (let i = 0; i < pts.length; i++) rtri(P(pts[i], h), P(pts[(i + 1) % pts.length], h), [cx, h + rise, cz], rc);
     return rise;
   };
-  const tanks = []; const signs = [];
+  const tanks = []; const shopWalls = world.shopWalls = []; let oldSigns = 0;
   // building base: lowest ground along the footprint (corners + every 5 m of edge).
   // When the plot drops more than h/2 (low shops on a slope) the base moves to
   // mid-slope so the uphill side isn't buried; walls still reach the low point.
@@ -995,15 +1026,17 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const s0 = -sAcc / 32, s1 = -(sAcc + l) / 32, w0 = (foot - base) / 3.6, w1 = (yS - base) / 3.6; sAcc += l;
         shopGeo.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [SHOP_LO, SHOP_LO, SHOP_HI, SHOP_HI], n,
           [[s0, w0], [s1, w0], [s1, w1], [s0, w1]]);
+        // street-facing shop walls: furniture.js hangs POI signs and parks scooters here
+        shopWalls.push({ a, c, n, base, h, floors, bi });
       } else {
         g.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [cLo, cLo, tint, tint], n,
           [[u0, vAt(foot)], [u1, vAt(foot)], [u1, vAt(yS)], [u0, vAt(yS)]]);
       }
       if (top > yS + 0.01) g.quad([a[0], yS, a[1]], [c[0], yS, c[1]], [c[0], top, c[1]], [a[0], top, a[1]], [tint, tint, cTop, cTop], n,
         [[u0, vAt(yS)], [u1, vAt(yS)], [u1, vAt(top)], [u0, vAt(top)]]);
-      if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && signs.length < 260) {
-        signs.push({ x: (a[0] + c[0]) / 2 + n[0] * 0.7, z: (a[1] + c[1]) / 2 + n[2] * 0.7, y: base + Math.min(h - 2, 4 + rnd() * 3), rot: Math.atan2(dx, dz) });
-      }
+      // the old fixed-word signs are gone (POI signs in furniture.js); their
+      // draws stay so the shared rnd sequence (stalls, trees...) is unchanged
+      if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && oldSigns < 260) { oldSigns++; rnd(); }
     }
     const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
     const top = base + h;
@@ -1081,24 +1114,6 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     tanks.forEach((t, i) => { M.makeTranslation(t[0], t[1] + 0.6, t[2]); im.setMatrixAt(i, M); im2.setMatrixAt(i, M); });
     im.castShadow = true; scene.add(im, im2);
   }
-  // vertical shop signs
-  {
-    const words = [['小吃', '#c8102e', '#fff'], ['飲料', '#0a7d3b', '#fff'], ['早餐', '#ffd23f', '#c8102e'], ['便當', '#ff7a00', '#fff'], ['藥局', '#1a5fd1', '#fff'], ['機車行', '#222', '#ffd23f'], ['影印', '#6b2bd1', '#fff'], ['牛肉麵', '#a3001b', '#ffe9a8'], ['租屋', '#008891', '#fff'], ['滷味', '#5c2a00', '#ffd23f']];
-    const geo = new THREE.BoxGeometry(0.22, 2.6, 0.9);
-    const per = words.map(() => []);
-    signs.forEach((s, i) => per[i % words.length].push(s));
-    world.signMats = [];
-    words.forEach((w, wi) => {
-      if (!per[wi].length) return;
-      const tex = signTexture(w[0], w[1], w[2]);
-      const mat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: '#ffffff', emissiveIntensity: 0.2, roughness: 0.6 });
-      world.signMats.push(mat);
-      const im = new THREE.InstancedMesh(geo, mat, per[wi].length);
-      const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3();
-      per[wi].forEach((s, i) => { Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), s.rot + Math.PI / 2); P.set(s.x, s.y + 1.3, s.z); M.compose(P, Q, S); im.setMatrixAt(i, M); });
-      scene.add(im);
-    });
-  }
   onProgress(0.6);
 
   // ---------- road graph ----------
@@ -1106,7 +1121,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const getNode = (id, p) => { let n = nodes.get(id); if (!n) { n = { id, x: p[0], z: p[1], adj: [] }; nodes.set(id, n); } return n; };
   const inB = p => p[0] > B.minX + 5 && p[0] < B.maxX - 5 && p[1] > B.minZ + 5 && p[1] < B.maxZ - 5;
   for (const r of data.roads) {
-    if (!r.nodes || r.nodes.length !== r.pts.length) continue;
+    if (!r.nodes || r.nodes.length !== r.pts.length || r.under) continue;
     const drive = !!r.drive && !(r.type === 'service' && !r.name);
     for (let i = 0; i < r.pts.length - 1; i++) {
       if (!inB(r.pts[i]) || !inB(r.pts[i + 1])) continue;
@@ -1135,7 +1150,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     return best;
   };
-  world.isFree = (x, z, r = 1) => !collision.blocked(x, z, r) && !waterPolys.some(p => inArea(x, z, p));
+  // world.soft: parked scooters (no collision) that spawns should not overlap
+  world.isFree = (x, z, r = 1) => !collision.blocked(x, z, r) && !waterPolys.some(p => inArea(x, z, p)) && !(world.soft && world.soft.near(x, z, r + 0.4));
 
   // ---------- landmarks ----------
   const poi = name => data.pois.find(p => p.name === name);
@@ -1278,23 +1294,57 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
   onProgress(0.7);
 
+  // ---------- street furniture (furniture.js) ----------
+  {
+    const f = buildFurniture(scene, world, data, { Geo, col, addFlat, obb, polyArea, low: !!opts.low, rnd: mulberry32(4401), keep: opts.keep || [] });
+    world.signMats = f.signMats;
+  }
+
   // ---------- street lamps ----------
+  // OSM street_lamp nodes where mapped; elsewhere one every 30 m, sides
+  // alternating along each road (no lamp within 15 m of an OSM one)
   {
     const spots = [];
+    const osm = data.furniture.filter(f => f.t === 'street_lamp');
+    // lamp poles collide, so none may stand in any carriageway
+    const laneClear = (x, z) => { const q = roadGrid.nearest(x, z, s => s[5].drive && !s[5].under); return !q.seg || q.d > 0.3; };
+    let inLane = 0;
+    for (const f of osm) {
+      const q = roadGrid.nearest(f.x, f.z, s => s[5].drive && !s[5].under);
+      let x = f.x, z = f.z, rot = 0;
+      if (q.seg) {
+        const s = q.seg, l = Math.hypot(s[2] - s[0], s[3] - s[1]) || 1;
+        let vx = x - q.q[0], vz = z - q.q[1], d = Math.hypot(vx, vz);
+        if (d < 0.01) { vx = -(s[3] - s[1]) / l; vz = (s[2] - s[0]) / l; d = 1; }
+        // lamps mapped on the carriageway move to its edge
+        if (q.d < 0.3) { x = q.q[0] + vx / d * (s[4] / 2 + 0.6); z = q.q[1] + vz / d * (s[4] / 2 + 0.6); }
+        rot = Math.atan2(-vx, -vz);
+      }
+      if (!laneClear(x, z)) { inLane++; continue; }
+      if (!collision.insideAny(x, z) && !collision.blocked(x, z, 0.3)) spots.push([x, z, rot]);
+    }
+    const osmN = spots.length;
+    const nearOsm = (x, z) => osm.some(f => (f.x - x) ** 2 + (f.z - z) ** 2 < 225);
     for (const r of data.roads) {
-      if (!r.drive || !r.name || r.type === 'service') continue;
-      let acc = 0;
+      if (!r.drive || !r.name || r.type === 'service' || r.under) continue;
+      let acc = 0, k = hashStr(r.name) & 1;
       for (let i = 0; i < r.pts.length - 1; i++) {
         const a = r.pts[i], b = r.pts[i + 1]; const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
         for (let s = (30 - acc % 30); s < l; s += 30) {
           const x = a[0] + dx * s / l, z = a[1] + dz * s / l;
-          const nx = -dz / l, nz = dx / l, side = spots.length % 2 ? 1 : -1;
-          const px = x + nx * side * (r.w / 2 + 0.6), pz = z + nz * side * (r.w / 2 + 0.6);
-          if (!collision.blocked(px, pz, 0.5)) spots.push([px, pz, Math.atan2(-nx * side, -nz * side)]);
+          const nx = -dz / l, nz = dx / l, s0 = k++ % 2 ? 1 : -1;
+          // the other kerb when this one is inside a junction / another road
+          for (const side of [s0, -s0]) {
+            const px = x + nx * side * (r.w / 2 + 0.6), pz = z + nz * side * (r.w / 2 + 0.6);
+            if (nearOsm(px, pz) || collision.blocked(px, pz, 0.5)) break;
+            if (!laneClear(px, pz)) { if (side !== s0) inLane++; continue; }
+            spots.push([px, pz, Math.atan2(-nx * side, -nz * side)]); break;
+          }
         }
         acc += l;
       }
     }
+    world.lampCount = { osm: osmN, total: spots.length, inLane };
     const pole = new THREE.CylinderGeometry(0.09, 0.12, 7, 6); pole.translate(0, 3.5, 0);
     const arm = new THREE.BoxGeometry(0.1, 0.1, 1.6); arm.translate(0, 7, 0.8);
     const head = new THREE.BoxGeometry(0.35, 0.15, 0.6); head.translate(0, 6.9, 1.5);
@@ -1304,7 +1354,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const headM = new THREE.InstancedMesh(head, lampMat, spots.length);
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
     spots.forEach(([x, z, r], i) => { Q.setFromAxisAngle(Y, r); P.set(x, H(x, z) - 0.1, z); M.compose(P, Q, S); poleM.setMatrixAt(i, M); armM.setMatrixAt(i, M); headM.setMatrixAt(i, M); collision.addCircle(x, z, 0.2); });
-    poleM.castShadow = true;
+    // thin poles: shadows only on high quality
+    poleM.castShadow = !opts.low;
     scene.add(poleM, armM, headM);
     world.lampMat = lampMat;
     // light pools on the ground (cheap fake lighting at night)
@@ -1334,6 +1385,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (x < B.minX + 3 || x > B.maxX - 3 || z < B.minZ + 3 || z > B.maxZ - 3) return false;
       if (roadGrid.nearest(x, z).d < 1.0) return false;
       if (collision.blocked(x, z, r)) return false;
+      if (world.soft && world.soft.near(x, z, r)) return false;
       if (waterPolys.some(p => inArea(x, z, p))) return false;
       if (sportPolys.some(p => pointInPoly(x, z, p))) return false;
       if (parkingPolys.some(p => inArea(x, z, p))) return false;

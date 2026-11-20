@@ -40,6 +40,13 @@ class Game {
     }
     const M = MCD_SPEC;
     const reserved = [imFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint)];
+    // street furniture keeps clear of the guardhouse boom barriers and the spawn
+    const keep = [];
+    for (const s of GUARD_SPECS(data)) {
+      const c = Math.cos(s.ang), sn = Math.sin(s.ang), w = (x, z) => ({ x: s.x + x * c - z * sn, z: s.z + x * sn + z * c });
+      keep.push({ ...w(4.2, 3.6), r: 3 }, { ...w(6.7, 3.6), r: 4.5 });
+    }
+    { const g = data.pois.find(p => p.name === '舊校門') || { x: -231, z: 39 }; keep.push({ x: g.x, z: g.z, r: 18 }); }
     this.settings = loadSettings();
     // quality: 'auto' picks low on touch devices; MSAA can only change with a new renderer (reload)
     this.lowQ = qualityLow(this.settings.quality);
@@ -60,7 +67,7 @@ class Game {
     this._sky();
     await nextFrame();
     setLoad(0.08, '搭建中原大學');
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, low: this.lowQ });
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ });
     this.skyline = buildSkyline(this.scene, this.lowQ ? 70 : 180);
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();

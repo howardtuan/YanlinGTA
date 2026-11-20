@@ -564,6 +564,8 @@ def main():
                     a['holes'] = hs
                 if name:
                     a['name'] = name
+                if t.get('amenity') == 'motorcycle_parking':
+                    a['sub'] = 'motorcycle'
                 if e['type'] == 'relation':
                     a['rel'] = e['id']
                 out['areas'].append(a)

@@ -656,3 +656,25 @@ kbd.pb-nin.pb-face{background:#3b3d44}
 .tm-out div{white-space:pre-wrap;min-height:1.45em}
 .tm-line{display:flex;gap:0;white-space:pre}
 .tm-in{flex:1;min-width:0;background:none;border:0;outline:none;color:#d4d4d4;font:inherit;padding:0;caret-color:#d4d4d4}
+
+/* pause menu: danger button, clear-save confirmation */
+.menu-btn.danger{background:#ffe1e3}
+.menu-btn.danger span{color:#c41d2a}
+.menu-btn:disabled{opacity:.4;cursor:not-allowed}
+.clear-type{width:100%;margin-top:6px;padding:10px 12px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:#0d1020;color:#fff;font-size:16px}
+
+/* phone: 呼叫載具 / 任務 apps */
+.ph-garage{display:flex;flex-direction:column;gap:12px;padding:6px 2px}
+.ph-gcard{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.ph-gcard span{font-size:34px}.ph-gcard b{display:block;font-size:15px;color:#111}.ph-gcard small{color:#666;font-size:12px}
+.ph-gbtn{border:0;border-radius:14px;padding:13px;background:linear-gradient(#ffb02e,#ff8a00);color:#fff;font-weight:900;font-size:15px;cursor:pointer;width:100%;margin:6px 0}
+.ph-gbtn:disabled{background:#c9c9cf;cursor:default}
+.ph-mhead{background:linear-gradient(135deg,#2f6bff,#7aa7ff);color:#fff;border-radius:14px;padding:12px 14px;margin-bottom:6px}
+.ph-mhead small{display:block;opacity:.85;font-size:12px}.ph-mhead b{font-size:26px}.ph-mhead span{display:block;font-size:12px;margin-top:4px}
+.ph-mbar{height:6px;border-radius:3px;background:rgba(255,255,255,.3);margin-top:6px;overflow:hidden}.ph-mbar i{display:block;height:100%;background:#ffd23f}
+.ph-msec{font-size:12px;font-weight:800;color:#888;margin:10px 2px 4px}
+.ph-mrow{display:flex;gap:10px;align-items:flex-start;padding:9px 6px;border-bottom:1px solid #eee}
+.ph-mrow i{font-style:normal;width:20px;text-align:center}.ph-mrow b{display:block;font-size:14px;color:#111}.ph-mrow small{color:#777;font-size:12px}
+.ph-mrow.now{background:#eef3ff;border-radius:10px}.ph-mrow.now b{color:#2f6bff}.ph-mrow.todo{opacity:.55}
+/* computer wallpaper: assets/pc/wallpaper.jpg when present, otherwise the blue gradient */
+.pc-screen{background:url(../assets/pc/wallpaper.jpg) center/cover no-repeat,radial-gradient(circle at 70% 30%,#3a7bd5 0,#1c3f7a 45%,#0f2147 100%)}

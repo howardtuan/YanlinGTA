@@ -13,6 +13,9 @@ const PEACH = (fill = '#fff') => `<svg viewBox="0 0 64 64" class="peach-logo" ar
 
 const APPS = [
   { id: 'messages', name: '訊息', icon: '💬', bg: 'linear-gradient(#6af07e,#20c23f)' },
+  // first on the home screen's first page
+  { id: 'garage', name: '呼叫載具', icon: '🚁', bg: 'linear-gradient(#ffd23f,#ff9f0a)', noArt: true },
+  { id: 'missions', name: '任務', icon: '📋', bg: 'linear-gradient(#7aa7ff,#2f6bff)', noArt: true },
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
   { id: 'wallet', name: 'Peach Pay', icon: '💳', bg: 'linear-gradient(#ffb38a,#ff6f61)' },
@@ -50,7 +53,7 @@ const NOTES = [
 const CAL = { 3: '期中考週', 12: '系學會登記', 18: '政見發表會', 20: '拉票衝刺', 25: '投票日 🗳️', 28: '系烤' };
 // home-screen icon artwork (assets/phone/<id>.webp, generated with Qwen-Image); preloaded so the emoji doesn't flash first
 const ICON_DIR = 'assets/phone/';
-const ICON_ART = new Set(APPS.map(a => a.id));
+const ICON_ART = new Set(APPS.filter(a => !a.noArt).map(a => a.id));
 const ICON_FAIL = new Set();
 for (const id of ICON_ART) { const im = new Image(); im.onerror = () => ICON_FAIL.add(id); im.src = `${ICON_DIR}${id}.webp`; }
 const DOCK = ['messages', 'camera', 'wallet', 'settings'];
@@ -219,6 +222,59 @@ export class Phone {
   }
   _dateStr() { const d = new Date(); return `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`; }
   _temp() { return Math.round(this.g.night > 0.5 ? 19 : 24 + Math.sin((this.g.clock % 1440) / 1440 * Math.PI) * 3); }
+  // ---------------- 呼叫載具 ----------------
+  _garage() {
+    const g = this.g, v = g.myScooter, p = g.player.worldPos();
+    const d = v ? Math.round(Math.hypot(v.pos.x - p.x, v.pos.z - p.z)) : 0;
+    const riding = g.player.vehicle === v, busy = g.airdrop?.busy;
+    const c = this._frame('呼叫載具', `<div class="ph-garage">
+        <div class="ph-gcard"><span>🛵</span><div><b>我的 SYM JET SL</b><small>粉白配色 · ${riding ? '騎乘中' : busy ? '空投中…' : `距離你 ${d} 公尺`}</small></div></div>
+        <button class="ph-gbtn" ${riding || busy ? 'disabled' : ''}>🚁 直升機空投到我旁邊</button>
+        <div class="ph-note">彥霖空運：直升機把機車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。</div>
+      </div>`);
+    c.querySelector('.ph-gbtn').onclick = () => {
+      const err = g.airdrop.call();
+      if (err) { g.hud.toast(err, 'bad', 2400); return; }
+      g.audio.notify?.(); g.hud.toast('🚁 直升機起飛了，抬頭看！', 'good', 2600);
+      this.close(); this._last = null; g.lockPointer();
+    };
+  }
+  // ---------------- 任務 ----------------
+  _missions() {
+    const g = this.g, M = g.missions;
+    const LIST = [
+      ['序章 · 競選之夜', '和總幹事小安會合，前往資訊管理學系館'],
+      ['任務一 · 傳單大作戰', '3 分鐘內把傳單送到 5 個公布欄'],
+      ['任務二 · 宵夜補給', '去中原夜市幫競選小組買宵夜'],
+      ['任務三 · 掃街拉票', '對路上的同學發傳單，拉到 15 票'],
+      ['任務四 · 布條保衛戰', '依序把競選布條掛好，限時完成'],
+      ['終章 · 政見發表會', '到學生活動中心發表政見'],
+    ];
+    const cur = M.done ? LIST.length : Math.max(0, M.idx);
+    const obj = document.getElementById('objText')?.innerText || '';
+    const rows = LIST.map(([t, d], i) => {
+      const st = i < cur ? 'done' : i === cur ? 'now' : 'todo';
+      return `<div class="ph-mrow ${st}"><i>${st === 'done' ? '✅' : st === 'now' ? '▶' : '🔒'}</i><div><b>${esc(t)}</b><small>${esc(st === 'now' && obj ? obj : d)}</small></div></div>`;
+    }).join('');
+    const tgt = this._missionTarget();
+    const c = this._frame('任務', `<div class="ph-mhead"><small>主線進度</small><b>${Math.min(cur, LIST.length)} / ${LIST.length}</b>
+        <div class="ph-mbar"><i style="width:${Math.min(cur, LIST.length) / LIST.length * 100}%"></i></div>${M.done ? '<span>🎉 已當選！繼續自由玩吧</span>' : ''}</div>
+      ${tgt ? '<button class="ph-gbtn ph-mnav">🧭 導航到目前目標</button>' : ''}
+      <div class="ph-msec">主線任務</div>${rows}
+      <div class="ph-msec">支線與收集</div>
+      <div class="ph-row"><span>🗳 金色選票</span><b>${g.ballotsTaken} / 34</b></div>
+      <div class="ph-row"><span>🍟 麥當勞值班</span><b>${g.job.shifts ? g.job.shifts + ' 班' : '未開始'}</b></div>
+      <div class="ph-row"><span>🚧 A6 側門門禁</span><b>${g.gate.shifts ? g.gate.shifts + ' 班' : '未開始'}</b></div>
+      <div class="ph-row"><span>🏁 新中北路障礙賽</span><b>${g.race.runs ? `${g.race.runs} 場 · 冠軍 ${g.race.wins} 次` : '未參加'}</b></div>`);
+    const nb = c.querySelector('.ph-mnav');
+    if (nb) nb.onclick = () => { g.nav.set(tgt.x, tgt.z); g.hud.toast('🧭 已設定導航到任務目標', 'good', 2000); this.close(); g.lockPointer(); };
+  }
+  _missionTarget() {
+    const s = this.g.missions.step; if (!s) return null;
+    if (s.type === 'goto') return s.target;
+    if (s.type === 'cps') { const left = s.list.filter(c => !c.hit); return left.length ? left[0] : null; }
+    return null;
+  }
   _frame(title, body, opt = {}) {
     // slide in only when we land on a different page; re-rendering the same page (likes, buy, keypad, tabs) stays put
     const key = this.app + '|' + title, still = key === this._frameKey; this._frameKey = key;
@@ -230,6 +286,8 @@ export class Phone {
     this.app = id; this.cur = null; this.g.audio.tap?.();
     const g = this.g;
     if (id === 'messages') return this._messages();
+    if (id === 'garage') return this._garage();
+    if (id === 'missions') return this._missions();
     if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
     if (id === 'camera') return this._camera();
     if (id === 'photos') return this._photos();

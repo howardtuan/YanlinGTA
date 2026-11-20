@@ -80,6 +80,9 @@ export const T = {
     g.fillStyle = 'rgba(255,255,255,.18)'; g.font = font(16); g.textAlign = 'right'; g.fillText('資管要贏　票投彥霖', 246, 118);
     g.fillStyle = 'rgba(18,20,28,.92)'; g.fillRect(0, 128, 256, 16); g.fillStyle = '#2f6bff'; g.fillRect(3, 131, 34, 10);
     g.fillStyle = '#fff'; g.font = font(8, 700); g.fillText('17:40', 250, 139);
+    const im = new Image(); // the same wallpaper as the computer desktop (js/pc.js), if the file is there
+    im.onload = () => { const s = Math.max(256 / im.width, 128 / im.height), w = im.width * s, h = im.height * s; g.drawImage(im, (256 - w) / 2, (128 - h) / 2, w, h); g.fillStyle = 'rgba(18,20,28,.92)'; g.fillRect(0, 128, 256, 16); g.fillStyle = '#2f6bff'; g.fillRect(3, 131, 34, 10); g.fillStyle = '#fff'; g.fillText('17:40', 250, 139); if (TEX.screen) TEX.screen.needsUpdate = true; };
+    im.src = 'assets/pc/wallpaper.jpg';
   }, false),
   cctv: () => ctex('cctv', 256, 160, (g) => {
     g.fillStyle = '#0a1a10'; g.fillRect(0, 0, 256, 160);

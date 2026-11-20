@@ -22,6 +22,7 @@ import { readSave, writeSave, applySave, clearSave } from './save.js';
 import { PC } from './pc.js';
 import { Wardrobe } from './wardrobe.js';
 import { Nav } from './nav.js';
+import { Airdrop } from './airdrop.js';
 import { Race } from './race.js';
 
 const $ = id => document.getElementById(id);
@@ -126,6 +127,7 @@ class Game {
     this.pc = new PC(this);             // 彥霖's old computer (2F of 孫師傅牛肉拉麵)
     this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
     this.nav = new Nav(this);           // map waypoint + route
+    this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
     onClick('bmClose', () => this.closeMap());
     onClick('bmClear', () => { this.nav.clear(); $('bmClear').classList.add('hidden'); });
@@ -162,6 +164,7 @@ class Game {
     const near = this.world.nearestRoadPoint(gate.x + 6, gate.z + 2);
     const sx = near ? near.x : gate.x + 6, sz = near ? near.z : gate.z;
     this.player.place(sx, sz, Math.atan2(im.x - sx, im.z - sz));
+    this.startPos = { x: sx, z: sz, h: this.player.heading }; // story NPCs (小安) stand here
     this.rig.yaw = this.player.heading;
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
     setLoad(0.95, '準備出發');
@@ -440,6 +443,7 @@ class Game {
       const d = readSave();
       if (d) {
         const m = applySave(this, d);
+        this.missions.spawnNpcs(m.done ? 99 : (m.idx ?? 0));
         if (m.done) { this.missions.done = true; this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！'); }
         else { this.missions.idx = Math.max(-1, (m.idx ?? 0) - 1); this.missions.next(); }
         this.hud.toast('💾 已讀取上次的進度', 'good', 2600);
@@ -462,7 +466,7 @@ class Game {
       this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！');
       if (!this.input.touch) lockPointer(this.renderer.domElement);
     });
-    onClick('btnRestart', () => { this._noSave = true; clearSave(); location.reload(); });
+    onClick('btnRestart', () => this._confirmClear(1, true));
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen && !this.phone?.open && !this.job?.active && !this.pc?.isOpen && !this.wardrobe?.isOpen) this.pause();
     });
@@ -506,12 +510,35 @@ class Game {
       ${racing ? '<button class="menu-btn primary" id="mQuitRace"><span>🏳 退出比賽</span><small>QUIT RACE</small></button>' : ''}
       <button class="menu-btn ${racing ? '' : 'primary'}" id="mResume"><span>▶ ${racing ? '繼續比賽' : '繼續遊戲'}</span><small>RESUME</small></button>
       <button class="menu-btn" id="mCtrl"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
-      <button class="menu-btn" id="mRestart"><span>↻ 清除紀錄重新開始</span><small>RESTART</small></button></div>`);
+      <button class="menu-btn" id="mTitle"><span>🏠 儲存並回到主畫面</span><small>SAVE &amp; QUIT</small></button>
+      <button class="menu-btn danger" id="mRestart"><span>🗑 清除遊戲紀錄</span><small>DELETE SAVE</small></button></div>`);
     if (!racing) this._bindSettings();
     if (racing) $('mQuitRace').onclick = () => { this.race.abandon('你退出了比賽'); this.closeModal(); };
     $('mResume').onclick = () => this.closeModal();
     $('mCtrl').onclick = () => this.showControls(true);
-    $('mRestart').onclick = () => { if (confirm('確定要清除存檔、從頭開始嗎？')) { this._noSave = true; clearSave(); location.reload(); } };
+    $('mTitle').onclick = () => { if (racing) this.race.abandon('你退出了比賽'); writeSave(this); this._noSave = true; location.reload(); };
+    $('mRestart').onclick = () => this._confirmClear(1);
+  }
+  // deleting the save takes three steps: warn, ask again, then type 清除
+  _confirmClear(step, fromEnding = false) {
+    const back = () => { if (fromEnding) this.closeModal(); else this.pause(); };
+    const lost = '得票、金色選票、零用錢、主線進度、衣服、打工／門禁／比賽紀錄、手機訊息和記事本';
+    const btns = (no, yes) => `<div class="modal-btns" style="margin-top:14px"><button class="menu-btn primary" id="cNo"><span>${no}</span><small>CANCEL</small></button><button class="menu-btn danger" id="cYes"><span>${yes}</span><small>CONTINUE</small></button></div>`;
+    if (step === 1) this.modal('清除遊戲紀錄（1/3）', `<p>確定要清除這台瀏覽器裡的遊戲紀錄嗎？</p><p style="color:#a9adbf">會刪除：${lost}。</p>` + btns('取消', '確定，下一步'));
+    else if (step === 2) this.modal('清除遊戲紀錄（2/3）', `<p><b style="color:#ff6b6b">再確認一次：清除之後無法復原。</b></p><p style="color:#a9adbf">遊戲會從序章重新開始。</p>` + btns('不要清除', '我確定要清除'));
+    else {
+      this.modal('清除遊戲紀錄（3/3）', `<p>最後一步：請在下面輸入「<b>清除</b>」兩個字。</p><input id="cType" class="clear-type" autocomplete="off" spellcheck="false" placeholder="清除">` + btns('不要清除', '永久清除'));
+      const inp = $('cType'), yes = $('cYes'); yes.disabled = true;
+      inp.oninput = () => { yes.disabled = inp.value.trim() !== '清除'; };
+      inp.onkeydown = (e) => e.stopPropagation(); // typing must not reach the game keys
+      setTimeout(() => inp.focus(), 30);
+    }
+    $('cNo').onclick = back;
+    $('cYes').onclick = () => {
+      if (step < 3) { this._confirmClear(step + 1, fromEnding); return; }
+      if ($('cType').value.trim() !== '清除') return;
+      this._noSave = true; clearSave(); location.reload();
+    };
   }
   // ---------- settings (music / volume / sensitivity) ----------
   _settingsHTML() {
@@ -782,6 +809,7 @@ class Game {
     }
     if (!this.race.active) this.missions.update(dt); // story timers wait while you race
     this.nav.update(dt);
+    this.airdrop.update(dt);
     // ---- 彩蛋 ---- after the missions so their big toasts win this frame; while another big toast
     // (任務完成／失敗、選票) is on screen the egg waits instead of overwriting it or being lost
     const btBusy = !$('bigToast').classList.contains('hidden');

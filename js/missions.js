@@ -32,6 +32,19 @@ export class Missions {
     const nm = w.nearestRoadPoint(w.nightMarket.x, w.nightMarket.z, true); if (nm) this.P.market = { x: nm.x, z: nm.z, name: '中原夜市' };
   }
   get active() { return this.step; }
+  // story NPCs always stand at their own fixed spots: 小安 at the start point inside the old gate,
+  // 阿哲 in front of the 資管系館. Called by the steps and when a saved game is resumed at step idx.
+  spawnNpcs(idx) {
+    const g = this.g, s = g.startPos, P = this.P;
+    if (!this.manager) {
+      this.manager = makeMissionNpc(g.scene, MANAGER, '競選總幹事 小安', s.x + 1.6, s.z + 1.2, s.h + Math.PI);
+      g.npcs.push(this.manager);
+    }
+    if (idx >= 1 && !this.senior) {
+      this.senior = makeMissionNpc(g.scene, SENIOR, '資管系學長 阿哲', P.im.x + 2, P.im.z + 1.5, 0);
+      g.npcs.push(this.senior);
+    }
+  }
   start(free = false) {
     this.free = free;
     if (free) { this.g.hud.setObjective('自由探索', '收集校園裡的 <b>34 張金色選票</b>，對同學按 <kbd>滑鼠左鍵</kbd> 發傳單拉票！'); return; }
@@ -107,9 +120,10 @@ Missions.prototype.steps = [
   // 0 — intro at the old gate
   function () {
     const g = this.g, P = this.P;
-    const st = g.player.worldPos();
-    this.manager = makeMissionNpc(g.scene, MANAGER, '競選總幹事 小安', st.x + 1.6, st.z + 1.2, g.player.heading + Math.PI);
-    g.npcs.push(this.manager);
+    // the prologue always plays at the start point (also when a saved game resumes here)
+    const s = g.startPos, wp = g.player.worldPos();
+    if (!g.player.vehicle && Math.hypot(wp.x - s.x, wp.z - s.z) > 12) { g.player.place(s.x, s.z, s.h); g.player.y = 0; g.rig.yaw = s.h; }
+    this.spawnNpcs(0);
     g.hud.setObjective('序章 · 競選之夜', '和 小安 對話');
     this.talk([
       ['小安', '彥霖！明天就是 <第34屆資管系會長> 投票日了，今晚是最後衝刺！'],
@@ -124,10 +138,7 @@ Missions.prototype.steps = [
   // 1 — flyers to bulletin boards (timed, any order)
   function () {
     const g = this.g, P = this.P;
-    if (!this.senior) {
-      this.senior = makeMissionNpc(g.scene, SENIOR, '資管系學長 阿哲', P.im.x + 2, P.im.z + 1.5, 0);
-      g.npcs.push(this.senior);
-    }
+    this.spawnNpcs(1);
     g.bringMyScooter(P.im.x, P.im.z);
     this.talk([
       ['阿哲', '主角終於來了！傳單剛印好，還熱熱的。'],

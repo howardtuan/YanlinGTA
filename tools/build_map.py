@@ -26,7 +26,8 @@ in js/map.js and is copied to cycu.json without its source/note fields.
 tools/block_survey.json (地圖寫實化 7) classifies the blank blocks OSM leaves
 empty (by eye, Google 街景 / 衛星; text only). fill_blocks() turns each block's
 'plan' into deterministic synthetic buildings / ground / 鐵皮圍籬 marked
-synthetic=1 -- generated, not real footprints.
+synthetic=1 -- generated, not real footprints. Round 2 (地圖寫實化 8, 'blocks2')
+does the same for the blanks still left after round 1.
 
 Height model: floors first (building:levels > height > estimate by type/area),
 then h = floors * 3.3 + 0.6. Neighbouring look-alike buildings share a seed so
@@ -449,11 +450,12 @@ STRICT = {'parking', 'yard', 'sport', 'factory', 'pond'}   # ground kept >= 1 m 
 RES = {'row', 'shop'}
 
 
-def blank_cells(out):
+def blank_cells(out, syn=False):
     """10 m occupancy grid and blank components, computed exactly as the survey
     did (scratch blank.py): building footprints, content areas, roads / water /
     rail with w/2 + 2 m. Returns (nx, nz, occ bitmask rows, components sorted by
-    area desc; each {cells, area, bbox})."""
+    area desc; each {cells, area, bbox}). syn=True also counts synthetic ground
+    as occupied (round 2: the blanks round 1 left)."""
     B = out['bounds']; C = FC
     nx = int((B['maxX'] - B['minX']) / C); nz = int((B['maxZ'] - B['minZ']) / C)
     occ = [bytearray(nx) for _ in range(nz)]
@@ -483,7 +485,7 @@ def blank_cells(out):
     for b in out['buildings']:
         mark_poly(b['pts'], B_BLD)
     for a in out['areas']:
-        if a['kind'] in CONTENT:
+        if a['kind'] in CONTENT or (syn and a.get('synthetic')):
             mark_poly(a['pts'], B_AREA)
     for r in out['roads']:
         seg_mark(r['pts'], r['w'], B_ROAD)
@@ -604,14 +606,21 @@ def keepouts(out):
     return circ, polys
 
 
-def fill_blocks(out, stats):
+def fill_blocks(out, stats, rnd=1):
+    """rnd 1 fills survey['blocks'] (blank components of the OSM-only map);
+    rnd 2 fills survey['blocks2'], the components still blank after round 1
+    (its synthetic ground counts as occupied). Round-2 ids index those."""
     if not os.path.exists(SURVEY):
         return
     survey = json.load(open(SURVEY, encoding='utf8'))
+    skey = 'blocks' if rnd == 1 else 'blocks%d' % rnd
+    if skey not in survey:
+        return
     B = out['bounds']
-    nx, nz, occ, comps = blank_cells(out)
+    nx, nz, occ, comps = blank_cells(out, syn=rnd > 1)
     cell_area = nx * nz * FC * FC
-    stats['fill'] = dict(blank_before=sum(c['area'] for c in comps), map=cell_area)
+    fkey_ = 'fill' if rnd == 1 else 'fill%d' % rnd
+    stats[fkey_] = dict(blank_before=sum(c['area'] for c in comps), map=cell_area)
     NXF = nx * FN
 
     # ---- indices ----
@@ -636,7 +645,7 @@ def fill_blocks(out, stats):
         blds.add(bbox_of(b['pts']), b['pts'])
     cont = Grid(25)
     for a in out['areas']:
-        if a['kind'] in CONTENT:
+        if a['kind'] in CONTENT or (rnd > 1 and a.get('synthetic')):
             cont.add(bbox_of(a['pts']), a['pts'])
     k_circ, k_polys = keepouts(out)
     syn = Grid(20)
@@ -672,7 +681,7 @@ def fill_blocks(out, stats):
             return -1
         return iz * NXF + ix
 
-    blocks = {b['id']: b for b in survey['blocks']}
+    blocks = {b['id']: b for b in survey[skey]}
     claimed = set()
     added_b, added_a, added_f = [], [], []
     tally = {}
@@ -682,11 +691,12 @@ def fill_blocks(out, stats):
         if not sv or not sv.get('plan'):
             continue
         if sv['bbox'] != comp['bbox'] or sv['area'] != comp['area']:
-            stats['warn'].append('fill block %d: blank component changed (survey bbox %s area %d, now %s %d), skipped'
-                                 % (bid, sv['bbox'], sv['area'], comp['bbox'], comp['area']))
+            stats['warn'].append('fill r%d block %d: blank component changed (survey bbox %s area %d, now %s %d), skipped'
+                                 % (rnd, bid, sv['bbox'], sv['area'], comp['bbox'], comp['area']))
             continue
         plan = sv['plan']
-        rng = random.Random(7000 + bid)
+        rng = random.Random((7000 if rnd == 1 else 9000 * rnd) + bid)
+        tag = bid if rnd == 1 else rnd * 1000 + bid   # blk: round-2 block n is 2000 + n
         R = rng.random
         cells = comp['cells']
         cx = sum(a for a, b in cells) / len(cells); cz = sum(b for a, b in cells) / len(cells)
@@ -824,7 +834,8 @@ def fill_blocks(out, stats):
         def add_bld(P, kind, floors, zt, h=None, lod=0, **kw):
             pts = [[round(p[0], 2), round(p[1], 2)] for p in P]   # 2 decimals: neighbours in a row must not overlap
             rec = dict(pts=pts, h=round(h if h else floors * FLOOR_H + ROOF_H, 1), floors=floors, kind=kind,
-                       id='f%d' % len(added_b), src='f', synthetic=1, blk=bid)
+                       id=('f%d' if rnd == 1 else 'f' + str(rnd) + '_%d') % len(added_b), src='f',
+                       synthetic=1, blk=tag)
             rec.update({k: v for k, v in kw.items() if v is not None})
             if lod:
                 rec['lod'] = 1
@@ -993,10 +1004,11 @@ def fill_blocks(out, stats):
             elif zt == 'apt':
                 lo, hi = fl_range(zd, '7-12')
                 kd = zd.get('kind', 'town')
+                fc = zd.get('facade')   # e.g. 'glass' for a curtain-wall tower (js/map.js window style)
 
-                def mk(Pr, W, D, lo=lo, hi=hi, kd=kd):
+                def mk(Pr, W, D, lo=lo, hi=hi, kd=kd, fc=fc):
                     add_bld(Pr, kd, lo + int(R() * (hi - lo + 1)), 'apt', colour=tint(0.7),
-                            noShop=1 if R() < 0.5 or kd != 'town' else None, shed=0)
+                            noShop=1 if R() < 0.5 or kd != 'town' or fc else None, shed=0, facade=fc)
                 grid_fill(zd, zt, S, lambda: [(28 + R() * 14, 14 + R() * 4), (20, 13), (14, 12)], lambda: 10 + R() * 5,
                           lambda: 12 + R() * 5, 0.9, mk)
             elif zt == 'campus':
@@ -1042,8 +1054,8 @@ def fill_blocks(out, stats):
                 tr = sport_field(S2, NXF, B)
                 if tr:
                     outer, inner = tr
-                    added_a.append(dict(pts=outer, kind='track', holes=[inner[::-1]], synthetic=1, blk=bid))
-                    added_a.append(dict(pts=inner, kind='pitch', infield=1, synthetic=1, blk=bid))
+                    added_a.append(dict(pts=outer, kind='track', holes=[inner[::-1]], synthetic=1, blk=tag))
+                    added_a.append(dict(pts=inner, kind='pitch', infield=1, synthetic=1, blk=tag))
                     ib = bbox_of(outer)
                     S2 = {k for k in S2 if not (ib[0] <= B['minX'] + (k % NXF + .5) * FF <= ib[2]
                                                 and ib[1] <= B['minZ'] + (k // NXF + .5) * FF <= ib[3])}
@@ -1054,7 +1066,7 @@ def fill_blocks(out, stats):
             if not kind:
                 continue
             for P, hs in trace_cells(S2, NXF, B):
-                a = dict(pts=P, kind=kind, synthetic=1, blk=bid)
+                a = dict(pts=P, kind=kind, synthetic=1, blk=tag)
                 if hs:
                     a['holes'] = hs
                 if kind == 'farm':
@@ -1065,13 +1077,13 @@ def fill_blocks(out, stats):
             cnt['ground:' + kind] = cnt.get('ground:' + kind, 0) + len(S2) * FF * FF
             if zd.get('fence') or zd.get('sub') == 'site':
                 for f in fences(S, roads, x0, z0, x1, z1, fkey, blds):
-                    added_f.append(dict(pts=f, type='sheet_fence', colour=zd.get('fence') or '#2f6aa8', synthetic=1, blk=bid))
+                    added_f.append(dict(pts=f, type='sheet_fence', colour=zd.get('fence') or '#2f6aa8', synthetic=1, blk=tag))
                     cnt['fence'] = cnt.get('fence', 0) + 1
 
     out['buildings'].extend(added_b)
     out['areas'].extend(added_a)
     out['barriers'].extend(added_f)
-    stats['fill'].update(blocks=len(tally), buildings=len(added_b), areas=len(added_a), fences=len(added_f), tally=tally)
+    stats[fkey_].update(blocks=len(tally), buildings=len(added_b), areas=len(added_a), fences=len(added_f), tally=tally)
 
 
 def overlap_area(P, Q):
@@ -1598,6 +1610,7 @@ def main():
     # synthetic content for the blank blocks of tools/block_survey.json (after
     # everything from OSM, so the blank grid matches the survey's)
     fill_blocks(out, stats)
+    fill_blocks(out, stats, 2)   # 第二輪：第一輪補完後仍空白的區塊（survey['blocks2']）
 
     os.makedirs(os.path.dirname(DST), exist_ok=True)
     with open(DST, 'w', encoding='utf8') as f:
@@ -1610,9 +1623,11 @@ def main():
           'furniture', len(out['furniture']), 'barriers', len(out['barriers']), 'power', len(out['power']),
           'campus rings', len(out['campus']), 'size', os.path.getsize(DST))
     print('night market', out['nightMarket'])
-    fs = stats.get('fill')
-    if fs:
-        print('fill: blank before %d of %d m2 (%.1f%%); %d blocks -> %d buildings, %d ground areas, %d fences'
+    for fk in ('fill', 'fill2'):
+        fs = stats.get(fk)
+        if not fs:
+            continue
+        print(fk + ': blank before %d of %d m2 (%.1f%%); %d blocks -> %d buildings, %d ground areas, %d fences'
               % (fs['blank_before'], fs['map'], 100 * fs['blank_before'] / fs['map'], fs.get('blocks', 0),
                  fs.get('buildings', 0), fs.get('areas', 0), fs.get('fences', 0)))
         for bid, t in sorted(fs.get('tally', {}).items()):

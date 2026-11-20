@@ -577,7 +577,7 @@ export function buildFurniture(scene, world, data, ctx) {
     stats.motos = motos.length;
     if (motos.length) {
       const { geo, tris } = scooterGeometry(Geo);
-      const im = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }), motos.length);
+      const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }), motos.length);
       const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), C = new THREE.Color();
       const PAL = ['#e8e8e4', '#2a2a2c', '#b8bcc0', '#b8282a', '#2c5aa0', '#6b6e70', '#d8b440', '#5a8a5a', '#f2f0ea', '#3a3f48'];
       motos.forEach(([x, z, ry], i) => {
@@ -650,7 +650,7 @@ export function buildFurniture(scene, world, data, ctx) {
   // ---------- meshes ----------
   const mats = [];
   if (furn.tris) {
-    const m = furn.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    const m = furn.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }));
     m.castShadow = false; m.receiveShadow = true; scene.add(m);
   }
   if (flat.tris) addFlat(flat, null, 'furniture');

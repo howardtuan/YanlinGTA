@@ -5,22 +5,25 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, IM_SPEC } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
 import { pointInPoly } from './collision.js';
 import { loadTerrain, surfaceAt } from './terrain.js';
+import { SkySystem } from './sky.js';
+import { PostFX } from './post.js';
 
 const $ = id => document.getElementById(id);
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 const lerp = (a, b, t) => a + (b - a) * t;
 const lockPointer = el => { try { const r = el.requestPointerLock?.(); if (r && r.catch) r.catch(() => { }); } catch (e) { } };
-const cLerp = (a, b, t) => a.clone().lerp(b, t);
-const DAY_FOG = new THREE.Color('#b9c4cc'), GREY = new THREE.Color('#888');
 const isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
-const qualityLow = q => q === 'low' || (q !== 'high' && isTouch());
+// quality setting: 'auto' | 'low' | 'medium' | 'high'; auto = low on touch devices, else high
+const QUALITY = ['low', 'medium', 'high'];
+const resolveQuality = q => QUALITY.includes(q) ? q : isTouch() ? 'low' : 'high';
+const Q_NAME = { low: '低', medium: '中', high: '高（電影感）' };
 
 class Game {
   async init() {
@@ -33,8 +36,10 @@ class Game {
     loadTerrain(terrain);
     this.data = data;
     this.settings = loadSettings();
-    // quality: 'auto' picks low on touch devices; MSAA can only change with a new renderer (reload)
-    this.lowQ = qualityLow(this.settings.quality);
+    // quality: sky / shadows / post-processing / lamp lights switch live; the low-quality world
+    // (MSAA, 補建街區 back rows, crowd sizes) only changes with a reload
+    this.quality = resolveQuality(this.settings.quality);
+    this.lowQ = this.quality === 'low';
     // 補建街區: synthetic content for blocks OSM leaves empty (tools/block_survey.json,
     // generated, not real footprints). Off -> OSM only; low quality drops the
     // lod-marked back rows. Applies on reload.
@@ -58,22 +63,29 @@ class Game {
     { const g = data.pois.find(p => p.name === '舊校門') || { x: -231, z: 39 }; keep.push({ x: g.x, z: g.z, r: 18 }); }
     // renderer
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: !this.lowQ, powerPreference: 'high-performance' });
-    r.setPixelRatio(Math.min(devicePixelRatio, this.lowQ ? 1 : 1.6));
+    r.setPixelRatio(this._pixelRatio());
     r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = true; r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-    r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
+    r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
     r.domElement.id = 'game';
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 2600);
     // rAF stops in background tabs but the WebAudio engine drone would keep humming
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.audio?.setEngine(false, 0); });
-    addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this._checkRotate(); });
+    addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); this.post?.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this._checkRotate(); });
 
     this._sky();
+    this.post = new PostFX(r, this.scene, this.camera, this.quality);
     await nextFrame();
     setLoad(0.08, '搭建中原大學');
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ });
+    // like the real 資管系館: big banyans, royal palms and a pine in the front garden
+    const featureTrees = (() => {
+      const { ox, oz, ang, D } = IM_SPEC, c = Math.cos(ang), s = Math.sin(ang);
+      return [[5, D + 13, 'rain', 0.85], [41, D + 14, 'rain', 0.8], [15, D + 7.5, 'palm', 0.9], [31, D + 7.5, 'palm', 0.95], [-3, D + 9, 'pine', 0.8]]
+        .map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
+    })();
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: this.quality, featureTrees, mainGate: GUARD_SPECS(data)[0] });
     this.skyline = buildSkyline(this.scene, this.lowQ ? 70 : 180);
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
@@ -125,60 +137,22 @@ class Game {
   }
 
   // ---------- sky & lighting ----------
+  _pixelRatio() { return Math.min(devicePixelRatio, this.quality === 'high' ? 1.6 : this.quality === 'medium' ? 1.35 : 1); }
   _sky() {
-    const geo = new THREE.SphereGeometry(2200, 32, 16);
-    this.skyU = { top: { value: new THREE.Color('#3b4a8a') }, hor: { value: new THREE.Color('#ff9a5a') }, sunDir: { value: new THREE.Vector3(0, 0.1, -1) }, sunCol: { value: new THREE.Color('#ffd0a0') }, night: { value: 0 }, fogc: { value: new THREE.Color('#b9c4cc') } };
-    const mat = new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false, fog: false, uniforms: this.skyU,
-      vertexShader: `varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      fragmentShader: `uniform vec3 top; uniform vec3 hor; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night; uniform vec3 fogc; varying vec3 vP;
-        float h(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,45.164)))*43758.5453); }
-        void main(){ float y = max(vP.y, 0.0); vec3 c = mix(hor, top, pow(y, 0.55));
-          float s = max(dot(normalize(vP), normalize(sunDir)), 0.0);
-          c += sunCol * (pow(s, 600.0)*3.0 + pow(s, 12.0)*0.35) * (1.0-night);
-          vec3 q = floor(vP*380.0); float st = step(0.9975, h(q)) * night * smoothstep(0.05,0.4,y);
-          c += vec3(st);
-          // below the horizon: the fog colour as lit materials show it (tone mapped + sRGB)
-          vec3 fo = linearToOutputTexel(vec4(toneMapping(fogc), 1.0)).rgb;
-          if (vP.y < 0.0) c = fo; else c = mix(fo, c, smoothstep(0.0, 0.04, vP.y));
-          gl_FragColor = vec4(c,1.0); }`,
-    });
-    this.sky = new THREE.Mesh(geo, mat); this.scene.add(this.sky);
-    this.hemi = new THREE.HemisphereLight('#bcd4ff', '#5a5040', 1.0); this.scene.add(this.hemi);
-    this.sun = new THREE.DirectionalLight('#ffd7a8', 2.2);
-    this.sun.castShadow = true; this.sun.shadow.mapSize.set(this.lowQ ? 1024 : 2048, this.lowQ ? 1024 : 2048);
-    const sc = this.sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 1; sc.far = 400;
-    this.sun.shadow.bias = -0.0005; this.sun.shadow.normalBias = 0.03;
-    this.scene.add(this.sun, this.sun.target);
-    this.scene.fog = new THREE.Fog('#c08a70', 160, 900);
+    // physically based sky + clouds + stars / moon, sun & ambient driven by the clock, IBL from the sky
+    this.skySys = new SkySystem(this.scene, this.renderer, this.quality);
+    this.sun = this.skySys.sun; this.hemi = this.skySys.hemi;
     // player vehicle headlight
     this.headlight = new THREE.SpotLight('#fff1d0', 0, 60, 0.55, 0.5, 1.2);
     this.scene.add(this.headlight, this.headlight.target);
     this.playerLight = new THREE.PointLight('#ffd9a0', 0, 18, 1.5); this.scene.add(this.playerLight);
   }
   _updateSky(dt) {
-    // keep the sky dome centred on the camera; at the map edge the far side was beyond camera.far and rendered black
-    this.sky.position.copy(this.camera.position);
-    const m = this.clock % 1440;
-    // night factor
-    let night;
-    if (m < 300) night = 1; else if (m < 420) night = 1 - (m - 300) / 120; else if (m < 1020) night = 0; else if (m < 1140) night = (m - 1020) / 120; else night = 1;
-    night = night * night * (3 - 2 * night);
-    this.night = night;
-    const dayAng = (m - 360) / 720 * Math.PI; // 6:00 -> 0, 12:00 -> pi/2, 18:00 -> pi
-    const elev = Math.sin(dayAng);
-    const sunDir = new THREE.Vector3(Math.cos(dayAng) * -0.8, Math.max(elev, -0.2), -0.45).normalize();
-    // palette: day / sunset / night
-    const sunset = Math.max(0, 1 - Math.abs(elev) / 0.35) * (1 - night * 0.6);
-    const D = { top: new THREE.Color('#4f93dc'), hor: new THREE.Color('#cfe4f3') };
-    const S = { top: new THREE.Color('#38427e'), hor: new THREE.Color('#ff9658') };
-    const N = { top: new THREE.Color('#050916'), hor: new THREE.Color('#1b2140') };
-    let top = cLerp(D.top, S.top, sunset), hor = cLerp(D.hor, S.hor, sunset);
-    top = cLerp(top, N.top, night); hor = cLerp(hor, N.hor, night);
-    this.skyU.top.value.copy(top); this.skyU.hor.value.copy(hor); this.skyU.sunDir.value.copy(sunDir); this.skyU.night.value = night;
-    // grey-blue daytime haze (#b9c4cc), sky-tinted at dusk and night
-    this.scene.fog.color.copy(hor).lerp(GREY, 0.15).lerp(DAY_FOG, (1 - Math.max(sunset, night)) * 0.85);
-    this.skyU.fogc.value.copy(this.scene.fog.color);
+    const t = this.state === 'title' && this._titlePos ? this._titlePos : this.player.worldPos();
+    const p = { x: t.x, y: surfaceAt(t.x, t.z), z: t.z };
+    this.skySys.update(dt, this.clock, p, this.time || 0);
+    this.night = this.skySys.night;
+    this.renderer.toneMappingExposure = lerp(1.0, 1.12, this.night);
     if (this.skyline) {
       const cp = this.camera.position, gy0 = surfaceAt(cp.x, cp.z);
       // backdrop only reads right from street height; from high above it floats
@@ -188,16 +162,17 @@ class Game {
         this.skyline.userData.update(this.scene.fog.color);
       }
     }
-    const p = this.player.worldPos();
-    const ld = elev > 0.05 ? sunDir : new THREE.Vector3(0.3, 0.8, 0.4).normalize(); // moonlight
-    const gy = surfaceAt(p.x, p.z);
-    this.sun.position.set(p.x + ld.x * 150, gy + ld.y * 150, p.z + ld.z * 150);
-    this.sun.target.position.set(p.x, gy, p.z);
-    this.sun.intensity = elev > 0.05 ? lerp(0.6, 2.6, Math.min(1, elev * 2)) * (1 - night * 0.8) : 0.35 * night + 0.1;
-    this.sun.color.set(elev > 0.05 ? (sunset > 0.4 ? '#ffb27a' : '#fff1de') : '#9fb4ff');
-    this.hemi.intensity = lerp(1.05, 0.6, night);
-    this.hemi.color.set(night > 0.5 ? '#6f86c8' : '#bcd4ff');
-    this.renderer.toneMappingExposure = lerp(1.05, 1.25, night);
+  }
+  // live quality switch: pixel ratio, shadow map, post-processing and lamp lights
+  setQuality(q) {
+    if (!QUALITY.includes(q) || q === this.quality) return;
+    this.quality = q;
+    this.renderer.setPixelRatio(this._pixelRatio());
+    this.renderer.setSize(innerWidth, innerHeight);
+    this.skySys.setShadowQuality(q);
+    this.post.setQuality(q);
+    this.post.setSize(innerWidth, innerHeight);
+    this.world.setQuality?.(q);
   }
 
   // ---------- spawning ----------
@@ -445,13 +420,14 @@ class Game {
     const s = this.settings;
     const opt = (v, t) => `<button data-music="${v}" class="${s.music === v ? 'on' : ''}">${t}</button>`;
     const q = (v, t) => `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
+    const qNow = resolveQuality(s.quality);
     const fl = (v, t) => `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
     return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('off', '關閉')}</div></div>
       <div class="set-row"><label>音樂音量</label><input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="${s.musicVol}"><span class="set-val" id="vMusic">${Math.round(s.musicVol * 100)}%</span></div>
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
-      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('high', '高')}${q('low', '低')}</div></div>
-      <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">目前：${this.lowQ ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）${qualityLow(s.quality) !== this.lowQ ? '・重新整理後套用' : ''}</small></div>
+      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
+      <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this._qualityNote(qNow)}</small></div>
       <div class="set-row"><label>🏘 補建街區</label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
       <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this._fillNote()}</small></div>`;
   }
@@ -467,16 +443,21 @@ class Game {
     for (const b of document.querySelectorAll('#setQuality button')) b.onclick = () => {
       s.quality = b.dataset.q; save();
       for (const o of document.querySelectorAll('#setQuality button')) o.classList.toggle('on', o === b);
-      const low = qualityLow(s.quality);
-      // pixel ratio applies now; MSAA, shadows and crowd sizes need a reload
-      this.renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1 : 1.6));
-      $('qNote').textContent = low === this.lowQ ? `目前：${low ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）` : `已存檔：${low ? '低' : '高'}畫質，陰影與抗鋸齒在重新整理後套用`;
+      const qn = resolveQuality(s.quality);
+      // sky, shadows, bloom / colour grade and lamp lights switch now
+      this.setQuality(qn);
+      $('qNote').textContent = this._qualityNote(qn);
     };
     for (const b of document.querySelectorAll('#setFill button')) b.onclick = () => {
       s.fill = b.dataset.fill; save();
       for (const o of document.querySelectorAll('#setFill button')) o.classList.toggle('on', o === b);
       $('fNote').textContent = this._fillNote();
     };
+  }
+  _qualityNote(q) {
+    // the low-quality world (no MSAA, fewer 補建 rows, smaller crowds) is chosen at load time
+    const pending = (q === 'low') !== this.lowQ;
+    return `目前：${Q_NAME[q]}畫質（自動＝觸控裝置用低畫質）` + (pending ? '・抗鋸齒與人車數量在重新整理後套用' : '');
   }
   _fillNote() {
     const on = (this.settings.fill || 'on') !== 'off', now = this.data.buildings.some(b => b.synthetic) || this.data.areas.some(a => a.synthetic);
@@ -516,7 +497,7 @@ class Game {
     this.world.update(this.time, this.night, this.clock, this.state === 'title' ? this._titlePos : this.player.worldPos());
     for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = b.y0 + Math.sin(this.time * 3 + b.ph) * 0.15; }
     for (const b of this.beams) if (b.visible) b.material.opacity = 0.22 + Math.sin(this.time * 4) * 0.06;
-    this.renderer.render(this.scene, this.camera);
+    this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
     this.input.endFrame();
   }
   _titleCam(dt) {

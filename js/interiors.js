@@ -94,7 +94,8 @@ export const T = {
 const MATS = {};
 function M(key) {
   if (MATS[key]) return MATS[key];
-  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, ...o });
+  // indoor surfaces see little of the open sky, so they take less image-based light
+  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
   const m = {
     white: () => std({ color: '#f1efe9' }),
     wallIn: () => std({ color: '#f4f2ea' }),

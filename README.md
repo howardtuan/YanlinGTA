@@ -15,11 +15,12 @@
 ### 方法 1：Python（Windows / macOS / Linux 大多已內建）
 ```powershell
 cd YanlinGTA
-python -m http.server 5173
+python tools/devserver.py
 ```
 瀏覽器打開 👉 http://localhost:5173
 
-> macOS / Linux 若沒有 `python`，改用 `python3 -m http.server 5173`。
+> macOS / Linux 若沒有 `python`，改用 `python3 tools/devserver.py`。
+> 這個小伺服器和 `python -m http.server` 一樣，只是會叫瀏覽器每次都檢查檔案有沒有更新；用 `http.server` 的話，更新遊戲後瀏覽器可能拿舊的程式配新的頁面而載入失敗，這時按 `Ctrl+Shift+R` 強制重新整理即可。
 
 ### 方法 2：Node.js
 ```powershell

@@ -25,6 +25,8 @@ import { Nav } from './nav.js';
 import { Race } from './race.js';
 
 const $ = id => document.getElementById(id);
+// bind a click handler; a missing element (an older cached index.html) must not stop the game from loading
+const onClick = (id, fn) => { const el = $(id); if (el) el.onclick = fn; else console.warn('missing #' + id); };
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -124,9 +126,9 @@ class Game {
     this.pc = new PC(this);             // 彥霖's old computer (2F of 孫師傅牛肉拉麵)
     this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
     this.nav = new Nav(this);           // map waypoint + route
-    this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear').classList.toggle('hidden', !this.nav.target); };
-    $('bmClose').onclick = () => this.closeMap();
-    $('bmClear').onclick = () => { this.nav.clear(); $('bmClear').classList.add('hidden'); };
+    this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
+    onClick('bmClose', () => this.closeMap());
+    onClick('bmClear', () => { this.nav.clear(); $('bmClear').classList.add('hidden'); });
     // gamepad: button layout follows whatever has the controls right now
     this.input.padDriving = () => !!this.player.vehicle;
     this.input.padContext = () => this.race.state === 'results' ? 'race' : this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
@@ -362,7 +364,7 @@ class Game {
   // (M / ✕ / Esc) goes back to the phone's home screen; opened with M it puts the phone away.
   openMap(src = 'key') {
     this.mapSrc = src; this.hud.toggleBig(true); document.exitPointerLock?.();
-    $('bmClear').classList.toggle('hidden', !this.nav.target); this.audio.blip?.();
+    $('bmClear')?.classList.toggle('hidden', !this.nav.target); this.audio.blip?.();
   }
   closeMap() {
     if (!this.hud.bigOpen) return;
@@ -449,18 +451,18 @@ class Game {
       addEventListener('pagehide', saveNow);
       document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
     };
-    $('btnStart').onclick = () => startGame();
-    $('btnControls').onclick = () => this.showControls();
-    $('btnAbout').onclick = () => this.modal('關於彥霖', ABOUT_HTML);
-    $('btnSettings').onclick = () => this.openSettings();
-    $('videoClose').onclick = () => this.closeVideo();
-    $('modalClose').onclick = () => this.closeModal();
-    $('btnKeepPlaying').onclick = () => {
+    onClick('btnStart', () => startGame());
+    onClick('btnControls', () => this.showControls());
+    onClick('btnAbout', () => this.modal('關於彥霖', ABOUT_HTML));
+    onClick('btnSettings', () => this.openSettings());
+    onClick('videoClose', () => this.closeVideo());
+    onClick('modalClose', () => this.closeModal());
+    onClick('btnKeepPlaying', () => {
       $('ending').classList.add('hidden'); this.state = 'play'; this._clearCrowd(); // crowd stays for the ending shot, then goes
       this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！');
       if (!this.input.touch) lockPointer(this.renderer.domElement);
-    };
-    $('btnRestart').onclick = () => { this._noSave = true; clearSave(); location.reload(); };
+    });
+    onClick('btnRestart', () => { this._noSave = true; clearSave(); location.reload(); });
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen && !this.phone?.open && !this.job?.active && !this.pc?.isOpen && !this.wardrobe?.isOpen) this.pause();
     });

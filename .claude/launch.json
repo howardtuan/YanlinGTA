@@ -4,7 +4,7 @@
     {
       "name": "yanlin-gta",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5173"],
+      "runtimeArgs": ["-I", "tools/devserver.py", "5173"],
       "port": 5173
     }
   ]

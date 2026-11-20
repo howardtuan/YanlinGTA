@@ -119,6 +119,18 @@ export const Nano = {
     st.session = this._create({ initialPrompts: [{ role: 'system', content: sys }] }).catch(e => { st.session = null; throw e; });
     return st.session;
   },
+  // new Peachgram caption + Pcard post for the half-hourly feed refresh (fresh session each time)
+  async write(who, oldCap, cp) {
+    const s = await this._create({ initialPrompts: [{ role: 'system', content: BASE.split('規則：')[0] + '你是校園社群小編，幫中原大學學生寫社群貼文與匿名論壇文章。一律台灣繁體中文、大學生口語，可以用 emoji，不可用簡體字。只輸出 JSON。' }] });
+    try {
+      const q = `請寫：1) ${who} 在 Peachgram 發的一則照片貼文說明（cap，40 字內，可帶 hashtag），參考主題：「${oldCap || cp.t}」；` +
+        `2) 一篇中原大學匿名論壇 Pcard 的新文章，主題參考「${cp.t}」：標題 t（25 字內）、內文 b（50 字內）、2～3 則留言 c（每則以 B1、B2… 開頭，20 字內）。`;
+      const sch = { type: 'object', required: ['cap', 't', 'b', 'c'], properties: { cap: { type: 'string' }, t: { type: 'string' }, b: { type: 'string' }, c: { type: 'array', minItems: 2, maxItems: 3, items: { type: 'string' } } } };
+      let raw; try { raw = await s.prompt(q, { responseConstraint: sch }); } catch (e) { raw = await s.prompt(q); }
+      const o = parse(raw) || {};
+      return { cap: clip(o.cap, 80), t: clip(o.t, 40), b: clip(o.b, 100), c: (o.c || []).map(x => clip(x, 40)).filter(Boolean) };
+    } finally { s.destroy?.(); }
+  },
   // ask the model for the contact's replies to `text` (null = suggest two ways to start a new topic)
   async reply(st, text) {
     const s = await this.sessionFor(st);

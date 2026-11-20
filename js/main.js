@@ -14,6 +14,7 @@ import { loadTerrain, surfaceAt } from './terrain.js';
 import { SkySystem } from './sky.js';
 import { PostFX } from './post.js';
 import { Phone } from './phone.js';
+import { GateDuty } from './gateduty.js';
 import { McShift } from './mcshift.js';
 
 const $ = id => document.getElementById(id);
@@ -108,6 +109,7 @@ class Game {
     this.hud.setMoney(this.money);
     this.phone = new Phone(this);
     this.job = new McShift(this); // 麥當勞打工值班
+    this.gate = new GateDuty(this); // A6 側門門禁任務
     // 彩蛋 (tools/overrides.json pois[].egg): toast once per game when you walk / ride past
     this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
     // 彥霖 campaign billboards at key campus spots
@@ -546,12 +548,14 @@ class Game {
     this.playTime += dt;
     this.clock += dt / 4; // 1 game-minute per 4 seconds
     this._tickTimers(dt);
+    this.phone.tick(); // Peachgram / Pcard get new posts every 30 game minutes
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'Space', 'Mouse0')) { hud.advanceDialog(); this.audio.talk(); inp.pressed.clear(); }
     // McDonald's shift and the i-Piyan phone take the keyboard while they are up
     if (!this.job.active) this.job.update(dt, inp); // off duty: only walks the last customers out of the shop
     if (this.job.active && !inDialog) { this.job.update(dt, inp); inp.pressed.clear(); }
+    else if (this.gate.active && !inDialog) { this.gate.update(dt, inp); inp.pressed.clear(); }
     else if (this.phone.open) {
       if (this.phone.update(dt, inp) === 'closed' && !this.input.touch && !hud.bigOpen) lockPointer(this.renderer.domElement);
       inp.pressed.clear();
@@ -559,7 +563,7 @@ class Game {
     if (inp.hit('KeyM')) hud.toggleBig();
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) hud.toggleBig(false); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active;
+    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -675,8 +679,12 @@ class Game {
     // ---- camera & hud ----
     this.rig.update(dt, hud.bigOpen ? { mdx: 0, mdy: 0 } : inp, pl, w.collision, this.settings.sens, this.interiors);
     if (this.job.active) this.job.camera(this.camera, dt); // over-the-shoulder shot of the counter
+    else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
     hud.setClock(this.clock);
     const markers = [...this.missions.markers];
+    // side quest: A6 側門門禁 (always on the map)
+    const gq = this.interiors.gates?.['側門警衛室'];
+    if (gq && !this.gate.active) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }
     const range = pl.vehicle ? 170 : 110;
     hud.drawMinimap(wp.x, wp.z, this.rig.yaw, pl.worldHeading(), range, markers, this.ballotList);
     hud.drawBig(wp.x, wp.z, pl.worldHeading(), markers, this.ballotList);

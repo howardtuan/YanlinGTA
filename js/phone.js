@@ -2,6 +2,7 @@
 // App：訊息（兩種回覆擇一，Tab 傳送）、相機、照片、Peach Pay 錢包、地圖、音樂、選情、天氣、麥當勞、設定。
 import { CONTACTS } from './chats.js';
 import { Nano } from './nano.js';
+import { PEOPLE, FEED, FEED_POOL, STORIES, STORY_POOL, FEED_IMAGES, PCARD, PCARD_POOL } from './feeds.js';
 
 const PEACH = (fill = '#fff') => `<svg viewBox="0 0 64 64" class="peach-logo" aria-hidden="true">
   <path d="M32 19c-3-3-8-5-13-4C10 17 5 25 6 35c1 13 12 23 26 23s25-10 26-23c1-10-4-18-13-20-5-1-10 1-13 4z" fill="${fill}"/>
@@ -28,16 +29,6 @@ const APPS = [
   { id: 'calc', name: '計算機', icon: '🧮', bg: 'linear-gradient(#3a3a3c,#1c1c1e)' },
   { id: 'clock', name: '時鐘', icon: '⏰', bg: 'linear-gradient(#2c2c2e,#000)' },
 ];
-// Peachgram feed (all fictional classmates from the chats)
-const FEED = [
-  { who: '芷瑄', av: '🎨', color: '#ff9f5a', img: '🗳️', bg: 'linear-gradient(135deg,#ffd23f,#ff8a3d)', cap: '海報最終版完成！「資管要贏 票投彥霖」字有放大 💪 #資管34屆 #票投彥霖', likes: 128, time: '2 小時' },
-  { who: '柏宇', av: '😎', color: '#9b8cff', img: '📋', bg: 'linear-gradient(135deg,#7f7fff,#43c6ac)', cap: '競選行程排好了，明天中午學餐、活動中心、二一鐘三點發傳單，缺人手私我', likes: 64, time: '3 小時' },
-  { who: '小涵', av: '🐰', color: '#ff8fb1', img: '📚', bg: 'linear-gradient(135deg,#ffc3d8,#ff7eb3)', cap: '直屬學長的計概筆記救了我的期中 😭 學長當選！', likes: 211, time: '5 小時' },
-  { who: '冠廷', av: '🏀', color: '#ff6b4a', img: '🏀', bg: 'linear-gradient(135deg,#ff9966,#ff5e62)', cap: '系籃練球完的宵夜，會長候選人請客 🍗 #系烤升級', likes: 97, time: '昨天' },
-  { who: '阿凱', av: '🔥', color: '#ff5b5b', img: '📄', bg: 'linear-gradient(135deg,#f6d365,#fda085)', cap: '500 張傳單發完了！！手好痠 但值得', likes: 85, time: '昨天' },
-  { who: '中原麥當勞', av: '🍟', color: '#ffbc0d', img: '🍔', bg: 'linear-gradient(135deg,#ffbc0d,#db0007)', cap: '期中考週大麥克套餐學生價！看到穿資管系服的店員記得說加油 😉', likes: 342, time: '2 天' },
-  { who: '品妍', av: '📚', color: '#58c79b', img: '🌙', bg: 'linear-gradient(135deg,#30cfd0,#330867)', cap: '圖書館閉館前的最後一盞燈 📖 系學會可以爭取延長開放嗎', likes: 56, time: '3 天' },
-];
 const CAPTIONS = ['資管要贏！票投彥霖 🗳️', '今天也在中原努力拉票中 🛵', '謝謝每一位支持我的同學 🙏', '系烤升級，說到做到 🔥'];
 // 桃寶購物：effects are applied by the phone (votes / sprint boost / just fun)
 const SHOP = [
@@ -50,13 +41,6 @@ const SHOP = [
   { id: 'case', name: '水蜜桃手機殼', icon: '🍑', price: 199, desc: 'i-Piyan 15 Pro 專用，粉嫩可愛', max: 1 },
   { id: 'helmet', name: 'JET SL 安全帽', icon: '⛑️', price: 890, desc: '極地白配色，騎車安全第一', max: 1 },
 ];
-const PCARD = [
-  { t: '資管系會長只有一組候選人，投票率會過嗎？', b: '如題，上屆好像差點沒過門檻，大家記得去投票啊', n: 42, c: ['B1 有看到彥霖在活動中心發傳單 很拚', 'B2 系烤升級我投了', 'B3 投票率一定要過啦'] },
-  { t: '【心得】中原麥當勞的店員超有效率', b: '下午點餐 30 秒就出餐，戴眼鏡的那位好像是資管的', n: 31, c: ['B1 那是彥霖吧 哈哈', 'B2 他在打工賺競選經費嗎'] },
-  { t: '有人看到一台白色 JET SL 車牌 PYL 開頭的嗎', b: '昨天在中原夜市被一台超帥的 JET SL 超車，車主還跟我揮手', n: 18, c: ['B1 PYL0803 彥霖的車啦', 'B2 車主本人好像正在選系會長'] },
-  { t: '校園裡的金色選票是什麼活動？', b: '走在路上撿到一張發光的金色選票，兩分鐘後又出現了 = =', n: 77, c: ['B1 我也撿到過', 'B2 據說收集 34 張有驚喜', 'B3 資管要贏！'] },
-  { t: '求推薦中原附近宵夜', b: '期中考讀書讀到餓死', n: 25, c: ['B1 夜市雞排', 'B2 麥當勞 24 小時', 'B3 珍奶全糖給它喝下去'] },
-];
 const NOTES = [
   { t: '三大政見', d: '今天', b: '1. 系學會透明：帳目每月公開\n2. 課程回饋：每學期收集意見給系辦\n3. 系烤升級：更多肉、更多人、更多歡樂' },
   { t: '政見發表會講稿', d: '昨天', b: '大家好，我是資管系第34屆系學會會長候選人彥霖。\n資管要贏，票投彥霖！\n（記得不要超過五分鐘——柏宇）' },
@@ -64,6 +48,7 @@ const NOTES = [
 ];
 const CAL = { 3: '期中考週', 12: '系學會登記', 18: '政見發表會', 20: '拉票衝刺', 25: '投票日 🗳️', 28: '系烤' };
 const DOCK = ['messages', 'camera', 'wallet', 'settings'];
+const PAGE1 = 8;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 
@@ -72,6 +57,13 @@ export class Phone {
     this.g = game; this.open = false; this.app = null; this.booted = false; this.sel = 0; this.homeSel = 0;
     this.photos = [];
     this.likes = new Set(); this.myPosts = []; this.bought = {}; this.orders = []; this.calcExpr = '';
+    // social feeds: timestamps are game-clock minutes; every 30 game minutes something new is posted (tick)
+    const now = game.clock;
+    this.feed = FEED.map((p, i) => ({ ...p, id: 'f' + i, at: now - p.ago }));
+    this.pcard = PCARD.map((p, i) => ({ ...p, id: 'c' + i, at: now - p.ago }));
+    this.stories = STORIES.map((x, i) => ({ ...x, id: 's' + i, at: now - 40 - i * 25, seen: false }));
+    this.poolI = { feed: 0, pcard: 0, story: 0 }; this.nextPost = now + 30; this.fresh = { gram: 0, pcard: 0 };
+    this.page = 0;
     Nano.init();
     Nano.listeners.add(() => {
       if (!this.open) return;
@@ -107,12 +99,19 @@ export class Phone {
     }
     this.home();
   }
-  close() { this.open = false; this.el.classList.add('hidden'); this.app = null; this.cur = null; }
+  close() { if (this.story) this._storyClose(); this.open = false; this.el.classList.add('hidden'); this.app = null; this.cur = null; this._frameKey = null; }
   _scale() { const s = Math.min(1, (innerHeight - 30) / 660, (innerWidth - 20) / 330); this.el.style.setProperty('--ps', s.toFixed(3)); }
   // keyboard while open; returns nothing, the game freezes the player meanwhile
   update(dt, inp) {
     this.el.querySelector('.ph-time').textContent = hhmm(this.g.clock);
     if (inp.hit('KeyE')) { this.close(); return 'closed'; }
+    if (this.story) {
+      if (inp.hit('Escape', 'Backspace')) { this._storyClose(); return null; }
+      if (inp.hit('ArrowRight', 'Space', 'Enter')) this._storyGo(1);
+      if (inp.hit('ArrowLeft')) this._storyGo(-1);
+      if (inp.hit('KeyE')) { this._storyClose(); this.close(); return 'closed'; }
+      return null;
+    }
     if (inp.hit('Escape', 'Backspace')) { if (this.cur) this.openApp('messages'); else if (this.app) this.home(); else this.close(); return this.open ? null : 'closed'; }
     if (this.cur) {
       const st = this.cur;
@@ -136,31 +135,78 @@ export class Phone {
 
   // ---------------- home screen ----------------
   home() {
-    this.app = null; this.cur = null;
+    this.app = null; this.cur = null; this._frameKey = null;
     const grid = APPS.filter(a => !DOCK.includes(a.id)), dock = DOCK.map(id => APPS.find(a => a.id === id));
+    const pages = [grid.slice(0, PAGE1), grid.slice(PAGE1)];
+    this._pageStart = [0, PAGE1, grid.length];
     this._order = [...grid, ...dock].map(a => a.id);
+    const badgeN = id => id === 'messages' ? this.unreadTotal : id === 'gram' ? this.fresh.gram : id === 'pcard' ? this.fresh.pcard : 0;
     const icon = (a) => {
-      const badge = a.id === 'messages' && this.unreadTotal ? `<b class="ph-badge">${this.unreadTotal}</b>` : '';
+      const n = badgeN(a.id), badge = n ? `<b class="ph-badge">${n}</b>` : '';
       return `<button class="ph-app" data-app="${a.id}"><span class="ph-ico" style="background:${a.bg}">${a.icon}${badge}</span><span class="ph-lbl">${a.name}</span></button>`;
     };
-    const day = this.g.night > 0.5;
-    this.view.innerHTML = `<div class="ph-home ${day ? 'night' : ''}">
-      <div class="ph-widget"><div class="ph-w-time">${hhmm(this.g.clock)}</div><div class="ph-w-sub">${this._dateStr()} · 中壢 ${this._temp()}°</div>
-        <div class="ph-w-row">🗳 ${this.g.votes} 票　💰 NT$ ${this.g.money}</div></div>
-      <div class="ph-grid">${grid.map(icon).join('')}</div>
-      <div class="ph-dots"><i class="on"></i><i></i></div>
+    const night = this.g.night > 0.5, last = this.feed[0];
+    this.view.innerHTML = `<div class="ph-home ${night ? 'night' : ''}">
+      <div class="ph-pages"><div class="ph-track">
+        <div class="ph-page"><div class="ph-widget"><div class="ph-w-time">${hhmm(this.g.clock)}</div><div class="ph-w-sub">${this._dateStr()} · 中壢 ${this._temp()}°</div>
+          <div class="ph-w-row">🗳 ${this.g.votes} 票　💰 NT$ ${this.g.money}</div></div>
+          <div class="ph-grid">${pages[0].map(icon).join('')}</div></div>
+        <div class="ph-page"><div class="ph-grid">${pages[1].map(icon).join('')}</div>
+          ${last ? `<button class="ph-wgram" data-app="gram"><img src="${last.img}" alt=""><span><small>Peachgram · ${esc(last.who)}</small>${esc(last.cap)}</span></button>` : ''}</div>
+      </div></div>
+      <div class="ph-dots">${pages.map((_, k) => `<i data-p="${k}"></i>`).join('')}</div>
       <div class="ph-dock">${dock.map(a => icon(a).replace(/<span class="ph-lbl">.*?<\/span>/, '')).join('')}</div></div>`;
-    for (const b of this.view.querySelectorAll('.ph-app')) b.onclick = () => this.openApp(b.dataset.app);
+    for (const b of this.view.querySelectorAll('[data-app]')) b.onclick = () => { if (!this._dragged) this.openApp(b.dataset.app); };
+    for (const d of this.view.querySelectorAll('.ph-dots i')) d.onclick = () => this._setPage(+d.dataset.p);
+    this._swipe(this.view.querySelector('.ph-pages'), pages.length);
+    this._setPage(this.page, true);
     this._homeSel(Math.min(this.homeSel, this._order.length - 1));
+  }
+  // drag / swipe / trackpad sideways scroll between home pages
+  _swipe(el, n) {
+    const track = el.querySelector('.ph-track');
+    let x0 = null, dx = 0, id = null;
+    el.onpointerdown = e => { x0 = e.clientX; dx = 0; id = e.pointerId; this._dragged = false; track.style.transition = 'none'; };
+    el.onpointermove = e => {
+      if (x0 === null || e.pointerId !== id) return;
+      dx = (e.clientX - x0) / (parseFloat(getComputedStyle(this.el).getPropertyValue('--ps')) || 1);
+      if (Math.abs(dx) > 6 && !this._dragged) { this._dragged = true; try { el.setPointerCapture(id); } catch (er) { } }
+      if (this._dragged) { const edge = (this.page === 0 && dx > 0) || (this.page === n - 1 && dx < 0) ? 0.3 : 1; track.style.transform = `translateX(calc(${-this.page * 100}% + ${dx * edge}px))`; }
+    };
+    const end = () => {
+      if (x0 === null) return; x0 = null; track.style.transition = '';
+      if (this._dragged && Math.abs(dx) > 45) this._setPage(this.page + (dx < 0 ? 1 : -1)); else this._setPage(this.page);
+      setTimeout(() => { this._dragged = false; }, 0); // the click after a drag must not open an app
+    };
+    el.onpointerup = end; el.onpointercancel = end;
+    let wheelT = 0;
+    el.onwheel = e => {
+      if (Math.abs(e.deltaX) < Math.abs(e.deltaY) * 0.6 && !e.shiftKey) return;
+      const now = performance.now(); if (now - wheelT < 450) return; wheelT = now;
+      this._setPage(this.page + ((e.deltaX || e.deltaY) > 0 ? 1 : -1));
+    };
+  }
+  _setPage(p, instant) {
+    const n = this._pageStart.length - 1; this.page = Math.max(0, Math.min(n - 1, p));
+    const track = this.view.querySelector('.ph-track'); if (!track) return;
+    if (instant) track.style.transition = 'none';
+    track.style.transform = `translateX(${-this.page * 100}%)`;
+    if (instant) { void track.offsetWidth; track.style.transition = ''; }
+    this.view.querySelectorAll('.ph-dots i').forEach((d, k) => d.classList.toggle('on', k === this.page));
   }
   _homeSel(i) {
     this.homeSel = Math.max(0, Math.min(this._order.length - 1, i));
     this.view.querySelectorAll('.ph-app').forEach((b, k) => b.classList.toggle('sel', k === this.homeSel));
+    // keyboard selection on a grid icon flips to its page (dock icons stay on the current page)
+    const st = this._pageStart;
+    if (this.homeSel < st[st.length - 1]) { const pg = this.homeSel < st[1] ? 0 : 1; if (pg !== this.page) this._setPage(pg); }
   }
   _dateStr() { const d = new Date(); return `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`; }
   _temp() { return Math.round(this.g.night > 0.5 ? 19 : 24 + Math.sin((this.g.clock % 1440) / 1440 * Math.PI) * 3); }
   _frame(title, body, opt = {}) {
-    this.view.innerHTML = `<div class="ph-appview ${opt.cls || ''}"><div class="ph-nav"><button class="ph-back">‹ ${esc(opt.back || '主畫面')}</button><b>${esc(title)}</b><span>${opt.right || ''}</span></div><div class="ph-content">${body}</div></div>`;
+    // slide in only when we land on a different page; re-rendering the same page (likes, buy, keypad, tabs) stays put
+    const key = this.app + '|' + title, still = key === this._frameKey; this._frameKey = key;
+    this.view.innerHTML = `<div class="ph-appview ${opt.cls || ''} ${still ? 'still' : ''}"><div class="ph-nav"><button class="ph-back">‹ ${esc(opt.back || '主畫面')}</button><b>${esc(title)}</b><span>${opt.right || ''}</span></div><div class="ph-content">${body}</div></div>`;
     this.view.querySelector('.ph-back').onclick = () => (opt.onBack ? opt.onBack() : this.home());
     return this.view.querySelector('.ph-content');
   }
@@ -190,6 +236,7 @@ export class Phone {
       this._frame('選情', `<div class="ph-big"><small>目前得票</small><b>${g.votes}</b><span>票</span></div>
         <div class="ph-row"><span>金色選票</span><b>${g.ballotsTaken} / 34</b></div>
         <div class="ph-row"><span>發傳單成功</span><b>${g.flyerVotes || 0} 人</b></div>
+        <div class="ph-row"><span>🚧 支線：A6 側門門禁<small>坐進側門警衛室，別讓怪人進來</small></span><b>${g.gate?.shifts ? `完成 ${g.gate.shifts} 班` : '未開始'}</b></div>
         <div class="ph-row"><span>目前任務</span><b class="ph-wrap">${esc(obj)}</b></div>
         <div class="ph-note">資管要贏，票投彥霖！🗳</div>`);
       return;
@@ -243,21 +290,34 @@ export class Phone {
     }
   }
   // ---------------- Peachgram (social) ----------------
+  _ago(at) {
+    const m = Math.max(0, Math.round(this.g.clock - at));
+    return m < 2 ? '剛剛' : m < 60 ? `${m} 分鐘` : m < 1440 ? `${Math.floor(m / 60)} 小時` : m < 2880 ? '昨天' : `${Math.floor(m / 1440)} 天`;
+  }
+  _person(who) { return PEOPLE[who] || { av: who[0], color: '#c7c7cc' }; }
+  // newest story per person; unseen first
+  _storyList() {
+    const by = new Map();
+    for (const st of this.stories) { const cur = by.get(st.who); if (!cur || st.at > cur.at) by.set(st.who, st); }
+    return [...by.values()].sort((a, b) => (a.seen - b.seen) || (b.at - a.at));
+  }
   _gram(tab = 'feed') {
-    const g = this.g;
-    const post = (p, k) => {
-      const liked = this.likes.has(k), likes = p.likes + (liked ? 1 : 0);
-      const img = p.photo ? `<img src="${p.photo}">` : `<div class="pg-art" style="background:${p.bg}">${p.img}</div>`;
-      return `<div class="pg-post"><div class="pg-head"><span class="ph-av" style="background:${p.color}">${p.av}</span><b>${esc(p.who)}</b><small>${p.time}</small></div>
-        <div class="pg-img" data-k="${k}">${img}</div>
+    const g = this.g; this.fresh.gram = 0; this._gramTab = tab;
+    const post = (p) => {
+      const k = p.id, liked = this.likes.has(k), likes = p.likes + (liked ? 1 : 0), P = p.mine ? { av: '彥', color: '#ffd23f' } : this._person(p.who);
+      return `<div class="pg-post"><div class="pg-head"><span class="ph-av" style="background:${P.color}">${P.av}</span><b>${esc(p.who)}</b><small>${this._ago(p.at)}</small></div>
+        <div class="pg-img" data-k="${k}"><img src="${p.img}" alt="" loading="lazy"></div>
         <div class="pg-bar"><button class="pg-like ${liked ? 'on' : ''}" data-k="${k}">${liked ? '❤️' : '🤍'}</button><span>💬</span><span>📤</span></div>
         <div class="pg-cap"><b>${likes} 個讚</b><br><b>${esc(p.who)}</b> ${esc(p.cap)}</div></div>`;
     };
-    const mine = this.myPosts.map(p => ({ who: 'yanlin_im34', av: '彥', color: '#ffd23f', photo: p.photo, cap: p.cap, likes: p.likes, time: '剛剛' }));
+    const mine = this.myPosts.map((p, i) => ({ who: 'yanlin_im34', mine: true, img: p.photo, cap: p.cap, likes: p.likes, at: p.at, id: 'm' + i }));
+    const all = [...mine, ...this.feed].sort((a, b) => b.at - a.at);
     let body;
-    if (tab === 'feed') body = `<div class="pg-stories">${FEED.slice(0, 6).map(p => `<div><span class="ph-av" style="background:${p.color}">${p.av}</span><small>${esc(p.who)}</small></div>`).join('')}</div>
-      ${[...mine.map((p, i) => post(p, 'm' + i)), ...FEED.map((p, i) => post(p, 'f' + i))].join('')}`;
-    else {
+    if (tab === 'feed') {
+      this._stories = this._storyList();
+      body = `<div class="pg-stories">${this._stories.map((x, i) => { const P = this._person(x.who); return `<button class="pg-story ${x.seen ? 'seen' : ''}" data-s="${i}"><span class="ph-av" style="background:${P.color}">${P.av}</span><small>${esc(x.who)}</small></button>`; }).join('')}</div>
+      ${all.map(post).join('')}`;
+    } else {
       const ph = this.photos[0];
       body = `<div class="pg-prof"><span class="ph-av" style="background:#ffd23f">彥</span><div><b>yanlin_im34</b><small>資管系第34屆系學會會長候選人 🗳️<br>資管要贏・票投彥霖</small></div></div>
         <div class="pg-stats"><div><b>${this.myPosts.length}</b>貼文</div><div><b>${1034 + this.myPosts.length * 57}</b>粉絲</div><div><b>298</b>追蹤中</div></div>
@@ -268,16 +328,78 @@ export class Phone {
     }
     const c = this._frame('Peachgram', `<div class="pg-tabs"><button class="${tab === 'feed' ? 'on' : ''}" data-t="feed">🏠 動態</button><button class="${tab === 'me' ? 'on' : ''}" data-t="me">👤 我的</button></div>${body}`, { cls: 'ph-gram' });
     c.querySelectorAll('[data-t]').forEach(b => b.onclick = () => this._gram(b.dataset.t));
-    const like = k => { this.likes.has(k) ? this.likes.delete(k) : this.likes.add(k); g.audio.pop?.(); const y = c.scrollTop; this._gram(tab); this.view.querySelector('.ph-content').scrollTop = y; };
+    c.querySelectorAll('.pg-story').forEach(b => b.onclick = () => this._storyOpen(+b.dataset.s));
+    const like = k => { this.likes.has(k) ? this.likes.delete(k) : this.likes.add(k); g.audio.pop?.(); this._rerender(() => this._gram(tab)); };
     c.querySelectorAll('.pg-like').forEach(b => b.onclick = () => like(b.dataset.k));
     c.querySelectorAll('.pg-img').forEach(b => b.ondblclick = () => { if (!this.likes.has(b.dataset.k)) like(b.dataset.k); });
     c.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
       const n = this.myPosts.length;
-      this.myPosts.unshift({ photo: this.photos[0], cap: CAPTIONS[+b.dataset.c], likes: 40 + Math.floor(Math.random() * 120) });
+      this.myPosts.unshift({ photo: this.photos[0], cap: CAPTIONS[+b.dataset.c], likes: 40 + Math.floor(Math.random() * 120), at: g.clock });
       g.audio.pickup?.();
       if (n < 3) g.addVotes(2, `Peachgram 貼文爆紅 +2 票`); else g.hud.toast('貼文發佈成功 📸', 'good', 1500);
       this._gram('feed');
     });
+  }
+  // re-render the current page and keep the scroll position
+  _rerender(fn) { const y = this.view.querySelector('.ph-content')?.scrollTop || 0; fn(); const c = this.view.querySelector('.ph-content'); if (c) c.scrollTop = y; }
+  // ---- story viewer: tap right / left half (or ← →), auto-advances every 5 s, Esc closes ----
+  _storyOpen(i) {
+    const list = this._stories || this._storyList(); if (!list[i]) return;
+    this.story = { list, i };
+    const ov = document.createElement('div'); ov.className = 'st-view';
+    this.view.appendChild(ov); this._storyShow();
+  }
+  _storyShow() {
+    const S = this.story; if (!S) return;
+    const x = S.list[S.i], P = this._person(x.who); x.seen = true;
+    const ov = this.view.querySelector('.st-view'); if (!ov) return;
+    ov.innerHTML = `<img src="${x.img}" alt=""><div class="st-bars">${S.list.map((_, k) => `<i class="${k < S.i ? 'done' : k === S.i ? 'run' : ''}"><b></b></i>`).join('')}</div>
+      <div class="st-head"><span class="ph-av" style="background:${P.color}">${P.av}</span><b>${esc(x.who)}</b><small>${this._ago(x.at)}</small><button class="st-x">✕</button></div>
+      <div class="st-tap st-l"></div><div class="st-tap st-r"></div>
+      <div class="st-reply">傳送訊息給 ${esc(x.who)}…　❤️</div>`;
+    ov.querySelector('.st-x').onclick = e => { e.stopPropagation(); this._storyClose(); };
+    ov.querySelector('.st-l').onclick = () => this._storyGo(-1);
+    ov.querySelector('.st-r').onclick = () => this._storyGo(1);
+    clearTimeout(this._stT); this._stT = setTimeout(() => this._storyGo(1), 5000);
+  }
+  _storyGo(d) {
+    const S = this.story; if (!S) return;
+    S.i += d; if (S.i < 0) S.i = 0;
+    if (S.i >= S.list.length) { this._storyClose(); return; }
+    this._storyShow();
+  }
+  _storyClose() {
+    clearTimeout(this._stT); this.story = null;
+    this.view.querySelector('.st-view')?.remove();
+    if (this.app === 'gram') this._rerender(() => this._gram(this._gramTab || 'feed'));
+  }
+  // ---- something new every 30 game minutes (runs even with the phone in the pocket) ----
+  tick() {
+    const g = this.g;
+    if (g.clock < this.nextPost) return;
+    this.nextPost += 30;
+    for (const p of this.feed.slice(0, 6)) p.likes += 1 + Math.floor(Math.random() * 12);
+    for (const p of this.pcard.slice(0, 4)) p.n += Math.floor(Math.random() * 6);
+    const fp = { ...FEED_POOL[this.poolI.feed++ % FEED_POOL.length] };
+    const cp = { ...PCARD_POOL[this.poolI.pcard++ % PCARD_POOL.length] };
+    const publish = () => {
+      this.feed.unshift({ ...fp, id: 'f' + (this.feed.length + this.poolI.feed * 100), at: g.clock, likes: 3 + Math.floor(Math.random() * 40) });
+      this.pcard.unshift({ ...cp, id: 'c' + (this.pcard.length + this.poolI.pcard * 100), at: g.clock, n: 1 + Math.floor(Math.random() * 15) });
+      if (Math.random() < 0.6) { const st = STORY_POOL[this.poolI.story++ % STORY_POOL.length]; this.stories.push({ ...st, id: 's' + this.stories.length, at: g.clock, seen: false }); }
+      this.feed.length = Math.min(this.feed.length, 40); this.pcard.length = Math.min(this.pcard.length, 40);
+      const viewing = this.open && !this.story && !this.cur;
+      if (!(viewing && this.app === 'gram')) this.fresh.gram++;
+      if (!(viewing && this.app === 'pcard')) this.fresh.pcard++;
+      g.hud.toast(`📸 Peachgram｜${fp.who} 發了新貼文`, 'good', 2200);
+      setTimeout(() => g.hud.toast(`🗨️ Pcard 新文章：${cp.t}`, 'good', 2200), 2400);
+      if (viewing && this.app === 'gram' && this._gramTab === 'feed') this._rerender(() => this._gram('feed'));
+      else if (viewing && this.app === 'pcard') this._rerender(() => this._pcard());
+      else if (this.open && !this.app) this.home();
+    };
+    // Chrome + Gemini Nano: let the model write the new caption and forum post (falls back to the pool text)
+    if (Nano.on) {
+      Nano.write(fp.who, PEOPLE[fp.who] ? fp.cap : '', cp).then(r => { if (r.cap) fp.cap = r.cap; if (r.t) Object.assign(cp, { t: r.t, b: r.b || cp.b, c: r.c?.length ? r.c : cp.c }); }).catch(() => { }).finally(publish);
+    } else publish();
   }
   // ---------------- 桃寶購物 (shopping) ----------------
   _shop(tab = 'store') {
@@ -308,10 +430,12 @@ export class Phone {
   }
   // ---------------- Pcard (anonymous campus forum) ----------------
   _pcard() {
-    const c = this._frame('中原大學 Pcard', `<div class="pc-board">🏫 中原大學板 · 熱門</div>${PCARD.map((p, i) => `<button class="pc-post" data-i="${i}"><b>${esc(p.t)}</b><small>${esc(p.b)}</small><span>❤️ ${p.n}　💬 ${p.c.length}</span></button>`).join('')}`, { cls: 'ph-pcard' });
+    this.fresh.pcard = 0;
+    const list = this.pcard;
+    const c = this._frame('中原大學 Pcard', `<div class="pc-board">🏫 中原大學板 · 最新</div>${list.map((p, i) => `<button class="pc-post" data-i="${i}"><b>${esc(p.t)}</b><small>${esc(p.b)}</small><span>❤️ ${p.n}　💬 ${p.c.length}　· ${this._ago(p.at)}</span></button>`).join('')}`, { cls: 'ph-pcard' });
     c.querySelectorAll('.pc-post').forEach(b => b.onclick = () => {
-      const p = PCARD[+b.dataset.i];
-      this._frame('文章', `<div class="pc-full"><small>匿名 · 中原大學</small><b>${esc(p.t)}</b><p>${esc(p.b)}</p><span>❤️ ${p.n}</span></div>
+      const p = list[+b.dataset.i];
+      this._frame('文章', `<div class="pc-full"><small>匿名 · 中原大學 · ${this._ago(p.at)}</small><b>${esc(p.t)}</b><p>${esc(p.b)}</p><span>❤️ ${p.n}</span></div>
         <div class="ph-sec">留言 ${p.c.length}</div>${p.c.map(x => `<div class="pc-cmt">${esc(x)}</div>`).join('')}`, { back: 'Pcard', onBack: () => this.openApp('pcard'), cls: 'ph-pcard' });
     });
   }
@@ -393,6 +517,7 @@ export class Phone {
   openChat(st) {
     this.app = 'messages'; this.cur = st; st.unread = 0; this.sel = this.chats.indexOf(st);
     const c = this.view; const C = st.c;
+    this._frameKey = 'chat|' + st.c.id;
     c.innerHTML = `<div class="ph-appview ph-chat"><div class="ph-nav ph-chatnav"><button class="ph-back">‹</button>
       <div class="ph-chathead"><span class="ph-av" style="background:${C.color}">${C.avatar}</span><b>${esc(C.name)}</b><small>${esc(C.sub)}</small><i class="ph-ai"></i></div><span>📹</span></div>
       <div class="ph-thread"></div><div class="ph-compose"></div></div>`;

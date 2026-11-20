@@ -47,6 +47,11 @@ const NOTES = [
   { t: '待辦', d: '週一', b: '☑ 登記參選\n☑ 印傳單 500 張\n☐ 撿齊 34 張金色選票\n☐ 麥當勞排班\n☐ 機車換機油' },
 ];
 const CAL = { 3: '期中考週', 12: '系學會登記', 18: '政見發表會', 20: '拉票衝刺', 25: '投票日 🗳️', 28: '系烤' };
+// home-screen icon artwork (assets/phone/<id>.webp, generated with Qwen-Image); preloaded so the emoji doesn't flash first
+const ICON_DIR = 'assets/phone/';
+const ICON_ART = new Set(APPS.map(a => a.id));
+const ICON_FAIL = new Set();
+for (const id of ICON_ART) { const im = new Image(); im.onerror = () => ICON_FAIL.add(id); im.src = `${ICON_DIR}${id}.webp`; }
 const DOCK = ['messages', 'camera', 'wallet', 'settings'];
 const PAGE1 = 8;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -143,7 +148,9 @@ export class Phone {
     const badgeN = id => id === 'messages' ? this.unreadTotal : id === 'gram' ? this.fresh.gram : id === 'pcard' ? this.fresh.pcard : 0;
     const icon = (a) => {
       const n = badgeN(a.id), badge = n ? `<b class="ph-badge">${n}</b>` : '';
-      return `<button class="ph-app" data-app="${a.id}"><span class="ph-ico" style="background:${a.bg}">${a.icon}${badge}</span><span class="ph-lbl">${a.name}</span></button>`;
+      // generated artwork covers the emoji + gradient; if the image fails it removes itself and the emoji shows
+      const art = ICON_ART.has(a.id) && !ICON_FAIL.has(a.id) ? `<img class="ph-ico-img" src="${ICON_DIR}${a.id}.webp" alt="" draggable="false" onerror="this.remove()">` : '';
+      return `<button class="ph-app" data-app="${a.id}"><span class="ph-ico" style="background:${a.bg}">${a.icon}${art}${badge}</span><span class="ph-lbl">${a.name}</span></button>`;
     };
     const night = this.g.night > 0.5, last = this.feed[0];
     this.view.innerHTML = `<div class="ph-home ${night ? 'night' : ''}">

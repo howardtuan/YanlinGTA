@@ -23,10 +23,12 @@ export class HUD {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d');
     const X = x => (x - B.minX) * s, Z = z => (z - B.minZ) * s;
-    const poly = (pts) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1]))); g.closePath(); };
+    const ring = (pts) => { pts.forEach((p, i) => i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1]))); g.closePath(); };
+    // multipolygon holes (courtyards, track infields) are cut with even-odd fill
+    const poly = (pts, holes) => { g.beginPath(); ring(pts); if (holes) holes.forEach(ring); };
     g.fillStyle = '#3d4046'; g.fillRect(0, 0, W, H);
     g.fillStyle = '#5c5a52'; for (const r of d.campus) { poly(r); g.fill(); }
-    for (const a of d.areas) { const c = AREA_C[a.kind]; if (!c) continue; g.fillStyle = c; poly(a.pts); g.fill(); }
+    for (const a of d.areas) { const c = AREA_C[a.kind]; if (!c) continue; g.fillStyle = c; poly(a.pts, a.holes); g.fill('evenodd'); }
     g.lineCap = 'round'; g.lineJoin = 'round';
     for (const w of d.waterways) { g.strokeStyle = '#3b84c4'; g.lineWidth = w.w * s; g.beginPath(); w.pts.forEach((p, i) => i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1]))); g.stroke(); }
     for (const r of d.rail) { g.strokeStyle = '#8a7a6a'; g.lineWidth = 3 * s; g.setLineDash([4, 3]); g.beginPath(); r.pts.forEach((p, i) => i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1]))); g.stroke(); g.setLineDash([]); }
@@ -40,7 +42,7 @@ export class HUD {
     }
     for (const b of d.buildings) {
       g.fillStyle = b.kind === 'campus' ? '#b9a48c' : b.kind === 'dorm' ? '#a99a86' : '#8a8780';
-      poly(b.pts); g.fill();
+      poly(b.pts, b.holes); g.fill('evenodd');
       g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; g.stroke();
     }
     this.mapCanvas = cv;

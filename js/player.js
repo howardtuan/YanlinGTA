@@ -59,15 +59,23 @@ export class Player {
     // jump
     const ground = interiors ? interiors.groundAt(this.pos.x, this.pos.z, this.y) : 0;
     const onGround = this.y <= ground + 0.02;
-    if (!this.frozen && input.hit('Space') && onGround) this.vy = 5.6;
+    if (!this.frozen && input.hit('Space') && onGround) { this.vy = 5.6; this.sfx = 'jump'; }
     this.vy -= 16 * dt; this.y += this.vy * dt;
     // stick to stairs/slopes when walking down, land on floors
-    if (this.y < ground || (onGround && this.vy <= 0 && this.y - ground < 0.45)) { this.y = ground; this.vy = 0; }
+    if (this.y < ground || (onGround && this.vy <= 0 && this.y - ground < 0.45)) {
+      if (this.vy < -3.5) { this.sfx = 'land'; this.landImpact = -this.vy / 6; }
+      this.y = ground; this.vy = 0;
+    }
+
     this.ground = ground;
     this.pos.y = this.y + surfaceAt(this.pos.x, this.pos.z);
     this.ch.root.rotation.y = this.heading;
     this.poseT -= dt; if (this.poseT <= 0) this.pose = null;
     this.ch.update(dt, { speed: this.speed, air: this.y > (this.ground || 0) + 0.05, mode: 'foot', pose: this.speed > 1 && this.pose !== 'give' ? null : this.pose });
+    // footsteps in time with the walk cycle: each half turn of the leg phase is one foot landing
+    const foot = Math.floor(this.ch.phase / Math.PI);
+    if (this.speed > 0.6 && this.y <= this.ground + 0.02 && foot !== this.lastFoot && !this.sfx) this.sfx = 'step';
+    this.lastFoot = foot;
   }
   enter(v) {
     this.vehicle = v; v.driver = 'player';

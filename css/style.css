@@ -385,3 +385,46 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .mk-row span{margin-left:auto;display:flex;gap:3px}
 .mk-row i{width:11px;height:11px;border-radius:3px;background:rgba(255,255,255,.14)}.mk-row i.on{background:#ffc72c}
 @media (max-width:900px){.mk-body{grid-template-columns:1.2fr 1.4fr .9fr;gap:6px;padding:6px}.mk-st em{font-size:20px}.mk-kvs,.mk-uhc{min-height:120px}}
+/* --- i-Piyan: more apps (Peachgram, 桃寶, Pcard, notes, calendar, calculator, clock) --- */
+.ph-grid{gap:12px 4px}.ph-grid .ph-ico{width:50px;height:50px;font-size:27px;border-radius:13px}.ph-grid .ph-lbl{font-size:10.5px;white-space:nowrap;overflow:hidden;max-width:64px;text-overflow:ellipsis}
+.ph-home .ph-widget{padding:9px 14px;margin-bottom:10px}
+.ph-ai{font-style:normal;font-size:9.5px;font-weight:700;color:#8e44ff;letter-spacing:.2px;min-height:0}
+.ph-ai:empty{display:none}
+.pg-tabs{display:flex;gap:6px;margin:0 0 8px}.pg-tabs button{flex:1;border:0;border-radius:10px;padding:7px 0;background:#e9e9ee;font-size:12.5px;color:#333}.pg-tabs button.on{background:#111;color:#fff}
+.ph-gram .ph-content{background:#fff}
+.pg-stories{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 10px;border-bottom:1px solid #eee;scrollbar-width:none}
+.pg-stories div{display:flex;flex-direction:column;align-items:center;gap:3px}.pg-stories .ph-av{width:48px;height:48px;box-shadow:0 0 0 2px #fff,0 0 0 4px #e1306c}.pg-stories small{font-size:10px;color:#333}
+.pg-post{margin:8px -12px 14px}.pg-head{display:flex;align-items:center;gap:8px;padding:0 12px 6px}.pg-head .ph-av{width:30px;height:30px;font-size:16px}.pg-head b{font-size:13px}.pg-head small{margin-left:auto;font-size:10.5px;color:#8e8e93}
+.pg-img{aspect-ratio:1;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer}.pg-img img{width:100%;height:100%;object-fit:cover}
+.pg-art{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:96px}
+.pg-bar{display:flex;gap:12px;padding:6px 12px 2px;font-size:20px}.pg-like{border:0;background:none;font-size:20px;padding:0;cursor:pointer}
+.pg-cap{padding:0 12px;font-size:12.5px;line-height:1.45;color:#111}
+.pg-prof{display:flex;gap:12px;align-items:center;padding:6px 2px}.pg-prof .ph-av{width:64px;height:64px;font-size:30px;font-weight:800;color:#7a3d00}.pg-prof b{font-size:14px}.pg-prof small{display:block;font-size:11.5px;color:#555;line-height:1.5;margin-top:2px}
+.pg-stats{display:flex;justify-content:space-around;text-align:center;font-size:11px;color:#555;padding:8px 0;border-bottom:1px solid #eee}.pg-stats b{display:block;font-size:15px;color:#111}
+.pg-new{display:flex;gap:8px;align-items:flex-start}.pg-new img{width:84px;height:84px;object-fit:cover;border-radius:8px;flex:none}.pg-new div{display:flex;flex-direction:column;gap:4px;flex:1}
+.pg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:10px}.pg-grid img{width:100%;aspect-ratio:1;object-fit:cover}
+.ph-shop .ph-nav{background:#ff5b1f;color:#fff;border:0}.ph-shop .ph-back{color:#fff}.ph-shop .ph-content{background:#f5f5f5}
+.sh-wallet{background:#fff;border-radius:10px;padding:8px 12px;font-size:12.5px;margin-bottom:8px;display:flex;justify-content:space-between}.sh-wallet b{color:#ff5b1f}
+.sh-banner{background:linear-gradient(90deg,#ff9a3c,#ff3d6e);color:#fff;border-radius:12px;padding:12px;font-weight:800;font-size:14px;margin-bottom:8px}
+.sh-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sh-item{background:#fff;border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:3px}.sh-pic{height:66px;border-radius:9px;background:#fff3ea;display:flex;align-items:center;justify-content:center;font-size:40px}
+.sh-item b{font-size:12.5px;color:#111}.sh-item small{font-size:10px;color:#777;line-height:1.35;min-height:2.7em}
+.sh-buy{display:flex;justify-content:space-between;align-items:center;margin-top:auto}.sh-buy span{color:#ff5b1f;font-weight:800;font-size:12.5px}
+.sh-buy button{border:0;border-radius:8px;background:#ff5b1f;color:#fff;font-size:11px;padding:4px 9px;cursor:pointer}.sh-buy button:disabled{background:#ccc}
+.ph-pcard .ph-nav{background:#006aa6;color:#fff;border:0}.ph-pcard .ph-back{color:#fff}.ph-pcard .ph-content{background:#fff}
+.pc-board{font-size:12px;color:#006aa6;font-weight:700;padding:2px 2px 8px;border-bottom:1px solid #eee}
+.pc-post{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;border:0;background:none;border-bottom:1px solid #eee;padding:10px 2px;cursor:pointer}
+.pc-post b{font-size:13.5px;color:#111}.pc-post small{font-size:11.5px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pc-post span{font-size:10.5px;color:#999}
+.pc-full small{font-size:11px;color:#888}.pc-full b{display:block;font-size:16px;margin:6px 0}.pc-full p{font-size:13.5px;line-height:1.6;color:#222;margin:0 0 8px}.pc-full span{font-size:11px;color:#999}
+.pc-cmt{font-size:12.5px;padding:8px 2px;border-bottom:1px solid #f0f0f0;color:#333}
+.ph-notes .ph-nav{color:#c79100}.ph-notes .ph-back{color:#c79100}
+.nt-body{background:#fff;border-radius:10px;padding:14px;font-size:14px;line-height:1.75;color:#111}
+.cal-h{font-weight:800;font-size:18px;color:#e5484d;margin:4px 4px 8px}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;background:#fff;border-radius:12px;padding:8px}
+.cal-g b{font-size:10px;color:#8e8e93;font-weight:600}.cal-g i{font-style:normal;font-size:12.5px;padding:5px 0;border-radius:50%;position:relative}
+.cal-g i.today{background:#e5484d;color:#fff;font-weight:700}.cal-g i.ev::after{content:'';position:absolute;left:50%;bottom:0;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:#e5484d}
+.ca-out{color:#fff;font:300 44px/1.2 system-ui;text-align:right;padding:60px 8px 12px;word-break:break-all}
+.ca-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.ca-keys button{aspect-ratio:1;border-radius:50%;border:0;background:#333;color:#fff;font-size:21px;cursor:pointer}
+.ca-keys button.op{background:#ff9f0a}.ca-keys button.fn{background:#a5a5a5;color:#000}
+.ck-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #222;padding:12px 4px;color:#fff}.ck-row small{color:#8e8e93;font-size:12px}.ck-row b{font:300 32px system-ui}
+.ph-dark .ph-sec{color:#8e8e93}

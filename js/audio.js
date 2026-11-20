@@ -32,12 +32,11 @@ export class Audio {
     const g = this.ctx.createGain(); g.gain.value = 0;
     o.connect(f); o2.connect(f); f.connect(g); g.connect(this.sfx); o.start(); o2.start();
     this.engine = { o, o2, f, g };
-    // ambience
-    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
-    const d = buf.getChannelData(0); let last = 0;
-    for (let i = 0; i < d.length; i++) { last = (last + (Math.random() * 2 - 1) * 0.02) * 0.995; d[i] = last; }
-    const n = this.ctx.createBufferSource(); n.buffer = buf; n.loop = true;
-    const ng = this.ctx.createGain(); ng.gain.value = 0.2; n.connect(ng); ng.connect(this.sfx); n.start();
+    // (the old looping brown-noise "ambience" sounded like constant wind, so it's gone)
+    // one shared white-noise buffer for footsteps / swishes
+    const nb = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.5, this.ctx.sampleRate), nd = nb.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    this.noiseBuf = nb;
     this.applyVolumes(); this.applyMusic();
   }
   applyVolumes() {
@@ -119,4 +118,33 @@ export class Audio {
   checkpoint() { [523, 659, 784].forEach((f, i) => this.tone(f, 0.18, 'square', 0.08, i * 0.07)); }
   fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, i === 5 ? 0.6 : 0.18, 'square', 0.09, i * 0.13)); }
   blip() { this.tone(1200, 0.04, 'square', 0.04); }
+  // short filtered noise burst
+  noise(dur, freq, q = 1, vol = 0.2, when = 0, type = 'bandpass', sweep = 0) {
+    if (!this.ctx || !this.noiseBuf) return;
+    const t = this.ctx.currentTime + when;
+    const src = this.ctx.createBufferSource(); src.buffer = this.noiseBuf;
+    src.playbackRate.value = 0.8 + Math.random() * 0.4;
+    const f = this.ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (sweep) f.frequency.exponentialRampToValueAtTime(freq * sweep, t + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this.sfx); src.start(t, Math.random() * 0.3); src.stop(t + dur + 0.05);
+  }
+  // footstep: surface 'out' (asphalt / paving), 'in' (tiled floor), 'grass'; run = louder, snappier
+  step(surface = 'out', run = false) {
+    const v = run ? 1.25 : 1, j = 0.85 + Math.random() * 0.3;
+    if (surface === 'grass') { this.noise(0.11, 2400 * j, 0.7, 0.16 * v, 0, 'bandpass'); return; }
+    if (surface === 'in') { this.noise(0.05, 3200 * j, 1.4, 0.13 * v); this.tone(150 * j, 0.06, 'sine', 0.09 * v, 0, 0.6); return; }
+    this.noise(0.07, 1500 * j, 1.1, 0.17 * v); this.tone(95 * j, 0.07, 'sine', 0.1 * v, 0, 0.6);
+  }
+  jump() { this.noise(0.12, 900, 0.8, 0.1, 0, 'bandpass', 2.2); }
+  land(i = 1) { const k = Math.min(1.6, i); this.noise(0.12, 700, 0.9, 0.16 * k); this.tone(70, 0.12, 'sine', 0.14 * k, 0, 0.5); }
+  // generic interaction "tick" (E actions, buttons)
+  interact() { this.tone(880, 0.05, 'triangle', 0.08); this.tone(1320, 0.07, 'triangle', 0.06, 0.04); }
+  talk() { this.tone(520 + Math.random() * 120, 0.05, 'square', 0.03); }
+  door() { this.noise(0.18, 400, 0.8, 0.14, 0, 'lowpass'); this.tone(180, 0.1, 'triangle', 0.08, 0.02, 0.7); }
+  paper() { this.noise(0.16, 3500, 0.6, 0.12, 0, 'highpass', 0.6); }
+  mount() { this.tone(140, 0.08, 'square', 0.06, 0, 0.7); this.noise(0.08, 1800, 1, 0.1, 0.05); }
+  coin() { this.tone(1568, 0.06, 'square', 0.05); this.tone(2093, 0.18, 'square', 0.05, 0.06); }
+  pop() { this.tone(600, 0.08, 'sine', 0.1, 0, 2); }
 }

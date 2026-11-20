@@ -316,7 +316,7 @@ class Game {
     this.hud.dialog(lines, cb);
   }
   earn(n, what) {
-    this.money += n; this.ledger.push({ what, n, at: this.clock }); this.hud.setMoney(this.money);
+    this.money += n; this.ledger.push({ what, n, at: this.clock }); this.hud.setMoney(this.money); this.audio.coin();
     const el = $('moneyNum'); el.style.transform = 'scale(1.3)'; setTimeout(() => el.style.transform = '', 160);
   }
   spend(n, what) {
@@ -548,7 +548,7 @@ class Game {
     this._tickTimers(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
-    if (inDialog && inp.hit('KeyE', 'Enter', 'Space', 'Mouse0')) { hud.advanceDialog(); inp.pressed.clear(); }
+    if (inDialog && inp.hit('KeyE', 'Enter', 'Space', 'Mouse0')) { hud.advanceDialog(); this.audio.talk(); inp.pressed.clear(); }
     // McDonald's shift and the i-Piyan phone take the keyboard while they are up
     if (!this.job.active) this.job.update(dt, inp); // off duty: only walks the last customers out of the shop
     if (this.job.active && !inDialog) { this.job.update(dt, inp); inp.pressed.clear(); }
@@ -563,21 +563,21 @@ class Game {
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
-    if (act && !pl.frozen && inp.hit('KeyE')) { act.fn(this); inp.pressed.delete('KeyE'); }
-    if (pl.seat && !act && inp.hit('KeyE')) pl.standUp();
+    if (act && !pl.frozen && inp.hit('KeyE')) { this.audio.interact(); act.fn(this); inp.pressed.delete('KeyE'); }
+    if (pl.seat && !act && inp.hit('KeyE')) { pl.standUp(); this.audio.interact(); }
     // E with nothing to interact with: take out the phone
     else if (!act && !pl.seat && !inDialog && !pl.frozen && inp.hit('KeyE')) { this.openPhone(); inp.pressed.delete('KeyE'); }
 
     // ---- vehicle enter / exit ----
     if (!pl.frozen && !pl.seat && pl.y < 1 && inp.hit('KeyF')) {
       if (pl.vehicle) {
-        if (Math.abs(pl.vehicle.speed) < 6) { pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); }
+        if (Math.abs(pl.vehicle.speed) < 6) { pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); this.audio.mount(); }
         else hud.toast('先減速才能下車！', 'bad');
       } else {
         const v = this._nearestVehicle(3.2);
         if (v) {
           if (v.ai !== null && v.ai !== undefined) { this.traffic.hijack(v); this.vehicles.push(v); hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : '不好意思，借一下車！', 'bad'); }
-          pl.enter(v);
+          pl.enter(v); this.audio.mount();
           if (v.hint) { v.mesh.remove(v.hint); v.hint = null; }
           hud.setTip('🛵 駕駛', '<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車');
         }
@@ -608,6 +608,12 @@ class Game {
       this.headlight.target.position.set(v.pos.x + fx * 15, surfaceAt(v.pos.x + fx * 15, v.pos.z + fz * 15), v.pos.z + fz * 15);
     } else {
       pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors);
+      if (pl.sfx) {
+        const k = pl.sfx; pl.sfx = null;
+        if (k === 'step') pl.y > 0.3 || this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) ? this.audio.step('in', pl.speed > 6) : this.audio.step('out', pl.speed > 6);
+        else if (k === 'jump') this.audio.jump();
+        else if (k === 'land') this.audio.land(pl.landImpact);
+      }
       // push out of vehicles
       for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
         const dx = pl.pos.x - v.pos.x, dz = pl.pos.z - v.pos.z, rr = v.radius * (v.kind === 'scooter' ? 0.9 : 1) + 0.35, d = Math.hypot(dx, dz);
@@ -617,7 +623,7 @@ class Game {
       this.headlight.intensity = 0;
       // flyer handout
       if (!pl.frozen && !pl.seat && inp.hit('Mouse0')) this._flyer();
-      if (!pl.frozen && inp.hit('KeyG')) pl.setPose('peace', 1.6);
+      if (!pl.frozen && inp.hit('KeyG')) { pl.setPose('peace', 1.6); this.audio.pop(); }
     }
     this.playerLight.intensity = this.night * 6;
     const wp = pl.worldPos();
@@ -641,13 +647,21 @@ class Game {
     if (this.crowd) for (const c of this.crowd) c.update(dt, { speed: 0, pose: this.speechOn ? c.cheerPose : null });
 
     // ---- ballots ----
+    // every golden ballot comes back 2 minutes after it was picked up; the 34/34 set counts distinct ballots
     for (const b of this.ballotList) {
-      if (b.taken) continue;
+      if (b.taken) {
+        b.respawn -= dt;
+        if (b.respawn <= 0) { b.taken = false; b.mesh.visible = true; b.mesh.scale.setScalar(0.01); b.grow = 0; }
+        continue;
+      }
+      if (b.grow !== undefined && b.grow < 1) { b.grow = Math.min(1, b.grow + dt * 2.5); b.mesh.scale.setScalar(Math.max(0.01, b.grow)); }
       if (Math.hypot(b.x - wp.x, b.z - wp.z) < (pl.vehicle ? 2.6 : 1.6) && pl.y < 2) {
-        b.taken = true; b.mesh.visible = false; this.ballotsTaken++;
-        hud.setBallots(this.ballotsTaken); this.audio.pickup();
-        this.addVotes(1, `金色選票 ${this.ballotsTaken}/34 +1 票`);
-        if (this.ballotsTaken === 34) { hud.bigToast('全部收集！', '34 張金色選票 → 資管要贏 票投彥霖！'); this.audio.fanfare(); this.addVotes(34); }
+        b.taken = true; b.mesh.visible = false; b.respawn = 120; this.audio.pickup();
+        if (!b.got) {
+          b.got = true; this.ballotsTaken++; hud.setBallots(this.ballotsTaken);
+          this.addVotes(1, `金色選票 ${this.ballotsTaken}/34 +1 票`);
+          if (this.ballotsTaken === 34) { hud.bigToast('全部收集！', '34 張金色選票 → 資管要贏 票投彥霖！'); this.audio.fanfare(); this.addVotes(34); }
+        } else this.addVotes(1, '重生的金色選票 +1 票（2 分鐘後再生）');
       }
     }
     this.missions.update(dt);
@@ -691,7 +705,7 @@ class Game {
   }
   _flyer() {
     const p = this._nearestPed(3.5);
-    this.player.setPose('give', 0.5);
+    this.player.setPose('give', 0.5); this.audio.paper();
     if (!p) { this.hud.toast('附近沒有同學可以發傳單', 'bad', 1000); return; }
     p.heading = Math.atan2(this.player.pos.x - p.pos.x, this.player.pos.z - p.pos.z);
     this.player.heading = Math.atan2(p.pos.x - this.player.pos.x, p.pos.z - this.player.pos.z);

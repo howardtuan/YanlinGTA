@@ -650,3 +650,9 @@ kbd.pb-nin.pb-face{background:#3b3d44}
 .st-grid span{font-size:11px;color:#777}.st-grid b{font-size:16px}
 .st-foot{font-size:11px;color:#777;padding:0 14px 10px}
 @media (max-width:700px){.pc-icons{grid-template-columns:repeat(3,72px)}.pc-win{left:4px!important;top:4px!important;width:calc(100% - 8px)!important;height:calc(100% - 54px)!important}}
+
+.pc-term{width:600px;height:380px}
+.pc-term .pc-body{background:#0c0c0c;color:#d4d4d4;font:13px/1.45 Consolas,"Cascadia Mono","Noto Sans TC",monospace;padding:8px 10px;cursor:text}
+.tm-out div{white-space:pre-wrap;min-height:1.45em}
+.tm-line{display:flex;gap:0;white-space:pre}
+.tm-in{flex:1;min-width:0;background:none;border:0;outline:none;color:#d4d4d4;font:inherit;padding:0;caret-color:#d4d4d4}

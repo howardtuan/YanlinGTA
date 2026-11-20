@@ -1,7 +1,9 @@
 // 彥霖's old desktop computer (2F of 孫師傅牛肉拉麵). A small desktop with windows you can drag:
 // 瀏覽器 (a real browser: pages load in an iframe; sites that forbid being embedded can be opened in a
 // new tab instead), 記事本 (kept in the save), 小畫家 (save the drawing to the phone's photos),
-// 小算盤, 踩地雷 and 競選後台 (live campaign numbers). Esc or the power button leaves the desk.
+// 小算盤, 踩地雷, 競選後台 (live campaign numbers) and 終端機. Esc or the power button leaves the desk.
+// The easter-egg video is hidden in the terminal: typing PYL plays it. It is deliberately not listed anywhere.
+// The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -9,13 +11,12 @@ const BOOKMARKS = [
   ['📘', '中原大學 - 維基百科', 'https://zh.wikipedia.org/wiki/%E4%B8%AD%E5%8E%9F%E5%A4%A7%E5%AD%B8'],
   ['🗺️', '中原大學地圖', 'https://www.openstreetmap.org/export/embed.html?bbox=121.2330%2C24.9520%2C121.2500%2C24.9640&layer=mapnik'],
   ['📍', 'Google 地圖', 'https://maps.google.com/maps?q=%E4%B8%AD%E5%8E%9F%E5%A4%A7%E5%AD%B8&hl=zh-TW&z=16&output=embed'],
-  ['🎬', '競選影片', 'https://www.youtube-nocookie.com/embed/-AiDMXovNmA?rel=0'],
   ['🍜', '牛肉麵 - 維基百科', 'https://zh.wikipedia.org/wiki/%E7%89%9B%E8%82%89%E9%BA%B5'],
   ['🌐', '中原大學官網', 'https://www.cycu.edu.tw/'],
 ];
 const APPS = [
   ['browser', '🌐', '瀏覽器'], ['notes', '📝', '記事本'], ['paint', '🎨', '小畫家'],
-  ['calc', '🧮', '小算盤'], ['mines', '💣', '踩地雷'], ['stats', '📊', '競選後台'],
+  ['calc', '🧮', '小算盤'], ['mines', '💣', '踩地雷'], ['stats', '📊', '競選後台'], ['term', '💻', '終端機'],
 ];
 const DEFAULT_NOTES = '競選待辦：\n- 掃街拉票，發完傳單\n- 去麥當勞打工賺零用錢\n- 新中北路障礙賽要拿第一\n- 記得月底前繳房租！\n';
 
@@ -38,8 +39,9 @@ export class PC {
     $('pcLeave').onclick = () => this.close();
     addEventListener('keydown', (e) => { if (this.isOpen && e.code === 'Escape') { e.preventDefault(); this.close(); } });
   }
-  open() {
+  open(title = '彥霖的電腦') {
     if (this.isOpen) return;
+    $('pcStart').textContent = '🪟 ' + title;
     this.isOpen = true; this.el.classList.remove('hidden');
     this.g.input.enabled = false; this.g.input.releaseAll(); document.exitPointerLock?.();
     this.g.audio.blip?.();
@@ -222,6 +224,42 @@ export class PC {
     };
     const flag = (i) => { if (over || cells[i].open) return; cells[i].flag = !cells[i].flag; flags += cells[i].flag ? 1 : -1; left.textContent = `💣 ${MINES - flags}`; paint(i); };
     face.onclick = reset; reset();
+  }
+
+  // ---------------- 終端機 ----------------
+  _term(body) {
+    const PROMPT = 'C:\\Users\\yanlin>';
+    body.innerHTML = `<div class="tm-out"></div><label class="tm-line"><span>${PROMPT}</span><input class="tm-in" spellcheck="false" autocomplete="off"></label>`;
+    const out = body.querySelector('.tm-out'), inp = body.querySelector('.tm-in');
+    const print = (t = '') => { const d = document.createElement('div'); d.textContent = t; out.appendChild(d); body.scrollTop = body.scrollHeight; };
+    print('YanlinOS [版本 34.0.2026]'); print('(c) 中原大學資訊管理學系。著作權所有，並保留一切權利。'); print('');
+    const hist = []; let hi = 0;
+    const g = this.g, hhmm = () => { const c = Math.floor(g.clock) % 1440; return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`; };
+    const run = (raw) => {
+      const cmd = raw.trim(), [c0, ...args] = cmd.split(/\s+/), c = (c0 || '').toLowerCase();
+      print(PROMPT + raw);
+      if (!cmd) return;
+      if (cmd.toUpperCase() === 'PYL') { this.close(); g.openVideo(); return; }
+      if (c === 'help' || c === '?') ['可用的命令：', '  help      顯示這份說明', '  dir / ls  列出檔案', '  cls       清除畫面', '  date      顯示日期', '  time      顯示時間', '  whoami    目前使用者', '  echo      顯示文字', '  ver       系統版本', '  ipconfig  網路設定', '  exit      關閉終端機'].forEach(l => print(l));
+      else if (c === 'dir' || c === 'ls') [' C:\\Users\\yanlin 的目錄', '', '2026/11/18  23:41    <DIR>          Desktop', '2026/11/19  02:13         1,204,551 競選政見_final.docx', '2026/11/19  02:47        48,220,113 傳單_final_v3_真的最後.psd', '2026/11/12  21:05           388,002 資料庫系統作業.sql', '2026/11/02  16:30         2,931,887 期中報告.pdf', '               4 個檔案      52,744,553 位元組'].forEach(l => print(l));
+      else if (c === 'cls' || c === 'clear') out.innerHTML = '';
+      else if (c === 'date') print('目前的日期: ' + new Date().toLocaleDateString('zh-TW'));
+      else if (c === 'time') print('目前的時間: ' + hhmm());
+      else if (c === 'whoami') print('cycu-im\\yanlin');
+      else if (c === 'echo') print(args.join(' '));
+      else if (c === 'ver') print('YanlinOS [版本 34.0.2026]');
+      else if (c === 'ipconfig') ['乙太網路卡 乙太網路:', '   IPv4 位址 . . . . . . . . . : 192.168.34.34', '   子網路遮罩 . . . . . . . . . : 255.255.255.0', '   預設閘道 . . . . . . . . . . : 192.168.34.1'].forEach(l => print(l));
+      else if (c === 'exit') this._closeWin('term');
+      else print(`'${c0}' 不是內部或外部命令、可執行的程式或批次檔。`);
+      print('');
+    };
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { const v = inp.value; inp.value = ''; if (v.trim()) { hist.push(v); hi = hist.length; } run(v); }
+      else if (e.key === 'ArrowUp' && hist.length) { hi = Math.max(0, hi - 1); inp.value = hist[hi]; e.preventDefault(); }
+      else if (e.key === 'ArrowDown' && hist.length) { hi = Math.min(hist.length, hi + 1); inp.value = hist[hi] || ''; e.preventDefault(); }
+    });
+    body.addEventListener('mouseup', () => { if (!getSelection().toString()) inp.focus(); });
+    setTimeout(() => inp.focus(), 30);
   }
 
   // ---------------- 競選後台 ----------------

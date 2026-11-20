@@ -18,6 +18,10 @@ import { GateDuty } from './gateduty.js';
 import { McShift } from './mcshift.js';
 import { Prompts, dual } from './prompts.js';
 import { controlsHTML, bindControls } from './controls.js';
+import { readSave, writeSave, applySave, clearSave } from './save.js';
+import { PC } from './pc.js';
+import { Wardrobe } from './wardrobe.js';
+import { Nav } from './nav.js';
 import { Race } from './race.js';
 
 const $ = id => document.getElementById(id);
@@ -117,6 +121,12 @@ class Game {
     this.job = new McShift(this); // 麥當勞打工值班
     this.gate = new GateDuty(this); // A6 側門門禁任務
     this.race = new Race(this); // 新中北路障礙賽 (sign up at 力行大樓)
+    this.pc = new PC(this);             // 彥霖's old computer (2F of 孫師傅牛肉拉麵)
+    this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
+    this.nav = new Nav(this);           // map waypoint + route
+    this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear').classList.toggle('hidden', !this.nav.target); };
+    $('bmClose').onclick = () => this.closeMap();
+    $('bmClear').onclick = () => { this.nav.clear(); $('bmClear').classList.add('hidden'); };
     // gamepad: button layout follows whatever has the controls right now
     this.input.padDriving = () => !!this.player.vehicle;
     this.input.padContext = () => this.race.state === 'results' ? 'race' : this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
@@ -348,6 +358,19 @@ class Game {
   // grab the next rendered frame as a JPEG (phone camera)
   capture(cb) { this._shot = cb; }
   lockPointer() { if (this.state === 'play') lockPointer(this.renderer.domElement); }
+  // M: take out the phone, turned sideways, with the map. Opened from the phone's 地圖 app, closing
+  // (M / ✕ / Esc) goes back to the phone's home screen; opened with M it puts the phone away.
+  openMap(src = 'key') {
+    this.mapSrc = src; this.hud.toggleBig(true); document.exitPointerLock?.();
+    $('bmClear').classList.toggle('hidden', !this.nav.target); this.audio.blip?.();
+  }
+  closeMap() {
+    if (!this.hud.bigOpen) return;
+    this.hud.toggleBig(false);
+    if (this.mapSrc === 'phone') this.openPhone();
+    else if (!this.input.touch && this.state === 'play') lockPointer(this.renderer.domElement);
+    this.mapSrc = null;
+  }
   openPhone() {
     this.phone.show(); // sets phone.open first so losing the pointer lock doesn't pause the game
     document.exitPointerLock?.();
@@ -389,7 +412,7 @@ class Game {
     this.crowd = null;
   }
   showEnding() {
-    this.state = 'ending';
+    this.state = 'ending'; writeSave(this);
     this.audio.setEngine(false, 0);
     document.exitPointerLock?.();
     const t = Math.floor(this.playTime);
@@ -399,7 +422,10 @@ class Game {
 
   // ---------- menus ----------
   _menus() {
-    const startGame = async (free) => {
+    // one entry point: a saved game continues where it was left, otherwise the story starts
+    const sv = readSave();
+    if (sv) $('btnStart').innerHTML = `<span>▶ 開始遊戲</span><small>繼續上次進度 · 得票 ${sv.votes} · 選票 ${(sv.ballots || []).length}/34</small>`;
+    const startGame = async () => {
       if (this._starting) return; this._starting = true;
       this.audio.init(); // music starts on this click (browsers need a gesture)
       $('title').classList.add('hidden');
@@ -409,11 +435,21 @@ class Game {
       this.state = 'play'; this.input.enabled = true;
       // pointer lock needs a fresh click after the splash
       if (!this.input.touch && !this.prompts.pad) this.hud.toast('點一下畫面鎖定滑鼠視角', 'good', 3000);
-      this.missions.start(free);
+      const d = readSave();
+      if (d) {
+        const m = applySave(this, d);
+        if (m.done) { this.missions.done = true; this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！'); }
+        else { this.missions.idx = Math.max(-1, (m.idx ?? 0) - 1); this.missions.next(); }
+        this.hud.toast('💾 已讀取上次的進度', 'good', 2600);
+      } else this.missions.start();
       this._checkRotate();
+      // autosave
+      this._saveT = 0;
+      const saveNow = () => { if (this.state === 'play' || this.state === 'paused' || this.state === 'ending') writeSave(this); };
+      addEventListener('pagehide', saveNow);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
     };
-    $('btnStart').onclick = () => startGame(false);
-    $('btnFree').onclick = () => startGame(true);
+    $('btnStart').onclick = () => startGame();
     $('btnControls').onclick = () => this.showControls();
     $('btnAbout').onclick = () => this.modal('關於彥霖', ABOUT_HTML);
     $('btnSettings').onclick = () => this.openSettings();
@@ -424,9 +460,9 @@ class Game {
       this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！');
       if (!this.input.touch) lockPointer(this.renderer.domElement);
     };
-    $('btnRestart').onclick = () => location.reload();
+    $('btnRestart').onclick = () => { this._noSave = true; clearSave(); location.reload(); };
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen && !this.phone?.open && !this.job?.active) this.pause();
+      if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen && !this.phone?.open && !this.job?.active && !this.pc?.isOpen && !this.wardrobe?.isOpen) this.pause();
     });
   }
   // artwork + 5 s progress bar shown after pressing Start
@@ -462,14 +498,18 @@ class Game {
   pause() {
     this.state = 'paused';
     this.audio.setEngine(false, 0); // _update stops while paused, so silence the engine here
-    this.modal('暫停 · 設定', this._settingsHTML() + `<div class="modal-btns" style="margin-top:14px">
-      <button class="menu-btn primary" id="mResume"><span>▶ 繼續遊戲</span><small>RESUME</small></button>
+    const racing = this.race.state === 'count' || this.race.state === 'race';
+    writeSave(this);
+    this.modal(racing ? '暫停 · 新中北路障礙賽' : '暫停 · 設定', (racing ? '' : this._settingsHTML()) + `<div class="modal-btns" style="margin-top:14px">
+      ${racing ? '<button class="menu-btn primary" id="mQuitRace"><span>🏳 退出比賽</span><small>QUIT RACE</small></button>' : ''}
+      <button class="menu-btn ${racing ? '' : 'primary'}" id="mResume"><span>▶ ${racing ? '繼續比賽' : '繼續遊戲'}</span><small>RESUME</small></button>
       <button class="menu-btn" id="mCtrl"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
-      <button class="menu-btn" id="mRestart"><span>↻ 重新開始</span><small>RESTART</small></button></div>`);
-    this._bindSettings();
+      <button class="menu-btn" id="mRestart"><span>↻ 清除紀錄重新開始</span><small>RESTART</small></button></div>`);
+    if (!racing) this._bindSettings();
+    if (racing) $('mQuitRace').onclick = () => { this.race.abandon('你退出了比賽'); this.closeModal(); };
     $('mResume').onclick = () => this.closeModal();
     $('mCtrl').onclick = () => this.showControls(true);
-    $('mRestart').onclick = () => location.reload();
+    $('mRestart').onclick = () => { if (confirm('確定要清除存檔、從頭開始嗎？')) { this._noSave = true; clearSave(); location.reload(); } };
   }
   // ---------- settings (music / volume / sensitivity) ----------
   _settingsHTML() {
@@ -478,12 +518,18 @@ class Game {
     const q = (v, t) => `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
     const qNow = resolveQuality(s.quality);
     const fl = (v, t) => `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
+    const full = !!document.fullscreenElement;
+    const nv = (v, t) => `<button data-nav="${v}" class="${(s.navGround || 'on') === v ? 'on' : ''}">${t}</button>`;
+    const fs = (v, t) => `<button data-full="${v}" class="${(v === 'on') === full ? 'on' : ''}">${t}</button>`;
     return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('off', '關閉')}</div></div>
       <div class="set-row"><label>音樂音量</label><input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="${s.musicVol}"><span class="set-val" id="vMusic">${Math.round(s.musicVol * 100)}%</span></div>
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
       <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
       <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this._qualityNote(qNow)}</small></div>
+      <div class="set-row"><label>🧭 地面導航線</label><div class="seg" id="setNav">${nv('on', '開')}${nv('off', '關')}</div></div>
+      <div class="set-row"><label>🖥 全螢幕</label><div class="seg" id="setFull">${fs('on', '開')}${fs('off', '關')}</div></div>
+      ${document.fullscreenEnabled ? '' : '<div class="set-row"><label></label><small style="color:#a9adbf">這個瀏覽器不支援網頁全螢幕（iPhone 可用「分享 → 加入主畫面」以全螢幕開啟）</small></div>'}
       <div class="set-row"><label>🏘 補建街區</label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
       <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this._fillNote()}</small></div>`;
   }
@@ -503,6 +549,18 @@ class Game {
       // sky, shadows, bloom / colour grade and lamp lights switch now
       this.setQuality(qn);
       $('qNote').textContent = this._qualityNote(qn);
+    };
+    for (const b of document.querySelectorAll('#setNav button')) b.onclick = () => {
+      s.navGround = b.dataset.nav; save();
+      for (const o of document.querySelectorAll('#setNav button')) o.classList.toggle('on', o === b);
+    };
+    for (const b of document.querySelectorAll('#setFull button')) b.onclick = async () => {
+      try {
+        if (b.dataset.full === 'on' && !document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        if (b.dataset.full === 'off' && document.fullscreenElement) await document.exitFullscreen();
+      } catch (e) { this.hud.toast('無法切換全螢幕（瀏覽器拒絕了）', 'bad', 2400); }
+      const on = !!document.fullscreenElement;
+      for (const o of document.querySelectorAll('#setFull button')) o.classList.toggle('on', (o.dataset.full === 'on') === on);
     };
     for (const b of document.querySelectorAll('#setFill button')) b.onclick = () => {
       s.fill = b.dataset.fill; save();
@@ -544,6 +602,8 @@ class Game {
     if (this.state === 'title' && !this._starting && (A || S)) { $('btnStart').click(); return; }
     if (this.state === 'ending' && (A || S)) { $('btnKeepPlaying').click(); return; }
     if (this.videoOpen && (B || S)) this.closeVideo();
+    if (this.pc?.isOpen && B) this.pc.close();
+    if (this.wardrobe?.isOpen && (A || B)) this.wardrobe.close();
   }
   _checkRotate() {
     $('rotateHint').classList.toggle('hidden', !(this.input && this.input.touch && innerHeight > innerWidth && this.state === 'play'));
@@ -581,6 +641,7 @@ class Game {
   _update(dt) {
     const inp = this.input, pl = this.player, hud = this.hud, w = this.world;
     this.playTime += dt;
+    if ((this._saveT = (this._saveT || 0) + dt) > 10) { this._saveT = 0; writeSave(this); } // autosave
     this.clock += dt / 4; // 1 game-minute per 4 seconds
     this._tickTimers(dt);
     this.phone.tick(); // Peachgram / Pcard get new posts every 30 game minutes
@@ -595,10 +656,16 @@ class Game {
       if (this.phone.update(dt, inp) === 'closed' && !this.input.touch && !hud.bigOpen) lockPointer(this.renderer.domElement);
       inp.pressed.clear();
     }
-    if (inp.hit('KeyM')) hud.toggleBig();
+    if (inp.hit('KeyM') && !this.phone.open) { if (hud.bigOpen) this.closeMap(); else this.openMap('key'); }
+    if (hud.bigOpen) { // pan with WASD / arrows / stick, Enter or A drops (or removes) the pin at the crosshair
+      const v = 420 * dt / (hud._bigK || 1), bv = hud.bigView;
+      if (inp.down('KeyA', 'ArrowLeft')) bv.cx -= v; if (inp.down('KeyD', 'ArrowRight')) bv.cx += v;
+      if (inp.down('KeyW', 'ArrowUp')) bv.cz -= v; if (inp.down('KeyS', 'ArrowDown')) bv.cz += v;
+      if (inp.hit('Enter', 'NumpadEnter')) { const t = this.nav.target, k = hud._bigK || 1; hud.onPin(t && Math.hypot((t.x - bv.cx) * k, (t.z - bv.cz) * k) < 14 ? null : { x: bv.cx, z: bv.cz }); }
+    }
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
-    else if (inp.hit('Escape')) { if (hud.bigOpen) hud.toggleBig(false); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked;
+    else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
+    pl.frozen = inDialog || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -706,6 +773,7 @@ class Game {
       }
     }
     if (!this.race.active) this.missions.update(dt); // story timers wait while you race
+    this.nav.update(dt);
     // ---- 彩蛋 ---- after the missions so their big toasts win this frame; while another big toast
     // (任務完成／失敗、選票) is on screen the egg waits instead of overwriting it or being lost
     const btBusy = !$('bigToast').classList.contains('hidden');

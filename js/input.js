@@ -5,8 +5,8 @@ export const PAD_MAPS = {
     [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],
   // i-Piyan: A open / send, B back, X send, Y or Start put the phone away
   phone: [[0, 'Enter'], [1, 'Escape'], [2, 'Tab'], [3, 'KeyE'], [9, 'KeyE'], [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],
-  // full-screen map: B / View / Start close it
-  map: [[1, 'Escape'], [8, 'KeyM'], [9, 'Escape']],
+  // map (phone held sideways): A pins the crosshair, stick / D-pad pan, B / View / Start close it
+  map: [[0, 'Enter'], [1, 'Escape'], [8, 'KeyM'], [9, 'Escape'], [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],
   // race results: A continue, X / Y race again
   race: [[0, 'Enter'], [9, 'Enter'], [2, 'KeyR'], [3, 'KeyR']],
   // side-gate duty: A let in, B turn away, Y / Start leave the booth

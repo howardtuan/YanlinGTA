@@ -101,6 +101,16 @@ export class Player {
     this.heading = v.heading; this.ch.root.rotation.set(0, v.heading, 0);
     v.driver = null; v.speed = 0; this.vehicle = null; this.y = 0; this.seat = null; this.vy = 0; this.vel.set(0, 0);
   }
+  // change clothes (wardrobe at 彥霖's old room): rebuild the figure with the new colours, keep where it stands
+  setLook(look) {
+    if (this.vehicle) return;
+    this.look = { shirt: look.shirt, shorts: look.shorts, pants: !!look.pants };
+    const old = this.ch, parent = old.root.parent;
+    const ch = createCharacter({ ...YANLIN_LOOK, ...this.look });
+    ch.root.position.copy(old.root.position); ch.root.rotation.copy(old.root.rotation); ch.root.visible = old.root.visible;
+    if (parent) { parent.remove(old.root); parent.add(ch.root); }
+    this.ch = ch; this.pos = ch.root.position;
+  }
   worldPos() { return this.vehicle ? this.vehicle.pos : this.pos; }
   worldHeading() { return this.vehicle ? this.vehicle.heading : this.heading; }
 }

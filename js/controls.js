@@ -97,19 +97,19 @@ function lists(dev, P) {
     sec('駕駛 · 機車與汽車', 'DRIVING · SCOOTERS & CARS', [row('上車 / 下車', K('F')), row('油門', K('W')), row('煞車 / 倒車', K('S')), row('轉向', K('A', 'D')), row('手煞車（甩尾）', K('Space')), row('喇叭', K('H'))]),
     sec('手機與打工', 'PHONE & JOBS', [row('訊息：選擇回覆', K('↑', '↓') + ' / ' + K('1', '2')), row('訊息：傳送', K('Tab')), row('手機：返回 / 收起', K('Esc') + ' / ' + K('E')),
       row('麥當勞：放餐點 / 出餐', K('1') + '～' + K('6') + ' / ' + K('Enter')), row('麥當勞：拿掉最後一樣 / 下班', K('⌫') + ' / ' + K('E')), row('側門門禁：放行 / 擋下', K('1') + ' / ' + K('2'))]),
-    sec('介面', 'MENUS', [row('對話：下一句', K('E') + K('Enter') + K('ML')), row('地圖', K('M')), row('暫停・設定', K('Esc')), row('障礙賽結果：再賽一場', K('R'))]),
+    sec('介面', 'MENUS', [row('對話：下一句', K('E') + K('Enter') + K('ML')), row('地圖（拿出手機橫放）', K('M')), row('地圖：標點導航 / 取消', K('ML') + ' / ' + K('Enter')), row('地圖：移動', K('W', 'A', 'S', 'D')), row('暫停・設定', K('Esc')), row('障礙賽中：退出比賽', K('Esc')), row('障礙賽結果：再賽一場', K('R'))]),
   ].join('');
   if (dev === 'pad') return [
     sec('步行', 'ON FOOT', [row('移動', PB(P, 'L')), row('視角', PB(P, 'R')), row('衝刺', PB(P, 'L3')), row('跳躍', PB(P, 'RB')), row('發傳單拉票', PB(P, 'X')), row('比 ✌', PB(P, 'Y')), row('互動・對話', PB(P, 'A')), row('📱 i-Piyan 手機（附近沒有互動時）', PB(P, 'A'))]),
     sec('駕駛 · 機車與汽車', 'DRIVING · SCOOTERS & CARS', [row('上車 / 下車', PB(P, 'B')), row('油門', PB(P, 'RT')), row('煞車 / 倒車', PB(P, 'LT')), row('轉向（只轉向，不加油）', PB(P, 'L')), row('手煞車（甩尾）', PB(P, 'RB')), row('喇叭', PB(P, 'LB'))]),
     sec('手機與打工', 'PHONE & JOBS', [row('手機：選擇 / 開啟', PB(P, 'dpad') + ' / ' + PB(P, 'A')), row('手機：傳送 / 返回 / 收起', PB(P, 'X') + ' / ' + PB(P, 'B') + ' / ' + PB(P, 'Y')),
       row('麥當勞：餐點 1–6', PB(P, 'dpad') + PB(P, 'X', 'Y')), row('麥當勞：出餐 / 拿掉 / 下班', PB(P, 'A') + ' / ' + PB(P, 'B') + ' / ' + PB(P, 'Menu')), row('側門門禁：放行 / 擋下', PB(P, 'A') + ' / ' + PB(P, 'B'))]),
-    sec('介面', 'MENUS', [row('對話：下一句', PB(P, 'A')), row('地圖', PB(P, 'View')), row('暫停・設定', PB(P, 'Menu')), row('障礙賽結果：繼續 / 再賽一場', PB(P, 'A') + ' / ' + PB(P, 'X'))]),
+    sec('介面', 'MENUS', [row('對話：下一句', PB(P, 'A')), row('地圖（拿出手機橫放）', PB(P, 'View')), row('地圖：在準星標點 / 移動', PB(P, 'A') + ' / ' + PB(P, 'L')), row('暫停・設定', PB(P, 'Menu')), row('障礙賽中：退出比賽', PB(P, 'Menu')), row('障礙賽結果：繼續 / 再賽一場', PB(P, 'A') + ' / ' + PB(P, 'X'))]),
   ].join('') + `<p class="ctl-note">支援 Xbox、PlayStation、Switch Pro 手把：插上或藍牙連線後按任一鍵，畫面上的按鍵提示就會換成手把按鈕；碰一下鍵盤或滑鼠就換回來。</p>`;
   return [
     sec('步行', 'ON FOOT', [row('移動', '<span class="ctl-word">左下虛擬搖桿</span>'), row('視角', '<span class="ctl-word">右半邊拖曳</span>'), row('衝刺', '<span class="ctl-word">»</span>'), row('跳躍', '<span class="ctl-word">⤒</span>'), row('發傳單拉票', '<span class="ctl-word">📄</span>'), row('互動・手機', '<span class="ctl-word">E</span>')]),
     sec('駕駛', 'DRIVING', [row('上車 / 下車', '<span class="ctl-word">F</span>'), row('油門 / 煞車', '<span class="ctl-word">搖桿往上 / 往下</span>'), row('轉向', '<span class="ctl-word">搖桿左右</span>'), row('甩尾', '<span class="ctl-word">⤒</span>'), row('喇叭', '<span class="ctl-word">📯</span>')]),
-    sec('介面', 'MENUS', [row('對話：下一句', '<span class="ctl-word">點一下畫面</span>'), row('地圖', '<span class="ctl-word">🗺</span>'), row('暫停・設定', '<span class="ctl-word">⚙</span>')]),
+    sec('介面', 'MENUS', [row('對話：下一句', '<span class="ctl-word">點一下畫面</span>'), row('地圖', '<span class="ctl-word">🗺</span>'), row('地圖：標點導航', '<span class="ctl-word">點一下地圖</span>'), row('暫停・設定', '<span class="ctl-word">⚙</span>')]),
   ].join('');
 }
 

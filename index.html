@@ -39,7 +39,6 @@
         </div>
       </div>
       <button class="menu-btn primary" id="btnStart"><span>▶ 開始遊戲</span><small>START GAME</small></button>
-      <button class="menu-btn" id="btnFree"><span>🛵 自由探索</span><small>FREE ROAM</small></button>
       <button class="menu-btn" id="btnControls"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
       <button class="menu-btn" id="btnSettings"><span>⚙ 設定 / 音樂</span><small>SETTINGS</small></button>
       <button class="menu-btn" id="btnAbout"><span>🗳 關於彥霖</span><small>ABOUT</small></button>
@@ -89,14 +88,19 @@
   </div>
 
   <!-- BIG MAP -->
+  <!-- the map is the i-Piyan held sideways -->
   <div id="bigmap" class="hidden">
-    <div class="bigmap-head"><b>中原大學 地圖</b><span>按 <kbd>M</kbd> 關閉 · 滾輪縮放 · 拖曳移動</span></div>
-    <canvas id="bigmapCanvas"></canvas>
-    <div class="bigmap-legend">
-      <span><i style="background:#ffd23f"></i>任務目標</span>
-      <span><i style="background:#ffb300;border-radius:2px"></i>金色選票</span>
-      <span><i style="background:#3fa9ff"></i>你</span>
-    </div>
+    <div class="bm-phone"><div class="bm-cam"></div><div class="bm-screen">
+      <div class="bigmap-head"><b>🗺️ 地圖</b><span class="bm-hint">點一下地圖標點導航 · 再點標點取消 · 滾輪縮放 · 拖曳移動</span>
+        <button id="bmClear" class="bm-btn hidden">清除標點</button><button id="bmClose" class="bm-x" title="關閉">✕</button></div>
+      <canvas id="bigmapCanvas"></canvas>
+      <div class="bigmap-legend">
+        <span><i style="background:#ffd23f"></i>任務目標</span>
+        <span><i style="background:#ffb300;border-radius:2px"></i>金色選票</span>
+        <span><i style="background:#b06bff"></i>標點／導航路線</span>
+        <span><i style="background:#3fa9ff"></i>你</span>
+      </div>
+    </div></div>
   </div>
 
   <!-- PAUSE / CONTROLS / ABOUT -->

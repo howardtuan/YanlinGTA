@@ -78,6 +78,14 @@ export class HUD {
       this.route.forEach(([x, z], i) => { const dx = (x - px) * pxPerM, dz = (z - pz) * pxPerM; i ? g.lineTo(dx, dz) : g.moveTo(dx, dz); });
       g.closePath(); g.stroke(); g.globalAlpha = 1;
     }
+    if (this.navRoute) { // map waypoint route (nav.js)
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      for (const [w, c] of [[7, 'rgba(20,0,40,.6)'], [4, '#b06bff']]) {
+        g.strokeStyle = c; g.lineWidth = w; g.beginPath();
+        this.navRoute.forEach(([x, z], i) => { const dx = (x - px) * pxPerM, dz = (z - pz) * pxPerM; i ? g.lineTo(dx, dz) : g.moveTo(dx, dz); });
+        g.stroke();
+      }
+    }
     g.restore();
     // markers (clamped to edge)
     for (const mk of markers) {
@@ -104,16 +112,27 @@ export class HUD {
   toggleBig(open) {
     this.bigOpen = open ?? !this.bigOpen;
     $('bigmap').classList.toggle('hidden', !this.bigOpen);
+    if (this.bigOpen) { const ph = $('bigmap'); ph.classList.remove('bm-anim'); void ph.offsetWidth; ph.classList.add('bm-anim'); }
     if (this.bigOpen) { this.bigView.cx = this._pp ? this._pp.x : 0; this.bigView.cz = this._pp ? this._pp.z : 0; }
   }
   _setupBigmapPan() {
-    let drag = null;
-    this.big.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; this.big.setPointerCapture(e.pointerId); });
+    let drag = null, moved = 0;
+    this.big.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; moved = 0; this.big.setPointerCapture(e.pointerId); });
     this.big.addEventListener('pointermove', e => {
       if (!drag) return; const k = this._bigK || 1;
+      moved += Math.abs(e.clientX - drag[0]) + Math.abs(e.clientY - drag[1]);
       this.bigView.cx -= (e.clientX - drag[0]) / k; this.bigView.cz -= (e.clientY - drag[1]) / k; drag = [e.clientX, e.clientY];
     });
-    this.big.addEventListener('pointerup', () => drag = null);
+    // a click (no drag) drops the waypoint there; clicking the pin again removes it
+    this.big.addEventListener('pointerup', e => {
+      if (drag && moved < 6 && this.onPin) {
+        const r = this.big.getBoundingClientRect(), k = this._bigK || 1;
+        const x = this.bigView.cx + (e.clientX - r.left - r.width / 2) / k, z = this.bigView.cz + (e.clientY - r.top - r.height / 2) / k;
+        const t = this.navTarget, hit = t && Math.hypot((t.x - x) * k, (t.z - z) * k) < 14;
+        this.onPin(hit ? null : { x, z });
+      }
+      drag = null;
+    });
     this.big.addEventListener('wheel', e => { this.bigView.zoom = Math.max(-1, Math.min(3, this.bigView.zoom - Math.sign(e.deltaY) * 0.25)); e.preventDefault(); }, { passive: false });
   }
   drawBig(px, pz, heading, markers, ballots) {
@@ -142,7 +161,19 @@ export class HUD {
     g.fillStyle = '#ffd23f'; g.strokeStyle = '#000';
     g.strokeText('🏮 中原夜市', tx(this.world.nightMarket.x), tz(this.world.nightMarket.z)); g.fillText('🏮 中原夜市', tx(this.world.nightMarket.x), tz(this.world.nightMarket.z));
     for (const b of ballots) { if (b.taken) continue; g.fillStyle = '#ffb300'; g.fillRect(tx(b.x) - 3.5, tz(b.z) - 3.5, 7, 7); }
+    if (this.navRoute) {
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      for (const [w, c] of [[6, 'rgba(20,0,40,.6)'], [3.5, '#b06bff']]) { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); this.navRoute.forEach(([x, z], i) => i ? g.lineTo(tx(x), tz(z)) : g.moveTo(tx(x), tz(z))); g.stroke(); }
+    }
+    if (this.navTarget) { // map pin
+      const X = tx(this.navTarget.x), Z = tz(this.navTarget.z);
+      g.fillStyle = '#b06bff'; g.strokeStyle = '#fff'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(X, Z); g.bezierCurveTo(X - 11, Z - 14, X - 9, Z - 26, X, Z - 26); g.bezierCurveTo(X + 9, Z - 26, X + 11, Z - 14, X, Z); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(X, Z - 17, 3.5, 0, 7); g.fill();
+    }
     for (const mk of markers) { g.fillStyle = mk.color || '#ffd23f'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(tx(mk.x), tz(mk.z), 9, 0, 7); g.fill(); g.stroke(); if (mk.icon) { g.fillStyle = '#000'; g.font = '900 11px system-ui'; g.fillText(mk.icon, tx(mk.x), tz(mk.z) + 1); } }
+    // crosshair: keyboard / gamepad pin goes here (Enter / A)
+    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(W / 2 - 9, H / 2); g.lineTo(W / 2 + 9, H / 2); g.moveTo(W / 2, H / 2 - 9); g.lineTo(W / 2, H / 2 + 9); g.stroke();
     g.save(); g.translate(tx(px), tz(pz)); g.rotate(Math.PI - heading);
     g.fillStyle = '#3fa9ff'; g.strokeStyle = '#fff'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(0, -12); g.lineTo(8, 9); g.lineTo(0, 5); g.lineTo(-8, 9); g.closePath(); g.fill(); g.stroke(); g.restore();

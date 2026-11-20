@@ -103,9 +103,16 @@ export class Phone {
       const b = this.el.querySelector('.ph-boot'); b.classList.remove('hidden');
       setTimeout(() => b.classList.add('hidden'), 900);
     }
-    this.home();
+    // pick up where you left off: the app (and chat) that was on screen when the phone went away
+    const last = this._last; this._last = null;
+    if (last && last.app && last.app !== 'map') { this.openApp(last.app); if (last.cur && last.app === 'messages') this.openChat(last.cur); }
+    else this.home();
   }
-  close() { if (this.story) this._storyClose(); this.open = false; this.el.classList.add('hidden'); this.app = null; this.cur = null; this._frameKey = null; }
+  close() {
+    if (this.story) this._storyClose();
+    this._last = this.app ? { app: this.app, cur: this.cur } : null;
+    this.open = false; this.el.classList.add('hidden'); this.app = null; this.cur = null; this._frameKey = null;
+  }
   _scale() { const s = Math.min(1, (innerHeight - 30) / 660, (innerWidth - 20) / 330); this.el.style.setProperty('--ps', s.toFixed(3)); }
   // keyboard while open; returns nothing, the game freezes the player meanwhile
   update(dt, inp) {
@@ -222,7 +229,7 @@ export class Phone {
     this.app = id; this.cur = null;
     const g = this.g;
     if (id === 'messages') return this._messages();
-    if (id === 'map') { this.close(); g.hud.toggleBig(true); return; }
+    if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
     if (id === 'camera') return this._camera();
     if (id === 'photos') return this._photos();
     if (id === 'wallet') {

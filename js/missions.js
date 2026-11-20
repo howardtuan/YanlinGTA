@@ -39,6 +39,7 @@ export class Missions {
   }
   next() {
     this.idx++;
+    this.g._saveT = 9.5; // save half a second into the new step
     this.markers = []; this.timer = null; this.g.hud.setTimer(null); this.g.setBeam(null);
     const fn = this.steps[this.idx];
     if (fn) fn.call(this); else this.step = null;

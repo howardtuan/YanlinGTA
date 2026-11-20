@@ -101,6 +101,8 @@ class Game {
     this.peds = new Peds(this.scene, this.world, this.lowQ ? 18 : 32);
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
+    // 彩蛋 (tools/overrides.json pois[].egg): toast once per game when you walk / ride past
+    this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
     // 彥霖 campaign billboards at key campus spots
     for (const n of ['資訊管理學系', '鐘塔', '學生活動中心', '張靜愚紀念圖書館', '全人教育村']) {
       const it = this.world.named[n]; if (!it) continue;
@@ -615,6 +617,13 @@ class Game {
       }
     }
     this.missions.update(dt);
+    // ---- 彩蛋 ---- after the missions so their big toasts win this frame; while another big toast
+    // (任務完成／失敗、選票) is on screen the egg waits instead of overwriting it or being lost
+    const btBusy = !$('bigToast').classList.contains('hidden');
+    for (const e of this.eggs) {
+      if (e.found || btBusy || Math.hypot(e.x - wp.x, e.z - wp.z) > e.r) continue;
+      e.found = true; hud.bigToast(e.title, e.text, 4200); this.audio.pickup();
+    }
     // ---- camera & hud ----
     this.rig.update(dt, hud.bigOpen ? { mdx: 0, mdy: 0 } : inp, pl, w.collision, this.settings.sens, this.interiors);
     hud.setClock(this.clock);

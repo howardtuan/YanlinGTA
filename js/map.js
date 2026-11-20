@@ -493,6 +493,26 @@ const grassTex = () => noiseTex(256, 2203, (g, S, r) => {
   for (let i = 0; i < 120; i++) { const v = r() < 0.5 ? 0 : 255; g.fillStyle = `rgba(${v},${v},${v},${0.04 + r() * 0.06})`; const w = 8 + r() * 30; wrapRect(g, r() * S, r() * S, w, w * (0.5 + r() * 0.8), S); }
   for (let i = 0; i < 4000; i++) { const v = 170 + Math.floor(r() * 85); g.fillStyle = `rgb(${v},${v + 8 > 255 ? 255 : v + 8},${v})`; g.fillRect(Math.floor(r() * S), Math.floor(r() * S), 1, 2); }
 });
+// 補建街區 ground (tools/block_survey.json): 256 px = 24 m of fields, three
+// 8 m plots with crop rows and a pale 田埂 between them; bare soil for dirt
+const farmTex = () => noiseTex(256, 5101, (g, S, r) => {
+  const P = S / 3;
+  for (let k = 0; k < 3; k++) {
+    const v = 200 + Math.floor(r() * 40); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(k * P, 0, P, S);
+    g.fillStyle = 'rgba(0,0,0,0.13)';
+    for (let x = k * P + 4; x < (k + 1) * P - 4; x += 8.5) g.fillRect(x, 0, 3, S);
+    for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(0,0,0,${r() * 0.08})`; g.fillRect(k * P + r() * P, r() * S, 2, 3); }
+  }
+  g.fillStyle = '#ffffff'; for (let k = 0; k < 3; k++) g.fillRect(k * P - 3, 0, 6, S);
+  g.fillRect(0, S / 2 - 3, S, 6);
+});
+const dirtTex = () => noiseTex(256, 5303, (g, S, r) => {
+  g.fillStyle = '#e6e6e6'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 60; i++) { const v = r() < 0.5 ? 0 : 255; g.fillStyle = `rgba(${v},${v},${v},${0.05 + r() * 0.08})`; const w = 10 + r() * 40; wrapRect(g, r() * S, r() * S, w, w * (0.4 + r()), S); }
+  for (let i = 0; i < 3000; i++) { const v = 150 + Math.floor(r() * 105); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(Math.floor(r() * S), Math.floor(r() * S), 2, 1); }
+  // tyre tracks
+  g.fillStyle = 'rgba(0,0,0,0.07)'; for (const x of [70, 82, 180, 192]) g.fillRect(x, 0, 5, S);
+});
 const paverTex = () => noiseTex(256, 3407, (g, S, r) => {
   // 0.5 m pavers when 256 px = 8 m
   for (let y = 0; y < S; y += 16) for (let x = 0; x < S; x += 16) { const v = 215 + Math.floor(r() * 40); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(x, y, 16, 16); }
@@ -551,7 +571,10 @@ const AREA_COL = {
   park: '#55803f', grass: '#62924a', pitch: '#4f9446', track: '#b5553f', water: '#3a78a8',
   parking: '#5d6066', construction: '#8e7a5c', school: '#a3a08f', commercial: '#8b8a84',
   industrial: '#7d7b74', residential: null,
+  // 補建街區 ground (synthetic areas only)
+  farm: '#8e9a5c', dirt: '#9a7b58', wood: '#41633a',
 };
+const DIRT_COL = { site: '#a8825a', weeds: '#7f7c56' };
 const ROAD_LAYER = { footway: 0, path: 0, cycleway: 0, steps: 0, pedestrian: 0, track: 0, service: 1, living_street: 2, residential: 2, unclassified: 3, tertiary: 4, secondary: 5, primary: 6 };
 
 export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
@@ -597,19 +620,25 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const greenPolys = [];
   const sportPolys = []; // no trees on pitches / tracks
   const parkingPolys = [];
+  const fillGreens = []; // 補建街區 woods / lawns: trees from their own random stream
   const gtex = world.groundTex = { asphalt: asphaltTex(), grass: grassTex(), paver: paverTex() };
   {
     const uv16 = q => [q[0] / 16, q[1] / 16];
     const gBase = new Geo(true, uv16), gGreen = new Geo(true, uv16), gTrack = new Geo(true, uv16), gWater = new Geo(true), gLines = new Geo(true);
+    const gFarm = new Geo(true), gDirt = new Geo(true, uv16);
     const LINE = col('#e8eee4');
     for (const a of data.areas) {
       const c = AREA_COL[a.kind]; if (!c) continue;
-      const g = a.kind === 'water' ? gWater : a.kind === 'track' ? gTrack : (a.kind === 'park' || a.kind === 'grass' || a.kind === 'pitch') ? gGreen : gBase;
-      g.flatPoly(a.pts, 0.02, col(c), a.holes);
+      const g = a.kind === 'water' ? gWater : a.kind === 'track' ? gTrack : a.kind === 'farm' ? gFarm : a.kind === 'dirt' ? gDirt
+        : (a.kind === 'park' || a.kind === 'grass' || a.kind === 'pitch' || a.kind === 'wood') ? gGreen : gBase;
+      // field stripes follow the block's street direction (a.ang, degrees)
+      if (a.kind === 'farm') { const t = (a.ang || 0) * Math.PI / 180, ct = Math.cos(t), st = Math.sin(t); gFarm.uvAt = q => [(q[0] * ct + q[1] * st) / 24, (-q[0] * st + q[1] * ct) / 24]; }
+      g.flatPoly(a.pts, 0.02, col(a.kind === 'dirt' ? DIRT_COL[a.sub] || c : c), a.holes);
       // holes ride along on the ring array so inArea() can skip them
       const ring = a.holes ? Object.assign(a.pts.slice(), { holes: a.holes }) : a.pts;
       if (a.kind === 'water') waterPolys.push(ring);
-      if (a.kind === 'park' || a.kind === 'grass') greenPolys.push(ring);
+      if (a.synthetic && (a.kind === 'wood' || a.kind === 'grass')) fillGreens.push({ ring, dense: a.kind === 'wood' });
+      else if (a.kind === 'park' || a.kind === 'grass') greenPolys.push(ring);
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
       if (a.kind === 'parking') parkingPolys.push(ring);
       // pitch markings on roughly rectangular pitches
@@ -631,6 +660,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // waterways
     for (const w of data.waterways) for (let i = 0; i < w.pts.length - 1; i++) { gWater.strip(w.pts[i], w.pts[i + 1], w.w, 0.02, col('#3a78a8')); gWater.disc(w.pts[i][0], w.pts[i][1], w.w / 2, 0.02, col('#3a78a8')); }
     addFlat(gBase, flatMat(gtex.asphalt), 'areas');
+    if (gFarm.tris) addFlat(gFarm, flatMat(farmTex()), 'areas');
+    if (gDirt.tris) addFlat(gDirt, flatMat(dirtTex()), 'areas');
     addFlat(gGreen, flatMat(gtex.grass), 'areas');
     addFlat(gTrack, flatMat(gtex.asphalt), 'areas');
     if (gLines.tris) addFlat(gLines, null, 'areas');
@@ -1145,7 +1176,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return M - m > h / 2 ? (m + M) / 2 : m;
   };
   world.buildings = data.buildings;
+  const rndW = rnd;
   data.buildings.forEach((b, bi) => {
+    // 補建街區 buildings (synthetic) draw from their own stream, so turning the
+    // fill off leaves the shared sequence (palette, stalls, trees...) unchanged
+    const rnd = b.synthetic ? mulberry32(hashStr('fill:' + b.id)) : rndW;
     const pts = b.pts; const h = b.h;
     const base = b.base = footBase(pts, h); const foot = footLo - 0.5;
     if (b.skip) {
@@ -1176,7 +1211,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const vOff = Math.floor(rnd() * 8) / 8;
     // water stains at the wall foot, slightly darker under the roof line
     const cLo = tint.map(v => v * 0.7), cTop = tint.map(v => v * 0.88);
-    const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass') && !b.parts;
+    const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass') && !b.parts && !b.noShop;
     let sAcc = Math.floor(rb() * 8) * 4;
     const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
     // blocks of different height (overrides.json split, e.g. 全人教育村) share the base
@@ -1231,10 +1266,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // rooftop extras on flat town roofs: 鐵皮加蓋 35% (lanes) / 15% (shops on a
     // main road), ~30% stair house (see SHED_P)
     let extraH = 0, tankAt = null;
-    if (b.kind === 'town' && !pitched && !b.holes && floors >= 2) {
+    // low quality: no rooftop extras on the 補建街區 fill
+    const lean = opts.low && b.synthetic;
+    if (b.kind === 'town' && !pitched && !b.holes && floors >= 2 && !lean) {
       const f = obb(pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
       const inside = (u0, u1, v0, v1) => [[u0, v0], [u1, v0], [u1, v1], [u0, v1], [(u0 + u1) / 2, (v0 + v1) / 2]].every(([u, v]) => { const p = f.P(u, v); return pointInPoly(p[0], p[1], pts); });
-      const wantShed = rb() < (onMain ? SHED_P.main : SHED_P.lane), wantStair = rb() < 0.3;
+      // b.shed: the fill's per-block 鐵皮加蓋 share (tools/block_survey.json plan.shed)
+      const wantShed = rb() < (b.shed ?? (onMain ? SHED_P.main : SHED_P.lane)), wantStair = rb() < 0.3;
       let st = null;
       if (wantStair && L > 6 && W > 4.5) {
         const s = [f.u1 - 3.7, f.u1 - 0.7, f.v0 + 0.7, f.v0 + 3.3];
@@ -1257,7 +1295,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
       }
     }
-    if (b.kind === 'town' && rnd() < 0.55 && !pitched) {
+    if (!lean && b.kind === 'town' && rnd() < 0.55 && !pitched) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
       if (pointInPoly(cx, cz, pts)) { const p = [cx + (rnd() - .5), top, cz + (rnd() - .5)]; if (tankAt !== false) tanks.push(tankAt || p); }
     }
@@ -1727,9 +1765,24 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
       }
     }
+    // 補建街區 woods (dense) and lawns (a few trees), own stream; low quality: half
+    {
+      const fr = mulberry32(7007), k = opts.low ? 2 : 1;
+      for (const { ring, dense } of fillGreens) {
+        const [x0, z0, x1, z1] = polyBox(ring);
+        const n = Math.min(dense ? 700 : 120, Math.floor(polyArea(ring) / ((dense ? 90 : 360) * k)));
+        for (let i = 0, t = 0; i < n && t < n * 4; t++) {
+          const x = x0 + fr() * (x1 - x0), z = z0 + fr() * (z1 - z0);
+          if (!inArea(x, z, ring)) continue;
+          i++; tryTree(x, z, dense ? 0.85 + fr() * 0.75 : 0.8 + fr() * 0.6);
+        }
+      }
+      world.fillGreens = fillGreens.length;
+    }
     // shrubs along campus building walls and inside parks (no collision)
     for (const bd of data.buildings) {
-      if (!(bd.kind === 'campus' || bd.kind === 'dorm' || bd.kind === 'church') || bd.skip) continue;
+      // 補建校舍不種牆邊灌木：不吃共用 rnd()／SH1 名額，補建開關不影響其他灌木位置
+      if (!(bd.kind === 'campus' || bd.kind === 'dorm' || bd.kind === 'church') || bd.skip || bd.synthetic) continue;
       const pts = bd.pts;
       for (let i = 0; i < pts.length && shrubs.length < SH1; i++) {
         const a = pts[i], c = pts[(i + 1) % pts.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);

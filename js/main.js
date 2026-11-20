@@ -32,6 +32,15 @@ class Game {
     ]);
     loadTerrain(terrain);
     this.data = data;
+    this.settings = loadSettings();
+    // quality: 'auto' picks low on touch devices; MSAA can only change with a new renderer (reload)
+    this.lowQ = qualityLow(this.settings.quality);
+    // 補建街區: synthetic content for blocks OSM leaves empty (tools/block_survey.json,
+    // generated, not real footprints). Off -> OSM only; low quality drops the
+    // lod-marked back rows. Applies on reload.
+    const fillOn = this.settings.fill !== 'off';
+    const keepSyn = o => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
+    for (const k of ['buildings', 'areas', 'barriers']) data[k] = data[k].filter(keepSyn);
     // custom-built enterable buildings replace these OSM footprints
     for (const b of data.buildings) {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
@@ -47,9 +56,6 @@ class Game {
       keep.push({ ...w(4.2, 3.6), r: 3 }, { ...w(6.7, 3.6), r: 4.5 });
     }
     { const g = data.pois.find(p => p.name === '舊校門') || { x: -231, z: 39 }; keep.push({ x: g.x, z: g.z, r: 18 }); }
-    this.settings = loadSettings();
-    // quality: 'auto' picks low on touch devices; MSAA can only change with a new renderer (reload)
-    this.lowQ = qualityLow(this.settings.quality);
     // renderer
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: !this.lowQ, powerPreference: 'high-performance' });
     r.setPixelRatio(Math.min(devicePixelRatio, this.lowQ ? 1 : 1.6));
@@ -439,12 +445,15 @@ class Game {
     const s = this.settings;
     const opt = (v, t) => `<button data-music="${v}" class="${s.music === v ? 'on' : ''}">${t}</button>`;
     const q = (v, t) => `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
+    const fl = (v, t) => `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
     return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('off', '關閉')}</div></div>
       <div class="set-row"><label>音樂音量</label><input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="${s.musicVol}"><span class="set-val" id="vMusic">${Math.round(s.musicVol * 100)}%</span></div>
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
       <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('high', '高')}${q('low', '低')}</div></div>
-      <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">目前：${this.lowQ ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）${qualityLow(s.quality) !== this.lowQ ? '・重新整理後套用' : ''}</small></div>`;
+      <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">目前：${this.lowQ ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）${qualityLow(s.quality) !== this.lowQ ? '・重新整理後套用' : ''}</small></div>
+      <div class="set-row"><label>🏘 補建街區</label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
+      <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this._fillNote()}</small></div>`;
   }
   _bindSettings() {
     const s = this.settings, save = () => saveSettings(s);
@@ -463,6 +472,16 @@ class Game {
       this.renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1 : 1.6));
       $('qNote').textContent = low === this.lowQ ? `目前：${low ? '低' : '高'}畫質（自動＝觸控裝置用低畫質）` : `已存檔：${low ? '低' : '高'}畫質，陰影與抗鋸齒在重新整理後套用`;
     };
+    for (const b of document.querySelectorAll('#setFill button')) b.onclick = () => {
+      s.fill = b.dataset.fill; save();
+      for (const o of document.querySelectorAll('#setFill button')) o.classList.toggle('on', o === b);
+      $('fNote').textContent = this._fillNote();
+    };
+  }
+  _fillNote() {
+    const on = (this.settings.fill || 'on') !== 'off', now = this.data.buildings.some(b => b.synthetic) || this.data.areas.some(a => a.synthetic);
+    return (on ? '空白街區依街景／衛星判斷用途後由程式補上建物與地面（示意，不是真實建物）' : 'OSM 沒有資料的街區保持空白')
+      + (on !== now ? '・重新整理後套用' : '');
   }
   openSettings() { this.audio.init(); this.modal('設定 / 音樂', this._settingsHTML()); this._bindSettings(); }
   // ---------- computer lab video ----------

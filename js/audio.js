@@ -4,7 +4,8 @@
 //   'off'
 const SETTINGS_KEY = 'cycu-shun-settings-v2';
 export function loadSettings() {
-  const def = { music: 'opera', musicVol: 0.6, sfxVol: 0.8, sens: 1, quality: 'auto' };
+  // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
+  const def = { music: 'opera', musicVol: 0.6, sfxVol: 0.8, sens: 1, quality: 'auto', fill: 'on' };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch (e) { return def; }
 }
 export function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { } }

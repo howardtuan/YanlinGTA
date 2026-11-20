@@ -23,11 +23,16 @@ named extras drawn by js/map.js) and split (cut one footprint into blocks of
 different heights). The 'landmarks' section describes the hand-built landmarks
 in js/map.js and is copied to cycu.json without its source/note fields.
 
+tools/block_survey.json (地圖寫實化 7) classifies the blank blocks OSM leaves
+empty (by eye, Google 街景 / 衛星; text only). fill_blocks() turns each block's
+'plan' into deterministic synthetic buildings / ground / 鐵皮圍籬 marked
+synthetic=1 -- generated, not real footprints.
+
 Height model: floors first (building:levels > height > estimate by type/area),
 then h = floors * 3.3 + 0.6. Neighbouring look-alike buildings share a seed so
 a row of houses gets one height.
 """
-import json, math, os, re, hashlib
+import json, math, os, re, hashlib, random
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'osm_raw.json')
@@ -423,6 +428,822 @@ def split_parts(pts, sp):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Fill blocks (地圖寫實化 7). OSM has no buildings or areas on ~46% of the map.
+# tools/block_survey.json classifies those blank blocks by eye (Google 街景 /
+# 衛星, text only, no imagery used); here each block's 'plan' becomes
+# deterministic synthetic content: buildings (synthetic=1, src='f'), ground
+# areas (synthetic=1; new kinds farm / dirt / wood) and 鐵皮圍籬 barriers
+# (type sheet_fence). None of it is a real footprint. js/main.js drops all of
+# it when the 補建街區 setting is off.
+SURVEY = os.path.join(HERE, 'block_survey.json')
+FC = 10            # blank-cell size: the survey's grid (blank_cells below)
+FF = 2.5           # fine cell for ground polygons and footprint tests
+FN = int(FC / FF)
+B_BLD, B_AREA, B_ROAD, B_WATER, B_RAIL = 1, 2, 4, 8, 16
+CONTENT = {'park', 'grass', 'pitch', 'track', 'water', 'parking', 'school'}
+SIDEWALK = 2.6     # js/map.js sidewalk(): kerb strip out to w/2 + 2.6 on primary..tertiary
+GROUND_KIND = {'farm': 'farm', 'wood': 'wood', 'grass': 'grass', 'dirt': 'dirt', 'parking': 'parking',
+               'yard': 'industrial', 'factory': 'industrial', 'apt': 'grass', 'campus': 'grass', 'pond': 'water'}
+STRICT = {'parking', 'yard', 'sport', 'factory', 'pond'}   # ground kept >= 1 m off kerbs (cars spawn on parking)
+RES = {'row', 'shop'}
+
+
+def blank_cells(out):
+    """10 m occupancy grid and blank components, computed exactly as the survey
+    did (scratch blank.py): building footprints, content areas, roads / water /
+    rail with w/2 + 2 m. Returns (nx, nz, occ bitmask rows, components sorted by
+    area desc; each {cells, area, bbox})."""
+    B = out['bounds']; C = FC
+    nx = int((B['maxX'] - B['minX']) / C); nz = int((B['maxZ'] - B['minZ']) / C)
+    occ = [bytearray(nx) for _ in range(nz)]
+
+    def mark_poly(poly, bit):
+        xs = [p[0] for p in poly]; zs = [p[1] for p in poly]
+        i0 = max(0, int((min(xs) - B['minX']) / C)); i1 = min(nx - 1, int((max(xs) - B['minX']) / C))
+        j0 = max(0, int((min(zs) - B['minZ']) / C)); j1 = min(nz - 1, int((max(zs) - B['minZ']) / C))
+        for j in range(j0, j1 + 1):
+            for i in range(i0, i1 + 1):
+                if point_in_poly(B['minX'] + (i + .5) * C, B['minZ'] + (j + .5) * C, poly):
+                    occ[j][i] |= bit
+
+    def seg_mark(pts, w, bit):
+        r = int(math.ceil((w / 2 + 2) / C))
+        for k in range(len(pts) - 1):
+            (x1, z1), (x2, z2) = pts[k], pts[k + 1]
+            n = max(1, int(math.hypot(x2 - x1, z2 - z1) / 3))
+            for s in range(n + 1):
+                x = x1 + (x2 - x1) * s / n; z = z1 + (z2 - z1) * s / n
+                ci = int((x - B['minX']) / C); cj = int((z - B['minZ']) / C)
+                for dj in range(-r, r + 1):
+                    for di in range(-r, r + 1):
+                        i, j = ci + di, cj + dj
+                        if 0 <= i < nx and 0 <= j < nz and math.hypot(di * C, dj * C) <= w / 2 + 2:
+                            occ[j][i] |= bit
+    for b in out['buildings']:
+        mark_poly(b['pts'], B_BLD)
+    for a in out['areas']:
+        if a['kind'] in CONTENT:
+            mark_poly(a['pts'], B_AREA)
+    for r in out['roads']:
+        seg_mark(r['pts'], r['w'], B_ROAD)
+    for w in out['waterways']:
+        seg_mark(w['pts'], w['w'], B_WATER)
+    for r in out['rail']:
+        seg_mark(r['pts'], 6, B_RAIL)
+    seen = [bytearray(nx) for _ in range(nz)]
+    comps = []
+    for j in range(nz):
+        for i in range(nx):
+            if occ[j][i] or seen[j][i]:
+                continue
+            st = [(i, j)]; seen[j][i] = 1; cells = []
+            while st:
+                a, b = st.pop(); cells.append((a, b))
+                for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    u, v = a + da, b + db
+                    if 0 <= u < nx and 0 <= v < nz and not occ[v][u] and not seen[v][u]:
+                        seen[v][u] = 1; st.append((u, v))
+            if len(cells) * C * C < 2500:
+                continue
+            xs = [B['minX'] + (a + .5) * C for a, b in cells]; zs = [B['minZ'] + (b + .5) * C for a, b in cells]
+            comps.append(dict(cells=cells, area=len(cells) * C * C,
+                              bbox=[round(min(xs)), round(min(zs)), round(max(xs)), round(max(zs))]))
+    comps.sort(key=lambda o: -o['area'])
+    return nx, nz, occ, comps
+
+
+def pt_seg(x, z, ax, az, bx, bz):
+    dx, dz = bx - ax, bz - az
+    l2 = dx * dx + dz * dz
+    t = 0 if l2 <= 0 else max(0, min(1, ((x - ax) * dx + (z - az) * dz) / l2))
+    return math.hypot(ax + dx * t - x, az + dz * t - z)
+
+
+def seg_cross(a, b, c, d):
+    def o(p, q, r):
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+    d1, d2, d3, d4 = o(c, d, a), o(c, d, b), o(a, b, c), o(a, b, d)
+    return ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0)) and d1 * d2 < 0 and d3 * d4 < 0
+
+
+def seg_seg(a, b, c, d):
+    if seg_cross(a, b, c, d):
+        return 0.0
+    return min(pt_seg(a[0], a[1], *c, *d), pt_seg(b[0], b[1], *c, *d), pt_seg(c[0], c[1], *a, *b), pt_seg(d[0], d[1], *a, *b))
+
+
+def poly_dist(P, Q):
+    """0 if the rings overlap, else the smallest edge-to-edge gap."""
+    if point_in_poly(P[0][0], P[0][1], Q) or point_in_poly(Q[0][0], Q[0][1], P):
+        return 0.0
+    m = 1e9
+    for i in range(len(P)):
+        a, b = P[i - 1], P[i]
+        for j in range(len(Q)):
+            m = min(m, seg_seg(a, b, Q[j - 1], Q[j]))
+            if m <= 0:
+                return 0.0
+    return m
+
+
+def poly_seg_dist(P, a, b):
+    if point_in_poly(a[0], a[1], P) or point_in_poly(b[0], b[1], P):
+        return 0.0
+    return min(seg_seg(P[i - 1], P[i], a, b) for i in range(len(P)))
+
+
+class Grid:
+    """Bucket index of items by bbox (cell metres)."""
+    def __init__(s, cell=20):
+        s.cell = cell; s.g = {}; s.items = []
+
+    def add(s, box, item):
+        k = len(s.items); s.items.append(item)
+        c = s.cell
+        for i in range(int(math.floor(box[0] / c)), int(math.floor(box[2] / c)) + 1):
+            for j in range(int(math.floor(box[1] / c)), int(math.floor(box[3] / c)) + 1):
+                s.g.setdefault((i, j), []).append(k)
+
+    def query(s, box):
+        c = s.cell; out = set()
+        for i in range(int(math.floor(box[0] / c)), int(math.floor(box[2] / c)) + 1):
+            for j in range(int(math.floor(box[1] / c)), int(math.floor(box[3] / c)) + 1):
+                out.update(s.g.get((i, j), ()))
+        return [s.items[k] for k in sorted(out)]
+
+
+def bbox_of(pts, pad=0):
+    xs = [p[0] for p in pts]; zs = [p[1] for p in pts]
+    return [min(xs) - pad, min(zs) - pad, max(xs) + pad, max(zs) + pad]
+
+
+def keepouts(out):
+    """Spots the fill must keep off: spawn / 舊校門, night market, the enterable
+    buildings and their flattened terrain (js/interiors.js, tools/build_terrain.py
+    interior_zones), guardhouse barriers, named landmarks. (circles, rings+gap)"""
+    circ, polys = [], []
+    poi = {p['name']: p for p in out['pois']}
+    g = poi.get('舊校門') or dict(x=-231, z=39)
+    circ.append((g['x'], g['z'], 35))            # player spawn + boom barriers
+    if out.get('nightMarket'):
+        circ.append((out['nightMarket']['x'], out['nightMarket']['z'], 50))
+    for a in out['areas']:
+        if a.get('rel') == NIGHT_MARKET_REL:
+            polys.append((a['pts'], 6))
+    for n in ('鐘塔', '中原噴水池', 'A6校門'):
+        if n in poi:
+            circ.append((poi[n]['x'], poi[n]['z'], 20))
+    circ.append((-201.2, 79.6, 18))              # 正門警衛室
+    ang = math.atan2(16.9, 49.3); c, s = math.cos(ang), math.sin(ang)
+    w = lambda x, z: [79.9 + x * c - z * s, 92.6 + x * s + z * c]
+    polys.append(([w(-5, -0.5), w(52.5, -0.5), w(52.5, 16.5), w(-5, 16.5)], 14))       # 資管系館 + flatten pad / ramp
+    polys.append(([[-136, -114], [-107, -114], [-107, -92], [-136, -92]], 14))           # 麥當勞
+    polys.append(([[-194.7, -128.6], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114],
+                   [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5]], 14))                 # 學生活動中心
+    return circ, polys
+
+
+def fill_blocks(out, stats):
+    if not os.path.exists(SURVEY):
+        return
+    survey = json.load(open(SURVEY, encoding='utf8'))
+    B = out['bounds']
+    nx, nz, occ, comps = blank_cells(out)
+    cell_area = nx * nz * FC * FC
+    stats['fill'] = dict(blank_before=sum(c['area'] for c in comps), map=cell_area)
+    NXF = nx * FN
+
+    # ---- indices ----
+    roads = Grid(20)
+    for r in out['roads']:
+        side = r['type'] in ('primary', 'secondary', 'tertiary') and not r.get('bridge') and not r.get('tunnel') \
+            and not (r.get('name') or '').startswith('中北路')
+        hw = r['w'] / 2 + (SIDEWALK if side else 0)
+        # buildings: >= w/2 + 1 m from the centreline (behind the sidewalk where there is one)
+        clr = r['w'] / 2 + (SIDEWALK + 0.4 if side else 1.1 if r.get('drive') else 1.05)
+        for a, b in zip(r['pts'], r['pts'][1:]):
+            roads.add(bbox_of([a, b], hw + 12), (a, b, hw, clr, r))
+    wet = Grid(20)
+    for w in out['waterways']:
+        for a, b in zip(w['pts'], w['pts'][1:]):
+            wet.add(bbox_of([a, b], w['w'] / 2 + 8), (a, b, w['w'] / 2, w['w'] / 2 + 1.5))
+    for r in out['rail']:
+        for a, b in zip(r['pts'], r['pts'][1:]):
+            wet.add(bbox_of([a, b], 10), (a, b, 2.4, 4.8))
+    blds = Grid(20)
+    for b in out['buildings']:
+        blds.add(bbox_of(b['pts']), b['pts'])
+    cont = Grid(25)
+    for a in out['areas']:
+        if a['kind'] in CONTENT:
+            cont.add(bbox_of(a['pts']), a['pts'])
+    k_circ, k_polys = keepouts(out)
+    syn = Grid(20)
+
+    fine_cache = {}
+
+    def fine(k):
+        """(ground_ok, strict_ok) for fine cell k"""
+        v = fine_cache.get(k)
+        if v is not None:
+            return v
+        ix, iz = k % NXF, k // NXF
+        x, z = B['minX'] + (ix + .5) * FF, B['minZ'] + (iz + .5) * FF
+        box = [x, z, x, z]
+        rd = 99
+        for a, b, hw, clr, r in roads.query(box):
+            rd = min(rd, pt_seg(x, z, *a, *b) - hw)
+        ok = rd >= -0.4
+        if ok:
+            for a, b, hw, clr in wet.query(box):
+                if pt_seg(x, z, *a, *b) < hw:
+                    ok = False; break
+        if ok and any(point_in_poly(x, z, p) for p in blds.query(box)):
+            ok = False
+        if ok and any(point_in_poly(x, z, p) for p in cont.query(box)):
+            ok = False
+        v = fine_cache[k] = (ok, ok and rd >= 1.0, rd)
+        return v
+
+    def fkey(x, z):
+        ix = int((x - B['minX']) // FF); iz = int((z - B['minZ']) // FF)
+        if ix < 0 or iz < 0 or ix >= NXF or iz >= nz * FN:
+            return -1
+        return iz * NXF + ix
+
+    blocks = {b['id']: b for b in survey['blocks']}
+    claimed = set()
+    added_b, added_a, added_f = [], [], []
+    tally = {}
+
+    for bid, comp in enumerate(comps):
+        sv = blocks.get(bid)
+        if not sv or not sv.get('plan'):
+            continue
+        if sv['bbox'] != comp['bbox'] or sv['area'] != comp['area']:
+            stats['warn'].append('fill block %d: blank component changed (survey bbox %s area %d, now %s %d), skipped'
+                                 % (bid, sv['bbox'], sv['area'], comp['bbox'], comp['area']))
+            continue
+        plan = sv['plan']
+        rng = random.Random(7000 + bid)
+        R = rng.random
+        cells = comp['cells']
+        cx = sum(a for a, b in cells) / len(cells); cz = sum(b for a, b in cells) / len(cells)
+
+        # ---- zones: take each zone's share of the remaining cells from its side ----
+        DIRV = dict(N=(0, -1), S=(0, 1), E=(1, 0), W=(-1, 0), NE=(.707, -.707), NW=(-.707, -.707),
+                    SE=(.707, .707), SW=(-.707, .707))
+        zones = plan['zones']
+        left = list(cells); zcells = []
+        for zi, zd in enumerate(zones):
+            if zi == len(zones) - 1:
+                take = left
+            else:
+                n = min(len(left), int(round(zd.get('f', 1 / len(zones)) * len(cells))))
+                if zd.get('at'):   # 指定中心（世界座標 x, z）：取離它最近的格
+                    ax = (zd['at'][0] - B['minX']) / FC - 0.5; az = (zd['at'][1] - B['minZ']) / FC - 0.5
+                    key = lambda c, ax=ax, az=az: (c[0] - ax) ** 2 + (c[1] - az) ** 2
+                elif zd.get('dir') == 'C' or not zd.get('dir'):
+                    key = lambda c: (c[0] - cx) ** 2 + (c[1] - cz) ** 2
+                else:
+                    dv = DIRV[zd['dir']]
+                    key = lambda c, dv=dv: -((c[0] - cx) * dv[0] + (c[1] - cz) * dv[1])
+                order = sorted(left, key=key)
+                take = order[:n]
+            ts = set(take)
+            left = [c for c in left if c not in ts]
+            zcells.append(ts)
+        # road / rail-only cells next to a zone join it (houses face the kerb, ground runs under it)
+        zone_of = {}
+        for zi, ts in enumerate(zcells):
+            for c in ts:
+                zone_of[c] = zi
+        dil = {}
+        for (i, j), zi in sorted(zone_of.items()):
+            if zones[zi]['t'] == 'pond':   # 水面不延伸到路面底下
+                continue
+            for di in (-1, 0, 1):
+                for dj in (-1, 0, 1):
+                    u, v = i + di, j + dj
+                    if (u, v) in zone_of or (u, v) in dil or not (0 <= u < nx and 0 <= v < nz):
+                        continue
+                    m = occ[v][u]
+                    if m and not m & (B_BLD | B_AREA | B_WATER):
+                        dil[(u, v)] = zi
+        zfine = []
+        for zi, ts in enumerate(zcells):
+            seeds = []
+            for i, j in sorted(ts):
+                for a in range(FN):
+                    for b in range(FN):
+                        k = (j * FN + b) * NXF + i * FN + a
+                        if k not in claimed and fine(k)[0]:
+                            seeds.append(k)
+            S = set(seeds); st = list(seeds)
+            while st:
+                k = st.pop()
+                for d in (1, -1, NXF, -NXF):
+                    q = k + d
+                    if q in S or q in claimed or q < 0:
+                        continue
+                    ci = ((q // NXF) // FN, (q % NXF) // FN)
+                    ci = (ci[1], ci[0])
+                    if dil.get(ci) != zi or not fine(q)[0]:
+                        continue
+                    S.add(q); st.append(q)
+            claimed.update(S)
+            zfine.append(S)
+
+        # dominant street direction around the block (for grids and field stripes)
+        x0, z0, x1, z1 = sv['bbox']
+        hist = {}
+        for a, b, hw, clr, r in roads.query([x0 - 20, z0 - 20, x1 + 20, z1 + 20]):
+            if not r.get('drive'):
+                continue
+            l = math.dist(a, b)
+            ang = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) % 90
+            hist[int(ang // 3)] = hist.get(int(ang // 3), 0) + l
+        theta = math.radians((max(hist, key=lambda k: (hist[k], -k)) * 3 + 1.5) if hist else 0)
+
+        wall = plan.get('wall') or []
+        roofc = plan.get('roofc') or []
+        shed = plan.get('shed')
+        cnt = tally.setdefault(bid, {})
+
+        def ok_rect(P, S, gap_syn, frontage=False):
+            bx = bbox_of(P)
+            # inside this zone's cells (sampled every <= 2.2 m)
+            (ax, az), (bx_, bz), (cx_, cz_), (dx, dz) = P
+            L1 = math.dist(P[0], P[1]); L2 = math.dist(P[1], P[2])
+            n1 = max(1, int(math.ceil((L1 - 0.6) / 2.2))); n2 = max(1, int(math.ceil((L2 - 0.6) / 2.2)))
+            for s in range(n1 + 1):
+                t = (0.3 + (L1 - 0.6) * s / n1) / L1
+                for q in range(n2 + 1):
+                    w = (0.3 + (L2 - 0.6) * q / n2) / L2
+                    x = ax + (bx_ - ax) * t + (dx - ax) * w; z = az + (bz - az) * t + (dz - az) * w
+                    if fkey(x, z) not in S:
+                        return False
+            for a, b, hw, clr, r in roads.query(bbox_of(P, 2)):
+                if poly_seg_dist(P, a, b) < clr:
+                    return False
+            for a, b, hw, clr in wet.query(bbox_of(P, 2)):
+                if poly_seg_dist(P, a, b) < clr:
+                    return False
+            for Q in blds.query(bbox_of(P, 1.2)):
+                if poly_dist(P, Q) < 1.0:
+                    return False
+            for x, z, r in k_circ:
+                if math.hypot(min(max(x, bx[0]), bx[2]) - x, min(max(z, bx[1]), bx[3]) - z) < r and \
+                        (point_in_poly(x, z, P) or min(pt_seg(x, z, *P[i - 1], *P[i]) for i in range(4)) < r):
+                    return False
+            for Q, g in k_polys:
+                if poly_dist(P, Q) < g:
+                    return False
+            # 既有 OSM 內容區（停車場、公園…）：邊界斜切進來時細格取樣抓不到，再比一次多邊形
+            for Q in cont.query(bbox_of(P, 1)):
+                if poly_dist(P, Q) < 0.5:
+                    return False
+            # gap_syn = 0（同排街屋）：允許共用牆面，但轉角／斜向 run 接續時只要真的重疊（> 0.005 m2）
+            # （> 0.002 m2，以輸出的 2 位小數座標計）就拒絕，避免薄片重疊造成的 z-fighting
+            Pr = [[round(p[0], 2), round(p[1], 2)] for p in P]
+            for Q in syn.query(bbox_of(P, gap_syn + 0.5)):
+                dq = poly_dist(Pr, Q)
+                if gap_syn > 0:
+                    if dq < gap_syn:
+                        return False
+                elif dq <= 0 and overlap_area(Pr, Q) > 0.002:
+                    return False
+            return True
+
+        def rect(o, u, v, W, D):
+            P = [list(o), [o[0] + u[0] * W, o[1] + u[1] * W],
+                 [o[0] + u[0] * W + v[0] * D, o[1] + u[1] * W + v[1] * D], [o[0] + v[0] * D, o[1] + v[1] * D]]
+            return P if area(P) > 0 else P[::-1]
+
+        def add_bld(P, kind, floors, zt, h=None, lod=0, **kw):
+            pts = [[round(p[0], 2), round(p[1], 2)] for p in P]   # 2 decimals: neighbours in a row must not overlap
+            rec = dict(pts=pts, h=round(h if h else floors * FLOOR_H + ROOF_H, 1), floors=floors, kind=kind,
+                       id='f%d' % len(added_b), src='f', synthetic=1, blk=bid)
+            rec.update({k: v for k, v in kw.items() if v is not None})
+            if lod:
+                rec['lod'] = 1
+            added_b.append(rec)
+            syn.add(bbox_of(pts), pts)   # 存輸出用的 2 位小數座標，重疊檢查和最後資料一致
+            cnt[zt] = cnt.get(zt, 0) + 1
+            return rec
+
+        def fl_range(zd, dflt):
+            s = (zd.get('fl') or dflt).split('-')
+            return int(s[0]), int(s[-1])
+
+        def tint(p=0.5):
+            if wall and R() < p:
+                c = wall[int(R() * len(wall))]
+                k = 0.94 + R() * 0.1
+                return '#%02x%02x%02x' % tuple(min(255, int(int(c[i:i + 2], 16) * k)) for i in (1, 3, 5))
+            return None
+
+        def town_extra(zd, zt):
+            sp = zd.get('shop', {'shop': .95, 'row': .5, 'apt': .5, 'farmhouse': 0}.get(zt, .5))
+            return dict(noShop=1 if R() >= sp else None, shed=shed if shed is not None else None)
+
+        def frontage(zi, zd, zt, S):
+            """Houses along every drivable street side of the zone: runs of 3-8
+            with one width / depth / storey count (+-1), lanes between some runs."""
+            lo, hi = fl_range(zd, '3-4')
+            dens = zd.get('dens', 1.0)
+            fronts = []
+            segs = roads.query([x0 - 25, z0 - 25, x1 + 25, z1 + 25])
+            seen = set()
+            for a, b, hw, clr, r in segs:
+                if not r.get('drive') or (id(r), tuple(a), tuple(b)) in seen:
+                    continue
+                seen.add((id(r), tuple(a), tuple(b)))
+                L = math.dist(a, b)
+                if L < 6:
+                    continue
+                u = ((b[0] - a[0]) / L, (b[1] - a[1]) / L)
+                for sd in (1, -1):
+                    # each side is walked with the street on its right: v points away from it
+                    a2, u2 = (a, u) if sd > 0 else (b, (-u[0], -u[1]))
+                    v = (-u2[1], u2[0])
+                    off = clr + 0.3 + R() * 0.9
+                    # quick test: is there any zone cell behind this side at all?
+                    mid = (a2[0] + u2[0] * L / 2 + v[0] * (off + 6), a2[1] + u2[1] * L / 2 + v[1] * (off + 6))
+                    probe = [fkey(a2[0] + u2[0] * t + v[0] * (off + 5), a2[1] + u2[1] * t + v[1] * (off + 5)) for t in
+                             (1.5, L * 0.25, L / 2, L * 0.75, L - 1.5)]
+                    if not any(k in S for k in probe) and fkey(*mid) not in S:
+                        continue
+                    p, run = 0.5 + R() * 1.5, 0
+                    while p < L - 3.5:
+                        if run <= 0:
+                            if zt == 'store':
+                                W0, D0, run, f0 = 16 + R() * 14, 14 + R() * 10, 1, lo + int(R() * (hi - lo + 1))
+                            elif zt == 'farmhouse':
+                                W0, D0, run, f0 = 8 + R() * 4, 8 + R() * 4, 1, lo + int(R() * (hi - lo + 1))
+                            else:
+                                W0 = (4 + R() * 1.6) if zt == 'shop' else (4.5 + R() * 2.5)
+                                D0, run, f0 = 12 + R() * 8, 3 + int(R() * 6), lo + int(R() * (hi - lo + 1))
+                            col0 = tint()
+                            if R() < 0.25 and zt in RES:
+                                p += 2.5 + R() * 1.5   # 巷
+                        W = min(7.0, max(4.05, W0 * (0.95 + R() * 0.1))) if zt in RES else W0   # 面寬 4–7 m（座標取 2 位小數後仍 >= 4）
+                        placed = None
+                        if R() < dens:
+                            for D in (D0, D0 * 0.75, max(8, D0 * 0.55)):
+                                o = (a2[0] + u2[0] * p + v[0] * off, a2[1] + u2[1] * p + v[1] * off)
+                                P = rect(o, u2, v, W, D)
+                                if ok_rect(P, S, 0 if zt in RES else 3):
+                                    placed = (P, D); break
+                        if placed:
+                            P, D = placed
+                            f = max(lo, min(hi, f0 + (1 if R() < 0.12 else -1 if R() < 0.12 else 0)))
+                            if zt == 'store':
+                                rc = zd.get('roof')
+                                add_bld(P, 'commercial', f, zt, h=f * 4.2 + ROOF_H, colour=tint(0.8),
+                                        roof='gabled' if rc else None, roofColour=rc, roofH=1.8 if rc else None)
+                            elif zt == 'farmhouse':
+                                add_bld(P, 'town', f, zt, roof='gabled', roofH=1.4,
+                                        roofColour=(roofc or ['#8d959b'])[int(R() * len(roofc or [1]))], noShop=1,
+                                        colour=tint(0.3))
+                            else:
+                                add_bld(P, 'town', f, zt, colour=col0, **town_extra(zd, zt))
+                                fronts.append((o, u2, v, W, D, off, f))
+                            run -= 1
+                            p += W
+                            if zt == 'farmhouse':
+                                p += 40 + R() * 60
+                            elif zt == 'store':
+                                p += 3 + R() * 8
+                        else:
+                            p += 1.0
+                            if zt not in RES:
+                                run = 0
+            return fronts
+
+        def back_rows(zd, zt, S, fronts):
+            dens = zd.get('dens', 1.0)
+            for o, u, v, W, D, off, f in fronts:
+                if R() >= dens * 0.9:
+                    continue
+                d2 = off + D + 2.5 + R() * 1.0
+                o2 = (o[0] + v[0] * (D + 2.5 + R() * 1.0), o[1] + v[1] * (D + 2.5 + R() * 1.0))
+                for D2 in (10 + R() * 5, 8):
+                    P = rect(o2, u, v, W, D2)
+                    if ok_rect(P, S, 0):
+                        lo, hi = fl_range(zd, '3-4')
+                        add_bld(P, 'town', max(lo, min(hi, f + (-1 if R() < 0.3 else 0))), zt, lod=R() < 0.5,
+                                colour=tint(), **town_extra(zd, zt))
+                        break
+
+        def frame(S):
+            uu = (math.cos(theta), math.sin(theta)); vv = (-uu[1], uu[0])
+            us, vs = [], []
+            for k in S:
+                x = B['minX'] + (k % NXF + .5) * FF; z = B['minZ'] + (k // NXF + .5) * FF
+                us.append(x * uu[0] + z * uu[1]); vs.append(x * vv[0] + z * vv[1])
+            P = lambda U, V: (uu[0] * U + vv[0] * V, uu[1] * U + vv[1] * V)
+            return uu, vv, min(us), max(us), min(vs), max(vs), P
+
+        def grid_fill(zd, zt, S, sizes, gu, gv, prob, make):
+            """Scan the zone on a grid along the street direction; sizes() gives
+            candidate (W along u, D along v) from big to small."""
+            if not S:
+                return
+            uu, vv, u0, u1, v0, v1, P = frame(S)
+            v = v0 - 2 + R() * 6
+            while v < v1:
+                Dmax = 0
+                u = u0 - 2 + R() * 4
+                while u < u1:
+                    put = False
+                    if R() < prob:
+                        for W, D in sizes():
+                            Pr = rect(P(u, v), uu, vv, W, D)
+                            if ok_rect(Pr, S, 0 if zt in RES else 3):
+                                make(Pr, W, D); u += W + gu(); Dmax = max(Dmax, D); put = True
+                                break
+                    if not put:
+                        u += 3
+                v += (Dmax or sizes()[-1][1]) + gv()
+
+        for zi, zd in enumerate(zones):
+            zt, S = zd['t'], zfine[zi]
+            if not S:
+                continue
+            if zt in RES:
+                fronts = frontage(zi, zd, zt, S)
+                back_rows(zd, zt, S, fronts)
+                lo, hi = fl_range(zd, '3-4')
+                dens = zd.get('dens', 1.0)
+                # interior: back-to-back pairs of rows with a 4 m lane
+                pair = [0]
+
+                def mk(Pr, W, D, zd=zd, zt=zt, lo=lo, hi=hi):
+                    add_bld(Pr, 'town', lo + int(R() * (hi - lo + 1)), zt, lod=R() < 0.5, colour=tint(), **town_extra(zd, zt))
+
+                def gv(pair=pair):
+                    pair[0] ^= 1
+                    return 0 if pair[0] else 3.5 + R()
+                grid_fill(zd, zt, S, lambda: [(4.5 + R() * 2, 13 + R() * 4), (5, 10)], lambda: 0 if R() < 0.8 else 2.5,
+                          gv, dens * (0.9 if zt == 'shop' else 0.75), mk)
+            elif zt == 'store':
+                frontage(zi, zd, zt, S)
+            elif zt == 'apt':
+                lo, hi = fl_range(zd, '7-12')
+                kd = zd.get('kind', 'town')
+
+                def mk(Pr, W, D, lo=lo, hi=hi, kd=kd):
+                    add_bld(Pr, kd, lo + int(R() * (hi - lo + 1)), 'apt', colour=tint(0.7),
+                            noShop=1 if R() < 0.5 or kd != 'town' else None, shed=0)
+                grid_fill(zd, zt, S, lambda: [(28 + R() * 14, 14 + R() * 4), (20, 13), (14, 12)], lambda: 10 + R() * 5,
+                          lambda: 12 + R() * 5, 0.9, mk)
+            elif zt == 'campus':
+                lo, hi = fl_range(zd, '3-5')
+                kd = zd.get('kind', 'campus')
+
+                def mk(Pr, W, D, lo=lo, hi=hi, kd=kd):
+                    add_bld(Pr, kd, lo + int(R() * (hi - lo + 1)), 'campus', colour=tint(0.7))
+                grid_fill(zd, zt, S, lambda: [(34 + R() * 20, 13 + R() * 4), (24, 12), (16, 11)], lambda: 14 + R() * 6,
+                          lambda: 16 + R() * 6, 0.85, mk)
+            elif zt == 'factory':
+                lo, hi = fl_range(zd, '1-2')
+                saw, gab = plan.get('saw', 0.2), plan.get('gable', 0)
+
+                def mk(Pr, W, D, lo=lo, hi=hi, saw=saw, gab=gab):
+                    f = lo + int(R() * (hi - lo + 1))
+                    h = (6 + R() * 1.6) if f == 1 else (8 + R() * 2)
+                    q = R()
+                    roof = dict(roof='gabled', feature=['gable_row'], roofH=1.6) if q < saw else \
+                        dict(roof='gabled', roofH=round(1.2 + R() * 1.2, 1)) if gab or q < saw + (1 - saw) * 0.55 else {}
+                    add_bld(Pr, 'commercial', 2 if h >= 8 else 1, 'factory', h=h, material='metal', facade='concrete',
+                            colour=tint(0.85) or ['#b8bcbc', '#c8c8c4', '#9fa6ad', '#d0d0cc'][int(R() * 4)],
+                            roofColour=(roofc or ['#b0b4b4'])[int(R() * len(roofc or [1]))], **roof)
+                grid_fill(zd, zt, S, lambda: [(44 + R() * 22, 24 + R() * 10), (34, 22), (24, 16), (16, 12)],
+                          lambda: 10 + R() * 4, lambda: 11 + R() * 4, 0.92, mk)
+            elif zd.get('houses'):
+                # scattered 農舍 along the field roads
+                frontage(zi, dict(zd, fl='1-2', dens=zd['houses']), 'farmhouse', S)
+
+        # ---- ground areas (merged fine cells) ----
+        for zi, zd in enumerate(zones):
+            zt, S = zd['t'], zfine[zi]
+            if not S:
+                continue
+            if zt == 'pond':
+                # 水面會擋路（world.isFree）：細格外緣 1.8 m + 輪廓簡化 1.3 m，離路面至少再 1 m
+                S2 = {k for k in S if fine(k)[1] and fine(k)[2] >= 4.2}
+            elif zt in STRICT:
+                S2 = {k for k in S if fine(k)[1]}
+            else:
+                S2 = S
+            if zt == 'sport':
+                tr = sport_field(S2, NXF, B)
+                if tr:
+                    outer, inner = tr
+                    added_a.append(dict(pts=outer, kind='track', holes=[inner[::-1]], synthetic=1, blk=bid))
+                    added_a.append(dict(pts=inner, kind='pitch', infield=1, synthetic=1, blk=bid))
+                    ib = bbox_of(outer)
+                    S2 = {k for k in S2 if not (ib[0] <= B['minX'] + (k % NXF + .5) * FF <= ib[2]
+                                                and ib[1] <= B['minZ'] + (k // NXF + .5) * FF <= ib[3])}
+                    cnt['sport'] = cnt.get('sport', 0) + 1
+                kind = 'grass'
+            else:
+                kind = GROUND_KIND.get(zt)
+            if not kind:
+                continue
+            for P, hs in trace_cells(S2, NXF, B):
+                a = dict(pts=P, kind=kind, synthetic=1, blk=bid)
+                if hs:
+                    a['holes'] = hs
+                if kind == 'farm':
+                    a['ang'] = round(math.degrees(theta), 1)
+                if kind == 'dirt':
+                    a['sub'] = zd.get('sub', 'weeds')
+                added_a.append(a)
+            cnt['ground:' + kind] = cnt.get('ground:' + kind, 0) + len(S2) * FF * FF
+            if zd.get('fence') or zd.get('sub') == 'site':
+                for f in fences(S, roads, x0, z0, x1, z1, fkey, blds):
+                    added_f.append(dict(pts=f, type='sheet_fence', colour=zd.get('fence') or '#2f6aa8', synthetic=1, blk=bid))
+                    cnt['fence'] = cnt.get('fence', 0) + 1
+
+    out['buildings'].extend(added_b)
+    out['areas'].extend(added_a)
+    out['barriers'].extend(added_f)
+    stats['fill'].update(blocks=len(tally), buildings=len(added_b), areas=len(added_a), fences=len(added_f), tally=tally)
+
+
+def overlap_area(P, Q):
+    """Intersection area of two convex rings (Sutherland-Hodgman)."""
+    sg = 1 if sum(Q[i - 1][0] * Q[i][1] - Q[i][0] * Q[i - 1][1] for i in range(len(Q))) > 0 else -1
+    out = [list(p) for p in P]
+    for i in range(len(Q)):
+        if len(out) < 3:
+            return 0.0
+        a, b = Q[i - 1], Q[i]
+        f = lambda p: sg * ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]))
+        inp, out = out, []
+        for j in range(len(inp)):
+            p, q = inp[j - 1], inp[j]
+            fp, fq = f(p), f(q)
+            if fq >= 0:
+                if fp < 0:
+                    t = fp / (fp - fq); out.append([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t])
+                out.append(q)
+            elif fp >= 0:
+                t = fp / (fp - fq); out.append([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t])
+    return abs(area(out)) if len(out) >= 3 else 0.0
+
+
+def trace_cells(S, NXF, B, tol=1.3):
+    """Fine cells -> polygons: outlines traced along the cell edges (outer rings
+    counter-clockwise like build_map's other rings, holes clockwise), staircases
+    straightened with Douglas-Peucker (tol metres). Returns [(ring, holes)]."""
+    nxt = {}
+    for k in S:
+        ix, iz = k % NXF, k // NXF
+        c = [(ix, iz), (ix + 1, iz), (ix + 1, iz + 1), (ix, iz + 1)]
+        for e, q in enumerate((k - NXF, k + 1, k + NXF, k - 1)):
+            if q not in S:
+                nxt.setdefault(c[e], []).append(c[(e + 1) % 4])
+    loops = []
+    while nxt:
+        st = min(nxt)
+        loop = [st]; cur = st; prev = None
+        while True:
+            outs = nxt[cur]
+            if len(outs) > 1 and prev is not None:
+                # pinch vertex (cells touching diagonally): turn so each loop stays on its own cells
+                d = (cur[0] - prev[0], cur[1] - prev[1])
+                outs.sort(key=lambda q: -((q[0] - cur[0]) * -d[1] + (q[1] - cur[1]) * d[0]))
+            q = outs.pop(0)
+            if not outs:
+                del nxt[cur]
+            prev, cur = cur, q
+            if cur == st:
+                break
+            loop.append(cur)
+        loops.append(loop)
+
+    def simplify(L):
+        P = [(B['minX'] + x * FF, B['minZ'] + z * FF) for x, z in L]
+        # drop collinear vertices
+        Q = [P[i] for i in range(len(P)) if (P[i][0] - P[i - 1][0]) * (P[(i + 1) % len(P)][1] - P[i][1])
+             != (P[i][1] - P[i - 1][1]) * (P[(i + 1) % len(P)][0] - P[i][0])]
+        if len(Q) < 4:
+            return [list(q) for q in Q]
+
+        def dp(pts):
+            if len(pts) < 3:
+                return pts
+            a, b = pts[0], pts[-1]
+            i, m = 0, -1
+            for j in range(1, len(pts) - 1):
+                d = pt_seg(pts[j][0], pts[j][1], *a, *b)
+                if d > m:
+                    i, m = j, d
+            if m <= tol:
+                return [a, b]
+            return dp(pts[:i + 1])[:-1] + dp(pts[i:])
+        far = max(range(len(Q)), key=lambda j: math.dist(Q[0], Q[j]))
+        R = dp(Q[:far + 1])[:-1] + dp(Q[far:] + [Q[0]])[:-1]
+        return [[round(x, 1), round(z, 1)] for x, z in R]
+    outers, holes = [], []
+    for L in loops:
+        r = simplify(L)
+        if len(r) < 3 or abs(area(r)) < 1:
+            continue
+        (outers if area(r) > 0 else holes).append(r)
+    res = [(o, []) for o in outers]
+    for h in holes:
+        for o, hs in res:
+            if point_in_poly(h[0][0], h[0][1], o) or point_in_poly(*centroid(h), o):
+                hs.append(h); break
+    return res
+
+
+def sport_field(S, NXF, B):
+    """Largest axis-aligned rectangle of fine cells; a running track around a
+    pitch if it is at least 50 x 34 m. Returns (outer ring, infield ring) or None."""
+    if not S:
+        return None
+    zs = sorted({k // NXF for k in S}); xs = sorted({k % NXF for k in S})
+    best = (0, None)
+    hgt = {}
+    for iz in range(zs[0], zs[-1] + 1):
+        for ix in range(xs[0], xs[-1] + 1):
+            hgt[ix] = hgt.get(ix, 0) + 1 if iz * NXF + ix in S else 0
+        st = []
+        for ix in list(range(xs[0], xs[-1] + 1)) + [xs[-1] + 1]:
+            hh = hgt.get(ix, 0) if ix <= xs[-1] else 0
+            start = ix
+            while st and st[-1][1] >= hh:
+                s0, h0 = st.pop()
+                a = h0 * (ix - s0)
+                if a > best[0]:
+                    best = (a, (s0, ix - 1, iz - h0 + 1, iz))
+                start = s0
+            st.append((start, hh))
+    if not best[1]:
+        return None
+    a, b, z0, z1 = best[1]
+    X0, X1 = B['minX'] + a * FF, B['minX'] + (b + 1) * FF
+    Z0, Z1 = B['minZ'] + z0 * FF, B['minZ'] + (z1 + 1) * FF
+    W, Hh = X1 - X0, Z1 - Z0
+    if min(W, Hh) < 34 or max(W, Hh) < 50:
+        return None
+    ring = lambda x0, z0, x1, z1: [[x0, z1], [x1, z1], [x1, z0], [x0, z0]]
+    o = ring(X0 + 1, Z0 + 1, X1 - 1, Z1 - 1)
+    if area(o) < 0:
+        o = o[::-1]
+    t = 7 if min(W, Hh) >= 46 else 5   # lane band width
+    i = ring(X0 + 1 + t, Z0 + 1 + t, X1 - 1 - t, Z1 - 1 - t)
+    if area(i) < 0:
+        i = i[::-1]
+    return o, i
+
+
+def fences(S, roads, x0, z0, x1, z1, fkey, blds):
+    """鐵皮圍籬 along the street sides of a zone: 2 m steps on a line 1.2 m off
+    the kerb (behind the sidewalk), kept where the zone lies behind it; pieces of
+    <= 30 m with 5 m openings so the lots stay walkable."""
+    out = []
+    for a, b, hw, clr, r in roads.query([x0 - 25, z0 - 25, x1 + 25, z1 + 25]):
+        if not r.get('drive'):
+            continue
+        L = math.dist(a, b)
+        if L < 6:
+            continue
+        u = ((b[0] - a[0]) / L, (b[1] - a[1]) / L)
+        for sd in (1, -1):
+            v = (-u[1] * sd, u[0] * sd)
+            off = hw + 1.2
+            run = []
+            n = int(L // 2)
+            for s in range(n + 1):
+                t = s * L / max(n, 1)
+                p = (a[0] + u[0] * t + v[0] * off, a[1] + u[1] * t + v[1] * off)
+                ok = fkey(p[0] + v[0] * 3, p[1] + v[1] * 3) in S and fkey(*p) in S
+                if ok:
+                    bx = [p[0], p[1], p[0], p[1]]
+                    if any(pt_seg(p[0], p[1], *q, *w) < hh + 0.8 for q, w, hh, c, rr in roads.query(bx)):
+                        ok = False
+                    elif any(point_in_poly(p[0], p[1], Q) for Q in blds.query(bx)):
+                        ok = False
+                if ok:
+                    run.append(p)
+                if (not ok or s == n) and run:
+                    i = 0
+                    while i < len(run) - 1:
+                        j = min(len(run) - 1, i + 15)
+                        if math.dist(run[i], run[j]) >= 4:
+                            out.append([[round(run[i][0], 2), round(run[i][1], 2)], [round(run[j][0], 2), round(run[j][1], 2)]])
+                        i = j + 3   # 6 m opening
+                    run = []
+    return out
+
+
 def main():
     raw = json.load(open(SRC, encoding='utf8'))
     els = raw['elements']
@@ -774,6 +1595,10 @@ def main():
     if not out['nightMarket']:
         stats['warn'].append('night market relation %d missing' % NIGHT_MARKET_REL)
 
+    # synthetic content for the blank blocks of tools/block_survey.json (after
+    # everything from OSM, so the blank grid matches the survey's)
+    fill_blocks(out, stats)
+
     os.makedirs(os.path.dirname(DST), exist_ok=True)
     with open(DST, 'w', encoding='utf8') as f:
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
@@ -785,6 +1610,13 @@ def main():
           'furniture', len(out['furniture']), 'barriers', len(out['barriers']), 'power', len(out['power']),
           'campus rings', len(out['campus']), 'size', os.path.getsize(DST))
     print('night market', out['nightMarket'])
+    fs = stats.get('fill')
+    if fs:
+        print('fill: blank before %d of %d m2 (%.1f%%); %d blocks -> %d buildings, %d ground areas, %d fences'
+              % (fs['blank_before'], fs['map'], 100 * fs['blank_before'] / fs['map'], fs.get('blocks', 0),
+                 fs.get('buildings', 0), fs.get('areas', 0), fs.get('fences', 0)))
+        for bid, t in sorted(fs.get('tally', {}).items()):
+            print('  block %2d' % bid, ', '.join('%s %d' % (k, v) for k, v in sorted(t.items())))
     for s in stats['excluded']:
         print('excluded', s)
     for s in stats['warn']:

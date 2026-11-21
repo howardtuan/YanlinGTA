@@ -7,7 +7,8 @@ import { Ragdoll } from './ragdoll.js';
 // Yanlin — modelled after the reference photo:
 // black bowl-cut with full bangs, thin round light frames, black tee with small white chest logo,
 // white shorts, black wristband, white sneakers.
-const RAG_MAX = 2.5, RAG_LIE = 0.6; // thrown off as a ragdoll: s flying at most, s lying still at least
+const RAG_MAX = 1.8, RAG_LIE = 0.6; // thrown off as a ragdoll: s flying at most, s lying still at least
+const TUMBLE_MIN = 1e-3;
 export const YANLIN_LOOK = {
   hero: true, glasses: true, glassesColor: '#d6cfc0', hairStyle: 'bowl', hair: '#0e0e0f',
   skin: '#ecc8a6', shirt: '#121212', shorts: '#f3f2ec', shoes: '#f4f4f0',
@@ -124,9 +125,10 @@ export class Player {
   _ragdoll(dt, interiors) {
     const r = this.rag;
     this.speed = 0; this.vel.set(0, 0); this.vy = 0;
-    this.tumble -= dt;
+    // (tumble stays above 0 until you are up: updateFoot and main.js take tumble > 0 as "lying")
+    this.tumble = Math.max(TUMBLE_MIN, this.tumble - dt);
     if (!r.resting) { r.lie = RAG_LIE; return; }
-    if ((r.lie -= dt) > 0 || this.tumble > 0) return;
+    if ((r.lie -= dt) > 0 || this.tumble > TUMBLE_MIN) return;
     // up where the trunk lies, on the floor there (an interior floor above the ground, js/interiors.js)
     this.tumble = 0; this.rag = null;
     const p = this.pos, t = r.moved ? p.y : r.trunkY, surf = surfaceAt(p.x, p.z, t); // (moved: placed by the game)

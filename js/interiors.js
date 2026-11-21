@@ -2590,8 +2590,8 @@ function buildGordon(I, scene) {
 //   along 中北路 (north side, going west from the corner): 幾何光學 GEOMETRIC OPTICS · 經典數位印刷 JINGDIAN ·
 //     神威影印社 shen wei · 藍色美而美
 //   along 大仁街 (west side, going towards the gate): 天一影印 / 套房出租 / 天一打字行 in the tall corner building ·
-//     菁英 elite 英日語 (billboard on the roof) · 麻友趣 自助桌遊24H
-//     (mint-green siding, teal window hoods) · 溫州大餛飩 · LAYA BURGER 拉亞漢堡
+//     菁英 elite 英日語 (billboard on the roof) · 信義房屋 本透店 for sale · 麻友趣 自助桌遊24H
+//     (mint-green siding, teal window hoods) · 陽光煎匙 · a little reed-roofed kiosk, then 戈登肉鋪
 // Two frames share the corner point P (where the two facade lines meet): frame A runs east along 中北路 (the
 // row sits at x < 0), frame B runs up 大仁街 (x > 0); in both z grows away from the street. The corner
 // building is a prism filling the wedge between them (it has no shopfront on 中北路). None is enterable.
@@ -2601,14 +2601,14 @@ export const DAREN_SPEC = {
   angA: Math.atan2(-0.354, 0.935),            // +x east along 中北路
   angB: Math.atan2(24.5, 41.3),               // +x up 大仁街 towards the gate
   A: { geo: [-6, 0, 10], jd: [-10.2, -6, 10], sw: [-14, -10.2, 10], blue: [-17.8, -14, 10] }, // stop short of the tower behind (f1525)
-  B: { elite: [6, 11.5, 9], mahjong: [11.5, 18.5, 9], wonton: [18.5, 22.8, 9], laya: [22.8, 27, 9] }, // 戈登肉鋪 starts past 30
+  B: { elite: [6, 11.5, 9], sinyi: [11.5, 16.5, 9], mahjong: [16.5, 25.5, 9], sunny: [25.5, 31.5, 9], hut: [31.5, 35, 5] }, // B x = metres along 大仁街; 戈登肉鋪 from ~42
   cornerB: 6, cornerD: 10.9, apronA: 1.6, apronB: 1.8, // apronA: to the kerb of 中北路 (8.5 m, tools/roads.json)
 };
 const darenFrame = (ang) => { const c = Math.cos(ang), s = Math.sin(ang), { px, pz } = DAREN_SPEC; return (x, z) => [px + x * c - z * s, pz + x * s + z * c]; };
 export function darenFootprints() {
   const S = DAREN_SPEC, a = darenFrame(S.angA), b = darenFrame(S.angB);
   return [
-    [a(-17.9, -S.apronA - 0.2), a(0.3, -S.apronA - 0.2), b(0, -S.apronB - 0.2), b(27.2, -S.apronB - 0.2), b(27.2, 9.3), b(S.cornerB, S.cornerD), a(-17.9, 10.3)],
+    [a(-17.9, -S.apronA - 0.2), a(0.3, -S.apronA - 0.2), b(0, -S.apronB - 0.2), b(35.2, -S.apronB - 0.2), b(35.2, 5.3), b(31.7, 9.3), b(S.cornerB, S.cornerD), a(-17.9, 10.3)],
   ];
 }
 const CT = {
@@ -2696,20 +2696,27 @@ const CT = {
   mint: () => ctex('cnMint', 64, 64, (g) => { g.fillStyle = '#b9d3c0'; g.fillRect(0, 0, 64, 64); for (let x = 0; x < 64; x += 8) { g.fillStyle = '#a3c0ab'; g.fillRect(x + 6, 0, 2, 64); } }),
   lattice: () => sg('cnLattice', 128, 128, (g) => { g.fillStyle = '#5c6c74'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#f2f2ee'; for (let i = 0; i <= 128; i += 16) { g.fillRect(i - 2, 0, 4, 128); g.fillRect(0, i - 2, 128, 4); } }),
   tarp: () => ctex('cnTarp', 64, 64, (g) => { for (let x = 0; x < 64; x += 16) { g.fillStyle = '#4f8fd0'; g.fillRect(x, 0, 8, 64); g.fillStyle = '#eef3f7'; g.fillRect(x + 8, 0, 8, 64); } }),
-  wonton: () => sg('cnWonton', 768, 192, (g) => {
-    g.fillStyle = '#f6d23a'; g.fillRect(0, 0, 768, 192); g.strokeStyle = '#c41d2a'; g.lineWidth = 6; g.strokeRect(12, 12, 744, 168);
-    g.fillStyle = '#c41d2a'; g.font = `900 104px "Kaiti TC","STKaiti","BiauKai","Noto Serif TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('溫州大餛飩', 384, 92);
-    g.font = font(24, 700); g.fillStyle = '#5a3a1c'; g.fillText('餛飩湯 · 乾拌麵 · 炒飯', 384, 162);
+  sinyi: () => sg('cnSinyi', 512, 384, (g) => { // 信義房屋 for-sale board over the shopfront
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 384); g.fillStyle = '#d0202a'; g.fillRect(20, 20, 150, 150);
+    g.fillStyle = '#ffffff'; g.font = font(120); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('售', 95, 100);
+    g.fillStyle = '#1f5a3a'; g.font = 'italic 900 44px Arial'; g.fillText('SinyiCare', 350, 60); g.font = font(22, 700); g.fillText('信義房屋 中原加盟店', 350, 110);
+    g.fillStyle = '#222'; g.font = font(64); g.fillText('本透店', 95, 230); g.font = font(24, 700); g.fillText('土地 25.4 坪', 95, 290);
+    g.fillStyle = '#d0202a'; g.font = '900 56px Arial'; g.fillText('03-466-1999', 330, 300);
+    g.fillStyle = '#2f8a4a'; g.fillRect(0, 340, 512, 44);
   }),
-  laya: () => sg('cnLaya', 768, 192, (g) => {
-    g.fillStyle = '#c62026'; g.fillRect(0, 0, 768, 192); g.fillStyle = '#f7c531'; g.beginPath(); g.ellipse(120, 96, 92, 70, 0, 0, 7); g.fill();
-    g.fillStyle = '#c62026'; g.font = '900 italic 52px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('LAYA', 120, 84); g.font = '900 22px Arial'; g.fillText('BURGER', 120, 126);
-    g.fillStyle = '#ffffff'; g.font = font(96); g.fillText('拉亞漢堡', 470, 96);
+  sunny: () => sg('cnSunny', 1024, 288, (g) => {
+    g.fillStyle = '#f2c230'; g.fillRect(0, 0, 1024, 288); g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(0, 270, 1024, 18);
+    g.strokeStyle = '#5a4a3a'; g.fillStyle = '#5a4a3a'; g.lineWidth = 5; g.beginPath(); g.arc(150, 150, 50, Math.PI, 0); g.stroke();
+    for (let i = 0; i < 9; i++) { const a = Math.PI + i * Math.PI / 8; g.beginPath(); g.moveTo(150 + Math.cos(a) * 62, 150 + Math.sin(a) * 62); g.lineTo(150 + Math.cos(a) * 84, 150 + Math.sin(a) * 84); g.stroke(); }
+    g.fillRect(70, 150, 160, 5); g.font = '700 18px Georgia,serif'; g.textAlign = 'center'; g.fillText('HAVE A NICE DAY', 150, 182);
+    g.font = font(120); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('陽光煎匙', 280, 135);
+    g.font = font(36, 700); g.textAlign = 'right'; g.fillText('手作、新鮮、早午餐', 980, 236);
   }),
-  layaVert: () => sg('cnLayaV', 160, 640, (g) => {
-    g.fillStyle = '#f7c531'; g.fillRect(0, 0, 160, 640); g.fillStyle = '#c62026'; g.font = '900 italic 56px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    [...'LAYA'].forEach((ch, i) => g.fillText(ch, 80, 70 + i * 90)); g.font = '900 30px Arial'; g.fillText('BURGER', 80, 450); g.font = font(40); g.fillText('漢堡', 80, 560);
+  hutSign: () => sg('cnHutSign', 128, 128, (g) => {
+    g.clearRect(0, 0, 128, 128); g.fillStyle = '#1e1e1e'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill(); g.fillStyle = '#f4f1ea'; g.beginPath(); g.arc(64, 64, 50, 0, 7); g.fill();
+    g.fillStyle = '#1e1e1e'; g.beginPath(); g.arc(50, 58, 6, 0, 7); g.arc(78, 58, 6, 0, 7); g.fill(); g.lineWidth = 5; g.strokeStyle = '#1e1e1e'; g.beginPath(); g.arc(64, 70, 18, 0.2, Math.PI - 0.2); g.stroke();
   }),
+  reed: () => ctex('cnReed', 64, 64, (g) => { g.fillStyle = '#b58a4a'; g.fillRect(0, 0, 64, 64); const r = lcg(97); for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(${90 + r() * 60 | 0},${60 + r() * 40 | 0},20,.5)`; g.fillRect(r() * 64, 0, 1.5, 64); } }),
 };
 function buildDarenCorner(I, scene) {
   const S = DAREN_SPEC, { MR, FRONT, shopGlass, ac, win, blade, shell } = rowTools();
@@ -2855,35 +2862,162 @@ function buildDarenCorner(I, scene) {
     k.plane(CT.lattice(), 1.8, 1.4, w / 2, top + 1.4, 1.98, FRONT);
     k.box(0.9, w - 0.9, top + 2.6, top + 2.75, 1.4, d, MR.roof, { col: false });
   }
-  // ---------- 溫州大餛飩 (older 3-floor house, yellow sign, steaming counter) ----------
+  // ---------- 信義房屋 本透店: 4 floors, a row of AC units on the tin canopy, green window hoods, for-sale board ----------
   {
-    const { k, w, d } = lot('B', 'wonton'), F = 3.1, top = 9.3;
-    shell(k, w, d, top, MR.grime, [3, 3]);
-    k.box(0.05, w - 0.05, 2.45, 3.25, -0.3, 0, '#f6d23a', { col: false });
-    k.plane(CT.wonton(), w - 0.15, 0.75, w / 2, 2.85, -0.31, FRONT, { emissive: 0.35 });
-    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('wonton', '#f4e7cf', '#8a6a44', 71));
-    k.box(0.5, 2.3, 0, 0.95, -0.9, -0.2, 'steel', { col: false });                      // the cooking counter at the front
-    for (const x of [0.9, 1.6]) k.cyl(x, -0.55, 0.22, 0.95, 1.3, 'steel', { seg: 12 });
-    k.box(0, w, 2.3, 2.4, -1.0, 0, '#c9c9c4', { col: false });
-    for (let f = 1; f < 3; f++) { const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3); ac(k, 0.3, y + 0.2); }
+    const { k, w, d } = lot('B', 'sinyi'), F = 3.1, top = 12.4;
+    shell(k, w, d, top, MC.beige);
+    k.box(-0.05, w + 0.05, 2.6, 2.72, -1.1, 0, MR.roof, { col: false });                             // tin canopy
+    for (let i = 0; i < 4; i++) ac(k, 0.3 + i * 1.15, 2.72, -0.95);
+    k.plane(ROWT.shutter(), w - 0.6, 2.4, w / 2, 1.2, -0.02, FRONT);
+    k.plane(CT.sinyi(), 2.2, 1.65, w / 2 + 0.4, 1.25, -0.06, FRONT);
+    for (let f = 1; f < 4; f++) {
+      const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3);
+      k.box(0.5, w - 0.5, y + 2.3, y + 2.4, -0.6, 0, MC.teal, { col: false });
+    }
   }
-  // ---------- LAYA BURGER 拉亞漢堡 (red sign, yellow vertical blade) ----------
+  // ---------- 陽光煎匙: red-brick 4 floors with green iron window hoods, the big yellow sign, glass front and plants ----------
   {
-    const { k, w, d } = lot('B', 'laya'), F = 3.1, top = 9.3;
-    shell(k, w, d, top, MR.mosaic);
-    k.box(0.05, w - 0.05, 2.45, 3.25, -0.3, 0, '#c62026', { col: false });
-    k.plane(CT.laya(), w - 0.15, 0.75, w / 2, 2.85, -0.31, FRONT, { emissive: 0.35 });
-    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('laya', '#fbe9c6', '#c62026', 73));
-    for (let f = 1; f < 3; f++) { const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3, false); ac(k, w - 1.2, y + 0.2); }
-    tallBlade(k, CT.layaVert(), w - 0.2, 3.4, 7.2, 0.9);
+    const { k, w, d } = lot('B', 'sunny'), F = 3.1, top = 12.4;
+    shell(k, w, d, top, MR.brick, [1.5, 1.5]);
+    k.box(0.05, w - 0.05, 2.45, 4.0, -0.35, 0, '#f2c230', { col: false });
+    k.plane(CT.sunny(), w - 0.15, 1.5, w / 2, 3.22, -0.36, FRONT, { emissive: 0.3 });
+    k.box(-0.05, w + 0.05, 2.35, 2.45, -0.9, 0, '#3a3530', { col: false });
+    shopGlass(k, 0.3, w - 1.4, 0, 2.3, ROWT.shop('sunny', '#f6ead2', '#a07a4a', 83));
+    k.plane(YHT.win(), 0.9, 2.2, w - 0.85, 1.1, -0.03, FRONT);                                      // iron gate to the stairs
+    for (const x of [1.0, 3.2]) { k.cyl(x, -0.55, 0.18, 0, 0.45, '#6b4a2a', { seg: 10 }); k.cyl(x, -0.55, 0.4, 0.45, 1.2, MR.plant, { r1: 0.2, seg: 8 }); }
+    for (let f = 2; f < 4; f++) {
+      const y = f * F; for (const x of [1.4, w - 1.6]) { win(k, x, y + 1.5, 1.8, 1.3); k.box(x - 1.0, x + 1.0, y + 2.3, y + 2.4, -0.55, 0, MC.teal, { col: false }); }
+    }
+    ac(k, 0.3, F + 1.2);
+  }
+  // ---------- a small reed-roofed kiosk with a round sign, in front of 戈登肉鋪's corner ----------
+  {
+    const { k, w, d } = lot('B', 'hut');
+    k.box(0.2, w - 0.2, 0, 2.4, 0.6, d, MR.white);
+    k.box(-0.2, w + 0.2, 2.4, 2.6, -0.8, d, def('cnReedM', () => std({ map: CT.reed() })), { col: false });
+    shopGlass(k, 0.5, w - 0.5, 0, 2.0, ROWT.shop('hut', '#f1e6cc', '#7a5a3a', 89), 0.58);
+    k.box(0.6, 2.2, 0.4, 0.45, -0.5, -0.2, '#b8232a', { col: false });                              // red bench
+    for (const x of [0.65, 2.15]) k.box(x, x + 0.05, 0, 0.4, -0.45, -0.25, '#b8232a', { col: false });
+    blade(k, CT.hutSign(), 0.3, 3.0, 0.7, 0.5);
   }
   // ---------- concrete aprons along both streets ----------
   {
     const kA = kits[0], kB = kits[1];
     // the kerbside 1.8 m along 中北路 is its green walkway (js/map.js): concrete only behind it
     if (S.apronA > 1.85) kA.box(-17.8, 0.3, -0.5, 0.05, -(S.apronA - 1.8), 0, MR.concrete, { col: false, surface: true });
-    kB.box(-0.3, 27, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
+    kB.box(-0.3, 35, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
   }
+  for (const k of kits) k.finish(scene);
+}
+
+// =====================================================================
+// 大仁街, past 戈登肉鋪: rows of 4–7 floor 公寓 with shops on the ground floor, laid out from Google street view
+// (2026-05) and the OSM shop names. A generic street-house kit: each lot is a row in DAREN_ST.lots
+//   [s0, s1, side, spec]  s = metres along 大仁街 from 中北路, side +1 = right walking from 中北路, -1 = left
+//   spec: nf floors, fh floor height, d depth, wall (WALL key), sign [text, bg, fg, sub?] or null,
+//         ground 'shop' | 'shutter' | 'gate', awn awning colour, hood window-hood colour, bal 'grille' | 'cage' | 'open',
+//         vert [text, bg, fg] tall blade sign, roof 'shack' | 'tank'
+// Each lot is its own Kit squared to the street at its middle, facade SET metres off the centre line.
+// =====================================================================
+export const DAREN_ROAD = [[-225.2, 90.3], [-183.9, 114.8], [-171.0, 157.2], [-167.7, 165.0], [-121.4, 210.9], [-97.7, 233.9], [-79.8, 254.6], [-75.6, 259.8], [-64.6, 270.5], [-60.8, 274.2], [-53.7, 283.3], [-31.8, 301.3], [24.5, 348.8]];
+const DAREN_SET = 4.3, DAREN_APRON = 1.8;
+export const DAREN_ST = {
+  drop: ['f1552', 'f1553', 'f1554', 'f1555', 'f1556', 'f1557'], // generic filler houses these lots replace
+  lots: [
+    // right side after 戈登肉鋪
+    [60, 64.6, 1, { nf: 5, wall: 'grey', sign: ['原泰阿杜', '#1d1a17', '#e8c27a', '音樂餐酒館'], ground: 'shop', awn: '#2a2522', bal: 'cage' }],
+    [64.6, 69, 1, { nf: 5, wall: 'tile', sign: ['餡實餃色', '#c0392b', '#ffffff'], ground: 'shop', bal: 'grille', hood: '#4aa597' }],
+    [69, 75, 1, { nf: 5, wall: 'beige', sign: ['大三元麻將會館', '#8a1414', '#f4c64a'], ground: 'gate', bal: 'cage', vert: ['麻將', '#8a1414', '#f4c64a'] }],
+    [75, 80.2, 1, { nf: 4, wall: 'tile', sign: ['丸冰', '#f3f1ec', '#555046', "maru's ice"], ground: 'shop', awn: '#e8e4da', bal: 'grille', hood: '#4aa597' }],
+    [80.2, 85.6, 1, { nf: 5, wall: 'grey', sign: null, ground: 'shutter', awn: '#3f8a6a', bal: 'cage', hood: '#4aa597', roof: 'shack' }],
+    [85.6, 91.5, 1, { nf: 5, wall: 'pinkGrey', sign: null, ground: 'gate', awn: '#3f8a6a', bal: 'grille' }],
+    // left side, from where the campus fence ends to the bend
+    [59, 63.5, -1, { d: 7, nf: 5, wall: 'tile', sign: ['薰衣草', '#6b3fa0', '#ffffff', '韓式海苔飯捲'], ground: 'shop', awn: '#3c4f8a', bal: 'cage', hood: '#3f8a6a' }],
+    [63.5, 68, -1, { nf: 5, wall: 'tile', sign: ['大圖輸出', '#2a63b8', '#ffffff'], ground: 'shop', awn: '#2a63b8', bal: 'cage', hood: '#3f8a6a' }],
+    [68, 73.5, -1, { nf: 5, wall: 'tile', sign: ['瑞麟美而美', '#d0202a', '#ffffff'], ground: 'shop', awn: '#2a63b8', bal: 'cage', hood: '#3f8a6a' }],
+    [73.5, 78.5, -1, { nf: 5, wall: 'tile', sign: null, ground: 'shutter', bal: 'cage', hood: '#3f8a6a', roof: 'tank' }],
+    [78.5, 84, -1, { nf: 5, wall: 'grey', sign: ['沐樂食堂', '#2f2a26', '#f0d9a8'], ground: 'shop', awn: '#3a3530', bal: 'cage' }],
+    [84, 88.5, -1, { nf: 4, wall: 'grime', sign: null, ground: 'gate', bal: 'grille', roof: 'shack' }],
+    [88.5, 94, -1, { nf: 7, fh: 3.0, wall: 'beige', sign: ['墨爾漢堡', '#ffffff', '#222222'], ground: 'shop', awn: '#c62026', bal: 'grille' }],
+  ],
+};
+function darenAt(s) {
+  const R = DAREN_ROAD; let acc = 0;
+  for (let i = 0; i < R.length - 1; i++) {
+    const a = R[i], b = R[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (s <= acc + L || i === R.length - 2) { const t = (s - acc) / L; return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t, ux: (b[0] - a[0]) / L, uz: (b[1] - a[1]) / L }; }
+    acc += L;
+  }
+}
+// local frame of one lot: origin at its start corner on the facade line, +x along the facade (towards s0 on the
+// left side so the facade faces the street), +z away from the street
+function darenLotFrame([s0, s1, side]) {
+  const m = darenAt((s0 + s1) / 2), w = s1 - s0, nx = -m.uz * side, nz = m.ux * side;
+  const ax = side > 0 ? m.ux : -m.ux, az = side > 0 ? m.uz : -m.uz;
+  return { ox: m.x + nx * DAREN_SET - ax * w / 2, oz: m.z + nz * DAREN_SET - az * w / 2, ang: Math.atan2(az, ax), w };
+}
+export function darenStreetFootprints() {
+  return DAREN_ST.lots.map((L) => {
+    const { ox, oz, ang, w } = darenLotFrame(L), c = Math.cos(ang), s = Math.sin(ang), d = L[3].d || 10;
+    const p = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
+    return [p(-0.1, -DAREN_APRON - 0.2), p(w + 0.1, -DAREN_APRON - 0.2), p(w + 0.1, d), p(-0.1, d)];
+  });
+}
+const genSign = (text, bg, fg, sub) => sg('dsSign_' + text + bg, 1024, 192, (g) => {
+  g.fillStyle = bg; g.fillRect(0, 0, 1024, 192); g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  let px = 116; g.font = font(px); while (g.measureText(text).width > 940 && px > 40) { px -= 4; g.font = font(px); }
+  g.fillText(text, 512, sub ? 80 : 98);
+  if (sub) { g.font = font(30, 700); g.fillText(sub, 512, 162); }
+});
+function buildDarenStreet(I, scene) {
+  const { MR, FRONT, shopGlass, ac, win, shell } = rowTools();
+  const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
+  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+  const WALL = {
+    tile: def('dsTile', () => std({ map: YHT.facade(), color: '#f0efea' })),
+    beige: def('dsBeige', () => std({ map: YHT.facade(), color: '#eadfc6' })),
+    grey: def('dsGrey', () => std({ map: YHT.facade(), color: '#c9c8c2' })),
+    pinkGrey: def('dsPinkGrey', () => std({ map: YHT.facade(), color: '#e3cfc9' })),
+    grime: MR.grime, brick: MR.brick, mosaic: MR.mosaic,
+  };
+  const kits = [];
+  DAREN_ST.lots.forEach((L, i) => {
+    const sp = L[3], { ox, oz, ang, w } = darenLotFrame(L), r = lcg(1000 + i * 7);
+    const k = new Kit(I, ox, oz, ang); kits.push(k);
+    const F = sp.fh || 3.0, nf = sp.nf || 5, top = F * nf, d = sp.d || 10;
+    shell(k, w, d, top, WALL[sp.wall] || WALL.tile);
+    for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false });       // party-wall edges
+    // ground floor
+    if (sp.sign) {
+      const [text, bg, fg, sub] = sp.sign;
+      k.box(0.05, w - 0.05, 2.45, 3.25, -0.28, 0, bg, { col: false });
+      k.plane(genSign(text, bg, fg, sub), w - 0.15, 0.75, w / 2, 2.85, -0.29, FRONT, { emissive: 0.35 });
+    } else k.box(0.05, w - 0.05, 2.45, 2.9, -0.06, 0, '#d8d6cf', { col: false });
+    if (sp.awn) k.box(-0.05, w + 0.05, 2.3, 2.42, -1.2, 0, sp.awn, { col: false });
+    const doorW = 1.0;                                                                                         // stair door to the flats upstairs
+    k.plane(YHT.win(), doorW - 0.1, 2.2, w - doorW / 2 - 0.1, 1.1, -0.03, FRONT);
+    if (sp.ground === 'shop') shopGlass(k, 0.15, w - doorW - 0.2, 0, 2.3, ROWT.shop('ds' + i, ['#f4e7cf', '#eef2f4', '#f6ead2', '#f1dcb8'][i % 4], ['#8a6a44', '#7f858c', '#a07a4a', '#6b4a2a'][i % 4], 200 + i));
+    else if (sp.ground === 'gate') { k.plane(ROWT.shutter(), w - doorW - 0.4, 2.3, (w - doorW) / 2, 1.15, -0.02, FRONT); k.plane(YHT.win(), w - doorW - 0.5, 2.1, (w - doorW) / 2, 1.05, -0.05, FRONT); }
+    else k.plane(ROWT.shutter(), w - doorW - 0.4, 2.3, (w - doorW) / 2, 1.15, -0.02, FRONT);
+    if (r() < 0.6) for (let j = 0; j < 2; j++) k.box(0.4 + j * 0.9 + r() * 0.3, 0.9 + j * 0.9 + r() * 0.3, 0, 0.55 + r() * 0.3, -0.9, -0.4, ['#3f7a4c', '#2f6db3', '#c9c9c4'][(i + j) % 3], { col: false });
+    // upper floors
+    for (let f = 1; f < nf; f++) {
+      const y = f * F, ww = w - 1.0;
+      if (sp.bal === 'cage') {                                                                                 // iron balcony cage sticking out
+        win(k, w / 2, y + 1.45, ww - 0.4, 1.4, false);
+        k.box(0.3, w - 0.3, y + 0.05, y + 0.15, -0.75, 0, 'metal', { col: false });
+        k.box(0.3, w - 0.3, y + 2.55, y + 2.62, -0.75, 0, 'metal', { col: false });
+        for (let x = 0.3; x <= w - 0.29; x += 0.18) k.box(x, x + 0.025, y + 0.15, y + 2.55, -0.75, -0.72, 'metal', { col: false });
+      } else if (sp.bal === 'open') { k.box(0.3, w - 0.3, y, y + 0.9, -0.8, -0.7, WALL[sp.wall] || WALL.tile, { col: false }); win(k, w / 2, y + 1.6, ww, 1.6, false); }
+      else win(k, w / 2, y + 1.5, ww, 1.35);
+      if (sp.hood) k.box(0.4, w - 0.4, y + 2.25, y + 2.33, -0.65, 0, sp.hood, { col: false });
+      if (r() < 0.7) ac(k, r() < 0.5 ? 0.25 : w - 1.05, y + 0.1 + (r() < 0.5 ? 0 : 1.9), sp.bal === 'cage' ? -1.2 : -0.45);
+    }
+    if (sp.vert) { const [text, bg, fg] = sp.vert; for (const sd of [-1, 1]) k.plane(ROWT.vert('ds' + text, bg, fg, text), 0.6, 0.6 * text.length + 0.2, 0.25 + sd * 0.04, F + 0.4 + (0.6 * text.length + 0.2) / 2, -0.55, sd * Math.PI / 2, { emissive: 0.3 }); }
+    if (sp.roof === 'shack') { k.box(0.4, w - 0.4, top + 0.12, top + 2.2, 2.0, d - 0.5, MR.roof, { col: false }); k.box(0.2, w - 0.2, top + 2.2, top + 2.3, 1.4, d, MR.roof, { col: false }); }
+    else if (sp.roof === 'tank') k.cyl(w / 2, d - 2, 0.6, top + 0.12, top + 1.5, '#d8d8d0', { seg: 12 });
+    k.box(-0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete, { col: false, surface: true });
+  });
   for (const k of kits) k.finish(scene);
 }
 
@@ -3064,6 +3198,7 @@ export function buildInteriors(scene, data, collision) {
   I.tea = buildTeaShop(I, scene);
   buildTeaRow(I, scene);
   buildDarenCorner(I, scene);
+  buildDarenStreet(I, scene);
   I.gordon = buildGordon(I, scene);
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;

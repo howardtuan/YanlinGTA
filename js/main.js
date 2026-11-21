@@ -6,7 +6,7 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -105,7 +105,8 @@ class Game {
     const keepSyn = o => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
     for (const k of ['buildings', 'areas', 'barriers']) data[k] = data[k].filter(keepSyn);
     // the shop row at the 中北路 / 大仁街 corner (interiors.js buildDarenCorner) replaces this filler house
-    data.buildings = data.buildings.filter(b => b.id !== 'f1558');
+    const DROP = new Set(['f1558', ...DAREN_ST.drop]); // …and the 大仁街 street rows (buildDarenStreet) these filler houses
+    data.buildings = data.buildings.filter(b => !DROP.has(b.id));
     // custom-built enterable buildings replace these OSM footprints
     for (const b of data.buildings) {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
@@ -120,10 +121,10 @@ class Game {
       }
     }
     // that building carries its own shop sign
-    const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美']); // shop rows on 中北路 / 大仁街 (js/interiors.js buildTeaRow, buildDarenCorner)
+    const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美', '陽光煎匙', '吉野烤肉飯', '原泰阿杜 音樂餐酒館', '餡實餃色', '桃園中壢大三元麻將會館', "丸冰 maru's ice", '薰衣草-韓式海苔飯捲', '瑞麟美而美', '沐樂食堂', '墨爾漢堡']); // shop rows on 中北路 / 大仁街 (js/interiors.js buildTeaRow, buildDarenCorner)
     for (const p of data.pois) if (OWN_SIGN.has(p.name)) p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
+    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {

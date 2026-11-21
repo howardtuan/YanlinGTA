@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildWorld, buildSkyline, mulberry32, makeLabel } from './map.js';
-import { Vehicle, sameLevel } from './vehicles.js';
+import { Vehicle, sameLevel, bodyGap } from './vehicles.js';
 import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
@@ -783,7 +783,7 @@ class Game {
     else if (!act && !pl.seat && !inDialog && !pl.frozen && inp.hit('KeyE')) { this.openPhone(); inp.pressed.delete('KeyE'); }
 
     // ---- vehicle enter / exit ----
-    if (!pl.frozen && !pl.seat && pl.y < 1 && inp.hit('KeyF')) {
+    if (!pl.frozen && !pl.seat && !pl.tumble && pl.y < 1 && inp.hit('KeyF')) {
       if (pl.vehicle) {
         if (Math.abs(pl.vehicle.speed) < 6) { this.audio.engineStop(pl.vehicle.kind); pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); this.audio.mount(); }
         else hud.toast('先減速才能下車！', 'bad');
@@ -805,14 +805,18 @@ class Game {
       const others = [...this.traffic.vehicles(), ...this.race.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
       v.drive(dt, { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') }, w.collision, others, (imp) => { this.audio.bump(imp / 3); this.rig.cur.y += Math.min(0.3, imp * 0.02); });
       pl.ch.update(dt, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
-      // hit pedestrians
+      // hit pedestrians (touching the vehicle body): thrown along the way the vehicle goes, a bit off to their side
       const sp = Math.abs(v.speed);
       if (sp > 3) for (const p of this.peds.active()) {
-        if (Math.hypot(p.pos.x - v.pos.x, p.pos.z - v.pos.z) < v.radius + 0.45 && sameLevel(p.y, v.mesh.position.y)) {
-          const [fx, fz] = v.forward();
-          if (this.peds.knock(p, fx, fz)) { this.audio.hitPed(); this.addVotes(-1, '撞到同學了！-1 票 😵'); v.speed *= 0.7; }
+        const b = bodyGap(v, p.pos.x, p.pos.z);
+        if (b.gap < 0.35 && sameLevel(p.y, v.mesh.position.y)) {
+          const [fx, fz] = v.forward(), sg = Math.sign(v.speed) || 1, ox = p.pos.x - b.qx, oz = p.pos.z - b.qz, ol = Math.hypot(ox, oz) || 1;
+          let dx = fx * sg + ox / ol * 0.4, dz = fz * sg + oz / ol * 0.4; const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+          if (this.peds.knock(p, dx, dz, sp)) { this.audio.hitPed(); this.addVotes(-1, '撞到同學了！-1 票 😵'); v.speed *= v.kind === 'scooter' ? 0.55 : 0.8; }
         }
       }
+      // a hard crash into a wall / tree / car throws you off the scooter (js/vehicles.js CRASH_THROW)
+      if (v.crash && v.kind === 'scooter') { this._throwOff(v); return; }
       if (!pl.frozen && inp.hit('KeyH')) { this.audio.horn(v.kind === 'scooter' ? 1.3 : 1); this.peds.scare(v.pos.x, v.pos.z, 14); }
       this.audio.setEngine(true, Math.min(1, sp / v.maxSpeed), v.kind); this.audio.skid(v.drifting ? Math.min(1, sp / 14) : 0);
       hud.setSpeed(sp * 3.6);
@@ -831,13 +835,14 @@ class Game {
       }
       // push out of vehicles
       for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
-        const dx = pl.pos.x - v.pos.x, dz = pl.pos.z - v.pos.z, rr = v.radius * (v.kind === 'scooter' ? 0.9 : 1) + 0.35, d = Math.hypot(dx, dz);
-        if (d < rr && d > 1e-4) { pl.pos.x = v.pos.x + dx / d * rr; pl.pos.z = v.pos.z + dz / d * rr; }
+        if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1) continue;
+        const b = bodyGap(v, pl.pos.x, pl.pos.z), rr = v.hw + 0.35;
+        if (b.gap < 0.35) { const dx = pl.pos.x - b.qx, dz = pl.pos.z - b.qz, d = Math.hypot(dx, dz); if (d > 1e-4) { pl.pos.x = b.qx + dx / d * rr; pl.pos.z = b.qz + dz / d * rr; } }
       }
       hud.setSpeed(null);
       this.headlight.intensity = 0;
       // flyer handout
-      if (!pl.frozen && !pl.seat && inp.hit('Mouse0')) this._flyer();
+      if (!pl.frozen && !pl.seat && !pl.tumble && inp.hit('Mouse0')) this._flyer();
       if (!pl.frozen && inp.hit('KeyG')) { pl.setPose('peace', 1.6); this.audio.pop(); }
     }
     this.playerLight.intensity = this.night * 6;
@@ -845,7 +850,7 @@ class Game {
     this.playerLight.position.set(wp.x, (pl.vehicle ? pl.vehicle.mesh.position.y : surfaceAt(wp.x, wp.z) + pl.y) + 3, wp.z);
 
     // ---- prompts ----
-    if (!pl.vehicle && !pl.frozen) {
+    if (!pl.vehicle && !pl.frozen && !pl.tumble) {
       const v = pl.y < 1 && !pl.seat ? this._nearestVehicle(3.2) : null;
       const p = this._nearestPed(3.5);
       if (act) hud.setPrompt(act.label(this));
@@ -922,6 +927,20 @@ class Game {
       if (d < bd && (!v.ai || Math.abs(v.speed) < 8)) { bd = d; best = v; }
     }
     return best;
+  }
+  // crash: the rider goes on over the handlebars, glancing off what was hit, tumbles and lies
+  // there a moment; the scooter drops on its side where it stopped (ride it again with F)
+  _throwOff(v) {
+    const pl = this.player, c = v.crash, s = c.speed, [fx, fz] = v.forward();
+    this.audio.engineStop(v.kind); this.audio.setEngine(false, 0); this.audio.skid(0); this.audio.bump(2.5);
+    pl.exit(this.scene, this.world.collision);
+    const y = v.mesh.position.y;
+    pl.pos.set(v.pos.x + fx * 0.3, y, v.pos.z + fz * 0.3); pl.heading = v.heading;
+    v.speed = 0; v.fallen = true; v.sync();
+    const d = fx * c.nx + fz * c.nz, k = s * 0.45;
+    pl.throwOff((fx - 1.2 * d * c.nx) * k, (fz - 1.2 * d * c.nz) * k, 3 + s * 0.22, 2.2);
+    this.hud.setSpeed(null); this.headlight.intensity = 0;
+    this.hud.toast(`摔車了！😵（撞擊時速 ${Math.round(c.impact * 3.6)} km/h）`, 'bad', 2600);
   }
   _nearestPed(r) {
     const p = this.player.pos; let best = null, bd = r;

@@ -31,6 +31,7 @@ export class Player {
       this.pos.set(this.seat.x, this.y + surfaceAt(this.seat.x, this.seat.z), this.seat.z); this.heading = this.seat.h; this.ch.root.rotation.y = this.heading;
       this.speed = 0; this.ch.update(dt, { mode: 'sit' }); return;
     }
+    if (this.tumble > 0) { this._tumble(dt, collision, interiors); return; }
     // feet height last frame; the level under the feet (js/terrain.js grade separations)
     const feet = this.pos.y, surf0 = feet - this.y;
     const ax = this.frozen ? { x: 0, y: 0 } : input.axis();
@@ -82,8 +83,35 @@ export class Player {
     if (this.speed > 0.6 && this.y <= this.ground + 0.02 && foot !== this.lastFoot && !this.sfx) this.sfx = 'step';
     this.lastFoot = foot;
   }
+  // thrown off the scooter (js/main.js): fly with velocity (vx, vz) and vy for t seconds of no
+  // control, tumbling in the air, sliding to a stop, lying down until t runs out
+  throwOff(vx, vz, vy, t) { this.vel.set(vx, vz); this.vy = vy; this.y = Math.max(this.y, 0.6); this.tumble = t; this.spin = 0; this.speed = 0; }
+  _tumble(dt, collision, interiors) {
+    this.tumble -= dt;
+    const feet = this.pos.y, surf0 = feet - this.y;
+    const ground = interiors ? interiors.groundAt(this.pos.x, this.pos.z, this.y) : 0;
+    const onGround = this.y <= ground + 0.02 && this.vy <= 0;
+    if (onGround) { const k = Math.max(0, 1 - dt * 5); this.vel.x *= k; this.vel.y *= k; }
+    const mx = this.vel.x * dt, mz = this.vel.y * dt, steps = Math.max(1, Math.ceil(Math.hypot(mx, mz) / 0.19));
+    for (let i = 0; i < steps; i++) {
+      this.pos.x += mx / steps; this.pos.z += mz / steps;
+      const r = collision.resolve(this.pos, 0.38, this.y);
+      if (r.hit) { const d = this.vel.x * r.nx + this.vel.y * r.nz; if (d < 0) { this.vel.x -= 1.3 * d * r.nx; this.vel.y -= 1.3 * d * r.nz; } }
+    }
+    const surf = surfaceAt(this.pos.x, this.pos.z, feet);
+    if (surf < surf0 - 0.5) this.y += surf0 - surf;
+    this.vy -= 16 * dt; this.y += this.vy * dt;
+    if (this.y < ground) { if (this.vy < -3.5) { this.sfx = 'land'; this.landImpact = -this.vy / 6; } this.y = ground; this.vy = 0; }
+    this.ground = ground;
+    this.pos.y = this.y + surf;
+    this.speed = 0;
+    if (this.y > ground + 0.05) this.spin += dt * 8; else this.spin = 0;
+    this.ch.root.rotation.set(this.spin, this.heading, 0);
+    this.ch.update(dt, { mode: 'down' });
+    if (this.tumble <= 0) { this.tumble = 0; this.vel.set(0, 0); this.ch.root.rotation.set(0, this.heading, 0); }
+  }
   enter(v) {
-    this.vehicle = v; v.driver = 'player';
+    this.vehicle = v; v.driver = 'player'; v.fallen = false;
     v.mesh.add(this.ch.root);
     this.ch.root.position.copy(v.seat); this.ch.root.rotation.set(0, 0, 0);
     this.pos = this.ch.root.position; // local now

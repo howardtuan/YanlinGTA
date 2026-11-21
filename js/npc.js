@@ -182,7 +182,21 @@ export class Peds {
       if (dPl > 120) { p.dormant = true; p.ch.root.visible = false; continue; }
       p.t -= dt;
       let mode = 'foot', pose = null, speed = 0;
-      if (p.state === 'down') {
+      if (p.state === 'fly') {
+        mode = 'down';
+        const steps = Math.max(1, Math.ceil(Math.hypot(p.vx, p.vz) * dt / 0.2));
+        for (let k = 0; k < steps; k++) {
+          p.pos.x += p.vx * dt / steps; p.pos.z += p.vz * dt / steps;
+          const r = collision.resolve(p.pos, 0.35, p.air, p.ch.root.position.y);
+          if (r.hit) { const d = p.vx * r.nx + p.vz * r.nz; if (d < 0) { p.vx -= 1.4 * d * r.nx; p.vz -= 1.4 * d * r.nz; } } // bounce off walls
+        }
+        p.vy -= 16 * dt; p.air += p.vy * dt;
+        if (p.air <= 0) {
+          p.air = 0; p.vy = 0; p.spin = 0;
+          const k = Math.max(0, 1 - dt * 6); p.vx *= k; p.vz *= k; // slides along the ground
+          if (Math.hypot(p.vx, p.vz) < 0.3) p.state = 'down';
+        } else p.spin += dt * 9;
+      } else if (p.state === 'down') {
         mode = 'down';
         if (p.t <= 0) { p.state = 'flee'; p.t = 3; }
       } else if (p.state === 'flee') {
@@ -218,18 +232,22 @@ export class Peds {
       }
       // walkers on a footbridge / viaduct way use its deck, others keep their level
       p.y = surfaceAt(p.pos.x, p.pos.z, p.state === 'walk' && p.edge.road.deck ? Infinity : p.y);
-      p.ch.root.position.set(p.pos.x, p.y, p.pos.z);
+      p.ch.root.position.set(p.pos.x, p.y + (p.state === 'fly' ? p.air : 0), p.pos.z);
       p.ch.root.rotation.y = p.heading;
+      p.ch.root.rotation.x = p.state === 'fly' ? p.spin : 0; // tumbling through the air
       const vr = 80 * (this.viewK ?? 1); // shorter on lower quality (main.js _applyQuality)
       p.ch.root.visible = dPl < vr;
       p.ch.setDetail(dPl < 16);
       if (dPl < vr) p.ch.update(dt, { speed, mode, pose });
     }
   }
-  knock(p, dirX, dirZ) {
-    if (p.state === 'down') return false;
-    p.state = 'down'; p.t = 2.5;
-    p.pos.x += dirX * 1.5; p.pos.z += dirZ * 1.5;
+  // hit by a vehicle going speed m/s along (dirX, dirZ): thrown up and forward, tumbling,
+  // slides to a stop on landing, lies there (state 'down'), then gets up and runs off
+  knock(p, dirX, dirZ, speed = 6) {
+    if (p.state === 'down' || p.state === 'fly') return false;
+    const s = Math.min(22, Math.max(3, speed));
+    p.state = 'fly'; p.t = 2.5;
+    p.vx = dirX * s * 0.75; p.vz = dirZ * s * 0.75; p.vy = 2.2 + s * 0.28; p.air = 0.1; p.spin = 0;
     p.heading = Math.atan2(-dirX, -dirZ);
     return true;
   }

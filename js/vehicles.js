@@ -379,6 +379,41 @@ let VID = 0;
 export const SAME_LEVEL = 2.5;
 export const sameLevel = (ya, yb) => Math.abs(ya - yb) < SAME_LEVEL;
 
+// Vehicle body for contacts: a capsule along the heading (centre segment +-(hl - hw), radius hw)
+// fitted to the mesh (scooter 0.8 x 1.8 m, car 1.9 x 4.4 m). v.radius stays the bounding circle
+// the AI look-ahead uses. bodySeg: [ax, az, bx, bz] of the centre segment.
+export function bodySeg(v) {
+  const f = v.hl - v.hw, fx = Math.sin(v.heading) * f, fz = Math.cos(v.heading) * f;
+  return [v.pos.x + fx, v.pos.z + fz, v.pos.x - fx, v.pos.z - fz];
+}
+const closestOn = (px, pz, ax, az, bx, bz) => {
+  const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / l2));
+  return [ax + dx * t, az + dz * t];
+};
+// gap between point (x,z) and the body surface (< 0: inside), and the body point nearest it
+export function bodyGap(v, x, z) {
+  const s = bodySeg(v), q = closestOn(x, z, ...s);
+  return { gap: Math.hypot(x - q[0], z - q[1]) - v.hw, qx: q[0], qz: q[1] };
+}
+// closest points of two segments (a0-a1, b0-b1): [pa, pb]
+function segSeg(a, b) {
+  let best = null, bd = Infinity;
+  const tryP = (pa, pb) => { const d = (pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2; if (d < bd) { bd = d; best = [pa, pb]; } };
+  tryP([a[0], a[1]], closestOn(a[0], a[1], ...b)); tryP([a[2], a[3]], closestOn(a[2], a[3], ...b));
+  tryP(closestOn(b[0], b[1], ...a), [b[0], b[1]]); tryP(closestOn(b[2], b[3], ...a), [b[2], b[3]]);
+  // crossing segments
+  const dx = a[2] - a[0], dz = a[3] - a[1], ex = b[2] - b[0], ez = b[3] - b[1], cr = dx * ez - dz * ex;
+  if (Math.abs(cr) > 1e-9) {
+    const t = ((b[0] - a[0]) * ez - (b[1] - a[1]) * ex) / cr, u = ((b[0] - a[0]) * dz - (b[1] - a[1]) * dx) / cr;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) { const p = [a[0] + dx * t, a[1] + dz * t]; tryP(p, p); }
+  }
+  return best;
+}
+// crash thresholds (m/s of speed into the obstacle): above STOP the vehicle stops dead,
+// above THROW a scooter rider is thrown off (js/main.js)
+export const CRASH_STOP = 4, CRASH_THROW = 7.5;
+
 export class Vehicle {
   constructor(kind, rnd = Math.random, opt = {}) {
     this.id = VID++;
@@ -386,11 +421,11 @@ export class Vehicle {
     const pick = a => a[Math.floor(rnd() * a.length)];
     if (kind === 'scooter') {
       this.mesh = opt.jet ? buildJetSL() : buildCommuter(pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (scooters.js)
-      Object.assign(this, { wb: 1.25, radius: 0.75, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
+      Object.assign(this, { wb: 1.25, radius: 0.75, hl: 0.92, hw: 0.36, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
     } else {
       const taxi = kind === 'taxi';
       this.mesh = buildCar(taxi ? '#ffd000' : pick(CAR_COLORS), taxi);
-      Object.assign(this, { wb: 2.7, radius: 1.35, maxSpeed: 30, accel: 8, brake: 16, turn: 1.7, grip: 6, seat: new THREE.Vector3(0.38, 0.12, -0.2), exitSide: 2.0, label: taxi ? '計程車' : '汽車' });
+      Object.assign(this, { wb: 2.7, radius: 1.35, hl: 2.2, hw: 0.92, maxSpeed: 30, accel: 8, brake: 16, turn: 1.7, grip: 6, seat: new THREE.Vector3(0.38, 0.12, -0.2), exitSide: 2.0, label: taxi ? '計程車' : '汽車' });
     }
     this.pos = new THREE.Vector3();
     this.heading = 0; this.moveAng = 0; this.speed = 0; this.steer = 0; this.lean = 0; this.pitch = 0;
@@ -411,13 +446,27 @@ export class Vehicle {
     this.pitch = dt > 0 ? this.pitch + (pt - this.pitch) * Math.min(1, dt * 10) : pt;
     this.mesh.position.set(this.pos.x, (hf + hb) / 2, this.pos.z);
     this.mesh.rotation.set(this.pitch, this.heading, 0);
-    if (this.kind === 'scooter') {
+    if (this.fallen) this.mesh.rotation.z = 1.32; // dropped after a crash, lying on its side until ridden again
+    else if (this.kind === 'scooter') {
       const targetLean = -this.steer * Math.min(1, Math.abs(this.speed) / 10) * 0.35;
       this.lean += (targetLean - this.lean) * Math.min(1, dt * 6);
       this.mesh.rotation.z = this.lean;
     }
     this.wheelRot += this.speed * dt / 0.3;
     for (const w of this.mesh.userData.wheels) w.rotation.x = this.wheelRot;
+  }
+  // push the body (a row of circles along the capsule, radius hw) out of walls, trees, buildings
+  resolveBody(collision) {
+    const f = this.hl - this.hw, n = Math.max(1, Math.ceil(2 * f / (this.hw * 1.2)));
+    const sx = Math.sin(this.heading), sz = Math.cos(this.heading);
+    let hit = false, nx = 0, nz = 0;
+    for (let it = 0; it < 2; it++) for (let k = 0; k <= n; k++) {
+      const o = -f + 2 * f * k / n, c = { x: this.pos.x + sx * o, z: this.pos.z + sz * o }, cx = c.x, cz = c.z;
+      const r = collision.resolve(c, this.hw, 0, this.mesh.position.y);
+      if (r.hit) { hit = true; nx += r.nx; nz += r.nz; this.pos.x += c.x - cx; this.pos.z += c.z - cz; }
+    }
+    const l = Math.hypot(nx, nz) || 1;
+    return { hit, nx: nx / l, nz: nz / l };
   }
   // player driving physics. inp: {throttle(-1..1), steer(-1..1), handbrake}
   drive(dt, inp, collision, others, onBump) {
@@ -441,33 +490,44 @@ export class Vehicle {
     this.drifting = hb && sp > 6 && Math.abs(d) > 0.2;
     const dx = Math.sin(this.moveAng) * this.speed * dt, dz = Math.cos(this.moveAng) * this.speed * dt;
     // substeps against tunnelling
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (this.radius * 0.5)));
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (this.hw * 0.5)));
     let hitN = null;
+    const v0 = this.speed;
     for (let i = 0; i < steps; i++) {
       this.pos.x += dx / steps; this.pos.z += dz / steps;
-      const r = collision.resolve(this.pos, this.radius, 0, this.mesh.position.y);
+      const r = this.resolveBody(collision);
       if (r.hit) hitN = r;
     }
     this.bumpCooldown -= dt;
+    this.crash = null;
     if (hitN) {
       const fx = Math.sin(this.moveAng), fz = Math.cos(this.moveAng);
-      const impact = -(fx * hitN.nx + fz * hitN.nz) * this.speed;
-      if (impact > 2) { this.speed *= 0.35; if (this.bumpCooldown <= 0) { onBump && onBump(impact); this.bumpCooldown = 0.4; } }
+      const impact = -(fx * hitN.nx + fz * hitN.nz) * v0;
+      if (impact > CRASH_STOP) this.speed = 0; // head into a wall / tree: dead stop
+      else if (impact > 2) this.speed *= 0.35;
       else this.speed *= 0.97;
+      if (impact > 2 && this.bumpCooldown <= 0) { onBump && onBump(impact); this.bumpCooldown = 0.4; }
+      if (impact > CRASH_THROW) this.crash = { impact, speed: Math.abs(v0), nx: hitN.nx, nz: hitN.nz };
     }
     // vehicle-vehicle
     for (const o of others) {
       if (o === this || !sameLevel(this.mesh.position.y, o.mesh.position.y)) continue;
-      const ddx = this.pos.x - o.pos.x, ddz = this.pos.z - o.pos.z, rr = this.radius + o.radius;
-      const d2 = ddx * ddx + ddz * ddz;
-      if (d2 < rr * rr && d2 > 1e-6) {
-        const dd = Math.sqrt(d2), push = rr - dd;
-        this.pos.x += ddx / dd * push * 0.7; this.pos.z += ddz / dd * push * 0.7;
-        o.pos.x -= ddx / dd * push * 0.3; o.pos.z -= ddz / dd * push * 0.3;
-        if (!o.ai) collision.resolve(o.pos, o.radius, 0, o.mesh.position.y); // parked cars / your scooter: don't shove them into walls (AI cars snap back to their lane)
+      if (Math.abs(this.pos.x - o.pos.x) > this.hl + o.hl || Math.abs(this.pos.z - o.pos.z) > this.hl + o.hl) continue;
+      // body against body (capsules), pushed apart along the line between the nearest points
+      const [pa, pb] = segSeg(bodySeg(this), bodySeg(o));
+      let ddx = pa[0] - pb[0], ddz = pa[1] - pb[1], dd = Math.hypot(ddx, ddz);
+      const rr = this.hw + o.hw;
+      if (dd < rr) {
+        if (dd < 1e-4) { ddx = this.pos.x - o.pos.x; ddz = this.pos.z - o.pos.z; dd = Math.hypot(ddx, ddz) || 1; }
+        const nx = ddx / dd, nz = ddz / dd, push = rr - Math.min(dd, rr);
+        this.pos.x += nx * push * 0.7; this.pos.z += nz * push * 0.7;
+        o.pos.x -= nx * push * 0.3; o.pos.z -= nz * push * 0.3;
+        if (!o.ai) o.resolveBody(collision); // parked cars / your scooter: don't shove them into walls (AI cars snap back to their lane)
         o.sync();
+        const fx = Math.sin(this.moveAng), fz = Math.cos(this.moveAng), impact = -(fx * nx + fz * nz) * v0;
         if (Math.abs(this.speed) > 3 && this.bumpCooldown <= 0) { onBump && onBump(Math.abs(this.speed)); this.bumpCooldown = 0.5; }
-        this.speed *= 0.6;
+        this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
+        if (impact > CRASH_THROW && !this.crash) this.crash = { impact, speed: Math.abs(v0), nx, nz };
         if (o.ai) o.ai.stunned = 2;
       }
     }

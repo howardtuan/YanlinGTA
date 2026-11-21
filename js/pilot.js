@@ -61,6 +61,14 @@ export function createPilot() {
 // and shows up again somewhere else later. Hidden whenever he is flying (Airdrop passes busy = true).
 export const PILOT_CALL_VOICE = 'assets/sfx/pilot/voice1.mp3';        // played when you call the helicopter (airdrop.js)
 const PILOT_VOICES = [2, 3, 4].map(n => `assets/sfx/pilot/voice${n}.mp3`); // greeting him on foot: one of these at random
+// greeting him also opens a dialog: one of these jokes at random (question, then the punchline after a key press),
+// always followed by the same closing line
+const PILOT_JOKES = [
+  ['Man 你知道我獲得的最後一個獎是什麼獎嗎？', '螺旋槳'],
+  ['Man, Do you know what bee doesn’t fly?', 'Ko-bee'],
+  ['Man 你知道為什麼我的背號從8號變成24號嗎？', '因為以前一天睡8小時，現在一天睡24小時'],
+];
+const PILOT_JOKE_END = '孩子們，這並不好笑';
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export class CampusPilot {
   constructor(game) {
@@ -87,6 +95,10 @@ export class CampusPilot {
     const p = this.g.player.worldPos();
     this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
     this.pause = Math.max(this.pause, 2.5);
+    let j; do j = Math.floor(Math.random() * PILOT_JOKES.length); while (PILOT_JOKES.length > 1 && j === this._lastJoke);
+    this._lastJoke = j; this.talking = true;
+    const [q, a] = PILOT_JOKES[j];
+    this.g.dialog([['勞大', q], ['勞大', a], ['勞大', PILOT_JOKE_END]], () => { this.talking = false; this.pause = Math.max(this.pause, 1); });
     const len = await this.g.audio.voice(PILOT_VOICES[i], 1, 'pilot');
     if (len && this.on) this.pause = Math.max(this.pause, len + 0.8);
   }
@@ -118,6 +130,7 @@ export class CampusPilot {
     this.life -= dt;
     if (dPl > 170 || (this.life <= 0 && dPl > 60)) { this.hide(); return; } // left behind, or done and out of sight
     let speed = 0;
+    if (this.talking) this.pause = Math.max(this.pause, 0.5); // stays put, facing you, until the dialog is closed
     if (this.pause > 0) {
       this.pause -= dt;
       if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); // turned to you while talking

@@ -86,6 +86,8 @@ export function addBridge(pts, w, opt = {}) {
     return ys[ys.length - 1];
   };
 }
+// every deck / cut / box station (2.5 m segments): js/physworld.js turns them into physics colliders
+export const deckList = () => decks;
 export function clearBridges() { bgrid.clear(); decks.length = 0; levels.length = 0; }
 
 // ---------- height levels: raised pads, stairs and ramps ----------

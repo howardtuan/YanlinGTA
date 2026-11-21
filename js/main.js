@@ -27,6 +27,8 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
+import { Physics } from './physics.js';
+import { buildPhysicsWorld } from './physworld.js';
 
 const $ = id => document.getElementById(id);
 // bind a click handler; a missing element (an older cached index.html) must not stop the game from loading
@@ -71,11 +73,14 @@ class Game {
   async init() {
     setLoad(0.02, '載入地圖資料');
     // terrain is optional: without data/terrain.json the world stays flat
-    // WebAssembly kernels (procedural textures) load alongside; without them the JS versions run
+    // WebAssembly kernels (procedural textures) and the Rapier physics engine load alongside; without
+    // them the JS versions / the game's own collision run
+    this.physics = new Physics();
     const [data, terrain] = await Promise.all([
       fetch('data/cycu.json' + (window.__q || '')).then(r => r.json()),
       fetch('data/terrain.json' + (window.__q || '')).then(r => (r.ok ? r.json() : null)).catch(() => null),
       initKernels(),
+      this.physics.init(),
     ]);
     loadTerrain(terrain);
     this.data = data;
@@ -147,6 +152,10 @@ class Game {
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
     this.interiors = buildInteriors(this.scene, data, this.world.collision);
+    // static physics colliders from the same data (terrain, decks, walls, trunks, interior floors)
+    // (a failure here turns physics off and the game keeps its own collision instead of stopping the load)
+    try { this.physStats = buildPhysicsWorld(this.physics, this.world.collision, this.interiors); }
+    catch (e) { console.warn('物理世界建立失敗，遊戲改用原本的碰撞', e); try { this.physics.world?.free(); } catch (e2) { } this.physics.world = null; }
     await nextFrame();
     setLoad(0.8, '召喚同學與機車');
     this.input = new Input(this.renderer.domElement);
@@ -218,6 +227,7 @@ class Game {
     try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }
     this._menus();
     if (/[?&]perf\b/.test(location.search)) this._perfOverlay();
+    if (/[?&]physdebug\b/.test(location.search)) this.physics.enableDebug(this.scene);
     this.last = performance.now();
     this.state = 'title';
     this.titleT = 0;
@@ -750,6 +760,7 @@ class Game {
     if (this.state === 'title') this._titleCam(dt);
     else if (this.state === 'play') this._update(dt);
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
+    this.physics.update(this.state === 'play' || this.state === 'title' ? dt : 0);
     this._updateSky(dt);
     this._vehicleLod(dt);
     this.world.update(this.time, this.night, this.clock, this.state === 'title' ? this._titlePos : this.player.worldPos());
@@ -788,7 +799,8 @@ class Game {
         if (P.last) P.ms += now - P.last; P.last = now;
         if (now - P.t0 < 500) return;
         const fps = P.ms > 0 ? 1000 * (P.n - 1) / P.ms : 0;
-        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${this.quality}  WASM ${kernelsReady() ? '開' : '關'}\n${gpu}`;
+        const ph = this.physics?.world;
+        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${this.quality}  WASM ${kernelsReady() ? '開' : '關'}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}\n${gpu}`;
         P.n = 0; P.ms = 0; P.t0 = now; P.last = now;
       },
     };

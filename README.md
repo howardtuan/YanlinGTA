@@ -113,7 +113,7 @@ GitHub Pages：Repo → Settings → Pages → Source 選 `main` 分支根目錄
 
 離鏡頭約 30 m 以外的機車和汽車，會改畫一個合併好的簡化模型（一台 1 次繪圖，原本機車約 26 次、汽車約 20 次），近處仍是原本的完整模型。
 
-**效能資訊**：網址加上 `?perf`（例如 `http://localhost:5173/?perf`），畫面左上角會顯示 fps、每格時間、繪圖次數、三角形數、目前畫質和顯示卡名稱。玩家回報卡頓時，請對方開這個網址截圖。
+**效能資訊**：網址加上 `?perf`（例如 `http://localhost:5173/?perf`），畫面左上角會顯示 fps、每格時間、繪圖次數、三角形數、目前畫質和顯示卡名稱。玩家回報卡頓時，請對方開這個網址截圖（也會顯示物理引擎的剛體與碰撞體數量）。
 
 | 畫質 | 視距 | 陰影 | 解析度 | 行人／車流／停車顯示範圍 | 樹木顯示範圍 |
 |---|---|---|---|---|---|
@@ -166,6 +166,8 @@ GitHub Pages：Repo → Settings → Pages → Source 選 `main` 分支根目錄
 | `js/hud.js` / `js/audio.js` / `js/input.js` | 小地圖與大地圖 / 音效與音樂 / 鍵盤滑鼠觸控 |
 | `js/wasm/kernels.js`, `js/wasm/kernels.wasm` | WebAssembly 運算層：目前是程序貼圖的雜訊與法線圖運算（比 JS 快 3～19 倍、輸出逐 byte 相同）。瀏覽器不支援或載入失敗時，自動改用 JS 版（網址加 `?nowasm` 可強制用 JS） |
 | `wasm/kernels/` | 上面那個 `.wasm` 的 Rust 原始碼。`.wasm` 已經放進 repo，所以玩和部署都不需要編譯；改了 Rust 才要執行 `tools/build_wasm.sh` 重新編譯（需先 `rustup target add wasm32-unknown-unknown`），再用 `node tools/check_wasm.mjs` 確認輸出和 JS 版一致 |
+| `js/physics.js`, `js/physworld.js` | 物理引擎（Rapier，Rust 編成的 WebAssembly）：固定每秒 60 步；`physworld.js` 在載入時把地形、橋面、路塹、平台樓梯、建築牆、圍牆、樹幹、室內牆與地板轉成固定的碰撞體。**新增不會動的實心物件**：照舊在建地圖時加進遊戲碰撞（`collision.addPolygon` / `addSegment` / `addCircle`），物理會自動跟著有；載入完才加的要再呼叫 `physics.addStaticBox` / `addStaticCylinder`（見 `js/physics.js` 檔頭）。網址加 `?physdebug` 會畫出所有碰撞體，`?nophysics` 關掉物理；物理載入或建立失敗時遊戲照常用原本的碰撞 |
+| `vendor/rapier/` | Rapier 3D 0.21（`@dimforge/rapier3d-compat`，Apache-2.0）。`rapier.wasm` 是另外的檔案、不需要 npm 或編譯；更新版本：`npm pack @dimforge/rapier3d-compat@<版本>` 解壓後執行 `node tools/vendor_rapier.mjs <package 目錄>` |
 | `data/cycu.json` | 處理過的地圖資料 |
 | `data/terrain.json` | 10 m 地形格網（由內政部 DTM 產生，相對高程 135 m） |
 | `assets/music/yanlin-opera.m4a` | 彥霖歌劇 |

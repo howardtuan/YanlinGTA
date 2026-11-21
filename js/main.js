@@ -29,6 +29,7 @@ import { Friends } from './friends.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
 import { Chassis } from './vehphys.js';
+import { Ragdoll } from './ragdoll.js';
 import { buildPhysicsWorld } from './physworld.js';
 
 const $ = id => document.getElementById(id);
@@ -217,6 +218,9 @@ class Game {
     Vehicle.knock = (o, by, nx, nz, impact) => this._knockVehicle(o, by, nx, nz, impact);
     Vehicle.knockTraffic = (o, by, nx, nz, impact) => this._knockTraffic(o, by, nx, nz, impact);
     // the vehicle you ride gets a physics body (js/vehphys.js) unless ?arcadecar (or no physics)
+    // characters thrown by a hit go limp (js/ragdoll.js) unless ?noragdoll (or no physics)
+    const rag = /[?&]noragdoll\b/.test(location.search) ? null : (ch, vel, spin, opt) => Ragdoll.start(this.physics, ch, vel, spin, opt);
+    this.player.ragdoll = this.peds.ragdoll = this.traffic.ragdoll = rag;
     Vehicle.onRide = (v, on) => {
       // (the stand-ins of the vehicle and of you on foot go first: the new body must not start inside them)
       if (on && this.physics.ready && !/[?&]arcadecar\b/.test(location.search) && !v.body) { this.physics.dropMover(v); this.physics.dropMover(this.player); Chassis.attach(this.physics, v); }
@@ -921,8 +925,8 @@ class Game {
         else if (k === 'jump') this.audio.jump();
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
-      // push out of vehicles
-      for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
+      // push out of vehicles (not while you are a ragdoll: physics moves you then, js/ragdoll.js)
+      if (!pl.rag) for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
         if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1) continue;
         const b = bodyGap(v, pl.pos.x, pl.pos.z), rr = v.hw + 0.35;
         if (b.gap < 0.35) { const dx = pl.pos.x - b.qx, dz = pl.pos.z - b.qz, d = Math.hypot(dx, dz); if (d > 1e-4) { pl.pos.x = b.qx + dx / d * rr; pl.pos.z = b.qz + dz / d * rr; } }
@@ -1062,8 +1066,9 @@ class Game {
     const m1 = vmass(by) + (by.kind === 'scooter' ? 70 : 0), m2 = vmass(o) + (o.rider ? 70 : 0), dv = (1 + KNOCK_E) * m1 / (m1 + m2) * impact;
     if (dv < 1.5) return;
     const [fx, fz] = o.forward();
-    if (o.rider) o.rider.root.visible = false; // the rider is thrown off (P4: a ragdoll)
-    if (!this._throwVehicle(o, fx * o.speed - nx * dv, fz * o.speed - nz * dv, dv, (p, up) => this.traffic.landed(o, p, up))) { if (o.rider) o.rider.root.visible = true; return; }
+    if (!this._throwVehicle(o, fx * o.speed - nx * dv, fz * o.speed - nz * dv, dv, (p, up) => this.traffic.landed(o, p, up))) return;
+    // its rider goes on with the speed it had, thrown up and away from the hit
+    this.traffic.throwRider(o, fx * o.speed - nx * dv * 0.6, 2 + dv * 0.15, fz * o.speed - nz * dv * 0.6);
     if (by === this.player.vehicle) this.audio.bump(Math.min(3, dv / 3), by.kind);
   }
   // hand vehicle o to physics as a thrown body (velocity vx, vz; dv: how hard, for the tumble) until it rests;

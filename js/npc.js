@@ -3,6 +3,7 @@ import { Vehicle, sameLevel } from './vehicles.js';
 import { createCharacter, randomStudent } from './character.js';
 import { mulberry32, makeLabel } from './map.js';
 import { surfaceAt } from './terrain.js';
+import { Ragdoll } from './ragdoll.js';
 
 const SPEED_BY_TYPE = { primary: 12, secondary: 11, tertiary: 9.5, unclassified: 8, residential: 7, living_street: 5, service: 5.5 };
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -39,7 +40,7 @@ export class Traffic {
       // avoid stacking
       if (this.agents.some(o => o !== v && !o.ai.dormant && Math.hypot(o.pos.x - n.x, o.pos.z - n.z) < 12)) continue;
       Object.assign(v.ai, { from: n, edge: e, to: e.to, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, stunned: 0, wreck: 0, ox: 0, oz: 0 });
-      v.knocked = false; v.fallen = false; v.lean = 0; if (v.rider) v.rider.root.visible = true; // a recycled wreck
+      v.knocked = false; v.fallen = false; v.lean = 0; if (v.rider) { this._riderHome(v); v.rider.root.visible = true; } // a recycled wreck
       v.hf = v.hb = e.road.deck ? Infinity : undefined; // spawned on a viaduct: start on its deck
       v.heading = Math.atan2(e.to.x - n.x, e.to.z - n.z);
       v.speed = 4; v.mesh.visible = true;
@@ -92,6 +93,7 @@ export class Traffic {
     for (const v of this.agents) {
       const a = v.ai;
       if (!a) continue;
+      if (v.rider?.rag || v.rider?.lieT !== undefined) this._riderTick(v, dt);
       if (a.dormant) { if (this.rnd() < 0.05) this.spawn(v, p.x, p.z, 90, 260); continue; }
       if (v.knocked) continue; // thrown by physics (main.js _knockTraffic) until it lands (landed())
       const dPl = Math.hypot(v.pos.x - p.x, v.pos.z - p.z);
@@ -99,6 +101,7 @@ export class Traffic {
       // away or not looking at it (inView, set by main.js)
       if (a.wreck > 0) { a.wreck -= dt; if (a.wreck <= 0) { if (dPl > 90 || !this.inView(v.pos)) { a.dormant = true; v.mesh.visible = false; } else a.wreck = 1; } continue; }
       if (dPl > 330) { a.dormant = true; v.mesh.visible = false; continue; }
+      if (v.rider?.lieT !== undefined && a.stunned > 0) a.stunned = Math.max(a.stunned, 0.1); // back on its lane: waits for its rider
       if (a.stunned > 0) { a.stunned -= dt; v.speed *= Math.pow(0.9, dt * 60); v.sync(dt); continue; } // frame-rate independent decay
       const target = SPEED_BY_TYPE[a.edge.road.type] || 7;
       // look ahead for obstacles
@@ -143,13 +146,42 @@ export class Traffic {
       a.d = Math.max(0, Math.min(l, along)); a.stunned = 1.5; v.speed = 0; a.wreck = 0;
       // where it is against its lane spot: _place eases that away once it drives on
       const k = a.d / l; a.ox = p.x - (f.x + dx * k - dz / l * lane); a.oz = p.z - (f.z + dz * k + dx / l * lane);
-      if (v.rider) v.rider.root.visible = true;
+      if (v.rider && v.rider.lieT === undefined) v.rider.root.visible = true; // (a thrown rider gets back on when it is up, _riderTick)
     } else { a.wreck = 20; v.speed = 0; }
+  }
+  // the rider of traffic vehicle v thrown off (main.js _knockTraffic) with velocity (vx, vy, vz): a ragdoll
+  // (js/ragdoll.js) that lies still a moment, then is back on its vehicle (hidden while that is a wreck);
+  // without physics it just disappears until then
+  throwRider(v, vx, vy, vz) {
+    const r = v.rider; if (!r || r.lieT !== undefined) return;
+    r.root.updateMatrixWorld(true);
+    const p = r.root.getWorldPosition(new THREE.Vector3()), q = r.root.getWorldQuaternion(new THREE.Quaternion());
+    v.mesh.remove(r.root); this.scene.add(r.root); r.root.position.copy(p); r.root.quaternion.copy(q);
+    const l = Math.hypot(vx, vz) || 1, sp = Math.min(6, l * 0.4);
+    r.rag = this.ragdoll?.(r, { x: vx, y: vy, z: vz }, { x: vz / l * sp, y: 0, z: -vx / l * sp }) || null;
+    r.lieT = 2.5;
+    if (!r.rag) r.root.visible = false;
+  }
+  _riderTick(v, dt) {
+    const r = v.rider, a = v.ai;
+    if (r.rag && !r.rag.resting && !a.dormant) return;
+    if (!a.dormant && (r.lieT -= dt) > 0) return;
+    this._riderHome(v);
+    r.root.visible = !a.dormant && !(a.wreck > 0) && !v.knocked;
+  }
+  // the rider back on its seat (after being thrown)
+  _riderHome(v) {
+    const r = v.rider; if (!r || r.lieT === undefined) return;
+    r.rag?.end(); r.rag = null; r.lieT = undefined;
+    Ragdoll.standUp(r);
+    if (r.root.parent !== v.mesh) { r.root.parent?.remove(r.root); v.mesh.add(r.root); }
+    r.root.position.copy(v.seat); r.root.quaternion.identity();
+    r.update(0.1, { mode: 'ride' });
   }
   // detach an AI vehicle so the player can take it
   hijack(v) {
     v.ai = null; v.driver = null; v.fallen = false;
-    if (v.rider) { v.mesh.remove(v.rider.root); v.rider = null; }
+    if (v.rider) { this._riderHome(v); v.mesh.remove(v.rider.root); v.rider = null; }
     this.agents = this.agents.filter(a => a !== v);
   }
 }
@@ -174,6 +206,7 @@ export class Peds {
       const d = Math.hypot(n.x - px, n.z - pz);
       if (d < minD || d > maxD) continue;
       const e = n.adj[Math.floor(this.rnd() * n.adj.length)];
+      if (p.rag) this._unrag(p);
       Object.assign(p, { from: n, to: e.to, edge: e, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, state: 'walk', voted: this.rnd() < 0.08, y: undefined });
       // campus peds are students; more voters near campus
       p.ch.root.visible = true; p.ch.root.rotation.x = 0;
@@ -205,7 +238,8 @@ export class Peds {
     for (const p of this.list) {
       if (p.dormant) { if (this.rnd() < 0.08) this.spawn(p, pl.x, pl.z, 22, 90); continue; }
       const dPl = Math.hypot(p.pos.x - pl.x, p.pos.z - pl.z);
-      if (dPl > 120) { p.dormant = true; p.ch.root.visible = false; continue; }
+      if (dPl > 120) { p.dormant = true; p.ch.root.visible = false; if (p.rag) this._unrag(p); continue; }
+      if (p.rag) { this._ragTick(p, dt, dPl); continue; }
       p.t -= dt;
       let mode = 'foot', pose = null, speed = 0;
       if (p.state === 'fly') {
@@ -275,7 +309,25 @@ export class Peds {
     p.state = 'fly'; p.t = 2.5;
     p.vx = dirX * s * 0.75; p.vz = dirZ * s * 0.75; p.vy = 2.2 + s * 0.28; p.air = 0.1; p.spin = 0;
     p.heading = Math.atan2(-dirX, -dirZ);
+    // with physics: limp (js/ragdoll.js), flipping backwards over the hit (it faces the vehicle)
+    p.ch.root.rotation.set(0, p.heading, 0);
+    const sp = Math.min(8, s * 0.6);
+    p.rag = this.ragdoll?.(p.ch, { x: p.vx, y: p.vy, z: p.vz }, { x: dirZ * sp, y: 0, z: -dirX * sp }) || null;
     return true;
+  }
+  // a ragdolled pedestrian: follows its body; once it lies still, lies there p.t, then gets up and runs off
+  _ragTick(p, dt, dPl) {
+    const r = p.rag, vr = 80 * (this.viewK ?? 1);
+    p.pos.x = r.pos.x; p.pos.z = r.pos.z; p.y = r.pos.y;
+    p.ch.root.visible = dPl < vr; p.ch.setDetail(dPl < 16);
+    if (!r.resting) return;
+    if (p.state === 'fly') { p.state = 'down'; p.t = 2.5; }
+    if ((p.t -= dt) <= 0) { this._unrag(p); p.state = 'flee'; p.t = 3; }
+  }
+  _unrag(p) {
+    p.rag.end(); p.rag = null;
+    Ragdoll.standUp(p.ch); p.ch.root.rotation.set(0, p.heading, 0);
+    p.y = surfaceAt(p.pos.x, p.pos.z, p.y);
   }
   scare(x, z, r) {
     for (const p of this.list) if (!p.dormant && p.state === 'walk' && Math.hypot(p.pos.x - x, p.pos.z - z) < r) { p.state = 'flee'; p.t = 2 + this.rnd() * 2; }

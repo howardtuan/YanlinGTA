@@ -1,5 +1,5 @@
 {
-  "_doc": "Hand-checked building facts that win over OSM tags. Only values with a public source. Match by OSM id (\"osm\": \"w123\"/\"r123\") or by name when no id is given. floors = storeys above ground; h = metres to roof. colour/material/roof/roofColour use OSM building:colour / building:material / roof:shape / roof:colour values. facade = window style in js/map.js (campus, glass, concrete, wash, arcade). feature = named extras drawn by js/map.js. split = cut the footprint into blocks: cuts[i] = [[x,z],[x,z]] (block 0 lies left of cut 0 seen from its first point), floors per block. Colours and materials judged from the photos listed (viewed only; nothing from them is used as a texture, all textures are generated in js/map.js). Sources written as 'Google 街景目視判斷（影像 YYYY-MM，觀看點 lat,lon，朝向）' were looked at in Google Street View only: no image was saved or used, only medium/high-confidence sightings are applied (2026-11).",
+  "_doc": "Hand-checked building facts that win over OSM tags. Only values with a public source. Match by OSM id (\"osm\": \"w123\"/\"r123\") or by name when no id is given. floors = storeys above ground; h = metres to roof. colour/material/roof/roofColour use OSM building:colour / building:material / roof:shape / roof:colour values. facade = window style in js/map.js (campus, glass, concrete, wash, arcade). feature = named extras drawn by js/map.js. split = cut the footprint into blocks: cuts[i] = [[x,z],[x,z]] (block 0 lies left of cut 0 seen from its first point), floors per block, optional h per block (metres; null = from floors), ac: true keeps the rooftop AC units the unsplit roof had (each one sits on the block under it, so js/map.js draws the same visual random stream as before the split). Colours and materials judged from the photos listed (viewed only; nothing from them is used as a texture, all textures are generated in js/map.js). Sources written as 'Google 街景目視判斷（影像 YYYY-MM，觀看點 lat,lon，朝向）' were looked at in Google Street View only: no image was saved or used, only medium/high-confidence sightings are applied (2026-11).",
   "buildings": [
     {
       "name": "知行領航館",
@@ -61,8 +61,14 @@
       "osm": "w430346971",
       "colour": "#8c7362",
       "material": "tiles",
-      "source": ["https://commons.wikimedia.org/wiki/File:College_of_Electrical_Engineering_and_Computer_Science,_CYCU_20160519.jpg", "https://eeweb.cycu.edu.tw/?p=5137"],
-      "note": "Photo of the College of EECS building (the college is housed in 電學大樓): dark brown tiles, green-tinted windows."
+      "split": {
+        "cuts": [[[-6.8, 227.3], [7.9, 232.0]]],
+        "floors": [4, 8],
+        "labels": ["前棟", "後塔"],
+        "ac": true
+      },
+      "source": ["https://commons.wikimedia.org/wiki/File:College_of_Electrical_Engineering_and_Computer_Science,_CYCU_20160519.jpg", "https://eeweb.cycu.edu.tw/?p=5137", "Google 街景目視判斷（影像 2017-09，觀看點 24.95641,121.24276，朝 200 度，正對北立面入口）"],
+      "note": "Photo of the College of EECS building (the college is housed in 電學大樓): dark brown tiles, green-tinted windows. Street view (medium): the north front block is 4 storeys plus parapet and a taller tower of about 7-8 storeys stands behind it to the south(-east). The OSM outline is one footprint (OSM 8F): the long east-west bar is the 4F front block and the block that juts out south of it (x -13..8) is taken as the tower (8F, OSM levels kept). The cut runs parallel to the bar's south face but ~1.4 m into the tower, because a cut on the face itself would also slice the bar's east end (the face is not one straight line), so the tower stands back that much. Tower extent from the outline only (the street view sees just its top)."
     },
     {
       "name": "維澈樓",
@@ -98,8 +104,15 @@
       "colour": "#b8b2a6",
       "facade": "campus",
       "feature": ["entrance_canopy", "stair_drum"],
-      "source": ["https://www.mplus.org.hk/en/collection/objects/slides-gymnasium-and-swimming-pool-19871991-chung-yuan-christian-university-chung-li-zhongli-taiwan-ca39-4-8-3-1/", "Google 街景目視判斷（影像 2017-09，觀看點 24.960248,121.242085，朝 110~180 度；觀看點 24.960620,121.242579，朝 200~245 度）"],
-      "note": "M+ catalogue text: flat roof with a pitched section, glass exterior on one side. Street view (medium): about 3 storeys, 12-15 m (h 13.5 m, the middle of that range, instead of OSM height=10m); grey-beige walls with terracotta bands above and below two horizontal window bands on the north and east sides (no glass there); main roof flat with a parapet from the ground, and the pitched red-tile roof belongs to the covered walkway at the south-west entrance, so the old 'pitched_section' over the middle of the roof was replaced by 'entrance_canopy' (drawn along the west part of the most south-west facing wall; its exact extent is an estimate); a round stair tower ('stair_drum', size estimated; position uncertain: the observation says 'south-east side', but both viewpoints (24.960248,121.242085 and 24.960620,121.242579) are north / north-west of the hall and cannot see its geometric south-east corner, so 'south-east' may be relative to the view; it is drawn at the geometric south-east corner as a literal reading until confirmed). The terracotta bands are not modelled. The glass side (south or west, not seen) is not modelled."
+      "split": {
+        "cuts": [[[-11.2, -266.7], [-18.3, -185.0]]],
+        "floors": [3, 2],
+        "h": [13.5, null],
+        "labels": ["主館", "西側附屬棟"],
+        "ac": true
+      },
+      "source": ["https://www.mplus.org.hk/en/collection/objects/slides-gymnasium-and-swimming-pool-19871991-chung-yuan-christian-university-chung-li-zhongli-taiwan-ca39-4-8-3-1/", "Google 街景目視判斷（影像 2017-09，觀看點 24.960248,121.242085，朝 110~180 度；觀看點 24.960620,121.242579，朝 200~245 度）", "Google 街景目視判斷（影像 2017-09，觀看點 24.96009,121.24194（體育館西側廣場），朝 100 度）與 Google 衛星圖（約 208 m 寬）"],
+      "note": "M+ catalogue text: flat roof with a pitched section, glass exterior on one side. Street view (medium): about 3 storeys, 12-15 m (h 13.5 m, the middle of that range, instead of OSM height=10m); grey-beige walls with terracotta bands above and below two horizontal window bands on the north and east sides (no glass there); main roof flat with a parapet from the ground, and the pitched red-tile roof belongs to the covered walkway at the south-west entrance, so the old 'pitched_section' over the middle of the roof was replaced by 'entrance_canopy' (drawn along the west part of the most south-west facing wall; its exact extent is an estimate); a round stair tower ('stair_drum', size estimated; position uncertain: the observation says 'south-east side', but both viewpoints (24.960248,121.242085 and 24.960620,121.242579) are north / north-west of the hall and cannot see its geometric south-east corner, so 'south-east' may be relative to the view; it is drawn at the geometric south-east corner as a literal reading until confirmed). The terracotta bands are not modelled. The glass side (south or west, not seen) is not modelled. Split (street view from the west plaza + satellite, high): the hall is a big ~40 x 75 m box with its long side north-south, and a row of lower flat-roofed blocks (2-3F) is attached on its west side. In the OSM outline that is the stepped west part, so the outline is cut along the straight west wall of the box ((-11.2,-266.7) to its extension at z -185): the box keeps 3F / 13.5 m (split h), the west blocks get 2F (7.2 m, the low end of 2-3F so they read as clearly lower than the hall)."
     },
     {
       "name": "望樓",
@@ -152,6 +165,42 @@
       "material": "tiles",
       "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.955911,121.244803，朝東北 30~45 度）"],
       "note": "Street view (medium): 4 rows of windows, light grey-white tiles with horizontal window rows, flat roof, canopy over the ground-floor entrance. OSM levels=3 / height=21 replaced by 4F (h = 4 x 3.3 + 0.6 = 13.8 m, within the 13-14 m seen)."
+    },
+    {
+      "name": "恩慈樓",
+      "osm": "w392023418",
+      "floors": 10,
+      "source": ["Google 街景目視判斷（影像 2024-08，觀看點 24.95517,121.24232（大仁街 80 號前），朝北 10~40 度）", "Google 衛星圖目視（中心 24.955288,121.242706，約 208 m 寬）"],
+      "note": "Street view (medium): a slab dorm along 大仁街 with 9+ rows of windows counted from the street, and a long shadow on the satellite view; OSM levels=5 (17.1 m) is clearly too low, so 10F (33.6 m). The lower wing at its south end (satellite) is not split off: its extent and floors are not known. Size only; the facade is not changed here."
+    },
+    {
+      "name": "力行大樓",
+      "osm": "w392023431",
+      "floors": 5,
+      "source": ["Google 街景目視判斷（影像 2026-05，觀看點 24.95930,121.24103 朝北；24.95925,121.24140 朝 340 度）", "Google 街景目視判斷（影像 2017-09，觀看點 24.95915,121.24160，朝西北 300 度，看東端與樓梯塔）"],
+      "note": "Street view (high): ground floor + 4 window rows along 新中北路, 5 rows at the east end, so 5F (OSM levels=4). The slightly taller stair tower at the east end is not modelled (no size). Size only."
+    },
+    {
+      "name": "莊敬大樓",
+      "osm": "w392023408",
+      "floors": 5,
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.95599,121.24450，朝 310 度、325 度）", "Google 衛星圖目視（中心 24.9561,121.2443，約 200 m 寬；「莊敬大樓」標籤落在這條斜長條上）"],
+      "note": "Street view (medium): a long slab of about 5-6 storeys (trees hide the top, so not counted exactly); OSM levels=2 (7.2 m) is far too low. Set to 5F, the low end of what was seen. Size only."
+    },
+    {
+      "name": "篤信大樓",
+      "osm": "w428195402",
+      "floors": 5,
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.95647,121.24262，朝 210 度，看北立面）"],
+      "note": "Street view (medium): about 5 storeys (the west end of the ground floor is a double-height hall) plus a set-back top floor with a railing; OSM levels=4. Set to 5F; the set-back top floor is not modelled. The building's name on the sign could not be read, but the floors are taken at this footprint's position."
+    },
+    {
+      "name": "智信樓",
+      "osm": "w392023405",
+      "floors": 4,
+      "h": 17,
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.956386,121.24371（東側停車場），朝西、西南看東立面）", "Google 衛星圖目視（中心 24.956428,121.243388；地圖標籤為「中正樓」）"],
+      "note": "Street view (medium): one tall single-volume hall (gym / auditorium type) about 15-20 m high, mostly blank concrete walls with two stacked horizontal window bands; OSM levels=2 (7.2 m) is far too low. h 17 m (middle of the range); floors 4 only sets the window-row pitch (~4.2 m), it is not a storey count. The small flat-roofed annex at the north-west corner (satellite) is not split off (no size)."
     }
   ],
   "landmarks": {
@@ -164,17 +213,34 @@
     },
     "舊校門": {
       "style": "three_arches",
-      "colH": 4.5,
+      "colH": 4.7,
       "col": 0.55,
-      "source": ["https://commons.wikimedia.org/wiki/File:Cycu_gate.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Gate_New.jpg", "Google 街景目視判斷（影像 2017-09，觀看點 24.957505,121.240461，朝西 290~300 度）"],
-      "note": "Photo Cycu_gate.jpg (described 中原大學校門): three white concrete round arches side by side, with the characters 中原大學 on plaques. The current main gate (CYCU_Gate_New.jpg) is a twisted metal sculpture. Street view (high) at this POI's position confirms the structure: a free-standing frame of three equal semicircular white concrete arches (slightly weathered) on slim columns, no deck, no roof, the middle arch over the stone-paved driveway. Scaled from cars: columns ~4-5 m, ~7-8 m overall, so colH 4.5 m (was 5.2) and slimmer 0.55 m columns (was 0.7) give 4.5 + 2.8 + 0.6 = 7.9 m. The name 舊校門 comes from the OSM POI. The width (~21 m, 5.6 m arch span) is still an estimate."
+      "span": 2.5,
+      "depth": 0.45,
+      "ring": 0.45,
+      "source": ["https://commons.wikimedia.org/wiki/File:Cycu_gate.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Gate_New.jpg", "Google 街景目視判斷（影像 2017-09，觀看點 24.957505,121.240461，朝西 290~300 度）", "Google 街景目視判斷（影像 2017-09，全景觀看點 24.95757,121.24035，朝 295 度；從噴水池方向約 18 m，以拱下行人身高 1.65 m 換算）"],
+      "note": "Photo Cycu_gate.jpg (described 中原大學校門): three white concrete round arches side by side, with the characters 中原大學 on plaques. The current main gate (CYCU_Gate_New.jpg) is a twisted metal sculpture. Street view (high) at this POI's position confirms the structure: a free-standing frame of three equal semicircular white concrete arches (slightly weathered) on slim columns, no deck, no roof, the middle arch over the stone-paved driveway. Scaled from cars: columns ~4-5 m, ~7-8 m overall, so colH 4.5 m (was 5.2) and slimmer 0.55 m columns (was 0.7) give 4.5 + 2.8 + 0.6 = 7.9 m. The name 舊校門 comes from the OSM POI. Size re-measured (2026-11 survey and an independent re-check of the same panorama, scaled from a 1.65 m pedestrian under the arches): the whole frame is only ~8-10 m wide, not ~21 m: 4 slim square columns (~0.55 m, one shared column between neighbouring arches, not twin columns), clear span per arch ~2.3-2.7 m, springing ~4.5-5 m, arch crown ~6.5-7 m, arch ring ~0.4-0.5 m thick, no deck. So span 2.5, depth 0.45, ring 0.45 and colH 4.7 give 3 x 2.5 + 4 x 0.55 = 9.7 m wide and 4.7 + 1.25 + 0.45 = 6.4 m high. The middle arch (2.5 m clear) is narrower than the 4.2 m service road; js/map.js gives the two inner columns thin colliders so the player's car still drives through it, as it did through the old wide arch."
     },
     "中原噴水池": {
       "style": "round_basin",
-      "d": 13,
-      "rim": 0.45,
-      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.957505,121.240461，朝東 60~85 度）"],
-      "note": "Street view (high): a low round raised basin of light grey stone, ~12-15 m across (d 13 m; the OSM water polygon is only ~8.7 m), rim ~0.4-0.5 m high, in a round grey stone-paved plaza with concentric curved stone benches / planters, palms beside it and the beige arcade building (懷恩樓) to the north. The basin was dry or low when photographed; the game keeps shallow water and the small spray. The plaza rings and four bench arcs are drawn in js/map.js; their radii are estimates."
+      "d": 8.5,
+      "rim": 0.4,
+      "plaza": 9.5,
+      "band": 1,
+      "wall": {"r": 12, "from": 0.95, "to": 1.4, "h": 0.4, "t": 0.35},
+      "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.957505,121.240461，朝東 60~85 度）", "Google 街景目視判斷（影像 2017-09，全景觀看點約 24.95751,121.24065（噴水池旁），朝 10、80、135、180 度）", "Google 衛星圖目視（比例尺 5 m 約 64 px，淺色圓盤直徑約 100 px）"],
+      "note": "Street view (high): a low round raised basin of light grey stone, ~12-15 m across (d 13 m; the OSM water polygon is only ~8.7 m), rim ~0.4-0.5 m high, in a round grey stone-paved plaza with concentric curved stone benches / planters, palms beside it and the beige arcade building (懷恩樓) to the north. The basin was dry or low when photographed; the game keeps shallow water and the small spray. Re-measured (2026-11 survey + independent re-check, medium): the basin is ~8-9 m across (satellite ~8 m, the panorama 9-11 m with a larger error), so d 8.5 (was 13) and rim 0.4. The plaza is a disc of small dark-grey granite setts to r ~9.5 m (plaza) with a ~1 m light stone band round it (band); there is no full ring of benches (the four bench arcs were removed), only a white stone low wall ~0.4 m high on an arc ~11-13 m out on the west to north-west side (wall: r, from / to as fractions of pi with x = cos a, z = sin a, so 1 = due west and 1.25 = north-west; h, t in metres). The plaza radii no longer scale with the basin. The setts between the gutter stones at the rim and the band are the plaza's own paving (js/map.js draws no flat disc over it). Not modelled: the rounded bull-nose rim and the radial pattern on the basin floor (details, not size), and the ~10 m low curved stone planter / seat on the north-east side from the first survey (the re-check could not see the east half under the trees, so its radius and arc are unknown)."
+    },
+    "全人教育村柱廊": {
+      "style": "colonnade",
+      "from": [-81.3, -78.3],
+      "to": [-73.5, -88.8],
+      "n": 4,
+      "h": 13,
+      "w": 0.9,
+      "beam": 4,
+      "source": ["Google 街景目視判斷（影像 2017-09，全景 24.958742,121.241717 附近，朝 255 度，fov 100；柱腳俯角以相機高約 2.2 m 換算距離）"],
+      "note": "Street view (medium, independently re-checked): a row of very tall columns clad in silver-grey metal panels with rounded corners, ~0.8-1 m wide, 12 m+ (the tops leave the frame), ~4.5 m apart, joined by steel beams at the top into an open pergola, on the west edge of the 全人教育村 garden plaza, running north-east to south-west parallel to the campus grid; ground level the same inside and out. Measured run (game x/z): from (-82.5,-76.7) to (-74.7,-87.2), 4 columns at ~4.4 m; the OSM footway from 全人大道 ends beside the first column, so the run is moved 2 m along itself to the south-east (within the measuring error) to keep that column 1.9 m off the footway's centre line instead of standing on the paving. h 13 m (12 m+ seen), w 0.9 m, beam = length of the short beams reaching into the plaza (estimate). js/map.js draws it; the column colliders are added after the trees are planted, so tree placement does not change."
     }
   },
   "levels_doc": "Outdoor level changes the 10 m terrain grid cannot show (js/terrain.js 'height levels'). Each site has a local frame: o = origin [x, z] in game metres, u = direction [dx, dz]; a local point [s, t] is o + s*u' + t*v' with u' = u normalised and v' = u' turned 90 degrees ((ux, uz) -> (-uz, ux)). Heights y are absolute game metres (data/terrain.json, ref 135 m) or 'ground' (terrain under that end). sink = rectangle [s0, s1, t0, t1] whose terrain posts tools/build_terrain.py pins to y (below-ground plazas). pads = raised flat areas (pts in [s, t], top y; edge: what sits on top of a wall: hedge / railing / none). stairs = from a (bottom) to b (top) [s, t], width w, heights y0 -> y1, steps (0 = ramp), rail: center / sides / none; a ramp with top (paving colour) is drawn as a sloping paved terrace and may take edge: hedge. floors = paving drawn on the terrain. js/map.js draws walls wherever an edge drops more than 0.3 m and seals them for collision; stairs and ramps are the openings.",
@@ -217,14 +283,19 @@
      "note": "Frame: o = 維澈樓's west corner (OSM w392023424), u along its west face to the north, t < 0 = the paved plaza in front. A platform about 0.6 m above the plaza in front of the ground-floor colonnade: fair-faced concrete parapet with green double railings, 4 steps (0.15 m) up to it and an accessible ramp (10-12 m, 1.5 m wide; drawn 11.5 m, about 1:17) alongside. Extent along the face and the ramp's exact line are estimates (2017 imagery). Kept clear of the main gate (guardhouse, barriers, roads), which another change rebuilds."}
   ],
   "unverified": [
-    {"name": "喜樂樓", "issue": "no OSM levels/height, dorm estimate (5F)", "searched": "no public source for its floors (2026-11). Google 街景 2017-09 (24.959849,121.240672 朝西 255~270 度) and 2026-05 (新中北路 363 號 朝 300 度): a 5-6 storey building with dark-green / white striped end walls, probably 喜樂樓, but low confidence (partly hidden by a canopy), so floors and colour unchanged"},
+    {"name": "喜樂樓", "issue": "no OSM levels/height, dorm estimate (5F)", "searched": "no public source for its floors (2026-11). Google 街景 2017-09 (24.959849,121.240672 朝西 255~270 度) and 2026-05 (新中北路 363 號 朝 300 度): a 5-6 storey building with dark-green / white striped end walls, probably 喜樂樓, but low confidence (partly hidden by a canopy), so floors and colour unchanged. 2026-11 survey (medium): the end wall shows 3 upper windows + ground-floor entrance (4F, or 5F if the top was cut off) and the satellite shows two blocks joined north-south, not one bar; still conflicting, so unchanged"},
+    {"name": "信實樓", "issue": "floors: 10-11F (street view 2017-09) vs ~13F (2026-11 survey)", "searched": "2026-11 survey (user photos 2019-09 / 2020-10 in the Google place album, no street view): ~13 storeys on the white end wall plus a blue glass roof hut, comb plan whose east wing ends step down in terraces. The 2017 street view counted 10-11 from the west. The stepped wings may explain both, but the tallest part's extent is not known, so OSM 10F is kept"},
+    {"name": "中原大學超巨溜冰場", "issue": "not a building: an open-air rink (~25 x 20 m, low steel railing, no walls or roof), drawn as a 3F town block", "searched": "2026-11 survey (satellite, high). Not changed here: dropping the building (or changing its kind) changes how many times js/map.js draws its shared random streams (shop signs, water tank, awnings, AC), which moves every later stall, tree and sign, and frees blank cells that tools/build_map.py would fill with synthetic content. Needs its own change that keeps those draws"},
+    {"name": "維澈樓", "issue": "2F timber-clad podium at the north-west end not split off", "searched": "2026-11 survey (street view 2017-09 24.95736,121.24076 朝 120~150 度, high): a 2F cantilevered box on round columns at the NW end of the 9F slab, but its length along the slab is not known (another survey reads the lower 2-4 floors as fins along the whole west side), so the outline stays one 9F block"},
+    {"name": "薄膜中心", "issue": "floors (2F in OSM)", "searched": "2026-11 survey: four OSM footprints are all named 薄膜中心 and the four sightings (3F, ~3F, unseen, ~2F) cannot be matched to one footprint each, so nothing changed"},
     {"name": "景觀系館", "issue": "OSM levels=3 but height=21; levels kept", "searched": "Commons photos do not show the full height. Google 街景 2017-09 (24.955911,121.244803 朝 175 度): fully hidden by trees, not checked"},
     {"name": "中原大學體育館", "issue": "glass side not modelled; terracotta bands not modelled; stair_drum position unconfirmed", "searched": "M+ text says glass on one side; Google 街景 2017-09 shows no glass on the north and east sides, the south / west sides were not seen; the round stair tower was reported on the \"south-east side\", but both viewpoints are north / north-west of the hall and cannot see the geometric south-east corner where it is drawn"},
     {"name": "管理大樓", "issue": "facade colour", "searched": "Google 街景 user 360 photo 2017-01 (24.957367,121.243017 朝東 100 度): a ~5-storey light grey ribbon-window block, but low confidence it is 管理大樓 (the front is hidden by trees), so nothing changed; 5F matches"},
     {"name": "全人教育村", "issue": "which block is tallest / block colours", "searched": "Google 街景 2017-09 garden plaza (24.958754,121.241848) and 2021-02 aerial: dark grey stone panels and glass, sky bridges, but trees hide the floors; the 11-12 storey twin towers seen to the north may be off campus. Low confidence, the official 6/5/9F split is kept"},
     {"name": "學生活動中心", "issue": "white tiles and 4F not confirmed by street view", "searched": "Google 街景 2017-09 (24.958189,121.241310 朝 345 度; 24.958859,121.241451 朝 300 度): hidden by trees, a nearby grey stone building with a glazed ground floor could not be identified"},
+    {"name": "鐘塔平台", "issue": "base platform not modelled", "searched": "2026-11 survey (satellite + 2021-02 aerial, low confidence): the pylons stand on a light grey concrete slab about 9-12 x 2-5 m, long east-west, one step (0.15-0.3 m) above the lawn, with a low red-brown block (~2 x 0.8 m) on its west half. Low confidence and a level change (a step up from the lawn), so it is left to the height-level work; the old 3.6 x 2.2 m plinth stays"},
     {"name": "鐘塔", "issue": "height (model 19 m + 5 m cross)", "searched": "no written source. Google 街景 2021-02 aerial (24.956844,121.242195 朝 30 度) suggests ~15-20 m (about tree-top height) but with low confidence; 2017-09 ground views are blocked by trees. Height unchanged"},
-    {"name": "舊校門", "issue": "width (~21 m) estimated; the name 舊校門 is from the OSM POI", "searched": "museum.cycu.edu.tw and web search for 舊校門 拱門 校史 found nothing (2026-11). The three-arch form and height were confirmed by Google 街景 2017-09 (see landmarks)"},
+    {"name": "舊校門", "issue": "the name 舊校門 is from the OSM POI; the arch sizes are scaled from a pedestrian (medium)", "searched": "museum.cycu.edu.tw and web search for 舊校門 拱門 校史 found nothing (2026-11). The three-arch form, height and width (~9.7 m, see landmarks) were measured in Google 街景 2017-09 only"},
     {"name": "資訊管理學系館", "issue": "not applicable / unchanged: skipped in js/main.js and built by js/interiors.js", "searched": "no Google 街景 viewpoint found that shows it (2026-11); the interior shell owns its look"},
     {"name": "張靜愚紀念圖書館", "issue": "dome skylights / sunken garden / stepped-out upper floors not modelled", "searched": "Google 街景 2017-09: skylights not visible from the ground, the aerial view is blocked by 科學館"}
   ],

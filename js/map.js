@@ -1385,7 +1385,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (pointInPoly(cx, cz, pts)) { const p = [cx + (rnd() - .5), top, cz + (rnd() - .5)]; if (tankAt !== false) tanks.push(tankAt || p); }
     }
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
-    if (!pitched && !b.parts && !lean2 && h >= 6 && extraH === 0) acSpots.push({ pts, top, town: b.kind === 'town' });
+    // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
@@ -1423,14 +1424,17 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // rooftop AC condensers in rows, vent stacks
   {
     const acGeo = new Geo();
-    for (const { pts, top, town } of acSpots) {
+    for (const { pts, top: top0, town, parts } of acSpots) {
       let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
       const n = Math.min(14, Math.floor((x1 - x0) * (z1 - z0) / (town ? 120 : 90)));
       for (let k = 0; k < n; k++) {
         const x = x0 + 1.5 + rnd2() * (x1 - x0 - 3), z = z0 + 1.5 + rnd2() * (z1 - z0 - 3);
         if (!pointInPoly(x, z, pts) || !pointInPoly(x + 1.2, z + 1.2, pts) || !pointInPoly(x - 1.2, z - 1.2, pts)) continue;
-        if (rnd2() < 0.25) acGeo.box(x, z, rnd2() * 3, 0.5, 0.5, top, top + 1.1, col('#8f9497'));
-        else { acGeo.box(x, z, 0, 1.0, 0.7, top, top + 0.75, col('#e4e3de')); acGeo.box(x + 1.15, z, 0, 1.0, 0.7, top, top + 0.75, col('#dedcd6')); }
+        // split roof: the block under the unit; a unit across a block edge is dropped (its draws stay)
+        const blk = parts && [[x, z], [x + 1.2, z + 1.2], [x - 1.2, z - 1.2]].map(([qx, qz]) => parts.find(([p]) => pointInPoly(qx, qz, p)));
+        const top = !parts ? top0 : blk[0] && blk.every(q => q === blk[0]) ? blk[0][1] : null;
+        if (rnd2() < 0.25) { const a = rnd2() * 3; if (top !== null) acGeo.box(x, z, a, 0.5, 0.5, top, top + 1.1, col('#8f9497')); }
+        else if (top !== null) { acGeo.box(x, z, 0, 1.0, 0.7, top, top + 0.75, col('#e4e3de')); acGeo.box(x + 1.15, z, 0, 1.0, 0.7, top, top + 0.75, col('#dedcd6')); }
       }
     }
     if (acGeo.tris) { const am = acGeo.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.3 })); am.castShadow = quality !== 'low'; scene.add(am); world.tris.ac = acGeo.tris; }
@@ -1522,6 +1526,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const concTex = concreteTex();
   const concrete = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, map: concTex.map, normalMap: concTex.normalMap, roughness: 0.85, ...o });
   const LM = data.landmarks || {};
+  // colliders of the newer landmark parts are added after the trees are planted, and
+  // noPlant keeps trees off the fountain plaza as the old larger basin did: tree
+  // placement, and with it the shared random streams (rnd, rnd2), stays as before
+  const lateColliders = [], noPlant = [];
   // merge box-like parts [geometry, x, y, z] into one mesh
   const mergedMesh = (parts, mat) => {
     const gs = parts.map(([geo, x, y, z]) => { geo.translate(x, y, z); return geo; });
@@ -1568,12 +1576,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     collision.addCircle(ct.x, ct.z, 2.6);
     world.named['鐘塔'] = { x: ct.x, z: ct.z, h: 25, base: cb };
   }
-  // Old gate 舊校門: three white concrete round arches on twin columns, plaques
-  // 中 原 大 學 on the column groups (Commons photo, see overrides.json).
-  // Google 街景目視（2017-09）confirms a free-standing frame of three equal
-  // semicircular arches on slim columns, no deck or roof; columns ~4-5 m, ~7-8 m
-  // overall (overrides.json colH / col). Width is still an estimate; the road
-  // runs under the middle arch.
+  // Old gate 舊校門: three white concrete round arches on four slim square columns
+  // (one column shared by neighbouring arches), plaques 中 原 大 學 on the columns
+  // (Commons photo, see overrides.json). Google 街景目視（2017-09）: a free-standing
+  // frame, no deck or roof, ~9.7 m wide and ~6.4 m to the arch crown (span / colH /
+  // col / ring / depth in overrides.json). The road runs under the middle arch.
   const og = poi('舊校門');
   if (og) {
     const near = world.nearestRoadPoint(og.x, og.z);
@@ -1582,50 +1589,59 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const gx = near && Math.hypot(near.x - og.x, near.z - og.z) < 3 ? near.x : og.x, gz = gx === og.x ? og.z : near.z;
     const g = new THREE.Group();
     const OG = LM['舊校門'] || {};
-    const SPAN = 5.6, COL = OG.col || 0.7, HC = OG.colH || 5.2, STEP = SPAN + COL * 2 + 0.15, D = 0.9, R = SPAN / 2;
+    const SPAN = OG.span || 2.5, COL = OG.col || 0.55, HC = OG.colH || 4.7, D = OG.depth || 0.45, RING = OG.ring || 0.45;
+    const STEP = SPAN + COL, R = SPAN / 2;
     // base at the highest column foot; each column reaches down to its own ground
     const wx = x => [gx + Math.cos(dir) * x, gz - Math.sin(dir) * x];
-    const cxs = [-STEP, 0, STEP].flatMap(c => [c - R - COL / 2, c + R + COL / 2]);
+    const cxs = [-1.5, -0.5, 0.5, 1.5].map(k => k * STEP);
     const gb = Math.max(...cxs.map(x => H(...wx(x))));
     const parts = [];
     for (const x of cxs) {
       const drop = gb - H(...wx(x)) + 0.3;
       parts.push([new THREE.BoxGeometry(COL, HC + drop, D), x, (HC - drop) / 2, 0]);
     }
-    for (const c of [-STEP, 0, STEP]) {
-      // semicircular arch ring from short boxes
-      const N = 12;
-      for (let k = 0; k < N; k++) {
-        const t = (k + 0.5) / N * Math.PI, len = (R + 0.6) * Math.PI / N + 0.04;
-        const geo = new THREE.BoxGeometry(len, 0.6, D); geo.rotateZ(t - Math.PI / 2);
-        parts.push([geo, c - Math.cos(t) * (R + 0.3), HC + Math.sin(t) * (R + 0.3), 0]);
-      }
+    const mat = concrete('#f0ede6');
+    const cols = mergedMesh(parts, mat);
+    // the three semicircular arch rings as one smooth extruded outline, springing from the
+    // column tops: outer arcs left to right (neighbouring rings meet above the shared
+    // column), then the inner arcs right to left with the column tops between them
+    const cs = [-STEP, 0, STEP], RO = R + RING, tm = Math.acos(Math.min(1, STEP / 2 / RO)), M = 16, ol = [];
+    cs.forEach((c, i) => {
+      const a0 = i === 0 ? Math.PI : Math.PI - tm, a1 = i === cs.length - 1 ? 0 : tm;
+      for (let k = i === 0 ? 0 : 1; k <= M; k++) { const a = a0 + (a1 - a0) * k / M; ol.push(new THREE.Vector2(c + Math.cos(a) * RO, Math.sin(a) * RO)); }
+    });
+    for (let i = cs.length - 1; i >= 0; i--) {
+      for (let k = 0; k <= M; k++) { const a = Math.PI * k / M; ol.push(new THREE.Vector2(cs[i] + Math.cos(a) * R, Math.sin(a) * R)); }
     }
-    const arch = mergedMesh(parts, concrete('#f0ede6'));
-    arch.castShadow = !opts.low; arch.receiveShadow = true; g.add(arch);
-    // plaques: one canvas with the four characters, one quad per column group and side
+    const ringGeo = new THREE.ExtrudeGeometry(new THREE.Shape(ol), { depth: D, bevelEnabled: false });
+    ringGeo.translate(0, HC, -D / 2);
+    const rings = new THREE.Mesh(ringGeo, mat);
+    for (const m of [cols, rings]) { m.castShadow = !opts.low; m.receiveShadow = true; g.add(m); }
+    // plaques: one canvas with the four characters, one quad per column and side,
+    // on the spandrel just above the column top
     const pt = canvasTex(256, 64, (cx) => {
       cx.fillStyle = '#f4f1ea'; cx.fillRect(0, 0, 256, 64);
       cx.fillStyle = '#1b1b1b'; cx.font = '900 46px "Noto Sans TC","Microsoft JhengHei",sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
       [...'中原大學'].forEach((t, i) => { cx.fillText(t, i * 64 + 32, 34); cx.strokeStyle = '#555'; cx.lineWidth = 3; cx.strokeRect(i * 64 + 3, 3, 58, 58); });
     }, false);
-    const pg = [];
-    const xs = [-STEP - R - COL / 2, -STEP / 2, STEP / 2, STEP + R + COL / 2];
-    xs.forEach((x, i) => {
+    const pg = [], PS = Math.min(0.6, COL + 0.1);
+    cxs.forEach((x, i) => {
       for (const sd of [1, -1]) {
-        const q = new THREE.PlaneGeometry(1.0, 1.0); const uv = q.attributes.uv;
-        for (let k = 0; k < uv.count; k++) uv.setX(k, (i + uv.getX(k)) / 4);
+        const q = new THREE.PlaneGeometry(PS, PS); const uv = q.attributes.uv;
+        // seen from outside (sd < 0) the columns come in the opposite order: keep 中原大學 left to right
+        const j = sd > 0 ? i : cxs.length - 1 - i;
+        for (let k = 0; k < uv.count; k++) uv.setX(k, (j + uv.getX(k)) / 4);
         if (sd < 0) q.rotateY(Math.PI);
-        pg.push([q, x, HC + 0.3, sd * (D / 2 + 0.02)]);
+        pg.push([q, x, HC + PS / 2 + 0.05, sd * (D / 2 + 0.02)]);
       }
     });
     g.add(mergedMesh(pg, new THREE.MeshStandardMaterial({ map: pt, roughness: 0.5 })));
     // rotation dir: local x runs across the road, matching the colliders
     g.position.set(gx, gb, gz); g.rotation.y = dir;
     scene.add(g);
-    for (const x of [-STEP - R - COL / 2, -STEP / 2, STEP / 2, STEP + R + COL / 2]) {
-      collision.addCircle(gx + Math.cos(dir) * x, gz - Math.sin(dir) * x, 0.7);
-    }
+    // the two inner columns get thin colliders so a car (radius 1.35) still fits the 2.5 m
+    // middle arch as it did the old wide one; the outer columns block as drawn
+    for (const x of cxs) collision.addCircle(gx + Math.cos(dir) * x, gz - Math.sin(dir) * x, Math.abs(x) < STEP ? 0.15 : COL * 0.65);
   }
   // 正門 校名牆: black granite wall with the CYCU emblem + a slanted stainless obelisk (from photos of the
   // main gate). Placed on free ground ~9 m off 中北路, clear of the guardhouse barriers and the spawn.
@@ -1682,14 +1698,16 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       world.gateSign = { x: best.x, z: best.z };
     }
   }
-  // Fountain 中原噴水池. Google 街景目視（2017-09，舊校門東側）: a low round raised
-  // basin (~12-15 m across, rim ~0.45 m) of light grey stone in a round stone-paved
-  // plaza with concentric curved stone benches. Sizes in overrides.json landmarks.
+  // Fountain 中原噴水池. Google 街景目視（2017-09，舊校門東側）＋衛星: a low round raised
+  // basin (~8.5 m across, rim ~0.4 m) of light grey stone in a round plaza of dark granite
+  // setts with a light stone band, and a low white wall on an arc to the west / north-west.
+  // Sizes in overrides.json landmarks.
   const fp = data.areas.find(a => a.name === '中原噴水池');
   if (fp) {
     const cx = fp.pts.reduce((s, p) => s + p[0], 0) / fp.pts.length, cz = fp.pts.reduce((s, p) => s + p[1], 0) / fp.pts.length;
     const FT = LM['中原噴水池'] || {}, round = FT.style === 'round_basin';
-    const R = round ? (FT.d || 13) / 2 : 1.3, RIM = round ? (FT.rim || 0.45) : 1.2;
+    const R = round ? (FT.d || 8.5) / 2 : 1.3, RIM = round ? (FT.rim || 0.4) : 1.2;
+    const PZ = Math.max(R + 1, FT.plaza || 9.5), BAND = FT.band || 1;
     // rim top sits RIM above the highest ground under the ring
     let gHi = -Infinity, gLo = Infinity;
     for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2, y = H(cx + Math.cos(a) * R, cz + Math.sin(a) * R); gHi = Math.max(gHi, y); gLo = Math.min(gLo, y); }
@@ -1711,8 +1729,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         sg.quad(o(a0, R - T, yT), o(a1, R - T, yT), o(a1, R, yT), o(a0, R, yT), cap, UP);
         // basin floor
         sg.tri(o(a0, 0, fy - 0.2), o(a0, R - T, fy - 0.2), o(a1, R - T, fy - 0.2), inner, UP);
-        // plaza: two concentric paving rings that follow the ground (light / darker stone)
-        for (const [r0, r1, c] of [[R, R + 1.5, col('#bdbcb6')], [R + 1.5, R + 1.85, col('#9d9c96')], [R + 1.85, R + 3.3, col('#b4b3ad')]]) {
+        // plaza: the setts of the paved area show between gutter stones at the rim and a
+        // light stone band at PZ (fixed radii, not scaled with the basin)
+        for (const [r0, r1, c] of [[R, R + 0.25, col('#8e8d88')], [PZ, PZ + BAND, col('#d9d6cc')]]) {
           const g = (a, r) => [cx + Math.cos(a) * r, H(cx + Math.cos(a) * r, cz + Math.sin(a) * r) + 0.04, cz + Math.sin(a) * r];
           sg.quad(g(a0, r0), g(a1, r0), g(a1, r1), g(a0, r1), c, UP);
         }
@@ -1724,20 +1743,26 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       world.animated.push((t) => { wn.offset.set(t * 0.02, t * 0.013); });
       wat.rotation.x = -Math.PI / 2; wat.position.set(cx, fy + RIM - 0.15, cz); scene.add(wat);
       const basin = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, RIM + 0.5, 12), stone); basin.position.set(cx, fy + (RIM + 0.5) / 2, cz); scene.add(basin);
-      // curved stone benches on an outer ring, four arcs with gaps for the paths
-      const bg = [];
-      // ring centred at R + 1.9 m, 0.5 m deep (R + 1.65 .. R + 2.15 m), so it stays
-      // inside the trees' clearance from the rim collider (okSpot keeps trunks >= R + 2.2 m)
-      const BR = R + 1.9, BA = Math.PI / 2 - 0.5;
-      for (let q = 0; q < 4; q++) {
-        const a0 = q * Math.PI / 2 + Math.PI / 4 - BA / 2, n = 6;
+      // low white stone wall on an arc (west to north-west)
+      if (FT.wall) {
+        const Wl = FT.wall, WR = Wl.r || 12, WH = Wl.h || 0.4, WT = Wl.t || 0.35, A0 = (Wl.from ?? 0.95) * Math.PI, A1 = (Wl.to ?? 1.4) * Math.PI;
+        const n = Math.max(4, Math.round(WR * (A1 - A0) / 1.2)), wg = [];
         for (let k = 0; k < n; k++) {
-          const a = a0 + (k + 0.5) / n * BA, x = cx + Math.cos(a) * BR, z = cz + Math.sin(a) * BR, len = BR * BA / n + 0.05;
-          const box = new THREE.BoxGeometry(len, 0.45, 0.5); box.rotateY(-a + Math.PI / 2);
-          bg.push([box, x, H(x, z) + 0.22, z]);
+          const a = A0 + (k + 0.5) / n * (A1 - A0), x = cx + Math.cos(a) * WR, z = cz + Math.sin(a) * WR, len = WR * (A1 - A0) / n + 0.06;
+          const box = new THREE.BoxGeometry(len, WH + 0.3, WT); box.rotateY(-a + Math.PI / 2);
+          wg.push([box, x, H(x, z) + (WH - 0.3) / 2, z]);
         }
+        const wall = mergedMesh(wg, concrete('#e9e7e1', { roughness: 0.8 })); wall.castShadow = !opts.low; wall.receiveShadow = true; scene.add(wall);
+        // walked around, not over (0.4 m); one short segment per piece
+        lateColliders.push(() => {
+          for (let k = 0; k < n; k++) {
+            const a = A0 + k / n * (A1 - A0), b = A0 + (k + 1) / n * (A1 - A0);
+            collision.addSegment(cx + Math.cos(a) * WR, cz + Math.sin(a) * WR, cx + Math.cos(b) * WR, cz + Math.sin(b) * WR);
+          }
+        });
       }
-      const benches = mergedMesh(bg, stone); benches.castShadow = !opts.low; benches.receiveShadow = true; scene.add(benches);
+      // trees keep 6.5 m (the old basin radius) off the centre, as before the basin shrank
+      noPlant.push([cx, cz, Math.max(R, 6.5)]);
       // the raised rim is walked around, not through
       collision.addCircle(cx, cz, R);
     } else {
@@ -1752,6 +1777,37 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       }
       geo.attributes.position.needsUpdate = true;
     });
+  }
+  // 全人教育村 west colonnade: a row of very tall columns clad in silver-grey metal
+  // panels, joined at the top by steel beams with short beams reaching into the garden
+  // plaza (Google 街景目視 2017-09; run, height and pitch in overrides.json landmarks)
+  const CL = LM['全人教育村柱廊'];
+  if (CL && CL.style === 'colonnade') {
+    const [ax, az] = CL.from, [bx, bz] = CL.to, n = CL.n || 4, h = CL.h || 13, w = CL.w || 0.9;
+    const len = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / len, uz = (bz - az) / len;
+    // the short beams point into the plaza (the side of the run its centre lies on)
+    const pz = data.areas.find(a => a.name === '中原大學全人教育村花園廣場');
+    let nx = -uz, nz = ux;
+    if (pz) {
+      const qx = pz.pts.reduce((t, p) => t + p[0], 0) / pz.pts.length, qz = pz.pts.reduce((t, p) => t + p[1], 0) / pz.pts.length;
+      if ((qx - ax) * nx + (qz - az) * nz < 0) { nx = -nx; nz = -nz; }
+    }
+    const cols = Array.from({ length: n }, (_, k) => [ax + (bx - ax) * k / (n - 1), az + (bz - az) * k / (n - 1)]);
+    const gb = Math.max(...cols.map(([x, z]) => H(x, z))), top = gb + h, parts = [];
+    const ang = Math.atan2(-uz, ux);
+    for (const [x, z] of cols) {
+      // octagonal shaft (rounded square, flat faces along the run)
+      const y0 = H(x, z) - 0.3, geo = new THREE.CylinderGeometry(w / 2 / Math.cos(Math.PI / 8), w / 2 / Math.cos(Math.PI / 8), top - y0, 8);
+      geo.rotateY(Math.PI / 8 + ang);
+      parts.push([geo, x, (top + y0) / 2, z]);
+      const sb = new THREE.BoxGeometry(CL.beam || 4, 0.6, 0.4); sb.rotateY(Math.atan2(-nz, nx));
+      parts.push([sb, x + nx * (CL.beam || 4) / 2, top - 0.3, z + nz * (CL.beam || 4) / 2]);
+    }
+    const tb = new THREE.BoxGeometry(len + w, 0.8, 0.6); tb.rotateY(ang);
+    parts.push([tb, (ax + bx) / 2, top - 0.4, (az + bz) / 2]);
+    const m = mergedMesh(parts, new THREE.MeshStandardMaterial({ color: '#b9bcbf', metalness: 0.8, roughness: 0.35 }));
+    m.castShadow = !opts.low; m.receiveShadow = true; scene.add(m);
+    lateColliders.push(() => { for (const [x, z] of cols) collision.addCircle(x, z, w / 2 + 0.05); });
   }
   // Campaign billboards
   const bTex = bannerTexture();
@@ -1983,12 +2039,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // the 大草坪 stays open like the real lawn (a ring of rain trees is added round its edge below)
     const lawns = data.areas.filter(a => a.name === '中原大學大草坪').map(a => a.pts);
     const greenAt = (x, z) => greenPolys.some(p => inArea(x, z, p));
+    // noPlant discs count as blocked for spots and species, as the old fountain collider was
+    const nearNoPlant = (x, z, r) => noPlant.some(([px, pz, pr]) => (px - x) ** 2 + (pz - z) ** 2 < (pr + r) ** 2);
     // species from the visual-only stream, so layout and colliders don't depend on it
     const pickKind = (x, z, s) => {
       const r = rnd2(), campus = world.inCampus(x, z);
       let kind = campus || greenAt(x, z) ? (r < 0.3 ? 'rain' : r < 0.66 ? 'round' : r < 0.84 ? 'pine' : 'palm') : (r < 0.18 ? 'palm' : 'round');
-      if (kind === 'rain' && collision.blocked(x, z, 5.5)) kind = 'round';
-      if (kind === 'round' && collision.blocked(x, z, 3.2)) kind = r < 0.5 ? 'palm' : 'pine';
+      if (kind === 'rain' && (collision.blocked(x, z, 5.5) || nearNoPlant(x, z, 5.5))) kind = 'round';
+      if (kind === 'round' && (collision.blocked(x, z, 3.2) || nearNoPlant(x, z, 3.2))) kind = r < 0.5 ? 'palm' : 'pine';
       const sc = kind === 'rain' ? 0.6 + (s - 0.8) * 0.45 : kind === 'round' ? 0.72 + (s - 0.8) * 0.5 : kind === 'pine' ? 0.72 + (s - 0.8) * 0.35 : 0.85 + (s - 0.8) * 0.3;
       return [kind, sc];
     };
@@ -1998,6 +2056,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (x < B.minX + 3 || x > B.maxX - 3 || z < B.minZ + 3 || z > B.maxZ - 3) return false;
       if (roadGrid.nearest(x, z).d < 1.0) return false;
       if (collision.blocked(x, z, r)) return false;
+      if (nearNoPlant(x, z, r)) return false;
       if (world.soft && world.soft.near(x, z, r)) return false;
       if (waterPolys.some(p => inArea(x, z, p))) return false;
       if (sportPolys.some(p => pointInPoly(x, z, p))) return false;
@@ -2122,6 +2181,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;
   }
+  for (const f of lateColliders) f();
   onProgress(0.85);
 
   // ---------- height levels: pads, stairs, retaining walls (terrain.js) ----------

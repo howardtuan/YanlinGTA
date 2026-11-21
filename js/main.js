@@ -9,6 +9,7 @@ import { Audio, loadSettings, saveSettings } from './audio.js';
 import { ZB_ST, zbFootprints } from './street_zhongbei.js';
 import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
+import { applyZoneE, zoneEFootprints } from './zone_e.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
@@ -123,6 +124,7 @@ class Game {
     for (const b of data.buildings) {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
       if (b.name === '警衛室') b.skip = true;
+      applyZoneE(b); // E 區：建築館、祐生、設計學院只換外觀／執行時切塊（js/zone_e.js）
       if (b.id === WEICHE_ID) b.look = weicheLook(); // 維澈樓: facade look only (js/weiche.js adds the timber box, stair, columns)
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
@@ -142,6 +144,7 @@ class Game {
     const M = MCD_SPEC;
     const reserved = [imFootprint(), yhFootprint(), garryOutline(YH_SPEC), clubFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints(), ...darenGdFootprints()];
     reserved.push(...zbFootprints()); // 中北路街屋的保留範圍（js/street_zhongbei.js）
+    reserved.push(...zoneEFootprints()); // E 區自建部分的保留範圍（js/zone_e.js）
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {

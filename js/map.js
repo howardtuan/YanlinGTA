@@ -1811,7 +1811,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (shape === 'gabled' && (b.feature || []).includes('gable_row')) {
         // 設計學院: a row of small dark-grey gables (Google 街景目視, 2017-09), ridges
         // across the short side, one every ~7 m along the long edge p0-p1
-        const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), N = Math.max(1, Math.round(len / 7));
+        const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), N = Math.max(1, Math.round(len / (b.gableEvery || 7))); // b.gableEvery: js/zone_e.js（實測 4 m）
         const rr = b.roofH || Math.min(2.4, len / N * 0.32);
         const lp = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
         for (let i = 0; i < N; i++) {

@@ -185,14 +185,15 @@ export const groundTex = {
 // Each facade texture is an 8x8 grid of window bays (bay x floor), matching the UV layout in map.js.
 // Returns { map, emi (lit windows at night), normalMap, rm (roughness in G, metalness in B) }.
 const N = 8;
-function facade(style, seed) {
-  return cached('fac_' + style, () => {
-    const S = style === 'shop' ? 128 : 128; // px per cell
-    const W = N * S, r = rng(seed);
-    const col = canvas(W, W), g = col.getContext('2d');
-    const hc = canvas(W, W), h = hc.getContext('2d');
-    const rm = canvas(W, W), m = rm.getContext('2d');
-    const em = canvas(W, W), e = em.getContext('2d');
+// canvas drawn in logical units but stored at k px per unit (low quality: k = 0.5)
+function scaled(w, h, k) { const c = canvas(Math.round(w * k), Math.round(h * k)), g = c.getContext('2d'); g.scale(k, k); return [c, g]; }
+// px: pixels per cell. The layout is drawn in 128-unit cells either way; low quality
+// stores it at 64 px (a quarter of the GPU memory per atlas)
+function facade(style, seed, px = 128) {
+  return cached('fac_' + style + (px === 128 ? '' : '_' + px), () => {
+    const S = 128; // cell size in drawing units
+    const W = N * S, r = rng(seed), k = px / S;
+    const [col, g] = scaled(W, W, k), [hc, h] = scaled(W, W, k), [rm, m] = scaled(W, W, k), [em, e] = scaled(W, W, k);
     e.fillStyle = '#000'; e.fillRect(0, 0, W, W);
     h.fillStyle = '#808080'; h.fillRect(0, 0, W, W);
     m.fillStyle = 'rgb(255,235,0)'; m.fillRect(0, 0, W, W);
@@ -321,11 +322,122 @@ function facade(style, seed) {
     const hf = heightFromCanvas(hc);
     return {
       map: toTex(col), emi: toTex(em), rm: toTex(rm, { srgb: false }),
-      normalMap: toTex(normalFromHeight(hf, W, W, 5), { srgb: false }),
+      normalMap: toTex(normalFromHeight(hf, hc.width, hc.height, 5), { srgb: false }),
     };
   });
 }
-export const facadeTex = (style) => facade(style, { tan: 7, red: 13, granite: 19, white: 23, brick: 29, commercial: 31, town: 11, temple: 43 }[style] || 37);
+export const facadeTex = (style, px) => facade(style, { tan: 7, red: 13, granite: 19, white: 23, brick: 29, commercial: 31, town: 11, temple: 43 }[style] || 37, px);
+
+// ---------- parameterised facades (tools/looks.json) ----------
+// One atlas per wall finish: 8 columns of variants (lit rooms, blinds) x one row per
+// window type, so map.js picks the row per storey. Wall, frames and glass are drawn in
+// neutral greys and coloured per vertex (wall colour / aAccent / aGlass); rm carries the
+// masks: R = accent (frames, pilasters, louvers), G = roughness, B = metalness (glass).
+export const FACP_TYPES = ['punched', 'pair', 'ribbon', 'curtain', 'grid', 'slit', 'louver', 'arch', 'gallery', 'none'];
+export function facadeParam(base, px = 128) {
+  return cached('facp_' + base + '_' + px, () => {
+    const S = 128, R = FACP_TYPES.length, W = N * S, HH = R * S, k = px / S;
+    const r = rng({ tile: 53, smooth: 59, stone: 61 }[base] || 67);
+    const [col, g] = scaled(W, HH, k), [hc, h] = scaled(W, HH, k), [rm, m] = scaled(W, HH, k), [em, e] = scaled(W, HH, k / 2);
+    e.fillStyle = '#000'; e.fillRect(0, 0, W, HH);
+    h.fillStyle = '#808080'; h.fillRect(0, 0, W, HH);
+    m.fillStyle = 'rgb(0,235,0)'; m.fillRect(0, 0, W, HH);
+    const wall = (x, y) => {
+      if (base === 'tile') { // small tiles (小口磚 / 二丁掛), light grout
+        g.fillStyle = '#dcdcd7'; g.fillRect(x, y, S, S);
+        for (let ty = 0; ty < S; ty += 4) for (let tx = (ty / 4) % 2 ? -4 : 0; tx < S; tx += 8) {
+          const v = 238 + Math.round((r() - 0.5) * 14), x0 = Math.max(0, tx), x1 = Math.min(S, tx + 8);
+          g.fillStyle = `rgb(${v},${v},${v - 2})`; g.fillRect(x + x0 + 0.6, y + ty + 0.6, x1 - x0 - 1.2, 2.8);
+        }
+        h.fillStyle = '#8a8a8a'; for (let ty = 0; ty < S; ty += 4) h.fillRect(x, y + ty, S, 0.6);
+      } else if (base === 'stone') { // speckled granite / 洗石子
+        g.fillStyle = '#e8e7e3'; g.fillRect(x, y, S, S);
+        for (let i = 0; i < 420; i++) { const v = r(); g.fillStyle = v < 0.5 ? 'rgba(60,60,60,0.35)' : 'rgba(255,255,255,0.6)'; g.fillRect(x + r() * S, y + r() * S, 1.4, 1.4); }
+        g.fillStyle = 'rgba(0,0,0,0.1)'; g.fillRect(x, y + S / 2, S, 1); g.fillRect(x + S / 2, y, 1, S);
+      } else { // smooth paint / plaster / fair-faced concrete
+        g.fillStyle = '#f1f1ee'; g.fillRect(x, y, S, S);
+        for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(0,0,0,${r() * 0.035})`; g.fillRect(x + r() * S, y + r() * S, 3, 2); }
+        g.fillStyle = 'rgba(0,0,0,0.07)'; g.fillRect(x, y, S, 1); g.fillRect(x, y, 1, S);
+      }
+    };
+    // accent: frames, mullions, pilasters, louvers (aAccent)
+    const A = (x, y, w, hh) => { g.fillStyle = '#ecebe8'; g.fillRect(x, y, w, hh); m.fillStyle = 'rgb(255,200,0)'; m.fillRect(x, y, w, hh); h.fillStyle = '#bcbcbc'; h.fillRect(x, y, w, hh); };
+    // glass (aGlass): neutral gradient + reflection streak, blinds behind some panes
+    const G = (x, y, w, hh) => {
+      const gr = g.createLinearGradient(x, y, x, y + hh); gr.addColorStop(0, '#c2c6ca'); gr.addColorStop(1, '#868b90');
+      g.fillStyle = gr; g.fillRect(x, y, w, hh);
+      g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(x, y + hh); g.lineTo(x + w * 0.4, y); g.lineTo(x + w * 0.62, y); g.lineTo(x + w * 0.22, y + hh); g.fill();
+      if (r() < 0.3) { const v = 200 + r() * 40; g.fillStyle = `rgba(${v},${v - 6},${v - 20},0.5)`; g.fillRect(x + 1, y + 1, w * (0.25 + r() * 0.5), hh - 2); }
+      m.fillStyle = 'rgb(0,40,210)'; m.fillRect(x, y, w, hh); h.fillStyle = '#464646'; h.fillRect(x, y, w, hh);
+    };
+    const D = (x, y, w, hh) => { g.fillStyle = '#55524e'; g.fillRect(x, y, w, hh); h.fillStyle = '#3c3c3c'; h.fillRect(x, y, w, hh); };
+    for (let iy = 0; iy < R; iy++) for (let ix = 0; ix < N; ix++) {
+      const x = ix * S, y = iy * S, T = FACP_TYPES[iy];
+      const L = r() < 0.4 ? (r() < 0.72 ? '#ffd49a' : (r() < 0.5 ? '#d8ecff' : '#fff4dc')) : null;
+      const lit = (wx, wy, ww, wh) => { if (L) { e.fillStyle = L; e.fillRect(x + wx, y + wy, ww, wh); } };
+      wall(x, y);
+      if (T === 'punched') {
+        A(x + 32, y + 21, 64, 66); G(x + 35, y + 24, 58, 60); A(x + 63, y + 24, 2, 60); A(x + 28, y + 86, 72, 5); lit(35, 24, 58, 60);
+      } else if (T === 'pair') {
+        for (const wx of [12, 68]) { A(x + wx, y + 21, 48, 66); G(x + wx + 3, y + 24, 42, 60); lit(wx + 3, 24, 42, 60); }
+        A(x + 8, y + 86, 112, 4);
+      } else if (T === 'ribbon') {
+        A(x, y + 26, S, 3); G(x, y + 29, S, 52); A(x, y + 81, S, 5);
+        for (const wx of [0, 42, 85]) A(x + wx, y + 29, 3, 52);
+        lit(0, 29, S, 52);
+      } else if (T === 'curtain') {
+        G(x, y, S, S); g.fillStyle = 'rgba(20,24,28,0.35)'; g.fillRect(x, y + 110, S, 18);
+        A(x, y, 3, S); A(x + 63, y, 3, S); A(x, y + 108, S, 3); A(x, y, S, 2);
+        lit(3, 2, S - 3, 106);
+      } else if (T === 'grid') { // window bay between pilasters, slab edge below
+        G(x + 10, y + 18, 108, 82); A(x + 46, y + 18, 3, 82); A(x + 82, y + 18, 3, 82);
+        A(x, y, 10, S); A(x + 118, y, 10, S); A(x, y + 100, S, 28);
+        lit(10, 18, 108, 82);
+      } else if (T === 'slit') {
+        A(x + 54, y + 10, 20, 100); G(x + 57, y + 13, 14, 94); lit(57, 13, 14, 94);
+      } else if (T === 'louver') { // window behind horizontal slats (sun screen / grille panel)
+        G(x + 6, y + 16, 116, 90);
+        for (let k2 = 0; k2 < 10; k2++) A(x + 6, y + 17 + k2 * 9, 116, 5);
+        A(x, y + 106, S, 4);
+        if (L) { e.fillStyle = L; for (let k2 = 0; k2 < 10; k2++) e.fillRect(x + 6, y + 22 + k2 * 9, 116, 4); }
+      } else if (T === 'arch') { // round-arched loggia; the recess takes the accent colour
+        const path = () => { g.beginPath(); g.moveTo(x + 14, y + S); g.lineTo(x + 14, y + 58); g.arc(x + 64, y + 58, 50, Math.PI, 0); g.lineTo(x + 114, y + S); g.closePath(); };
+        path(); g.fillStyle = '#c9c2b8'; g.fill();
+        const gr = g.createLinearGradient(0, y + 8, 0, y + S); gr.addColorStop(0, 'rgba(0,0,0,0.45)'); gr.addColorStop(0.5, 'rgba(0,0,0,0.2)'); gr.addColorStop(1, 'rgba(0,0,0,0.05)');
+        g.fillStyle = gr; g.fill();
+        m.save(); m.beginPath(); m.moveTo(x + 14, y + S); m.lineTo(x + 14, y + 58); m.arc(x + 64, y + 58, 50, Math.PI, 0); m.lineTo(x + 114, y + S); m.closePath(); m.fillStyle = 'rgb(255,230,0)'; m.fill(); m.restore();
+        h.save(); h.beginPath(); h.moveTo(x + 14, y + S); h.lineTo(x + 14, y + 58); h.arc(x + 64, y + 58, 50, Math.PI, 0); h.lineTo(x + 114, y + S); h.closePath(); h.fillStyle = '#3a3a3a'; h.fill(); h.restore();
+        g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 3; path(); g.stroke();
+        if (L) { e.fillStyle = 'rgba(255,225,170,0.5)'; e.fillRect(x + 24, y + 30, 80, 20); }
+      } else if (T === 'gallery') { // open corridor: piers, solid balustrade (accent), dark depth
+        D(x + 10, y, 108, 78); G(x + 20, y + 8, 88, 60); A(x + 10, y + 78, 108, 50); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(x + 10, y + 78, 108, 4);
+        lit(20, 8, 88, 60);
+      } else { // none: blank wall, faint panel joints
+        g.fillStyle = 'rgba(0,0,0,0.05)'; g.fillRect(x, y + 64, S, 1);
+      }
+      // grime under openings
+      if (T !== 'none' && T !== 'curtain') { const sg = g.createLinearGradient(0, y + 96, 0, y + S); sg.addColorStop(0, 'rgba(70,64,58,0.12)'); sg.addColorStop(1, 'rgba(70,64,58,0)'); g.fillStyle = sg; g.fillRect(x + 24, y + 96, S - 48, 32); }
+    }
+    // weathering, as facade()
+    const dirt = fbmField(128, 4, 3, 71);
+    g.globalCompositeOperation = 'multiply';
+    for (let i = 0; i < 90; i++) {
+      const x = r() * W, y = r() * HH, w = 2 + r() * 6, l = 30 + r() * 100;
+      const gr = g.createLinearGradient(0, y, 0, y + l); gr.addColorStop(0, 'rgba(130,122,110,0.25)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(x, y, w, l);
+    }
+    const di = g.createImageData(128, 128);
+    for (let i = 0; i < 128 * 128; i++) { const v = 222 + dirt[i] * 33; di.data[i * 4] = v; di.data[i * 4 + 1] = v - 2; di.data[i * 4 + 2] = v - 5; di.data[i * 4 + 3] = 255; }
+    const dc = canvas(128, 128); dc.getContext('2d').putImageData(di, 0, 0);
+    for (let y = 0; y < HH; y += W) g.drawImage(dc, 0, y, W, W);
+    g.globalCompositeOperation = 'source-over';
+    const hf = heightFromCanvas(hc);
+    return {
+      map: toTex(col), emi: toTex(em), rm: toTex(rm, { srgb: false }),
+      normalMap: toTex(normalFromHeight(hf, hc.width, hc.height, 5), { srgb: false }),
+    };
+  });
+}
 
 // ground-floor shopfronts for town buildings: rolling shutters, glass doors, signage band.
 // 8 cells across, 1 row (cell = 3 m wide x 3.4 m tall).

@@ -44,7 +44,7 @@ export class CollisionWorld {
     let minx = 1e9, minz = 1e9, maxx = -1e9, maxz = -1e9;
     for (const [x, z] of pts) { minx = Math.min(minx, x); maxx = Math.max(maxx, x); minz = Math.min(minz, z); maxz = Math.max(maxz, z); }
     const pi = this.polys.length;
-    this.polys.push({ pts, minx, minz, maxx, maxz, top }); this.stampP.push(0);
+    this.polys.push({ pts, minx, minz, maxx, maxz, top, s0: this.segs.length }); this.stampP.push(0);
     this._each(minx, minz, maxx, maxz, (ix, iz) => this._cell(ix, iz).p.push(pi));
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
@@ -54,6 +54,13 @@ export class CollisionWorld {
         (ix, iz) => this._cell(ix, iz).s.push(si));
     }
     return pi;
+  }
+  // move polygon pi's outline to pts (same vertex count, inside its old bounds, so the grid
+  // cells it was filed under still cover it)
+  insetPolygon(pi, pts) {
+    const p = this.polys[pi];
+    p.pts = pts;
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; this.segs[p.s0 + i] = [a[0], a[1], b[0], b[1]]; }
   }
   // free-standing wall (OSM barrier); blocks like a building edge
   addSegment(ax, az, bx, bz) {

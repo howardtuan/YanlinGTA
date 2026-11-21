@@ -1,0 +1,568 @@
+{
+  "_doc": [
+    "Per-building facade looks for the campus, merged into data/cycu.json as building.look by tools/build_map.py (keyed by OSM id; js/map.js draws them).",
+    "Values are read off the Google 街景 / 衛星 survey text of each building (handoff buildings_merged.json): the source field says where it was seen, confidence how sure it is (high / medium / low). No imagery is stored.",
+    "Heights, floors and footprints are not set here (tools/overrides.json). A look building draws its walls from the facadeParam atlas (js/textures.js), one window-type row per storey.",
+    "look.wall: base = tile | smooth | stone (texture of the wall finish), colour = wall hex, stripes = [hex..] wall colour per storey from the 2nd up (cycled).",
+    "look.windows: type = punched | pair | ribbon | curtain | grid | slit | louver | arch | gallery | none; ground = type of the ground floor; types = per storey from the ground (last repeats); bay = window spacing m; accent = frames / mullions / pilasters / louvers / arch recess hex; glass = glass tint hex.",
+    "look.faces: [{on, colour, accent, glass, windows}] overrides for walls facing on = n|ne|e|se|s|sw|w|nw (or a list), or 'long' / 'short' (sides of the footprint's oriented box).",
+    "look.bands: [{colour | colours (cycled per storey; grade true = spread bottom to top over all bands), at = fraction of a storey above the slab (or a list), from / to = storeys (default 1 .. floors-1), every, h = thickness m, depth = projection m, on}] floor bands, sills, sunshades.",
+    "look.fins: [{spacing, depth, t, colour, from, to, on, ends}] vertical fins / pilasters; from (storey, default 1) keeps them above head height.",
+    "look.plinth: {floors | h, colour}; look.topFloor: {floors, colour, windows, glass, setback (m; > 0 steps back with a terrace, < 0 the lower floors are recessed under it)}; look.corner: {w, colour, from, on, minLen} corner piers (on: only at both ends of the wall >= minLen m facing each direction; default every corner); look.parapet: {h, colour}.",
+    "look.canopy: [{on, at (fraction along the wall), w, d, h, rise (> 0 gabled tile roof), colour, roofColour, postColour, posts, t}]; look.portal: {on, at, near ([x, z]: the wall facing on closest to it), w, d, floors, arches, type (window row, default arch), colour, accent, rise} a frontispiece in front of the wall.",
+    "look.roof: {colour, shape (pitched roof drawn for looks only, e.g. gabled / hipped), rise, solar ({u, v, colour} fractions of the oriented box, or true), boxes ([{at [u, v] fractions or corner (n / ne / ... : 1 m inside that corner), size [w, d] m, h, colour, topColour}]: stair cores, roof lights), ac (false = no AC units), extras (false = no 透天 stair house / 鐵皮 shed / tank)}.",
+    "look.open: {floor, kerb, rail} an open-air pad (no walls or roof) with a kerb and a 1 m railing; the footprint and its random draws stay as they are.",
+    "skip: the entry is survey data only and is not merged (the footprint is drawn elsewhere).",
+    "noShop: copied to the building (kind town buildings that are not shops: no shopfront or awning). There is no shed field here: shed 0 would skip the shed's rb() draws, so roof.extras false hides the 鐵皮 shed instead. Nothing here may change the shared random streams in js/map.js (see the comments there)."
+  ],
+  "buildings": {
+    "w229238548": {
+      "name": "懷恩樓",
+      "confidence": "high",
+      "source": "Google 街景 2017 年 9 月左右（布條上有 2017 字樣），觀看點 24.95746,121.24064，朝向 20°。Google 衛星（以 24.957674,121.240686 為中心，寬約 208m）。背面（東北面）未見",
+      "note": "1F round-arch arcade (~4 m bays), 2F square windows between pilasters, central three-arch portal, roof covered by solar panels",
+      "look": {
+        "wall": {"base": "tile", "colour": "#a8957a"},
+        "windows": {"type": "punched", "ground": "arch", "bay": 4, "accent": "#8a5a45", "glass": "#4e5a62"},
+        "fins": [{"spacing": 4, "depth": 0.3, "t": 0.5, "colour": "#a8957a", "from": 1}],
+        "parapet": {"h": 0.7, "colour": "#d8cfc0"},
+        "portal": {"on": "sw", "near": [-181.5, 42.5], "w": 7.2, "d": 0.6, "floors": 2, "arches": 3, "colour": "#a8957a", "accent": "#8a5a45", "rise": 0.6},
+        "roof": {"colour": "#8c8a84", "solar": {"colour": "#2c3a55"}}
+      }
+    },
+    "w252996584": {
+      "name": "資訊管理學系",
+      "confidence": "high",
+      "source": "Google 街景，校內步道（24.95686,121.24336）朝東北 30°，2017年9月；Google 衛星（@24.957002,121.243499，約 208m，2026 影像）",
+      "note": "open corridor storeys with rose-red solid balustrades between white columns and beams; green dado under the ground-floor windows; solar panels on the east half of the roof",
+      "skip": "not applied: js/main.js skips this footprint and js/interiors.js (IM_SPEC) builds the 資管 shell by hand; kept as survey data for that shell",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#f2f0ec"},
+        "windows": {"type": "gallery", "ground": "ribbon", "bay": 4.5, "accent": "#b8455e", "glass": "#5f6e78"},
+        "fins": [{"spacing": 4.5, "depth": 0.35, "t": 0.45, "colour": "#f2f0ec", "from": 0, "ends": true}],
+        "bands": [{"colour": "#f2f0ec", "h": 0.35, "depth": 0.35}],
+        "plinth": {"h": 1.0, "colour": "#5aa040"},
+        "parapet": {"h": 0.8, "colour": "#b8455e"},
+        "roof": {"colour": "#d8d8d4", "solar": {"u": [0.5, 1], "colour": "#2a3040"}}
+      }
+    },
+    "w328790116": {
+      "name": "土木館",
+      "confidence": "medium",
+      "source": "Google 街景 2025年5月，觀看點 24.95658,121.24518（新中北路490巷，A5 土木小門前），朝向 240°；Google 衛星 24.95625,121.2443（約 208m 寬，地圖標籤「中原大學 土木館」）",
+      "look": {
+        "wall": {"base": "tile", "colour": "#d9d9d4"},
+        "windows": {"type": "pair", "bay": 3.6, "accent": "#b9bcbe", "glass": "#6f8090"},
+        "fins": [{"spacing": 3.6, "depth": 0.35, "t": 0.3, "colour": "#d2d2cd", "from": 0, "ends": true}],
+        "bands": [{"colour": "#cfcfca", "h": 0.15, "depth": 0.12}],
+        "corner": {"w": 0.8, "colour": "#b5b5b0"},
+        "parapet": {"colour": "#a9a9a4"},
+        "roof": {"colour": "#5a5c5e"}
+      }
+    },
+    "w328790267": {
+      "name": "工學館",
+      "confidence": "medium",
+      "source": "Google 街景，2025年5月，新中北路490巷（24.95720,121.24491），朝向 260°；另看了衛星圖，中心 24.95745,121.24495。西面和北面未見",
+      "note": "top floor is the stepped-back glass ring; the yellow-railed bay balconies are not modelled",
+      "look": {
+        "wall": {"base": "tile", "colour": "#a49a8e"},
+        "windows": {"type": "punched", "bay": 3.0, "accent": "#5a5550", "glass": "#55626c"},
+        "topFloor": {"floors": 1, "setback": 1.5, "windows": "curtain", "glass": "#9fb8b8", "colour": "#c9d2d0"},
+        "roof": {"colour": "#8e8c88"}
+      }
+    },
+    "w392023392": {
+      "name": "科學館",
+      "confidence": "medium",
+      "source": "Google 街景，南側廣場（24.95736,121.24196）朝北 10°，2017年9月；Google 衛星（@24.957654,121.242029，約 208m，2026 影像）；西面樓梯塔沿用前一位調查者在西側泉源之谷廣場（24.95775,121.24151）的觀察",
+      "note": "salmon tile with white frames and floor bands; two-storey white portico at the south entrance. The grey ribbon-window section above the entrance is not split out",
+      "look": {
+        "wall": {"base": "tile", "colour": "#c58a78"},
+        "windows": {"type": "punched", "bay": 3.6, "accent": "#eeeeea", "glass": "#5f7480"},
+        "bands": [{"colour": "#eeeeea", "h": 0.3, "depth": 0.2}],
+        "canopy": [{"on": "s", "at": 0.5, "w": 14, "d": 4, "h": 7, "colour": "#eeeeea", "t": 0.8}],
+        "roof": {"colour": "#8e8c88"}
+      }
+    },
+    "w392023395": {
+      "name": "理學大樓",
+      "confidence": "high",
+      "source": "Google 街景 2017年9月，觀看點 24.95721,121.24241（南側鐘塔廣場步道），朝向 0°；Google 衛星 24.9572,121.2430（約 208m 寬，地圖標籤「理學大樓」）",
+      "note": "solid corner towers approximated by wide corner piers; central glass skylight and light stair houses on the roof",
+      "look": {
+        "wall": {"base": "tile", "colour": "#9b7570"},
+        "windows": {"type": "pair", "bay": 4.2, "accent": "#ecebe6", "glass": "#5d6e7a"},
+        "corner": {"w": 1.8, "colour": "#9b7570"},
+        "roof": {"colour": "#8a7d72", "boxes": [{"at": [0.5, 0.5], "size": [12, 7], "h": 1.0, "colour": "#7f8f9a", "topColour": "#8fa3b0"}, {"at": [0.15, 0.25], "size": [4, 4], "h": 3, "colour": "#d9d4cc"}, {"at": [0.85, 0.75], "size": [4, 4], "h": 3, "colour": "#d9d4cc"}]}
+      }
+    },
+    "w392023397": {
+      "name": "化學館",
+      "confidence": "high",
+      "source": "Google 地圖衛星＋Google 街景 2017 年 9 月，觀看點 24.95729,121.24274，朝向 345°（正對南立面入口）。北、西立面未見。",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#ece8dc"},
+        "windows": {"type": "grid", "bay": 4, "accent": "#f2efe6", "glass": "#4f625c"},
+        "bands": [{"colour": "#d4a640", "at": 0.22, "h": 0.35, "depth": 0.12, "from": 0}],
+        "plinth": {"h": 0.8, "colour": "#c9c6bd"},
+        "parapet": {"h": 0.8, "colour": "#d4a640"},
+        "canopy": [{"on": "s", "at": 0.5, "w": 8, "d": 3, "h": 3.4, "colour": "#eeeeea", "postColour": "#d4a640", "t": 0.35}],
+        "roof": {"colour": "#d6d4cc"}
+      }
+    },
+    "w392023399": {
+      "name": "管理大樓",
+      "confidence": "medium",
+      "source": "Google 街景 2017年9月，觀看點校內道路 24.95762,121.24346，朝東南 150°；衛星 24.957398,121.243599 寬約 200m。東面、南面未近看",
+      "note": "the glass curtain-wall link between the wings is not split out",
+      "look": {
+        "wall": {"base": "stone", "colour": "#8e8d88"},
+        "windows": {"type": "ribbon", "bay": 3.6, "accent": "#5d5f60", "glass": "#3f4a52"},
+        "bands": [{"colour": "#d6ccb4", "h": 0.35, "depth": 0.15, "to": 5}],
+        "roof": {"colour": "#d9d4c8"}
+      }
+    },
+    "w392023401": {
+      "name": "自強商學大樓",
+      "confidence": "medium",
+      "source": "Google 衛星圖（24.957584,121.243684，約 208 m）看量體與屋頂；Google 街景 21 新中二街（24.95801,121.24319）朝向 130°，2026年5月，越過圍牆遠望西側量體（前景有召會的十字架尖塔，可以用來定位）。入口立面、北面、東面未見",
+      "look": {
+        "wall": {"base": "tile", "colour": "#9a9088"},
+        "windows": {"type": "punched", "bay": 3.6, "accent": "#c4bcb0", "glass": "#56646e"},
+        "bands": [{"colour": "#c4bcb0", "h": 0.35, "depth": 0.1, "to": 4}],
+        "roof": {"colour": "#d8d4cc"}
+      }
+    },
+    "w392023403": {
+      "name": "商設館",
+      "confidence": "high",
+      "source": "Google 地圖衛星＋Google 街景 2017 年 9 月，觀看點 24.95663,121.24388，朝向 0°（正對南立面）。東、西、北立面未見。",
+      "note": "the random orange / brick-red spandrel patches are approximated by spandrel bands alternating colour per storey",
+      "look": {
+        "wall": {"base": "stone", "colour": "#9b9d99"},
+        "windows": {"type": "punched", "bay": 4, "accent": "#f0f0ee", "glass": "#5a6872"},
+        "fins": [{"spacing": 4, "depth": 0.25, "t": 0.35, "colour": "#9b9d99", "from": 0, "ends": true}],
+        "bands": [{"on": ["s", "e"], "colours": ["#e0962e", "#c4463e"], "at": 0.17, "h": 0.75, "depth": 0.05, "from": 0}, {"on": ["n", "w"], "colours": ["#c4463e", "#e0962e"], "at": 0.17, "h": 0.75, "depth": 0.05, "from": 0}],
+        "canopy": [{"on": "s", "at": 0.5, "w": 4.5, "d": 1.2, "h": 3.6, "colour": "#e0962e", "t": 0.6, "posts": false}],
+        "roof": {"colour": "#6f7172"}
+      }
+    },
+    "w392023405": {
+      "name": "智信樓",
+      "confidence": "medium",
+      "source": "Google 街景，東側停車場 24.956386,121.24371（2017/9），朝西與西南看東立面。Google 衛星（中心 24.956428,121.243388）：標籤是「中正樓」，平面是大方盒，西北角有一個附屬量體。",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#8e8b88"},
+        "windows": {"type": "ribbon", "ground": "none", "bay": 6, "accent": "#6b6d70", "glass": "#5f7a70"},
+        "fins": [{"spacing": 6, "depth": 0.6, "t": 0.5, "colour": "#86837f", "from": 0, "ends": true}],
+        "parapet": {"colour": "#8e8b88"},
+        "roof": {"colour": "#d9d9d6"}
+      }
+    },
+    "w392023408": {
+      "name": "莊敬大樓",
+      "confidence": "medium",
+      "source": "Google 街景，2017年9月，校內道路（24.95599,121.24450），朝向 310° 和 325°；另看了衛星圖，中心 24.9561,121.2443，寬約 200m，衛星上「莊敬大樓」標籤落在這條斜長條上。其他面未見",
+      "note": "coloured horizontal sun-shading grid on the south-east facade, blue / red / yellow / green upwards (graded over all the shades, three per storey)",
+      "look": {
+        "wall": {"base": "tile", "colour": "#e6e4de"},
+        "windows": {"type": "punched", "bay": 3.6, "accent": "#d8d8d4", "glass": "#5f6e78"},
+        "faces": [{"on": "se", "windows": {"type": "ribbon", "bay": 1.0}}],
+        "fins": [{"on": "se", "spacing": 1.0, "depth": 0.9, "t": 0.08, "colour": "#d8d8d4", "from": 0}],
+        "bands": [{"on": "se", "colours": ["#4a6a9a", "#c83a3a", "#e0c040", "#6a9a5a"], "grade": true, "at": [0.35, 0.6, 0.85], "h": 0.12, "depth": 0.9, "from": 0}],
+        "canopy": [{"on": "se", "at": 0.5, "w": 5, "d": 2.5, "h": 3.4, "colour": "#f0f0ee", "posts": false}],
+        "roof": {"colour": "#5a5c5e"}
+      }
+    },
+    "w392023416": {
+      "name": "建築館",
+      "confidence": "high",
+      "source": "Google 街景 2017年9月，觀看點校內道路 24.95604,121.24338，朝南 170°（建築在道路東側，看到朝西北的入口面）；衛星 24.955743,121.24343 寬約 200m。東、南面未見",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#9a988f"},
+        "windows": {"type": "none", "accent": "#6a6862", "glass": "#3f4a52"},
+        "faces": [{"on": ["nw", "w"], "windows": {"types": ["none", "slit", "none"], "bay": 1.2}}],
+        "roof": {"colour": "#bdbcb6"}
+      }
+    },
+    "w392023417": {
+      "name": "祐生建築中心",
+      "confidence": "medium",
+      "source": "Google 街景 2017年9月，觀看點 24.95586,121.24405（設計學院旁步道花崗石門柱處），朝向 250°；Google 衛星 24.95625,121.2443（建物大多被樹遮住）。名稱依位置推定（門柱銘牌字看不清）",
+      "note": "wall colour stands for the ivy covering most of it",
+      "look": {
+        "wall": {"base": "stone", "colour": "#4f6b3a"},
+        "windows": {"type": "punched", "bay": 4.2, "accent": "#9aa4ab", "glass": "#5d6b74"},
+        "corner": {"w": 0.7, "colour": "#9a9893"},
+        "parapet": {"colour": "#8f8f8a"}
+      }
+    },
+    "w392023418": {
+      "name": "恩慈樓",
+      "confidence": "medium",
+      "source": "Google 街景 80 大仁街（24.95517,121.24232）朝向 10°、40°，2024年8月（西南面）；Google 衛星圖（24.955288,121.242706，約 208 m）。北面、東面未見",
+      "look": {
+        "wall": {"base": "tile", "colour": "#d2cbc0"},
+        "windows": {"type": "punched", "bay": 3.0, "accent": "#5a4a3e", "glass": "#5d6a72"},
+        "fins": [{"spacing": 3.0, "depth": 0.25, "t": 0.35, "colour": "#cfc8bc", "from": 0, "ends": true}],
+        "roof": {"colour": "#b4b2ac", "boxes": [{"at": [0.2, 0.5], "size": [4, 5], "h": 3, "colour": "#cfc8bc"}, {"at": [0.8, 0.5], "size": [4, 5], "h": 3, "colour": "#cfc8bc"}]}
+      }
+    },
+    "w392023419": {
+      "name": "良善樓",
+      "confidence": "medium",
+      "source": "Google 街景，大仁街 74 號、良善小門（A2 門）前（24.95550,121.24191），朝東北 60° 與朝東南 110°，2024年8月；Google 衛星（@24.955515,121.242242，約 208m，2026 影像）",
+      "note": "deep concrete frame grid; cobalt blue on the west end wall; the red semicircular balcony at the west corner is a flat red canopy",
+      "look": {
+        "wall": {"base": "tile", "colour": "#e3ddd0"},
+        "windows": {"type": "grid", "bay": 3.6, "accent": "#e9e5dc", "glass": "#5c7078"},
+        "fins": [{"spacing": 3.6, "depth": 0.6, "t": 0.35, "colour": "#ece8df", "from": 0, "ends": true}],
+        "bands": [{"colour": "#ece8df", "h": 0.3, "depth": 0.6}],
+        "faces": [{"on": ["w", "nw"], "accent": "#2b4fa8"}],
+        "canopy": [{"on": "w", "at": 0.5, "w": 6, "d": 3, "h": 6.6, "colour": "#c23a32", "t": 0.5, "posts": false}],
+        "roof": {"colour": "#8e8c88"}
+      }
+    },
+    "w392023423": {
+      "name": "陸華樓",
+      "confidence": "high",
+      "source": "使用者 360 照片（蕭海龜）2020年6月，觀看點 24.95657,121.24200，朝南 180°，往上看；衛星 24.956405,121.241952 寬約 200m。Google 地圖在此標「產學大樓」，以照片招牌為準。背面與側面未見",
+      "note": "projecting top floor with white fins, recessed glazed entrance level (negative setback)",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#dde3e3"},
+        "windows": {"types": ["punched", "curtain", "curtain"], "bay": 3.0, "accent": "#cfd8d4", "glass": "#6f8a8c"},
+        "fins": [{"spacing": 1.5, "depth": 0.8, "t": 0.15, "colour": "#f2f2ef", "from": 2}],
+        "topFloor": {"floors": 1, "setback": -1.2},
+        "parapet": {"h": 0.9, "colour": "#f2f2ef"},
+        "roof": {"colour": "#cfcfcf"}
+      }
+    },
+    "w392023424": {
+      "name": "維澈樓",
+      "confidence": "high",
+      "source": "Google 街景 中原大學校內（24.95736,121.24076）朝向 120°、150°，2017年9月（西北端與東北面）；Google 衛星圖（24.956948,121.241167，約 208 m）。西南面與東南端未見；街景是 2017 年，之後可能有改動",
+      "note": "the red-brown timber annex box on columns at the north-west end is not modelled",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#e6e6e2"},
+        "windows": {"type": "ribbon", "bay": 3.6, "accent": "#d9dbd8", "glass": "#5f8f8f"},
+        "faces": [{"on": "short", "colour": "#d6d2c8", "windows": {"type": "slit", "bay": 6}}],
+        "roof": {"colour": "#c8c6c0"}
+      }
+    },
+    "w392023425": {
+      "name": "校史館",
+      "confidence": "medium",
+      "source": "Google 街景 2017 年 9 月，觀看點 24.95705,121.24133，朝向 80°，看到西面和北面的斜角。衛星（以 24.957674,121.240686 為中心，寬約 208m）上，這棟標示為「行政大樓」。「校史館」是否在樓內無法確認。東面未見",
+      "note": "recessed glazed ground floor, white bands and thin eave, dense fins on the north end, solar roof",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#e8e8e4"},
+        "windows": {"type": "ribbon", "ground": "curtain", "bay": 3.6, "accent": "#c9ccce", "glass": "#62737d"},
+        "bands": [{"colour": "#f0f0ec", "h": 0.35, "depth": 0.3, "to": 2}, {"colour": "#f0f0ec", "h": 0.25, "depth": 0.9, "from": 3, "to": 3}],
+        "fins": [{"on": "n", "spacing": 1.0, "depth": 0.5, "t": 0.12, "colour": "#6d7378", "from": 1}],
+        "topFloor": {"floors": 2, "setback": -1.0},
+        "parapet": {"h": 0.3, "colour": "#f0f0ec"},
+        "roof": {"colour": "#c8c8c4", "solar": {"colour": "#2c3a55"}}
+      }
+    },
+    "w392023426": {
+      "name": "張靜愚紀念圖書館",
+      "confidence": "high",
+      "source": "Google 街景 2017年9月，觀看點 24.95834,121.24132（圖書館東側花花草原），朝向 270°；Google 衛星 24.958385,121.24079（約 208m 寬）",
+      "note": "top-heavy: the slit-windowed top floor overhangs the recessed dark-glass floors below; four east-west roof lights and light corner blocks",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#857766"},
+        "windows": {"type": "ribbon", "bay": 2.6, "accent": "#5a5048", "glass": "#3a444c"},
+        "topFloor": {"floors": 1, "setback": -2.0, "windows": "slit", "colour": "#8a7c6b"},
+        "roof": {"colour": "#55524d", "boxes": [{"at": [0.5, 0.2], "size": [34, 1.6], "h": 1.2, "colour": "#8a9aa6", "topColour": "#9fb0bb"}, {"at": [0.5, 0.4], "size": [34, 1.6], "h": 1.2, "colour": "#8a9aa6", "topColour": "#9fb0bb"}, {"at": [0.5, 0.6], "size": [34, 1.6], "h": 1.2, "colour": "#8a9aa6", "topColour": "#9fb0bb"}, {"at": [0.5, 0.8], "size": [34, 1.6], "h": 1.2, "colour": "#8a9aa6", "topColour": "#9fb0bb"}, {"at": [0.06, 0.08], "size": [4, 4], "h": 1.5, "colour": "#c9c4b8"}, {"at": [0.94, 0.08], "size": [4, 4], "h": 1.5, "colour": "#c9c4b8"}, {"at": [0.06, 0.92], "size": [4, 4], "h": 1.5, "colour": "#c9c4b8"}, {"at": [0.94, 0.92], "size": [4, 4], "h": 1.5, "colour": "#c9c4b8"}]}
+      }
+    },
+    "w392023427": {
+      "name": "學生活動中心",
+      "confidence": "high",
+      "source": "Google 衛星（以 24.95901,121.240978 為中心，寬約 208m），可看到天橋和肋狀屋頂。Google 街景，觀看點 24.95931,121.24133，朝向 230°，看到北立面和天橋；影像年月未核對（原調查寫 2026 年 5 月）。南面與東面未見",
+      "note": "central ribbed metal roof as a low grey box; the green post-office shopfront is not modelled",
+      "look": {
+        "wall": {"base": "tile", "colour": "#e3e1db"},
+        "windows": {"type": "punched", "bay": 3.0, "accent": "#4a4f55", "glass": "#56646e"},
+        "roof": {"colour": "#9b9b98", "boxes": [{"at": [0.5, 0.5], "size": [26, 16], "h": 1.2, "colour": "#8c9196"}]}
+      }
+    },
+    "w392023428": {
+      "name": "生物科技館",
+      "confidence": "high",
+      "source": "Google 街景，新中北路 260 號前（24.95930,121.24042）朝南 190°，2026年5月；Google 衛星 2D（@24.958929,121.240407）",
+      "note": "concrete sills under every window as a thin sill band; stair tower at the north-west corner (size approximate)",
+      "look": {
+        "wall": {"base": "tile", "colour": "#6f6862"},
+        "windows": {"type": "punched", "bay": 4.2, "accent": "#b9b9b4", "glass": "#5a6670"},
+        "bands": [{"colour": "#7d766f", "at": 0.33, "h": 0.12, "depth": 0.25, "from": 0}],
+        "roof": {"colour": "#b9b9b4", "boxes": [{"corner": "nw", "size": [5, 6], "h": 4, "colour": "#6f6862"}]}
+      }
+    },
+    "w392023429": {
+      "name": "全人教育村",
+      "confidence": "medium",
+      "source": "Google 街景 370 桃48鄉道（新中北路，24.95917,121.24233）朝向 215°，2026年5月（北立面）；Google 衛星圖（24.958675,121.242098，約 208 m）。南面、東面與主入口未見",
+      "look": {
+        "wall": {"base": "tile", "colour": "#8a786c"},
+        "windows": {"type": "pair", "ground": "ribbon", "bay": 3.6, "accent": "#b5b7b8", "glass": "#4f5a62"},
+        "roof": {"colour": "#8e8c88"}
+      }
+    },
+    "w392023430": {
+      "name": "中原大學室內游泳池",
+      "confidence": "medium",
+      "source": "Google 街景，2026年5月，新中北路（桃48）370號（24.95919,121.24223），朝向 15°；另看了衛星圖，中心 24.95944,121.242335，寬約 200m。北、東、西三面未見",
+      "note": "red metal gabled roof, ridge east-west; sparse large windows",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#85786a"},
+        "windows": {"types": ["none", "punched", "none"], "bay": 9, "accent": "#9a9c9e", "glass": "#5d6a72"},
+        "fins": [{"spacing": 9, "depth": 0.15, "t": 0.25, "colour": "#e8e8e4", "from": 0}],
+        "roof": {"shape": "gabled", "rise": 2.5, "colour": "#c4705a"}
+      }
+    },
+    "w392023431": {
+      "name": "力行大樓",
+      "confidence": "high",
+      "source": "Google 街景 2026年5月：新中北路 24.95930,121.24103 朝北、24.95925,121.24140 朝北偏西 340° 近看立面；Google 街景 2017年9月：新中北路東端 24.95915,121.24160 朝西北 300° 看東端與樓梯塔；衛星 24.95949,121.240909 寬約 200m。北面（內側）未近看",
+      "note": "blue tile with white floor bands and AC ledges; the taller east stair tower is not modelled",
+      "look": {
+        "wall": {"base": "tile", "colour": "#5b6fa6"},
+        "windows": {"type": "punched", "bay": 3.0, "accent": "#5a4636", "glass": "#5d6670"},
+        "bands": [{"colour": "#e6e6e2", "h": 0.3, "depth": 0.25}, {"colour": "#e6e6e2", "at": 0.22, "h": 0.12, "depth": 0.6, "from": 0}],
+        "roof": {"colour": "#9a9a96", "solar": {"colour": "#2b3550"}}
+      }
+    },
+    "w392023432": {
+      "name": "喜樂樓",
+      "confidence": "medium",
+      "source": "Google 街景 2017年9月，觀看點 24.95991,121.24067（宿舍區車道，喜樂樓東北側），朝向 235°，有往上仰看；Google 衛星 24.959833,121.240448（約 208m 寬，地圖標籤「喜樂樓」）",
+      "note": "green / cream stripes are one colour per storey (the real ones are about one of each per storey)",
+      "look": {
+        "wall": {"base": "tile", "colour": "#e6e2d6", "stripes": ["#5f6e55", "#e6e2d6"]},
+        "windows": {"type": "punched", "bay": 3.2, "accent": "#d9d6cc", "glass": "#5d6a72"},
+        "bands": [{"colour": "#d9d6cc", "at": 0.8, "h": 0.1, "depth": 0.45, "from": 0}],
+        "plinth": {"floors": 1, "colour": "#f0efe9"},
+        "roof": {"colour": "#ddd9d0"}
+      }
+    },
+    "w392023437": {
+      "name": "中原大學體育館",
+      "confidence": "high",
+      "source": "Google 地圖衛星（約 208m 寬）＋Google 街景 2017 年 9 月，觀看點 24.96009,121.24194（體育館西側廣場），朝向 100°。北、南、東立面未見。",
+      "note": "mostly blank wall, orange eave band and floor bands, two-storey glazed entrance in an orange frame on the west, solar roof",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#b3a894"},
+        "windows": {"types": ["none", "ribbon", "none"], "bay": 4, "accent": "#c8672e", "glass": "#3f4c56"},
+        "bands": [{"colour": "#c8672e", "h": 0.4, "depth": 0.2, "to": 2}],
+        "parapet": {"h": 1.4, "colour": "#c8672e"},
+        "portal": {"on": "w", "at": 0.5, "w": 12, "d": 0.8, "floors": 2, "arches": 3, "type": "curtain", "colour": "#c8672e", "accent": "#4a4f55", "rise": 0.8},
+        "roof": {"colour": "#9a5a3a", "solar": {"colour": "#3a4a63"}}
+      }
+    },
+    "w392023438": {
+      "name": "中原大學超巨溜冰場",
+      "confidence": "high",
+      "source": "Google 衛星（以 24.960579,121.242698 為中心，寬約 208m），地圖標示為「中原大學滑輪場」。Google 街景，觀看點 24.96043,121.24248，朝向 60°。影像年月畫面上沒有顯示，未核對",
+      "note": "an open-air rink, not a building: drawn as a pad with a kerb and a 1 m steel railing (look.open). The data keeps its 3F town footprint so every shared random draw stays as before; no shops, sheds, tanks or AC",
+      "noShop": 1,
+      "look": {
+        "wall": {"base": "smooth", "colour": "#c9c9c4"},
+        "open": {"floor": "#c9c9c4", "kerb": "#9a9a95", "rail": "#b8bcbf"},
+        "roof": {"ac": false, "extras": false}
+      }
+    },
+    "w392023441": {
+      "name": "信實樓",
+      "confidence": "medium",
+      "source": "Google 衛星（中心 24.959555,121.245923，寬約 200 m，2026 版影像）；使用者照片：Google 地點「中原大學信實宿舍」相簿，入口正面照（2019/9，Tsung-ying Wu）、白色端牆加藍框的仰角照（2020/10，麒翔）。沒有 Google 街景直接拍到。",
+      "look": {
+        "wall": {"base": "stone", "colour": "#8a8078"},
+        "windows": {"type": "punched", "bay": 3.4, "accent": "#f0f0ee", "glass": "#56646e"},
+        "bands": [{"on": "long", "colour": "#d8cdb8", "h": 0.3, "depth": 0.12}],
+        "faces": [{"on": "short", "colour": "#e6e6e2", "accent": "#6b4a32", "windows": {"type": "louver"}}],
+        "corner": {"w": 1.0, "colour": "#2340b8", "on": ["n", "s"], "minLen": 15},
+        "roof": {"colour": "#8a8a86"}
+      }
+    },
+    "w428195402": {
+      "name": "篤信大樓",
+      "confidence": "medium",
+      "source": "Google 街景 2017 年 9 月，觀看點 24.95647,121.24262，朝向 210°，看到北立面。Google 衛星（以 24.956206,121.242582 為中心，寬約 208m）。招牌字看不清楚，OSM 名稱「篤信大樓」是否就是這棟，還不確定。南面、西面和圓筒形建築的外觀未見",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#7d6f60"},
+        "windows": {"type": "grid", "bay": 2.8, "accent": "#5a5048", "glass": "#6f8f86"},
+        "fins": [{"spacing": 2.8, "depth": 0.45, "t": 0.3, "colour": "#6a5e52", "from": 1}],
+        "bands": [{"colour": "#6a5e52", "h": 0.3, "depth": 0.45}],
+        "topFloor": {"floors": 1, "setback": 1.8},
+        "roof": {"colour": "#8a8a86"}
+      }
+    },
+    "w430346971": {
+      "name": "電學大樓",
+      "confidence": "medium",
+      "source": "Google 地圖衛星（約 208m 寬，標示「中原大學電子工程學系」）＋Google 街景 2017 年 9 月，觀看點 24.95641,121.24276，朝向 200°（正對北立面入口）。館名字太小看不清；南、東、西立面未見。",
+      "look": {
+        "wall": {"base": "stone", "colour": "#8e8a7e"},
+        "windows": {"type": "ribbon", "bay": 1.8, "accent": "#77746a", "glass": "#5c7468"},
+        "fins": [{"spacing": 1.8, "depth": 0.6, "t": 0.18, "colour": "#9a968a", "from": 1}],
+        "bands": [{"colour": "#9a968a", "h": 0.3, "depth": 0.6}],
+        "canopy": [{"on": "n", "at": 0.5, "w": 10, "d": 3, "h": 7, "colour": "#8e8a7e", "postColour": "#c8603a", "t": 0.6}],
+        "roof": {"colour": "#5d5a55"}
+      }
+    },
+    "w492487883": {
+      "name": "電力中心",
+      "confidence": "low",
+      "source": "Google 衛星（中心 24.958,121.2458，寬約 200 m）：Google 標籤「電力中心」落在紅頂建物上。Google 街景：新中北路 24.957417,121.245737（2026/5），朝東北越過科學園區 C1 停車場遠看，紅色屋簷和米白牆在樹後面露出來。距離約 50 m 又有樹擋，細節可信度低。",
+      "noShop": 1,
+      "look": {
+        "wall": {"base": "smooth", "colour": "#e3dccb"},
+        "windows": {"type": "punched", "bay": 3.2, "accent": "#cfc8b8", "glass": "#5d6a72"},
+        "roof": {"shape": "hipped", "rise": 3, "colour": "#c8574a", "extras": false}
+      }
+    },
+    "w492487884": {
+      "name": "薄膜中心",
+      "confidence": "medium",
+      "source": "Google 街景 2026年5月：新中北路 24.95750,121.24548 朝北 10°（隔著行道樹看到南面）、24.95760,121.24538 朝北（校徽立柱）、24.95745,121.24565 朝西北 330°（看到東側的實英樓）；衛星 24.957918,121.245448 寬約 100m。北面、西面、東面未見",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#c9cbc9"},
+        "windows": {"type": "pair", "bay": 4.5, "accent": "#3b4a44", "glass": "#4d5a60"},
+        "parapet": {"colour": "#a9aba9"},
+        "canopy": [{"on": "s", "at": 0.65, "w": 4, "d": 1.5, "h": 3, "colour": "#2f5a3a", "posts": false, "t": 0.25}],
+        "roof": {"colour": "#5a5c5e"}
+      }
+    },
+    "w492487885": {
+      "name": "薄膜中心",
+      "confidence": "medium",
+      "source": "Google 街景，校內南北向道路 24.958274,121.245781（2017/9），朝西南到西看這筆 bbox（x303–317）的東立面，建物就在這條路西側。Google 衛星（中心 24.958,121.2458）。前一位調查者描述的淺灰金屬板廠房，應該是更北邊 Google 標成「薄膜中心（4館）」的那棟灰色 2F 樓，在同一張街景的遠處看得到，不在這筆 bbox 內。",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#c9c9c4"},
+        "windows": {"type": "grid", "bay": 3.2, "accent": "#2f6b3a", "glass": "#6a7378"},
+        "parapet": {"colour": "#b9b9b4"},
+        "roof": {"colour": "#cfcfca"}
+      }
+    },
+    "w492487886": {
+      "name": "薄膜中心",
+      "confidence": "low",
+      "source": "Google 衛星圖，中心 24.957824,121.245615，寬約 100m。另看了新中北路497號的 Google 街景（24.95746,121.24565），2026年5月，朝向 0° 和 35°：看到的是路北側的「賓英樓」南端（1F 咖啡色牆、2F 淺灰牆加兩扇窗、上段是淺灰穿孔金屬板，有「賓英樓」字牌），沒看到薄膜中心本身。點擊往北前進沒有反應",
+      "note": "walls not seen; neighbour colour, metal roof from satellite",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#c9cbc9"},
+        "windows": {"type": "punched", "bay": 3.6, "accent": "#9a9c9e"},
+        "roof": {"colour": "#7d7f80"}
+      }
+    },
+    "w492487889": {
+      "name": "薄膜中心",
+      "confidence": "low",
+      "source": "Google 地圖衛星（約 104m 寬，標示「薄膜中心(4館)」）＋Google 街景 2026 年 5 月，觀看點 24.95845,121.24504（新中北路469巷），朝向 80°，隔著太陽能機車棚；Google 街景 2017 年 9 月，觀看點 24.95853,121.24578，朝向 270°，看到一棟 2 層淺灰金屬板建物，推測是同一棟但不確定。南、北立面與一樓入口未見。",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#c4c6c4"},
+        "windows": {"type": "punched", "ground": "none", "bay": 3.6, "accent": "#4f5a55", "glass": "#5d6a72"},
+        "parapet": {"colour": "#a4a6a4"},
+        "roof": {"colour": "#d0d0cc"}
+      }
+    },
+    "w587171777": {
+      "name": "熱誠樓A棟",
+      "confidence": "medium",
+      "source": "Google 街景，2026年5月，普忠路215號（24.96080,121.24615），朝向 235° 和 252°（fov 45 近看）。另看了衛星圖，中心 24.96066,121.24544，寬約 150m：A棟是三棟塔樓裡最西北的那棟。從普忠路往西南看，右邊那棟方位約 260°，判定是 A棟",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#cfcdc6"},
+        "windows": {"type": "punched", "bay": 3.4, "accent": "#6b5a48", "glass": "#4f5a62"},
+        "bands": [{"colour": "#ecebe6", "h": 0.25, "depth": 0.15, "on": ["se", "nw", "sw"]}],
+        "faces": [{"on": "ne", "colour": "#8a7c6a", "accent": "#9a8c78", "windows": {"type": "louver"}}],
+        "corner": {"w": 1.4, "colour": "#2a4fc8"},
+        "topFloor": {"floors": 1, "colour": "#8f8f8f"},
+        "parapet": {"h": 1.5, "colour": "#8f8f8f"},
+        "roof": {"colour": "#4a4a55"}
+      }
+    },
+    "w587171779": {
+      "name": "設計學院",
+      "confidence": "medium",
+      "source": "Google 街景，2017年9月，校內道路（24.95576,121.24435），朝向 100°（往東看西面）；另看了衛星圖，中心 24.95572,121.24458，寬約 100m。東面和南面未見",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#cfc8b6"},
+        "windows": {"type": "curtain", "bay": 3, "accent": "#4a4038", "glass": "#3e4a52"},
+        "fins": [{"spacing": 3, "depth": 0.25, "t": 0.25, "colour": "#4a4038", "from": 0}],
+        "corner": {"w": 0.4, "colour": "#4a4038"}
+      }
+    },
+    "w587175193": {
+      "name": "景觀系館",
+      "confidence": "medium",
+      "source": "Google 街景 2024 年 8 月，觀看點 24.95523,121.24480（環中東路 708 巷），朝向 340°，看到南立面，部分被樹擋住。Google 衛星（以 24.955553,121.244852 為中心，寬約 208m），標示為「景觀館」。北面與入口未見",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#d9dadb"},
+        "windows": {"type": "ribbon", "bay": 3.6, "accent": "#f2f2f0", "glass": "#8fb8c6"},
+        "bands": [{"colour": "#a8743f", "at": 0.15, "h": 0.9, "depth": 0.04, "from": 0}],
+        "fins": [{"spacing": 7.2, "depth": 0.2, "t": 0.4, "colour": "#f2f2f0", "from": 0}],
+        "roof": {"colour": "#e6e6e2"}
+      }
+    },
+    "w587175196": {
+      "name": "室設系館",
+      "confidence": "medium",
+      "source": "Google 街景，環中東路708巷8弄 42 號附近（24.95616,121.24540）朝西 250°，2025年5月（觀看點在館舍東側，方位和 bbox 吻合，但沒有看到館名）；Google 衛星 2D（@24.956127,121.245075）",
+      "look": {
+        "wall": {"base": "tile", "colour": "#d2c6aa"},
+        "windows": {"type": "pair", "bay": 3.6, "accent": "#5d5f60", "glass": "#56646e"},
+        "bands": [{"colour": "#7d776c", "h": 0.35, "depth": 0.08, "to": 4}],
+        "faces": [{"on": "short", "windows": {"type": "slit"}}],
+        "roof": {"colour": "#d6d6d2"}
+      }
+    },
+    "w587175198": {
+      "name": "望樓",
+      "confidence": "medium",
+      "source": "使用者照片：Google 地點「中原大學望樓」相簿，正面照（2017/12 拍攝，劉昱辰）；360 照片 24.956059,121.244788（2020/8，葉穎蓁），朝東南。Google 街景 708巷8弄 24.95593,121.24538（2025/5）只拍到東側民宅，看不到望樓。Google 衛星（中心 24.955785,121.245174）。",
+      "note": "window hoods as a thin band; the side corridor and the projecting stair hall are not modelled",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#ecece8"},
+        "windows": {"type": "punched", "bay": 3.4, "accent": "#c8ccc8", "glass": "#5f6e78"},
+        "bands": [{"colour": "#e6e6e2", "at": 0.85, "h": 0.1, "depth": 0.4, "from": 0}],
+        "roof": {"colour": "#d4d4cf"}
+      }
+    },
+    "w587178273": {
+      "name": "熱誠樓B C棟",
+      "confidence": "medium",
+      "source": "Google 街景 普忠路230號中油加油站（24.96036,121.24643）朝向 240°、255°、280°，2026年5月（東面與東南面）；Google 衛星圖（24.960354,121.24562，約 208 m）。北面、西面與一樓入口未見",
+      "note": "which wall carries the all-blue mass is not known; the short walls are painted blue",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#dcdcd6"},
+        "windows": {"type": "louver", "bay": 2.8, "accent": "#a8907a", "glass": "#5a6670"},
+        "fins": [{"spacing": 2.8, "depth": 0.4, "t": 0.2, "colour": "#e6e6e2", "from": 1}],
+        "faces": [{"on": "short", "colour": "#1f55cc", "accent": "#e6e6e2", "windows": {"type": "punched", "bay": 2}}],
+        "corner": {"w": 0.6, "colour": "#1f4fc8"},
+        "roof": {"colour": "#5e5c6a"}
+      }
+    },
+    "w700658288": {
+      "name": "（無名，熱誠宿舍 A 棟與 B 棟之間的 2F 小量體）",
+      "confidence": "low",
+      "source": "Google 衛星（@24.960473,121.245431，約 104m，2026 影像，斜視有點傾斜）；沒有找到能看到這棟的街景。前一位調查者提到的新中北路469巷、普忠路兩個街景點都說被樹擋住，這一輪我沒有重看",
+      "note": "walls not seen; neighbour colour",
+      "look": {
+        "wall": {"base": "smooth", "colour": "#d9d9d6"},
+        "windows": {"type": "punched", "bay": 3.6}
+      }
+    },
+    "r9735126": {
+      "name": "真知教學大樓",
+      "confidence": "medium",
+      "source": "Google 街景 16 實踐路80巷（24.95578,121.24146）朝向 40°，2017年4月（西南面）；Google 衛星圖（24.956105,121.24185，約 208 m）。入口立面、北面與東面未見",
+      "look": {
+        "wall": {"base": "tile", "colour": "#8c8580"},
+        "windows": {"type": "pair", "bay": 3.0, "accent": "#b9bcbe", "glass": "#56646e"},
+        "roof": {"colour": "#8a8884"}
+      }
+    }
+  }
+}

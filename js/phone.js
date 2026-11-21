@@ -142,11 +142,12 @@ export class Phone {
     if (inp.hit('Escape', 'Backspace')) { if (this.cur) this.openApp('messages'); else if (this.app) this.home(); else this.close(); return this.open ? null : 'closed'; }
     if (this.cur) {
       const st = this.cur;
-      const nOpt = this._options(st)?.length || 2;
+      // with the AI on, the typing box is one more item after the options (index = number of options)
+      const nOpt = (this._options(st)?.length || 0) + (this._typing(st) ? 1 : 0) || 2;
       for (let k = 0; k < 4; k++) if (inp.hit('Digit' + (k + 1), 'Numpad' + (k + 1))) this._pick(k);
       if (inp.hit('ArrowUp', 'ArrowLeft')) this._pick(Math.max(0, st.choice - 1));
       if (inp.hit('ArrowDown', 'ArrowRight')) this._pick(Math.min(nOpt - 1, st.choice + 1));
-      if (inp.hit('Tab', 'Enter')) this._send();
+      if (inp.hit('Tab', 'Enter')) { if (this._typing(st) && st.choice >= (this._options(st)?.length || 0)) this._focusType(); else this._send(); }
     } else if (!this.app) {
       // grid then dock share one selection order
       if (inp.hit('ArrowRight')) this._homeSel(this.homeSel + 1);
@@ -768,23 +769,25 @@ export class Phone {
     if (Nano.on && !st.c.script[st.round] && !st.aiOpts?.length && !st.busy) this._aiOpener(st);
     // with the on-device AI you can also type your own message; keep what you typed across re-renders
     const old = box.querySelector('.ph-type'), typed = old ? old.value : '', hadFocus = !!old && document.activeElement === old;
-    // one send row: empty box = send the chosen option (shown as the placeholder), typed text = send that instead
-    const typeRow = (ph) => `<div class="ph-input ph-typerow"><input class="ph-type" maxlength="80" autocomplete="off" spellcheck="false" placeholder="${esc(ph)}"><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>`;
+    // the typing box (AI on) is selectable like an option (blue when chosen); ↑ sends what is in the box. Clicking an
+    // option puts its words in the box, so you send it (or change it first) from there.
+    const typeRow = (ph, on) => `<div class="ph-input ph-typerow ${on ? 'on' : ''}"><input class="ph-type" maxlength="80" autocomplete="off" spellcheck="false" placeholder="${esc(ph)}"><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>`;
     // AI paused after it stopped answering (nano.js _stall): the box stays, greyed out, saying why
     const pausedRow = Nano.stalled ? '<div class="ph-input ph-typerow ph-typeoff"><input class="ph-type" disabled placeholder="AI 暫時沒回應，先用上面的選項聊"></div>' : '';
     const opts = this._options(st);
     if (!opts) {
       if (Nano.on) {
-        box.innerHTML = '<div class="ph-done">✨ Gemini Nano 正在想新話題…</div>' + typeRow('自己輸入訊息…');
+        box.innerHTML = '<div class="ph-done">✨ Gemini Nano 正在想新話題…</div>' + typeRow('自己輸入訊息…', true);
         this._bindType(box, typed, hadFocus);
       } else box.innerHTML = `<div class="ph-done">目前沒有新的話題了${Nano.state === 'downloading' ? '<br><small>AI 模型下載完成後就能無限聊天</small>' : ''}</div>`;
       return;
     }
-    st.choice = Math.min(st.choice, opts.length - 1);
+    st.choice = Math.min(st.choice, opts.length - (Nano.on ? 0 : 1));
     box.innerHTML = `<div class="ph-choices">${opts.map((ch, i) => `<button class="ph-choice ${i === st.choice ? 'on' : ''}" data-i="${i}"><kbd>${i + 1}</kbd>${esc(ch.t)}</button>`).join('')}</div>
-      ${Nano.on ? typeRow(`傳送「${opts[st.choice].t}」或自己輸入…`) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>${pausedRow}`}
-      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話・可自己打字' : ''}</div>`;
-    box.querySelectorAll('.ph-choice').forEach(b => b.onclick = () => this._pick(+b.dataset.i));
+      ${Nano.on ? typeRow('自己輸入，或點選項帶入…', st.choice === opts.length) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>${pausedRow}`}
+      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話・點選項帶入輸入框' : ''}</div>`;
+    // AI on: a click puts the option's words in the typing box; keyboard / pad still pick and send options directly
+    box.querySelectorAll('.ph-choice').forEach(b => b.onclick = () => Nano.on ? this._fillType(opts[+b.dataset.i].t) : this._pick(+b.dataset.i));
     if (!Nano.on) box.querySelector('.ph-send').onclick = () => this._send();
     this._bindType(box, typed, hadFocus);
     const t = this.view.querySelector('.ph-thread'); if (t) t.scrollTop = t.scrollHeight; // compose height changed
@@ -796,10 +799,12 @@ export class Phone {
     el.value = typed || '';
     // empty the box before sending: _send re-renders the compose area, which carries over whatever is still in the box
     const go = () => {
-      const t = el.value.trim(); if (!this.cur) return;
+      const t = el.value.trim(); if (!this.cur || !t) { this._focusType(); return; } // ↑ sends only what is in the box
       el.value = '';
-      if ((t ? this._send(t) : this._send()) === false) { const now = this.view.querySelector('.ph-type'); if (now) now.value = t; }
+      if (this._send(t) === false) { const now = this.view.querySelector('.ph-type'); if (now) now.value = t; }
     };
+    // focusing the box makes it the chosen item (blue), without re-rendering (that would drop the focus)
+    el.onfocus = () => this._selBox();
     el.onkeydown = (e) => {
       e.stopPropagation();
       if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); go(); }
@@ -807,11 +812,35 @@ export class Phone {
     };
     el.onkeyup = (e) => e.stopPropagation();
     box.querySelector('.ph-typerow .ph-send').onclick = go;
-    if (focus) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    if (focus) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); this._selBox(); }
+  }
+  _selBox() {
+    const st = this.cur, box = this.view.querySelector('.ph-compose'); if (!st || !box) return;
+    st.choice = this._options(st)?.length || 0;
+    box.querySelectorAll('.ph-choice.on').forEach(b => b.classList.remove('on'));
+    box.querySelector('.ph-typerow')?.classList.add('on');
   }
   // still waiting for the AI (not yet typing its answer): you can still pick and send (see _send)
   _thinking(st) { return !!st.busy && st.aiWait != null && st.aiWait === st.tok; }
-  _pick(i) { if (!this.cur || (this.cur.busy && !this._thinking(this.cur))) return; const o = this._options(this.cur); if (!o) return; this.cur.choice = Math.min(i, o.length - 1); this._renderCompose(); }
+  // the typing box is on (AI on, not paused)
+  _typing(st) { return Nano.on && !!st; }
+  _focusType() { const el = this.view.querySelector('.ph-type'); if (el && !el.disabled) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); this._selBox(); } }
+  // put an option's words in the typing box (and select it) so you can send or edit them
+  _fillType(text) {
+    const st = this.cur; if (!st) return;
+    st.choice = this._options(st)?.length || 0; this._renderCompose();
+    const el = this.view.querySelector('.ph-type'); if (!el) return;
+    el.value = text; this._focusType();
+  }
+  _pick(i) {
+    const st = this.cur; if (!st || (st.busy && !this._thinking(st))) return;
+    const o = this._options(st); if (!o) return;
+    const n = o.length + (this._typing(st) ? 1 : 0);
+    st.choice = Math.min(i, n - 1);
+    const el = this.view.querySelector('.ph-type'); if (el && document.activeElement === el) el.blur(); // keys go back to picking
+    this._renderCompose();
+    if (this._typing(st) && st.choice === o.length) this._focusType();
+  }
   // typed = your own words (AI chats only); an `always` option with a `match` that fits them is answered by it instead
   // returns false when nothing was sent (the typed text then stays in the box)
   _send(typed) {
@@ -819,7 +848,7 @@ export class Phone {
     const think = this._thinking(st); if (st.busy && !think) return false;
     const opts = this._options(st); if (!opts && !typed) return false;
     const g = this.g;
-    let ch = typed ? (st.c.always || []).find(a => a.match?.test(typed)) : opts[st.choice];
+    let ch = typed ? (st.c.always || []).find(a => a.match?.test(typed)) : opts[st.choice]; // (st.choice may be the typing box: nothing to send)
     if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
     if (!ch) return false;
     // the AI is still thinking (a reply or a new topic it opens): you don't have to wait, sending anything drops the

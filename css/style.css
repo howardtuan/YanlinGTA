@@ -314,7 +314,7 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .ph-input span{flex:1;font-size:13px;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ph-send{flex:none;width:28px;height:28px;border-radius:50%;border:0;background:#0a84ff;color:#fff;font-size:16px;font-weight:800}
 .ph-send:disabled{background:#c7c7cc}
-.ph-typerow{margin-top:6px}.ph-typeoff{background:#f2f2f7}.ph-typeoff .ph-type::placeholder{color:#aeaeb2}.ph-type{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:#111}.ph-type::placeholder{color:#8e8e93}
+.ph-typerow{margin-top:6px;border-width:1.5px}.ph-typerow.on{border-color:#0a84ff;background:#eef5ff}.ph-typeoff{background:#f2f2f7}.ph-typeoff .ph-type::placeholder{color:#aeaeb2}.ph-type{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:#111}.ph-type::placeholder{color:#8e8e93}
 .ph-tabhint{font-size:10px;color:#8e8e93;text-align:center;margin-top:5px}.ph-tabhint kbd{font-size:9px;padding:0 4px;box-shadow:none;background:#e5e5ea}
 .ph-done{font-size:12px;color:#8e8e93;text-align:center;padding:10px 0}
 

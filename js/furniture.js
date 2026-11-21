@@ -300,6 +300,9 @@ export function buildFurniture(scene, world, data, ctx) {
     }
     coll.addCircle(px, pz, 0.2); poles.add(px, pz, 0);
   };
+  // a crossing surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; js/map.js paints it)
+  // stands in for the one a signal junction would get on that arm
+  const surveyedZebra = (x, z) => (data.roadMarks || []).some(f => f.t === 'zebra' && !f.osm && (f.x - x) ** 2 + (f.z - z) ** 2 < 100);
   const zebra = (cx, cz, ex, ez, w) => {
     const [rx, rz] = right(ex, ez), half = w / 2 - 0.5;
     for (let o = -half + 0.25; o <= half - 0.2; o += 0.9) {
@@ -328,7 +331,7 @@ export function buildFurniture(scene, world, data, ctx) {
       const grp = Math.abs(a.ex * A0.ex + a.ez * A0.ez) > 0.7 ? 0 : 1;
       if (a.road.bridge) continue;
       const s = Math.max(...J.A.filter(o => o !== a).map(o => o.w / 2)) + 1.5;
-      zebra(a.x + a.ex * (s + 1.8), a.z + a.ez * (s + 1.8), a.ex, a.ez, a.w);
+      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz)) zebra(zx, zz, a.ex, a.ez, a.w); }
       // far-side pole on the right of traffic leaving along this arm
       const [rx, rz] = right(a.ex, a.ez);
       for (const ds of [0, 3, 6]) {

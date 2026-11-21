@@ -1108,10 +1108,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   };
   // lane marks: one solid or dashed (4 m on / 6 m off) line at offset `off`
   // from the centreline; cut short of junctions
-  // 中北路 (and 二段) is OSM residential but a marked street: a yellow centre line and white edge lines
-  // (NLSC 2024 正射, tools/roads.json), so it does not read like the lanes off it
+  // Streets surveyed on the NLSC 2024 正射 (tools/roads.json 'marks' -> r.marks) are drawn as painted there
+  // (centre line style, white edge lines, lanes per direction); the rest by class: primary..tertiary only
   const MARKED = { primary: 1, secondary: 1, tertiary: 1 };
-  const marked = r => MARKED[r.type] || (r.type === 'residential' && /^中北路(二段)?$/.test(r.name || ''));
+  const marked = r => r.marks ? r.marks.centre !== 'none' || !!r.marks.edge || (r.marks.lanes || 1) > 1 : MARKED[r.type];
   const WHITE = col('#e6e5df'), YELLOW = col('#e3bf3c');
   // 中北路 from the main gate: ~200 m painted green walkway (標線型人行道, 1.8 m) on both sides, just
   // outside the white edge lines so the street keeps its full width. { sd: the campus side (+1 / -1), d: length }
@@ -1123,13 +1123,26 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return { sd: world.inCampus(mx + nx * (r.w / 2 + 6), mz + nz * (r.w / 2 + 6)) ? 1 : -1, d: GREEN_WALK };
   };
   const GREEN_W = 1.8;
-  // 網狀黃線 on 中北路 (no-stopping boxes in front of garages / lane mouths), kerb to kerb: [x, z] of the
-  // centre and the length along the street (NLSC 2024 正射, read along the road with a metre ruler; the two
-  // by the lane mouths sit on the junctions, as on the photo)
-  const ZB_BOXES = [[-270.8, 108.2, 6.3], [-287.9, 114.5, 7.5], [-439.9, 170.2, 8.4]];
-  // where 中北路's lines break, as distances along the way: the centre line only across the side roads'
-  // mouths and the boxes; an edge line only across the mouths on its own side (+1 / -1, the sign of
-  // `off`) and the boxes; at a junction at either end, as far as line() cuts it
+  // painted spots (tools/roads.json 'features' -> data.roadMarks): 網狀黃線 box, 斑馬線 zebra, 停止線 stop,
+  // 機車停等區 bikebox; each belongs to the nearest drivable road (a box / stop to the street it lies on, a
+  // zebra to the street it crosses, the one running along its ang)
+  const FEATS = (data.roadMarks || []).map(f => {
+    let best = null;
+    for (const q of data.roads) {
+      if (!q.drive || q.under) continue;
+      for (let i = 0; i < q.pts.length - 1; i++) {
+        const a = q.pts[i], b = q.pts[i + 1], c = closestOnSeg(f.x, f.z, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - f.x, c[1] - f.z);
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, ux = (b[0] - a[0]) / l, uz = (b[1] - a[1]) / l;
+        const along = f.ang == null ? 1 : Math.abs(Math.cos(f.ang * Math.PI / 180) * ux + Math.sin(f.ang * Math.PI / 180) * uz);
+        const score = d + (along < 0.7 ? 6 : 0);
+        if (!best || score < best.score) best = { score, d, r: q, i, x: c[0], z: c[1], ux, uz };
+      }
+    }
+    return best && best.d < best.r.w / 2 + 4 ? { ...f, at: best } : null;
+  }).filter(Boolean);
+  // where a surveyed street's lines break, as distances along the way: the centre line only across the side
+  // roads' mouths, the boxes and the zebras; an edge line only across the mouths on its own side (+1 / -1, the
+  // sign of `off`), the boxes and the zebras; at a junction at either end, as far as line() cuts it
   const nodeRoads = new Map();
   for (const q of data.roads) if (hasNodes(q) && !q.under) q.nodes.forEach((id, k) => { let L = nodeRoads.get(id); if (!L) nodeRoads.set(id, L = []); L.push([q, k]); });
   const streetGaps = (r) => {
@@ -1152,24 +1165,22 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
       }
     }
-    if (greenWalk(r)) for (const [bx, bz, len] of ZB_BOXES) {
-      let best = null;
-      for (let i = 0; i < n - 1; i++) {
-        const a = r.pts[i], c = closestOnSeg(bx, bz, a[0], a[1], r.pts[i + 1][0], r.pts[i + 1][1]), d = Math.hypot(c[0] - bx, c[1] - bz);
-        if (!best || d < best.d) best = { d, s: D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]) };
-      }
-      all([best.s - len / 2 - 0.3, best.s + len / 2 + 0.3]);
+    for (const f of FEATS) {
+      if (f.at.r !== r || (f.t !== 'box' && f.t !== 'zebra')) continue;
+      const sd = D[f.at.i] + Math.hypot(f.at.x - r.pts[f.at.i][0], f.at.z - r.pts[f.at.i][1]), h = (f.t === 'box' ? f.len : f.len || 3) / 2 + 0.3;
+      all([sd - h, sd + h]);
     }
     return { G, D, M }; // M: the side roads' mouths only (no boxes / ends), per side
   };
-  // a solid line at `off` along r, skipping the [from, to] distances in gaps
-  const lineGaps = (r, yAt, off, lw, c, gaps, D, maxD = Infinity) => {
+  // a solid (or dashed: 4 m on / 6 m off) line at `off` along r, skipping the [from, to] distances in gaps
+  const lineGaps = (r, yAt, off, lw, c, gaps, D, maxD = Infinity, dash = false) => {
     for (let i = 0; i < r.pts.length - 1 && D[i] < maxD; i++) {
       const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = D[i + 1] - D[i];
       if (l < 0.3 || (!inPlay(a) && !inPlay(b))) continue;
       const nx = -dz / l, nz = dx / l;
       let runs = [[D[i], Math.min(D[i + 1], maxD)]];
       for (const [g0, g1] of gaps) runs = runs.flatMap(([u0, u1]) => g1 <= u0 || g0 >= u1 ? [[u0, u1]] : [[u0, g0], [g1, u1]].filter(([v0, v1]) => v1 - v0 > 0.3));
+      if (dash) runs = runs.flatMap(([u0, u1]) => { const o = []; for (let u = Math.ceil(u0 / 10) * 10; u < u1; u += 10) if (Math.min(u + 4, u1) - Math.max(u, u0) > 0.3) o.push([Math.max(u, u0), Math.min(u + 4, u1)]); return o; });
       for (const [u0, u1] of runs) {
         const s0 = u0 - D[i], s1 = u1 - D[i];
         const p0 = [a[0] + dx * s0 / l + nx * off, a[1] + dz * s0 / l + nz * off], p1 = [a[0] + dx * s1 / l + nx * off, a[1] + dz * s1 / l + nz * off];
@@ -1199,10 +1210,15 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const markRoad = (r, yAt) => {
     const two = !r.oneway, e = r.w / 2 - 0.35;
     const lanes = Math.max(1, r.lanes || (two ? 2 : r.type === 'primary' ? 3 : 2));
-    if (r.type === 'residential') { // 中北路: white edge lines and one solid yellow line, broken only where it must
-      const { G, D } = streetGaps(r);
-      lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D);
-      if (two) lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D);
+    if (r.marks) { // surveyed: as painted, every line running through and broken only where it must
+      const M = r.marks, { G, D } = streetGaps(r), n = Math.max(1, M.lanes || 1);
+      if (M.edge) { lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D); }
+      if (M.centre === 'double-yellow') { lineGaps(r, yAt, 0.15, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, -0.15, 0.12, YELLOW, G[0], D); }
+      else if (M.centre === 'yellow') lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D);
+      else if (M.centre === 'yellow-dash') lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D, Infinity, true);
+      else if (M.centre === 'white-dash') lineGaps(r, yAt, 0, 0.12, WHITE, G[0], D, Infinity, true);
+      if (two) { const lw = e / n; for (let k = 1; k < n; k++) for (const sd of [1, -1]) lineGaps(r, yAt, sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      else { const lw = 2 * e / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -e + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
       return;
     }
     line(r, yAt, e, 0.15, WHITE, false); line(r, yAt, -e, 0.15, WHITE, false);
@@ -1517,20 +1533,42 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const { D, M } = streetGaps(r);
       for (const sd of [1, -1]) lineGaps(r, null, sd * (r.w / 2 + GREEN_W / 2), GREEN_W, col('#3f8f5a'), [[0, 4], ...M[sd]], D, gw.d);
     }
-    // 網狀黃線 (ZB_BOXES, above)
-    if (r) for (const [bx, bz, len] of ZB_BOXES) {
-      let q = null;
-      for (let i = 0; i < r.pts.length - 1; i++) {
-        const a = r.pts[i], b = r.pts[i + 1], c = closestOnSeg(bx, bz, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - bx, c[1] - bz);
-        if (!q || d < q.d) { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; q = { d, x: c[0], z: c[1], ux: (b[0] - a[0]) / l, uz: (b[1] - a[1]) / l }; }
+    // painted spots (FEATS, above)
+    for (const f of FEATS) {
+      const q = f.at, R = q.r;
+      if (!inPlay([q.x, q.z])) continue;
+      if (f.t === 'box') { // 網狀黃線: outline + diagonal grid; kerb to kerb, or w wide round its surveyed centre
+        // (one nearly as wide as the street is laid kerb to kerb: the OSM line can be off the real centre by a metre or two)
+        const part = f.w && f.w < R.w - 1.5, v0 = part ? (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux : 0, h = f.len / 2, e = (part ? f.w / 2 : R.w / 2) - 0.35;
+        const P = (u, v) => [q.x + q.ux * u - q.uz * (v + v0), q.z + q.uz * u + q.ux * (v + v0)];
+        const bar = (u0, v0, u1, v1) => marks.strip(P(u0, v0), P(u1, v1), 0.14, 0.045, YELLOW);
+        bar(-h, -e, h, -e); bar(-h, e, h, e); bar(-h, -e, -h, e); bar(h, -e, h, e);
+        for (let c = -h - e + 1.6; c < h + e; c += 1.6) {
+          const a0 = Math.max(-e, -h - c), a1 = Math.min(e, h - c); if (a1 - a0 > 0.2) bar(a0 + c, a0, a1 + c, a1);    // u = v + c
+          const b0 = Math.max(-e, c - h), b1 = Math.min(e, c + h); if (b1 - b0 > 0.2) bar(c - b0, b0, c - b1, b1);     // u = c - v
+        }
+        continue;
       }
-      if (!q || !inPlay([q.x, q.z])) continue;
-      const h = len / 2, e = r.w / 2 - 0.35, P = (u, v) => [q.x + q.ux * u - q.uz * v, q.z + q.uz * u + q.ux * v];
-      const bar = (u0, v0, u1, v1) => marks.strip(P(u0, v0), P(u1, v1), 0.14, 0.045, YELLOW);
-      bar(-h, -e, h, -e); bar(-h, e, h, e); bar(-h, -e, -h, e); bar(h, -e, h, e);
-      for (let c = -h - e + 1.6; c < h + e; c += 1.6) {
-        const a0 = Math.max(-e, -h - c), a1 = Math.min(e, h - c); if (a1 - a0 > 0.2) bar(a0 + c, a0, a1 + c, a1);    // u = v + c
-        const b0 = Math.max(-e, c - h), b1 = Math.min(e, c + h); if (b1 - b0 > 0.2) bar(c - b0, b0, c - b1, b1);     // u = c - v
+      // the others are laid on their own direction: u along ang (the street), v across it
+      const a = (f.ang ?? Math.atan2(q.uz, q.ux) * 180 / Math.PI) * Math.PI / 180, ux = Math.cos(a), uz = Math.sin(a);
+      const P = (u, v) => [f.x + ux * u - uz * v, f.z + uz * u + ux * v], W = (f.w || R.w) / 2;
+      if (f.t === 'zebra') { // 斑馬線: 0.45 m bars along the street, 0.9 m apart, across its width
+        if (f.osm) continue; // furniture.js already lays this one (OSM crossing / signal junction): only breaks the lines
+        const L = (f.len || 3) / 2;
+        for (let v = -W + 0.5; v <= W - 0.3; v += 0.9) marks.strip(P(-L, v), P(L, v), 0.45, 0.05, WHITE);
+      } else if (f.t === 'stop') marks.strip(P(0, -W), P(0, W), 0.4, 0.045, WHITE);
+      else if (f.t === 'arrow') { // 直行箭頭, one per lane across w; it points the way traffic drives in its lane
+        const v = (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux, k = R.oneway || v >= 0 ? 1 : -1;
+        const dx = q.ux * k, dz = q.uz * k, n = f.w && f.w > 5 ? Math.round(f.w / 3.3) : 1;
+        for (let j = 0; j < n; j++) {
+          const o = (j - (n - 1) / 2) * (f.w || 3.3) / n, cx = f.x - dz * o, cz = f.z + dx * o;
+          const A = (u, s2) => [cx + dx * u - dz * s2, cz + dz * u + dx * s2];
+          marks.strip(A(-2.5, 0), A(0.9, 0), 0.3, 0.045, WHITE);
+          marks.flatPoly([A(0.8, -0.5), A(0.8, 0.5), A(2.5, 0)], 0.045, WHITE);
+        }
+      } else if (f.t === 'bikebox') { // 機車停等區: a white box
+        const L = (f.len || 3) / 2;
+        for (const [u0, v0, u1, v1] of [[-L, -W, L, -W], [-L, W, L, W], [-L, -W, -L, W], [L, -W, L, W]]) marks.strip(P(u0, v0), P(u1, v1), 0.15, 0.045, WHITE);
       }
     }
     // 正門 截水溝: a flush stainless grate (~0.3 m) across the end of 中北路, asphalt on the street side,

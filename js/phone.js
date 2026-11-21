@@ -65,6 +65,8 @@ const DOCK = ['messages', 'camera', 'wallet', 'settings'];
 const PAGE1 = 8;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // a promise that gives up after ms (the on-device AI can stall)
+// last-resort fallback for an AI reply; nano.js gives up earlier itself (session 40 s + prompt 25 s)
+const REPLY_LIMIT = 70000;
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
 const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 
@@ -729,6 +731,7 @@ export class Phone {
     this.app = 'messages'; this.cur = st; st.unread = 0; this.sel = this.chats.indexOf(st);
     const c = this.view; const C = st.c;
     this._frameKey = 'chat|' + st.c.id;
+    if (Nano.on) Nano.sessionFor(st).catch(() => { }); // warm up: the first session after Chrome starts takes ~20 s
     c.innerHTML = `<div class="ph-appview ph-chat"><div class="ph-nav ph-chatnav"><button class="ph-back">‹</button>
       <div class="ph-chathead"><span class="ph-av" style="background:${C.color}">${C.avatar}</span><b>${esc(C.name)}</b><small>${esc(C.sub)}</small><i class="ph-ai"></i></div><span>📹</span></div>
       <div class="ph-thread"></div><div class="ph-compose"></div></div>`;
@@ -845,8 +848,8 @@ export class Phone {
       st.pending = { replies: fallback, v };
       const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
       if (this.cur === st) this._renderCompose(); // 你在哪？ stays usable while it thinks
-      // the on-device model can stall: after 15 s the normal reply comes instead, so the chat never hangs
-      withTimeout(Nano.reply(st, ch.t), 15000).then(out => {
+      // the on-device model can stall: after REPLY_LIMIT the normal reply comes instead, so the chat never hangs
+      withTimeout(Nano.reply(st, ch.t), REPLY_LIMIT).then(out => {
         if (!mine()) return; st.tok++;
         st.aiOpts = out.options?.length === 2 ? out.options : null;
         this._deliver(st, out.replies?.length ? out.replies : fallback, v, 300);
@@ -863,7 +866,7 @@ export class Phone {
   _aiOpener(st) {
     st.busy = true;
     const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
-    withTimeout(Nano.reply(st, null), 15000).then(out => {
+    withTimeout(Nano.reply(st, null), REPLY_LIMIT).then(out => {
       if (!mine()) return; st.tok++;
       st.aiOpts = out.options?.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];
       this._deliver(st, out.replies || [], 0, 200);

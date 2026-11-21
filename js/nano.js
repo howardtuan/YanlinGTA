@@ -12,7 +12,7 @@ const PERSONA = {
   pinyan: '資管二乙學妹，認真讀書、常待圖書館，說話溫和有禮貌，會問系學會的事。',
   mom: '彥霖的媽媽，關心吃飯、睡覺、騎車安全和錢夠不夠用，長輩打字風格，愛用「！」和長輩表情，會叫他早點回家。',
   zz: '排球少年吱吱，資管系體保生，跟彥霖同屆。排球打攻擊、跳發是強項，常泡體育館和健身房（愛練腿），晚上 10 點固定打排位，講話直爽熱血，系排都挺彥霖選會長。',
-  laoda: '勞大，角色背景是 NBA 球星科比（Kobe Bryant），現在是彥霖航空的直升機駕駛員：高大壯碩的光頭大叔、留山羊鬍，穿紫金湖人 24 號球衣、戴航空耳機。講話很愛玩網路梗：開口常說「Man」、偶爾中英夾雜；超愛講冷笑話和諧音梗（例如最後得的獎是「螺旋槳」、不會飛的蜜蜂是「Ko-bee」）；說自己背號從 8 號變 24 號，是因為以前一天睡 8 小時、現在一天睡 24 小時；也愛提曼巴精神、凌晨四點的洛杉磯。彥霖說「哈哈」或在笑的時候，最後一則一定要回「孩子們，這並不好笑」。工作是開直升機幫彥霖空運機車，沒飛的時候在校園步道散步。',
+  laoda: '勞大，角色背景是 NBA 球星科比（Kobe Bryant），現在是彥霖航空的直升機駕駛員：高大壯碩的光頭大叔、留山羊鬍，穿紫金湖人 24 號球衣、戴航空耳機。講話很愛玩網路梗：開口常說「Man」、偶爾中英夾雜；超愛講冷笑話和諧音梗（例如最後得的獎是「螺旋槳」、不會飛的蜜蜂是「Ko-bee」）；說自己背號從 8 號變 24 號，是因為以前一天睡 8 小時、現在一天睡 24 小時；也愛提曼巴精神、凌晨四點的洛杉磯。彥霖說「哈哈」或在笑的時候，最後一則一定要回「孩子們，這並不好笑」。工作是開直升機幫彥霖空運機車，沒飛的時候在校園步道散步。你不是學生、也沒有參選，彥霖才是會長候選人，你只是支持他。',
   mcd: '麥當勞中原店店長，彥霖打工的主管，親切又專業，關心排班、出餐速度，偶爾稱讚他。',
 };
 
@@ -20,9 +20,9 @@ const BASE = `你在一款校園遊戲的手機聊天 App 裡扮演角色，正�
 彥霖是中原大學資訊管理學系的學生，正在競選資管系第34屆系學會會長（唯一一組，要過投票率門檻）。口號是「資管要贏，票投彥霖」，政見是系學會透明、課程回饋、系烤升級。他騎白色 SYM JET SL 機車（車牌 PYL0803），也在學校附近的麥當勞打工。
 規則：
 - 一律使用台灣繁體中文，台灣大學生的口語聊天語氣，不可以用簡體字。
-- 每則訊息要短，像即時通訊一樣，15～40 個字，可以用 emoji。
+- 每則訊息要短，像即時通訊一樣，10～30 個字，可以用 emoji。
 - 不要說自己是 AI，不要跳出角色，不要談論遊戲本身。
-- 輸出 JSON：replies 是你這次傳的 1～3 則訊息；options 是彥霖接下來可以回你的兩則訊息（以彥霖的口吻，語氣或方向不同，各 40 字內）。`;
+- 輸出 JSON：replies 是你這次傳的 1～2 則訊息；options 是彥霖接下來可以回你的兩則訊息（以彥霖的口吻，語氣或方向不同，各 20 字內，前面不要加名字）。`;
 
 const isChrome = () => {
   const brands = navigator.userAgentData?.brands;
@@ -43,7 +43,7 @@ function schema(group, members) {
   return {
     type: 'object', required: ['replies', 'options'],
     properties: {
-      replies: { type: 'array', minItems: 1, maxItems: 3, items: { type: 'object', required: ['who', 'text'], properties: { who, text: { type: 'string' } } } },
+      replies: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'object', required: ['who', 'text'], properties: { who, text: { type: 'string' } } } },
       options: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'string' } },
     },
   };
@@ -116,15 +116,15 @@ export const Nano = {
     }
     throw err;
   },
-  // one session per conversation, seeded with the persona and the chat so far
+  // one base session per conversation holding only the persona (no chat log, never prompted itself): each reply runs
+  // on a clone of it. Chrome 157's Gemini Nano fails (UnknownError, or never answers) on the second responseConstraint
+  // prompt in the same session, so a session is never prompted twice; a clone is instant and skips re-reading the persona.
   async sessionFor(st) {
     if (st.session) return st.session;
     const C = st.c;
     const members = C.group ? C.sub.split('、').filter(n => n !== '你') : [C.name];
-    const log = st.msgs.filter(m => m.text).slice(-24).map(m => `${m.who === 'me' ? '彥霖' : C.group ? m.who : C.name}：${m.text}`).join('\n');
     const sys = `${BASE}\n\n你扮演：${C.group ? `群組「${C.name}」裡的其他成員` : `「${C.name}」（${C.sub || '家人'}）`}。\n${PERSONA[C.id] || ''}\n` +
-      (C.group ? `replies 每則的 who 要填發言人名字（${members.join('、')}之一）。` : `replies 每則的 who 填「${C.name}」。`) +
-      `\n\n目前為止的聊天紀錄：\n${log || '（還沒聊過）'}`;
+      (C.group ? `replies 每則的 who 要填發言人名字（${members.join('、')}之一）。` : `replies 每則的 who 填「${C.name}」。`);
     st.members = members;
     st.session = this._create({ initialPrompts: [{ role: 'system', content: sys }] }).catch(e => { st.session = null; throw e; });
     return st.session;
@@ -142,35 +142,55 @@ export const Nano = {
     } finally { s.destroy?.(); }
   },
   // ask the model for the contact's replies to `text` (null = suggest two ways to start a new topic)
-  // Never hangs the chat: session creation and each prompt get REPLY_MS (under phone.js's 15 s fallback, so a stalled
-  // prompt is aborted here first); a prompt that runs over is aborted and its
-  // session thrown away (a stuck prompt would otherwise block every later prompt on that session), and a session whose
-  // context is nearly full is rebuilt from the last messages (a full context makes the model slow, then fail).
+  // Never hangs the chat. Measured on a Mac (Chrome 157): the first session after Chrome starts takes ~19 s (the model
+  // loads), a short reply on a clone ~2–6 s. Creating the base session gets SESSION_MS (a creation that runs over keeps
+  // going and is reused by the next message), each prompt PROMPT_MS; a prompt that runs over is aborted. A timeout pauses
+  // the AI for a while (_stall). phone.js's own fallback (REPLY_LIMIT) is longer than both together.
   async reply(st, text) {
-    const REPLY_MS = 14000, t0 = performance.now();
-    const left = () => Math.max(3000, REPLY_MS - (performance.now() - t0));
-    const drop = (s) => { if (st.session) st.session = null; try { s?.destroy?.(); } catch (e) { } };
+    const SESSION_MS = 40000, PROMPT_MS = 25000;
     const within = (p, ms, onLate) => new Promise((res, rej) => {
       const id = setTimeout(() => { onLate?.(); rej(new Error('timeout')); }, ms);
       p.then(v => { clearTimeout(id); res(v); }, e => { clearTimeout(id); rej(e); });
     });
-    let s;
-    try { s = await within(this.sessionFor(st), left(), () => { st.session = null; }); }
+    let base;
+    try { base = await within(this.sessionFor(st), SESSION_MS); }
     catch (e) { console.warn('[Nano] session', e?.message || e); if (e?.message === 'timeout') this._stall(); throw e; }
-    const used = s.contextUsage ?? s.inputUsage, quota = s.contextWindow ?? s.inputQuota;
-    if (used != null && quota && used > quota * 0.7) { drop(s); s = await within(this.sessionFor(st), left()); }
-    const C = st.c, members = st.members;
-    const q = text == null
+    const C = st.c, members = st.members, me = (m) => m.who === 'me' ? '彥霖' : C.group ? m.who : C.name;
+    const log = st.msgs.filter(m => m.text).slice(-16).map(m => `${me(m)}：${m.text}`).join('\n');
+    // a message that is only laughter is described instead of quoted: fed 「哈哈哈哈」 the model tends to keep laughing
+    // until it hits the output limit (QuotaExceededError after a long wait); long runs of one character are shortened
+    const laughOnly = text != null && /^[\s哈呵嘿嘻ㄏ笑死XxDd😂🤣!！~～.。]+$/.test(text) && /[哈呵嘿嘻ㄏ笑XxDd😂🤣]/.test(text);
+    const said = text == null ? '' : laughOnly ? '' : String(text).replace(/(.)\1{3,}/gu, '$1$1$1');
+    const q = `最近的聊天紀錄：\n${log || '（還沒聊過）'}\n\n` + (text == null
       ? '（彥霖打開了聊天室還沒說話。replies 請給一則你主動開啟的新話題訊息，options 給彥霖兩種回法。只輸出 JSON。）'
-      : `彥霖傳來：「${text}」\n請以角色身分回覆，只輸出 JSON。`;
+      : laughOnly ? '彥霖剛傳來一串笑聲（他覺得很好笑）。請以角色身分回覆，只輸出 JSON。'
+        : `彥霖剛傳來：「${said}」\n請以角色身分回覆這句，只輸出 JSON。`);
     const sch = schema(C.group, members);
+    const t0 = performance.now();
+    // one fresh clone per prompt (see sessionFor); aborted and destroyed when it runs over. Streamed, so a reply that
+    // runs away (the model repeating itself) is cut off at MAX_CHARS right away instead of after the whole time limit.
+    const MAX_CHARS = 600;
+    const ask = async (opts) => {
+      const c = await base.clone(), ac = new AbortController();
+      const run = async () => {
+        if (!c.promptStreaming) return c.prompt(q, { ...opts, signal: ac.signal });
+        let acc = '';
+        for await (const ch of c.promptStreaming(q, { ...opts, signal: ac.signal })) {
+          acc = acc && ch.length > acc.length && ch.startsWith(acc) ? ch : acc + ch; // older builds stream the whole text so far (always longer), newer ones just the new part (may repeat itself)
+          if (acc.length > MAX_CHARS) { ac.abort(); throw new Error('runaway'); }
+        }
+        return acc;
+      };
+      try { return await within(run(), PROMPT_MS - (performance.now() - t0), () => ac.abort()); }
+      finally { try { c.destroy(); } catch (e) { } }
+    };
     let raw;
-    const ask = (opts) => { const ac = new AbortController(); return within(s.prompt(q, { ...opts, signal: ac.signal }), left(), () => { ac.abort(); drop(s); }); };
     try { raw = await ask({ responseConstraint: sch }); }
     catch (e) {
+      if (e?.message === 'runaway') { console.warn('[Nano] reply ran away, cut at', MAX_CHARS, 'chars'); this.fails++; throw e; }
       if (e?.message === 'timeout') { console.warn('[Nano] reply timed out after', Math.round(performance.now() - t0), 'ms'); this._stall(); throw e; }
       try { raw = await ask({}); } // older builds without responseConstraint
-      catch (e2) { console.warn('[Nano] reply failed', e2?.name, e2?.message); if (e2?.name === 'QuotaExceededError' || e2?.message !== 'timeout') drop(s); throw e2; }
+      catch (e2) { console.warn('[Nano] reply failed', e2?.name, e2?.message); if (e2?.message === 'timeout') this._stall(); else { st.session = null; try { base.destroy(); } catch (x) { } } throw e2; }
     }
     const out = parse(raw);
     if (!out || !Array.isArray(out.replies) || !out.replies.length) { this.fails++; throw new Error('bad output'); }
@@ -180,7 +200,7 @@ export const Nano = {
       let who = C.group ? (members.includes(r.who) ? r.who : members[Math.floor(Math.random() * members.length)]) : C.id;
       return { who, text: t };
     }).filter(r => r.text);
-    const opts = (Array.isArray(out.options) ? out.options : []).map(o => clip(o, 60)).filter(Boolean).slice(0, 2);
+    const opts = (Array.isArray(out.options) ? out.options : []).map(o => clip(String(o || '').replace(/^\s*彥霖\s*[：:]\s*/, ''), 60)).filter(Boolean).slice(0, 2);
     return { replies, options: opts };
   },
 };

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from './collision.js';
-import { H, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP } from './terrain.js';
+import { H, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP, addCut, LV_DECK } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { buildFurniture } from './furniture.js';
 import { groundTex, facadeTex, facadeParam, FACP_TYPES, shopTex, roofTex, corrugatedTex, concreteTex } from './textures.js';
@@ -215,6 +215,77 @@ function groundGeometry(B) {
   g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;
+}
+
+// ---------- grade separations (tools/overrides.json 'grade') ----------
+// One item per viaduct / footbridge / road cut: helpers in metres s along its
+// centreline (tools/build_map.py build_grade turned the anchors into [s, v]).
+const CUT_WALL = 0.4; // retaining wall beside a cut
+const RAMP_SOLID = 3.2; // a viaduct lower than this above the ground is a solid ramp (walls, nothing passes under)
+function gradeItems(data) {
+  const out = {};
+  const lerp = (pr, s) => {
+    if (s <= pr[0][0]) return pr[0][1];
+    for (let i = 1; i < pr.length; i++) if (s <= pr[i][0]) return pr[i - 1][1] + (pr[i][1] - pr[i - 1][1]) * (s - pr[i - 1][0]) / (pr[i][0] - pr[i - 1][0] || 1);
+    return pr[pr.length - 1][1];
+  };
+  for (const g of data.grade || []) {
+    const P = g.path, cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    // point and unit direction at s
+    const at = (s) => {
+      let i = 0; while (i < P.length - 2 && s > cum[i + 1]) i++;
+      const l = cum[i + 1] - cum[i] || 1, t = Math.max(0, Math.min(1, (s - cum[i]) / l));
+      const ux = (P[i + 1][0] - P[i][0]) / l, uz = (P[i + 1][1] - P[i][1]) / l;
+      return { x: P[i][0] + ux * l * t, z: P[i][1] + uz * l * t, ux, uz };
+    };
+    const proj = (x, z) => {
+      let best = Infinity, bs = 0;
+      for (let i = 0; i < P.length - 1; i++) {
+        const a = P[i], b = P[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;
+        const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2));
+        const d = Math.hypot(a[0] + dx * t - x, a[1] + dz * t - z);
+        if (d < best) { best = d; bs = cum[i] + Math.sqrt(l2) * t; }
+      }
+      return bs;
+    };
+    const pr = g.prof, on = pr.map((p, i) => (p[1] > 0 ? i : -1)).filter(i => i >= 0);
+    // the stretch off the ground: from the zero anchor before the first raised / sunk one to the one after
+    const s0 = on.length ? pr[Math.max(0, on[0] - 1)][0] : 0, s1 = on.length ? pr[Math.min(pr.length - 1, on[on.length - 1] + 1)][0] : cum[cum.length - 1];
+    // decks join their anchors' absolute heights; a cut floor follows the ground along its centre
+    const abs = pr.map(([q, v]) => { const p = at(q); return [q, H(p.x, p.z) + v]; });
+    const y = g.kind === 'cut' ? (q => { const p = at(q); return H(p.x, p.z) - lerp(pr, q); }) : (q => lerp(abs, q));
+    out[g.id] = { ...g, cum, len: cum[cum.length - 1], at, proj, val: q => lerp(pr, q), y, s0, s1 };
+  }
+  return out;
+}
+// open (unroofed) stretches of the cuts as rectangles [cx, cz, ux, uz, half length, half width]
+function cutRects(items) {
+  const R = [];
+  for (const g of Object.values(items)) {
+    if (g.kind !== 'cut') continue;
+    const open = g.roof ? [[g.s0, g.roof[0]], [g.roof[1], g.s1]] : [[g.s0, g.s1]];
+    for (const [a, b] of open) for (let i = 0; i < g.path.length - 1; i++) {
+      const lo = Math.max(a, g.cum[i]), hi = Math.min(b, g.cum[i + 1]); if (hi - lo < 0.1) continue;
+      const p = g.at((lo + hi) / 2);
+      R.push([p.x, p.z, p.ux, p.uz, (hi - lo) / 2, g.w / 2 + CUT_WALL]);
+    }
+  }
+  return R;
+}
+// ground and draped layers are not drawn over an open cut (the cut is drawn below them)
+function cutMask(m, R) {
+  if (!R.length) return m;
+  const f = v => v.toFixed(3);
+  const test = R.map(([x, z, ux, uz, hl, hw]) => `cd = vCutW - vec2(${f(x)}, ${f(z)}); if (abs(dot(cd, vec2(${f(ux)}, ${f(uz)}))) < ${f(hl)} && abs(dot(cd, vec2(${f(-uz)}, ${f(ux)}))) < ${f(hw)}) discard;`).join('\n  ');
+  const prev = m.onBeforeCompile, key = m.customProgramCacheKey;
+  m.onBeforeCompile = (sh, r) => {
+    prev.call(m, sh, r);
+    sh.vertexShader = 'varying vec2 vCutW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vCutW = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    sh.fragmentShader = 'varying vec2 vCutW;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n  vec2 cd;\n  ' + test);
+  };
+  m.customProgramCacheKey = () => key.call(m) + '_cut';
+  return m;
 }
 
 const col = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
@@ -574,11 +645,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   world.inCampus = (x, z) => data.campus.some(r => pointInPoly(x, z, r));
   const inReserved = (x, z) => collision.reserved.some(p => pointInPoly(x, z, p));
 
+  // viaducts, footbridge, road cuts: the ground is masked over the open cuts
+  const grade = gradeItems(data), cutR = cutRects(grade), maskCut = m => cutMask(m, cutR);
   // ground layers draw in order without depth writes (no z-fighting)
   let layerOrder = -100;
   // polygonOffset: draped layers sit a few cm above the terrain; keep them in front at distance
   const OFFSET = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 };
-  const flatMat = (map = null) => new THREE.MeshStandardMaterial({ vertexColors: true, map, depthWrite: false, roughness: 0.9, envMapIntensity: 0.5, ...OFFSET });
+  const flatMat = (map = null) => maskCut(new THREE.MeshStandardMaterial({ vertexColors: true, map, depthWrite: false, roughness: 0.9, envMapIntensity: 0.5, ...OFFSET }));
   // PBR ground surface (textures.js groundTex) with large-scale macro variation
   const gmat = (tex, o = {}) => {
     const m = new THREE.MeshStandardMaterial({
@@ -587,7 +660,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     });
     if (tex.normalMap) m.normalScale.set(o.ns ?? 1, o.ns ?? 1);
     if (o.macro !== false) addMacro(m, o.macroScale ?? 0.011, o.macroAmt ?? 0.2);
-    return m;
+    return o.mask === false ? m : maskCut(m);
   };
   const uvS = s => q => [q[0] / s, q[1] / s];
   const addFlat = (geo, mat, tag) => {
@@ -676,7 +749,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     addFlat(gLines, null, 'areas');
     // water: dark, glossy, reflects the sky; ripples scroll
     const wn = T.waterNormal();
-    const wmat = new THREE.MeshStandardMaterial({ color: '#2f4c52', roughness: 0.06, metalness: 0.15, normalMap: wn, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.3, depthWrite: false, vertexColors: true, ...OFFSET });
+    const wmat = maskCut(new THREE.MeshStandardMaterial({ color: '#2f4c52', roughness: 0.06, metalness: 0.15, normalMap: wn, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.3, depthWrite: false, vertexColors: true, ...OFFSET }));
     addFlat(gWater, wmat, 'areas');
     world.animated.push((t) => { wn.offset.set(t * 0.012, t * 0.008); });
   }
@@ -702,7 +775,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const nx = -dz / l, nz = dx / l;
       for (const s of [-0.75, 0.75]) g2.strip([a[0] + nx * s, a[1] + nz * s], [b[0] + nx * s, b[1] + nz * s], 0.12, 0.04, col('#c9c9c9'));
     }
-    addFlat(g2, new THREE.MeshStandardMaterial({ vertexColors: true, depthWrite: false, metalness: 0.8, roughness: 0.35, ...OFFSET }), 'rail');
+    addFlat(g2, maskCut(new THREE.MeshStandardMaterial({ vertexColors: true, depthWrite: false, metalness: 0.8, roughness: 0.35, ...OFFSET })), 'rail');
   }
 
   // roads, by layer
@@ -846,19 +919,31 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     deckSides.quad(P(-hw, hh), P(hw, hh), P(hw, hh + 1), P(-hw, hh + 1), C, F);
     deckSides.quad(P(-hw - 1, hh + 1), P(hw + 1, hh + 1), P(hw + 1, hh + 1, 0.6), P(-hw - 1, hh + 1, 0.6), C, UP);
   };
+  // viaduct / footbridge deck (js/terrain.js level LV_DECK): the item's anchors, not the ends' terrain
+  const gradeDeck = (r, gi) => {
+    const s0 = gi.proj(r.pts[0][0], r.pts[0][1]), dir = gi.proj(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]) >= s0 ? 1 : -1;
+    r.deck = 1; // npc.js: traffic / walkers on this way use the deck
+    return addBridge(r.pts, r.w, { yAt: d => gi.y(s0 + dir * d), lv: LV_DECK });
+  };
   for (const r of data.roads) {
     if (r.under) {
       for (let i = 0; i < r.pts.length - 1; i++) roadGrid.add(r.pts[i][0], r.pts[i][1], r.pts[i + 1][0], r.pts[i + 1][1], r.w, r);
       const n = r.pts.length;
-      if (n > 1 && hasNodes(r)) {
+      if (n > 1 && hasNodes(r) && !r.grade && !r.beside) { // a cut's box gets its own portals (below); none beside it
         if ((nodeUse.get(r.nodes[0]) || 0) >= 2) portal(r.pts[0], r.pts[1], r.w);
         if ((nodeUse.get(r.nodes[n - 1]) || 0) >= 2) portal(r.pts[n - 1], r.pts[n - 2], r.w);
       }
       continue;
     }
     const L = ROAD_LAYER[r.type] ?? 1;
+    const gi = r.grade && grade[r.grade];
+    if (gi && gi.kind === 'footbridge') { // drawn with its truss below; walkers use the deck
+      gradeDeck(r, gi);
+      for (let i = 0; i < r.pts.length - 1; i++) roadGrid.add(r.pts[i][0], r.pts[i][1], r.pts[i + 1][0], r.pts[i + 1][1], r.w, r);
+      continue;
+    }
     const g = L === 0 && world.inCampus(r.pts[0][0], r.pts[0][1]) ? footCampus : layers[L]; const c = roadCol(r);
-    const yAt = r.bridge && !r.tunnel ? addBridge(r.pts, r.w) : null;
+    const yAt = gi && gi.kind !== 'cut' ? gradeDeck(r, gi) : r.bridge && !r.tunnel ? addBridge(r.pts, r.w) : null;
     let acc = 0;
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i], b = r.pts[i + 1];
@@ -875,12 +960,194 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const end = i === 0 || i === r.pts.length - 1;
       const need = !hasNodes(r) || (end ? (nodeUse.get(r.nodes[i]) || 0) >= 2 : isJunction(r, i) || turnAt(r, i) > 0.05);
       if (!need) return;
+      if (gi && gi.kind === 'cut') { const q = gi.proj(p[0], p[1]); if (q > gi.s0 && q < gi.s1) return; } // inside the cut
       if (yAt && !end) deckDisc(g, p[0], p[1], r.w / 2, yAt(acc) + 0.03 + TOL_LO, c, L === 0 ? 6 : 10);
       else g.disc(p[0], p[1], r.w / 2, 0.03, c, L === 0 ? 6 : 10);
     });
     if (MARKED[r.type]) markRoad(r, yAt);
     sidewalk(r);
   }
+  // ---------- grade separations: viaduct piers and ramp walls, footbridge, road cut ----------
+  // (tools/overrides.json 'grade'; heights in js/terrain.js). 2D collision: walls that
+  // nothing passes (open cut, low ramp) block everyone; viaduct parapets and the box
+  // walls under the railway are height-banded (collision.js) so the street below /
+  // the ground on top stays open. gradeSegs: the range of these walls in collision.segs (trees, below).
+  const cutFloor = new Geo(false, uvS(8)), cutMarks = new Geo(), gradeMetal = new Geo(), gradeLights = new Geo(), gradeSigns = [];
+  const gradeSegs = [collision.segs.length, 0];
+  {
+    const CONC = col('#a39e94'), WALLC = col('#e4dfd2'), RAILC = col('#9aa0a6'), TRUSS = col('#c8452a');
+    const inPlayB = (x, z) => x > B.minX - 2 && x < B.maxX + 2 && z > B.minZ - 2 && z < B.maxZ + 2;
+    // square tube from a to b ([x,y,z]), t thick
+    const beam = (g, a, b, t, c) => {
+      const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], l = Math.hypot(...d) || 1; d[0] /= l; d[1] /= l; d[2] /= l;
+      const up = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+      let u = [d[1] * up[2] - d[2] * up[1], d[2] * up[0] - d[0] * up[2], d[0] * up[1] - d[1] * up[0]];
+      const ul = Math.hypot(...u); u = u.map(v => v / ul * t / 2);
+      const v = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]];
+      const C = (p, su, sv) => [p[0] + u[0] * su + v[0] * sv, p[1] + u[1] * su + v[1] * sv, p[2] + u[2] * su + v[2] * sv];
+      for (const [s1, t1, s2, t2] of [[1, 1, 1, -1], [1, -1, -1, -1], [-1, -1, -1, 1], [-1, 1, 1, 1]]) {
+        const n = [u[0] * (s1 + s2) + v[0] * (t1 + t2), u[1] * (s1 + s2) + v[1] * (t1 + t2), u[2] * (s1 + s2) + v[2] * (t1 + t2)];
+        g.quad(C(a, s1, t1), C(b, s1, t1), C(b, s2, t2), C(a, s2, t2), c, n);
+      }
+    };
+    // vertical quad along a-b ([x,z]) from y0 to y1 (per end), facing n
+    const wall = (g, a, b, ya0, ya1, yb0, yb1, c, n, uv = true) => g.quad([a[0], ya0, a[1]], [b[0], yb0, b[1]], [b[0], yb1, b[1]], [a[0], ya1, a[1]], c, n,
+      uv ? [[0, ya0 / 3], [Math.hypot(b[0] - a[0], b[1] - a[1]) / 3, yb0 / 3], [Math.hypot(b[0] - a[0], b[1] - a[1]) / 3, yb1 / 3], [0, ya1 / 3]] : undefined);
+    const plate = (text, w, h) => canvasTex(512, Math.round(512 * h / w), (g2, W, Hh) => {
+      g2.fillStyle = '#f4f4ef'; g2.fillRect(0, 0, W, Hh); g2.strokeStyle = '#c4161c'; g2.lineWidth = Hh * 0.12; g2.strokeRect(Hh * 0.06, Hh * 0.06, W - Hh * 0.12, Hh - Hh * 0.12);
+      g2.fillStyle = '#111'; g2.font = `900 ${Math.round(Hh * 0.52)}px "Noto Sans TC","Microsoft JhengHei",sans-serif`; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText(text, W / 2, Hh / 2 + Hh * 0.03, W - Hh * 0.5);
+    }, false);
+    // sign plate centred at (x,y,z), facing (nx,nz)
+    const sign = (tex, x, y, z, nx, nz, w, h) => {
+      const g2 = new Geo(), tx = nz * w / 2, tz = -nx * w / 2; // u runs to the viewer's right
+      g2.quad([x - tx, y - h / 2, z - tz], [x + tx, y - h / 2, z + tz], [x + tx, y + h / 2, z + tz], [x - tx, y + h / 2, z - tz], col('#ffffff'), [nx, 0, nz], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+      gradeSigns.push([g2, tex]);
+    };
+
+    for (const gi of Object.values(grade)) {
+      const hw = gi.w / 2;
+      if (gi.kind === 'viaduct') {
+        // deck height as addBridge draws it (never below the ground across the deck)
+        const deckY = (p, s) => Math.max(gi.y(s), H(p.x, p.z), H(p.x - p.uz * hw, p.z + p.ux * hw), H(p.x + p.uz * hw, p.z - p.ux * hw));
+        let lastPier = -1e9, wasSolid = null;
+        for (let s = 0; s < gi.len - 0.01; s += DS) {
+          const s2 = Math.min(gi.len, s + DS), p = gi.at(s), q = gi.at(s2), ya = deckY(p, s), yb = deckY(q, s2);
+          const ga = ya - H(p.x, p.z), gb = yb - H(q.x, q.z), lo = Math.min(ga, gb), hi = Math.max(ga, gb);
+          if (hi < 0.3) { wasSolid = null; continue; }
+          const nx = -p.uz, nz = p.ux, solid = lo < RAMP_SOLID;
+          const L = [p.x + nx * hw, p.z + nz * hw], R = [p.x - nx * hw, p.z - nz * hw];
+          // the deck's underside over the open span (the street runs below it)
+          if (!solid) deckSides.quad([L[0], ya - 0.7, L[1]], [q.x + nx * hw, yb - 0.7, q.z + nz * hw], [q.x - nx * hw, yb - 0.7, q.z - nz * hw], [R[0], ya - 0.7, R[1]], CONC, [0, -1, 0]);
+          // where the open span meets the solid ramp: an end wall, closed to the street below
+          if (wasSolid !== null && solid !== wasSolid) {
+            wall(deckSides, L, R, H(L[0], L[1]) - 0.2, ya - 0.7, H(R[0], R[1]) - 0.2, ya - 0.7, CONC, [p.ux * (solid ? -1 : 1), 0, p.uz * (solid ? -1 : 1)]);
+            if (inPlayB(p.x, p.z)) collision.addSegment(L[0], L[1], R[0], R[1], -1e9, ya - 1.0);
+          }
+          wasSolid = solid;
+          for (const sd of [1, -1]) {
+            const ea = [p.x + nx * hw * sd, p.z + nz * hw * sd], eb = [q.x + nx * hw * sd, q.z + nz * hw * sd];
+            // low ramp: solid sides down to the ground (an embankment between retaining walls)
+            if (lo < RAMP_SOLID && hi > 0.7) wall(deckSides, ea, eb, H(ea[0], ea[1]) - 0.2, ya - 0.7, H(eb[0], eb[1]) - 0.2, yb - 0.7, CONC, [nx * sd, 0, nz * sd]);
+            if (!inPlayB(p.x, p.z)) continue;
+            const ca = [p.x + nx * (hw - 0.15) * sd, p.z + nz * (hw - 0.15) * sd], cb = [q.x + nx * (hw - 0.15) * sd, q.z + nz * (hw - 0.15) * sd];
+            if (solid) collision.addSegment(ca[0], ca[1], cb[0], cb[1]);
+            else collision.addSegment(ca[0], ca[1], cb[0], cb[1], Math.min(ya, yb) - 0.8, Math.max(ya, yb) + 2.5); // parapet for deck users only
+          }
+          // square piers with a cap beam, every ~20 m where the street passes under; none on a crossing road
+          if (lo >= RAMP_SOLID && s - lastPier >= 20) {
+            const cr = roadGrid.nearest(p.x, p.z, sg => sg[5].drive && sg[5].grade !== gi.id && !sg[5].under);
+            if (cr.seg && cr.d < 1.4) continue;
+            lastPier = s;
+            const ang = Math.atan2(p.uz, p.ux), h0 = Hmin(p.x, p.z, 0.8) - 0.3;
+            deckSides.box(p.x, p.z, ang, 1.4, 1.4, h0, ya - 1.4, CONC);
+            deckSides.box(p.x, p.z, ang, 1.2, gi.w - 1.2, ya - 1.5, ya - 0.7, CONC);
+            if (inPlayB(p.x, p.z)) {
+              const P = (lx, lz) => [p.x + p.ux * lx - p.uz * lz, p.z + p.uz * lx + p.ux * lz];
+              const cs = [P(-0.7, -0.7), P(0.7, -0.7), P(0.7, 0.7), P(-0.7, 0.7)];
+              for (let k = 0; k < 4; k++) collision.addSegment(cs[k][0], cs[k][1], cs[(k + 1) % 4][0], cs[(k + 1) % 4][1], -1e9, ya - 2);
+            }
+          }
+        }
+      } else if (gi.kind === 'footbridge') {
+        // orange Warren truss with a white roof, deck slab at its foot, red banner; height-limit
+        // plates on both faces over the street. The ends run into the two buildings.
+        const A = gi.at(0), L = gi.len, ux = A.ux, uz = A.uz, nx = -uz, nz = ux, y = gi.y(0);
+        const P3 = (s, o, yy) => [A.x + ux * s + nx * o, yy, A.z + uz * s + nz * o];
+        const yb = y - 0.4, yt = yb + 2.6, o = 1.5, n = Math.max(2, Math.round(L / 3));
+        deckSides.box(A.x + ux * L / 2, A.z + uz * L / 2, Math.atan2(uz, ux), L, 3.0, yb, y, col('#9c968c'));
+        for (const sd of [1, -1]) {
+          beam(gradeMetal, P3(0, o * sd, yb + 0.15), P3(L, o * sd, yb + 0.15), 0.3, TRUSS);
+          beam(gradeMetal, P3(0, o * sd, yt - 0.15), P3(L, o * sd, yt - 0.15), 0.3, TRUSS);
+          for (let k = 0; k <= n; k++) {
+            const s0 = k * L / n, s1 = (k + 1) * L / n;
+            beam(gradeMetal, P3(s0, o * sd, yb + 0.15), P3(s0, o * sd, yt - 0.15), 0.16, TRUSS);
+            if (k < n) beam(gradeMetal, P3(s0, o * sd, k % 2 ? yt - 0.15 : yb + 0.15), P3(s1, o * sd, k % 2 ? yb + 0.15 : yt - 0.15), 0.14, TRUSS);
+            // hand rail inside
+            if (k < n) beam(gradeMetal, P3(s0, (o - 0.25) * sd, y + 1.05), P3(s1, (o - 0.25) * sd, y + 1.05), 0.06, RAILC);
+          }
+        }
+        for (let k = 0; k <= n; k++) beam(gradeMetal, P3(k * L / n, -o, yt - 0.15), P3(k * L / n, o, yt - 0.15), 0.14, TRUSS);
+        deckSides.box(A.x + ux * L / 2, A.z + uz * L / 2, Math.atan2(uz, ux), L + 0.4, 3.8, yt, yt + 0.1, col('#f2f2ee'));
+        // the street's middle under the span
+        const sr = gi.prof[0][0], tex = plate('淨高4.7公尺', 0.9, 0.6), ban = canvasTex(512, 64, (g2, W, Hh) => { g2.fillStyle = '#c41e24'; g2.fillRect(0, 0, W, Hh); }, false);
+        for (const sd of [1, -1]) {
+          const c = P3(sr, (o + 0.2) * sd, yb + 0.3);
+          sign(tex, c[0], c[1], c[2], nx * sd, nz * sd, 0.9, 0.6);
+          const bc = P3(sr + 5 * sd, (o + 0.18) * sd, yb + 1.25);
+          sign(ban, bc[0], bc[1], bc[2], nx * sd, nz * sd, 7, 0.75);
+        }
+      } else if (gi.kind === 'cut') {
+        // open cut between retaining walls, box under the railway (roof = OSM tunnel way)
+        const roofed = s => !!gi.roof && s > gi.roof[0] + 0.01 && s < gi.roof[1] - 0.01;
+        const ceil = s => gi.y(s) + (gi.clearance || 4.6) + 0.3;
+        const st = new Set([gi.s0, gi.s1, ...(gi.roof || []), ...gi.cum.filter(q => q > gi.s0 && q < gi.s1)]);
+        for (let q = gi.s0; q < gi.s1; q += DS) st.add(q);
+        const S = [...st].sort((a, b) => a - b).filter((q, i, a) => !i || q - a[i - 1] > 0.05);
+        const pts = S.map(q => { const p = gi.at(q); return [p.x, p.z]; });
+        addCut(pts, gi.w, d => gi.y(gi.s0 + d), d => roofed(gi.s0 + d));
+        const e = hw - 0.35, FLOORC = col('#e4e4e4'), WHITE2 = col('#e6e5df'), YEL = col('#e3bf3c'), REFL = col('#ffc21a');
+        let next = 0;
+        for (let i = 0; i < S.length - 1; i++) {
+          const sa = S[i], sb = S[i + 1], A = pts[i], Bq = pts[i + 1], l = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]) || 1;
+          const nx = -(Bq[1] - A[1]) / l, nz = (Bq[0] - A[0]) / l, ya = gi.y(sa), yb = gi.y(sb), rf = roofed((sa + sb) / 2);
+          const O = (p, o) => [p[0] + nx * o, p[1] + nz * o];
+          const Q3 = (p, o, yy) => [p[0] + nx * o, yy, p[1] + nz * o];
+          cutFloor.quad(Q3(A, hw, ya), Q3(Bq, hw, yb), Q3(Bq, -hw, yb), Q3(A, -hw, ya), FLOORC, UP,
+            [O(A, hw), O(Bq, hw), O(Bq, -hw), O(A, -hw)].map(p => [p[0] / 8, p[1] / 8]));
+          // lane marks: edge lines, 雙黃線, dashed lane lines (5 m on / 5 m off)
+          const mk = (o, w2, c) => cutMarks.quad(Q3(A, o + w2 / 2, ya + 0.03), Q3(Bq, o + w2 / 2, yb + 0.03), Q3(Bq, o - w2 / 2, yb + 0.03), Q3(A, o - w2 / 2, ya + 0.03), c, UP);
+          mk(e, 0.15, WHITE2); mk(-e, 0.15, WHITE2); mk(0.15, 0.12, YEL); mk(-0.15, 0.12, YEL);
+          if (Math.floor((sa - gi.s0) / 5) % 2 === 0) { mk(e / 2, 0.12, WHITE2); mk(-e / 2, 0.12, WHITE2); }
+          for (const sd of [1, -1]) {
+            const ia = O(A, hw * sd), ib = O(Bq, hw * sd), oa = O(A, (hw + CUT_WALL) * sd), ob = O(Bq, (hw + CUT_WALL) * sd);
+            const ta = rf ? ceil(sa) : H(...O(A, (hw + CUT_WALL / 2) * sd)) + 0.15, tb = rf ? ceil(sb) : H(...O(Bq, (hw + CUT_WALL / 2) * sd)) + 0.15;
+            const fn = [-nx * sd, 0, -nz * sd];
+            wall(deckSides, ia, ib, ya - 0.1, ta, yb - 0.1, tb, WALLC, fn);
+            if (!rf) {
+              // coping, the outer face down into the ground, a metal railing where the drop is real
+              deckSides.quad([ia[0], ta, ia[1]], [ib[0], tb, ib[1]], [ob[0], tb, ob[1]], [oa[0], ta, oa[1]], WALLC, UP);
+              wall(deckSides, oa, ob, ta - 0.6, ta, tb - 0.6, tb, WALLC, [nx * sd, 0, nz * sd]);
+              if (gi.val(sa) > 0.5) {
+                const ra = O(A, (hw + 0.2) * sd), rb = O(Bq, (hw + 0.2) * sd);
+                for (const hh of [0.55, 1.1]) beam(gradeMetal, [ra[0], ta + hh, ra[1]], [rb[0], tb + hh, rb[1]], 0.05, RAILC);
+                beam(gradeMetal, [ra[0], ta, ra[1]], [ra[0], ta + 1.12, ra[1]], 0.06, RAILC);
+              }
+              if (gi.val(sa) >= 0.3 || gi.val(sb) >= 0.3) { const ca = O(A, (hw + 0.2) * sd), cb = O(Bq, (hw + 0.2) * sd); collision.addSegment(ca[0], ca[1], cb[0], cb[1]); }
+            } else {
+              const ca = O(A, (hw + 0.2) * sd), cb = O(Bq, (hw + 0.2) * sd);
+              collision.addSegment(ca[0], ca[1], cb[0], cb[1], -1e9, Math.min(ceil(sa), ceil(sb)) - 0.5); // the box walls; the ground on top stays open
+            }
+            // reflective markers at the wall foot every 10 m
+            if (sa >= next) {
+              const m = O(A, (hw - 0.03) * sd);
+              beam(gradeLights, [m[0], ya + 0.55, m[1]], [m[0], ya + 0.75, m[1]], 0.1, REFL);
+            }
+          }
+          if (sa >= next) next = sa + 10;
+          if (rf) {
+            // ceiling (casts the box's shadow) and two rows of lights
+            deckSides.quad(Q3(A, hw + CUT_WALL, ceil(sa)), Q3(Bq, hw + CUT_WALL, ceil(sb)), Q3(Bq, -hw - CUT_WALL, ceil(sb)), Q3(A, -hw - CUT_WALL, ceil(sa)), col('#cfcbc2'), [0, -1, 0]);
+            if (Math.round((sa - gi.roof[0]) / DS) % 2 === 0) for (const o of [hw / 2, -hw / 2]) {
+              const p = O(A, o), qy = ceil(sa) - 0.06;
+              beam(gradeLights, [p[0] - (Bq[0] - A[0]) / l * 0.6, qy, p[1] - (Bq[1] - A[1]) / l * 0.6], [p[0] + (Bq[0] - A[0]) / l * 0.6, qy, p[1] + (Bq[1] - A[1]) / l * 0.6], 0.12, col('#fff6e0'));
+            }
+          }
+        }
+        // portals: headwall over the opening with a 限高 plate, railing on top
+        if (gi.roof) for (const [rs, dir] of [[gi.roof[0], -1], [gi.roof[1], 1]]) {
+          const p = gi.at(rs), nx = -p.uz, nz = p.ux, c = ceil(rs), top = H(p.x, p.z) + 0.5, W = hw + CUT_WALL;
+          const a = [p.x + nx * W, p.z + nz * W], b = [p.x - nx * W, p.z - nz * W], fo = [p.ux * dir, 0, p.uz * dir];
+          wall(deckSides, a, b, c - 0.1, top, c - 0.1, top, WALLC, fo);
+          const a2 = [a[0] - p.ux * dir * 0.5, a[1] - p.uz * dir * 0.5], b2 = [b[0] - p.ux * dir * 0.5, b[1] - p.uz * dir * 0.5];
+          deckSides.quad([a[0], top, a[1]], [b[0], top, b[1]], [b2[0], top, b2[1]], [a2[0], top, a2[1]], WALLC, UP);
+          for (const hh of [0.55, 1.1]) beam(gradeMetal, [a[0], top + hh, a[1]], [b[0], top + hh, b[1]], 0.05, RAILC);
+          collision.addSegment(a[0], a[1], b[0], b[1], top - 1.2, 1e9); // the railing; the road in the cut passes below
+          sign(plate('限高 4.6 M', 2.4, 0.7), p.x + p.ux * dir * 0.03, (c + top) / 2, p.z + p.uz * dir * 0.03, p.ux * dir, p.uz * dir, 2.4, 0.7);
+        }
+      }
+    }
+  }
+  gradeSegs[1] = collision.segs.length;
   // 中北路: no curb sidewalk; ~200 m painted green walkway (標線型人行道)
   // on the campus side from the main gate
   {
@@ -898,7 +1165,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   addFlat(footCampus, gmat(T.paving(), { macroAmt: 0.2 }), 'roads');
   const asphMat = gmat(T.asphalt(), { roughness: 1, env: 0.7, macroAmt: 0.24 });
   for (let i = 1; i < layers.length; i++) addFlat(layers[i], asphMat, 'roads');
-  addFlat(marks, new THREE.MeshStandardMaterial({ vertexColors: true, depthWrite: false, roughness: 0.65, envMapIntensity: 0.6, ...OFFSET }), 'roads');
+  addFlat(cutFloor, gmat(T.asphalt(), { roughness: 1, env: 0.7, macroAmt: 0.24, mask: false }), 'roads');
+  addFlat(marks, maskCut(new THREE.MeshStandardMaterial({ vertexColors: true, depthWrite: false, roughness: 0.65, envMapIntensity: 0.6, ...OFFSET })), 'roads');
+  addFlat(cutMarks, new THREE.MeshStandardMaterial({ vertexColors: true, depthWrite: false, roughness: 0.65, envMapIntensity: 0.6, ...OFFSET }), 'roads');
+  if (gradeMetal.tris) { const m = gradeMetal.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.5, roughness: 0.45 })); m.castShadow = quality !== 'low'; scene.add(m); }
+  if (gradeLights.tris) scene.add(gradeLights.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, emissive: '#fff1cf', emissiveIntensity: 1.4, roughness: 0.5 })));
+  for (const [g2, tex] of gradeSigns) scene.add(g2.mesh(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide })));
   if (deckSides.tris) { const conc = concreteTex(); const m = deckSides.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, map: conc.map, normalMap: conc.normalMap, roughness: 0.85, side: THREE.DoubleSide })); m.receiveShadow = true; m.castShadow = quality !== 'low'; scene.add(m); }
   onProgress(0.4);
 
@@ -1800,7 +2072,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const getNode = (id, p) => { let n = nodes.get(id); if (!n) { n = { id, x: p[0], z: p[1], adj: [] }; nodes.set(id, n); } return n; };
   const inB = p => p[0] > B.minX + 5 && p[0] < B.maxX - 5 && p[1] > B.minZ + 5 && p[1] < B.maxZ - 5;
   for (const r of data.roads) {
-    if (!r.nodes || r.nodes.length !== r.pts.length || r.under) continue;
+    if (!r.nodes || r.nodes.length !== r.pts.length || (r.under && !r.grade)) continue; // a cut's box is driven through
     const drive = !!r.drive && !(r.type === 'service' && !r.name);
     for (let i = 0; i < r.pts.length - 1; i++) {
       if (!inB(r.pts[i]) || !inB(r.pts[i + 1])) continue;
@@ -1831,7 +2103,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return best;
   };
   // world.soft: parked scooters (no collision) that spawns should not overlap
-  world.isFree = (x, z, r = 1) => !collision.blocked(x, z, r) && !waterPolys.some(p => inArea(x, z, p)) && !(world.soft && world.soft.near(x, z, r + 0.4));
+  world.isFree = (x, z, r = 1) => !collision.blocked(x, z, r, 0, H(x, z)) && !waterPolys.some(p => inArea(x, z, p)) && !(world.soft && world.soft.near(x, z, r + 0.4));
 
   // ---------- landmarks ----------
   const poi = name => data.pois.find(p => p.name === name);
@@ -2239,16 +2511,22 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
 
   // ---------- street lamps ----------
   let lampSpots = [];
+  // Grade separations (tools/overrides.json 'grade') must not move the lamps or the trees laid out
+  // round them: both are placed as on the OSM roads (build_map.py keeps them in r.osm) without the
+  // grade walls, then the spots the grade separations take are dropped (gradeGhosts: dropped lamps).
+  const osmRoads = data.roads.some(r => r.osm) ? new SegGrid(20) : roadGrid, gradeGhosts = [];
+  if (osmRoads !== roadGrid) for (const r of data.roads) { const o = r.osm || r; for (let i = 0; i < o.pts.length - 1; i++) osmRoads.add(o.pts[i][0], o.pts[i][1], o.pts[i + 1][0], o.pts[i + 1][1], o.w, r); }
   // OSM street_lamp nodes where mapped; elsewhere one every 30 m, sides
   // alternating along each road (no lamp within 15 m of an OSM one)
   {
-    const spots = [];
+    let spots = [];
     const osm = data.furniture.filter(f => f.t === 'street_lamp');
     // lamp poles collide, so none may stand in any carriageway
-    const laneClear = (x, z) => { const q = roadGrid.nearest(x, z, s => s[5].drive && !s[5].under); return !q.seg || q.d > 0.3; };
+    const laneClear = (x, z, roads = osmRoads) => { const q = roads.nearest(x, z, s => s[5].drive && !s[5].under); return !q.seg || q.d > 0.3; };
     let inLane = 0;
+    collision.muted = gradeSegs;
     for (const f of osm) {
-      const q = roadGrid.nearest(f.x, f.z, s => s[5].drive && !s[5].under);
+      const q = osmRoads.nearest(f.x, f.z, s => s[5].drive && !s[5].under);
       let x = f.x, z = f.z, rot = 0;
       if (q.seg) {
         const s = q.seg, l = Math.hypot(s[2] - s[0], s[3] - s[1]) || 1;
@@ -2263,7 +2541,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     const osmN = spots.length;
     const nearOsm = (x, z) => osm.some(f => (f.x - x) ** 2 + (f.z - z) ** 2 < 225);
-    for (const r of data.roads) {
+    for (const r0 of data.roads) {
+      const r = r0.osm ? { ...r0, ...r0.osm } : r0;
       if (!r.drive || !r.name || r.type === 'service' || r.under) continue;
       let acc = 0, k = hashStr(r.name) & 1;
       for (let i = 0; i < r.pts.length - 1; i++) {
@@ -2282,6 +2561,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         acc += l;
       }
     }
+    collision.muted = null;
+    // the ones a grade separation takes: under a deck, on a cut's wall, in a lane moved over them
+    spots = spots.filter(([x, z]) => {
+      if (laneClear(x, z, roadGrid) && !collision.blocked(x, z, 0.3)) return true;
+      gradeGhosts.push([x, z, 0.2]); return false;
+    });
     world.lampCount = { osm: osmN, total: spots.length, inLane };
     lampSpots = spots;
     const pole = new THREE.CylinderGeometry(0.09, 0.13, 7, 8); pole.translate(0, 3.5, 0);
@@ -2366,9 +2651,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     };
     // low quality: fewer shrubs (they are the bulk of the new vegetation triangles)
     const SH1 = opts.low ? 500 : 1600, SH2 = opts.low ? 700 : 2200;
-    const okSpot = (x, z, r) => {
+    const okSpot = (x, z, r, roads = roadGrid) => {
       if (x < B.minX + 3 || x > B.maxX - 3 || z < B.minZ + 3 || z > B.maxZ - 3) return false;
-      if (roadGrid.nearest(x, z).d < 1.0) return false;
+      if (roads.nearest(x, z).d < 1.0) return false;
       if (collision.blocked(x, z, r)) return false;
       if (nearNoPlant(x, z, r)) return false;
       if (world.soft && world.soft.near(x, z, r)) return false;
@@ -2380,15 +2665,29 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       for (let k = 0; k < 8; k++) { const qx = x + Math.cos(k * 0.785) * 4, qz = z + Math.sin(k * 0.785) * 4; if (collision.reserved.some(p => pointInPoly(qx, qz, p))) return false; }
       return true;
     };
+    // Grade separations must not change the shared random streams (see street lamps): every
+    // spot is first tested as on the map without them (OSM roads, their walls muted, the lamps
+    // and trees they take kept as ghosts) and drawn as there; only then are those spots dropped.
+    const ghosts = [...gradeGhosts];
+    const okOsm = (x, z, r) => {
+      if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2)) return false;
+      collision.muted = gradeSegs;
+      const ok = okSpot(x, z, r, osmRoads);
+      collision.muted = null;
+      return ok;
+    };
     const tryTree = (x, z, s, palm = false) => {
-      if (!okSpot(x, z, palm ? 1.2 : 2.2)) return;
+      if (!okOsm(x, z, palm ? 1.2 : 2.2)) return;
+      const k = palm ? null : pickKind(x, z, s);
+      if (!okSpot(x, z, palm ? 1.2 : 2.2)) { ghosts.push([x, z, palm ? 0.3 : 0.35]); return; }
       if (palm) palms.push([x, z, s]);
-      else spots.push([x, z, ...pickKind(x, z, s)]);
+      else spots.push([x, z, ...k]);
       collision.addCircle(x, z, palm ? 0.3 : 0.35);
     };
     const polyBox = (pts) => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const [x, z] of pts) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return [a, b, c, d]; };
     // campus footways first: regular rows every 8 m on both sides, some rows palms
-    data.roads.forEach((r, ri) => {
+    data.roads.forEach((r0, ri) => {
+      const r = r0.osm ? { ...r0, ...r0.osm } : r0;
       if (r.type !== 'footway' || !world.inCampus(r.pts[0][0], r.pts[0][1])) return;
       const palm = hashStr('palm' + ri) % 100 < 28;
       let acc = -2; // first tree 2 m in, then a steady 8 m pitch across bends
@@ -2413,7 +2712,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       for (let i = 0; i < 1100; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (pointInPoly(x, z, ring)) tryTree(x, z, 0.8 + rnd() * 0.8); }
     }
     // roadside trees on the bigger roads (on the sidewalk)
-    for (const r of data.roads) {
+    for (const r0 of data.roads) {
+      const r = r0.osm ? { ...r0, ...r0.osm } : r0;
       if (!(r.type === 'tertiary' || r.type === 'secondary')) continue;
       for (let i = 0; i < r.pts.length - 1; i++) {
         const a = r.pts[i], b = r.pts[i + 1]; const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
@@ -2437,26 +2737,28 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       }
       world.fillGreens = fillGreens.length;
     }
-    // shrubs along campus building walls and inside parks (no collision)
+    // shrubs along campus building walls and inside parks (no collision); nShrub counts them as on the OSM map
+    let nShrub = 0;
+    const addShrub = (x, z, r, s) => { nShrub++; if (okSpot(x, z, r)) shrubs.push([x, z, s]); };
     for (const bd of data.buildings) {
       // 補建校舍不種牆邊灌木：不吃共用 rnd()／SH1 名額，補建開關不影響其他灌木位置
       if (!(bd.kind === 'campus' || bd.kind === 'dorm' || bd.kind === 'church') || bd.skip || bd.synthetic) continue;
       const pts = bd.pts;
-      for (let i = 0; i < pts.length && shrubs.length < SH1; i++) {
+      for (let i = 0; i < pts.length && nShrub < SH1; i++) {
         const a = pts[i], c = pts[(i + 1) % pts.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
         if (l < 3) continue;
         const nx = dz / l, nz = -dx / l;
         for (let s = 1.5; s < l - 1; s += 2.6) {
           if (rnd() < 0.45) continue;
           const x = a[0] + dx * s / l + nx * 1.4, z = a[1] + dz * s / l + nz * 1.4;
-          if (okSpot(x, z, 0.6)) shrubs.push([x, z, 0.8 + rnd() * 0.6]);
+          if (okOsm(x, z, 0.6)) addShrub(x, z, 0.6, 0.8 + rnd() * 0.6);
         }
       }
     }
     for (const p of greenPolys) {
       const [x0, z0, x1, z1] = polyBox(p);
       const n = Math.min(120, Math.floor((x1 - x0) * (z1 - z0) / 400));
-      for (let i = 0; i < n && shrubs.length < SH2; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (inArea(x, z, p) && okSpot(x, z, 0.8)) shrubs.push([x, z, 0.9 + rnd() * 0.8]); }
+      for (let i = 0; i < n && nShrub < SH2; i++) { const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0); if (inArea(x, z, p) && okOsm(x, z, 0.8)) addShrub(x, z, 0.8, 0.9 + rnd() * 0.8); }
     }
     // a ring of big rain trees round the edge of the 大草坪, like the real lawn
     for (const pts of lawns) {

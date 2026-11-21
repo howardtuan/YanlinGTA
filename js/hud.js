@@ -36,7 +36,7 @@ export class HUD {
     const order = ['footway', 'path', 'cycleway', 'steps', 'pedestrian', 'service', 'living_street', 'residential', 'unclassified', 'tertiary', 'secondary', 'primary'];
     const roads = [...d.roads].sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
     for (const r of roads) {
-      if (r.under) continue; // underpasses are not drawn in 3D either
+      if (r.under && !r.grade) continue; // underpasses are not drawn in 3D either (a road cut's box is)
       const foot = !r.drive;
       g.strokeStyle = foot ? '#8c8778' : r.type === 'primary' ? '#f2d16b' : r.type === 'secondary' || r.type === 'tertiary' ? '#e8e4da' : '#c9c6bd';
       g.lineWidth = Math.max(foot ? 1.2 : 2, r.w * s * (foot ? 0.8 : 1));

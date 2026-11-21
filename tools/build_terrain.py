@@ -29,6 +29,9 @@ Sunken plazas (data/cycu.json levels.sinks, from tools/overrides.json 'levels')
 pin only the grid posts inside their rectangle to the given height, so the cut
 does not spill a whole cell onto the roads around them; raised terraces and
 stairs are not in the grid (js/terrain.js adds them on top).
+Road cuts (data/cycu.json 'grade', kind cut, from tools/overrides.json) are
+filled back up to their bank height along the road, so the streets beside the
+cut stay level; the cut itself is drawn below that by js/map.js.
 
 Encoding: heights in decimetres; per row, r0[i] is the first value and rows[i]
 holds one char per following column, chr(OFF + delta) with |delta| <= 45.
@@ -210,6 +213,52 @@ def pond_zones(data, gx0, gz0, gx1, gz1):
     return out
 
 
+CUT_FLAT = 12.0      # cut fill: level across this far from the road centre
+CUT_REACH = 22.0     # then blend back to the DTM by here
+CUT_BANK = (22.0, 28.0)   # bank height sampled this far out on both sides
+CUT_RAMP = 15.0      # and over this distance past the cut's ends
+
+
+def cut_fill(g, bil, gx0, gz0, nx, nz, W, T):
+    """Level the terrain posts along a cut road to its banks (see main)."""
+    path, prof = g['path'], g['prof']
+    on = [i for i, (s, v) in enumerate(prof) if v > 0]
+    sa, sb = prof[max(0, on[0] - 1)][0], prof[min(len(prof) - 1, on[-1] + 1)][0]
+    segs, acc = [], 0.0
+    for a, b in zip(path, path[1:]):
+        l = math.hypot(b[0] - a[0], b[1] - a[1]); segs.append((a, b, l, acc)); acc += l
+
+    def proj(x, z):  # (s, offset, ux, uz) on the nearest segment
+        best = None
+        for a, b, l, s0 in segs:
+            dx, dz = (b[0] - a[0]) / l, (b[1] - a[1]) / l
+            t = min(l, max(0.0, (x - a[0]) * dx + (z - a[1]) * dz))
+            d = math.hypot(a[0] + dx * t - x, a[1] + dz * t - z)
+            if best is None or d < best[0]:
+                best = (d, s0 + t, dx * (z - a[1]) - dz * (x - a[0]), dx, dz)
+        return best[1:]
+
+    def smooth(t):
+        t = min(1.0, max(0.0, t)); return t * t * (3 - 2 * t)
+    xs = [p[0] for p in path]; zs = [p[1] for p in path]
+    i0 = max(0, int((min(xs) - CUT_REACH - gx0) / STEP)); i1 = min(nx - 1, int((max(xs) + CUT_REACH - gx0) / STEP) + 1)
+    j0 = max(0, int((min(zs) - CUT_REACH - gz0) / STEP)); j1 = min(nz - 1, int((max(zs) + CUT_REACH - gz0) / STEP) + 1)
+    n = 0
+    for j in range(j0, j1 + 1):
+        for i in range(i0, i1 + 1):
+            x, z = gx0 + i * STEP, gz0 + j * STEP
+            s, off, ux, uz = proj(x, z)
+            w = (1 - smooth((abs(off) - CUT_FLAT) / (CUT_REACH - CUT_FLAT))) * \
+                (1 - smooth((sa - s) / CUT_RAMP)) * (1 - smooth((s - sb) / CUT_RAMP))
+            if w <= 0:
+                continue
+            cx, cz = x + uz * off, z - ux * off  # the centreline point (left normal = (-uz, ux))
+            bank = sum(bil(cx - uz * k * o, cz + ux * k * o) for o in CUT_BANK for k in (1, -1)) / 4
+            if w > W[j][i]:
+                W[j][i] = w; T[j][i] = bank; n += 1
+    return n
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--dem', default=CACHE)
@@ -293,6 +342,15 @@ def main():
                     W[j][i] = w; T[j][i] = target
         flat.append({'name': name, 'h': target})
         print('flatten %-14s -> %+.1f m (%d pinned posts)' % (name, target, len(pinned)))
+    # ---- road cuts (data 'grade', kind cut): the 20 m DTM blurs a real cut into a
+    # shallow valley 1-2.5 m deep and ~50 m wide. Fill it back up to the banks so
+    # the streets beside the cut stay at grade; js/terrain.js then sinks the road
+    # itself between vertical retaining walls (and js/map.js draws them).
+    for g in data.get('grade', []):
+        if g['kind'] != 'cut':
+            continue
+        n = cut_fill(g, bil, gx0, gz0, nx, nz, W, T)
+        print('fill cut %-14s %d posts' % (g['name'], n))
     for j in range(nz):
         for i in range(nx):
             if W[j][i] > 0:

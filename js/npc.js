@@ -38,6 +38,7 @@ export class Traffic {
       // avoid stacking
       if (this.agents.some(o => o !== v && !o.ai.dormant && Math.hypot(o.pos.x - n.x, o.pos.z - n.z) < 12)) continue;
       Object.assign(v.ai, { from: n, edge: e, to: e.to, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, stunned: 0 });
+      v.hf = v.hb = e.road.deck ? Infinity : undefined; // spawned on a viaduct: start on its deck
       v.heading = Math.atan2(e.to.x - n.x, e.to.z - n.z);
       v.speed = 4; v.mesh.visible = true;
       this._place(v, 0);
@@ -145,7 +146,7 @@ export class Peds {
       const d = Math.hypot(n.x - px, n.z - pz);
       if (d < minD || d > maxD) continue;
       const e = n.adj[Math.floor(this.rnd() * n.adj.length)];
-      Object.assign(p, { from: n, to: e.to, edge: e, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, state: 'walk', voted: this.rnd() < 0.08 });
+      Object.assign(p, { from: n, to: e.to, edge: e, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, state: 'walk', voted: this.rnd() < 0.08, y: undefined });
       // campus peds are students; more voters near campus
       p.ch.root.visible = true; p.ch.root.rotation.x = 0;
       this._place(p, 0);
@@ -187,7 +188,7 @@ export class Peds {
         const dx = p.pos.x - pl.x, dz = p.pos.z - pl.z, d = Math.hypot(dx, dz) || 1;
         p.heading = Math.atan2(dx, dz);
         p.pos.x += dx / d * 5 * dt; p.pos.z += dz / d * 5 * dt;
-        collision.resolve(p.pos, 0.35);
+        collision.resolve(p.pos, 0.35, 0, p.ch.root.position.y);
         speed = 5;
         if (p.t <= 0) { p.state = 'return'; }
       } else if (p.state === 'cheer' || p.state === 'talk') {
@@ -200,7 +201,7 @@ export class Peds {
         const tx = f.x + (t.x - f.x) * k - (t.z - f.z) / l * off, tz = f.z + (t.z - f.z) * k + (t.x - f.x) / l * off;
         const dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz);
         if (d < 0.5) p.state = 'walk';
-        else { p.heading = Math.atan2(dx, dz); p.pos.x += dx / d * 1.6 * dt; p.pos.z += dz / d * 1.6 * dt; speed = 1.6; collision.resolve(p.pos, 0.35); }
+        else { p.heading = Math.atan2(dx, dz); p.pos.x += dx / d * 1.6 * dt; p.pos.z += dz / d * 1.6 * dt; speed = 1.6; collision.resolve(p.pos, 0.35, 0, p.ch.root.position.y); }
       } else {
         // walking; yield to player standing in path
         const [fx, fz] = [Math.sin(p.heading), Math.cos(p.heading)];
@@ -213,7 +214,9 @@ export class Peds {
           this._place(p, dt);
         }
       }
-      p.ch.root.position.set(p.pos.x, surfaceAt(p.pos.x, p.pos.z), p.pos.z);
+      // walkers on a footbridge / viaduct way use its deck, others keep their level
+      p.y = surfaceAt(p.pos.x, p.pos.z, p.state === 'walk' && p.edge.road.deck ? Infinity : p.y);
+      p.ch.root.position.set(p.pos.x, p.y, p.pos.z);
       p.ch.root.rotation.y = p.heading;
       p.ch.root.visible = dPl < 80;
       p.ch.setDetail(dPl < 16);

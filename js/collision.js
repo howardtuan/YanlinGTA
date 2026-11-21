@@ -25,6 +25,7 @@ export class CollisionWorld {
     this.circles = []; // [x,z,r]
     this.stampS = []; this.stampP = []; this.stampC = [];
     this.stamp = 1;
+    this.muted = null;
   }
   _key(ix, iz) { return ix * 73856 + iz; }
   _cell(ix, iz) {
@@ -62,10 +63,13 @@ export class CollisionWorld {
     p.pts = pts;
     for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; this.segs[p.s0 + i] = [a[0], a[1], b[0], b[1]]; }
   }
-  // free-standing wall (OSM barrier); blocks like a building edge
-  addSegment(ax, az, bx, bz) {
+  // free-standing wall (OSM barrier); blocks like a building edge.
+  // y0..y1 (optional, world y): resolve() only blocks bodies whose feet are in
+  // that band (a viaduct parapet, the walls of a box under a railway);
+  // blocked() counts it unless given a ya outside the band
+  addSegment(ax, az, bx, bz, y0, y1) {
     const si = this.segs.length;
-    this.segs.push([ax, az, bx, bz]); this.stampS.push(0);
+    this.segs.push(y0 === undefined ? [ax, az, bx, bz] : [ax, az, bx, bz, y0, y1]); this.stampS.push(0);
     this._each(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz), (ix, iz) => this._cell(ix, iz).s.push(si));
   }
   addCircle(x, z, r) {
@@ -97,7 +101,9 @@ export class CollisionWorld {
     }
     return false;
   }
-  blocked(x, z, r, y = 0) {
+  // ya (optional): world y of the feet, skips height-banded segments that are not at that height.
+  // this.muted = [i0, i1): segments blocked() skips for now (js/map.js lays the trees out as without them)
+  blocked(x, z, r, y = 0, ya) {
     if (this.extra && this.extra.blocked(x, z, r, y)) return true;
     if (this.reserved && this.reserved.some(p => pointInPoly(x, z, p))) return true;
     if (this.insideAny(x, z)) return true;
@@ -107,7 +113,9 @@ export class CollisionWorld {
       const c = this.grid.get(this._key(ix, iz)); if (!c || hit) return;
       for (const si of c.s) {
         if (this.stampS[si] === st) continue; this.stampS[si] = st;
+        if (this.muted && si >= this.muted[0] && si < this.muted[1]) continue;
         const s = this.segs[si];
+        if (ya !== undefined && s.length > 4 && !(ya >= s[4] && ya <= s[5])) continue;
         const q = closestOnSeg(x, z, s[0], s[1], s[2], s[3]);
         if ((q[0] - x) ** 2 + (q[1] - z) ** 2 < r * r) { hit = true; return; }
       }
@@ -119,7 +127,8 @@ export class CollisionWorld {
     return hit;
   }
   // Pushes pos {x,z} out of obstacles. Returns {hit,nx,nz} (nx,nz = accumulated push normal)
-  resolve(pos, r, y = 0) {
+  // ya: world y of the feet, for height-banded segments (vehicles and walkers keep pos.y = 0 and pass it)
+  resolve(pos, r, y = 0, ya = pos.y) {
     let hit = false, nx = 0, nz = 0;
     if (this.extra) { const e = this.extra.resolve(pos, r, y); if (e.hit) { hit = true; nx += e.nx; nz += e.nz; } }
     const b = this.b;
@@ -153,6 +162,7 @@ export class CollisionWorld {
         for (const si of c.s) {
           if (this.stampS[si] === st) continue; this.stampS[si] = st;
           const s = this.segs[si];
+          if (s.length > 4 && !(ya >= s[4] && ya <= s[5])) continue;
           const q = closestOnSeg(pos.x, pos.z, s[0], s[1], s[2], s[3]);
           const dx = pos.x - q[0], dz = pos.z - q[1];
           const d2 = dx * dx + dz * dz;

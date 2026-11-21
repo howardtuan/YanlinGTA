@@ -48,10 +48,13 @@ const bkey = (ix, iz) => ix * 73856 + iz;
 // end heights but never below the ground across its width; it is sampled every
 // <= DS m (map.js draws the same stations). Returns yAt(distance along the way).
 export const DS = 2.5;
-export function addBridge(pts, w) {
+// opt (grade separations, see below): yAt(d) = deck height instead of the
+// straight line between the ends; lv = the level kind the stations register as
+export function addBridge(pts, w, opt = {}) {
   let total = 0;
   for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
   const h0 = H(pts[0][0], pts[0][1]), h1 = H(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+  const base = opt.yAt || (d => h0 + (h1 - h0) * (total > 0 ? d / total : 0));
   const ds = [], ys = []; let acc = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -60,11 +63,11 @@ export function addBridge(pts, w) {
     let px = 0, pz = 0, py = 0;
     for (let k = 0; k <= n; k++) {
       const x = a[0] + (b[0] - a[0]) * k / n, z = a[1] + (b[1] - a[1]) * k / n, d = acc + l * k / n;
-      const y = Math.max(h0 + (h1 - h0) * (total > 0 ? d / total : 0), H(x, z), H(x + nx, z + nz), H(x - nx, z - nz));
+      const y = opt.lv >= LV_CUT ? base(d) : Math.max(base(d), H(x, z), H(x + nx, z + nz), H(x - nx, z - nz));
       if (k === 0 && ds.length) ys[ys.length - 1] = Math.max(ys[ys.length - 1], y);
       else { ds.push(d); ys.push(y); }
       if (k > 0) {
-        const s = { ax: px, az: pz, bx: x, bz: z, ya: py, yb: y, r: w / 2 };
+        const s = { ax: px, az: pz, bx: x, bz: z, ya: py, yb: y, r: w / 2, lv: opt.lv || 0 };
         const di = decks.length; decks.push(s);
         const x0 = Math.floor((Math.min(px, x) - s.r) / BC), x1 = Math.floor((Math.max(px, x) + s.r) / BC);
         const z0 = Math.floor((Math.min(pz, z) - s.r) / BC), z1 = Math.floor((Math.max(pz, z) + s.r) / BC);
@@ -93,8 +96,9 @@ export function clearBridges() { bgrid.clear(); decks.length = 0; levels.length 
 //  - pads: flat raised areas (terraces, platforms) at an absolute height y;
 //  - stairs / ramps: a w-wide strip from a (bottom, y0) to b (top, y1); the
 //    walkable surface is a smooth slope (steps > 0 only changes the drawing).
-// Pads and stairs share the bridge bucket grid (entries < 0), and
-// surfaceAt() = max(terrain, bridge deck, pad, stair slope), so the player,
+// Pads and stairs share the bridge bucket grid (entries < 0), and the
+// at-grade part of surfaceAt() = max(terrain, low bridge deck, pad, stair
+// slope) (grade separations are picked on top of that, see below), so the player,
 // NPCs, vehicles and the camera follow them like a bridge. groundY() is the
 // same without bridge decks: things placed on the ground use it (via Hmin).
 // The edges are drawn and sealed by js/map.js (retaining walls / stair sides
@@ -175,19 +179,67 @@ export function nearStair(x, z, pad = 0, foot = pad) {
   return false;
 }
 
-// ground for characters and vehicles: terrain, a pad / stair, or a bridge deck when on one
-export function surfaceAt(x, z) {
+// ---------- grade separations (viaducts, footbridges, road cuts) ----------
+// tools/overrides.json 'grade', drawn by js/map.js. Unlike the low bridges
+// above these are levels of their own, with something else at the same x/z:
+//  LV_DECK: a deck above a street that stays at grade (viaduct, footbridge);
+//  LV_CUT:  the floor of an open cut; there is no ground at its x/z (js/map.js
+//           masks the ground mesh there);
+//  LV_BOX:  the floor of a roofed cut (box under the railway); the ground on
+//           top stays a level of its own.
+// surfaceAt(x, z, ref) picks the level the caller is on: the highest one at
+// most CLIMB above ref (its height a moment ago), else the lowest one; the
+// at-grade ground (terrain / pad / stair / low bridge) is one candidate, except
+// alongside an open cut. Without ref, ref is groundY() (terrain or pad / stair),
+// so things placed on the ground stay on the ground.
+export const LV_DECK = 1, LV_CUT = 2, LV_BOX = 3;
+export const CLIMB = 0.6;
+// pts: centreline; floorAt(d) = floor height d metres along it; roofed(d)
+export function addCut(pts, w, floorAt, roofed) {
+  let acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (l < 1e-3) continue;
+    const n = Math.ceil(l / DS);
+    for (let k = 0; k < n; k++) {
+      const d0 = acc + l * k / n, d1 = acc + l * (k + 1) / n;
+      const p = [a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n], q = [a[0] + (b[0] - a[0]) * (k + 1) / n, a[1] + (b[1] - a[1]) * (k + 1) / n];
+      addBridge([p, q], w, { yAt: d => floorAt(d0 + d), lv: roofed((d0 + d1) / 2) ? LV_BOX : LV_CUT });
+    }
+    acc += l;
+  }
+}
+
+// ground for characters and vehicles: the at-grade ground (terrain, a pad /
+// stair, or a low bridge deck when on one) plus the grade-separation levels,
+// picked by ref (see grade separations above). Without ref, ref is the ground
+// without bridges (groundY), so things placed on the ground or a pad stay there.
+export function surfaceAt(x, z, ref) {
   const g = H(x, z);
   const l = bgrid.get(bkey(Math.floor(x / BC), Math.floor(z / BC)));
   if (!l) return g;
-  let y = g;
+  let y = g, open = false, best = -Infinity, low = Infinity;
+  if (ref === undefined) { ref = g; for (let n = 0; n < l.length; n++) if (l[n] < 0) { const v = levelY(levels[-1 - l[n]], x, z); if (v > ref) ref = v; } }
+  const top = ref + CLIMB;
   for (let n = 0; n < l.length; n++) {
     if (l[n] < 0) { const v = levelY(levels[-1 - l[n]], x, z); if (v > y) y = v; continue; }
     const s = decks[l[n]];
     const dx = s.bx - s.ax, dz = s.bz - s.az, l2 = dx * dx + dz * dz || 1;
-    let t = ((x - s.ax) * dx + (z - s.az) * dz) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    let t = ((x - s.ax) * dx + (z - s.az) * dz) / l2;
+    // a level's station only counts beside it (+-1 m along), not in the round end caps:
+    // on a ramp the caps reach the neighbouring stations' heights (a cut's are 6.5 m)
+    if (s.lv && (t < -1 / Math.sqrt(l2) || t > 1 + 1 / Math.sqrt(l2))) continue;
+    const beside = t >= 0 && t <= 1; // an open cut removes the ground only alongside its stations
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
     const qx = s.ax + dx * t - x, qz = s.az + dz * t - z;
-    if (qx * qx + qz * qz <= s.r * s.r) { const d = s.ya + (s.yb - s.ya) * t; if (d > y) y = d; }
+    if (qx * qx + qz * qz > s.r * s.r) continue;
+    const d = s.ya + (s.yb - s.ya) * t;
+    if (!s.lv) { if (d > y) y = d; continue; }
+    if (s.lv === LV_CUT && beside) open = true;
+    if (d <= top && d > best) best = d;
+    if (d < low) low = d;
   }
-  return y;
+  if (low === Infinity) return y;
+  if (!open) { if (y <= top && y > best) best = y; if (y < low) low = y; }
+  return best > -Infinity ? best : low;
 }

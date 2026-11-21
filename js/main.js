@@ -7,6 +7,7 @@ import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
 import { ZB_ST, zbFootprints } from './street_zhongbei.js';
+import { CF_DROP, campusFix, campusAdd } from './campus_fix.js';
 import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
 import { applyZoneE, zoneEFootprints } from './zone_e.js';
@@ -121,8 +122,11 @@ class Game {
     // the shop row at the 中北路 / 大仁街 corner (interiors.js buildDarenCorner) replaces this filler house
     const DROP = new Set(['f1558', ...DAREN_ST.drop]); // …and the 大仁街 street rows (buildDarenStreet) these filler houses
     for (const id of ZB_ST.drop) DROP.add(id); // 中北路街屋蓋掉的填充樓（js/street_zhongbei.js）
+    for (const id of CF_DROP) DROP.add(id); // 校內第 0 批刪掉的假建物（js/campus_fix.js）
     data.buildings = data.buildings.filter(b => !DROP.has(b.id));
     // custom-built enterable buildings replace these OSM footprints
+    for (const b of data.buildings) campusFix(b); // 校內第 0 批資料修正（js/campus_fix.js）
+    campusAdd(data.buildings); // 校內第 0 批新增的建物（拆開 w492471475 後的新中二街公寓等）
     for (const b of data.buildings) {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
       if (b.name === '警衛室') b.skip = true;

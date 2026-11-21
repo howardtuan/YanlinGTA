@@ -22,9 +22,9 @@
       "source": "Google 街景 2017 年 9 月左右（布條上有 2017 字樣），觀看點 24.95746,121.24064，朝向 20°。Google 衛星（以 24.957674,121.240686 為中心，寬約 208m）。背面（東北面）未見",
       "note": "1F round-arch arcade (~4 m bays), 2F square windows between pilasters, central three-arch portal, roof covered by solar panels",
       "look": {
-        "wall": {"base": "tile", "colour": "#a8957a"},
+        "wall": {"base": "tile", "colour": "#937d5c"},
         "windows": {"type": "punched", "ground": "arch", "bay": 4, "accent": "#8a5a45", "glass": "#4e5a62"},
-        "fins": [{"spacing": 4, "depth": 0.3, "t": 0.5, "colour": "#a8957a", "from": 1}],
+        "fins": [{"spacing": 4, "depth": 0.3, "t": 0.5, "colour": "#937d5c", "from": 1}],
         "parapet": {"h": 0.7, "colour": "#d8cfc0"},
         "portal": {"on": "sw", "near": [-181.5, 42.5], "w": 7.2, "d": 0.6, "floors": 2, "arches": 3, "colour": "#a8957a", "accent": "#8a5a45", "rise": 0.6},
         "roof": {"colour": "#8c8a84", "solar": {"colour": "#2c3a55"}}
@@ -78,7 +78,7 @@
       "source": "Google 街景，南側廣場（24.95736,121.24196）朝北 10°，2017年9月；Google 衛星（@24.957654,121.242029，約 208m，2026 影像）；西面樓梯塔沿用前一位調查者在西側泉源之谷廣場（24.95775,121.24151）的觀察",
       "note": "salmon tile with white frames and floor bands; two-storey white portico at the south entrance. The grey ribbon-window section above the entrance is not split out",
       "look": {
-        "wall": {"base": "tile", "colour": "#c58a78"},
+        "wall": {"base": "tile", "colour": "#9a4b3c"},
         "windows": {"type": "punched", "bay": 3.6, "accent": "#eeeeea", "glass": "#5f7480"},
         "bands": [{"colour": "#eeeeea", "h": 0.3, "depth": 0.2}],
         "canopy": [{"on": "s", "at": 0.5, "w": 14, "d": 4, "h": 7, "colour": "#eeeeea", "t": 0.8}],

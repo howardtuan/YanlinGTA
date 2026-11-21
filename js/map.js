@@ -732,11 +732,14 @@ function addMacro(m, scale, amt) {
 
 // PBR facade style per campus building, from reference photos (懷恩樓 brown brick, 科學館 terracotta +
 // white bands, 土木館 speckled granite, 工學館 grey-brown tiles ...); unknown ones get a deterministic pick
+// 注意：有 tools/looks.json look 的建物，牆色只看 look（沒有 look 才看 overrides.json 的 colour），這張表對它們
+// 只決定是否多抽一次 rnd2，不影響顏色；改顏色請改 looks.json。第 0 批已刪掉 15 棟有 look 的建物在
+// overrides.json 裡用不到的 colour（固定畫質逐像素比對確認外觀不變）。
 const STYLE_BY_NAME = {
   '懷恩樓': 'tan', '工學館': 'tan', '科學館': 'red', '土木館': 'granite', '理學大樓': 'red', '化學館': 'tan', '管理大樓': 'white',
   '自強商學大樓': 'white', '商設館': 'white', '智信樓': 'brick', '莊敬大樓': 'white', '建築館': 'granite', '祐生建築中心': 'granite',
   '張靜愚紀念圖書館': 'granite', '學生活動中心': 'tan', '全人教育村': 'brick', '電學大樓': 'tan', '力行大樓': 'red', '篤信大樓': 'white',
-  '信實樓': 'brick', '恩慈樓': 'brick', '良善樓': 'brick', '喜樂樓': 'brick', '陸華樓': 'white', '維澈樓': 'white', '校史館': 'tan',
+  '信實樓': 'brick', '恩慈樓': 'brick', '良善樓': 'brick', '喜樂樓': 'brick', '陸華樓': 'white', '維澈樓': 'white', '校史館': 'white',
   '生物科技館': 'white', '真知教學大樓': 'white', '設計學院': 'granite', '室設系館': 'white', '景觀系館': 'tan', '恩惠堂': 'white', '恩惠堂副堂': 'white',
   '中原大學體育館': 'white', '中原大學室內游泳池': 'white', '薄膜中心': 'white', '熱誠樓A棟': 'brick', '熱誠樓B C棟': 'brick', '林森館': 'tan', '望樓': 'tan',
   '月老宮': 'temple', '桃園白沙屯天上聖母': 'temple', '普忠里福德祠': 'temple', '盧氏宗祠': 'temple', '土地公廟': 'temple', '普仁福德祠(土地公廟)': 'temple',

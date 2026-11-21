@@ -30,7 +30,6 @@
       "name": "全人教育村",
       "osm": "w392023429",
       "floors": 9,
-      "colour": "#aca59c",
       "split": {
         "cuts": [[[-78.8, -100.3], [-19.2, -100.0]], [[-19.3, -81.1], [-11.5, -80.3]]],
         "floors": [6, 5, 9],
@@ -42,7 +41,6 @@
     {
       "name": "懷恩樓",
       "osm": "w229238548",
-      "colour": "#c4ad8c",
       "material": "brick",
       "facade": "arcade",
       "source": ["https://www.mplus.org.hk/en/collection/objects/slides-grace-building-chung-yuan-christian-university-chung-li-zhongli-taiwan-ca39-4-2-3-1/", "https://commons.wikimedia.org/wiki/File:中原大學_懷恩樓_-_panoramio.jpg", "https://commons.wikimedia.org/wiki/File:中原大學懷恩樓_夜晚_-_panoramio.jpg"],
@@ -51,7 +49,6 @@
     {
       "name": "張靜愚紀念圖書館",
       "osm": "w392023426",
-      "colour": "#7a6a5c",
       "material": "tiles",
       "source": ["https://eng.cycu.edu.tw/?p=32646", "https://commons.wikimedia.org/wiki/File:Chung_Yuan_Christian_University_Chang_Ching_Yu_Memorial_Library_2020-02-17.jpg", "https://commons.wikimedia.org/wiki/File:CYCU_Library_20230402.jpg", "https://commons.wikimedia.org/wiki/File:Cycu_lib.jpg", "Google 街景目視判斷（影像 2017-09，觀看點 24.958189,121.241310，朝西 290 度）"],
       "note": "Official: exterior tiles restored in 2014 to the original design; three dome skylights over 修德廳 (1F) and a sunken garden. Photos and street view (medium): grey-brown brick-format tiles, deep-set horizontal window bands, about 5 storeys, flat roof; colour darkened from #9a8d81 to the street-view #7a6a5c. Not modelled: the upper floors stepping out over the lower ones (inverted steps), the skylights and the sunken garden (no source gives their position; the skylights are not visible from the ground and the aerial view is blocked by 科學館). Floors stay at OSM 5F."
@@ -59,7 +56,6 @@
     {
       "name": "科學館",
       "osm": "w392023392",
-      "colour": "#9a4b3c",
       "material": "brick",
       "feature": ["observatory"],
       "source": ["https://commons.wikimedia.org/wiki/File:CYCU_Science_Building_with_Observatory.JPG", "Google 街景目視判斷（影像 2021-02，使用者 360 空拍環景，觀看點 24.956844,121.242195，朝西北 310~345 度）"],
@@ -68,7 +64,6 @@
     {
       "name": "工學館",
       "osm": "w328790267",
-      "colour": "#cbbba6",
       "material": "tiles",
       "source": ["https://commons.wikimedia.org/wiki/File:Gongxueyuan_20160519.jpg"],
       "note": "Photo (titled 工學院): light beige tiles with a glazed stair core."
@@ -76,7 +71,6 @@
     {
       "name": "電學大樓",
       "osm": "w430346971",
-      "colour": "#8c7362",
       "material": "tiles",
       "split": {
         "cuts": [[[-6.8, 227.3], [7.9, 232.0]]],
@@ -90,7 +84,6 @@
     {
       "name": "維澈樓",
       "osm": "w392023424",
-      "colour": "#86aaa4",
       "material": "glass",
       "source": ["https://commons.wikimedia.org/wiki/File:Weichelou_20160519.jpg"],
       "note": "Photo: glass curtain wall with teal glass and grey spandrel bands."
@@ -98,7 +91,6 @@
     {
       "name": "學生活動中心",
       "osm": "w392023427",
-      "colour": "#e3e1db",
       "material": "tiles",
       "source": ["https://commons.wikimedia.org/wiki/File:CYCU_activity_center_20230402.jpg", "https://commons.wikimedia.org/wiki/File:Chung_Yuan_Christian_University_activity_center_20160519.jpg", "https://oosa.cycu.edu.tw/wp-content/uploads/中原大學活動中心管理細則-1100414.doc.pdf"],
       "note": "Photos: white square tiles, colonnade along the ground floor. Colour/material only: the footprint, the McDonald's interior on its east side and the B1 open-air amphitheatre (management rules PDF) are left as they are. Street view 2017-09 could not see it (trees), see unverified."
@@ -118,7 +110,6 @@
       "osm": "w392023437",
       "floors": 3,
       "h": 13.5,
-      "colour": "#b8b2a6",
       "facade": "campus",
       "feature": ["entrance_canopy", "stair_drum"],
       "split": {
@@ -135,14 +126,12 @@
       "name": "望樓",
       "osm": "w587175198",
       "floors": 3,
-      "colour": "#e2e2dd",
       "source": ["https://commons.wikimedia.org/wiki/File:Wanglou_20160519.jpg"],
       "note": "OSM says levels=3 but height=21 (7 m per floor). The photo shows three storeys, so levels win (10.5 m). White tiles."
     },
     {
       "name": "土木館",
       "osm": "w328790116",
-      "colour": "#a9a59e",
       "facade": "wash",
       "source": ["https://commons.wikimedia.org/wiki/File:Tumugongchengguan_20160519.jpg"],
       "note": "Photo: grey granite-chip render (洗石子 look). Floors stay at OSM levels=5; OSM height=28 (5.6 m per floor) is not used, the photo does not show the whole height."
@@ -150,7 +139,6 @@
     {
       "name": "良善樓",
       "osm": "w392023419",
-      "colour": "#d9d9d4",
       "material": "tiles",
       "feature": ["roof_drum"],
       "source": ["Google 街景目視判斷（影像 2024-08，觀看點 24.95535,121.24208（大仁街 80 號前），朝北 345~20 度）", "Google 街景目視判斷（影像 2021-02，使用者 360 空拍環景，觀看點 24.956844,121.242195，朝 178 度）"],
@@ -159,7 +147,6 @@
     {
       "name": "信實樓",
       "osm": "w392023441",
-      "colour": "#8a8078",
       "material": "tiles",
       "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.959581,121.245610，朝東 90~110 度）"],
       "note": "Street view (medium): taupe tiles with light horizontal balcony bands (blue band on the left wing), flat roof with a framed parapet, multi-wing dorm around a planted courtyard, canopy entrance. About 10-11 storeys including the ground floor, so OSM 10F is kept. Image is from 2017; later changes cannot be checked. The balcony bands and roof frame are not modelled."
@@ -167,7 +154,6 @@
     {
       "name": "設計學院",
       "osm": "w587171779",
-      "colour": "#e8e4d8",
       "roof": "gabled",
       "roofColour": "#55585a",
       "feature": ["gable_row"],
@@ -178,7 +164,6 @@
       "name": "室設系館",
       "osm": "w587175196",
       "floors": 4,
-      "colour": "#d4d6d6",
       "material": "tiles",
       "source": ["Google 街景目視判斷（影像 2017-09，觀看點 24.955911,121.244803，朝東北 30~45 度）"],
       "note": "Street view (medium): 4 rows of windows, light grey-white tiles with horizontal window rows, flat roof, canopy over the ground-floor entrance. OSM levels=3 / height=21 replaced by 4F (h = 4 x 3.3 + 0.6 = 13.8 m, within the 13-14 m seen)."

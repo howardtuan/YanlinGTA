@@ -353,6 +353,23 @@ function packAtlas(images) {
   }
   return at;
 }
+// a MeshStandardMaterial that is nothing but a colour (no textures, opaque, no glow, default render
+// state): its key without the colour, or null. The colour then goes into vertex colours (finishRow).
+const BASE_COMPILE = THREE.Material.prototype.onBeforeCompile;
+function plainKey(m) {
+  if (!m || m.type !== 'MeshStandardMaterial' || m.vertexColors || m.transparent || m.opacity !== 1 || m.alphaTest !== 0 || !m.visible) return null;
+  if (m.map || m.normalMap || m.roughnessMap || m.metalnessMap || m.emissiveMap || m.aoMap || m.alphaMap || m.bumpMap || m.displacementMap || m.lightMap || m.envMap) return null;
+  if (m.emissiveIntensity !== 0 && m.emissive.getHex() !== 0) return null;
+  if (!m.depthWrite || !m.depthTest || m.polygonOffset || !m.colorWrite || m.blending !== THREE.NormalBlending || !m.toneMapped || !m.fog || m.flatShading || m.wireframe || m.shadowSide !== null) return null;
+  if (m.onBeforeCompile !== BASE_COMPILE || m.customProgramCacheKey !== THREE.Material.prototype.customProgramCacheKey) return null;
+  return [m.roughness, m.metalness, m.envMapIntensity, m.side].join('|');
+}
+const PAINTED = new Map(); // shared by every row: one material per kind of surface
+function paintedMat(pk, src) {
+  let m = PAINTED.get(pk);
+  if (!m) PAINTED.set(pk, m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: src.roughness, metalness: src.metalness, envMapIntensity: src.envMapIntensity, side: src.side }));
+  return m;
+}
 export function finishRow(scene, kits, shadow = true) {
   const parts = new Map(); // material key -> geometries in world space
   const planes = [];       // { mesh, matrix }
@@ -370,9 +387,25 @@ export function finishRow(scene, kits, shadow = true) {
     }
   }
   const out = new THREE.Group(); out.name = 'shopRow';
+  // plain colours (most of a row: one material per paint colour) go into one mesh per kind of surface,
+  // the colour carried by the vertices; everything else keeps its own material
+  const painted = new Map(); // plain key -> geometries with a colour attribute
   for (const [mat, list] of parts) {
-    const mesh = new THREE.Mesh(mergeGeometries(list, false), M(mat));
+    const geo = mergeGeometries(list, false), mt = M(mat), pk = plainKey(mt);
+    if (pk && mat !== 'glass') {
+      const n = geo.attributes.position.count, c = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { c[i * 3] = mt.color.r; c[i * 3 + 1] = mt.color.g; c[i * 3 + 2] = mt.color.b; }
+      geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+      if (!painted.has(pk)) painted.set(pk, { src: mt, geos: [] }); painted.get(pk).geos.push(geo);
+      continue;
+    }
+    const mesh = new THREE.Mesh(geo, mt);
     mesh.castShadow = shadow && mat !== 'glass'; mesh.receiveShadow = false; mesh.name = 'row:' + mat;
+    out.add(mesh);
+  }
+  for (const [pk, { src, geos }] of painted) {
+    const mesh = new THREE.Mesh(mergeGeometries(geos, false), paintedMat(pk, src));
+    mesh.castShadow = shadow; mesh.receiveShadow = false; mesh.name = 'row:painted';
     out.add(mesh);
   }
   // planes: group by everything about the material except the texture

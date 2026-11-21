@@ -694,14 +694,15 @@ export class Phone {
   _relist() { if (this.open && this.app === 'messages' && !this.cur) this._rerender(() => this._messages()); }
   _messages() {
     this.cur = null;
-    // newest conversation first (stable, so ties keep their order); the keyboard selection stays on the same chat
+    // pinned chats (彥霖's girlfriend) first, then newest conversation first (stable, so ties keep their order);
+    // the keyboard selection stays on the same chat
     const selSt = this.chats[this.sel];
-    this.chats = this.chats.map((st, k) => ({ st, k, t: this._lastAt(st) })).sort((a, b) => (b.t - a.t) || (a.k - b.k)).map(x => x.st);
+    this.chats = this.chats.map((st, k) => ({ st, k, p: st.c.pinned ? 1 : 0, t: this._lastAt(st) })).sort((a, b) => (b.p - a.p) || (b.t - a.t) || (a.k - b.k)).map(x => x.st);
     if (selSt) this.sel = this.chats.indexOf(selSt);
     const rows = this.chats.map((st, i) => {
       const last = [...st.msgs].reverse().find(m => m.text);
       const who = last && st.c.group && last.who !== 'me' ? last.who + '：' : last && last.who === 'me' ? '你：' : '';
-      return `<button class="ph-chatrow" data-i="${i}"><span class="ph-av" style="background:${st.c.color}">${st.c.avatar}</span>
+      return `<button class="ph-chatrow${st.c.pinned ? ' pinned' : ''}" data-i="${i}"><span class="ph-av" style="background:${st.c.color}">${st.c.avatar}${st.c.pinned ? '<i class="ph-pin" title="置頂"></i>' : ''}</span>
         <span class="ph-cr-main"><b>${esc(st.c.name)}</b><small>${esc(who + (last ? last.text : ''))}</small></span>
         <span class="ph-cr-side"><small>${last?.time || ''}</small>${st.unread ? `<i>${st.unread}</i>` : ''}</span></button>`;
     }).join('');

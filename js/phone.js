@@ -839,7 +839,12 @@ export class Phone {
         if (!mine()) return; st.tok++;
         st.aiOpts = out.options?.length === 2 ? out.options : null;
         this._deliver(st, out.replies?.length ? out.replies : fallback, v, 300);
-      }).catch(() => { if (!mine()) return; st.tok++; this._deliver(st, fallback, v, 300); });
+      }).catch(() => {
+        if (!mine()) return; st.tok++;
+        // the AI failed or timed out: stock reply plus stock topics, so it doesn't start another (maybe just as slow) AI round
+        st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏'];
+        this._deliver(st, fallback, v, 300);
+      });
     } else this._deliver(st, fallback, v, 650);
   }
   _filler() { const f = ['哈哈好啊', '收到 👍', '真的假的 😂', '好喔～', '有道理欸', '晚點再聊！']; return f[Math.floor(Math.random() * f.length)]; }

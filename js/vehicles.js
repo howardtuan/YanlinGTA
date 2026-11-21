@@ -372,6 +372,11 @@ const SCOOTER_COLORS = ['#e8e8e8', '#c1121f', '#1d3557', '#ffb703', '#2a9d8f', '
 const CAR_COLORS = ['#f0f0f0', '#222222', '#9aa3ab', '#b5121b', '#1e3a8a', '#6b7280', '#d1d5db', '#14532d'];
 
 let VID = 0;
+// two things more than this far apart in height are on different levels (the underpass and
+// the street over it, a viaduct deck and the road under it): they never touch or hit each other
+export const SAME_LEVEL = 2.5;
+export const sameLevel = (ya, yb) => Math.abs(ya - yb) < SAME_LEVEL;
+
 export class Vehicle {
   constructor(kind, rnd = Math.random, opt = {}) {
     this.id = VID++;
@@ -450,7 +455,7 @@ export class Vehicle {
     }
     // vehicle-vehicle
     for (const o of others) {
-      if (o === this) continue;
+      if (o === this || !sameLevel(this.mesh.position.y, o.mesh.position.y)) continue;
       const ddx = this.pos.x - o.pos.x, ddz = this.pos.z - o.pos.z, rr = this.radius + o.radius;
       const d2 = ddx * ddx + ddz * ddz;
       if (d2 < rr * rr && d2 > 1e-6) {

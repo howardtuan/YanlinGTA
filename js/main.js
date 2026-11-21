@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildWorld, buildSkyline, mulberry32, makeLabel } from './map.js';
-import { Vehicle } from './vehicles.js';
+import { Vehicle, sameLevel } from './vehicles.js';
 import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
@@ -757,7 +757,7 @@ class Game {
       // hit pedestrians
       const sp = Math.abs(v.speed);
       if (sp > 3) for (const p of this.peds.active()) {
-        if (Math.hypot(p.pos.x - v.pos.x, p.pos.z - v.pos.z) < v.radius + 0.45) {
+        if (Math.hypot(p.pos.x - v.pos.x, p.pos.z - v.pos.z) < v.radius + 0.45 && sameLevel(p.y, v.mesh.position.y)) {
           const [fx, fz] = v.forward();
           if (this.peds.knock(p, fx, fz)) { this.audio.hitPed(); this.addVotes(-1, '撞到同學了！-1 票 😵'); v.speed *= 0.7; }
         }
@@ -806,7 +806,7 @@ class Game {
     // ---- world sims ----
     const info = { pos: wp, vehicle: pl.vehicle, extraObstacles: [...this.vehicles.filter(v => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25), ...this.race.vehicles()] };
     this.traffic.update(dt, info, this.audio);
-    this.peds.update(dt, { pos: wp }, w.collision);
+    this.peds.update(dt, { pos: wp, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
     this.audio.ambient(dt, { x: wp.x, z: wp.z, yaw: this.rig.yaw, night: this.night, indoor: !pl.vehicle && !!this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y), market: w.nightMarket, crowd: this.speechOn, job: this.job.active, timed: this.missions.timer !== null || this.race.active });
     for (const n of this.npcs) { n.ch.update(dt, { speed: 0, pose: n.pose }); n.mark.position.y = 2.75 + Math.sin(this.time * 3) * 0.08; }
@@ -874,7 +874,7 @@ class Game {
   }
   _nearestPed(r) {
     const p = this.player.pos; let best = null, bd = r;
-    for (const q of this.peds.active()) { if (q.state === 'down') continue; const d = Math.hypot(q.pos.x - p.x, q.pos.z - p.z); if (d < bd) { bd = d; best = q; } }
+    for (const q of this.peds.active()) { if (q.state === 'down' || !sameLevel(q.y, p.y)) continue; const d = Math.hypot(q.pos.x - p.x, q.pos.z - p.z); if (d < bd) { bd = d; best = q; } }
     return best;
   }
   _flyer() {

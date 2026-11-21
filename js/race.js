@@ -8,7 +8,7 @@
 // corner-speed profile. Rivals ride kinematically along it (progress s + lateral offset), choose a free
 // lane when something is ahead and brake when nothing is free.
 import * as THREE from 'three';
-import { Vehicle } from './vehicles.js';
+import { Vehicle, sameLevel } from './vehicles.js';
 import { createCharacter, randomStudent } from './character.js';
 import { makeLabel, mulberry32 } from './map.js';
 import { surfaceAt } from './terrain.js';
@@ -502,7 +502,7 @@ export class Race {
       if (d < t.radius + v.radius) { r.speed *= 0.5; t.ai.stunned = 1.5; }
     }
     if (r.speed > 3) for (const p of g.peds.active()) {
-      if (Math.hypot(p.pos.x - v.pos.x, p.pos.z - v.pos.z) < v.radius + 0.45) { const [fx, fz] = v.forward(); if (g.peds.knock(p, fx, fz)) r.speed *= 0.6; }
+      if (Math.hypot(p.pos.x - v.pos.x, p.pos.z - v.pos.z) < v.radius + 0.45 && sameLevel(p.y, v.mesh.position.y)) { const [fx, fz] = v.forward(); if (g.peds.knock(p, fx, fz)) r.speed *= 0.6; }
     }
     const pv = g.player.vehicle;
     if (pv && Math.hypot(pv.pos.x - v.pos.x, pv.pos.z - v.pos.z) < pv.radius + v.radius) { r.speed *= 0.85; const side = (pv.pos.x - v.pos.x) * a.rx + (pv.pos.z - v.pos.z) * a.rz; r.lat -= Math.sign(side || 1) * 0.4; r.latT = r.lat; }

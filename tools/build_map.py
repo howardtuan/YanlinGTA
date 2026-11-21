@@ -434,8 +434,9 @@ def thin_edge(r, w=2.0):
 
 def split_parts(pts, sp):
     """Override 'split': cut a footprint into blocks along lines. cuts[i] = [p, q];
-    block 0 lies left of cut 0 (cross < 0), block i between cut i-1 and cut i."""
-    cuts, fl = sp['cuts'], sp['floors']
+    block 0 lies left of cut 0 (cross < 0), block i between cut i-1 and cut i.
+    Optional h[i] sets a block's height in metres (null = from its floors)."""
+    cuts, fl, hs = sp['cuts'], sp['floors'], sp.get('h') or []
     out = []
     for i, f in enumerate(fl):
         r = pts
@@ -445,7 +446,8 @@ def split_parts(pts, sp):
             r = clip_half(r, *cuts[i], -1)
         if area(r) < 0:
             r = r[::-1]
-        part = dict(pts=r, floors=int(f), h=round(f * FLOOR_H + ROOF_H, 1))
+        h = hs[i] if i < len(hs) and hs[i] else f * FLOOR_H + ROOF_H
+        part = dict(pts=r, floors=int(f), h=round(h, 1))
         if sp.get('labels'):
             part['label'] = sp['labels'][i]
         out.append(part)
@@ -1453,6 +1455,8 @@ def main():
                         stats['warn'].append('%s split part %s has a strip < 2 m wide' % (oid, q.get('label', '')))
                 rec['floors'] = max(q['floors'] for q in rec['parts'])
                 rec['h'] = max(q['h'] for q in rec['parts'])
+                if o['split'].get('ac'):
+                    rec['splitAc'] = 1   # js/map.js: keep the unsplit roof's AC units
         out['buildings'].append(rec)
     for i, o in enumerate(ovr):
         if i not in used_ovr:

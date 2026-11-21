@@ -31,6 +31,7 @@ export function writeSave(g) {
     notes: g.pc?.notes ?? null,
     pin: g.nav?.target || null,
     stocks: g.market?.toJSON() || null,
+    news: g.news?.toJSON() || null,
   };
   try { localStorage.setItem(KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
 }
@@ -55,6 +56,7 @@ export function applySave(g, d) {
   if (d.notes != null && g.pc) g.pc.notes = d.notes;
   if (d.pin && g.nav) g.nav.set(d.pin.x, d.pin.z);
   if (d.stocks && g.market) g.market.load(d.stocks);
+  g.news?.load(d.news);
   if (d.look) g.player.setLook(d.look);
   if (d.pos) {
     g.player.place(d.pos.x, d.pos.z, d.pos.h || 0); g.player.y = d.pos.y || 0; g.rig.yaw = d.pos.h || 0;

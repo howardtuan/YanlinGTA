@@ -1,6 +1,7 @@
 // i-Piyan：遊戲裡的手機（仿 iPhone 介面，蘋果換成水蜜桃）。按 E（附近沒有其他互動時）開關。
 // App：訊息（兩種回覆擇一，Tab 傳送）、相機、照片、Peach Pay 錢包、地圖、音樂、選情、天氣、麥當勞、設定。
 import { stockUI } from './stockui.js';
+import { newsUI } from './newsui.js';
 import { CONTACTS } from './chats.js';
 import { Nano } from './nano.js';
 import { dual } from './prompts.js';
@@ -18,6 +19,7 @@ const APPS = [
   { id: 'garage', name: '呼叫載具', icon: '🚁', bg: 'linear-gradient(#ffd23f,#ff9f0a)', noArt: true },
   { id: 'missions', name: '任務', icon: '📋', bg: 'linear-gradient(#7aa7ff,#2f6bff)', noArt: true },
   { id: 'stock', name: '靈感股', icon: '📈', bg: 'linear-gradient(#ff6b6b,#c81e2a)', noArt: true },
+  { id: 'news', name: 'PYtoday', icon: '📰', bg: 'linear-gradient(#ff3b3b,#1a1a1a)', noArt: true },
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
   { id: 'wallet', name: 'Peach Pay', icon: '💳', bg: 'linear-gradient(#ffb38a,#ff6f61)' },
@@ -164,7 +166,7 @@ export class Phone {
     const pages = [grid.slice(0, PAGE1), grid.slice(PAGE1)];
     this._pageStart = [0, PAGE1, grid.length];
     this._order = [...grid, ...dock].map(a => a.id);
-    const badgeN = id => id === 'messages' ? this.unreadTotal : id === 'gram' ? this.fresh.gram : id === 'pcard' ? this.fresh.pcard : 0;
+    const badgeN = id => id === 'messages' ? this.unreadTotal : id === 'gram' ? this.fresh.gram : id === 'pcard' ? this.fresh.pcard : id === 'news' ? (this.g.news?.unread || 0) : 0;
     const icon = (a) => {
       const n = badgeN(a.id), badge = n ? `<b class="ph-badge">${n}</b>` : '';
       // generated artwork covers the emoji + gradient; if the image fails it removes itself and the emoji shows
@@ -276,6 +278,11 @@ export class Phone {
     const nb = c.querySelector('.ph-mnav');
     if (nb) nb.onclick = () => { g.nav.set(tgt.x, tgt.z); g.hud.toast('🧭 已設定導航到任務目標', 'good', 2000); this.close(); g.lockPointer(); };
   }
+  // ---------------- PYtoday (news) ----------------
+  _news() {
+    const c = this._frame('PYtoday', '<div class="nw-host"></div>', { cls: 'ph-news' });
+    this._nw = newsUI(c.querySelector('.nw-host'), this.g, { wide: false });
+  }
   // ---------------- 靈感股 ----------------
   _stock() {
     const c = this._frame('靈感股', '<div class="sk-host"></div>', { cls: 'ph-stock' });
@@ -301,6 +308,7 @@ export class Phone {
     if (id === 'garage') return this._garage();
     if (id === 'missions') return this._missions();
     if (id === 'stock') return this._stock();
+    if (id === 'news') return this._news();
     if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
     if (id === 'camera') return this._camera();
     if (id === 'photos') return this._photos();
@@ -540,6 +548,7 @@ export class Phone {
     const g = this.g;
     // 靈感股 prices move while the app is on screen
     if (this.open && this.app === 'stock' && this._sk) { const n = performance.now(); if (n - (this._skT || 0) > 1000) { this._skT = n; this._sk.refresh(); } }
+    if (this.open && this.app === 'news' && this._nw) this._nw.refresh(); // new articles show up while it's open
     if (g.clock < this.nextPost) return;
     this.nextPost += 30;
     for (const p of this.feed.slice(0, 6)) p.likes += 1 + Math.floor(Math.random() * 12);

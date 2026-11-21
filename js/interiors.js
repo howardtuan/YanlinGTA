@@ -2304,7 +2304,8 @@ function buildTeaRow(I, scene) {
 }
 
 // =====================================================================
-// 戈登肉鋪 Gordon Meat Shop: 正門對面、大仁街上的兩間透天（OSM f1550 + f1551）合成一間 5 樓的店面。
+// 戈登肉鋪 Gordon Meat Shop: 一層樓的獨棟店面，蓋在校史館前面、小路對面的草坪上（鐘塔那片草坪的西緣），
+// 店門面向小路和校史館，門口一條步道接到路邊；不佔用任何原本的街屋。
 // 1F 照使用者給的店內照片：黑色招牌（金色 Gordon＋牛頭、白字戈登肉鋪、MEAT·SHOP），整面玻璃落地窗與玻璃門；
 // 店內是原木條天花板＋軌道投射燈、右手邊一整面直條木格柵後面藏著波浪形的暖光燈條、
 // 黑色臥式冷凍櫃（中間兩台並排一島、右牆兩台、左前一台）、直立冷藏展示櫃、
@@ -2312,16 +2313,19 @@ function buildTeaRow(I, scene) {
 // Local frame: x along the shop front, z into the shop (0 = glass front); u = W - x is measured from the
 // RIGHT wall as you walk in (the LED wave wall), so the layout reads like the photos.
 // =====================================================================
-export const GD_SPEC = { ids: ['f1550', 'f1551'], ox: -187.38, oz: 117.53, ang: Math.atan2(9.36, 2.85), W: 9.78, D: 17.42, NF: 5, FH: 3.42 };
+// origin = front corner at the south end; +x runs NNE along the service road (-58,76)-(-77,130), +z east into the
+// lawn. The glass front stands 8 m east of the road's centre line, clear of the trees along it, opposite the
+// middle of 校史館; the ground there is level within 0.3 m. PATH: length of the walk from the door to the road.
+export const GD_SPEC = { ox: -60.47, oz: 107.28, ang: Math.atan2(-0.944, 0.332), W: 9.78, D: 17.42, NF: 1, FH: 3.42, PATH: 6.6 };
 export function gordonOutline() {
   const { ox, oz, ang, W, D } = GD_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
   const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
   return [w(0, 0), w(W, 0), w(W, D), w(0, D)];
 }
-export function gordonFootprint() { // + the arcade in front of the glass
-  const { ox, oz, ang, W, D } = GD_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
+export function gordonFootprint() { // + the paving in front of the glass and the walk to the road, 1 m spare round it
+  const { ox, oz, ang, W, D, PATH } = GD_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
   const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
-  return [w(0, -1.4), w(W, -1.4), w(W, D), w(0, D)];
+  return [w(-1, -1.4 - PATH), w(W + 1, -1.4 - PATH), w(W + 1, D + 1), w(-1, D + 1)];
 }
 const GDT = {
   oak: () => ctex('gdOak', 256, 256, (g) => { // pale grey-oak plank floor (photos 2-5)
@@ -2417,7 +2421,7 @@ function gdBull(g, x, y, s, fill) {
   g.restore();
 }
 function buildGordon(I, scene) {
-  const S = GD_SPEC, W = S.W, D = S.D, F = S.FH, top = F * S.NF, CH = 3.25; // shop ceiling (under the slats)
+  const S = GD_SPEC, W = S.W, D = S.D, F = S.FH, top = Math.max(F * S.NF, F + 1.3), CH = 3.25; // top: roof over the sign box; CH: shop ceiling
   const k = new Kit(I, S.ox, S.oz, S.ang), base = k.base;
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
   const std = (o, lift = 0) => {
@@ -2452,13 +2456,14 @@ function buildGordon(I, scene) {
   const off = base - H(...k.w(W / 2, 6)); // the floor is levelled to the building base
   const SD = 12.6;                         // shop depth (storeroom and staff stair beyond)
 
-  // ---------------- shell (5-storey town house, upper floors closed) ----------------
+  // ---------------- shell (S.NF storeys; one here: a flat roof just over the sign, parapet all round) ----------------
   k.box(0, 0.2, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
   k.box(W - 0.2, W, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
   k.box(0.2, W - 0.2, -0.6, top, D - 0.2, D, MT.facade, { tile: [0.6, 0.6] });
   k.box(0, W, top - 0.2, top, 0, D, 'gray', { col: false });
-  k.box(0, W, top, top + 0.9, -0.05, 0.15, MT.facade, { col: false, tile: [0.6, 0.6] });
-  k.box(0.2, W - 0.2, F + 1.2, top - 0.2, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
+  k.box(0, W, top, top + 0.6, -0.05, 0.15, MT.black, { col: false });
+  if (S.NF === 1) { k.box(0, 0.15, top, top + 0.6, 0.15, D, MT.black, { col: false }); k.box(W - 0.15, W, top, top + 0.6, 0.15, D, MT.black, { col: false }); k.box(0.15, W - 0.15, top, top + 0.6, D - 0.15, D, MT.black, { col: false }); }
+  if (top - 0.2 > F + 1.2) k.box(0.2, W - 0.2, F + 1.2, top - 0.2, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
   for (let f = 1; f < S.NF; f++) {
     const y = f * F;
     for (const cx of [W * 0.27, W * 0.73]) { k.plane(YHT.win(), 2.6, 1.45, cx, y + 1.6, -0.01, Math.PI); k.box(cx - 1.4, cx + 1.4, y + 0.78, y + 0.84, -0.25, 0, MT.rim, { col: false }); }
@@ -2492,8 +2497,9 @@ function buildGordon(I, scene) {
     const fr = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.38, 0.05), M(MT.black)); fr.position.set(sgn * 0.48, 0, 0); m.add(fr);
     leaves.push({ m, x0: x, sgn });
   }
-  // arcade floor in front of the glass
+  // paving in front of the glass and a walk across the lawn from the door to the road
   k.box(0, W, -0.6, 0.04, -1.4, 0, MT.bmarble, { col: false, tile: [0.6, 0.6] });
+  k.box(DU0 - 0.2, DU1 + 0.2, -0.6, 0.03, -1.4 - S.PATH, -1.4, '#bdb8ae', { col: false, tile: [0.6, 0.6] });
 
   // ---------------- 1F shop ----------------
   k.box(0.2, W - 0.2, -0.6, 0.06, 0.2, D - 0.2, MT.oak, { col: false, tile: [1.6, 1.6] });

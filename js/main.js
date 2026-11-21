@@ -29,6 +29,7 @@ import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
 import { Gordon } from './gordon.js';
+import { NewsDesk } from './newsui.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
 import { Chassis } from './vehphys.js';
@@ -113,13 +114,14 @@ class Game {
       if (b.name === '警衛室') b.skip = true;
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
-      // 戈登肉鋪 (interiors.js) takes the two town houses across 大仁街 from the main gate
-      if (GD_SPEC.ids.includes(b.id)) { b.skip = true; if (b.id === GD_SPEC.ids[0]) { b.pts = gordonOutline(); b.name = '戈登肉鋪'; } }
       if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
         const c = Math.cos(YH_SPEC.ang), s = Math.sin(YH_SPEC.ang), ext = YH_SPEC.W * (YH_SPEC.k - 1);
         b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
       }
     }
+    // 戈登肉鋪 (interiors.js) stands on the lawn in front of 校史館: listed as a building so the maps draw it and it
+    // gets a name label; skip = interiors.js models it (no walls, roof or rnd draws from the town-house builder)
+    data.buildings.push({ id: 'gordon', name: '戈登肉鋪', kind: 'commercial', pts: gordonOutline(), h: GD_SPEC.FH + 1.9, floors: 1, skip: true });
     // that building carries its own shop sign
     const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美', '陽光煎匙', '吉野烤肉飯', '原泰阿杜 音樂餐酒館', '餡實餃色', '桃園中壢大三元麻將會館', "丸冰 maru's ice", '薰衣草-韓式海苔飯捲', '瑞麟美而美', '沐樂食堂', '墨爾漢堡', '晨食司控', '8 Code鬆餅', '功夫温泉', '桌弄', 'Carousel旋轉木馬兒童服飾', '川督極品麻辣臭豆腐', '享玩桌遊', 'AS艾拾金耳采耳專門店', '州味涼麵', '福祿壽囍鯛魚燒', '德式披薩', '六季鮮魚湯', '熊樂火鍋', '一起開丼&Ms.mo 奶酪小姐', '漢堡邦', '宜珍快餐', '艾修通訊', '中福鍋燒麵', 'Master Of Tea 花茶大師', '艾尚豆花', '食麪', '找個地方cafe', '咖喱就好啦', '全家便利商店']); // shop rows on 中北路 / 大仁街 (js/interiors.js buildTeaRow, buildDarenCorner)
     for (const p of data.pois) if (OWN_SIGN.has(p.name)) p.noSign = true;
@@ -198,6 +200,7 @@ class Game {
     this.nav = new Nav(this);           // map waypoint + route
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
     this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
+    this.news = new NewsDesk(this);     // PYtoday: 3 made-up articles a day; company news moves 靈感股
     this.gordon = new Gordon(this);     // 戈登肉鋪 across from the main gate: freezers, basket, checkout
     this.friends = new Friends(this);   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
     this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts
@@ -858,6 +861,7 @@ class Game {
     this.clock += dt / 4; // 1 game-minute per 4 seconds
     this._tickTimers(dt);
     this.phone.tick(); // Peachgram / Pcard get new posts every 30 game minutes
+    this.news.tick();  // PYtoday: a notice when an article comes out
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) { if (hud.advanceDialog()) this.audio.talk(); inp.pressed.clear(); }

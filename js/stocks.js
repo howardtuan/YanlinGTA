@@ -5,6 +5,10 @@
 // every stock through its beta, plus its own noise. Everything is a pure function of (seed, stock, day),
 // so the same game day always shows the same chart and the save only has to keep holdings and plans.
 // Hours follow the TWSE: 整股 09:00–13:30, 盤中零股 09:10–13:30, closed on Saturday and Sunday.
+// PYtoday news about a listed company (js/news.js, also a pure function of the day) moves its price: news before the
+// open (or from the evening / weekend before) gaps the open, news during the session pushes the path from that minute.
+
+import { newsEffects } from './news.js';
 
 // [real code, name in the game, industry, price level]
 const RAW = [
@@ -106,15 +110,17 @@ export class Market {
       let mret = reg.mu + reg.sd * gauss(R);
       if (R() < 0.025) mret += (R() < 0.5 ? -1 : 1) * (0.02 + R() * 0.025); // shock day
       this.regDay[d] = this.regime;
-      for (const s of this.list) this._genStock(s, d, mret);
+      const E = newsEffects(d);
+      for (const s of this.list) this._genStock(s, d, mret, E.filter((e) => e.code === s.code));
     }
   }
-  _genStock(s, d, mret) {
+  _genStock(s, d, mret, eff = []) {
     const r = rngOf(hashN(this.seed, s.i, d + 100000)), prev = s.close;
     const lo = d < 0 ? prev * 0.9 : ceilTick(prev * 0.9), hi = d < 0 ? prev * 1.1 : floorTick(prev * 1.1);
     const clamp = (p) => Math.max(lo, Math.min(hi, p));
-    const ret = Math.max(-0.0995, Math.min(0.0995, s.beta * mret + s.vol * gauss(r) + s.drift));
-    const open = clamp(prev * (1 + ret * 0.35 + s.vol * 0.35 * gauss(r)));
+    const gap = eff.filter((e) => e.at <= OPEN).reduce((t, e) => t + e.pct, 0), intra = eff.filter((e) => e.at > OPEN);
+    const ret = Math.max(-0.0995, Math.min(0.0995, s.beta * mret + s.vol * gauss(r) + s.drift + gap));
+    const open = clamp(prev * (1 + (ret - gap) * 0.35 + gap * 0.8 + s.vol * 0.35 * gauss(r)));
     const close = clamp(prev * (1 + ret));
     // Brownian bridge from open to close in log space
     const w = [0]; const sd = s.vol * 0.55 / Math.sqrt(NP - 1);
@@ -123,9 +129,15 @@ export class Market {
     let h = -Infinity, l = Infinity;
     for (let k = 0; k < NP; k++) {
       const t = k / (NP - 1), p = clamp(Math.exp(lo0 + (lc - lo0) * t + w[k] - t * w[NP - 1]));
-      path[k] = d < 0 ? p : roundTick(p); if (path[k] > h) h = path[k]; if (path[k] < l) l = path[k];
+      path[k] = d < 0 ? p : roundTick(p);
     }
-    const v = Math.round(s.vbase * (0.6 + r() * 0.8) * (1 + Math.abs(ret) * 15));
+    // news during the session: the price moves toward the news over ~20 minutes from the moment it is out
+    for (const e of intra) for (let k = 0; k < NP; k++) {
+      const tm = OPEN + k * SEG; if (tm < e.at) continue;
+      path[k] = roundTick(clamp(path[k] * (1 + e.pct * Math.min(1, (tm - e.at) / 20))));
+    }
+    for (const q of path) { if (q > h) h = q; if (q < l) l = q; }
+    const v = Math.round(s.vbase * (0.6 + r() * 0.8) * (1 + Math.abs(ret) * 15) * (1 + eff.reduce((t, e) => t + Math.abs(e.pct), 0) * 20)); // news days trade heavier
     s.candles.push({ d, o: path[0], h, l, c: path[NP - 1], v });
     s.close = path[NP - 1]; s.path = path; s.pathDay = d;
   }

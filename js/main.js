@@ -812,7 +812,7 @@ class Game {
       const v = pl.vehicle;
       const a = pl.frozen ? { x: 0, y: 0 } : inp.axis();
       const others = [...this.traffic.vehicles(), ...this.race.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
-      v.drive(dt, { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') }, w.collision, others, (imp) => { this.audio.bump(imp / 3); this.rig.cur.y += Math.min(0.3, imp * 0.02); });
+      v.drive(dt, { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') }, w.collision, others, (imp) => { this.audio.bump(imp / 3, v.kind); this.rig.cur.y += Math.min(0.3, imp * 0.02); });
       pl.ch.update(dt, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
       // hit pedestrians (touching the vehicle body): thrown along the way the vehicle goes, a bit off to their side
       const sp = Math.abs(v.speed);

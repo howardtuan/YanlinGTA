@@ -416,7 +416,7 @@ export class Race {
           const push = v.radius + 0.3 - d; v.pos.x += nx * push; v.pos.z += nz * push;
           const imp = Math.abs(v.speed);
           v.speed *= isPlayer ? 0.35 : 0.5;
-          if (isPlayer && imp > 3) { g.audio.bump(imp / 3); g.rig.cur.y += Math.min(0.3, imp * 0.02); if (!this._bt || g.time - this._bt > 0.6) { g.hud.toast('撞到水馬！', 'bad', 900); this._bt = g.time; } }
+          if (isPlayer && imp > 3) { g.audio.bump(imp / 3, v.kind); g.rig.cur.y += Math.min(0.3, imp * 0.02); if (!this._bt || g.time - this._bt > 0.6) { g.hud.toast('撞到水馬！', 'bad', 900); this._bt = g.time; } }
           if (v.racer) v.racer.speed = v.speed;
         }
       } else {

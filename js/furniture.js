@@ -316,6 +316,17 @@ export function buildFurniture(scene, world, data, ctx) {
     }
     return false;
   });
+  // 停止線 ~1.3 m behind an arm's crossing, across the lanes coming in (right-hand traffic: the left of the arm's
+  // outward direction; all of a one-way arm that runs in, none of one that runs out); not where the survey has one
+  const surveyedStop = (x, z) => (data.roadMarks || []).some(f => f.t === 'stop' && (f.x - x) ** 2 + (f.z - z) ** 2 < 144);
+  const stopLine = (a, d) => {
+    if (a.road.oneway && a.fwd) return;
+    const [rx, rz] = right(a.ex, a.ez), cx = a.x + a.ex * d, cz = a.z + a.ez * d, e = a.w / 2 - 0.3;
+    const [v0, v1] = a.road.oneway ? [-e, e] : [-e, -0.2]; // offsets along right(); incoming = negative side
+    const mx = cx + rx * (v0 + v1) / 2, mz = cz + rz * (v0 + v1) / 2;
+    if (surveyedStop(mx, mz) || onOtherRoad(mx, mz, a.road)) return;
+    flat.strip([cx + rx * v0, cz + rz * v0], [cx + rx * v1, cz + rz * v1], 0.4, 0.05, ZEBRA);
+  };
   const zebra = (cx, cz, ex, ez, w) => {
     const [rx, rz] = right(ex, ez), half = w / 2 - 0.5;
     for (let o = -half + 0.25; o <= half - 0.2; o += 0.9) {
@@ -332,7 +343,7 @@ export function buildFurniture(scene, world, data, ctx) {
       if (j < 0 || j >= n) continue;
       const p = r.pts[i], q = r.pts[j], dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz); if (l < 0.5) continue;
       let A = arms.get(r.nodes[i]); if (!A) arms.set(r.nodes[i], A = []);
-      A.push({ x: p[0], z: p[1], ex: dx / l, ez: dz / l, w: r.w, road: r });
+      A.push({ x: p[0], z: p[1], ex: dx / l, ez: dz / l, w: r.w, road: r, fwd: j > i }); // fwd: the arm runs the way's own direction (one-way traffic leaves)
     }
   }
   const junctions = [];
@@ -344,7 +355,7 @@ export function buildFurniture(scene, world, data, ctx) {
       const grp = Math.abs(a.ex * A0.ex + a.ez * A0.ez) > 0.7 ? 0 : 1;
       if (a.road.bridge) continue;
       const s = Math.max(...J.A.filter(o => o !== a).map(o => o.w / 2)) + 1.5;
-      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz) && (osmZebra(zx, zz) || !onOtherRoad(zx, zz, a.road))) zebra(zx, zz, a.ex, a.ez, a.w); }
+      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz) && (osmZebra(zx, zz) || !onOtherRoad(zx, zz, a.road))) { zebra(zx, zz, a.ex, a.ez, a.w); stopLine(a, s + 4.6); } }
       // far-side pole on the right of traffic leaving along this arm
       const [rx, rz] = right(a.ex, a.ez);
       for (const ds of [0, 3, 6]) {

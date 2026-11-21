@@ -1056,6 +1056,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const footCampus = new Geo(true, uvS(4)); // campus footways: pavers (footTown = layers[0])
   const walks = new Geo(true, uvS(3)); // sidewalks + curbs, drawn under the carriageways
   const marks = new Geo(true, uvS(4));
+  const groundMarks = marks, deckMarks = marks; // deckMarks: absolute-height quads (decks), as deckStrip lays them
   const deckSides = new Geo();
   // opaque deck slab just under every deck's road strip. The road layers are decals (depthWrite
   // false) that rely on the ground having filled the depth buffer first; on a deck there is no
@@ -1126,6 +1127,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // painted spots (tools/roads.json 'features' -> data.roadMarks): 網狀黃線 box, 斑馬線 zebra, 停止線 stop,
   // 機車停等區 bikebox; each belongs to the nearest drivable road (a box / stop to the street it lies on, a
   // zebra to the street it crosses, the one running along its ang)
+  const deckY = new Map(); // road -> its deck height along the way (bridges, viaducts), for the painted spots
   const FEATS = (data.roadMarks || []).map(f => {
     let best = null;
     for (const q of data.roads) {
@@ -1349,6 +1351,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     const g = L === 0 && world.inCampus(r.pts[0][0], r.pts[0][1]) ? footCampus : layers[L]; const c = roadCol(r);
     const yAt = gi && gi.kind !== 'cut' ? gradeDeck(r, gi) : r.bridge && !r.tunnel ? addBridge(r.pts, r.w) : null;
+    if (yAt) deckY.set(r, yAt);
     let acc = 0;
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i], b = r.pts[i + 1];
@@ -1567,6 +1570,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (const f of FEATS) {
       const q = f.at, R = q.r;
       if (!inPlay([q.x, q.z])) continue;
+      // on a deck (bridge, viaduct) the spot is laid at the deck's height where it sits, not on the ground below
+      const yd = deckY.get(R), y0 = yd ? yd(Math.max(0, R.pts.slice(0, q.i).reduce((s, p, k) => s + Math.hypot(R.pts[k + 1][0] - p[0], R.pts[k + 1][1] - p[1]), 0) + Math.hypot(q.x - R.pts[q.i][0], q.z - R.pts[q.i][1]))) + TOL_LO : 0;
+      const marks = yd ? { strip(a, b, w, y, c) { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.01) return; const nx = -dz / l * w / 2, nz = dx / l * w / 2;
+          deckMarks.quad([a[0] + nx, y0 + y, a[1] + nz], [b[0] + nx, y0 + y, b[1] + nz], [b[0] - nx, y0 + y, b[1] - nz], [a[0] - nx, y0 + y, a[1] - nz], c, UP); },
+        flatPoly(pts, y, c) { for (let k = 1; k < pts.length - 1; k++) deckMarks.tri([pts[0][0], y0 + y, pts[0][1]], [pts[k][0], y0 + y, pts[k][1]], [pts[k + 1][0], y0 + y, pts[k + 1][1]], c, UP); } } : groundMarks;
       if (f.t === 'box') { // 網狀黃線: outline + diagonal grid; kerb to kerb, or w wide round its surveyed centre
         // (one nearly as wide as the street is laid kerb to kerb: the OSM line can be off the real centre by a metre or two;
         // one much wider spans both one-way ways of a split street, round its surveyed centre)

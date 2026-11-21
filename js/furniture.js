@@ -303,6 +303,19 @@ export function buildFurniture(scene, world, data, ctx) {
   // a crossing surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; js/map.js paints it)
   // stands in for the one a signal junction would get on that arm
   const surveyedZebra = (x, z) => (data.roadMarks || []).some(f => f.t === 'zebra' && !f.osm && (f.x - x) ** 2 + (f.z - z) ** 2 < 100);
+  // a junction of several signal nodes (divided roads) puts some arms' crossings out on the other carriageways'
+  // pavement, where the 2024 正射 shows none: skip a crossing whose centre lies on another drivable way
+  // (unless the survey saw a crossing there that it left to this code: osm: true)
+  const osmZebra = (x, z) => (data.roadMarks || []).some(f => f.t === 'zebra' && f.osm && (f.x - x) ** 2 + (f.z - z) ** 2 < 100);
+  const onOtherRoad = (x, z, own) => data.roads.some(q => {
+    if (q === own || !q.drive || q.under || q.bridge) return false;
+    for (let j = 0; j < q.pts.length - 1; j++) {
+      const a = q.pts[j], b = q.pts[j + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2));
+      if (Math.hypot(a[0] + dx * t - x, a[1] + dz * t - z) < q.w / 2 - 0.5) return true;
+    }
+    return false;
+  });
   const zebra = (cx, cz, ex, ez, w) => {
     const [rx, rz] = right(ex, ez), half = w / 2 - 0.5;
     for (let o = -half + 0.25; o <= half - 0.2; o += 0.9) {
@@ -331,7 +344,7 @@ export function buildFurniture(scene, world, data, ctx) {
       const grp = Math.abs(a.ex * A0.ex + a.ez * A0.ez) > 0.7 ? 0 : 1;
       if (a.road.bridge) continue;
       const s = Math.max(...J.A.filter(o => o !== a).map(o => o.w / 2)) + 1.5;
-      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz)) zebra(zx, zz, a.ex, a.ez, a.w); }
+      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz) && (osmZebra(zx, zz) || !onOtherRoad(zx, zz, a.road))) zebra(zx, zz, a.ex, a.ez, a.w); }
       // far-side pole on the right of traffic leaving along this arm
       const [rx, rz] = right(a.ex, a.ez);
       for (const ds of [0, 3, 6]) {

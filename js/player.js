@@ -31,6 +31,8 @@ export class Player {
       this.pos.set(this.seat.x, this.y + surfaceAt(this.seat.x, this.seat.z), this.seat.z); this.heading = this.seat.h; this.ch.root.rotation.y = this.heading;
       this.speed = 0; this.ch.update(dt, { mode: 'sit' }); return;
     }
+    // feet height last frame; the level under the feet (js/terrain.js grade separations)
+    const feet = this.pos.y, surf0 = feet - this.y;
     const ax = this.frozen ? { x: 0, y: 0 } : input.axis();
     const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
     const rx = -Math.cos(camYaw), rz = Math.sin(camYaw);
@@ -56,6 +58,9 @@ export class Player {
       const th = Math.atan2(this.vel.x, this.vel.y);
       this.heading += angDiff(th, this.heading) * Math.min(1, dt * 12);
     }
+    // walked off a ledge (viaduct edge, top of a cut): keep the height and fall
+    const surf = surfaceAt(this.pos.x, this.pos.z, feet);
+    if (surf < surf0 - 0.5) this.y += surf0 - surf;
     // jump
     const ground = interiors ? interiors.groundAt(this.pos.x, this.pos.z, this.y) : 0;
     const onGround = this.y <= ground + 0.02;
@@ -68,7 +73,7 @@ export class Player {
     }
 
     this.ground = ground;
-    this.pos.y = this.y + surfaceAt(this.pos.x, this.pos.z);
+    this.pos.y = this.y + surf;
     this.ch.root.rotation.y = this.heading;
     this.poseT -= dt; if (this.poseT <= 0) this.pose = null;
     this.ch.update(dt, { speed: this.speed, air: this.y > (this.ground || 0) + 0.05, mode: 'foot', pose: this.speed > 1 && this.pose !== 'give' ? null : this.pose });
@@ -93,13 +98,15 @@ export class Player {
     const [fx, fz] = v.forward();
     const cands = [[fz, -fx], [-fz, fx], [-fx, -fz], [fx, fz]];
     let placed = false;
-    const y0 = surfaceAt(v.pos.x, v.pos.z);
+    const y0 = surfaceAt(v.pos.x, v.pos.z, v.mesh.position.y);
     for (const [cx, cz] of cands) {
       const x = v.pos.x + cx * v.exitSide, z = v.pos.z + cz * v.exitSide;
-      // and on the vehicle's own level, not over a retaining wall (terrain.js height levels)
-      if (!collision.blocked(x, z, 0.4) && Math.abs(surfaceAt(x, z) - y0) < 0.5) { this.pos.set(x, surfaceAt(x, z), z); placed = true; break; }
+      // on the vehicle's own level (deck / cut / ground, terrain.js grade separations),
+      // and not over a retaining wall (terrain.js height levels)
+      const y = surfaceAt(x, z, y0);
+      if (!collision.blocked(x, z, 0.4, 0, y0) && Math.abs(y - y0) < 0.5) { this.pos.set(x, y, z); placed = true; break; }
     }
-    if (!placed) this.pos.set(v.pos.x + fz * 2.5, surfaceAt(v.pos.x + fz * 2.5, v.pos.z - fx * 2.5), v.pos.z - fx * 2.5);
+    if (!placed) this.pos.set(v.pos.x + fz * 2.5, surfaceAt(v.pos.x + fz * 2.5, v.pos.z - fx * 2.5, y0), v.pos.z - fx * 2.5);
     this.heading = v.heading; this.ch.root.rotation.set(0, v.heading, 0);
     v.driver = null; v.speed = 0; this.vehicle = null; this.y = 0; this.seat = null; this.vy = 0; this.vel.set(0, 0);
   }
@@ -144,7 +151,7 @@ export class CameraRig {
     if (zone) dist = 2.6;
     this.dist += (dist - this.dist) * Math.min(1, dt * 3);
     // ground under the player as drawn (vehicles: averaged over the wheels)
-    const gy = v ? v.mesh.position.y : surfaceAt(wp.x, wp.z);
+    const gy = v ? v.mesh.position.y : player.pos.y - player.y;
     this.target.set(wp.x, (v ? 0 : player.y) + gy + h, wp.z);
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
     let d = this.dist;
@@ -161,7 +168,7 @@ export class CameraRig {
     }
     const px = this.target.x - Math.sin(this.yaw) * cp * d;
     const pz = this.target.z - Math.cos(this.yaw) * cp * d;
-    let py = Math.max(surfaceAt(px, pz) + 0.3, this.target.y + sp * d);
+    let py = Math.max(surfaceAt(px, pz, this.target.y) + 0.3, this.target.y + sp * d);
     if (zone) py = Math.min(py, zone.ceil(player.y) + gy);
     if (this.first) { this.cur.set(px, py, pz); this.first = false; }
     this.cur.lerp(new THREE.Vector3(px, py, pz), Math.min(1, dt * 14));

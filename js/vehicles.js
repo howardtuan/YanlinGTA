@@ -392,13 +392,14 @@ export class Vehicle {
     this.ai = null; this.bumpCooldown = 0; this.wheelRot = 0;
     this.mesh.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.castShadow = o.userData.shadow ?? (o.geometry.boundingSphere.radius > 0.4); } });
   }
-  place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.sync(); }
+  place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined; this.sync(); }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }
   sync(dt = 0) {
     // pos stays on the 2D plane (y = 0); the mesh sits on the ground under both
     // wheels and pitches with it (visual only, handling is unchanged)
     const fx = Math.sin(this.heading) * this.wb / 2, fz = Math.cos(this.heading) * this.wb / 2;
-    const hf = surfaceAt(this.pos.x + fx, this.pos.z + fz), hb = surfaceAt(this.pos.x - fx, this.pos.z - fz);
+    // each wheel stays on the level it was on (viaduct deck / street below it, js/terrain.js)
+    const hf = this.hf = surfaceAt(this.pos.x + fx, this.pos.z + fz, this.hf), hb = this.hb = surfaceAt(this.pos.x - fx, this.pos.z - fz, this.hb);
     const pt = -Math.atan2(hf - hb, this.wb);
     this.pitch = dt > 0 ? this.pitch + (pt - this.pitch) * Math.min(1, dt * 10) : pt;
     this.mesh.position.set(this.pos.x, (hf + hb) / 2, this.pos.z);
@@ -437,7 +438,7 @@ export class Vehicle {
     let hitN = null;
     for (let i = 0; i < steps; i++) {
       this.pos.x += dx / steps; this.pos.z += dz / steps;
-      const r = collision.resolve(this.pos, this.radius);
+      const r = collision.resolve(this.pos, this.radius, 0, this.mesh.position.y);
       if (r.hit) hitN = r;
     }
     this.bumpCooldown -= dt;
@@ -456,7 +457,7 @@ export class Vehicle {
         const dd = Math.sqrt(d2), push = rr - dd;
         this.pos.x += ddx / dd * push * 0.7; this.pos.z += ddz / dd * push * 0.7;
         o.pos.x -= ddx / dd * push * 0.3; o.pos.z -= ddz / dd * push * 0.3;
-        if (!o.ai) collision.resolve(o.pos, o.radius); // parked cars / your scooter: don't shove them into walls (AI cars snap back to their lane)
+        if (!o.ai) collision.resolve(o.pos, o.radius, 0, o.mesh.position.y); // parked cars / your scooter: don't shove them into walls (AI cars snap back to their lane)
         o.sync();
         if (Math.abs(this.speed) > 3 && this.bumpCooldown <= 0) { onBump && onBump(Math.abs(this.speed)); this.bumpCooldown = 0.5; }
         this.speed *= 0.6;

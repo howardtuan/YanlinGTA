@@ -396,6 +396,151 @@ def load_looks():
     return out
 
 
+def path_proj(path, x, z):
+    """(s, signed offset, inside) of a point against a polyline: s = distance
+    along it, offset > 0 left of it (x/z cross product); beyond either end s
+    and offset continue along the extended end segment and inside is False."""
+    best, acc, last = None, 0.0, len(path) - 2
+    for i, (a, b) in enumerate(zip(path, path[1:])):
+        dx, dz = b[0] - a[0], b[1] - a[1]
+        l = math.hypot(dx, dz)
+        t0 = ((x - a[0]) * dx + (z - a[1]) * dz) / (l * l)
+        t = min(1.0, max(0.0, t0))
+        d = math.hypot(a[0] + dx * t - x, a[1] + dz * t - z)
+        if best is None or d < best[0]:
+            out = (i == 0 and t0 < 0) or (i == last and t0 > 1)
+            cross = dx * (z - a[1]) - dz * (x - a[0])
+            off = cross / l if out else math.copysign(d, cross)
+            best = (d, acc + l * (t0 if out else t), off, not out)
+        acc += l
+    return best[1:]
+
+
+def path_at(path, s):
+    """point and unit direction at distance s along a polyline (extended past its ends)"""
+    acc, last = 0.0, len(path) - 2
+    for i, (a, b) in enumerate(zip(path, path[1:])):
+        l = math.hypot(b[0] - a[0], b[1] - a[1])
+        if s <= acc + l or i == last:
+            t = (s - acc) / l
+            return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t), ((b[0] - a[0]) / l, (b[1] - a[1]) / l)
+        acc += l
+
+
+def prof_at(prof, s):
+    """[s, v] anchors joined linearly; the ends hold their value"""
+    if s <= prof[0][0]:
+        return prof[0][1]
+    for (s0, v0), (s1, v1) in zip(prof, prof[1:]):
+        if s <= s1:
+            return v0 + (v1 - v0) * (s - s0) / ((s1 - s0) or 1)
+    return prof[-1][1]
+
+
+def build_grade(out, items, stats):
+    """overrides.json 'grade' -> data 'grade' (see grade_doc there).
+
+    Tags the matched roads (r['grade'] = id, width = item w), applies the node
+    moves, pushes nearby roads clear of the deck / cut (never into a building),
+    and turns the [x, z, v] anchors into [s, v] along the path. A tunnel way of
+    a cut sets its roof span; other tunnel ways alongside the cut get
+    r['beside'] = id (no portals of their own). Every road changed here keeps
+    its OSM geometry in r['osm'] = {w, pts}: js/map.js lays the trees out on it,
+    so the shared random streams are drawn as without this step."""
+    res = []
+    orig = [(r['w'], [list(p) for p in r['pts']]) for r in out['roads']]
+    for it in items:
+        path = it['path']
+        # hand corrections of single OSM nodes (shared nodes move in every way)
+        mv = {int(k): v for k, v in it.get('move', {}).items()}
+        if mv:
+            for r in out['roads']:
+                for i, n in enumerate(r.get('nodes') or []):
+                    if n in mv and i < len(r['pts']):
+                        r['pts'][i] = list(mv[n])
+        mine = []
+        for r in out['roads']:
+            if r.get('name' if 'road' in it else 'type') != it.get('road', it.get('type')):
+                continue
+            if it['kind'] != 'cut' and not r.get('bridge'):
+                continue
+            if all(abs(path_proj(path, *p)[1]) < 1.5 for p in r['pts']):
+                r['grade'] = it['id']
+                r['w'] = it['w']
+                mine.append(r)
+        if not mine:
+            stats['warn'].append('grade %s: no road matched' % it['id'])
+            continue
+        prof = sorted([round(path_proj(path, x, z)[0], 1), v] for x, z, v in it['prof'])
+        g = dict(id=it['id'], kind=it['kind'], name=it['name'], path=path, w=it['w'], prof=prof)
+        if it.get('clearance'):
+            g['clearance'] = it['clearance']
+        tun = [path_proj(path, *p)[0] for r in mine if r.get('tunnel') for p in r['pts']]
+        if tun:
+            g['roof'] = [round(min(tun), 1), round(max(tun), 1)]
+        # push the other roads' nodes out of the deck / cut
+        c = it.get('clear')
+        moved = {}
+        if c:
+            m0, m1 = c['margin'] if isinstance(c.get('margin'), list) else [c.get('margin', 0)] * 2
+            below = c.get('below', 1e9)
+
+            def need(s):  # deck / cut within the margins and lower than 'below'
+                return any(0 < prof_at(prof, s + k) < below for k in range(-int(m1), int(m0) + 1))
+            own = {n for r in mine for n in r.get('nodes') or []}
+            for r in out['roads']:
+                if r in mine or not r.get('nodes') or len(r['nodes']) != len(r['pts']):
+                    continue
+                w = c.get('narrow', {}).get(r['type'], r['w'])
+                for i, (n, p) in enumerate(zip(r['nodes'], r['pts'])):
+                    if n in own or n in moved:
+                        continue
+                    s, off, inside = path_proj(path, *p)
+                    if abs(off) < c['d'] and need(s):
+                        q, (ux, uz) = path_at(path, s)
+                        nb = [r['pts'][j] for j in (i - 1, i + 1) if 0 <= j < len(r['pts'])]
+                        # out to d on its own side (left of the path = (-uz, ux)), less where
+                        # the road would run into a building it was clear of
+                        for k in [c['d'] - 0.1 * m for m in range(int((c['d'] - abs(off)) * 10) + 1)]:
+                            k = k if off >= 0 else -k
+                            np_ = [round(q[0] - uz * k, 1), round(q[1] + ux * k, 1)]
+                            if not hits_building(out, np_, nb, p, w / 2 + 0.2):
+                                break
+                        moved[n] = np_
+            for r in out['roads']:
+                hit = False
+                for i, n in enumerate(r.get('nodes') or []):
+                    if n in moved and i < len(r['pts']):
+                        r['pts'][i] = moved[n]; hit = True
+                if hit and r['type'] in c.get('narrow', {}):
+                    r['w'] = c['narrow'][r['type']]
+        if it['kind'] == 'cut' and c:
+            for r in out['roads']:
+                if r not in mine and r.get('tunnel') and all(abs(path_proj(path, *p)[1]) < c['d'] + 1 for p in r['pts']):
+                    r['beside'] = it['id']
+        res.append(g)
+        print('grade %-22s %d ways, %d nodes pushed%s' % (it['id'], len(mine), len(moved) if c else 0,
+                                                          ', roof %s' % g['roof'] if 'roof' in g else ''))
+    for r, (w, pts) in zip(out['roads'], orig):
+        if r['w'] != w or r['pts'] != pts:
+            r['osm'] = {'w': w, 'pts': pts}
+    return res
+
+
+def hits_building(out, p, nbrs, p0, r):
+    """True if a road node moved from p0 to p (segments to its neighbours nbrs,
+    half width r) comes closer than r to a building edge it was clear of."""
+    box = (p[0] - r - 40, p[1] - r - 40, p[0] + r + 40, p[1] + r + 40)
+    for b in out['buildings']:
+        P = b['pts']
+        if not poly_hits_box(P, box):
+            continue
+        for q in nbrs or [p]:
+            if poly_seg_dist(P, p, q) < r and poly_seg_dist(P, p0, q) >= r:
+                return True
+    return False
+
+
 def clip_half(pts, p, q, keep):
     """Clip a ring to one side of the line p->q: keep=-1 left of it (cross < 0),
     keep=1 right of it. Works for the simple notched shapes used here."""
@@ -1684,6 +1829,10 @@ def main():
     # everything from OSM, so the blank grid matches the survey's)
     fill_blocks(out, stats)
     fill_blocks(out, stats, 2)   # 第二輪：第一輪補完後仍空白的區塊（survey['blocks2']）
+
+    # viaducts / footbridge / underpass (overrides.json 'grade'); after the
+    # block fill so the synthetic blocks stay exactly as they were
+    out['grade'] = build_grade(out, ovr_all.get('grade', []), stats)
 
     os.makedirs(os.path.dirname(DST), exist_ok=True)
     with open(DST, 'w', encoding='utf8') as f:

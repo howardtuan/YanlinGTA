@@ -12,7 +12,7 @@ const PERSONA = {
   pinyan: '資管二乙學妹，認真讀書、常待圖書館，說話溫和有禮貌，會問系學會的事。',
   mom: '彥霖的媽媽，關心吃飯、睡覺、騎車安全和錢夠不夠用，長輩打字風格，愛用「！」和長輩表情，會叫他早點回家。',
   zz: '排球少年吱吱，資管系體保生，跟彥霖同屆。排球打攻擊、跳發是強項，常泡體育館和健身房（愛練腿），晚上 10 點固定打排位，講話直爽熱血，系排都挺彥霖選會長。',
-  laoda: '勞大，角色背景是 NBA 球星科比（Kobe Bryant），現在是彥霖航空的直升機駕駛員：高大壯碩的光頭大叔、留山羊鬍，穿紫金湖人 24 號球衣、戴航空耳機。講話很愛玩網路梗：開口常說「Man」、偶爾中英夾雜；超愛講冷笑話和諧音梗（例如最後得的獎是「螺旋槳」、不會飛的蜜蜂是「Ko-bee」）；說自己背號從 8 號變 24 號，是因為以前一天睡 8 小時、現在一天睡 24 小時；也愛提曼巴精神、凌晨四點的洛杉磯。彥霖說「哈哈」或在笑的時候，最後一則一定要回「孩子們，這並不好笑」。工作是開直升機幫彥霖空運機車，沒飛的時候在校園步道散步。你不是學生、也沒有參選，彥霖才是會長候選人，你只是支持他。',
+  laoda: '勞大，角色背景是 NBA 球星科比（Kobe Bryant），現在是彥霖航空的直升機駕駛員：高大壯碩的光頭大叔、留山羊鬍，穿紫金湖人 24 號球衣、戴航空耳機。講話很愛玩網路梗：開口常說「Man」、偶爾中英夾雜；超愛講冷笑話和諧音梗（例如最後得的獎是「螺旋槳」、不會飛的蜜蜂是「Ko-bee」）；說自己背號從 8 號變 24 號，是因為以前一天睡 8 小時、現在一天睡 24 小時；也愛提曼巴精神、凌晨四點的洛杉磯。「孩子們，這並不好笑」只有在彥霖笑（哈哈）的時候才說，其他時候絕對不要說。工作是開直升機幫彥霖空運機車，沒飛的時候在校園步道散步。你不是學生、也沒有參選，彥霖才是會長候選人，你只是支持他。',
   mcd: '麥當勞中原店店長，彥霖打工的主管，親切又專業，關心排班、出餐速度，偶爾稱讚他。',
 };
 
@@ -22,7 +22,7 @@ const BASE = `你在一款校園遊戲的手機聊天 App 裡扮演角色，正�
 - 一律使用台灣繁體中文，台灣大學生的口語聊天語氣，不可以用簡體字。
 - 每則訊息要短，像即時通訊一樣，10～30 個字，可以用 emoji。
 - 不要說自己是 AI，不要跳出角色，不要談論遊戲本身。
-- 輸出 JSON：replies 是你這次傳的 1～2 則訊息；options 是彥霖接下來可以回你的兩則訊息（以彥霖的口吻，語氣或方向不同，各 20 字內，前面不要加名字）。`;
+- 輸出 JSON：replies 是你這次傳的訊息（只要 1 則；群組可以 2 則，不同人各一則）；options 是彥霖接下來可以回你的兩則訊息（以彥霖的口吻，語氣或方向不同，各 20 字內，前面不要加名字）。`;
 
 const isChrome = () => {
   const brands = navigator.userAgentData?.brands;
@@ -43,7 +43,7 @@ function schema(group, members) {
   return {
     type: 'object', required: ['replies', 'options'],
     properties: {
-      replies: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'object', required: ['who', 'text'], properties: { who, text: { type: 'string' } } } },
+      replies: { type: 'array', minItems: 1, maxItems: group ? 2 : 1, items: { type: 'object', required: ['who', 'text'], properties: { who, text: { type: 'string' } } } },
       options: { type: 'array', minItems: 2, maxItems: 2, items: { type: 'string' } },
     },
   };
@@ -112,7 +112,7 @@ export const Nano = {
     const tries = this.langOpt ? [this.langOpt, ...LANG_OPTS.filter(o => o !== this.langOpt)] : LANG_OPTS;
     let err;
     for (const o of tries) {
-      try { const s = await A.create({ ...o, ...extra }); this.langOpt = o; return s; } catch (e) { err = e; if (e?.name === 'NotAllowedError') throw e; }
+      try { const s = await A.create({ ...o, ...extra }); this.langOpt = o; return s; } catch (e) { err = e; if (e?.name === 'NotAllowedError' || e?.name === 'AbortError') throw e; }
     }
     throw err;
   },
@@ -127,7 +127,17 @@ export const Nano = {
       (C.group ? `replies 每則的 who 要填發言人名字（${members.join('、')}之一）。` : `replies 每則的 who 填「${C.name}」。`);
     st.members = members;
     this.active = (this.active || 0) + 1; // creating it (the model may be loading) also gets the GPU (main.js)
-    st.session = this._create({ initialPrompts: [{ role: 'system', content: sys }] }).catch(e => { st.session = null; throw e; });
+    // creating can get stuck too (seen right after a page reload: 40 s+ with no answer, the next try 7 s): give up on
+    // an attempt after 15 s and try once more
+    const make = async () => {
+      for (let i = 0; ; i++) {
+        const ac = new AbortController(), id = setTimeout(() => ac.abort(), 15000);
+        try { return await this._create({ signal: ac.signal, initialPrompts: [{ role: 'system', content: sys }] }); }
+        catch (e) { if (!ac.signal.aborted || i >= 1) throw e; console.warn('[Nano] creating the session got stuck, trying again'); }
+        finally { clearTimeout(id); }
+      }
+    };
+    st.session = make().catch(e => { st.session = null; throw e; });
     st.session.finally(() => this.active--).catch(() => { });
     return st.session;
   },
@@ -185,9 +195,10 @@ export const Nano = {
     //   words normally come within ~1 s, but now and then a prompt never answers at all) is dropped and asked again
     //   on a fresh clone, once, instead of waiting out the whole time limit;
     // - the replies are handed to onReplies as soon as they are complete.
-    const MAX_CHARS = 600, STUCK_MS = 6000;
+    const MAX_CHARS = 320, STUCK_MS = 6000; // a normal answer is 110–190 characters
     const norm = (list) => list.slice(0, 3).map(r => {
-      const t = clip(typeof r === 'string' ? r : r?.text, 80);
+      // stray punctuation / JSON leftovers at either end (seen when the model's output goes slightly off the format)
+      const t = clip(String((typeof r === 'string' ? r : r?.text) || '').replace(/^[\s。，,、！!？?：:]+/u, '').replace(/[\s{}\[\]"]+$/u, ''), 80);
       const who = C.group ? (members.includes(r?.who) ? r.who : members[Math.floor(Math.random() * members.length)]) : C.id;
       return { who, text: t };
     }).filter(r => r.text);
@@ -203,7 +214,9 @@ export const Nano = {
         for await (const ch of c.promptStreaming(q, { ...opts, signal: ac.signal })) {
           last = performance.now();
           acc = acc && ch.length > acc.length && ch.startsWith(acc) ? ch : acc + ch; // older builds stream the whole text so far (always longer), newer ones just the new part (may repeat itself)
-          if (acc.length > MAX_CHARS) { ac.abort(); throw new Error('runaway'); }
+          // runaway: past MAX_CHARS, or the reply itself still going at 220 characters (a normal one ends by ~110 and the
+          // options follow), so a model stuck repeating itself is caught in a few seconds
+          if (acc.length > MAX_CHARS || (acc.length > 220 && !acc.includes('"options"'))) { ac.abort(); throw new Error('runaway'); }
           if (!early && onReplies) {
             const k = acc.indexOf('"options"');
             if (k > 0) { const head = parse(acc.slice(0, k).replace(/,\s*$/, '') + '}'); const rs = Array.isArray(head?.replies) ? norm(head.replies) : [];
@@ -221,7 +234,7 @@ export const Nano = {
       try { raw = await ask({ responseConstraint: sch }); break; }
       catch (e) {
         if (signal?.aborted) throw e; // cancelled by the chat (you sent something else)
-        if (e?.message === 'stuck' && tries === 0 && !early) { console.warn('[Nano] prompt stuck, asking again'); continue; }
+        if ((e?.message === 'stuck' || e?.message === 'runaway') && tries === 0 && !early) { console.warn('[Nano] prompt', e.message, '— asking again'); continue; }
         if (e?.message === 'runaway') { console.warn('[Nano] reply ran away, cut at', MAX_CHARS, 'chars'); this.fails++; throw e; }
         if (e?.message === 'timeout' || e?.message === 'stuck') { console.warn('[Nano] reply', e.message, 'after', Math.round(performance.now() - t0), 'ms'); if (!early) this._stall(); throw e; }
         try { raw = await ask({}); break; } // older builds without responseConstraint

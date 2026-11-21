@@ -899,7 +899,7 @@ export class Phone {
         if (out.early) return this._lateOpts(st, tok, out.options);
         if (!mine()) return; st.tok++;
         st.aiOpts = out.options?.length === 2 ? out.options : null;
-        this._deliver(st, out.replies?.length ? out.replies : fallback, v, 300);
+        this._deliver(st, out.replies?.length ? out.replies : fallback, v, 150, null, !!out.replies?.length);
       }).catch(() => {
         if (st.optsPending && st.tok === tok) return this._lateOpts(st, tok, null);
         if (!mine()) return; st.tok++;
@@ -919,7 +919,7 @@ export class Phone {
       if (out.early) return this._lateOpts(st, tok, out.options);
       if (!mine()) return; st.tok++;
       st.aiOpts = out.options?.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];
-      this._deliver(st, out.replies || [], 0, 200);
+      this._deliver(st, out.replies || [], 0, 150, null, true);
     }).catch(() => { if (st.optsPending && st.tok === tok) return this._lateOpts(st, tok, null); if (!mine()) return; st.tok++; st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
   }
   // the AI's replies are out before it has written your two options (nano.js onReplies): show them right away; the
@@ -929,7 +929,7 @@ export class Phone {
       if (st.tok !== tok || !st.busy) return;
       st.aiWait = null; st.optsPending = true;
       st.msgs = st.msgs.filter(m => !m.typing);
-      this._deliver(st, rs, v, 150);
+      this._deliver(st, rs, v, 100, null, true);
     };
   }
   _lateOpts(st, tok, opts) {
@@ -940,14 +940,18 @@ export class Phone {
   }
   // replies arrive one by one with a typing indicator; they land even if you leave the chat or put the phone away
   // (timers keep running). st.pending holds what is still to come, so a reload in between resumes it (resumePending).
-  _deliver(st, replies, v, delay, then) {
+  // quick: the AI's replies (it already took its time), shown with a short typing pause
+  _deliver(st, replies, v, delay, then, quick) {
     const g = this.g;
-    if (st._laughNext) { const L = st._laughNext; st._laughNext = null; replies = [...replies.filter(r => r.text.trim() !== L), { who: st.c.id, text: L }]; }
+    // 勞大's 「孩子們，這並不好笑」: the AI tends to sprinkle it everywhere; it comes once, at the end, only when you laughed
+    const L = st.c.laugh;
+    if (L && quick) replies = replies.map(r => ({ ...r, text: r.text.split(L).join('').replace(/^[\s，,。!！]+|[\s，,。!！]+$/gu, '').trim() })).filter(r => r.text);
+    if (st._laughNext) { st._laughNext = null; replies = [...replies.filter(r => r.text.trim() !== L), { who: st.c.id, text: L }]; }
     st.busy = true; st.pending = { replies: replies.slice(), v };
     const dropTyping = () => { const ti = st.msgs.findIndex(m => m.typing); if (ti >= 0) st.msgs.splice(ti, 1); };
     replies.forEach((rp, k) => {
       setTimeout(() => { dropTyping(); st.msgs.push({ typing: true }); if (this.cur === st) this._renderThread(); }, delay);
-      delay += 600 + Math.min(1500, rp.text.length * 40);
+      delay += quick ? 250 + Math.min(500, rp.text.length * 12) : 600 + Math.min(1500, rp.text.length * 40);
       setTimeout(() => {
         dropTyping();
         st.msgs.push({ ...rp, time: hhmm(g.clock) }); st.lastAt = g.clock;

@@ -1,0 +1,131 @@
+{
+  "_doc": "Water levels and banks of the ponds and streams (2026-11 survey: Google 街景 / 衛星 viewed only, NLSC 2024 正射, OSM, news and 水利 documents; no image saved or used). tools/build_map.py merges this into data/cycu.json. areas[]: matched by name (optional) and the area centroid within 25 m of 'near' [x, z] (game metres). 'kind' replaces the area kind (water that is not there any more), 'pts' replaces the outline, 'sink' sinks the water: drop = metres from the ground at the rim down to the water; sides = bank per side, picked by the outward normal of each outline edge (n = -z, s = +z, e = +x, w = -x; 'all' = default): bank 'wall' (vertical concrete) or 'slope' (run = metres the bank reaches out from the water edge, mat riprap / grass / earth / stone), rail = railing type at the top (steel 1.1 m dark bars, mesh 1.1 m green fence, post 0.9 m posts + 2 bars, none). Every sunk bank is closed by a collision line at its top (no walking on the water any more). ways[]: profiles for the waterway centre lines; each waterway segment (rivers w >= 10 excluded) takes the entry whose 'along' polyline passes within 25 m of the segment middle (the closest one). covered = culvert / filled in: not drawn. Otherwise w = water width, top = bank top width, drop, bank, mat, rail as above. Segments without a match keep the old flat look. Stretches where a road crosses stay covered automatically (js/map.js). js/map.js draws the sunk water, banks and railings.",
+  "areas": [
+    {
+      "name": "牛稠埤", "near": [303, 138],
+      "sink": { "drop": 3.2, "sides": {
+        "all": { "bank": "slope", "run": 4, "mat": "riprap", "rail": "mesh" },
+        "n": { "bank": "wall", "rail": "steel" } } },
+      "confidence": "medium",
+      "source": "中原埤塘生態公園（中壢 14A 埤塘滯洪池，2020 完工，滯洪量 3 萬 m³，自由時報 2020）。Google 街景使用者全景 24.9570973,121.2454873（2022-10，heading 150-205）以欄杆 1.1 m 校正相機高、NLSC 2024 正射量對岸距離：北側步道到水面約 3.1 m（2.4-3.7），西／東側坡頂約 4.3 m；另以 24.957122,121.2458457（2020-04）、24.9564374,121.2453274（2022-07）交叉比對。北岸垂直牆加深灰直條欄杆，其餘為石籠／拋石坡加草坡，坡頂綠色網狀圍籬。遊戲把地形整平在岸高，水面取岸下 3.2 m。"
+    },
+    {
+      "near": [327, 226], "kind": "wood",
+      "confidence": "low",
+      "source": "OSM 無名 pond（牛稠埤南側長條）：NLSC 2024 正射、Esri、Google 2026 衛星都是雜草和灌木，看不到水面（推測是滯洪池入流草溝）；附近沒有街景。改畫成植被。"
+    },
+    {
+      "name": "人工生態淨水系統", "near": [308, -160], "kind": "grass",
+      "confidence": "medium",
+      "source": "2018 正射是修剪過的草地，2020-2024 衛星是高草和雜草，沒有地表水；東側緊貼服務道路。改畫成草地。"
+    },
+    {
+      "name": "生態淨水池", "near": [308, -221], "kind": "grass",
+      "confidence": "low",
+      "source": "2018 正射與之後的衛星都是草帶，沒有開放水面。改畫成草地。"
+    },
+    {
+      "name": "生態池", "near": [272, -317],
+      "sink": { "drop": 0.4, "sides": { "all": { "bank": "slope", "run": 1, "mat": "stone", "rail": "none" } } },
+      "confidence": "low",
+      "source": "熱誠樓西北的生態池：影像被樹冠遮住、多為植被凹地，推測是置石加植栽的淺池，岸到水面 0.3-0.8 m。保留小水面，取 0.4 m。"
+    },
+    {
+      "name": "生態池", "near": [264, -301],
+      "sink": { "drop": 0.4, "sides": { "all": { "bank": "slope", "run": 1, "mat": "stone", "rail": "none" } } },
+      "confidence": "low",
+      "source": "同上（南側小池，影像被樹冠遮住），推測置石淺池 0.2-0.8 m，取 0.4 m。"
+    },
+    {
+      "name": "夢幻湖", "near": [521, 556],
+      "pts": [[462, 523], [510, 486], [571, 471], [573, 520], [574, 611], [472, 610], [462, 580]],
+      "sink": { "drop": 0.8, "sides": {
+        "all": { "bank": "slope", "run": 2.5, "mat": "earth", "rail": "none" },
+        "n": { "bank": "slope", "run": 2.5, "mat": "earth", "rail": "mesh" } } },
+      "confidence": "medium",
+      "source": "OSM／Google 名稱夢幻湖。衛星與金鋒二街280巷的 360 相片：自然土坡加密林，北／西北堤上的 280巷離水面 0.3-0.6 m，西側約 0.7 m，南岸農地約 1.1-1.2 m，取 0.8 m；280巷湖側有綠色菱形鐵絲網約 1.0-1.2 m。輪廓依衛星修正：補上西南角、東緣退到 x≈573（兩塘之間是林木土堤）；西、南緣離 280巷／金鋒二街路面保留約 2 m。"
+    },
+    {
+      "name": "園塘", "near": [622, 499],
+      "pts": [[578.3, 463.2], [597.9, 610.3], [678.6, 589.2], [671.9, 498.6], [611.0, 514.0], [602.0, 477.0]],
+      "sink": { "drop": 1.1, "sides": { "all": { "bank": "slope", "run": 2.5, "mat": "earth", "rail": "none" } } },
+      "confidence": "medium",
+      "source": "OSM／Google 名稱園塘。衛星：自然土坡加密林，沒有護岸或步道；南岸 1.5-1.7 m，東岸 0.6-1.2 m，北岸 0.6-1.0 m，取 1.1 m。北側窄臂的水面只到約 (602,477)，原本往北約 45 m 的尾巴是樹林，刪掉。林木島沒有做。"
+    },
+    {
+      "near": [-646, 576], "kind": "grass",
+      "confidence": "medium",
+      "source": "新街溪排水 黃屋庄支線（OSM 黃厝庄溪）公園段的水面：改由 ways 的溪流中心線畫下沉渠道（公園步道橋與道路跨越處自動斷開），這塊水面輪廓改成草地。Google 街景（公園步道與普仁橋一帶）：西岸（工廠側）直立混凝土牆外露約 2.1 m，東岸（公園側）是陡草坡，欄杆在坡頂；路面到水面約 1.5-3 m，取 2.0 m。公園欄杆是仿石方柱加兩道橫桿，約 0.9 m。"
+    },
+    {
+      "name": "新街溪", "near": [-815, -822],
+      "confidence": "low",
+      "source": "新街溪主流（育樂路一帶，地圖西南角外緣）：衛星看西岸寬約 10-12 m 植生緩坡、東岸約 4 m 灰色坡面，堤頂寬約 25 m、水面約 11.5 m；沒有街景，落差 2-4 m。這塊大半在地圖邊界外，美隆橋（地圖外）跨過它，信心也低，先不下沉，保持原樣。"
+    }
+  ],
+  "ways": [
+    {
+      "along": [[-650, 705], [-669.5, 635.5], [-645.4, 509.9], [-598, 385]],
+      "w": 5, "top": 7.5, "drop": 2.0, "bank": "wall", "rail": "post",
+      "confidence": "medium",
+      "source": "黃屋庄支線公園段（同上面的水面，這段水面多半由 area 畫）。"
+    },
+    {
+      "along": [[-598, 385], [-578, 352]], "covered": true,
+      "confidence": "medium",
+      "source": "普仁橋（中山東路）：整個路口加蓋，長約 17-22 m（Google 街景）。"
+    },
+    {
+      "along": [[-578, 352], [-530, 205]],
+      "w": 4.5, "top": 7.5, "drop": 2.2, "bank": "wall", "rail": "post",
+      "confidence": "medium",
+      "source": "普仁橋以北：東岸是木棧道加砌石擋牆，對岸長草的砌石護岸（Google 街景 2022-2024），落差約 2.2 m。"
+    },
+    {
+      "along": [[-530, 205], [-455, 95], [-379, 17.3], [-399.6, -37.6], [-459, -119]],
+      "w": 4.5, "top": 7, "drop": 2.5, "bank": "wall", "rail": "post",
+      "confidence": "low",
+      "source": "市區段：夾在建築之間的混凝土明渠，頂寬約 6.5-7.5 m（衛星），落差約 2.5 m（沒有近照，依上下游與橋面推估）。"
+    },
+    {
+      "along": [[-459, -119], [-473, -266], [-600, -396]],
+      "w": 2.5, "top": 4, "drop": 1.5, "bank": "wall", "rail": "none",
+      "confidence": "low",
+      "source": "泰豐段與 223巷：樹帶下的窄明渠（衛星），寬度看不清楚，取頂寬 4 m、水面 2.5 m、落差 1.5 m。"
+    },
+    {
+      "along": [[-600, -396], [-634.9, -674.6], [-643.2, -709.5], [-660.2, -762.0], [-677.8, -774.0], [-716.2, -773.4], [-735, -773]], "covered": true,
+      "confidence": "medium",
+      "source": "忠信路箱涵以南：中華路二段367巷東側在 2025 年已加蓋／回填成草帶，中華路（埔頂橋）是路面下的箱涵，到約 (-735,-773) 都是加蓋段（Google 街景 2025、衛星）。"
+    },
+    {
+      "along": [[-735, -773], [-764, -759], [-811.8, -787.4]],
+      "w": 4, "top": 5.5, "drop": 1.4, "bank": "wall", "rail": "none",
+      "confidence": "medium",
+      "source": "育樂橋上游：北岸近乎直立的漿砌塊石牆，南岸雜草土坡；水面約 3.5-4 m，頂寬約 5.5 m，落差 1.3-1.5 m（Google 街景）。"
+    },
+    {
+      "along": [[-80, -234.8], [-68.7, -330.4], [25.8, -421.5]],
+      "w": 0.6, "top": 2, "drop": 0.8, "bank": "slope", "mat": "concrete", "rail": "none",
+      "confidence": "low",
+      "source": "石門大圳大牛欄分渠（中原大學體育園西側）：淺的半 V 形混凝土溝，頂寬約 2 m，水很少（約 0.3 m 寬），落差 0.5-1.2 m（Google 街景、校園規劃圖）。"
+    },
+    {
+      "along": [[25.8, -421.5], [14.7, -444.3]], "covered": true,
+      "confidence": "low",
+      "source": "鐵路下方箱涵。"
+    },
+    {
+      "along": [[304, -232], [267, -293]],
+      "w": 1, "top": 2, "drop": 0.3, "bank": "slope", "mat": "stone", "rail": "none",
+      "confidence": "low",
+      "source": "人工生態溪流（生態池到生態淨水池）：OSM width=0.9，置石淺溪，緊貼生活廣場服務道路西側。"
+    },
+    {
+      "along": [[310.6, -199.3], [311.1, -208.7]],
+      "w": 2, "top": 3, "drop": 0.3, "bank": "slope", "mat": "stone", "rail": "none",
+      "confidence": "low",
+      "source": "人工生態溪流短段：OSM width=2，置石淺溪。"
+    }
+  ]
+}

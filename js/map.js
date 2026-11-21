@@ -273,11 +273,151 @@ function cutRects(items) {
   }
   return R;
 }
+// ---------- sunk water (tools/water.json, carried into data as area / waterway 'sink') ----------
+// Ponds and streams sit below the ground round them. The terrain grid (10 m) cannot hold a
+// bank, so like the open road cut the ground and draped layers are masked over the water and
+// its banks (sinkPlan().glsl in cutMask) and js/map.js draws water, banks, railings and caps.
+const SINK_COPE = 0.3; // concrete coping on top of a wall
+const sideOf = (nx, nz) => Math.abs(nx) > Math.abs(nz) ? (nx > 0 ? 'e' : 'w') : (nz > 0 ? 's' : 'n');
+const segDist = (px, pz, ax, az, bx, bz) => {
+  const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / l2));
+  return Math.hypot(px - ax - dx * t, pz - az - dz * t);
+};
+function sinkPlan(data) {
+  const roads = data.roads.filter(r => r.pts && r.pts.length > 1).map(r => {
+    let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const [x, z] of r.pts) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); }
+    return { pts: r.pts, hw: (r.w || 4) / 2, box: [a - r.w, b - r.w, c + r.w, d + r.w] };
+  });
+  // clear distance from (x,z) to the nearest road surface
+  const roadGap = (x, z) => {
+    let g = Infinity;
+    for (const r of roads) {
+      if (x < r.box[0] - 12 || x > r.box[2] + 12 || z < r.box[1] - 12 || z > r.box[3] + 12) continue;
+      for (let i = 0; i < r.pts.length - 1; i++) g = Math.min(g, segDist(x, z, ...r.pts[i], ...r.pts[i + 1]) - r.hw);
+    }
+    return g;
+  };
+  const sunkAreas = data.areas.filter(a => a.kind === 'water' && a.sink);
+  const areas = [];
+  for (const a of sunkAreas) {
+    let P = a.pts.slice(); let s2 = 0;
+    for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; s2 += p[0] * q[1] - q[0] * p[1]; }
+    if (s2 < 0) P.reverse(); // counter-clockwise in (x, z): the outside is right of each edge
+    const sides = a.sink.sides || {}, edges = [];
+    for (let i = 0; i < P.length; i++) {
+      const A = P[i], Bq = P[(i + 1) % P.length], l = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]) || 1;
+      const n = [(Bq[1] - A[1]) / l, -(Bq[0] - A[0]) / l];
+      const spec = { bank: 'wall', rail: 'none', ...(sides.all || {}), ...(sides[sideOf(n[0], n[1])] || {}) };
+      let wall = spec.bank !== 'slope', off = SINK_COPE;
+      if (!wall) {
+        // a slope bank never reaches a road: steeper where there is no room
+        let room = Infinity;
+        for (let k = 0; k <= 4; k++) room = Math.min(room, roadGap(A[0] + (Bq[0] - A[0]) * k / 4, A[1] + (Bq[1] - A[1]) * k / 4));
+        off = Math.min(spec.run || 2, room - 0.6);
+        if (off < 0.6) { wall = true; off = SINK_COPE; }
+      }
+      edges.push({ A, B: Bq, n, spec, wall, off, len: l });
+    }
+    // outer ring: each edge pushed out by its bank, corners where the offset lines meet
+    const O = P.map((p, j) => {
+      const e0 = edges[(j - 1 + P.length) % P.length], e1 = edges[j];
+      const a0 = [p[0] + e0.n[0] * e0.off, p[1] + e0.n[1] * e0.off], a1 = [p[0] + e1.n[0] * e1.off, p[1] + e1.n[1] * e1.off];
+      const d0 = [-e0.n[1], e0.n[0]], d1 = [-e1.n[1], e1.n[0]], cr = d0[0] * d1[1] - d0[1] * d1[0];
+      if (Math.abs(cr) > 0.15) {
+        const t = ((a1[0] - a0[0]) * d1[1] - (a1[1] - a0[1]) * d1[0]) / cr, q = [a0[0] + d0[0] * t, a0[1] + d0[1] * t];
+        if (Math.hypot(q[0] - p[0], q[1] - p[1]) < 3 * Math.max(e0.off, e1.off) + 0.5) return q;
+      }
+      return [(a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2];
+    });
+    edges.forEach((e, i) => { e.oA = O[i]; e.oB = O[(i + 1) % P.length]; });
+    areas.push({ area: a, P, O, edges, drop: a.sink.drop });
+  }
+  // streams: the parts not under a road (crossings = culverts / bridges) and not inside a sunk area
+  const inSunkArea = (x, z) => areas.some(s => pointInPoly(x, z, s.P));
+  const runs = [];
+  for (const w of data.waterways) {
+    if (!w.sink) continue;
+    const pts = w.pts, cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const L = cum[cum.length - 1], top = w.sink.top || w.w + 1;
+    const at = s => {
+      let i = 0; while (i < pts.length - 2 && cum[i + 1] < s) i++;
+      const t = (s - cum[i]) / (cum[i + 1] - cum[i] || 1);
+      return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t];
+    };
+    const shut = []; // covered intervals [s0, s1]
+    for (let i = 0; i < pts.length - 1; i++) {
+      const A = pts[i], Bq = pts[i + 1], dx = Bq[0] - A[0], dz = Bq[1] - A[1], l = Math.hypot(dx, dz) || 1;
+      for (const r of roads) {
+        if (Math.max(A[0], Bq[0]) < r.box[0] || Math.min(A[0], Bq[0]) > r.box[2] || Math.max(A[1], Bq[1]) < r.box[1] || Math.min(A[1], Bq[1]) > r.box[3]) continue;
+        for (let k = 0; k < r.pts.length - 1; k++) {
+          const C = r.pts[k], D = r.pts[k + 1], ex = D[0] - C[0], ez = D[1] - C[1], cr = dx * ez - dz * ex;
+          if (Math.abs(cr) < 1e-6) continue;
+          const t = ((C[0] - A[0]) * ez - (C[1] - A[1]) * ex) / cr, u = ((C[0] - A[0]) * dz - (C[1] - A[1]) * dx) / cr;
+          if (t < 0 || t > 1 || u < 0 || u > 1) continue;
+          const sin = Math.max(0.35, Math.abs(cr) / (l * (Math.hypot(ex, ez) || 1))), cos = Math.sqrt(1 - sin * sin);
+          const c = (r.hw + 0.8) / sin + top / 2 * cos / sin, s = cum[i] + t * l;
+          shut.push([s - c, s + c]);
+        }
+      }
+    }
+    for (let s = 0; s <= L; s += 1) { const p = at(s); if (inSunkArea(p[0], p[1])) shut.push([s - 1, s + 1]); }
+    shut.sort((a, b) => a[0] - b[0]);
+    let s0 = 0;
+    const open = [];
+    for (const [a, b] of shut) { if (a > s0) open.push([s0, a]); s0 = Math.max(s0, b); }
+    if (s0 < L) open.push([s0, L]);
+    for (const [a, b] of open) {
+      if (b - a < 2) continue;
+      const rp = [at(a), ...pts.filter((p, i) => cum[i] > a + 0.3 && cum[i] < b - 0.3), at(b)];
+      runs.push({ pts: rp, spec: w.sink, w: w.w, top });
+    }
+  }
+  // a run that ends where the next piece of the stream begins (data splits a stream where its
+  // profile changes) is joined there: no culvert wall across it
+  const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.6;
+  for (const r of runs) {
+    const e0 = r.pts[0], e1 = r.pts[r.pts.length - 1];
+    r.join = [false, false];
+    for (const o of runs) if (o !== r) for (const q of [o.pts[0], o.pts[o.pts.length - 1]]) { if (near(e0, q)) r.join[0] = true; if (near(e1, q)) r.join[1] = true; }
+  }
+  // mask: outer rings (point in polygon) and the stream strips (rectangles + joint discs), each behind a bbox test
+  const f = v => v.toFixed(2);
+  const glsl = [];
+  const holes = [];
+  for (const s of areas) {
+    const xs = s.O.map(p => p[0]), zs = s.O.map(p => p[1]);
+    const ed = s.O.map((a, i) => { const b = s.O[(i + 1) % s.O.length]; return `a = vec2(${f(a[0])}, ${f(a[1])}); b = vec2(${f(b[0])}, ${f(b[1])}); if ((a.y > cd.y) != (b.y > cd.y) && cd.x < (b.x - a.x) * (cd.y - a.y) / (b.y - a.y) + a.x) ins = !ins;`; });
+    glsl.push(`if (vCutW.x > ${f(Math.min(...xs))} && vCutW.x < ${f(Math.max(...xs))} && vCutW.y > ${f(Math.min(...zs))} && vCutW.y < ${f(Math.max(...zs))}) { cd = vCutW; ins = false;\n    ${ed.join('\n    ')}\n    if (ins) discard; }`);
+    holes.push({ poly: s.O });
+  }
+  for (const r of runs) {
+    const hw = r.top / 2 + (r.spec.bank === 'slope' ? 0.1 : SINK_COPE), tests = [];
+    let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9;
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const A = r.pts[i], Bq = r.pts[i + 1], l = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]) || 1, ux = (Bq[0] - A[0]) / l, uz = (Bq[1] - A[1]) / l;
+      const cx = (A[0] + Bq[0]) / 2, cz = (A[1] + Bq[1]) / 2;
+      tests.push(`cd = vCutW - vec2(${f(cx)}, ${f(cz)}); if (abs(dot(cd, vec2(${f(ux)}, ${f(uz)}))) < ${f(l / 2)} && abs(dot(cd, vec2(${f(-uz)}, ${f(ux)}))) < ${f(hw)}) discard;`);
+      if (i > 0 || r.join[0]) tests.push(`cd = vCutW - vec2(${f(A[0])}, ${f(A[1])}); if (dot(cd, cd) < ${f(hw * hw)}) discard;`);
+      if (i === r.pts.length - 2 && r.join[1]) tests.push(`cd = vCutW - vec2(${f(Bq[0])}, ${f(Bq[1])}); if (dot(cd, cd) < ${f(hw * hw)}) discard;`);
+      holes.push({ seg: [A, Bq, hw] });
+      for (const p of [A, Bq]) { x0 = Math.min(x0, p[0]); z0 = Math.min(z0, p[1]); x1 = Math.max(x1, p[0]); z1 = Math.max(z1, p[1]); }
+    }
+    glsl.push(`if (vCutW.x > ${f(x0 - hw)} && vCutW.x < ${f(x1 + hw)} && vCutW.y > ${f(z0 - hw)} && vCutW.y < ${f(z1 + hw)}) {\n    ${tests.join('\n    ')} }`);
+  }
+  // (x, z) within r of the water or its banks (plants there are hidden)
+  const inside = (x, z, r = 0) => holes.some(h => h.poly ? (pointInPoly(x, z, h.poly) || (r > 0 && h.poly.some((a, i) => segDist(x, z, ...a, ...h.poly[(i + 1) % h.poly.length]) < r)))
+    : segDist(x, z, ...h.seg[0], ...h.seg[1]) < h.seg[2] + r);
+  return { areas, runs, glsl: glsl.length ? 'vec2 a, b; bool ins;\n  ' + glsl.join('\n  ') : '', inside };
+}
+
 // ground and draped layers are not drawn over an open cut (the cut is drawn below them)
-function cutMask(m, R) {
-  if (!R.length) return m;
+// nor over sunk water and its banks (extra: sinkPlan().glsl)
+function cutMask(m, R, extra = '') {
+  if (!R.length && !extra) return m;
   const f = v => v.toFixed(3);
-  const test = R.map(([x, z, ux, uz, hl, hw]) => `cd = vCutW - vec2(${f(x)}, ${f(z)}); if (abs(dot(cd, vec2(${f(ux)}, ${f(uz)}))) < ${f(hl)} && abs(dot(cd, vec2(${f(-uz)}, ${f(ux)}))) < ${f(hw)}) discard;`).join('\n  ');
+  const test = R.map(([x, z, ux, uz, hl, hw]) => `cd = vCutW - vec2(${f(x)}, ${f(z)}); if (abs(dot(cd, vec2(${f(ux)}, ${f(uz)}))) < ${f(hl)} && abs(dot(cd, vec2(${f(-uz)}, ${f(ux)}))) < ${f(hw)}) discard;`).concat(extra ? [extra] : []).join('\n  ');
   const prev = m.onBeforeCompile, key = m.customProgramCacheKey;
   m.onBeforeCompile = (sh, r) => {
     prev.call(m, sh, r);
@@ -645,7 +785,123 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   world.inCampus = (x, z) => data.campus.some(r => pointInPoly(x, z, r));
 
   // viaducts, footbridge, road cuts: the ground is masked over the open cuts
-  const grade = gradeItems(data), cutR = cutRects(grade), maskCut = m => cutMask(m, cutR);
+  const grade = gradeItems(data), cutR = cutRects(grade), sink = sinkPlan(data), maskCut = m => cutMask(m, cutR, sink.glsl);
+  world.inSink = sink.inside;
+  // sunk ponds / streams: water, banks, railings and the culvert walls where a stream goes
+  // under a road. Collision (sinkColl: a line along the top of every bank and across every
+  // culvert end) is added after the trees, so their placement does not change.
+  const sinkColl = [];
+  function drawSinks(wn) {
+    if (!sink.areas.length && !sink.runs.length) return;
+    const water = new Geo(true, uvS(14)), runWater = new Geo(false, uvS(14));
+    const conc = new Geo(), grass = new Geo(), earth = new Geo(), metal = new Geo(), panel = new Geo();
+    const C = { riprap: col('#8d8778'), stone: col('#9b978c'), concrete: col('#b8b3a7'), grass: col('#7f9a5c'), earth: col('#7b6b52'), wall: col('#c6c1b4'), bed: col('#5b5850'), dark: col('#151513'), white: col('#ffffff') };
+    const geoOf = m => m === 'grass' ? grass : m === 'earth' ? earth : conc;
+    const RAIL = { steel: col('#3d4044'), mesh: col('#2f6b4a'), post: col('#b9b4a8') };
+    // vertical quad along a-b ([x,z]) from y0 to y1 (per end), facing n; uv in metres / 3
+    const vq = (g, a, b, ya0, ya1, yb0, yb1, c, n) => {
+      const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      g.quad([a[0], ya0, a[1]], [b[0], yb0, b[1]], [b[0], yb1, b[1]], [a[0], ya1, a[1]], c, n, [[0, ya0 / 3], [l / 3, yb0 / 3], [l / 3, yb1 / 3], [0, ya1 / 3]]);
+    };
+    // quad by four [x,y,z] corners, uv = world x / z in 4 m
+    const fq = (g, p, c, n) => g.quad(p[0], p[1], p[2], p[3], c, n, p.map(q => [q[0] / 4, q[2] / 4]));
+    const P3 = (p, y) => [p[0], y, p[1]];
+    const off = (p, n, o) => [p[0] + n[0] * o, p[1] + n[1] * o];
+    // square bar from a to b ([x,y,z]), t thick
+    const bar = (a, b, t, c) => {
+      const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], l = Math.hypot(...d) || 1; d[0] /= l; d[1] /= l; d[2] /= l;
+      const up = Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+      let u = [d[1] * up[2] - d[2] * up[1], d[2] * up[0] - d[0] * up[2], d[0] * up[1] - d[1] * up[0]];
+      const ul = Math.hypot(...u); u = u.map(v => v / ul * t / 2);
+      const v = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]];
+      const Cn = (p, su, sv) => [p[0] + u[0] * su + v[0] * sv, p[1] + u[1] * su + v[1] * sv, p[2] + u[2] * su + v[2] * sv];
+      for (const [s1, t1, s2, t2] of [[1, 1, 1, -1], [1, -1, -1, -1], [-1, -1, -1, 1], [-1, 1, 1, 1]]) {
+        const n = [u[0] * (s1 + s2) + v[0] * (t1 + t2), u[1] * (s1 + s2) + v[1] * (t1 + t2), u[2] * (s1 + s2) + v[2] * (t1 + t2)];
+        metal.quad(Cn(a, s1, t1), Cn(b, s1, t1), Cn(b, s2, t2), Cn(a, s2, t2), c, n);
+      }
+    };
+    // railing along the top of a bank from A to B ([x,z]) standing on heights ya, yb.
+    // steel: 1.1 m dark bars every 15 cm; mesh: green fence posts every 2.5 m with a mesh panel; post: 0.9 m square posts + 2 bars
+    const rail = (type, A, B, ya, yb) => {
+      const l = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      if (!RAIL[type] || l < 0.2) return;
+      const c = RAIL[type], P = (t, y) => [A[0] + (B[0] - A[0]) * t, ya + (yb - ya) * t + y, A[1] + (B[1] - A[1]) * t];
+      if (type === 'post') {
+        for (const hh of [0.45, 0.82]) bar(P(0, hh), P(1, hh), 0.07, c);
+        const n = Math.max(1, Math.round(l / 2));
+        for (let k = 0; k < n; k++) bar(P(k / n, -0.1), P(k / n, 0.9), 0.18, c);
+        return;
+      }
+      bar(P(0, 1.1), P(1, 1.1), 0.05, c); bar(P(0, 0.1), P(1, 0.1), 0.04, c);
+      const n = Math.max(1, Math.round(l / (type === 'steel' ? 0.15 : 2.5)));
+      for (let k = 0; k < n; k++) bar(P(k / n, -0.05), P(k / n, 1.1), type === 'steel' ? 0.022 : 0.06, c);
+      if (type === 'mesh') { const a = P(0, 0.1), b = P(1, 0.1); panel.quad(a, b, [b[0], b[1] + 1, b[2]], [a[0], a[1] + 1, a[2]], c, [(B[1] - A[1]) / l, 0, -(B[0] - A[0]) / l]); }
+    };
+    // ponds: draped water drop m below the ground, a wall (with coping) or a slope on each edge
+    for (const s of sink.areas) {
+      water.flatPoly(s.P, -s.drop, C.white);
+      for (const e of s.edges) {
+        const yA = H(...e.A), yB = H(...e.B), wA = yA - s.drop, wB = yB - s.drop, rA = H(...e.oA), rB = H(...e.oB), inN = [-e.n[0], 0, -e.n[1]];
+        if (e.wall) {
+          vq(conc, e.A, e.B, wA - 0.4, yA + 0.05, wB - 0.4, yB + 0.05, C.wall, inN);
+          fq(conc, [P3(e.A, yA + 0.05), P3(e.B, yB + 0.05), P3(e.oB, rB + 0.05), P3(e.oA, rA + 0.05)], C.wall, UP);
+          vq(conc, e.oA, e.oB, rA - 0.3, rA + 0.05, rB - 0.3, rB + 0.05, C.wall, [e.n[0], 0, e.n[1]]);
+          rail(e.spec.rail, off(e.A, e.n, SINK_COPE / 2), off(e.B, e.n, SINK_COPE / 2), yA + 0.05, yB + 0.05);
+        } else {
+          const m = e.spec.mat || 'grass';
+          fq(geoOf(m), [P3(e.A, wA - 0.1), P3(e.B, wB - 0.1), P3(e.oB, rB + 0.02), P3(e.oA, rA + 0.02)], C[m] || C.grass, [inN[0] * 0.5, 0.85, inN[2] * 0.5]);
+          rail(e.spec.rail, off(e.oA, e.n, 0.1), off(e.oB, e.n, 0.1), H(...off(e.oA, e.n, 0.1)), H(...off(e.oB, e.n, 0.1)));
+        }
+        sinkColl.push([off(e.oA, e.n, 0.2), off(e.oB, e.n, 0.2)]);
+      }
+    }
+    // streams: a channel along the run, walls with coping (bed beside the water) or slopes down to the water
+    for (const r of sink.runs) {
+      const sp = r.spec, drop = sp.drop, t2 = r.top / 2, w2 = r.w / 2, slope = sp.bank === 'slope', cope = slope ? 0.1 : SINK_COPE;
+      const n = r.pts.length, pts = r.pts;
+      const T2 = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+      const N = T2.map(t => [-t[1], t[0]]);
+      const at = (i, o) => off(pts[i], N[i], o);
+      const yr = pts.map((p, i) => Math.min(H(...at(i, t2 + cope)), H(...at(i, -t2 - cope))));
+      const yw = yr.map(y => y - drop);
+      for (let i = 0; i < n - 1; i++) {
+        for (const sd of [1, -1]) {
+          const ra = at(i, sd * t2), rb = at(i + 1, sd * t2), ya = H(...at(i, sd * (t2 + cope))), yb = H(...at(i + 1, sd * (t2 + cope)));
+          const inN = [-N[i][0] * sd, 0, -N[i][1] * sd];
+          if (slope) {
+            fq(geoOf(sp.mat), [P3(at(i, sd * w2), yw[i] - 0.1), P3(at(i + 1, sd * w2), yw[i + 1] - 0.1), P3(rb, yb + 0.02), P3(ra, ya + 0.02)], C[sp.mat] || C.concrete, [inN[0] * 0.5, 0.85, inN[2] * 0.5]);
+            fq(geoOf(sp.mat), [P3(ra, ya + 0.02), P3(rb, yb + 0.02), P3(at(i + 1, sd * (t2 + cope)), yb + 0.02), P3(at(i, sd * (t2 + cope)), ya + 0.02)], C[sp.mat] || C.concrete, UP);
+          } else {
+            vq(conc, ra, rb, yw[i] - 0.3, ya + 0.05, yw[i + 1] - 0.3, yb + 0.05, C.wall, inN);
+            fq(conc, [P3(ra, ya + 0.05), P3(rb, yb + 0.05), P3(at(i + 1, sd * (t2 + cope)), yb + 0.05), P3(at(i, sd * (t2 + cope)), ya + 0.05)], C.wall, UP);
+          }
+          rail(sp.rail, at(i, sd * (t2 + cope / 2)), at(i + 1, sd * (t2 + cope / 2)), ya + 0.05, yb + 0.05);
+          sinkColl.push([at(i, sd * (t2 + cope + 0.2)), at(i + 1, sd * (t2 + cope + 0.2))]);
+        }
+        if (!slope) fq(earth, [P3(at(i, t2), yw[i] - 0.03), P3(at(i + 1, t2), yw[i + 1] - 0.03), P3(at(i + 1, -t2), yw[i + 1] - 0.03), P3(at(i, -t2), yw[i] - 0.03)], C.bed, UP);
+        runWater.quad(P3(at(i, w2), yw[i]), P3(at(i + 1, w2), yw[i + 1]), P3(at(i + 1, -w2), yw[i + 1]), P3(at(i, -w2), yw[i]), C.white, UP,
+          [at(i, w2), at(i + 1, w2), at(i + 1, -w2), at(i, -w2)].map(q => [q[0] / 14, q[1] / 14]));
+      }
+      // ends: culvert headwall with a dark opening (the stream goes on under the road / the fill)
+      for (const [i, dir, k] of [[0, 1, 0], [n - 1, -1, 1]]) {
+        if (r.join[k]) continue;
+        const a = at(i, t2 + cope), b = at(i, -t2 - cope), f = [T2[i][0] * dir, 0, T2[i][1] * dir];
+        vq(conc, a, b, yw[i] - 0.3, H(...a) + 0.05, yw[i] - 0.3, H(...b) + 0.05, C.wall, f);
+        const oa = off(at(i, w2 * 0.85), T2[i], dir * 0.03), ob = off(at(i, -w2 * 0.85), T2[i], dir * 0.03);
+        vq(conc, oa, ob, yw[i] - 0.05, yw[i] + Math.min(1.4, drop * 0.75), yw[i] - 0.05, yw[i] + Math.min(1.4, drop * 0.75), C.dark, f);
+        rail(sp.rail, at(i, t2 + cope / 2), at(i, -t2 - cope / 2), H(...a) + 0.05, H(...b) + 0.05);
+        sinkColl.push([off(at(i, t2 + cope + 0.2), T2[i], -dir * 0.2), off(at(i, -t2 - cope - 0.2), T2[i], -dir * 0.2)]);
+      }
+    }
+    // water writes depth (nothing under it: the ground is masked); banks / rails are ordinary meshes
+    const wmat2 = new THREE.MeshStandardMaterial({ color: '#2f4c52', roughness: 0.06, metalness: 0.15, normalMap: wn, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.3, vertexColors: true });
+    for (const g of [water, runWater]) if (g.tris) { const m = g.mesh(wmat2); m.receiveShadow = true; scene.add(m); world.tris.water = (world.tris.water || 0) + g.tris; }
+    const cx = concreteTex(), gr = T.grass(), dt = T.dirt();
+    const bank = (g, map, normalMap, rough) => { if (!g.tris) return; const m = g.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, map, normalMap: normalMap || null, roughness: rough })); m.receiveShadow = true; scene.add(m); world.tris.banks = (world.tris.banks || 0) + g.tris; };
+    bank(conc, cx.map, cx.normalMap, 0.9); bank(grass, gr.map, gr.normalMap, 0.95); bank(earth, dt.map, dt.normalMap, 0.95);
+    if (metal.tris) { const m = metal.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.4, roughness: 0.5 })); m.castShadow = quality !== 'low'; scene.add(m); }
+    if (panel.tris) scene.add(panel.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, roughness: 0.8 })));
+  }
   // ground layers draw in order without depth writes (no z-fighting)
   let layerOrder = -100;
   // polygonOffset: draped layers sit a few cm above the terrain; keep them in front at distance
@@ -713,10 +969,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       // field stripes follow the block's street direction (a.ang, degrees)
       if (k === 'farm') { const t = (a.ang || 0) * Math.PI / 180, ct = Math.cos(t), st = Math.sin(t); gFarm.uvAt = q => [(q[0] * ct + q[1] * st) / 24, (-q[0] * st + q[1] * ct) / 24]; }
       const tint = k === 'farm' ? c : k === 'dirt' ? DIRT_TINT[a.sub] || TINT.dirt : a.name === '中原大學大草坪' ? '#f4fff0' : TINT[k] || '#ffffff';
-      g.flatPoly(a.pts, 0.02, col(tint), a.holes);
+      if (!a.sink) g.flatPoly(a.pts, 0.02, col(tint), a.holes); // sunk water is drawn below (sink)
       // holes ride along on the ring array so inArea() can skip them
       const ring = a.holes ? Object.assign(a.pts.slice(), { holes: a.holes }) : a.pts;
-      if (a.kind === 'water') waterPolys.push(ring);
+      if (a.kind === 'water' || a.was === 'water') waterPolys.push(ring); // was: water that is not there any more (tools/water.json); plants keep off it as before
       if (a.synthetic && (a.kind === 'wood' || a.kind === 'grass')) fillGreens.push({ ring, dense: a.kind === 'wood' });
       else if (a.kind === 'park' || a.kind === 'grass') greenPolys.push(ring);
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
@@ -738,7 +994,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       }
     }
     // waterways
-    for (const w of data.waterways) for (let i = 0; i < w.pts.length - 1; i++) { gWater.strip(w.pts[i], w.pts[i + 1], w.w, 0.02, col('#ffffff')); gWater.disc(w.pts[i][0], w.pts[i][1], w.w / 2, 0.02, col('#ffffff')); }
+    for (const w of data.waterways) if (!w.sink) for (let i = 0; i < w.pts.length - 1; i++) { gWater.strip(w.pts[i], w.pts[i + 1], w.w, 0.02, col('#ffffff')); gWater.disc(w.pts[i][0], w.pts[i][1], w.w / 2, 0.02, col('#ffffff')); }
     addFlat(gConc, gmat(T.paving(), { macroAmt: 0.25 }), 'areas');
     addFlat(gAsph, gmat(T.asphalt(), { roughness: 1 }), 'areas');
     addFlat(gFarm, flatMat(farmTex()), 'areas');
@@ -751,6 +1007,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const wmat = maskCut(new THREE.MeshStandardMaterial({ color: '#2f4c52', roughness: 0.06, metalness: 0.15, normalMap: wn, normalScale: new THREE.Vector2(0.35, 0.35), envMapIntensity: 1.3, depthWrite: false, vertexColors: true, ...OFFSET }));
     addFlat(gWater, wmat, 'areas');
     world.animated.push((t) => { wn.offset.set(t * 0.012, t * 0.008); });
+    drawSinks(wn);
   }
   world.waterPolys = waterPolys;
   // lawns / parks (incl. 補建 greens) — footstep surface
@@ -2150,6 +2407,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // noPlant keeps trees off the fountain plaza as the old larger basin did: tree
   // placement, and with it the shared random streams (rnd, rnd2), stays as before
   const lateColliders = [], noPlant = [];
+  // sunk water: the line along the top of every bank / across every culvert end (drawSinks)
+  lateColliders.push(() => { for (const [a, b] of sinkColl) collision.addSegment(a[0], a[1], b[0], b[1]); });
   // merge box-like parts [geometry, x, y, z] into one mesh
   const mergedMesh = (parts, mat) => {
     const gs = parts.map(([geo, x, y, z]) => { geo.translate(x, y, z); return geo; });
@@ -2825,11 +3084,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       for (let a = 0; a < 8; a++) if (Math.abs(groundY(x + Math.cos(a * 0.785) * r, z + Math.sin(a * 0.785) * r) - g) > STEP_UP) return true;
       return false;
     };
-    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8)) return false; collision.removeCircleAt(x, z); return true; };
+    // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8)) return false; collision.removeCircleAt(x, z); return true; };
     const veg = [];
     for (const [x, z, kind, s] of spots) veg.push({ x, z, y: groundY(x, z) - 0.15, kind, s, hide: hideTree(x, z) });
     for (const [x, z, s] of palms) veg.push({ x, z, y: groundY(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3, hide: hideTree(x, z) });
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;

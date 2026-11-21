@@ -506,6 +506,13 @@ const moved = (o, s) => !o.position.equals(s.p) || !o.quaternion.equals(s.q) || 
 
 export class Vehicle {
   static knock = null; // see KNOCK_MIN
+  // Vehicle.onRide(v, on): set by main.js; player.js calls it when the player gets on (true) / off (false).
+  // With physics it gives the ridden vehicle a dynamic body (js/vehphys.js Chassis, this.body) and takes it
+  // away again. While this.body exists the body moves the vehicle: drive() is not called, pos / heading /
+  // speed are written back from the body every frame, and code that changes speed or pos (a pedestrian hit,
+  // race barriers) keeps working: the body picks those changes up (Chassis.latch).
+  static onRide = null;
+  static knockTraffic = null; // (o, by, nx, nz, closing speed): main.js throws a traffic vehicle hit hard (physics)
   constructor(kind, rnd = Math.random, opt = {}) {
     this.id = VID++;
     this.kind = kind;
@@ -579,7 +586,10 @@ export class Vehicle {
     }
   }
   get lodFar() { return !!this._lod?.isFar; }
-  place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined; this.sync(); }
+  place(x, z, h) {
+    this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined;
+    if (this.body) this.body.teleport(x, z, h); else this.sync();
+  }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }
   sync(dt = 0) {
     if (this.knocked) return; // thrown by physics (Vehicle.knock): the physics body places the mesh
@@ -588,9 +598,14 @@ export class Vehicle {
     const fx = Math.sin(this.heading) * this.wb / 2, fz = Math.cos(this.heading) * this.wb / 2;
     // each wheel stays on the level it was on (viaduct deck / street below it, js/terrain.js)
     const hf = this.hf = surfaceAt(this.pos.x + fx, this.pos.z + fz, this.hf), hb = this.hb = surfaceAt(this.pos.x - fx, this.pos.z - fz, this.hb);
+    this._pose(dt, hf, hb, (hf + hb) / 2);
+  }
+  // the mesh from pos / heading / steer / speed and the ground under the front and back wheel (y: height of
+  // the mesh origin, normally (hf + hb) / 2): pitch with the ground, scooter lean, wheels
+  _pose(dt, hf, hb, y) {
     const pt = -Math.atan2(hf - hb, this.wb);
     this.pitch = dt > 0 ? this.pitch + (pt - this.pitch) * Math.min(1, dt * 10) : pt;
-    this.mesh.position.set(this.pos.x, (hf + hb) / 2, this.pos.z);
+    this.mesh.position.set(this.pos.x, y, this.pos.z);
     this.mesh.rotation.set(this.pitch, this.heading, 0);
     if (this.fallen) this.mesh.rotation.z = 1.32; // dropped after a crash, lying on its side until ridden again
     else if (this.kind === 'scooter') {
@@ -617,6 +632,54 @@ export class Vehicle {
   }
   // player driving physics. inp: {throttle(-1..1), steer(-1..1), handbrake}
   drive(dt, inp, collision, others, onBump) {
+    this._intent(dt, inp);
+    const dx = Math.sin(this.moveAng) * this.speed * dt, dz = Math.cos(this.moveAng) * this.speed * dt;
+    // substeps against tunnelling
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (this.hw * 0.5)));
+    let hitN = null;
+    const v0 = this.speed;
+    for (let i = 0; i < steps; i++) {
+      this.pos.x += dx / steps; this.pos.z += dz / steps;
+      const r = this.resolveBody(collision);
+      if (r.hit) hitN = r;
+    }
+    this.bumpCooldown -= dt;
+    this.crash = null;
+    if (hitN) {
+      const fx = Math.sin(this.moveAng), fz = Math.cos(this.moveAng);
+      this.hitWall(-(fx * hitN.nx + fz * hitN.nz) * v0, hitN.nx, hitN.nz, v0, onBump);
+    }
+    // vehicle-vehicle
+    for (const o of others) {
+      if (o === this || !sameLevel(this.mesh.position.y, o.mesh.position.y)) continue;
+      if (Math.abs(this.pos.x - o.pos.x) > this.hl + o.hl || Math.abs(this.pos.z - o.pos.z) > this.hl + o.hl) continue;
+      // body against body (capsules), pushed apart along the line between the nearest points
+      const [pa, pb] = segSeg(bodySeg(this), bodySeg(o));
+      let ddx = pa[0] - pb[0], ddz = pa[1] - pb[1], dd = Math.hypot(ddx, ddz);
+      const rr = this.hw + o.hw;
+      if (dd < rr) {
+        if (dd < 1e-4) { ddx = this.pos.x - o.pos.x; ddz = this.pos.z - o.pos.z; dd = Math.hypot(ddx, ddz) || 1; }
+        const nx = ddx / dd, nz = ddz / dd, push = rr - Math.min(dd, rr);
+        const fx = Math.sin(this.moveAng), fz = Math.cos(this.moveAng), impact = -(fx * nx + fz * nz) * v0;
+        const kf = this._knockKf(o, nx, nz, impact);
+        if (kf !== null) {
+          this.pos.x += nx * push; this.pos.z += nz * push;
+        } else {
+          this.pos.x += nx * push * 0.7; this.pos.z += nz * push * 0.7;
+          o.pos.x -= nx * push * 0.3; o.pos.z -= nz * push * 0.3;
+          if (!o.ai || o.ai.wreck > 0) o.resolveBody(collision); // parked cars / your scooter / a wreck: don't shove them into walls (AI cars snap back to their lane)
+          o.sync();
+        }
+        // closing speed against o's own motion (whether traffic is thrown): impact + o's velocity toward you
+        const [ofx, ofz] = o.forward();
+        this._hitVehicle(o, kf, impact, nx, nz, v0, onBump, Math.abs(this.speed), impact + (ofx * nx + ofz * nz) * (o.speed || 0));
+      }
+    }
+    this.sync(dt);
+  }
+  // speed, steering, heading and drift from the input (the arcade handling; with a physics body the body is
+  // driven toward this, js/vehphys.js)
+  _intent(dt, inp) {
     const thr = inp.throttle, hb = inp.handbrake;
     if (thr > 0) this.speed += (this.speed < 0 ? this.brake : this.accel * (1 - Math.max(0, this.speed) / this.maxSpeed * 0.6)) * thr * dt;
     else if (thr < 0) {
@@ -635,60 +698,32 @@ export class Vehicle {
     const grip = hb ? 1.6 : this.grip;
     this.moveAng += d * Math.min(1, grip * dt);
     this.drifting = hb && sp > 6 && Math.abs(d) > 0.2;
-    const dx = Math.sin(this.moveAng) * this.speed * dt, dz = Math.cos(this.moveAng) * this.speed * dt;
-    // substeps against tunnelling
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (this.hw * 0.5)));
-    let hitN = null;
-    const v0 = this.speed;
-    for (let i = 0; i < steps; i++) {
-      this.pos.x += dx / steps; this.pos.z += dz / steps;
-      const r = this.resolveBody(collision);
-      if (r.hit) hitN = r;
-    }
-    this.bumpCooldown -= dt;
-    this.crash = null;
-    if (hitN) {
-      const fx = Math.sin(this.moveAng), fz = Math.cos(this.moveAng);
-      const impact = -(fx * hitN.nx + fz * hitN.nz) * v0;
-      if (impact > CRASH_STOP) this.speed = 0; // head into a wall / tree: dead stop
-      else if (impact > 2) this.speed *= 0.35;
-      else this.speed *= 0.97;
-      if (impact > 2 && this.bumpCooldown <= 0) { onBump && onBump(impact); this.bumpCooldown = 0.4; }
-      if (impact > CRASH_THROW) this.crash = { impact, speed: Math.abs(v0), nx: hitN.nx, nz: hitN.nz };
-    }
-    // vehicle-vehicle
-    for (const o of others) {
-      if (o === this || !sameLevel(this.mesh.position.y, o.mesh.position.y)) continue;
-      if (Math.abs(this.pos.x - o.pos.x) > this.hl + o.hl || Math.abs(this.pos.z - o.pos.z) > this.hl + o.hl) continue;
-      // body against body (capsules), pushed apart along the line between the nearest points
-      const [pa, pb] = segSeg(bodySeg(this), bodySeg(o));
-      let ddx = pa[0] - pb[0], ddz = pa[1] - pb[1], dd = Math.hypot(ddx, ddz);
-      const rr = this.hw + o.hw;
-      if (dd < rr) {
-        if (dd < 1e-4) { ddx = this.pos.x - o.pos.x; ddz = this.pos.z - o.pos.z; dd = Math.hypot(ddx, ddz) || 1; }
-        const nx = ddx / dd, nz = ddz / dd, push = rr - Math.min(dd, rr);
-        const fx = Math.sin(this.moveAng), fz = Math.cos(this.moveAng), impact = -(fx * nx + fz * nz) * v0;
-        // a parked vehicle hit hard is thrown by physics (main.js knockVehicle); one already flying only
-        // pushes you back (physics moves it)
-        const parked = !o.ai && !o.driver && !o.racer && !o.knocked;
-        let kf = null; // knocked: your speed is multiplied by kf (momentum) instead of the usual stop / slow down
-        if (o.knocked) kf = 0.85;
-        else if (parked && impact > KNOCK_MIN && Vehicle.knock) kf = Vehicle.knock(o, this, nx, nz, impact) || null;
-        if (kf !== null) {
-          this.pos.x += nx * push; this.pos.z += nz * push;
-        } else {
-          this.pos.x += nx * push * 0.7; this.pos.z += nz * push * 0.7;
-          o.pos.x -= nx * push * 0.3; o.pos.z -= nz * push * 0.3;
-          if (!o.ai) o.resolveBody(collision); // parked cars / your scooter: don't shove them into walls (AI cars snap back to their lane)
-          o.sync();
-        }
-        if (Math.abs(this.speed) > 3 && this.bumpCooldown <= 0) { onBump && onBump(Math.abs(this.speed)); this.bumpCooldown = 0.5; }
-        if (kf !== null) this.speed *= kf;
-        else this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
-        if (impact > CRASH_THROW && !this.crash && (kf === null || kf < 0.3)) this.crash = { impact, speed: Math.abs(v0), nx, nz };
-        if (o.ai) o.ai.stunned = 2;
-      }
-    }
-    this.sync(dt);
+  }
+  // hit a wall / tree / building at impact m/s into it (n: away from it, v0: speed before): stop dead, slow
+  // down or scrape along; bumps and the scooter crash (rider thrown off, main.js)
+  hitWall(impact, nx, nz, v0, onBump) {
+    if (impact > CRASH_STOP) this.speed = 0; // head into a wall / tree: dead stop
+    else if (impact > 2) this.speed *= 0.35;
+    else this.speed *= 0.97;
+    if (impact > 2 && this.bumpCooldown <= 0) { onBump && onBump(impact); this.bumpCooldown = 0.4; }
+    if (impact > CRASH_THROW) this.crash = { impact, speed: Math.abs(v0), nx, nz };
+  }
+  // hitting vehicle o: a parked one hit hard is thrown by physics (main.js knockVehicle), one already flying
+  // only pushes you back. Returns kf (your speed is multiplied by it, momentum) or null (the usual push)
+  _knockKf(o, nx, nz, impact) {
+    const parked = !o.ai && !o.driver && !o.racer && !o.knocked;
+    if (o.knocked) return 0.85;
+    if (parked && impact > KNOCK_MIN && Vehicle.knock) return Vehicle.knock(o, this, nx, nz, impact) || null;
+    return null;
+  }
+  // your speed, bump and crash after hitting vehicle o (kf from _knockKf); traffic gets stunned, or thrown
+  // when hit hard (Vehicle.knockTraffic, main.js). bs: your speed for the bump, rel: the closing speed of
+  // the two (impact counts your own motion only)
+  _hitVehicle(o, kf, impact, nx, nz, v0, onBump, bs, rel) {
+    if (bs > 3 && this.bumpCooldown <= 0) { onBump && onBump(bs); this.bumpCooldown = 0.5; }
+    if (kf !== null) this.speed *= kf;
+    else this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
+    if (impact > CRASH_THROW && !this.crash && (kf === null || kf < 0.3)) this.crash = { impact, speed: Math.abs(v0), nx, nz };
+    if (o.ai) { o.ai.stunned = 2; Vehicle.knockTraffic?.(o, this, nx, nz, rel); }
   }
 }

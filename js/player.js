@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createCharacter } from './character.js';
 import { surfaceAt } from './terrain.js';
+import { Vehicle } from './vehicles.js';
 
 // Yanlin — modelled after the reference photo:
 // black bowl-cut with full bangs, thin round light frames, black tee with small white chest logo,
@@ -117,9 +118,11 @@ export class Player {
     this.pos = this.ch.root.position; // local now
     this.ch.update(0.2, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
     this.ch.root.visible = v.kind === 'scooter' || true;
+    Vehicle.onRide?.(v, true); // physics body for the ridden vehicle (main.js, js/vehphys.js)
   }
   exit(scene, collision) {
     const v = this.vehicle; if (!v) return;
+    Vehicle.onRide?.(v, false); // back to a parked vehicle on the level it stands on
     v.mesh.remove(this.ch.root); scene.add(this.ch.root);
     this.pos = this.ch.root.position;
     // try left side, right side, behind

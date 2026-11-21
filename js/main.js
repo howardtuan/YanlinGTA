@@ -28,9 +28,12 @@ import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
+import { Chassis } from './vehphys.js';
 import { buildPhysicsWorld } from './physworld.js';
 
 const $ = id => document.getElementById(id);
+// masses for vehicles thrown by physics (kg, without rider) and the restitution of those hits
+const vmass = v => v.kind === 'scooter' ? 110 : 1250, KNOCK_E = 0.3;
 // bind a click handler; a missing element (an older cached index.html) must not stop the game from loading
 const onClick = (id, fn) => { const el = $(id); if (el) el.onclick = fn; else console.warn('missing #' + id); };
 const setLoad = (p, t) => { $('loadFill').style.width = (p * 100) + '%'; $('loadText').textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`; };
@@ -166,6 +169,8 @@ class Game {
     this.traffic = new Traffic(this.scene, this.world, this.xlowQ ? 8 : this.lowQ ? 14 : 26);
     this.peds = new Peds(this.scene, this.world, this.xlowQ ? 10 : this.lowQ ? 18 : 32);
     this.traffic.viewK = this.peds.viewK = this.viewK; // draw range for the quality level
+    // a wreck is only cleared away where the camera does not look (within 70° of its view direction, 150 m)
+    { const cf = new THREE.Vector3(); this.traffic.inView = p => { const c = this.camera.position, dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d > 150) return false; if (d < 4) return true; this.camera.getWorldDirection(cf); const l = Math.hypot(cf.x, cf.z) || 1; return (dx * cf.x + dz * cf.z) / (d * l) > Math.cos(1.22); }; }
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
     // pocket money (Peach Pay): start with NT$200, earn more at the McDonald's counter
@@ -210,6 +215,13 @@ class Game {
     { const nm = this.world.nightMarket; if (this.world.isFree(nm.x + 4, nm.z, 3)) this.world.addBoard(nm.x + 4, nm.z, 0, 0.8); }
     this._spawnParked();
     Vehicle.knock = (o, by, nx, nz, impact) => this._knockVehicle(o, by, nx, nz, impact);
+    Vehicle.knockTraffic = (o, by, nx, nz, impact) => this._knockTraffic(o, by, nx, nz, impact);
+    // the vehicle you ride gets a physics body (js/vehphys.js) unless ?arcadecar (or no physics)
+    Vehicle.onRide = (v, on) => {
+      // (the stand-ins of the vehicle and of you on foot go first: the new body must not start inside them)
+      if (on && this.physics.ready && !/[?&]arcadecar\b/.test(location.search) && !v.body) { this.physics.dropMover(v); this.physics.dropMover(this.player); Chassis.attach(this.physics, v); }
+      else if (!on && v.body) v.body.remove();
+    };
     this._ballots();
     this._beam();
     // start position: inside the old campus gate (舊校門)
@@ -761,8 +773,9 @@ class Game {
     if (this.state === 'title') this._titleCam(dt);
     else if (this.state === 'play') this._update(dt);
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
-    if (this.state === 'play') this._physMovers(dt);
-    this.physics.update(this.state === 'play' || this.state === 'title' ? dt : 0);
+    // physics (unless _update already stepped it for the vehicle you ride, see _stepPhysics)
+    if (!this._physStepped) this._stepPhysics(this.state === 'play' || this.state === 'title' ? dt : 0, null);
+    this._physStepped = false;
     this._updateSky(dt);
     this._vehicleLod(dt);
     this.world.update(this.time, this.night, this.clock, this.state === 'title' ? this._titlePos : this.player.worldPos());
@@ -875,7 +888,10 @@ class Game {
       const v = pl.vehicle;
       const a = pl.frozen ? { x: 0, y: 0 } : inp.axis();
       const others = [...this.traffic.vehicles(), ...this.race.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
-      v.drive(dt, { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') }, w.collision, others, (imp) => { this.audio.bump(imp / 3, v.kind); this.rig.cur.y += Math.min(0.3, imp * 0.02); });
+      const vin = { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') };
+      // a physics body (js/vehphys.js): step the physics now, so everything below sees this frame's result
+      if (v.body) this._stepPhysics(dt, vin);
+      else v.drive(dt, vin, w.collision, others, this._bump());
       pl.ch.update(dt, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
       // hit pedestrians (touching the vehicle body): thrown along the way the vehicle goes, a bit off to their side
       const sp = Math.abs(v.speed);
@@ -993,45 +1009,89 @@ class Game {
       '{L} 走路 · {R} 視角 · {LS} 衝刺 · {RB} 跳<br>{B} 上車 · {A} 互動／📱手機 · {X} 發傳單 · {Y} ✌ · {View} 地圖 · {Menu} 設定')); }
     if (pl.vehicle) this._tipMode = 'car';
   }
-  // physics stand-ins (js/physics.js movers): your vehicle or you on foot, traffic and race rivals near you
-  // push cones, barriers and knocked vehicles out of the way
+  _bump() { return this._onBump || (this._onBump = (imp) => { this.audio.bump(imp / 3, this.player.vehicle?.kind); this.rig.cur.y += Math.min(0.3, imp * 0.02); }); }
+  // one frame of physics: the ridden vehicle's input, the stand-ins, the steps, then the ridden vehicle's
+  // position / mesh / hits written back. Called from _update while you ride a physics body (so the rest of
+  // _update sees this frame's result), otherwise from _loop.
+  _stepPhysics(dt, inp) {
+    const ch = this.state === 'play' ? this.player.vehicle?.body : null;
+    if (ch) ch.latch(inp);
+    if (this.state === 'play') this._physMovers(dt);
+    this.physics.update(dt);
+    if (ch) ch.frame(dt, this._bump());
+    this._physStepped = true;
+  }
+  // physics stand-ins (js/physics.js movers): your vehicle (unless it has a body of its own) or you on foot,
+  // traffic and race rivals near you push cones, barriers and knocked vehicles out of the way; while you ride
+  // a physics body, the parked vehicles around you stand still in its way (and can be knocked)
   _physMovers(dt) {
     const P = this.physics; if (!P.ready) return;
-    const pl = this.player, wp = pl.worldPos(), list = [];
+    const pl = this.player, wp = pl.worldPos(), list = [], pv = pl.vehicle;
     // boxes from 5 cm above the ground: a scooter (with its rider's legs) 0.9 m tall, a car 1.5 m
     const veh = v => list.push({ key: v, x: v.pos.x, y: v.mesh.position.y, z: v.pos.z, yaw: v.heading, r: v.hw, hl: v.hl, ...(v.kind === 'scooter' ? { cy: 0.5, hh: 0.45 } : { cy: 0.8, hh: 0.75 }) });
-    if (pl.vehicle) veh(pl.vehicle);
+    if (pv) { if (!pv.body) veh(pv); }
     else if (!pl.seat) list.push({ key: pl, x: pl.pos.x, y: pl.pos.y, z: pl.pos.z, yaw: 0, r: 0.3, hl: 0, cy: 0.9, group: G.CHAR });
-    for (const v of [...this.traffic.vehicles(), ...this.race.vehicles()]) if (v !== pl.vehicle && Math.abs(v.pos.x - wp.x) < 60 && Math.abs(v.pos.z - wp.z) < 60 && v.mesh.visible !== false) veh(v);
+    for (const v of [...this.traffic.vehicles(), ...this.race.vehicles()]) if (v !== pv && !v.knocked && Math.abs(v.pos.x - wp.x) < 60 && Math.abs(v.pos.z - wp.z) < 60 && v.mesh.visible !== false) veh(v);
+    if (pv?.body) {
+      const near = [];
+      for (const o of this.vehicles) {
+        if (o === pv || o.driver || o.knocked || o.ai || o.racer || o === this.airdrop.run?.v) continue; // (not while it hangs from the helicopter)
+        const d = Math.hypot(o.pos.x - wp.x, o.pos.z - wp.z);
+        if (d < 20) near.push([d, o]);
+      }
+      near.sort((a, b) => a[0] - b[0]);
+      for (let i = 0; i < Math.min(12, near.length); i++) veh(near[i][1]);
+    }
     P.movers(list, dt);
     P.focus = wp;
   }
   // a parked vehicle hit hard (js/vehicles.js KNOCK_MIN): thrown by physics until it rests. Momentum of the
   // hitter (with its rider) against the parked one decides how hard; returns the factor the hitter's speed keeps
   _knockVehicle(o, by, nx, nz, impact) {
-    const P = this.physics; if (!P.ready) return false;
-    const mass = v => v.kind === 'scooter' ? 110 : 1250, m1 = mass(by) + 70, m2 = mass(o), e = 0.3;
-    const dv = (1 + e) * m1 / (m1 + m2) * impact;
+    const m1 = vmass(by) + 70, m2 = vmass(o), dv = (1 + KNOCK_E) * m1 / (m1 + m2) * impact;
     if (dv < 1) return false; // a scooter nudging a car: the usual push
-    const dx = -nx, dz = -nz, sc = o.kind === 'scooter';
+    if (!this._throwVehicle(o, -nx * dv, -nz * dv, dv, null)) return false;
+    if (by === this.player.vehicle) this.audio.bump(Math.min(3, dv / 3), by.kind);
+    return Math.max(0, (m1 - KNOCK_E * m2) / (m1 + m2));
+  }
+  // a traffic vehicle hit hard: thrown too (with its own speed), then back on its lane when it lands on its
+  // wheels next to it, otherwise a wreck for a while (js/npc.js Traffic)
+  // impact: the closing speed of the two
+  _knockTraffic(o, by, nx, nz, impact) {
+    if (!this.physics.ready || o.knocked || o.ai?.dormant || impact <= 5) return;
+    const m1 = vmass(by) + (by.kind === 'scooter' ? 70 : 0), m2 = vmass(o) + (o.rider ? 70 : 0), dv = (1 + KNOCK_E) * m1 / (m1 + m2) * impact;
+    if (dv < 1.5) return;
+    const [fx, fz] = o.forward();
+    if (o.rider) o.rider.root.visible = false; // the rider is thrown off (P4: a ragdoll)
+    if (!this._throwVehicle(o, fx * o.speed - nx * dv, fz * o.speed - nz * dv, dv, (p, up) => this.traffic.landed(o, p, up))) { if (o.rider) o.rider.root.visible = true; return; }
+    if (by === this.player.vehicle) this.audio.bump(Math.min(3, dv / 3), by.kind);
+  }
+  // hand vehicle o to physics as a thrown body (velocity vx, vz; dv: how hard, for the tumble) until it rests;
+  // then upright on its wheels on the level it landed on, a scooter lying on its side if it fell over.
+  // done(pos, upY) after that (traffic); returns false without physics
+  _throwVehicle(o, vx, vz, dv, done) {
+    const P = this.physics; if (!P.ready) return false;
+    const sc = o.kind === 'scooter', l = Math.hypot(vx, vz) || 1, dx = vx / l, dz = vz / l;
     // tip over the far side: spin about the horizontal axis across the push (stronger for a tall, light scooter)
     const sp = dv * (sc ? 1.1 : 0.12);
     const shape = sc ? { shape: 'box', hx: 0.3, hy: 0.5, hz: 0.88 } : { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 };
-    o.speed = 0; o.knocked = true;
+    P.dropMover(o); // its stand-in (parked next to a physics vehicle, traffic)
     const f = new THREE.Vector3();
     const heading = q => { f.set(0, 0, 1).applyQuaternion(q); return Math.atan2(f.x, f.z); };
-    const rec = P.knock(o.mesh, shape, m2, { x: dx * dv, y: sc ? 1.2 : 0.3, z: dz * dv }, { x: dz * sp, y: (o.id % 2 ? 0.12 : -0.12) * dv, z: -dx * sp },
+    o.knocked = true;
+    const rec = P.knock(o.mesh, shape, vmass(o), { x: vx, y: sc ? 1.2 : 0.3, z: vz }, { x: dz * sp, y: (o.id % 2 ? 0.12 : -0.12) * dv, z: -dx * sp },
       (p, q) => { o.pos.x = p.x; o.pos.z = p.z; o.heading = o.moveAng = heading(q); },
       (p, q) => {
-        // at rest: back to the game's own pose (upright on its wheels, or a scooter lying on its side)
-        f.set(0, 1, 0).applyQuaternion(q);
+        f.set(0, 1, 0).applyQuaternion(q); const up = f.y;
         o.knocked = false; o.pos.set(p.x, 0, p.z); o.heading = o.moveAng = heading(q); o.speed = 0;
-        if (sc) o.fallen = f.y < 0.6;
-        o.hf = o.hb = undefined; o.resolveBody(this.world.collision); o.sync();
-      });
+        if (sc) o.fallen = up < 0.6;
+        o.hf = o.hb = p.y; // stays on the level it landed on (not the top one)
+        o.resolveBody(this.world.collision); o.sync();
+        done?.(p, up);
+      }, o);
     if (!rec) { o.knocked = false; return false; }
-    if (by === this.player.vehicle) this.audio.bump(Math.min(3, dv / 3), by.kind);
-    return Math.max(0, (m1 - e * m2) / (m1 + m2));
+    o.speed = 0;
+    return true;
   }
   _nearestVehicle(r) {
     const p = this.player.pos; let best = null, bd = r;

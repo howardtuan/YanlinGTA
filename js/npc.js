@@ -11,6 +11,7 @@ const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export class Traffic {
   constructor(scene, world, count = 28) {
     this.scene = scene; this.world = world; this.rnd = mulberry32(99);
+    this.inView = () => true; // inView(pos): whether the camera may be looking at pos (main.js sets it)
     this.agents = [];
     for (let i = 0; i < count; i++) {
       const r = this.rnd();
@@ -37,7 +38,8 @@ export class Traffic {
       const e = edges[Math.floor(this.rnd() * edges.length)];
       // avoid stacking
       if (this.agents.some(o => o !== v && !o.ai.dormant && Math.hypot(o.pos.x - n.x, o.pos.z - n.z) < 12)) continue;
-      Object.assign(v.ai, { from: n, edge: e, to: e.to, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, stunned: 0 });
+      Object.assign(v.ai, { from: n, edge: e, to: e.to, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, stunned: 0, wreck: 0, ox: 0, oz: 0 });
+      v.knocked = false; v.fallen = false; v.lean = 0; if (v.rider) v.rider.root.visible = true; // a recycled wreck
       v.hf = v.hb = e.road.deck ? Infinity : undefined; // spawned on a viaduct: start on its deck
       v.heading = Math.atan2(e.to.x - n.x, e.to.z - n.z);
       v.speed = 4; v.mesh.visible = true;
@@ -59,6 +61,12 @@ export class Traffic {
     // right side of travel direction (right = forward rotated -90°)
     const rx = -dz / l, rz = dx / l;
     v.pos.set(f.x + dx * k + rx * lane, 0, f.z + dz * k + rz * lane);
+    // back on the lane after being thrown (landed()): from where it landed, eased in instead of a jump
+    if (a.ox || a.oz) {
+      v.pos.x += a.ox; v.pos.z += a.oz;
+      const e = Math.exp(-dt * 1.5); a.ox *= e; a.oz *= e;
+      if (Math.hypot(a.ox, a.oz) < 0.02) a.ox = a.oz = 0;
+    }
     const th = Math.atan2(dx, dz);
     v.heading += angDiff(th, v.heading) * Math.min(1, dt * 5 + (dt === 0 ? 1 : 0));
     v.steer = Math.max(-1, Math.min(1, angDiff(th, v.heading) * 2));
@@ -85,7 +93,11 @@ export class Traffic {
       const a = v.ai;
       if (!a) continue;
       if (a.dormant) { if (this.rnd() < 0.05) this.spawn(v, p.x, p.z, 90, 260); continue; }
+      if (v.knocked) continue; // thrown by physics (main.js _knockTraffic) until it lands (landed())
       const dPl = Math.hypot(v.pos.x - p.x, v.pos.z - p.z);
+      // a wreck stays where it came to rest (the traffic behind it waits), then is recycled once you are 90 m
+      // away or not looking at it (inView, set by main.js)
+      if (a.wreck > 0) { a.wreck -= dt; if (a.wreck <= 0) { if (dPl > 90 || !this.inView(v.pos)) { a.dormant = true; v.mesh.visible = false; } else a.wreck = 1; } continue; }
       if (dPl > 330) { a.dormant = true; v.mesh.visible = false; continue; }
       if (a.stunned > 0) { a.stunned -= dt; v.speed *= Math.pow(0.9, dt * 60); v.sync(dt); continue; } // frame-rate independent decay
       const target = SPEED_BY_TYPE[a.edge.road.type] || 7;
@@ -120,9 +132,23 @@ export class Traffic {
       if (v.rider && dPl < 60) v.rider.update(dt, { mode: 'ride' });
     }
   }
+  // a thrown traffic vehicle came to rest at p (upY: its up axis' y): upright next to its lane and roughly
+  // along it -> drives on (stunned for a moment); otherwise a wreck for 20 s
+  landed(v, p, upY) {
+    const a = v.ai; if (!a || a.dormant) return;
+    const f = a.from, t = a.to, dx = t.x - f.x, dz = t.z - f.z, l = a.len || 1;
+    const along = ((p.x - f.x) * dx + (p.z - f.z) * dz) / l, side = (-(p.x - f.x) * dz + (p.z - f.z) * dx) / l;
+    const lane = this._lane(v), th = Math.atan2(dx, dz);
+    if (!v.fallen && upY > 0.8 && along > -2 && along < l + 2 && Math.abs(side - lane) < 2.5 && Math.abs(angDiff(th, v.heading)) < 0.9) {
+      a.d = Math.max(0, Math.min(l, along)); a.stunned = 1.5; v.speed = 0; a.wreck = 0;
+      // where it is against its lane spot: _place eases that away once it drives on
+      const k = a.d / l; a.ox = p.x - (f.x + dx * k - dz / l * lane); a.oz = p.z - (f.z + dz * k + dx / l * lane);
+      if (v.rider) v.rider.root.visible = true;
+    } else { a.wreck = 20; v.speed = 0; }
+  }
   // detach an AI vehicle so the player can take it
   hijack(v) {
-    v.ai = null; v.driver = null;
+    v.ai = null; v.driver = null; v.fallen = false;
     if (v.rider) { v.mesh.remove(v.rider.root); v.rider = null; }
     this.agents = this.agents.filter(a => a !== v);
   }

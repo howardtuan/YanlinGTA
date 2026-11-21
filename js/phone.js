@@ -605,7 +605,7 @@ export class Phone {
       if (it.boost) { g.player.boost = Math.max(g.player.boost || 0, it.boost); g.hud.toast(`${it.icon} ${it.name}：衝刺加速 ${it.boost} 秒！`, 'good', 2000); }
       if (it.votes) g.addVotes(it.votes, `${it.icon} ${it.name} +${it.votes} 票`);
       else if (!it.boost) g.hud.toast(`${it.icon} ${it.name} 已送達！`, 'good', 1800);
-      if (it.team) { const t = this.chats.find(x => x.c.id === 'team'); if (t) { t.msgs.push({ who: '阿凱', text: it.team, time: hhmm(g.clock) }); t.unread++; g.audio.notify?.(0.6); } }
+      if (it.team) { const t = this.chats.find(x => x.c.id === 'team'); if (t) { t.msgs.push({ who: '阿凱', text: it.team, time: hhmm(g.clock) }); t.lastAt = g.clock; t.unread++; this._relist(); g.audio.notify?.(0.6); } }
       const y = c.scrollTop; this._shop('store'); this.view.querySelector('.ph-content').scrollTop = y;
     });
   }
@@ -678,8 +678,26 @@ export class Phone {
   }
 
   // ---------------- messages ----------------
+  // game minute of a chat's newest message: stamped when a message arrives (st.lastAt, saved); chats that only have
+  // their scripted history are placed by its last day separator and HH:MM, all before the game's first minute (the
+  // scripts were written for an evening start), so anything sent or received in play is always newer
+  _lastAt(st) {
+    if (st.lastAt != null) return st.lastAt;
+    let day = -4, t = 0;
+    for (const m of st.msgs) {
+      if (m.day) { day = m.day === '今天' ? -1 : m.day === '昨天' ? -2 : -3; t = 0; }
+      else if (m.time) { const [h, mm] = m.time.split(':').map(Number); t = h * 60 + mm; }
+    }
+    return day * 1440 + t;
+  }
+  // the chat list is on screen: redraw it so a conversation with a new message moves to the top
+  _relist() { if (this.open && this.app === 'messages' && !this.cur) this._rerender(() => this._messages()); }
   _messages() {
     this.cur = null;
+    // newest conversation first (stable, so ties keep their order); the keyboard selection stays on the same chat
+    const selSt = this.chats[this.sel];
+    this.chats = this.chats.map((st, k) => ({ st, k, t: this._lastAt(st) })).sort((a, b) => (b.t - a.t) || (a.k - b.k)).map(x => x.st);
+    if (selSt) this.sel = this.chats.indexOf(selSt);
     const rows = this.chats.map((st, i) => {
       const last = [...st.msgs].reverse().find(m => m.text);
       const who = last && st.c.group && last.who !== 'me' ? last.who + '：' : last && last.who === 'me' ? '你：' : '';
@@ -762,7 +780,7 @@ export class Phone {
     const opts = this._options(st); if (!opts) return;
     const ch = opts[st.choice], g = this.g;
     st.busy = true; st.read = false;
-    st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) });
+    st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) }); st.lastAt = g.clock;
     if (ch.ask) { // an `always` option: its reply is worked out from the game right now, then it may act (e.g. set a route)
       st.choice = 0; g.audio.send?.(); this._renderThread(); this._renderCompose();
       setTimeout(() => { st.read = true; if (this.cur === st) this._renderThread(); }, 350);
@@ -808,8 +826,8 @@ export class Phone {
       delay += 600 + Math.min(1500, rp.text.length * 40);
       setTimeout(() => {
         dropTyping();
-        st.msgs.push({ ...rp, time: hhmm(g.clock) });
-        if (this.cur === st && this.open) this._renderThread(); else { st.unread++; g.audio.notify?.(); if (!this.open) g.hud.toast(`📱 ${st.c.group ? rp.who : st.c.name}：${rp.text}`, 'good', 2200); }
+        st.msgs.push({ ...rp, time: hhmm(g.clock) }); st.lastAt = g.clock;
+        if (this.cur === st && this.open) this._renderThread(); else { st.unread++; g.audio.notify?.(); this._relist(); if (!this.open) g.hud.toast(`📱 ${st.c.group ? rp.who : st.c.name}：${rp.text}`, 'good', 2200); }
         g.audio.pickup?.();
         if (k === replies.length - 1) {
           st.busy = false;

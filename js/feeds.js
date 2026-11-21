@@ -9,6 +9,7 @@ export const PEOPLE = {
   品妍: { av: '📚', color: '#58c79b' }, 阿哲: { av: '🐶', color: '#7fc8ff' }, 中原大學: { av: '🏫', color: '#2a6fe0' },
   吱吱: { av: `<img class="ph-avimg" src="${G('zz_av')}" alt="">`, color: '#7a1f2c' },
   女拳大帝: { av: `<img class="ph-avimg" src="${G('gd_av')}" alt="">`, color: '#1d1d1f' },
+  漢克: { av: `<img class="ph-avimg" src="${G('hank_av')}" alt="">`, color: '#2b2f3a' },
 };
 
 export const FEED = [
@@ -45,6 +46,10 @@ export const FRIEND_POSTS = {
   zz: [
     { who: '吱吱', img: G('zz'), cap: '今天練完攻擊，來體育館找我打球 🏐 #資管體保生 #排球少年', likes: 233, ago: 200 },
     { who: '吱吱', img: G('e_gym'), cap: '健身 → 排球 → 排位，完美的一天 🎮💪', likes: 148, ago: 1500 },
+  ],
+  hank: [
+    { who: '漢克', img: G('hank'), cap: '下班騎 ZMAX 上山，城市的燈海就是最好的下班獎勵 🌃🏍️', likes: 264, ago: 300 },
+    { who: '漢克', img: G('e_gym'), cap: '資管系專題競賽第一名！感謝組員熬夜 debug 的每一晚 💻🏆', likes: 418, ago: 2000 },
   ],
   gd: [
     { who: '女拳大帝', img: G('gd_shop'), cap: '戈登肉鋪中原店，就在校史館前面的草坪上 🥩 來買肉報我名字（沒折扣）#戈登肉鋪 #代切', likes: 312, ago: 260 },
@@ -157,6 +162,17 @@ export const STORY_SETS = {
     { img: G('e_sunset'), t: '體保生也要讀書 圖書館見', s: '📚' },
     { bg: GR('#7a1f2c', '#ffd23f'), t: '同屆的彥霖要選會長\n系排全隊挺你 🗳️', s: '💪' },
   ],
+  // 漢克（加了好友才看得到）。hank / hank_av 是遊戲裡的 3D 角色算繪
+  漢克: [
+    { img: G('hank'), t: '下班直接上山 夜景報到', s: '🌃' },
+    { bg: GR('#0f172a', '#334155'), t: '今晚的 BGM\n獨立樂團新歌循環中', s: '🎧' },
+    { img: G('p_mcd'), t: '晚班打卡 18:00 今天也是大麥克的一天', s: '🍟' },
+    { bg: GR('#111827', '#2563eb'), t: 'git push --force\n（不要學）', s: '💻' },
+    { img: G('e_sunset'), t: '背吉他在校園找個地方練歌', s: '🎸' },
+    { bg: GR('#1f2937', '#a8714c'), t: '室友打輸 LOL 在客廳大叫\n我：戴耳機', s: '🎮' },
+    { bg: GR('#0b1324', '#f59e0b'), t: 'ZMAX 換新輪胎\n過彎就是穩', s: '🏍️' },
+    { img: G('e_im'), t: '專題第一名的獎狀掛在系辦了 謝謝組員', s: '🏆' },
+  ],
   // 戈登肉鋪店長（加了好友才看得到）。gd / gd_av 是遊戲裡的 3D 角色算繪，gd_shop 是遊戲裡的店內畫面
   女拳大帝: [
     { img: G('gd_shop'), t: '開店！今天肋眼油花超漂亮', s: '🥩' },
@@ -174,10 +190,10 @@ export const STORY_TIMES = {
   芷瑄: [10 * 60 + 20, 23 * 60 + 40], 柏宇: [7 * 60 + 50, 21 * 60 + 15], 小涵: [12 * 60 + 5, 19 * 60 + 30],
   冠廷: [9 * 60 + 10, 20 * 60 + 45], 阿凱: [8 * 60 + 35, 18 * 60 + 10], 中原麥當勞: [6 * 60 + 30, 17 * 60],
   品妍: [11 * 60 + 15, 22 * 60 + 50], 阿哲: [13 * 60 + 40, 21 * 60 + 55], 中原大學: [8 * 60, 16 * 60 + 30],
-  吱吱: [6 * 60 + 45, 22 * 60 + 20], 女拳大帝: [10 * 60 + 30, 23 * 60 + 35],
+  吱吱: [6 * 60 + 45, 22 * 60 + 20], 女拳大帝: [10 * 60 + 30, 23 * 60 + 35], 漢克: [14 * 60 + 10, 23 * 60 + 50],
 };
 // 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 js/friends.js）
-export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd' };
+export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd', 漢克: 'hank' };
 export const FEED_IMAGES = [...new Set([...FEED, ...FEED_POOL, ...Object.values(FRIEND_POSTS).flat()].map(p => p.img))];
 
 export const PCARD = [

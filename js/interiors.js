@@ -1103,7 +1103,7 @@ function buildMcD(I, scene) {
   let ordered = false;
   const cp = k.w(17.0, mz(15.0));
   I.actions.push({
-    x: cp[0], z: cp[1], r: 2.6, y: 0, label: () => '按 <kbd>E</kbd> 點餐', cond: () => !(I.mcd && I.mcd.busy),
+    x: cp[0], z: cp[1], r: 2.6, y: 0, label: () => '按 <kbd>E</kbd> 點餐', cond: () => !(I.mcd && (I.mcd.busy || I.mcd.closed)),
     fn: (g) => {
       // 大麥克套餐 NT$155 (menu board price): earn more by working the counter (staff entrance behind it)
       if (g.money < 155) {
@@ -1127,14 +1127,14 @@ function buildMcD(I, scene) {
   // clock on the partition just inside; you work the middle register, the queue forms across the counter
   const se = k.w(14.4, mz(11.0));
   I.actions.push({
-    x: se[0], z: se[1], r: 1.3, y: 0, cond: () => !(I.mcd && I.mcd.busy),
+    x: se[0], z: se[1], r: 1.3, y: 0, cond: () => !(I.mcd && (I.mcd.busy || I.mcd.closed)),
     label: () => '按 <kbd>E</kbd> 打卡上班：櫃台點餐（時薪 NT$196）',
     fn: (g) => g.job.start(),
   });
   // …or work the kitchen line (mckitchen.js): punch in at the second grill
   const kp = k.w(...kitchen.player);
   I.actions.push({
-    x: kp[0], z: kp[1], r: 1.1, y: 0, cond: () => !(I.mcd && I.mcd.busy),
+    x: kp[0], z: kp[1], r: 1.1, y: 0, cond: () => !(I.mcd && (I.mcd.busy || I.mcd.closed)),
     label: () => '按 <kbd>E</kbd> 上內場：煎台＋炸爐（時薪 NT$196）',
     fn: (g) => g.job.startKitchen(),
   });
@@ -1143,7 +1143,39 @@ function buildMcD(I, scene) {
   const clockBox = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.1), M('dark')); clockBox.position.set(13.3, 1.45, mz(10.45)); k.group.add(clockBox);
   km.plane(T.sign('打卡鐘', '#ffc72c', '#1b1b1b', 'mcclock', 256, 128, 54), 0.46, 0.23, 13.3, 1.62, 10.505, 0);
   km.plane(T.sign('打工值班（櫃台／內場）→ 員工入口在櫃台左側', '#c8102e', '#ffffff', 'mcstaffway2', 1024, 128, 46), 1.0, 0.125, 16.205, 0.86, 12.0, Math.PI / 2, { emissive: 0.25 });
-  return { entrance: k.w(W + 3, mz(14.6)), k, W, D, staff, crew, kitchen, busy: false };
+  // ---- opening hours 05:00–23:00: outside them the lights go down, a roller shutter closes the door, the crew go
+  //      home and ordering / shifts are off. If you are inside when it shuts, the shutter lets you out.
+  const OPEN0 = 5 * 60, OPEN1 = 23 * 60;
+  const shutterMat = new THREE.MeshStandardMaterial({ map: ctex('mcShutter', 64, 128, (g, w, h) => { g.fillStyle = '#9aa0a6'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 8) { g.fillStyle = '#7c8288'; g.fillRect(0, y, w, 2); g.fillStyle = '#b5bac0'; g.fillRect(0, y + 2, w, 1); } }), metalness: 0.5, roughness: 0.5 });
+  const shutter = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.6, DOOR1 - DOOR0 + 0.2), shutterMat);
+  shutter.position.set(W + 0.12, 1.3, mz((DOOR0 + DOOR1) / 2)); shutter.visible = false; k.group.add(shutter);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), new THREE.MeshBasicMaterial({ map: T.sign('本店已打烊・營業時間 05:00–23:00', '#1b1b1b', '#ffc72c', 'mcClosed', 1024, 256, 64) }));
+  sign.position.set(W + 0.16, 1.55, mz((DOOR0 + DOOR1) / 2)); sign.rotation.y = Math.PI / 2; sign.visible = false; k.group.add(sign);
+  const wi = I.walls.length; k.wallLine(W + 0.1, mz(DOOR0), W + 0.1, mz(DOOR1), 0, 2.6); const shutWall = I.walls[wi], wallY = [shutWall[4], shutWall[5]];
+  shutWall[4] = shutWall[5] = -100; // open: the wall is out of the way
+  // the shop's own lit materials (signs, menu boards, panels, downlights) get their own copies so only they dim
+  const lit = new Map();
+  k.group.traverse(o => { if (!o.isMesh || !o.material || Array.isArray(o.material) || o === shutter || o === sign) return; const m = o.material; if (!(m.emissiveIntensity > 0) || !m.emissive || m.emissive.getHex() === 0) return; if (!lit.has(m)) { const c = m.clone(); lit.set(m, { c, base: m.emissiveIntensity }); } o.material = lit.get(m).c; });
+  const inShop = k.rect(0, W, 0, D);
+  const mcdState = { closed: false };
+  const setClosed = (on) => {
+    mcdState.closed = on; shutter.visible = sign.visible = on;
+    for (const { c, base } of lit.values()) c.emissiveIntensity = on ? base * 0.06 : base;
+    for (const c of [staff, ...crew]) c.root.visible = !on;
+  };
+  I.updaters.push((dt, game) => {
+    const m = ((game.clock % 1440) + 1440) % 1440, closed = m < OPEN0 || m >= OPEN1;
+    if (closed !== mcdState.closed && !(I.mcd && I.mcd.busy)) setClosed(closed); // a shift already under way finishes first
+    const p = game.player.pos, inside = pointInPoly(p.x, p.z, inShop);
+    shutWall[4] = mcdState.closed && !inside ? wallY[0] : -100; shutWall[5] = mcdState.closed && !inside ? wallY[1] : -99;
+  });
+  I.actions.push({ ...(() => { const e = k.w(W + 1.2, mz((DOOR0 + DOOR1) / 2)); return { x: e[0], z: e[1] }; })(), r: 2.2, y: 0, cond: () => mcdState.closed,
+    label: () => '麥當勞已打烊（營業時間 05:00–23:00）', fn: (g) => g.hud.toast('🍟 麥當勞已打烊，早上 5 點再來吧', 'good', 2000) });
+  // 漢克 (js/hank.js) works the register at the dining end, 18:00–22:00
+  const hankSpot = { at: k.w(14.6, mz(12.6)), y: k.base, h: k.heading(Math.PI / 2), talk: k.w(17.0, mz(12.6)) };
+  const out = { entrance: k.w(W + 3, mz(14.6)), k, W, D, staff, crew, kitchen, busy: false, hankSpot };
+  Object.defineProperty(out, 'closed', { get: () => mcdState.closed });
+  return out;
 }
 
 // =====================================================================

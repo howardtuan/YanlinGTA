@@ -67,6 +67,23 @@ export class Traffic {
       v.mesh.visible = false; v.ai.dormant = true;
     }
   }
+  // a story character's own vehicle joins the traffic (漢克's ZMAX, js/hank.js) with the given rider; while
+  // v.ai.hold is set it is not spawned again (he is walking or at work), otherwise it comes and goes like the rest
+  adopt(v, rider) {
+    v.driver = 'ai';
+    if (rider) { rider.root.position.copy(v.seat); v.mesh.add(rider.root); rider.update(0.1, { mode: 'ride' }); }
+    v.rider = rider || null;
+    const R = Math.random, sc = v.kind === 'scooter';
+    v.ai = {
+      id: this.agents.length, from: null, to: null, edge: null, d: 0, len: 1, stunned: 0, honkT: 0, waitT: 0,
+      spK: sc ? 1.05 + R() * 0.2 : 1, acc: sc ? 4 + R() : 3, hw: sc ? 0.9 : 1.2, gap0: sc ? 1.2 : 2,
+      patience: R() * 2.5, laneJ: sc ? R() * 0.4 : 0.1, ph: R() * 100, weave: sc ? 0.1 : 0.04,
+      lat: 0, latT: 0, stuckT: 0, passT: 0, passObj: null, blocker: null, ignore: null, ignoreT: 0, turnT: 0, thPrev: null,
+    };
+    this.scene.add(v.mesh); this.agents.push(v);
+    v.mesh.visible = false; v.ai.dormant = true;
+    return v;
+  }
   vehicles() { return this.agents.filter(a => a.ai && !a.ai.dormant); }
   spawn(v, px, pz, minD, maxD) {
     const nodes = this.world.driveNodes;
@@ -230,7 +247,7 @@ export class Traffic {
       const a = v.ai;
       if (!a) continue;
       if (v.rider?.rag || v.rider?.lieT !== undefined) this._riderTick(v, dt);
-      if (a.dormant) { if (this.rnd() < 0.05) this.spawn(v, p.x, p.z, 90, 260); continue; }
+      if (a.dormant) { if (!a.hold && this.rnd() < 0.05) this.spawn(v, p.x, p.z, 90, 260); continue; }
       if (v.knocked) continue; // thrown by physics (main.js _knockTraffic) until it lands (landed())
       const dPl = Math.hypot(v.pos.x - p.x, v.pos.z - p.z);
       // a wreck stays where it came to rest (the traffic behind it goes around it), then is recycled once you

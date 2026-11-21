@@ -35,6 +35,7 @@ import { TeaShop } from './teashop.js';
 import { Concerts } from './concert.js';
 import { Gordon } from './gordon.js';
 import { LibraryLink } from './library.js';
+import { Hank } from './hank.js';
 import { NewsDesk } from './newsui.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
@@ -214,7 +215,8 @@ class Game {
     this.news = new NewsDesk(this);     // PYtoday: 3 made-up articles a day; company news moves 靈感股
     this.library = new LibraryLink(this); // glowing circle at the library door: opens 中原大學電子書 HyRead
     this.gordon = new Gordon(this);     // 戈登肉鋪 (lawn in front of 校史館): freezers, basket, checkout
-    this.friends = new Friends(this);   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
+    this.friends = new Friends(this);
+    this.hank = new Hank(this);         // 漢克: McDonald's nights, rides his ZMAX, strolls with a guitar   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
     this.concerts = new Concerts(this); // 搶票 App + 林口體育館演唱會 (ITZV / aespo)
     this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
@@ -882,6 +884,7 @@ class Game {
     this._tickTimers(dt);
     this.phone.tick(); // Peachgram / Pcard get new posts every 30 game minutes
     this.news.tick();  // PYtoday: a notice when an article comes out
+    this.hank.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) { if (hud.advanceDialog()) this.audio.talk(); inp.pressed.clear(); }

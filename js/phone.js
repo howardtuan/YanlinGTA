@@ -2,6 +2,7 @@
 // App：訊息（兩種回覆擇一，Tab 傳送）、相機、照片、Peach Pay 錢包、地圖、音樂、選情、天氣、麥當勞、設定。
 import { stockUI } from './stockui.js';
 import { newsUI } from './newsui.js';
+import { locateUI } from './locate.js';
 import { CONTACTS } from './chats.js';
 import { Nano } from './nano.js';
 import { dual } from './prompts.js';
@@ -20,6 +21,7 @@ const APPS = [
   { id: 'missions', name: '任務', icon: '📋', bg: 'linear-gradient(#7aa7ff,#2f6bff)', noArt: true },
   { id: 'stock', name: '靈感股', icon: '📈', bg: 'linear-gradient(#ff6b6b,#c81e2a)', noArt: true },
   { id: 'news', name: 'PYtoday', icon: '📰', bg: 'linear-gradient(#ff3b3b,#1a1a1a)', noArt: true },
+  { id: 'locate', name: '定位', icon: '📍', bg: 'linear-gradient(#5ac8fa,#007aff)', noArt: true }, // friends on a map (js/locate.js)
   { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (js/concert.js)
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
@@ -291,6 +293,11 @@ export class Phone {
     const nb = c.querySelector('.ph-mnav');
     if (nb) nb.onclick = () => { g.nav.set(tgt.x, tgt.z); g.hud.toast('🧭 已設定導航到任務目標', 'good', 2000); this.close(); g.lockPointer(); };
   }
+  // ---------------- 定位 (friends' locations) ----------------
+  _locate() {
+    const c = this._frame('定位', '<div class="lc-host"></div>', { cls: 'ph-locate' });
+    this._lc = locateUI(c.querySelector('.lc-host'), this.g); this._lc.render(); this._lcT = 0;
+  }
   // ---------------- PYtoday (news) ----------------
   _news() {
     const c = this._frame('PYtoday', '<div class="nw-host"></div>', { cls: 'ph-news' });
@@ -322,6 +329,7 @@ export class Phone {
     if (id === 'missions') return this._missions();
     if (id === 'stock') return this._stock();
     if (id === 'news') return this._news();
+    if (id === 'locate') return this._locate();
     if (id === 'tix') return g.concerts.app(this);
     if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
     if (id === 'camera') return this._camera();
@@ -563,6 +571,7 @@ export class Phone {
     // 靈感股 prices move while the app is on screen
     if (this.open && this.app === 'stock' && this._sk) { const n = performance.now(); if (n - (this._skT || 0) > 1000) { this._skT = n; this._sk.refresh(); } }
     if (this.open && this.app === 'news' && this._nw) this._nw.refresh(); // new articles show up while it's open
+    if (this.open && this.app === 'locate' && this._lc) { const n = performance.now(); if (n - (this._lcT || 0) > 1000) { this._lcT = n; this._lc.refresh(); } } // friends move
     if (g.clock < this.nextPost) return;
     this.nextPost += 30;
     for (const p of this.feed.slice(0, 6)) p.likes += 1 + Math.floor(Math.random() * 12);

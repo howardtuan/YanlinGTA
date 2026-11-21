@@ -856,3 +856,12 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
 .ph-chatrow .ph-av{position:relative}
 .ph-pin{position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:#1f7aff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='white' d='M15 3l6 6-2 1-3 3 .5 4.5L15 19l-4-4-5 5H5v-1l5-5-4-4 1.5-1.5L12 9l3-3z'/></svg>") center/11px no-repeat;border:2px solid #fff;box-sizing:border-box}
 .ph-chatrow.pinned{background:#f4f8ff}
+
+/* 定位 (js/locate.js): a map of you and your friends, then the list */
+.ph-locate .ph-content{padding:0;background:#f2f2f7}
+.lc-map{display:block;width:100%;height:auto;background:#2b2d33}
+.lc-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#fff;border-bottom:1px solid #e5e5ea}
+.lc-main{flex:1;min-width:0;display:flex;flex-direction:column}.lc-main b{font-size:15px}.lc-main small{color:#8e8e93;font-size:12px}
+.lc-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.lc-side small{color:#8e8e93;font-size:12px}
+.lc-go{border:0;border-radius:12px;background:#007aff;color:#fff;font-weight:700;font-size:12px;padding:4px 10px;cursor:pointer;font-family:inherit}
+.lc-note{padding:12px;color:#8e8e93;font-size:12px;text-align:center}

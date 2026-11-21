@@ -525,6 +525,60 @@ export function buildBike(style, color) {
   return g;
 }
 
+// 漢克的 ZMAX：155cc 大型白牌速克達（使用者附圖：亮黑車身、霧黑下車身、高風鏡、尖銳的雙 LED 頭燈、
+// 平底踏板、雙段式座墊、後扶手、金色後避震、13 吋五爪黑框輪圈、側邊 ZMAX 字樣）。z 向前、y 向上，單位公尺。
+export function buildZmax(color = '#0e0f11') {
+  const g = new THREE.Group();
+  const gloss = paint(color), matte = m('#1d1e21', { roughness: 0.75 }), seatM = m('#232427', { roughness: 0.9 });
+  const metal = m('#8f959c', { metalness: 0.8, roughness: 0.3 }), gold = m('#c9a227', { metalness: 0.8, roughness: 0.3 });
+  const hlm = new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#eef6ff', emissiveIntensity: 1.2 });
+  const tlm = new THREE.MeshStandardMaterial({ color: '#700', emissive: '#ff1a1a', emissiveIntensity: 0.9 });
+  const ZF = 0.68, ZR = -0.66, R = 0.29;
+  const wheels = [wheel(R, 0.13, 0, R, ZF), wheel(R, 0.15, 0, R, ZR)];
+  g.add(...wheels);
+  // front: tall gloss-black cowl, tinted screen, V-shaped twin LED lamp, fender, fork
+  g.add(panel([[0.98, 0.62], [1.02, 0.86], [0.9, 1.15], [0.66, 1.3], [0.5, 1.18], [0.42, 0.62], [0.55, 0.42], [0.8, 0.5]], 0.42, gloss,
+    { bevel: 0.03, taper: (z) => 1 - Math.max(0, z - 0.6) * 1.2 }));
+  g.add(panel([[0.66, 1.3], [0.56, 1.66], [0.46, 1.64], [0.52, 1.24]], 0.36, m('#1a2129', { transparent: true, opacity: 0.72, roughness: 0.05 }), { bevel: 0.01 }));
+  for (const s of [-1, 1]) { const l = box(0.14, 0.028, 0.03, hlm, 0.07 * s, 0.96, 1.04); l.rotation.z = 0.28 * s; g.add(l); }
+  g.add(box(0.2, 0.05, 0.03, matte, 0, 0.88, 1.04)); // dark lamp housing below the LED strips
+  g.add(panel([[0.96, 0.5], [0.92, 0.6], [0.55, 0.62], [0.45, 0.52]], 0.17, matte, { bevel: 0.015 })); // front fender
+  for (const s of [-1, 1]) g.add(tube([0.075 * s, 0.85, 0.6], [0.075 * s, R, ZF], 0.025, matte));
+  // floorboard and the matte-black lower body with the step-through
+  g.add(box(0.44, 0.06, 0.62, matte, 0, 0.39, 0.14));
+  g.add(panel([[0.5, 0.4], [0.45, 0.3], [-0.2, 0.26], [-0.25, 0.42]], 0.48, matte, { bevel: 0.02 }));
+  // rear body: gloss upper panels, matte lower, ZMAX lettering on both sides
+  g.add(panel([[0.12, 0.45], [0.06, 0.76], [-0.3, 0.86], [-0.92, 0.98], [-1.04, 0.92], [-0.94, 0.62], [-0.5, 0.44]], 0.5, gloss,
+    { bevel: 0.03, taper: (z, y) => (y > 0.88 ? 0.85 : 1) }));
+  g.add(panel([[0.1, 0.42], [-0.5, 0.4], [-0.9, 0.6], [-0.8, 0.66], [-0.4, 0.56], [0.08, 0.6]], 0.52, matte, { bevel: 0.02 }));
+  const badge = decalTex((c, w, h) => { c.fillStyle = '#e8e8e8'; c.font = 'italic 900 64px Arial,sans-serif'; c.textBaseline = 'middle'; c.fillText('ZMAX', 20, h / 2); }, 256, 96);
+  for (const s of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), new THREE.MeshBasicMaterial({ map: badge, transparent: true, depthWrite: false }));
+    b.position.set(0.28 * s, 0.82, -0.62); b.rotation.y = s * Math.PI / 2; g.add(b);
+  }
+  // two-level seat (rider low in front, pillion step behind) and the rear grab rail
+  g.add(panel([[0.16, 0.83], [0.08, 0.94], [-0.32, 0.92], [-0.42, 1.0], [-0.84, 1.04], [-0.88, 0.98], [-0.42, 0.88], [0.16, 0.8]], 0.36, seatM, { bevel: 0.03 }));
+  for (const s of [-1, 1]) g.add(tube([0.2 * s, 1.0, -0.62], [0.2 * s, 1.03, -1.02], 0.018, matte));
+  g.add(tube([-0.2, 1.03, -1.02], [0.2, 1.03, -1.02], 0.018, matte));
+  // handlebar with bar ends, mirrors on stalks
+  g.add(tube([-0.36, 1.2, 0.44], [0.36, 1.2, 0.44], 0.016, matte));
+  for (const s of [-1, 1]) {
+    g.add(tube([0.27 * s, 1.2, 0.44], [0.31 * s, 1.42, 0.42], 0.01, matte));
+    const mir = box(0.13, 0.065, 0.02, matte, 0.34 * s, 1.44, 0.42); mir.rotation.z = -0.15 * s; g.add(mir);
+  }
+  // engine / CVT case on the right (-x), exhaust, gold shocks, hugger with the plate, tail lamp
+  g.add(box(0.16, 0.24, 0.62, m('#2a2c30', { metalness: 0.45, roughness: 0.45 }), -0.17, 0.36, -0.42));
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.42, 12).rotateX(Math.PI / 2 - 0.25), matte).translateX(-0.2).translateY(0.42).translateZ(-0.86));
+  for (const s of [-1, 1]) g.add(tube([0.13 * s, 0.38, -0.62], [0.13 * s, 0.72, -0.78], 0.025, gold));
+  g.add(box(0.06, 0.18, 0.2, matte, 0, 0.66, -1.06));
+  g.add(box(0.18, 0.05, 0.05, tlm, 0, 0.9, -1.06));
+  for (const s of [-1, 1]) g.add(box(0.05, 0.03, 0.03, m('#ffb000', { emissive: '#ff9000', emissiveIntensity: 0.5 }), 0.15 * s, 0.86, -1.04));
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.09), new THREE.MeshBasicMaterial({ map: plateTex('HNK-155') }));
+  plate.position.set(0, 0.62, -1.17); plate.rotation.y = Math.PI; g.add(plate);
+  g.userData.wheels = wheels;
+  return g;
+}
+
 const SCOOTER_COLORS = ['#e8e8e8', '#c1121f', '#1d3557', '#ffb703', '#2a9d8f', '#111111', '#8ecae6', '#f28482', '#7b8a8b'];
 const CAR_COLORS = ['#f0f0f0', '#222222', '#9aa3ab', '#b5121b', '#1e3a8a', '#6b7280', '#d1d5db', '#14532d'];
 
@@ -671,7 +725,10 @@ export class Vehicle {
     this.id = VID++;
     this.kind = kind;
     const pick = a => a[Math.floor(rnd() * a.length)];
-    if (kind === 'scooter' && BIKES[opt.model]) { // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
+    if (kind === 'scooter' && opt.model === 'zmax') { // 漢克的 ZMAX (js/hank.js): a 155cc maxi-scooter, a bit quicker and longer than a commuter
+      this.mesh = buildZmax(); this.model = 'zmax';
+      Object.assign(this, { wb: 1.34, radius: 0.8, hl: 1.05, hw: 0.38, maxSpeed: 25, accel: 11, brake: 18, turn: 2.5, grip: 9, seat: new THREE.Vector3(0, 0.1, -0.3), exitSide: 1.0, label: '漢克的 ZMAX' });
+    } else if (kind === 'scooter' && BIKES[opt.model]) { // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
       const B = BIKES[opt.model];
       this.mesh = buildBike(opt.model, pick(B.colors)); this.model = opt.model;
       Object.assign(this, { wb: 1.46, radius: 0.85, hl: 1.02, hw: 0.4, maxSpeed: 36, accel: 14, brake: 20, turn: 2.3, grip: 9.5, seat: new THREE.Vector3(0, 0.2, -0.32), exitSide: 1.1, label: B.name });

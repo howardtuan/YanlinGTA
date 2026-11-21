@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildSkinnedBody } from './bodymesh.js';
+import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 
 // Body style: one continuous skinned mesh (bodymesh.js) by default; ?legacy in the URL brings back the old
 // sphere-and-capsule body for side-by-side comparison.
@@ -329,7 +330,7 @@ export function createCharacter(opts = {}) {
     // matte, stubbly: no shine, the hairline high on the forehead, lower at the back
     const buzzM = mat(opts.hair || '#111111', { roughness: 1 });
     head.add(mesh(geo('buzzCap', () => { const g = new THREE.SphereGeometry(0.1172, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.36); g.rotateX(-0.22); g.scale(0.96, 1.09, 1.02); g.translate(0, 0.104, -0.003); return g; }), buzzM));
-  } else if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony') {
+  } else if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony' || hs === 'curly') {
     // cap
     // SphereGeometry phi: front (+z) is phi = PI/2, back (-z) is 3PI/2
     head.add(mesh(geo('hairCap', () => { const g = new THREE.SphereGeometry(0.127, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.4); g.scale(1.0, 1.1, 1.04); g.translate(0, 0.108, -0.004); return g; }), hairM));
@@ -356,8 +357,27 @@ export function createCharacter(opts = {}) {
     } else {
       // CylinderGeometry theta 0 is the front (+z): start at 0.25π so the 1.5π sheet wraps the back and sides and leaves the face open
       head.add(mesh(geo('longBack', () => { const g = new THREE.CylinderGeometry(0.125, 0.11, 0.34, 18, 1, true, Math.PI * 0.25, Math.PI * 1.5); g.translate(0, 0.0, -0.01); return g; }), hairM));
-      head.add(mesh(geo('longFr', () => { const g = new THREE.SphereGeometry(0.132, 20, 8, Math.PI * 0.05, Math.PI * 0.9, Math.PI * 0.2, Math.PI * 0.2); g.translate(0, 0.1, 0); return g; }), hairM));
+      if (hs !== 'curly') head.add(mesh(geo('longFr', () => { const g = new THREE.SphereGeometry(0.132, 20, 8, Math.PI * 0.05, Math.PI * 0.9, Math.PI * 0.2, Math.PI * 0.2); g.translate(0, 0.1, 0); return g; }), hairM));
       if (hs === 'pony') head.add(mesh(geo('pony', () => { const g = new THREE.CapsuleGeometry(0.035, 0.16, 4, 8); return g; }), hairM, 0, 0.08, -0.15));
+      if (hs === 'curly') {
+        // 捲髮長髮 (漢克): the long dark sheet underneath plus one merged mesh of curls over the crown, the sides and the back, falling to the shoulders,
+        // leaving the face open; a deterministic scatter so every curly head looks the same
+        head.add(mesh(geo('curls', () => {
+          const parts = []; let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+          for (let i = 0; i < 420; i++) {
+            const th = rnd() * Math.PI * 2, el = -1.05 + rnd() * 2.45; // around the head, from the shoulders to the crown
+            const front = Math.cos(th); // +z = face
+            if (front > 0.45 && el < 0.9) continue;            // keep the face clear
+            if (front > 0.1 && el < 0.15) continue;             // and the cheeks
+            const r = 0.133 + rnd() * 0.012, c = Math.cos(el);
+            let x = Math.sin(th) * c * r * 0.98, y = 0.1 + Math.sin(el) * r * 1.08, z = Math.cos(th) * c * r;
+            if (el < 0) { y -= 0.04 * -el; x *= 1 + 0.25 * -el; z *= 1 + 0.12 * -el; } // fuller as it falls to the shoulders
+            if (el < -0.5 && front > -0.2) continue; // below the ears only behind: the hair falls down the back, not over the shoulders' front
+            const sg = new THREE.SphereGeometry(0.017 + rnd() * 0.009, 6, 4); sg.translate(x, y, z); parts.push(sg);
+          }
+          const geom = mergeGeometries(parts.map(gg => gg.toNonIndexed()), false); geom.computeVertexNormals(); return geom;
+        }), hairM));
+      }
     }
   }
   // glasses (thin round frames, like the photo)
@@ -506,6 +526,14 @@ function animate(ch, dt, st) {
     const g = Math.sin(ch.poseT * 2.3) * 0.5 + 0.5;
     t.shR = [-0.5 - g * 0.5, 0.2, -0.2]; t.elR = -0.9 - g * 0.4;
     t.headX = Math.max(0, Math.sin(ch.poseT * 1.7)) * 0.12; t.headZ = Math.sin(ch.poseT * 0.6) * 0.06;
+  } else if (st.pose === 'guitar') {
+    // playing a guitar held across the body (漢克, js/hank.js): left hand up the neck, right hand strumming over the
+    // sound hole, head tipped down toward the strings
+    const st2 = Math.sin(ch.poseT * 15);
+    t.shR = [-0.45 + st2 * 0.12, 0.45, -0.2]; t.elR = -1.45 + st2 * 0.12;
+    t.shL = [-1.05, -0.55, 0.5]; t.elL = -0.55;
+    t.headX = 0.22; t.headZ = Math.sin(ch.poseT * 1.3) * 0.08;
+    t.bob += Math.abs(Math.sin(ch.poseT * 4)) * 0.01;
   } else if (st.pose === 'look') {
     // looking around (waiting for someone)
     t.headY = Math.sin(ch.poseT * 0.8) * 0.75; t.headX = -0.05;

@@ -145,6 +145,8 @@ export class Phone {
       if (inp.hit('ArrowDown')) this._homeSel(this.homeSel + 4);
       if (inp.hit('ArrowUp')) this._homeSel(this.homeSel - 4);
       if (inp.hit('Enter', 'Space')) this.openApp(this._order[this.homeSel]);
+    } else if ((this.app === 'gram' || this.app === 'pcard') && inp.hit('KeyR')) {
+      this._refresh();
     } else if (this.app === 'messages') {
       if (inp.hit('ArrowDown')) this._listSel(this.sel + 1);
       if (inp.hit('ArrowUp')) this._listSel(this.sel - 1);
@@ -424,9 +426,11 @@ export class Phone {
           : '<div class="ph-note">先用 <b>相機</b> App 拍一張照片，才能發文。</div>'}
         <div class="pg-grid">${this.myPosts.map(p => `<img src="${p.photo}">`).join('')}</div>`;
     }
-    const c = this._frame('Peachgram', `<div class="pg-tabs"><button class="${tab === 'feed' ? 'on' : ''}" data-t="feed">🏠 動態</button><button class="${tab === 'me' ? 'on' : ''}" data-t="me">👤 我的</button></div>${body}`, { cls: 'ph-gram' });
+    const c = this._frame('Peachgram', `<div class="pg-tabs"><button class="${tab === 'feed' ? 'on' : ''}" data-t="feed">🏠 動態</button><button class="${tab === 'me' ? 'on' : ''}" data-t="me">👤 我的</button></div>${body}`, { right: '<button class="ph-refresh" title="重新整理（R）">⟳</button>', cls: 'ph-gram' });
+    this._bindRefresh(c);
     c.querySelectorAll('[data-t]').forEach(b => b.onclick = () => this._gram(b.dataset.t));
-    c.querySelectorAll('.pg-story').forEach(b => b.onclick = () => this._storyOpen(+b.dataset.s));
+    this._swipeRow(c.querySelector('.pg-stories'));
+    c.querySelectorAll('.pg-story').forEach(b => b.onclick = () => { if (!this._dragged) this._storyOpen(+b.dataset.s); });
     const like = k => { this.likes.has(k) ? this.likes.delete(k) : this.likes.add(k); g.audio.pop?.(); this._rerender(() => this._gram(tab)); };
     c.querySelectorAll('.pg-like').forEach(b => b.onclick = () => like(b.dataset.k));
     c.querySelectorAll('.pg-img').forEach(b => b.ondblclick = () => { if (!this.likes.has(b.dataset.k)) like(b.dataset.k); });
@@ -476,6 +480,58 @@ export class Phone {
     clearTimeout(this._stT); this.story = null;
     this.view.querySelector('.st-view')?.remove();
     if (this.app === 'gram') this._rerender(() => this._gram(this._gramTab || 'feed'));
+  }
+  // story bubbles slide sideways: finger swipe (native), mouse drag, or the mouse wheel; the row keeps its
+  // position when the feed re-renders. A drag doesn't count as a tap on a bubble.
+  _swipeRow(row) {
+    if (!row) return;
+    row.scrollLeft = this._storyX || 0;
+    row.addEventListener('scroll', () => { this._storyX = row.scrollLeft; }, { passive: true });
+    row.addEventListener('wheel', e => {
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      const max = row.scrollWidth - row.clientWidth;
+      if (max <= 0 || (d < 0 && row.scrollLeft <= 0) || (d > 0 && row.scrollLeft >= max - 1)) return;
+      e.preventDefault(); e.stopPropagation(); row.scrollLeft += d;
+    }, { passive: false });
+    row.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { this._sw = { row, x0: e.clientX, s0: row.scrollLeft }; this._dragged = false; } });
+    if (this._swInit) return; // the window listeners are shared by every render of the row
+    this._swInit = true;
+    addEventListener('pointermove', e => {
+      const w = this._sw; if (!w) return;
+      const dx = e.clientX - w.x0;
+      if (Math.abs(dx) > 5) { this._dragged = true; w.row.classList.add('drag'); }
+      w.row.scrollLeft = w.s0 - dx;
+    });
+    addEventListener('pointerup', () => { const w = this._sw; if (!w) return; this._sw = null; w.row.classList.remove('drag'); setTimeout(() => { this._dragged = false; }, 0); });
+  }
+  // ---- 重新整理 (Peachgram / Pcard): ⟳ button, R, or pull down at the top of the list ----
+  _bindRefresh(c) {
+    this.view.querySelector('.ph-refresh')?.addEventListener('click', () => this._refresh());
+    let y0 = null, wheel = 0;
+    c.addEventListener('touchstart', e => { y0 = c.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    c.addEventListener('touchmove', e => { if (y0 != null && e.touches[0].clientY - y0 > 70) { y0 = null; this._refresh(); } }, { passive: true });
+    c.addEventListener('wheel', e => {
+      if (c.scrollTop > 0 || e.deltaY >= 0) { wheel = 0; return; }
+      if ((wheel -= e.deltaY) > 160) { wheel = 0; this._refresh(); }
+    }, { passive: true });
+  }
+  // shows a spinner, then the list again: stories that came up since, and (at most every 10 game minutes)
+  // one brand-new post / article right away instead of waiting for the next 30-minute tick
+  _refresh() {
+    const app = this.app, c = this.view.querySelector('.ph-content');
+    if (!c || this._refreshing || (app !== 'gram' && app !== 'pcard')) return;
+    this._refreshing = true; this.g.audio.tap?.();
+    c.scrollTop = 0;
+    const sp = document.createElement('div'); sp.className = 'ph-pull'; sp.innerHTML = '<i></i>重新整理中…';
+    c.prepend(sp);
+    setTimeout(() => {
+      this._refreshing = false;
+      if (!this.open || this.app !== app) return;
+      const g = this.g, fresh = g.clock - (this._pulledAt ?? -1e9) >= 10;
+      if (fresh) { this._pulledAt = g.clock; this.nextPost = g.clock; } // tick() publishes and re-renders next frame
+      if (app === 'gram') this._gram(this._gramTab || 'feed'); else this._pcard();
+      if (!fresh) g.hud.toast('已經是最新的內容了', 'good', 1300);
+    }, 700);
   }
   // ---- something new every 30 game minutes (runs even with the phone in the pocket) ----
   tick() {
@@ -537,7 +593,8 @@ export class Phone {
   _pcard() {
     this.fresh.pcard = 0;
     const list = this.pcard;
-    const c = this._frame('中原大學 Pcard', `<div class="pc-board">🏫 中原大學板 · 最新</div>${list.map((p, i) => `<button class="pc-post" data-i="${i}"><b>${esc(p.t)}</b><small>${esc(p.b)}</small><span>❤️ ${p.n}　💬 ${p.c.length}　· ${this._ago(p.at)}</span></button>`).join('')}`, { cls: 'ph-pcard' });
+    const c = this._frame('中原大學 Pcard', `<div class="pc-board">🏫 中原大學板 · 最新</div>${list.map((p, i) => `<button class="pc-post" data-i="${i}"><b>${esc(p.t)}</b><small>${esc(p.b)}</small><span>❤️ ${p.n}　💬 ${p.c.length}　· ${this._ago(p.at)}</span></button>`).join('')}`, { right: '<button class="ph-refresh" title="重新整理（R）">⟳</button>', cls: 'ph-pcard' });
+    this._bindRefresh(c);
     c.querySelectorAll('.pc-post').forEach(b => b.onclick = () => {
       const p = list[+b.dataset.i];
       this._frame('文章', `<div class="pc-full"><small>匿名 · 中原大學 · ${this._ago(p.at)}</small><b>${esc(p.t)}</b><p>${esc(p.b)}</p><span>❤️ ${p.n}</span></div>
@@ -610,9 +667,17 @@ export class Phone {
         <span class="ph-cr-main"><b>${esc(st.c.name)}</b><small>${esc(who + (last ? last.text : ''))}</small></span>
         <span class="ph-cr-side"><small>${last?.time || ''}</small>${st.unread ? `<i>${st.unread}</i>` : ''}</span></button>`;
     }).join('');
-    const c = this._frame('訊息', `<div class="ph-search">🔍 搜尋</div>${rows}`, { right: '✎' });
-    c.querySelectorAll('.ph-chatrow').forEach(b => b.onclick = () => this.openChat(this.chats[+b.dataset.i]));
-    this._listSel(this.sel);
+    // 好友: everyone you can message one-on-one (吱吱 joins once you add him at the 體育館)
+    const tab = this._msgTab || 'chats';
+    const friends = this.chats.map((st, i) => ({ st, i })).filter(x => !x.st.c.group);
+    const frRows = friends.map(({ st, i }) => `<button class="ph-frrow" data-i="${i}"><span class="ph-av" style="background:${st.c.color}">${st.c.avatar}</span>
+        <span class="ph-cr-main"><b>${esc(st.c.name)}</b><small>${esc(st.c.sub || '')}</small></span><span class="ph-fr-go">💬</span></button>`).join('');
+    const tabs = `<div class="pg-tabs ph-msgtabs"><button class="${tab === 'chats' ? 'on' : ''}" data-mt="chats">💬 聊天</button><button class="${tab === 'friends' ? 'on' : ''}" data-mt="friends">👥 好友 ${friends.length}</button></div>`;
+    const c = this._frame('訊息', tab === 'chats' ? `${tabs}<div class="ph-search">🔍 搜尋</div>${rows}`
+      : `${tabs}<div class="ph-sec">好友 ${friends.length} 位</div>${frRows}<div class="ph-note">在校園裡和同學聊天，就有機會加他們好友 🤝</div>`, { right: '✎' });
+    c.querySelectorAll('[data-mt]').forEach(b => b.onclick = () => { this._msgTab = b.dataset.mt; this._messages(); });
+    c.querySelectorAll('.ph-chatrow, .ph-frrow').forEach(b => b.onclick = () => this.openChat(this.chats[+b.dataset.i]));
+    if (tab === 'chats') this._listSel(this.sel);
   }
   _listSel(i) {
     this.sel = Math.max(0, Math.min(this.chats.length - 1, i));

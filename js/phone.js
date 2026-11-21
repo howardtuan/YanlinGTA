@@ -766,7 +766,7 @@ export class Phone {
     // with the on-device AI you can also type your own message; keep what you typed across re-renders
     const old = box.querySelector('.ph-type'), typed = old ? old.value : '', hadFocus = !!old && document.activeElement === old;
     // one send row: empty box = send the chosen option (shown as the placeholder), typed text = send that instead
-    const typeRow = (ph) => `<div class="ph-input ph-typerow"><input class="ph-type" maxlength="80" autocomplete="off" spellcheck="false" placeholder="${esc(ph)}"><button class="ph-send" ${st.busy ? 'disabled' : ''}>↑</button></div>`;
+    const typeRow = (ph) => `<div class="ph-input ph-typerow"><input class="ph-type" maxlength="80" autocomplete="off" spellcheck="false" placeholder="${esc(ph)}"><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>`;
     const opts = this._options(st);
     if (!opts) {
       if (Nano.on) {
@@ -777,7 +777,7 @@ export class Phone {
     }
     st.choice = Math.min(st.choice, opts.length - 1);
     box.innerHTML = `<div class="ph-choices">${opts.map((ch, i) => `<button class="ph-choice ${i === st.choice ? 'on' : ''}" data-i="${i}"><kbd>${i + 1}</kbd>${esc(ch.t)}</button>`).join('')}</div>
-      ${Nano.on ? typeRow(`傳送「${opts[st.choice].t}」或自己輸入…`) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy ? 'disabled' : ''}>↑</button></div>`}
+      ${Nano.on ? typeRow(`傳送「${opts[st.choice].t}」或自己輸入…`) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>`}
       <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話・可自己打字' : ''}</div>`;
     box.querySelectorAll('.ph-choice').forEach(b => b.onclick = () => this._pick(+b.dataset.i));
     if (!Nano.on) box.querySelector('.ph-send').onclick = () => this._send();
@@ -789,7 +789,7 @@ export class Phone {
   _bindType(box, typed, focus) {
     const el = box.querySelector('.ph-type'); if (!el) return;
     el.value = typed || '';
-    const go = () => { const t = el.value.trim(); if (!this.cur || this.cur.busy) return; el.value = ''; t ? this._send(t) : this._send(); };
+    const go = () => { const t = el.value.trim(); if (!this.cur) return; if ((t ? this._send(t) : this._send()) !== false) el.value = ''; };
     el.onkeydown = (e) => {
       e.stopPropagation();
       if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); go(); }
@@ -799,14 +799,24 @@ export class Phone {
     box.querySelector('.ph-typerow .ph-send').onclick = go;
     if (focus) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
   }
-  _pick(i) { if (!this.cur || this.cur.busy) return; const o = this._options(this.cur); if (!o) return; this.cur.choice = Math.min(i, o.length - 1); this._renderCompose(); }
+  // still waiting for the AI (not yet typing its answer): you can pick and send an `always` option meanwhile (勞大's 你在哪？)
+  _thinking(st) { return !!st.busy && st.aiWait != null && st.aiWait === st.tok; }
+  _pick(i) { if (!this.cur || (this.cur.busy && !this._thinking(this.cur))) return; const o = this._options(this.cur); if (!o) return; this.cur.choice = Math.min(i, o.length - 1); this._renderCompose(); }
   // typed = your own words (AI chats only); an `always` option with a `match` that fits them is answered by it instead
+  // returns false when nothing was sent (the typed text then stays in the box)
   _send(typed) {
-    const st = this.cur; if (!st || st.busy) return;
-    const opts = this._options(st); if (!opts && !typed) return;
+    const st = this.cur; if (!st) return false;
+    const think = this._thinking(st); if (st.busy && !think) return false;
+    const opts = this._options(st); if (!opts && !typed) return false;
     const g = this.g;
     let ch = typed ? (st.c.always || []).find(a => a.match?.test(typed)) : opts[st.choice];
     if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
+    if (!ch) return false;
+    // the AI is still thinking: only an `always` question (你在哪？) gets through, and it replaces the AI's pending answer
+    if (think) {
+      if (!ch.ask) return false;
+      st.tok++; st.busy = false; st.pending = null; st.msgs = st.msgs.filter(m => !m.typing);
+    }
     st.busy = true; st.read = false;
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) }); st.lastAt = g.clock;
     // a contact with `laugh` (勞大) always ends his answer with that line when you laughed
@@ -833,7 +843,8 @@ export class Phone {
       setTimeout(() => { if (st.busy && !st.msgs.some(m => m.typing)) { st.msgs.push({ typing: true }); if (this.cur === st) this._renderThread(); } }, 600);
       // what arrives if the game is reloaded while the model is still thinking (saved with the chat)
       st.pending = { replies: fallback, v };
-      const tok = st.tok = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
+      const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
+      if (this.cur === st) this._renderCompose(); // 你在哪？ stays usable while it thinks
       // the on-device model can stall: after 15 s the normal reply comes instead, so the chat never hangs
       withTimeout(Nano.reply(st, ch.t), 15000).then(out => {
         if (!mine()) return; st.tok++;
@@ -851,7 +862,7 @@ export class Phone {
   // AI asks first when the scripted topics have run out
   _aiOpener(st) {
     st.busy = true;
-    const tok = st.tok = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
+    const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
     withTimeout(Nano.reply(st, null), 15000).then(out => {
       if (!mine()) return; st.tok++;
       st.aiOpts = out.options?.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];

@@ -15,6 +15,7 @@ import { surfaceAt } from './terrain.js';
 import { pointInPoly } from './collision.js';
 import { dual } from './prompts.js';
 
+const _ax = new THREE.Vector3();
 const LAPS = 2, PLAYER_SLOT = 5; // 0-based grid slot -> you start 6th of 8
 const DS = 2;                    // course sample spacing (m)
 const RIVALS = [ // grid order (slot 5 is you)
@@ -211,7 +212,11 @@ export class Race {
       }
       grp.position.set(x, y, z); grp.rotation.y = p.a + (kind === 'cone' ? 0 : Math.PI / 2); // barriers lie across the lane
       this.g.scene.add(grp);
-      this.obst.push({ s: ((s % C.len) + C.len) % C.len, lat, kind, x, z, r: kind === 'cone' ? 0.35 : 1.05, mesh: grp, alive: true, vy: 0, spin: 0, fly: 0 });
+      // physics props (js/physics.js addProp): cones tumble away, water barriers (full: heavy) slide a little
+      const prop = this.g.physics.addProp(grp, kind === 'cone'
+        ? { parts: [{ shape: 'cone', r: 0.24, hh: 0.36, y: 0.42, mass: 1.6 }, { shape: 'box', hx: 0.25, hy: 0.03, hz: 0.25, mass: 1.4 }], friction: 0.8, damping: 0.7, angularDamping: 0.8 }
+        : { shape: 'box', hx: 1, hy: 0.4, hz: 0.275, mass: 220, friction: 0.9, damping: 1.5, angularDamping: 2, maxSpeed: 2.5 });
+      this.obst.push({ s: ((s % C.len) + C.len) % C.len, lat, kind, x, z, r: kind === 'cone' ? 0.35 : 1.05, mesh: grp, prop, alive: true, vy: 0, spin: 0, fly: 0 });
     };
     // first obstacle well after the start, then every 70-140 m; leave the last 60 m before the line clear
     for (let s = this.s0 + 140; s < this.s0 + C.len - 60; s += 70 + rnd() * 70) {
@@ -315,7 +320,7 @@ export class Race {
   _cleanup() {
     const g = this.g;
     for (const r of this.rivals) g.scene.remove(r.v.mesh);
-    for (const o of this.obst) g.scene.remove(o.mesh);
+    for (const o of this.obst) { g.scene.remove(o.mesh); o.prop?.remove(); }
     this.rivals = []; this.obst = []; g.hud.route = null;
     this.el.hud.classList.add('hidden'); this.el.res.classList.add('hidden'); this.el.count.classList.add('hidden'); this.el.warn.classList.add('hidden');
     this.state = 'idle';
@@ -393,8 +398,8 @@ export class Race {
     // ---- rivals ----
     for (const r of this.rivals) this._rival(r, dt);
     if (this.state === 'finish') { this.finT -= dt; if (this.finT <= 0) this._showResults(); }
-    // flying cones
-    for (const o of this.obst) if (!o.alive && o.fly > 0) {
+    // flying cones (without physics; with it the props tumble by themselves)
+    for (const o of this.obst) if (!o.prop && !o.alive && o.fly > 0) {
       o.fly -= dt; o.vy -= 18 * dt; o.mesh.position.x += o.vx * dt; o.mesh.position.z += o.vz * dt; o.mesh.position.y = Math.max(surfaceAt(o.mesh.position.x, o.mesh.position.z), o.mesh.position.y + o.vy * dt);
       o.mesh.rotation.x += o.spin * dt;
     }
@@ -403,14 +408,20 @@ export class Race {
   // knock cones away / bounce off barriers
   _hitObstacles(v, isPlayer) {
     const g = this.g;
+    const P = g.physics;
     for (const o of this.obst) {
       if (!o.alive) continue;
+      if (o.prop) { o.x = o.mesh.position.x; o.z = o.mesh.position.z; } // where physics has moved it to
       const dx = v.pos.x - o.x, dz = v.pos.z - o.z, rr = v.radius + o.r;
       if (Math.abs(dx) > 4 || Math.abs(dz) > 4) continue;
       // barriers are 2 m long across the lane: check against the segment, cones as points
       let d, nx, nz;
       if (o.kind === 'barrier') {
-        const a = this._at(o.s), ax = a.rx, az = a.rz; const t = clamp(dx * ax + dz * az, -1, 1);
+        // its long axis: the course's right vector, or the (slid / turned) prop's own x axis
+        let ax, az;
+        if (o.prop) { _ax.set(1, 0, 0).applyQuaternion(o.mesh.quaternion); const l = Math.hypot(_ax.x, _ax.z) || 1; ax = _ax.x / l; az = _ax.z / l; }
+        else { const a = this._at(o.s); ax = a.rx; az = a.rz; }
+        const t = clamp(dx * ax + dz * az, -1, 1);
         const cx = dx - ax * t, cz = dz - az * t; d = Math.hypot(cx, cz); nx = cx / (d || 1); nz = cz / (d || 1);
         if (d < v.radius + 0.3) {
           const push = v.radius + 0.3 - d; v.pos.x += nx * push; v.pos.z += nz * push;
@@ -424,6 +435,9 @@ export class Race {
         if (d < rr) {
           o.alive = false; o.fly = 1.6; const sp = Math.max(4, Math.abs(v.speed));
           const [fx, fz] = v.forward(); o.vx = fx * sp * 0.8 + (Math.random() - 0.5) * 3; o.vz = fz * sp * 0.8 + (Math.random() - 0.5) * 3; o.vy = 4 + Math.random() * 2; o.spin = 8 + Math.random() * 6;
+          // a vehicle with a physics stand-in (near the player) already shoves the prop (it only gets the tumble
+          // here); the others throw it here
+          if (o.prop) { const m = P.hasMover(v); P.kick(o.prop, m ? null : o.vx, o.vy * 0.6, o.vz, fz * o.spin, 0, -fx * o.spin); }
           v.speed *= 0.78; if (v.racer) v.racer.speed = v.speed;
           if (isPlayer) g.audio.noise?.(0.12, 600, 0.9, 0.18);
         }

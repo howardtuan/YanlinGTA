@@ -19,6 +19,7 @@ import { buildWeiche } from './weiche.js';
 import { buildZoneE } from './zone_e.js';
 import { buildZoneG } from './zone_g.js';
 import { buildSacB1 } from './sac_b1.js';
+import { buildZoneH } from './zone_h.js';
 import { buildZhongbeiStreet } from './street_zhongbei.js';
 import { buildDorms } from './dorms.js';
 
@@ -3709,6 +3710,7 @@ export function buildInteriors(scene, data, collision) {
   buildZoneE(I, scene, data); // E 區：建築館、祐生、設計學院的外觀細節（js/zone_e.js）
   buildZoneG(I, scene, data, collision); // G 區校內建築外觀（js/zone_g.js）
   buildSacB1(I, scene, Kit, regMat, collision); // 學活 B1 西半：樓梯廳、學習區、學餐攤販（js/sac_b1.js；坑與入口在 js/zone_g.js）
+  buildZoneH(I, scene, data, collision); // H 區校內建築外觀（js/zone_h.js）
   buildDorms(I, scene, data); // 良善樓、恩慈樓外觀、大仁街校界牆、A2 門牆、恩慈小門 (js/dorms.js)
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;

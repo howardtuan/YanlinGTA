@@ -12,6 +12,7 @@ import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
 import { applyZoneE, zoneEFootprints } from './zone_e.js';
 import { zoneGLook, zoneGFootprints, zoneGTerrain } from './zone_g.js';
+import { zoneHLook, zoneHAdd } from './zone_h.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints } from './dorms.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
@@ -127,6 +128,7 @@ class Game {
     // custom-built enterable buildings replace these OSM footprints
     for (const b of data.buildings) campusFix(b); // 校內第 0 批資料修正（js/campus_fix.js）
     campusAdd(data.buildings); // 校內第 0 批新增的建物（拆開 w492471475 後的新中二街公寓等）
+    zoneHAdd(data.buildings); // H 區新增：知行領航館、4館南北兩段、忍耐樓北盒（js/zone_h.js）
     for (const b of data.buildings) {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
       if (b.name === '警衛室') b.skip = true;
@@ -138,6 +140,7 @@ class Game {
       if (b.id === ENCI_ID) b.look = enciLook(b.look);
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       zoneGLook(b); // G 區校內建築：只換外觀 look／分段高度（js/zone_g.js 自建柱廊、弧形玻璃、斜裙、樓梯塔等）
+      zoneHLook(b); // H 區（信實、熱誠、薄膜中心、實英樓、忍耐樓）：只換外觀 look／分段高度（js/zone_h.js 自建空橋、鋼格架、大階梯等）
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
       if (GARRY_IDS.includes(b.id)) { b.skip = true; if (b.id === GARRY_IDS[0]) b.pts = garryOutline(YH_SPEC); } // 黃蓋瑞家 (js/garryhome.js) replaces both
       else if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs

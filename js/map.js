@@ -2184,6 +2184,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // facadeParam atlas; plinth / top-floor colours, setbacks, bands, fins and corner piers.
     // Returns the rings the roof sits on (inset when the top floor steps back).
     const lookWalls = (V, rings, vh, vf) => {
+      // b.parts 的單塊可以帶自己的 look（js/zone_h.js：熱誠兩塔、薄膜中棟米黃塔）；只影響牆面畫法，不抽亂數
+      const L = V.look || b.look;
       const fl = vh / vf > 2.8 ? (vh - 0.6) / vf : vh / vf, top = base + vh, yF = base + vf * fl, yS = Math.min(base + 1.2, top);
       const W = L.windows || {}, tf = L.topFloor, tn = tf ? Math.min(vf - 1, tf.floors || 1) : 0, yT = base + (vf - tn) * fl, sb = tn ? tf.setback || 0 : 0;
       const plTop = L.plinth ? base + (L.plinth.floors != null ? L.plinth.floors * fl : L.plinth.h ?? 1.2) : -Infinity;
@@ -2194,6 +2196,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const lines = [base, yS, plTop, yT, yF]; for (let j = 1; j < vf; j++) lines.push(base + j * fl);
       // look.open (超巨溜冰場): an open-air pad, not a building. No walls; a kerb and a 1 m steel
       // railing along the outer ring (the roof is replaced by the pad in the caller)
+      // look.open.bare（js/zone_h.js 熱誠 A／B 空橋）：連路緣、欄杆都不畫，空橋本體由自建程式蓋
+      if (L.open?.bare) return rings;
       if (L.open) {
         const kc = col(L.open.kerb || '#9a9a95'), rc2 = col(L.open.rail || '#b8bcbf');
         const ring = rings[0];
@@ -2406,7 +2410,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const shapeB = L?.roof?.shape && !b.roof ? { ...b, roof: L.roof.shape, roofH: L.roof.rise ?? b.roofH } : b;
       const pv = !b.parts && pitchedRoof(shapeB, vp, top, rcL || rc, tint.map(v => v * 0.85));
       pitched = shapeB === b ? pv : false; pitchedV = pv;
-      if (L?.open) { flatRoofGeo.flatPoly(vp, padY, col(L.open.floor || '#c9c9c4'), V.holes); continue; }
+      if (L?.open) { if (!L.open.bare) flatRoofGeo.flatPoly(vp, padY, col(L.open.floor || '#c9c9c4'), V.holes); continue; }
       if (!pv) flatRoofGeo.flatPoly(rr[0], top, rcL || rcFlat, rr.length > 1 ? rr.slice(1) : V.holes);
       if (!pv && L?.roof && !b.parts) lookRoof(L.roof, rr[0], rr.slice(1), top);
       // parapet

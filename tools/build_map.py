@@ -400,7 +400,7 @@ def load_looks():
 
 
 MARK_CENTRE = ('double-yellow', 'yellow', 'yellow-dash', 'white-dash', 'none', 'median', 'pair', 'pair-other')
-MARK_FEATURES = ('box', 'zebra', 'stop', 'bikebox', 'arrow')
+MARK_FEATURES = ('box', 'zebra', 'stop', 'bikebox', 'arrow', 'nozebra')
 
 
 def apply_marks(out, stats):
@@ -1904,6 +1904,7 @@ def fences(S, roads, x0, z0, x1, z1, fkey, blds):
 def main():
     raw = json.load(open(SRC, encoding='utf8'))
     els = raw['elements']
+    links = []   # highway=primary_link ways, added after the block fill
     out = dict(origin=[LAT0, LON0], bounds=BOUNDS, buildings=[], roads=[], areas=[],
                waterways=[], rail=[], pois=[], campus=[], nightMarket=None,
                barriers=[], furniture=[], power=[], structures=[], streetAreas=[])
@@ -2186,6 +2187,9 @@ def main():
             continue
 
         hw = t.get('highway')
+        link = hw == 'primary_link'
+        if link:   # the two right-turn slip lanes at 中園路 x 中華路二段: drawn as primary
+            hw = 'primary'
         if hw in ROAD_W:
             w = ROAD_W[hw]
             if hw == 'service' and not name:
@@ -2222,7 +2226,7 @@ def main():
                     r['w'] = round(r['width'], 1)
                 elif r.get('lanes'):
                     r['w'] = round(max(4.2, r['lanes'] * 3.3 + (0.8 if r.get('oneway') else 1.4)), 1)
-            out['roads'].append(r)
+            (links if link else out['roads']).append(r)
             continue
 
         if t.get('area:highway'):
@@ -2298,7 +2302,17 @@ def main():
     out['grade'] = build_grade(out, ovr_all.get('grade', []), stats)
     # measured carriageway widths (tools/roads.json); after the block fill and
     # grade so neither moves, and the old width stays in r['osm'] for js/map.js
+    # the slip lanes join the map only now: the block fill (and the survey it replays) ran without them,
+    # and at the end of the list they leave every other road's index (hashed by js) as it was
+    out['roads'] += links
     apply_roads(out, stats)
+    # tools/roads.json 'pave': asphalt the orthophoto shows between two one-way carriageways where the
+    # build leaves a grass gap (a median opening); short unnamed service strips without nodes, so they stay
+    # out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams
+    for e in json.load(open(ROADS, encoding='utf8')).get('pave', []):
+        if not e.get('source') or not e.get('confidence'):
+            raise SystemExit('roads.json pave: every entry needs source and confidence')
+        out['roads'].append(dict(pts=[list(p) for p in e['pts']], w=e['w'], type='service', nodes=[], drive=1, pave=1))
     # painted markings read off the same survey (tools/roads.json 'marks' / 'features')
     apply_marks(out, stats)
     # sunk ponds / streams (tools/water.json); last, so nothing above moves

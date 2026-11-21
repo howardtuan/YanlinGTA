@@ -28,6 +28,7 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
+import { Concerts } from './concert.js';
 import { Gordon } from './gordon.js';
 import { NewsDesk } from './newsui.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
@@ -203,6 +204,7 @@ class Game {
     this.news = new NewsDesk(this);     // PYtoday: 3 made-up articles a day; company news moves 靈感股
     this.gordon = new Gordon(this);     // 戈登肉鋪 (lawn in front of 校史館): freezers, basket, checkout
     this.friends = new Friends(this);   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
+    this.concerts = new Concerts(this); // 搶票 App + 林口體育館演唱會 (ITZY / aespa)
     this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
     onClick('bmClose', () => this.closeMap());
@@ -805,6 +807,7 @@ class Game {
     for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = b.y0 + Math.sin(this.time * 3 + b.ph) * 0.15; }
     for (const b of this.beams) if (b.visible) b.material.opacity = 0.22 + Math.sin(this.time * 4) * 0.06;
     if (this._perf) this._perf.begin();
+    this.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
     this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
     if (this._perf) this._perf.end(now);
     if (this._shot) { const cb = this._shot; this._shot = null; cb(this.renderer.domElement.toDataURL('image/jpeg', 0.85)); }
@@ -955,6 +958,7 @@ class Game {
       this.headlight.intensity = 0;
       // flyer handout
       if (!pl.frozen && !pl.seat && !pl.tumble && inp.hit('Mouse0')) this._flyer();
+      if (this.concerts?.player && inp.hit('KeyU')) this.concerts.toggleMute(); // 演唱會：開／關聲音
       if (!pl.frozen && inp.hit('KeyG')) { pl.setPose('peace', 1.6); this.audio.pop(); }
     }
     this.playerLight.intensity = this.night * 6;

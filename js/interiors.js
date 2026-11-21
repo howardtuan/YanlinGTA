@@ -9,6 +9,7 @@ import { pointInPoly, closestOnSeg } from './collision.js';
 import { createCharacter } from './character.js';
 import { dressCrew, CREW_SHIRT } from './mcuniform.js';
 import { H } from './terrain.js';
+import { buildArena } from './arena.js';
 
 // ---------------- textures ----------------
 const TEX = {};
@@ -126,6 +127,9 @@ function M(key) {
   return (MATS[key] = m ? m() : std({ color: key }));
 }
 
+// register a ready-made material under a key (js/arena.js builds with Kit from outside this module)
+export function regMat(key, m) { if (!MATS[key]) MATS[key] = m; return key; }
+
 // ---------------- interior world ----------------
 export class Interiors {
   constructor(scene) {
@@ -222,7 +226,7 @@ export class Interiors {
 }
 
 // ---------------- local-frame building kit ----------------
-class Kit {
+export class Kit {
   // sc: uniform scale of the whole building (local units * sc = metres); collision walls and surfaces follow it
   constructor(I, ox, oz, ang, sc = 1) {
     this.I = I; this.ox = ox; this.oz = oz; this.c = Math.cos(ang); this.s = Math.sin(ang); this.ang = ang; this.sc = sc;
@@ -3272,6 +3276,7 @@ export function buildInteriors(scene, data, collision) {
   buildDarenCorner(I, scene);
   buildDarenStreet(I, scene);
   I.gordon = buildGordon(I, scene);
+  I.arena = buildArena(I, scene, Kit, regMat); // 林口體育館 (演唱會, js/concert.js): far off the map
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

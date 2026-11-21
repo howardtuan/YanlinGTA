@@ -817,3 +817,33 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
 .nw-cols{flex:1;min-height:0;display:grid;grid-template-columns:340px 1fr}
 .nw-wide .nw-list{overflow:auto;border-right:1px solid #ddd}.nw-wide .nw-main{overflow:auto;background:#fff}
 .nw-wide .nw-art h2{font-size:24px}.nw-wide .nw-art p{font-size:15px}.nw-wide .nw-img.big{max-height:420px;object-fit:contain;background:#111}
+/* 演唱會 (js/concert.js): YouTube player laid over the arena's main screen, below the HUD */
+#concertScreen{position:fixed;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;z-index:5;pointer-events:none;background:#000;transition:opacity .2s}
+#concertScreen iframe,#concertYT{width:1280px;height:720px;border:0;display:block}
+#concertScreen .cs-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font:900 54px "Noto Sans TC",sans-serif;background:#05060a}
+/* 搶票 App */
+.ph-tix .ph-content{background:#14121c;color:#fff}
+.cx-top{font-weight:900;font-size:17px;margin:4px 0 10px;display:flex;flex-direction:column}
+.cx-top small,.cx-note{font-size:11px;font-weight:600;color:#b8b3c9}
+.cx-note{margin-top:6px;line-height:1.5}
+.cx-card{border-radius:14px;padding:12px;margin-bottom:10px;background:linear-gradient(135deg,color-mix(in srgb,var(--c1) 40%,#14121c),#1e1b29 70%);border:1px solid color-mix(in srgb,var(--c1) 50%,transparent)}
+.cx-head{display:flex;flex-direction:column;margin-bottom:8px}.cx-head b{font-size:16px}.cx-head small{font-size:11px;color:#ddd}
+.cx-btn{width:100%;border:0;border-radius:10px;padding:10px;font-weight:900;font-size:14px;background:#fff;color:#14121c;cursor:pointer}
+.cx-btn.hot{background:linear-gradient(90deg,#ff4f6d,#ffb02e);color:#fff;animation:cxPulse 1s infinite}
+.cx-btn:disabled{background:#3a3647;color:#9993ad;cursor:default}
+@keyframes cxPulse{50%{transform:scale(1.03)}}
+.cx-tk{background:#fff;color:#14121c;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-weight:900;display:flex;flex-direction:column;border-left:6px dashed #ff4fa3}
+.cx-tk small{font-weight:600;color:#555}
+.cx-q{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:16px 4px}
+.cx-q b{font-size:17px}.cx-q small{font-size:12px;color:#b8b3c9}
+.cx-qn{font-size:14px}.cx-qn span{font-size:28px;font-weight:900;color:#ffd23f}
+.cx-bar{width:100%;height:8px;border-radius:4px;background:#2c2838;overflow:hidden}.cx-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff4fa3,#7b5bff)}
+.cx-zone{width:100%;display:flex;justify-content:space-between;align-items:center;border:0;border-radius:10px;padding:10px 12px;margin-bottom:7px;background:#262236;color:#fff;font-weight:900;cursor:pointer;text-align:left}
+.cx-zone span{display:flex;flex-direction:column}.cx-zone small{font-size:11px;color:#b8b3c9;font-weight:600}
+.cx-zone:disabled{opacity:.4;cursor:default}
+.cx-err{background:#5a1f2c;color:#ffd1d8;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;margin-bottom:8px}
+.cx-code{display:flex;gap:8px;background:repeating-linear-gradient(45deg,#ddd 0 6px,#eee 6px 12px);padding:8px 14px;border-radius:8px}
+.cx-code span{font:900 30px Georgia,serif;color:#3a2a6a;display:inline-block}
+.cx-typed{font:900 22px ui-monospace,monospace;letter-spacing:4px}
+.cx-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%}
+.cx-pad button{border:0;border-radius:8px;padding:10px 0;font:900 18px ui-monospace,monospace;background:#fff;color:#14121c;cursor:pointer}

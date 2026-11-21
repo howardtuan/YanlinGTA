@@ -199,10 +199,18 @@ export class CameraRig {
   update(dt, input, player, collision, sens = 1, interiors = null) {
     const mx = input.mdx, my = input.mdy;
     this.yaw -= mx * 0.0026 * sens;
-    this.pitch = Math.max(-0.25, Math.min(1.2, this.pitch + my * 0.0022 * sens));
+    this.pitch = Math.max(this.fp ? -1.1 : -0.25, Math.min(1.2, this.pitch + my * 0.0022 * sens));
     if (Math.abs(mx) + Math.abs(my) > 0) this.idle = 0; else this.idle += dt;
     const v = player.vehicle;
     const wp = player.worldPos();
+    // first person (演唱會場內, js/concert.js): eyes at head height, look where the mouse points
+    if (this.fp && !v) {
+      const eye = this.cur.set(wp.x, player.pos.y + 1.62, wp.z), cp = Math.cos(this.pitch);
+      this.cam.position.copy(eye);
+      this.cam.lookAt(eye.x + Math.sin(this.yaw) * cp, eye.y - Math.sin(this.pitch), eye.z + Math.cos(this.yaw) * cp);
+      this.first = true; // back in third person: start from the new spot instead of sliding over
+      return;
+    }
     let dist, h;
     if (v) {
       dist = v.kind === 'scooter' ? 5.2 : 7.2; h = v.kind === 'scooter' ? 1.5 : 1.7;

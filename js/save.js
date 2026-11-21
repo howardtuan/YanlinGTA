@@ -19,13 +19,14 @@ export function writeSave(g) {
     // where you are inside the current mission (talk heard, objective, checkpoints): missions.resumeAt()
     mission: { idx: M.idx, rewarded: [...M.rewarded], done: M.done, free: M.free, prog: M.progress() },
     eggs: g.eggs.filter(e => e.found).map(e => e.title),
-    pos: { x: wp.x, z: wp.z, h: pl.worldHeading(), y: pl.vehicle || pl.seat ? 0 : pl.y },
+    pos: g.concerts?.savePos() || { x: wp.x, z: wp.z, h: pl.worldHeading(), y: pl.vehicle || pl.seat ? 0 : pl.y }, // at the concert: where you took the shuttle
     look: pl.look || null,
     job: { shifts: g.job.shifts, earned: g.job.earned, best: g.job.best, totalVotes: g.job.totalVotes },
     gate: { votesGiven: g.gate.votesGiven, shifts: g.gate.shifts, best: g.gate.best },
     race: { wins: g.race.wins, runs: g.race.runs },
     friends: g.friends?.toJSON() || [],
     gordon: g.gordon?.toJSON() || null,
+    concerts: g.concerts?.toJSON() || null,
     stories: [...g.phone.storySeen].slice(-80),
     chats: g.phone.chats.map(c => ({ id: c.c.id, round: c.round, unread: c.unread, msgs: c.msgs })),
     notes: g.pc?.notes ?? null,
@@ -48,6 +49,7 @@ export function applySave(g, d) {
   if (d.gate) Object.assign(g.gate, d.gate);
   if (d.race) Object.assign(g.race, d.race);
   g.gordon?.load(d.gordon);
+  g.concerts?.load(d.concerts);
   g.friends?.load(d.friends); // before the chats: friends' chat rooms come after the built-in ones
   for (const id of d.stories || []) g.phone.storySeen.add(id);
   // by chat id; older saves have none, so match them by position, skipping chats added since (newer)

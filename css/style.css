@@ -766,3 +766,13 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
   .sk-cols{display:block}.sk-left .sk-rows{max-height:220px}.sk-right{margin-top:8px}
   .sk-wide .sk-order,.sk-wide .sk-dca{display:block;width:auto;margin-left:0}
 }
+/* 茶學苑 order sheet (js/teashop.js) */
+.ts-hi{margin:0 0 10px;line-height:1.7}
+.ts-menu{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ts-menu .menu-btn{padding:9px 12px;font-size:15px}
+.ts-menu .menu-btn[data-poor]{opacity:.55}
+.ts-lbl{margin:10px 0 4px;font-size:12px;font-weight:800;letter-spacing:1px;opacity:.8}
+.ts-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ts-chip{border:0;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;background:rgba(255,255,255,.18);color:inherit;cursor:pointer}
+.ts-chip.on{background:var(--accent);color:var(--ink)}
+@media (max-width:520px){.ts-menu{grid-template-columns:1fr}}

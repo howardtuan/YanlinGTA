@@ -5,7 +5,7 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -26,6 +26,7 @@ import { Airdrop } from './airdrop.js';
 import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
+import { TeaShop } from './teashop.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
 import { Chassis } from './vehphys.js';
@@ -112,9 +113,9 @@ class Game {
       }
     }
     // that building carries its own shop sign
-    for (const p of data.pois) if (p.name === '孫師傅牛肉拉麵') p.noSign = true;
+    for (const p of data.pois) if (p.name === '孫師傅牛肉拉麵' || p.name === '茶學苑 Tea Arts') p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
+    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {
@@ -172,6 +173,7 @@ class Game {
     this.traffic.viewK = this.peds.viewK = this.viewK; // draw range for the quality level
     // a wreck is only cleared away where the camera does not look (within 70° of its view direction, 150 m)
     { const cf = new THREE.Vector3(); this.traffic.inView = p => { const c = this.camera.position, dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d > 150) return false; if (d < 4) return true; this.camera.getWorldDirection(cf); const l = Math.hypot(cf.x, cf.z) || 1; return (dx * cf.x + dz * cf.z) / (d * l) > Math.cos(1.22); }; }
+    this.peds.inView = this.traffic.inView; this.traffic.peds = this.peds; // traffic stops for pedestrians; stuck walkers are put back where you cannot see
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
     // pocket money (Peach Pay): start with NT$200, earn more at the McDonald's counter
@@ -187,6 +189,7 @@ class Game {
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
     this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
     this.friends = new Friends(this);   // 同學 you can befriend (排球少年 吱吱 at the 體育館)
+    this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
     onClick('bmClose', () => this.closeMap());
     onClick('bmClear', () => { this.nav.clear(); $('bmClear').classList.add('hidden'); });

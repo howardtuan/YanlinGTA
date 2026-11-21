@@ -69,6 +69,7 @@ export function gateExtrasFootprints() {
     [wr(-RAMP.hw - 0.4, -0.6), wr(RAMP.hw + 0.1, -0.6), wr(RAMP.hw + 0.1, RAMP.d + 0.3), wr(-RAMP.hw - 0.4, RAMP.d + 0.3)],
     [wp(-0.6, -0.6), wp(0.6, -0.6), wp(0.6, 0.6), wp(-0.6, 0.6)],
     // the lane in front of the portal (no trees, lamps or signs on it)
+    [dp(30.2, 0.4), dp(36.7, 0.4), dp(36.7, 7), dp(29, 7)],
     [dp(21, 18.7), dp(21, 12), dp(33, 2.7), dp(40, 2.7), dp(40, 8.7), dp(33, 8.7), dp(27, 20)],
     [dp(RAIL.s0, RAIL.n - 0.55), dp(RAIL.s1, RAIL.n - 0.55), dp(RAIL.s1, RAIL.n + 0.25), dp(RAIL.s0, RAIL.n + 0.25)],
     // the open setts between the 大仁街 mouth, the grey wall and the portal (no trees: 2022 photo)
@@ -385,6 +386,11 @@ function buildLane(I, scene) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#55575b', roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   m.receiveShadow = true; scene.add(m);
+  // a dropped-kerb apron from the 大仁街 asphalt across the planting strip into the lane (the lane must meet the street)
+  const ap = [dp(30.6, 0.9), dp(36.2, 0.9), dp(36.2, 6.4), dp(29.2, 6.6)];
+  const ap_pos = []; for (const [x, z] of ap) ap_pos.push(x, H(x, z) + 0.035, z);
+  const ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.Float32BufferAttribute(ap_pos, 3)); ag.setIndex([0, 1, 2, 0, 2, 3]); ag.computeVertexNormals();
+  const am = new THREE.Mesh(ag, m.material); am.receiveShadow = true; scene.add(am);
 }
 
 export function buildGateExtras(I, scene) {

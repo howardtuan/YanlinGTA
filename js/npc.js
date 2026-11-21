@@ -416,17 +416,25 @@ export class Peds {
       if (p.rag) this._unrag(p);
       const len = Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1;
       Object.assign(p, { from: n, to: e.to, edge: e, d: this.rnd() * len * 0.8, len, dormant: false, state: 'walk', voted: this.rnd() < 0.08, y: undefined,
-        dodge: 0, run: 0, blockT: 0, pose: null, mate: null, pauseIn: 4 + this.rnd() * 25, ghost: false });
+        dodge: 0, run: 0, blockT: 0, pose: null, mate: null, pauseIn: 4 + this.rnd() * 25, ghost: false, corner: null, nx: null });
       // campus peds are students; more voters near campus
       p.ch.root.visible = true; p.ch.root.rotation.x = 0;
       this._place(p, 0);
+      // off campus nobody appears out in the street (campus roads are fine)
+      if (!this.world.inCampus(p.pos.x, p.pos.z)) {
+        const r = this.world.nearestRoadPoint(p.pos.x, p.pos.z, true);
+        if (r && Math.hypot(r.x - p.pos.x, r.z - p.pos.z) < r.road.w / 2 - 0.3) { p.dormant = true; p.ch.root.visible = false; continue; }
+      }
       return true;
     }
     return false;
   }
   // how far right of the path's centre line (left if negative): on a street the pavement beside it
-  _offset(p) { const e = p.edge; return e.drive ? (e.w / 2 + 0.5 + p.offK * 0.7) * p.side : (0.15 + p.offK * 0.55) * p.side; }
+  // (a street is one cars use, also the way back up a one-way street and an unnamed service road: on its edge,
+  // not down the middle)
+  _offset(p, e = p.edge) { return e.road.drive ? (e.w / 2 + 0.5 + p.offK * 0.7) * p.side : (0.15 + p.offK * 0.55) * p.side; }
   _target(p, dodge = 0) {
+    if (p.corner) return p.corner; // round the corner of the pavement first (_next)
     const f = p.from, t = p.to, l = p.len, k = p.d / l, dx = t.x - f.x, dz = t.z - f.z;
     const off = this._offset(p) + dodge;
     return [f.x + dx * k - dz / l * off, f.z + dz * k + dx / l * off];
@@ -440,24 +448,58 @@ export class Peds {
       const m = Math.hypot(mx, mz), lim = (sp * 1.6 + 0.6) * dt;
       if (m > lim) { mx *= lim / m; mz *= lim / m; }
       p.pos.x += mx; p.pos.z += mz;
+      if (p.corner && Math.hypot(p.corner[0] - p.pos.x, p.corner[1] - p.pos.z) < 0.3) p.corner = null;
     }
     // face where it goes (turning round corners), along the path when standing
     const mx = p.pos.x - x0, mz = p.pos.z - z0;
     const th = dt > 0 && mx * mx + mz * mz > 1e-6 ? Math.atan2(mx, mz) : Math.atan2(p.to.x - p.from.x, p.to.z - p.from.z);
     p.heading += angDiff(th, p.heading) * Math.min(1, dt * 7 + (dt === 0 ? 1 : 0));
   }
-  _next(p) {
-    const n = p.to;
+  // the next way to walk at the end of this one, and where their pavements meet (planned ahead, so it turns
+  // off at that corner instead of walking on to the middle of the junction and across the street's corner)
+  _plan(p) {
+    const n = p.to, cur = p.edge;
     let opts = n.adj.filter(e => e.to !== p.from);
     if (!opts.length) opts = n.adj;
     const e = opts[Math.floor(this.rnd() * opts.length)];
-    p.d -= p.len; p.from = n; p.to = e.to; p.edge = e; p.len = Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1; p.d = Math.max(0, Math.min(p.d, p.len));
+    const ax = n.x - p.from.x, az = n.z - p.from.z, al = Math.hypot(ax, az) || 1;
+    const bx = e.to.x - n.x, bz = e.to.z - n.z, bl = Math.hypot(bx, bz) || 1;
+    const dot = (ax * bx + az * bz) / (al * bl);
+    const nx = { cur, e, flip: false, cut: 0, sB: 0, corner: null };
+    // a dead end / turning right back: back along the same pavement, not over to the other side
+    if (e.to === p.from || dot < -0.9) nx.flip = true;
+    else if (dot < 0.97) {
+      const oa = this._offset(p), ob = this._offset(p, e);
+      // where the two offset lines cross; right of each way (as the offset counts it): (-dz, dx) / l
+      const n1x = -az / al, n1z = ax / al, n2x = -bz / bl, n2z = bx / bl, det = n1x * n2z - n1z * n2x;
+      const rx = (oa * n2z - ob * n1z) / det, rz = (n1x * ob - n2x * oa) / det; // from the node
+      if (Math.hypot(rx, rz) < 2.6 * Math.max(Math.abs(oa), Math.abs(ob), 1)) {
+        const along = (rx * ax + rz * az) / al, sB = (rx * bx + rz * bz) / bl;
+        // inside corner (before the node on this way, after it on the next): leave here and join there;
+        // outside corner: walk round it
+        if (along < 0 && sB > 0) { nx.cut = Math.min(-along, p.len * 0.95); nx.sB = Math.min(sB, bl * 0.9); }
+        else nx.corner = [n.x + rx, n.z + rz];
+      }
+    }
+    p.nx = nx;
+    return nx;
+  }
+  // how far along this way it walks before turning onto the next
+  _end(p) { const nx = p.nx && p.nx.cur === p.edge ? p.nx : this._plan(p); return p.len - nx.cut; }
+  _next(p) {
+    const nx = p.nx && p.nx.cur === p.edge ? p.nx : this._plan(p), n = p.to, e = nx.e;
+    const over = p.d - (p.len - nx.cut);
+    if (nx.flip) p.side = -p.side;
+    p.corner = nx.corner;
+    p.from = n; p.to = e.to; p.edge = e; p.len = Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1;
+    p.d = p.corner ? 0 : Math.max(0, Math.min(nx.sB + Math.max(0, over), p.len));
+    p.nx = null;
   }
   // turn round on the path it is on (the other side of it, as seen walking the other way)
   _reverse(p) {
     const back = p.to.adj.find(e => e.to === p.from && e.road === p.edge.road) || p.to.adj.find(e => e.to === p.from);
     if (!back) return;
-    Object.assign(p, { from: p.to, to: p.from, edge: back, d: Math.max(0, p.len - p.d), side: -p.side, dodge: -p.dodge });
+    Object.assign(p, { from: p.to, to: p.from, edge: back, d: Math.max(0, p.len - p.d), side: -p.side, dodge: -p.dodge, corner: null });
   }
   // run off along the path, away from (x, z)
   _runFrom(p, x, z, t) {
@@ -468,6 +510,9 @@ export class Peds {
   _unmate(p) { const m = p.mate; p.mate = null; if (m && m.mate === p) { m.mate = null; if (m.state === 'idle') m.t = Math.min(m.t, 0.6); } }
   // stop for a while: chat with someone walking close by, or check the phone / look around / just stand
   _pause(p) {
+    // not while crossing a junction or near one (it would stand in the street): a little further on
+    const near = n => { const w = Math.max(0, ...n.adj.map(e => e.road.drive ? e.w : 0)); return w > 0 && n.adj.length > 2 && Math.hypot(n.x - p.pos.x, n.z - p.pos.z) < w / 2 + 3; };
+    if (p.corner || near(p.from) || near(p.to)) { p.pauseIn = 3; return; }
     p.pauseIn = 10 + this.rnd() * 30;
     let mate = null;
     if (this.rnd() < 0.55) for (const q of this.list) {
@@ -565,8 +610,8 @@ export class Peds {
             break;
           }
           p.dodge += (dodge - p.dodge) * Math.min(1, dt * 2.5);
-          speed = sp; p.d += sp * dt;
-          while (p.d >= p.len) this._next(p);
+          speed = sp; if (!p.corner) p.d += sp * dt;
+          while (p.d >= this._end(p)) this._next(p);
           this._place(p, dt, sp);
         }
       }

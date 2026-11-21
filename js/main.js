@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildWorld, buildSkyline, mulberry32, makeLabel } from './map.js';
+import { installShadowDepth } from './shadowfix.js';
 import { Vehicle, sameLevel, bodyGap } from './vehicles.js';
 import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
@@ -140,6 +141,7 @@ class Game {
     r.domElement.id = 'game';
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
+    installShadowDepth(r, this.scene, () => this.quality !== 'high'); // own depth materials; tiny casters skip the shadow below high (js/shadowfix.js)
     // the scene root never moves: without this it marks itself dirty every frame and forces three.js to
     // recompute the world matrix of every object, even ones that are frozen (matrixAutoUpdate = false)
     this.scene.matrixAutoUpdate = false;

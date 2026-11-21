@@ -798,6 +798,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const walks = new Geo(true, uvS(3)); // sidewalks + curbs, drawn under the carriageways
   const marks = new Geo(true, uvS(4));
   const deckSides = new Geo();
+  // opaque deck slab just under every deck's road strip. The road layers are decals (depthWrite
+  // false) that rely on the ground having filled the depth buffer first; on a deck there is no
+  // ground, so without this slab the deck's underside and end walls (drawn later) show through
+  // the road. Drawn right after the ground (renderOrder below), see the mesh at the end.
+  const deckBase = new Geo(), DECK_BASE = col('#4a4b4f');
   // bridge deck: height profile from terrain.js addBridge (same <=DS m stations);
   // visual only, collision stays 2D
   const deckStrip = (g, a, b, w, d0, yAt, y, c, sides) => {
@@ -807,6 +812,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (let k = 1; k <= n; k++) {
       const qx = a[0] + dx * k / n, qz = a[1] + dz * k / n, qy = yAt(d0 + l * k / n);
       g.quad([px + nx, py + y, pz + nz], [qx + nx, qy + y, qz + nz], [qx - nx, qy + y, qz - nz], [px - nx, py + y, pz - nz], c, UP);
+      deckBase.quad([px + nx, py + y - 0.04, pz + nz], [qx + nx, qy + y - 0.04, qz + nz], [qx - nx, qy + y - 0.04, qz - nz], [px - nx, py + y - 0.04, pz - nz], DECK_BASE, UP);
       // sides only where the deck clears the ground (> 0.3 m), not on draped spans
       if (sides && Math.max(py - H(px, pz), qy - H(qx, qz), (py + qy) / 2 - H((px + qx) / 2, (pz + qz) / 2)) > 0.3) for (const sd of [1, -1]) {
         const ax = px + nx * sd, az = pz + nz * sd, bx = qx + nx * sd, bz = qz + nz * sd, fn = [nx / (w / 2) * sd, 0, nz / (w / 2) * sd];
@@ -1196,6 +1202,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   if (gradeMetal.tris) { const m = gradeMetal.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.5, roughness: 0.45 })); m.castShadow = quality !== 'low'; scene.add(m); }
   if (gradeLights.tris) scene.add(gradeLights.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, emissive: '#fff1cf', emissiveIntensity: 1.4, roughness: 0.5 })));
   for (const [g2, tex] of gradeSigns) scene.add(g2.mesh(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, side: THREE.DoubleSide })));
+  if (deckBase.tris) { const m = deckBase.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 })); m.receiveShadow = true; m.renderOrder = world.groundMesh.renderOrder + 0.5; scene.add(m); world.tris.deckBase = deckBase.tris; }
   if (deckSides.tris) { const conc = concreteTex(); const m = deckSides.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, map: conc.map, normalMap: conc.normalMap, roughness: 0.85, side: THREE.DoubleSide })); m.receiveShadow = true; m.castShadow = quality !== 'low'; scene.add(m); }
   addFlat(gatePave, gmat(T.paving(), { macroAmt: 0.2 }), 'roads'); // 正門 pavers over the lane asphalt, then the grate
   addFlat(gateGrate, new THREE.MeshStandardMaterial({ vertexColors: true, depthWrite: false, roughness: 0.5, metalness: 0.4, envMapIntensity: 0.6, ...OFFSET }), 'roads');

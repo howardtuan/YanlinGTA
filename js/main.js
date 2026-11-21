@@ -11,6 +11,7 @@ import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
 import { applyZoneE, zoneEFootprints } from './zone_e.js';
 import { zoneGLook, zoneGFootprints } from './zone_g.js';
+import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints } from './dorms.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
@@ -127,6 +128,10 @@ class Game {
       if (b.name === '警衛室') b.skip = true;
       applyZoneE(b); // E 區：建築館、祐生、設計學院只換外觀／執行時切塊（js/zone_e.js）
       if (b.id === WEICHE_ID) b.look = weicheLook(); // 維澈樓: facade look only (js/weiche.js adds the timber box, stair, columns)
+      // 良善樓 / 恩慈樓: facade looks only (js/dorms.js adds the roof disc, balconies, entrances, stair tower); the white
+      // roof_drum gives way to the blue glass disc drawn there
+      if (b.id === LIANGSHAN_ID) { b.look = liangshanLook(b.look); if (b.feature) b.feature = b.feature.filter(f => f !== 'roof_drum'); }
+      if (b.id === ENCI_ID) b.look = enciLook(b.look);
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       zoneGLook(b); // G 區校內建築：只換外觀 look／分段高度（js/zone_g.js 自建柱廊、弧形玻璃、斜裙、樓梯塔等）
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
@@ -138,6 +143,9 @@ class Game {
     }
     // 戈登肉鋪 (interiors.js) stands on the lawn in front of 校史館: listed as a building so the maps draw it and it
     // gets a name label; skip = interiors.js models it (no walls, roof or rnd draws from the town-house builder)
+    // the OSM wall along 大仁街 / 大仁二街 keeps its collision (js/furniture.js) but js/dorms.js draws it as the
+    // brick boundary wall with razor wire and graffiti
+    for (const w of data.barriers) if (w.type === 'wall' && w.pts.length < 8 && w.pts.some(([x, z]) => Math.abs(x + 62) < 1.5 && Math.abs(z - 271) < 1.5)) w.skin = 'cycu-brick';
     data.buildings.push({ id: 'gordon', name: '戈登肉鋪', kind: 'commercial', pts: gordonOutline(), h: GD_SPEC.FH + 1.9, floors: 1, skip: true });
     // that building carries its own shop sign
     const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美', '陽光煎匙', '吉野烤肉飯', '原泰阿杜 音樂餐酒館', '餡實餃色', '桃園中壢大三元麻將會館', "丸冰 maru's ice", '薰衣草-韓式海苔飯捲', '瑞麟美而美', '沐樂食堂', '墨爾漢堡', '晨食司控', '8 Code鬆餅', '功夫温泉', '桌弄', 'Carousel旋轉木馬兒童服飾', '川督極品麻辣臭豆腐', '享玩桌遊', 'AS艾拾金耳采耳專門店', '州味涼麵', '福祿壽囍鯛魚燒', '德式披薩', '六季鮮魚湯', '熊樂火鍋', '一起開丼&Ms.mo 奶酪小姐', '漢堡邦', '宜珍快餐', '艾修通訊', '中福鍋燒麵', 'Master Of Tea 花茶大師', '艾尚豆花', '食麪', '找個地方cafe', '咖喱就好啦', '全家便利商店', '星巴克']); // shop rows on 中北路 / 大仁街 (js/interiors.js buildTeaRow, buildDarenCorner)
@@ -185,7 +193,7 @@ class Game {
         .map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
     featureTrees.push(...gateTrees()); // 正門: street trees along 大仁街 by the P totem (js/gate_extras.js)
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0] });
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: dormsFootprints(data) });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality(); // view distance / fog / shadows / skyline size for the chosen quality
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');

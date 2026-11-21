@@ -18,6 +18,7 @@ import { buildWeiche } from './weiche.js';
 import { buildZoneE } from './zone_e.js';
 import { buildZoneG } from './zone_g.js';
 import { buildZhongbeiStreet } from './street_zhongbei.js';
+import { buildDorms } from './dorms.js';
 
 // ---------------- textures ----------------
 const TEX = {};
@@ -3679,6 +3680,7 @@ export function buildInteriors(scene, data, collision) {
   buildWeiche(I, scene, data);
   buildZoneE(I, scene, data); // E 區：建築館、祐生、設計學院的外觀細節（js/zone_e.js）
   buildZoneG(I, scene, data); // G 區校內建築外觀（js/zone_g.js）
+  buildDorms(I, scene, data); // 良善樓、恩慈樓外觀、大仁街校界牆、A2 門牆、恩慈小門 (js/dorms.js)
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

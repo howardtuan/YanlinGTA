@@ -3357,7 +3357,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const veg = [];
     for (const p of spots) { const gone = moveTree(p, 0.35), [x, z, kind, s] = p; veg.push({ x, z, y: groundY(x, z) - 0.15, kind, s, hide: gone || hideTree(x, z) }); }
     for (const p of palms) { const gone = moveTree(p, 0.3), [x, z, s] = p; veg.push({ x, z, y: groundY(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3, hide: gone || hideTree(x, z) }); }
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) });
+    // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
+    // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
+    const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;

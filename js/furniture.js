@@ -212,8 +212,16 @@ export function buildFurniture(scene, world, data, ctx) {
     const WALL = col('#aca89f'), CAP = col('#8c8880'), HEDGE = col('#3c6a2e'), HTOP = col('#4f8236');
     let segs = 0, len = 0;
     // fence: 鐵皮圍籬 colour (補建街區 sheet_fence barriers) -> 2.2 m sheet, thin, no cap
+    // skin: barriers marked b.skin (js/main.js) keep their collision here but are drawn elsewhere (the 大仁街 brick
+    // wall, js/dorms.js): their kept runs go to data.wallSkins instead of the grey wall
+    let skinOut = null;
     const emit = (ax, az, bx, bz, hedge, first, last, hj, fence = null) => {
       const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz); if (l < 0.05) return;
+      if (skinOut) {
+        skinOut.push({ ax, az, bx, bz, ya: groundY(ax, az), yb: groundY(bx, bz), first, last });
+        if (inB(ax, az) || inB(bx, bz)) { coll.addSegment(ax, az, bx, bz); segs++; }
+        len += l; return;
+      }
       const hh = fence ? 2.2 : hedge ? 1.2 + hj : 1.8, th = fence ? 0.08 : hedge ? 0.8 : 0.2, ux = dz / l, uz = -dx / l;
       const ya = groundY(ax, az), yb = groundY(bx, bz), c = fence || (hedge ? HEDGE : WALL);
       const side = (o, top0, top1, cc, s) => {
@@ -235,6 +243,7 @@ export function buildFurniture(scene, world, data, ctx) {
     };
     data.barriers.forEach((b, bi) => {
       if (b.type !== 'wall' && b.type !== 'hedge' && b.type !== 'sheet_fence') return;
+      skinOut = b.skin && b.type === 'wall' ? (data.wallSkins = data.wallSkins || []) : null;
       const hedge = b.type === 'hedge', fence = b.type === 'sheet_fence' ? col(b.colour || '#2f6aa8') : null, th = fence ? 0.08 : hedge ? 0.8 : 0.2;
       // onArea: the barrier tag sits on a landuse outline (here the 山葉 factory
       // and 中壢簡易庭 enclosures). They are real walls, but landuse outlines are
@@ -278,6 +287,7 @@ export function buildFurniture(scene, world, data, ctx) {
       }
       flush(true);
     });
+    skinOut = null;
     stats.wallSegs = segs; stats.wallLen = Math.round(len); stats.wallTris = tris0();
   }
 

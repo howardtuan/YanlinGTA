@@ -2364,8 +2364,8 @@ const GDT = {
     const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#2a2a2c'); bg.addColorStop(0.5, '#0d0d0f'); bg.addColorStop(1, '#1d1d20'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
     g.fillStyle = 'rgba(255,255,255,0.05)'; for (let x = 0; x < w; x += 9) g.fillRect(x, 0, 2, h);
     const gold = g.createLinearGradient(0, 40, 0, 200); gold.addColorStop(0, '#f6dc94'); gold.addColorStop(1, '#b9913f');
-    g.fillStyle = gold; g.textBaseline = 'middle'; g.font = '700 118px Georgia,"Times New Roman",serif'; g.fillText('Gordon', 520, 138);
-    gdBull(g, 760, 70, 1.25, gold);
+    g.fillStyle = gold; g.textBaseline = 'middle'; g.font = '700 118px Georgia,"Times New Roman",serif'; g.fillText('Gordon', 360, 138);
+    gdBull(g, 360 + g.measureText('Gordon').width + 6, 66, 1.05, gold); // the bull's head right after the word
     g.fillStyle = '#f4f2ee'; g.font = '900 104px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('戈 登 肉 鋪', 1000, 112);
     g.font = '600 34px Georgia,serif'; g.fillText('M E A T · S H O P', 1080, 196); g.fillRect(1000, 194, 64, 3); g.fillRect(1420, 194, 64, 3);
     g.font = '700 40px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('中原店', 1700, 200);
@@ -2373,8 +2373,8 @@ const GDT = {
   // the "Gordon / MEAT·SHOP" on the counter front and the window decal
   logo: (dark) => ctex('gdLogo' + (dark ? 'D' : 'L'), 512, 192, (g, w, h) => {
     g.clearRect(0, 0, w, h); const c = dark ? '#2a2420' : '#f4f2ee';
-    g.fillStyle = c; g.textBaseline = 'middle'; g.font = '700 96px Georgia,"Times New Roman",serif'; g.fillText('Gordon', 40, 92);
-    gdBull(g, 360, 30, 0.95, c);
+    g.fillStyle = c; g.textBaseline = 'middle'; g.font = '700 96px Georgia,"Times New Roman",serif'; g.fillText('Gordon', 30, 92);
+    gdBull(g, 30 + g.measureText('Gordon').width + 4, 26, 0.85, c);
     g.font = '600 26px Georgia,serif'; g.fillText('— M E A T · S H O P —', 95, 160);
   }, false),
   // the TV in the window: braised beef rib (photo 1, 喜歡充滿油脂熱湯的朋友一定要買 牛肋條)

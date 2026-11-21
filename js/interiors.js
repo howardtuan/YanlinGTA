@@ -10,6 +10,7 @@ import { createCharacter } from './character.js';
 import { dressCrew, CREW_SHIRT } from './mcuniform.js';
 import { H } from './terrain.js';
 import { buildArena } from './arena.js';
+import { buildGateExtras } from './gate_extras.js';
 
 // ---------------- textures ----------------
 const TEX = {};
@@ -1391,14 +1392,16 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
   const hinges = [];
   const boom = (lx, lz, dir, L, o = {}) => {
     const arm = new THREE.Group();
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), M(o.post || 'gray')); post.position.set(0, 0.55, 0);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.34, 1.0, 0.34), M(o.post || 'gray')); post.position.set(0, 0.5, 0);
+    if (o.post) { const cap = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.06, 0.38), M('#f4f2ec')); cap.position.y = 1.03; arm.add(cap); }
     const bar = new THREE.Mesh(new THREE.BoxGeometry(L, 0.1, 0.1), barMat); bar.position.set(L / 2, 0, 0);
     const hinge = new THREE.Group(); hinge.position.set(0, 1.0, 0); hinge.add(bar); hinge.rotation.y = dir < 0 ? Math.PI / 2 : -Math.PI / 2;
     // warning signs hanging under the bar, readable from both sides (正門: 減速慢行, 20)
     (o.signs || []).forEach((t, i) => {
-      const round = t === '20', sw = round ? 0.42 : 0.7, sh = round ? 0.42 : 0.26;
+      // 正門 2022: yellow cloth banners (~1.1 x 0.45 m) hung under the middle of the arm
+      const round = t === '20', banner = t.length > 4 || t.includes('|'), sw = round ? 0.42 : banner ? Math.min(1.15, L * 0.5) : 0.7, sh = round ? 0.42 : banner ? 0.46 : 0.26;
       const g = mergeGeometries([0, Math.PI].map(side => new THREE.PlaneGeometry(sw, sh).rotateY(side).translate(0, 0, side ? -0.056 : 0.056)), false);
-      const m = new THREE.Mesh(g, gateSignMat(t)); m.position.set(L * (0.45 + i * 0.22), -0.05 - sh / 2, 0); hinge.add(m);
+      const m = new THREE.Mesh(g, gateSignMat(t)); m.position.set(banner ? L * 0.52 : L * (0.45 + i * 0.22), -0.05 - sh / 2, 0); hinge.add(m);
     });
     arm.add(post, hinge); arm.position.set(lx, 0, lz); k.group.add(arm);
     hinges.push({ hinge, at: k.w(lx, lz + dir * L / 2) });
@@ -3245,9 +3248,13 @@ export const MAIN_GATE = {
   // buildGuardhouse lanes: one boom per lane on the OSM barrier=lift_gate nodes, exit lane (-200.7,77.3)
   // and entry lane (-197.1,85.2). x / from: post (local; the exit lane's on the island, the entry lane's on
   // the far kerb), dir: arm toward -z / +z, len: arm length; yellow housings and warning signs on the arms
+  // Google 街景 2022-08 (200 中北路): the entry lane is closed by two arms meeting in the middle, the one
+  // from the kiosk side with a yellow 「來賓車道」 banner and a 20 roundel, the one from the far kerb with
+  // 「教職員車道」; pale salmon housings with white tops (2018: the same, a deeper salmon)
   lanes: [
-    { x: 2.42, from: -1.88, dir: -1, len: 4.6, post: '#e8b922', signs: ['減速慢行'] },
-    { x: 2.59, from: 6.75, dir: -1, len: 4.6, post: '#e8b922', signs: ['減速慢行', '20'] },
+    { x: 2.42, from: -1.88, dir: -1, len: 4.6, post: '#ebb49c', signs: ['減速慢行'] },
+    { x: 2.6, from: 1.86, dir: 1, len: 2.3, post: '#ebb49c', signs: ['來賓車道|20'] },
+    { x: 2.59, from: 6.75, dir: -1, len: 2.45, post: '#ebb49c', signs: ['教職員車道'] },
   ],
   // bollards along the far edge of the exit lane (local), ~(-206.6,77.2) to (-199.6,74.4)
   bollards: [-2.9, -1.96, -1.02, -0.08, 0.86, 1.8, 2.74, 3.68, 4.62].map(x => [x, x < 2.71 ? -6.79 : -6.77 + (x - 2.71) * 0.12]),
@@ -3277,11 +3284,27 @@ export function mainGateKeep() {
 const GATE_SIGN_MATS = {};
 const gateSignMat = (t) => GATE_SIGN_MATS[t] ||= new THREE.MeshStandardMaterial({ map: gateSign(t), roughness: 0.6, transparent: t === '20' });
 function gateSign(text) {
-  if (text === '20') return ctex('gate20', 128, 128, (g) => {
-    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#d0151f'; g.lineWidth = 14; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = '#111'; g.font = font(58); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('20', 64, 68);
-  }, false);
+  const round20 = (g, cx, cy, r) => {
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#d0151f'; g.lineWidth = r * 0.22; g.beginPath(); g.arc(cx, cy, r * 0.87, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#111'; g.font = font(r * 0.94); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('20', cx, cy + r * 0.07);
+  };
+  if (text === '20') return ctex('gate20', 128, 128, (g) => round20(g, 64, 64, 62), false);
+  if (text.length > 4 || text.includes('|')) {
+    // cloth banner: yellow, red text, a sagging top hem and grommets; '|20' adds the speed roundel at its right end
+    const [t, extra] = text.split('|');
+    return ctex('gateBn' + text, 512, 208, (g) => {
+      g.fillStyle = '#f2d24a'; g.fillRect(0, 0, 512, 208);
+      const sh = g.createLinearGradient(0, 0, 0, 208); sh.addColorStop(0, 'rgba(120,90,0,0.18)'); sh.addColorStop(0.25, 'rgba(255,255,255,0.08)'); sh.addColorStop(1, 'rgba(120,90,0,0.12)');
+      g.fillStyle = sh; g.fillRect(0, 0, 512, 208);
+      g.fillStyle = 'rgba(150,110,0,0.25)'; for (const x of [130, 260, 390]) g.fillRect(x, 0, 3, 208); // creases
+      g.fillStyle = '#e8c23a'; g.fillRect(0, 0, 512, 12);
+      g.fillStyle = '#9a9a92'; for (const x of [14, 498]) { g.beginPath(); g.arc(x, 14, 6, 0, 7); g.fill(); }
+      g.fillStyle = '#d0151f'; g.font = font(extra ? 70 : 80); g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(t, extra ? 205 : 256, 112);
+      if (extra) round20(g, 438, 104, 56);
+    }, false);
+  }
   return T.sign(text, '#ffd23f', '#d0151f', 'gate' + text, 256, 96, 62);
 }
 
@@ -3294,7 +3317,7 @@ function buildMainKiosk(k) {
   k.prism(G.island, -0.3, ISL, '#a8a59d', { surface: true, shadow: false });
   const planter = [[-4.45, 0], [-4.25, -0.35], [-3.6, -0.72], [-2.8, -1.12], [-2.1, -1.45], [-1.95, -1.3], [-1.95, 1.3], [-2.1, 1.45], [-2.8, 1.12], [-3.6, 0.72], [-4.25, 0.35]];
   k.prism(planter, ISL, ISL + 0.2, '#a9a69e', { shadow: false });
-  k.prism(planter, ISL + 0.2, ISL + 1.0, '#3c6a2e', { bevel: 0.12, inset: 0.08 });
+  k.prism(planter, ISL + 0.2, ISL + 1.0, '#7a9c45', { bevel: 0.12, inset: 0.08 }); // clipped yellow-green hedge (街景 2022-08)
   planter.forEach((p, i) => k.wallLine(...p, ...planter[(i + 1) % planter.length], 0, ISL + 1.0));
   // card reader at the planter's exit-lane corner
   k.box(-2.75, -2.35, ISL, ISL + 0.12, -1.7, -1.3, '#e8e8e4');
@@ -3322,17 +3345,23 @@ function buildMainKiosk(k) {
   for (const [x, z] of [...wl, [bx, -DOOR], [bx, DOOR]]) k.box(x - 0.035, x + 0.035, ISL, TOP, z - 0.035, z + 0.035, 'metal', { col: false });
   // roof slab with a green roof
   k.prism(plan(0.3), TOP, TOP + 0.22, '#e4e2dc');
-  k.prism(plan(0.18), TOP + 0.22, TOP + 0.36, '#4a6b35', { bevel: 0.05 });
+  k.prism(plan(0.18), TOP + 0.22, TOP + 0.36, '#7c7a4c', { bevel: 0.05 }); // the roof grass has dried to a straw olive (2022-08)
   {
     // low shrub tufts of a few sizes and tones (no shared RNG: fixed per tuft)
     const tufts = [[-1.2, 0.3], [-0.6, -0.8], [-0.3, 0.9], [0.5, -0.2], [0.9, 0.95], [1.2, -1.0], [-1.0, -0.4], [0.2, 0.5], [-1.45, -0.95], [1.35, 0.25], [-0.2, -1.2], [0.75, -0.75]];
-    const tone = ['#3f6230', '#4b6d36', '#56733a'];
+    const tone = ['#7f7d4f', '#8a8a5a', '#6f7445'];
     for (let t = 0; t < 3; t++) {
       const geo = mergeGeometries(tufts.filter((_, i) => i % 3 === t).map(([x, z], i) => new THREE.IcosahedronGeometry(0.22 + ((i + t) % 4) * 0.05, 1).scale(1.1 + (i % 2) * 0.25, 0.42 + t * 0.06, 0.9).rotateY(i + t).translate(x, TOP + 0.38, z)), false);
       const m = new THREE.Mesh(geo, M(tone[t])); m.castShadow = true; k.group.add(m);
     }
   }
   k.box(0.2, 1.0, TOP - 0.04, TOP, -0.25, 0.25, 'light', { col: false });
+  // black box floodlights under the roof slab on both flanks, aimed down at the lanes (街景 2018-11)
+  for (const sd of [-1, 1]) {
+    const zr = (a, b) => [Math.min(sd * a, sd * b), Math.max(sd * a, sd * b)];
+    k.box(0.9, 1.25, TOP - 0.42, TOP - 0.18, ...zr(R + 0.02, R + 0.2), 'dark', { col: false });
+    k.box(0.98, 1.17, TOP - 0.18, TOP, ...zr(R + 0.06, R + 0.1), 'dark', { col: false });
+  }
   // lit at night: the tinted glass glows warm from the ceiling light (as the real kiosk does)
   const tint = M('tint');
   k.I.updaters.push((dt, g) => { tint.emissiveIntensity = (g.night || 0) * 0.32; });
@@ -3403,6 +3432,7 @@ export function buildInteriors(scene, data, collision) {
   buildDarenStreet(I, scene);
   I.gordon = buildGordon(I, scene);
   I.arena = buildArena(I, scene, Kit, regMat); // 林口體育館 (演唱會, js/concert.js): far off the map
+  buildGateExtras(I, scene); // 正門: concrete name wall, campus directory, car park portal, P totem (js/gate_extras.js)
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

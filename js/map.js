@@ -1093,7 +1093,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   };
   // 正門: the two one-way lanes round the guard kiosk and the forecourt are grey pavers, not asphalt
   // (Google 街景 2017-09 / 2022-08 / 2024-08); laid over the asphalt from the grate at the end of 中北路
-  const gatePave = new Geo(true, uvS(4)), gateGrate = new Geo(true, uvS(4)), GATE_PAVE = col('#e6e2d9');
+  const gatePave = new Geo(true, uvS(4)), gateGrate = new Geo(true, uvS(4)), GATE_PAVE = col('#c9c6bf'); // light grey granite setts (街景 2022-08), darker than the old cream
   const gateLane = r => !!opts.mainGate && !!r.oneway && hasNodes(r) && (r.nodes[0] === opts.mainGate.streetNode || r.nodes[r.nodes.length - 1] === opts.mainGate.streetNode);
   const SURF_COL = { concrete: '#77766f', paving_stones: '#7f766a', sett: '#77706a', unpaved: '#7a6a52', gravel: '#7f766a', compacted: '#7a6e5c', wood: '#6e5440' };
   const SERVICE_COL = { alley: '#4f5054', driveway: '#56565a', parking_aisle: '#46484e' };
@@ -2740,16 +2740,24 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (let i = 1; i < 5; i++) c.fillRect(0, i * CH / 5 - 1, CW, 3);
     // the back (campus side) is plain jointed granite: copy before the emblem and the name go on
     const cvB = document.createElement('canvas'); cvB.width = CW; cvB.height = CH; cvB.getContext('2d').drawImage(cv, 0, 0);
-    // emblem: navy disc, white laurel, red shield with white cross
-    c.save(); c.translate(150, CH * 0.36); c.scale(1.3, 1.3);
-    c.fillStyle = '#1d2f63'; c.beginPath(); c.arc(0, 0, 84, 0, Math.PI * 2); c.fill();
+    // emblem + name on the east half (toward the kiosk), the west half plain (街景 2018-11 特寫): a ~0.95 m
+    // mid-blue disc (white rim, white laurel, rings on top, red shield with a white cross, atom below) at
+    // 47 % of the face, 「中原大學」 in silver-white ~0.5 m characters from 55 % to 88 %, the English
+    // name under it across the same width
+    c.save(); c.translate(CW * 0.47, CH * 0.53); c.scale(0.98, 0.98);
+    c.fillStyle = '#f2f2ee'; c.beginPath(); c.arc(0, 0, 87, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#2a5a9a'; c.beginPath(); c.arc(0, 0, 82, 0, Math.PI * 2); c.fill();
     c.strokeStyle = '#ffffff'; c.lineWidth = 5;
     for (const s of [-1, 1]) for (let k = 0; k < 6; k++) { const a = Math.PI / 2 + s * (0.35 + k * 0.33); c.beginPath(); c.ellipse(Math.cos(a) * 56, Math.sin(a) * 56, 13, 6, a + s * 0.6, 0, Math.PI * 2); c.stroke(); }
+    c.lineWidth = 2.5; for (let k = 0; k < 5; k++) { c.beginPath(); c.arc(-24 + k * 12, -50 + (k % 2) * 6, 7, 0, Math.PI * 2); c.stroke(); }
+    c.lineWidth = 2; for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(0, 54, 12, 4.5, k * Math.PI / 3, 0, Math.PI * 2); c.stroke(); }
     c.fillStyle = '#d23a2c'; c.beginPath(); c.moveTo(-26, -30); c.lineTo(26, -30); c.lineTo(26, 6); c.quadraticCurveTo(26, 32, 0, 40); c.quadraticCurveTo(-26, 32, -26, 6); c.closePath(); c.fill();
     c.fillStyle = '#fff'; c.fillRect(-5, -30, 10, 68); c.fillRect(-26, -6, 52, 10);
     c.restore();
-    c.fillStyle = '#f2f2ee'; c.font = '900 150px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif'; c.textBaseline = 'middle'; c.fillText('中原大學', 300, CH * 0.33);
-    c.font = '600 40px system-ui,sans-serif'; c.fillStyle = '#d9d9d4'; c.fillText('Chung Yuan Christian University', 306, CH * 0.58);
+    c.fillStyle = '#ecebe6'; c.font = '900 86px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif'; c.textBaseline = 'middle';
+    { const t = '中原大學', x0 = CW * 0.555, x1 = CW * 0.885, adv = (x1 - x0) / 4; for (let i = 0; i < 4; i++) c.fillText(t[i], x0 + i * adv, CH * 0.5); }
+    c.font = '600 25px system-ui,sans-serif'; c.fillStyle = '#cfcfca';
+    { const t = 'Chung Yuan Christian University', w = c.measureText(t).width; c.save(); c.translate(CW * 0.556, CH * 0.655); c.scale((CW * 0.325) / w, 1); c.fillText(t, 0, 0); c.restore(); }
     const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
     const granite = new THREE.MeshStandardMaterial({ color: '#1c1d20', roughness: 0.22, metalness: 0.1 });
     // the white name catches the gate's floodlights at night (emissive follows world.windowMats)
@@ -2758,19 +2766,29 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const txB = new THREE.CanvasTexture(cvB); txB.colorSpace = THREE.SRGBColorSpace;
     const back = new THREE.MeshStandardMaterial({ map: txB, roughness: 0.25, metalness: 0.05 });
     const wall = new THREE.Mesh(new THREE.BoxGeometry(W, HW, D), [granite, granite, granite, granite, face, back]); wall.position.y = HW / 2; g.add(wall);
-    // plinth reaching 0.6 m below the base so the wall never floats on a slope
+    // plinth reaching 0.6 m below the base so the wall never floats on a slope; a 0.25 m black base course
+    // standing 0.15 m proud of the faces, a thick overhanging coping on top
     const plinth = new THREE.Mesh(new THREE.BoxGeometry(W, 0.6, D), granite); plinth.position.y = -0.3; g.add(plinth);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(W + 0.08, 0.06, D + 0.08), standard('#2e3034', { roughness: 0.3 })); cap.position.y = HW + 0.03; g.add(cap);
+    const baseC = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.85, D + 0.3), standard('#141517', { roughness: 0.35 })); baseC.position.y = -0.175; g.add(baseC);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(W + 0.16, 0.22, D + 0.16), standard('#25272b', { roughness: 0.3 })); cap.position.y = HW + 0.06; g.add(cap);
+    // 7 small round uplights on the base course under the emblem and the name, aimed up the face
+    {
+      const fx = [0.44, 0.52, 0.6, 0.68, 0.76, 0.84, 0.92].map(f => (f - 0.5) * W);
+      const lg = mergeGeometries(fx.map(x => new THREE.SphereGeometry(0.075, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.8, 1).translate(x, 0.25, D / 2 + 0.07)), false);
+      const lens = new THREE.MeshStandardMaterial({ color: '#2b2d31', metalness: 0.6, roughness: 0.3, emissive: '#fff1cf', emissiveIntensity: 0 });
+      world.windowMats.push(lens); g.add(new THREE.Mesh(lg, lens));
+    }
     g.position.set(Wl.x, Hmin(Wl.x, Wl.z, W / 2), Wl.z); g.rotation.y = -sp; // local +x runs ESE; the name faces +z (SSW)
     // spire: black base, then a square stainless shaft twisted a half turn over its height
     const spire = new THREE.Group(), BASE = 1.8, SH = S.h - BASE;
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.3, BASE + 0.6, 1.3), granite); base.position.y = (BASE - 0.6) / 2; spire.add(base);
-    const shaftG = new THREE.BoxGeometry(1.05, SH, 1.05, 1, 24, 1); shaftG.translate(0, SH / 2, 0);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.05, BASE + 0.6, 1.05), granite); base.position.y = (BASE - 0.6) / 2; spire.add(base);
+    // a flat blade (~1.0 x 0.35 m), not a square post (街景 2018-11), twisted half a turn
+    const shaftG = new THREE.BoxGeometry(1.0, SH, 0.35, 1, 24, 1); shaftG.translate(0, SH / 2, 0);
     const twist = (y) => y / SH * Math.PI, pos = shaftG.attributes.position;
     for (let i = 0; i < pos.count; i++) { const y = pos.getY(i), t = twist(y), x = pos.getX(i), z = pos.getZ(i); pos.setXYZ(i, x * Math.cos(t) - z * Math.sin(t), y, x * Math.sin(t) + z * Math.cos(t)); }
     shaftG.computeVertexNormals();
     const shaft = new THREE.Mesh(shaftG, new THREE.MeshStandardMaterial({ color: '#b9bcbf', metalness: 0.85, roughness: 0.32, map: concTex.map })); shaft.position.y = BASE; spire.add(shaft);
-    const bandY = 8.1 - BASE, band = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.18, 1.12), standard('#c9a64a', { metalness: 0.9, roughness: 0.3 }));
+    const bandY = 8.1 - BASE, band = new THREE.Mesh(new THREE.BoxGeometry(1.07, 0.18, 0.42), standard('#c9a64a', { metalness: 0.9, roughness: 0.3 }));
     band.position.y = BASE + bandY; band.rotation.y = -twist(bandY); spire.add(band);
     spire.position.set(S.x, Hmin(S.x, S.z, 0.9), S.z); spire.rotation.y = -sp;
     for (const o of [g, spire]) { o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); scene.add(o); }

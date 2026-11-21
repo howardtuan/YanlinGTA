@@ -1108,8 +1108,76 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   };
   // lane marks: one solid or dashed (4 m on / 6 m off) line at offset `off`
   // from the centreline; cut short of junctions
+  // 中北路 (and 二段) is OSM residential but a marked street: a yellow centre line and white edge lines
+  // (NLSC 2024 正射, tools/roads.json), so it does not read like the lanes off it
   const MARKED = { primary: 1, secondary: 1, tertiary: 1 };
+  const marked = r => MARKED[r.type] || (r.type === 'residential' && /^中北路(二段)?$/.test(r.name || ''));
   const WHITE = col('#e6e5df'), YELLOW = col('#e3bf3c');
+  // 中北路 from the main gate: ~200 m painted green walkway (標線型人行道, 1.8 m) on both sides, just
+  // outside the white edge lines so the street keeps its full width. { sd: the campus side (+1 / -1), d: length }
+  const GREEN_WALK = 200;
+  const greenWalk = (r) => {
+    if (r.name !== '中北路' || Math.hypot(r.pts[0][0] + 205, r.pts[0][1] - 82) >= 40 || r.pts.length < 2) return null;
+    const a = r.pts[0], b = r.pts[1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
+    return { sd: world.inCampus(mx + nx * (r.w / 2 + 6), mz + nz * (r.w / 2 + 6)) ? 1 : -1, d: GREEN_WALK };
+  };
+  const GREEN_W = 1.8;
+  // 網狀黃線 on 中北路 (no-stopping boxes in front of garages / lane mouths), kerb to kerb: [x, z] of the
+  // centre and the length along the street (NLSC 2024 正射, read along the road with a metre ruler; the two
+  // by the lane mouths sit on the junctions, as on the photo)
+  const ZB_BOXES = [[-270.8, 108.2, 6.3], [-287.9, 114.5, 7.5], [-439.9, 170.2, 8.4]];
+  // where 中北路's lines break, as distances along the way: the centre line only across the side roads'
+  // mouths and the boxes; an edge line only across the mouths on its own side (+1 / -1, the sign of
+  // `off`) and the boxes; at a junction at either end, as far as line() cuts it
+  const nodeRoads = new Map();
+  for (const q of data.roads) if (hasNodes(q) && !q.under) q.nodes.forEach((id, k) => { let L = nodeRoads.get(id); if (!L) nodeRoads.set(id, L = []); L.push([q, k]); });
+  const streetGaps = (r) => {
+    const G = { 0: [], 1: [], '-1': [] }, M = { 1: [], '-1': [] }, all = g => { G[0].push(g); G[1].push(g); G[-1].push(g); };
+    const D = [0]; for (let i = 1; i < r.pts.length; i++) D.push(D[i - 1] + Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]));
+    const n = r.pts.length, L = D[n - 1];
+    const endTrim = i => { const k = i === 0 ? 0 : n - 2, l = D[k + 1] - D[k]; return Math.min(l / 2, r.w * 0.6 + 3); };
+    if (isJunction(r, 0)) all([0, endTrim(0)]);
+    if (isJunction(r, n - 1)) all([L - endTrim(n - 1), L]);
+    for (let i = 1; i < n - 1 && hasNodes(r); i++) {
+      const p = r.pts[i], a = r.pts[i - 1], b = r.pts[i + 1], tx = b[0] - a[0], tz = b[1] - a[1], tl = Math.hypot(tx, tz) || 1;
+      for (const [q, k] of nodeRoads.get(r.nodes[i]) || []) {
+        if (q === r) continue;
+        for (const j of [k - 1, k + 1]) {
+          const o = q.pts[j]; if (!o) continue;
+          const dx = o[0] - p[0], dz = o[1] - p[1], dl = Math.hypot(dx, dz) || 1;
+          const side = (dx * -tz + dz * tx) / (dl * tl), sinA = Math.abs(dx * tz - dz * tx) / (dl * tl);
+          const h = (q.w / 2 + 1) / Math.max(0.4, sinA), g = [D[i] - h, D[i] + h];
+          G[0].push(g); if (Math.abs(side) > 0.3) { G[side > 0 ? 1 : -1].push(g); M[side > 0 ? 1 : -1].push(g); }
+        }
+      }
+    }
+    if (greenWalk(r)) for (const [bx, bz, len] of ZB_BOXES) {
+      let best = null;
+      for (let i = 0; i < n - 1; i++) {
+        const a = r.pts[i], c = closestOnSeg(bx, bz, a[0], a[1], r.pts[i + 1][0], r.pts[i + 1][1]), d = Math.hypot(c[0] - bx, c[1] - bz);
+        if (!best || d < best.d) best = { d, s: D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]) };
+      }
+      all([best.s - len / 2 - 0.3, best.s + len / 2 + 0.3]);
+    }
+    return { G, D, M }; // M: the side roads' mouths only (no boxes / ends), per side
+  };
+  // a solid line at `off` along r, skipping the [from, to] distances in gaps
+  const lineGaps = (r, yAt, off, lw, c, gaps, D, maxD = Infinity) => {
+    for (let i = 0; i < r.pts.length - 1 && D[i] < maxD; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = D[i + 1] - D[i];
+      if (l < 0.3 || (!inPlay(a) && !inPlay(b))) continue;
+      const nx = -dz / l, nz = dx / l;
+      let runs = [[D[i], Math.min(D[i + 1], maxD)]];
+      for (const [g0, g1] of gaps) runs = runs.flatMap(([u0, u1]) => g1 <= u0 || g0 >= u1 ? [[u0, u1]] : [[u0, g0], [g1, u1]].filter(([v0, v1]) => v1 - v0 > 0.3));
+      for (const [u0, u1] of runs) {
+        const s0 = u0 - D[i], s1 = u1 - D[i];
+        const p0 = [a[0] + dx * s0 / l + nx * off, a[1] + dz * s0 / l + nz * off], p1 = [a[0] + dx * s1 / l + nx * off, a[1] + dz * s1 / l + nz * off];
+        if (yAt) deckStrip(marks, p0, p1, lw, u0, yAt, 0.04 + TOL_LO, c, false);
+        else marks.strip(p0, p1, lw, 0.04, c);
+      }
+    }
+  };
   const line = (r, yAt, off, lw, c, dash, maxD = Infinity) => {
     let acc = 0;
     for (let i = 0; i < r.pts.length - 1 && acc < maxD; i++) {
@@ -1131,6 +1199,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const markRoad = (r, yAt) => {
     const two = !r.oneway, e = r.w / 2 - 0.35;
     const lanes = Math.max(1, r.lanes || (two ? 2 : r.type === 'primary' ? 3 : 2));
+    if (r.type === 'residential') { // 中北路: white edge lines and one solid yellow line, broken only where it must
+      const { G, D } = streetGaps(r);
+      lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D);
+      if (two) lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D);
+      return;
+    }
     line(r, yAt, e, 0.15, WHITE, false); line(r, yAt, -e, 0.15, WHITE, false);
     if (two) {
       // 雙黃線 on primary / secondary, yellow dashes on tertiary
@@ -1249,7 +1323,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (yAt && !end) deckDisc(g, p[0], p[1], r.w / 2, yAt(acc) + 0.03 + TOL_LO, c, L === 0 ? 6 : 10);
       else g.disc(p[0], p[1], r.w / 2, 0.03, c, L === 0 ? 6 : 10);
     });
-    if (MARKED[r.type]) markRoad(r, yAt);
+    if (marked(r)) markRoad(r, yAt);
     sidewalk(r);
   }
   // ---------- grade separations: viaduct piers and ramp walls, footbridge, road cut ----------
@@ -1434,15 +1508,30 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
   gradeSegs[1] = collision.segs.length;
   // 中北路: no curb sidewalk; ~200 m painted green walkway (標線型人行道)
-  // on the campus side from the main gate
+  // on both sides from the main gate
   {
-    const r = data.roads.find(q => q.name === '中北路' && Math.hypot(q.pts[0][0] + 205, q.pts[0][1] - 82) < 40);
-    if (r && r.pts.length > 1) {
-      const a = r.pts[0], b = r.pts[1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-      const nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
-      const sd = world.inCampus(mx + nx * (r.w / 2 + 6), mz + nz * (r.w / 2 + 6)) ? 1 : -1;
-      line(r, null, sd * (r.w / 2 - 1.1), 1.8, col('#3f8f5a'), false, 200);
-      line(r, null, sd * (r.w / 2 - 2.05), 0.12, WHITE, false, 200);
+    const r = data.roads.find(q => greenWalk(q)), gw = r && greenWalk(r);
+    if (gw) {
+      // one strip along each kerb, broken only across the mouths of the roads that leave on its side
+      // (and the first few metres at the gate's grate)
+      const { D, M } = streetGaps(r);
+      for (const sd of [1, -1]) lineGaps(r, null, sd * (r.w / 2 + GREEN_W / 2), GREEN_W, col('#3f8f5a'), [[0, 4], ...M[sd]], D, gw.d);
+    }
+    // 網狀黃線 (ZB_BOXES, above)
+    if (r) for (const [bx, bz, len] of ZB_BOXES) {
+      let q = null;
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const a = r.pts[i], b = r.pts[i + 1], c = closestOnSeg(bx, bz, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - bx, c[1] - bz);
+        if (!q || d < q.d) { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; q = { d, x: c[0], z: c[1], ux: (b[0] - a[0]) / l, uz: (b[1] - a[1]) / l }; }
+      }
+      if (!q || !inPlay([q.x, q.z])) continue;
+      const h = len / 2, e = r.w / 2 - 0.35, P = (u, v) => [q.x + q.ux * u - q.uz * v, q.z + q.uz * u + q.ux * v];
+      const bar = (u0, v0, u1, v1) => marks.strip(P(u0, v0), P(u1, v1), 0.14, 0.045, YELLOW);
+      bar(-h, -e, h, -e); bar(-h, e, h, e); bar(-h, -e, -h, e); bar(h, -e, h, e);
+      for (let c = -h - e + 1.6; c < h + e; c += 1.6) {
+        const a0 = Math.max(-e, -h - c), a1 = Math.min(e, h - c); if (a1 - a0 > 0.2) bar(a0 + c, a0, a1 + c, a1);    // u = v + c
+        const b0 = Math.max(-e, c - h), b1 = Math.min(e, c + h); if (b1 - b0 > 0.2) bar(c - b0, b0, c - b1, b1);     // u = c - v
+      }
     }
     // 正門 截水溝: a flush stainless grate (~0.3 m) across the end of 中北路, asphalt on the street side,
     // forecourt pavers on the gate side (Google 街景 2024-08 heading 35; ends estimated ±3 m)
@@ -2848,6 +2937,21 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const k = Math.max(d, r.osm.w / 2 + clr) + (r.w - r.osm.w) / 2;
     return [q.q[0] + vx / d * k, q.q[1] + vz / d * k];
   };
+  // ... and off 中北路's green walkway (outside its kerb, see above)
+  const gwR = data.roads.find(q => greenWalk(q)), gwS = gwR && greenWalk(gwR);
+  const offGreen = (x, z, clr) => {
+    if (!gwS) return null;
+    let acc = 0, best = null;
+    for (let i = 0; i < gwR.pts.length - 1 && acc < gwS.d; i++) {
+      const a = gwR.pts[i], b = gwR.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+      const t = Math.max(0, Math.min(Math.min(l, gwS.d - acc), ((x - a[0]) * dx + (z - a[1]) * dz) / l));
+      const qx = a[0] + dx * t / l, qz = a[1] + dz * t / l, d = Math.hypot(x - qx, z - qz);
+      if ((!best || d < best.d) && d > 0.01) best = { d, qx, qz, nx: (x - qx) / d, nz: (z - qz) / d };
+      acc += l;
+    }
+    const k = gwR.w / 2 + GREEN_W + clr;
+    return best && best.d > gwR.w / 2 - 0.5 && best.d < k ? [best.qx + best.nx * k, best.qz + best.nz * k] : null;
+  };
   if (osmRoads !== roadGrid) for (const r of data.roads) { const o = r.osm || r; for (let i = 0; i < o.pts.length - 1; i++) osmRoads.add(o.pts[i][0], o.pts[i][1], o.pts[i + 1][0], o.pts[i + 1][1], o.w, r); }
   // OSM street_lamp nodes where mapped; elsewhere one every 30 m, sides
   // alternating along each road (no lamp within 15 m of an OSM one)
@@ -2898,6 +3002,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // the ones a grade separation takes: under a deck, on a cut's wall, in a lane moved over them
     // ... and the ones a road widened by tools/roads.json now covers move out to its new kerb
     spots = spots.map(p => { const m = offWidened(p[0], p[1], 0.6); return m ? [m[0], m[1], p[2]] : p; });
+    spots = spots.map(p => { const m = offGreen(p[0], p[1], 0.4); return m ? [m[0], m[1], p[2]] : p; });
     spots = spots.filter(([x, z]) => {
       if (laneClear(x, z, roadGrid) && !collision.blocked(x, z, 0.3)) return true;
       gradeGhosts.push([x, z, 0.2]); return false;
@@ -3136,7 +3241,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
     // order, same draws); one that would land in a building, another road or water is hidden
     const moveTree = (p, cr) => {
-      const m = offWidened(p[0], p[1], 1.0);
+      let m = offWidened(p[0], p[1], 1.0);
+      const g = offGreen(m ? m[0] : p[0], m ? m[1] : p[1], 0.8); if (g) m = g;
       if (!m) return false;
       collision.removeCircleAt(p[0], p[1]);
       if (roadGrid.nearest(m[0], m[1]).d < 1.0 || collision.blocked(m[0], m[1], 0.8) || sink.inside(m[0], m[1], 0.8)) return true;

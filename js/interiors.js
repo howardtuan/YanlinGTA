@@ -1955,13 +1955,15 @@ const TEA_ROW = {
   brunch: [-22.4, -17.2, 11], daimen: [-17.2, -13.0, 11], mai: [-7.4, -0.05, 10],
   zaoa: [6.02, 9.3, 10], newera: [9.3, 13.6, 11], dezheng: [13.6, 18.0, 11], yicheng: [18.0, 21.6, 11], zeiss: [21.6, 30.0, 12],
 };
-const TEA_APRON = 2.6; // concrete apron (騎樓 strip) in front of the row, out to the kerb
+// concrete apron (騎樓 strip) in front of the row, out to the kerb of 中北路 (8.5 m wide, tools/roads.json):
+// the facades stand 6.3 m from the street's centre line, 5.9-6.1 m at 大門口 / BRUNCH past the bend
+const TEA_APRON = { brunch: 1.65, daimen: 1.65 }, teaApron = (lot) => TEA_APRON[lot] ?? 2.05;
 export function teaRowFootprints() {
   const { ox, oz, ang } = TEA_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
   const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
-  const r = (x0, x1, d) => [w(x0, -TEA_APRON - 0.2), w(x1, -TEA_APRON - 0.2), w(x1, d + 0.3), w(x0, d + 0.3)];
+  const r = (x0, x1, d, a) => [w(x0, -a - 0.2), w(x1, -a - 0.2), w(x1, d + 0.3), w(x0, d + 0.3)];
   const R = TEA_ROW; // the 193巷 between 大門口 and 麥食堂 stays clear
-  return [r(R.brunch[0] - 0.2, R.daimen[1] + 0.1, 11), r(R.mai[0] - 0.1, R.mai[1], 10), r(R.zaoa[0], R.zeiss[1] + 0.2, 12)];
+  return [r(R.brunch[0] - 0.2, R.daimen[1] + 0.1, 11, teaApron('brunch')), r(R.mai[0] - 0.1, R.mai[1], 10, teaApron('mai')), r(R.zaoa[0], R.zeiss[1] + 0.2, 12, teaApron('zaoa'))];
 }
 const sg = (key, w, h, draw) => ctex(key, w, h, draw, false);
 const ROWT = {
@@ -2293,9 +2295,10 @@ function buildTeaRow(I, scene) {
     k.plane(ROWT.num('175', '風格店 175'), 1.8, 0.3, 2.6, 2.4, -0.06, FRONT);
   }
   // ---------- concrete apron along the shopfronts (the tea shop has its own deck) ----------
+  // (the kerbside 1.8 m of it is 中北路's green walkway, js/map.js: the concrete only fills the rest)
   for (const [lot, a] of Object.entries(TEA_ROW)) {
-    const k = kits[lot], w = a[1] - a[0];
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -TEA_APRON, 0, MR.concrete, { col: false, surface: true });
+    const k = kits[lot], w = a[1] - a[0], d = teaApron(lot) - 1.8;
+    if (d > 0.05) k.box(-0.01, w + 0.01, -0.5, 0.05, -d, 0, MR.concrete, { col: false, surface: true });
   }
   for (const k of Object.values(kits)) k.finish(scene);
 }
@@ -2599,7 +2602,7 @@ export const DAREN_SPEC = {
   angB: Math.atan2(24.5, 41.3),               // +x up 大仁街 towards the gate
   A: { geo: [-6, 0, 10], jd: [-10.2, -6, 10], sw: [-14, -10.2, 10], blue: [-17.8, -14, 10] }, // stop short of the tower behind (f1525)
   B: { elite: [6, 11.5, 9], mahjong: [11.5, 18.5, 9], wonton: [18.5, 22.8, 9], laya: [22.8, 27, 9] }, // 戈登肉鋪 starts past 30
-  cornerB: 6, cornerD: 10.9, apronA: 2.6, apronB: 1.8,
+  cornerB: 6, cornerD: 10.9, apronA: 1.6, apronB: 1.8, // apronA: to the kerb of 中北路 (8.5 m, tools/roads.json)
 };
 const darenFrame = (ang) => { const c = Math.cos(ang), s = Math.sin(ang), { px, pz } = DAREN_SPEC; return (x, z) => [px + x * c - z * s, pz + x * s + z * c]; };
 export function darenFootprints() {
@@ -2877,7 +2880,8 @@ function buildDarenCorner(I, scene) {
   // ---------- concrete aprons along both streets ----------
   {
     const kA = kits[0], kB = kits[1];
-    kA.box(-17.8, 0.3, -0.5, 0.05, -S.apronA, 0, MR.concrete, { col: false, surface: true });
+    // the kerbside 1.8 m along 中北路 is its green walkway (js/map.js): concrete only behind it
+    if (S.apronA > 1.85) kA.box(-17.8, 0.3, -0.5, 0.05, -(S.apronA - 1.8), 0, MR.concrete, { col: false, surface: true });
     kB.box(-0.3, 27, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
   }
   for (const k of kits) k.finish(scene);

@@ -11,6 +11,15 @@
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
   },
   {
+   "way": 26186381,
+   "name": "中北路",
+   "type": "residential",
+   "w": 8.5,
+   "was": 7,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 14 處實測路緣到路緣，另 2 人盲測 8 處複核；正門到 x≈-330 以橫跨全寬的網狀黃線為準約 8.1～8.7 m（一人讀 7.5～7.8），x≈-340～-445 約 9.5～10 m；路中黃實線、兩側白色路邊線，北側路邊停機車；實際中心比 OSM 線偏北約 0.5 m"
+  },
+  {
    "way": 26186388,
    "name": "中北路二段",
    "type": "residential",
@@ -18,6 +27,15 @@
    "was": 7,
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 31127700,
+   "name": "實踐路",
+   "type": "residential",
+   "w": 8.0,
+   "was": 7,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣（約 6.3、8.0、9.0 m，取中位數）；實際中心在 OSM 線西邊約 4 m"
   },
   {
    "way": 41603225,
@@ -578,6 +596,24 @@
    "was": 4.2,
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣；z≈-292 南段縮到約4.5 m"
+  },
+  {
+   "way": 492470710,
+   "name": "中北路165巷",
+   "type": "service",
+   "w": 3.5,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處，屋簷到屋簷約 4.0～4.5 m，地面估約 3～3.5 m"
+  },
+  {
+   "way": 492470711,
+   "name": "中北路193巷",
+   "type": "service",
+   "w": 3.5,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 8 處以上（2 人），屋簷到屋簷大多 2.4～4 m，巷內在陰影裡；沒有標線"
   },
   {
    "way": 492473771,

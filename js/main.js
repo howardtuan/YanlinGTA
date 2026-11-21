@@ -6,9 +6,9 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -131,7 +131,7 @@ class Game {
     const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美', '陽光煎匙', '吉野烤肉飯', '原泰阿杜 音樂餐酒館', '餡實餃色', '桃園中壢大三元麻將會館', "丸冰 maru's ice", '薰衣草-韓式海苔飯捲', '瑞麟美而美', '沐樂食堂', '墨爾漢堡', '晨食司控', '8 Code鬆餅', '功夫温泉', '桌弄', 'Carousel旋轉木馬兒童服飾', '川督極品麻辣臭豆腐', '享玩桌遊', 'AS艾拾金耳采耳專門店', '州味涼麵', '福祿壽囍鯛魚燒', '德式披薩', '六季鮮魚湯', '熊樂火鍋', '一起開丼&Ms.mo 奶酪小姐', '漢堡邦', '宜珍快餐', '艾修通訊', '中福鍋燒麵', 'Master Of Tea 花茶大師', '艾尚豆花', '食麪', '找個地方cafe', '咖喱就好啦', '全家便利商店', '星巴克']); // shop rows on 中北路 / 大仁街 (js/interiors.js buildTeaRow, buildDarenCorner)
     for (const p of data.pois) if (OWN_SIGN.has(p.name)) p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints()];
+    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints(), ...darenGdFootprints()];
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {

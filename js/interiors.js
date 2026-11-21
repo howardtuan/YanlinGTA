@@ -2731,7 +2731,7 @@ function buildGordon(I, scene) {
 //     神威影印社 shen wei · 藍色美而美
 //   along 大仁街 (west side, going towards the gate): 天一影印 / 套房出租 / 天一打字行 in the tall corner building ·
 //     菁英 elite 英日語 (billboard on the roof) · 信義房屋 本透店 for sale · 麻友趣 自助桌遊24H
-//     (mint-green siding, teal window hoods) · 陽光煎匙 · a little reed-roofed kiosk, then the two OSM town houses (f1550, f1551)
+//     (mint-green siding, teal window hoods) · 陽光煎匙; then 原泰阿杜 / 餡實餃色 round the bend (buildDarenGd, below)
 // Two frames share the corner point P (where the two facade lines meet): frame A runs east along 中北路 (the
 // row sits at x < 0), frame B runs up 大仁街 (x > 0); in both z grows away from the street. The corner
 // building is a prism filling the wedge between them (it has no shopfront on 中北路). None is enterable.
@@ -2741,15 +2741,26 @@ export const DAREN_SPEC = {
   angA: Math.atan2(-0.354, 0.935),            // +x east along 中北路
   angB: Math.atan2(24.5, 41.3),               // +x up 大仁街 towards the gate
   A: { geo: [-6, 0, 10], jd: [-10.2, -6, 10], sw: [-14, -10.2, 10], blue: [-17.8, -14, 10] }, // stop short of the tower behind (f1525)
-  B: { elite: [6, 11.5, 9], sinyi: [11.5, 16.5, 9], mahjong: [16.5, 25.5, 9], sunny: [25.5, 31.5, 9], hut: [31.5, 35, 5] }, // B x = metres along 大仁街; the OSM town houses f1550 / f1551 from ~42
+  B: { elite: [6, 11.5, 9], sinyi: [11.5, 16.5, 9], mahjong: [16.5, 25.5, 9], sunny: [25.5, 31.5, 9] }, // B x = metres along 大仁街; 原泰阿杜 (buildDarenGd) takes over from 31.5, round the bend, then 餡實餃色 and the lot at s 57
   cornerB: 6, cornerD: 10.9, apronA: 1.6, apronB: 1.8, // apronA: to the kerb of 中北路 (8.5 m, tools/roads.json)
 };
 const darenFrame = (ang) => { const c = Math.cos(ang), s = Math.sin(ang), { px, pz } = DAREN_SPEC; return (x, z) => [px + x * c - z * s, pz + x * s + z * c]; };
 export function darenFootprints() {
   const S = DAREN_SPEC, a = darenFrame(S.angA), b = darenFrame(S.angB);
   return [
-    [a(-17.9, -S.apronA - 0.2), a(0.3, -S.apronA - 0.2), b(0, -S.apronB - 0.2), b(35.2, -S.apronB - 0.2), b(35.2, 5.3), b(31.7, 9.3), b(S.cornerB, S.cornerD), a(-17.9, 10.3)],
+    [a(-17.9, -S.apronA - 0.2), a(0.3, -S.apronA - 0.2), b(0, -S.apronB - 0.2), b(31.7, -S.apronB - 0.2), b(31.7, 9.3), b(S.cornerB, S.cornerD), a(-17.9, 10.3)],
   ];
+}
+// the red food-photo banner of 原泰阿杜: white panel of dish photos over a red strip (only the phone line is legible)
+function gdBanner(g, w, h, text) {
+  g.fillStyle = '#c91f2b'; g.fillRect(0, 0, w, h); g.fillStyle = '#f6f3ec'; g.fillRect(6, 6, w - 12, h - 58);
+  const r = lcg(w), cols = ['#d98a3a', '#7fae5a', '#c9452e', '#e8c04a', '#a8c97a', '#d96a3a', '#f0dca0', '#8a4a2a'];
+  for (let x = 12, i = 0; x < w - 90; x += 100, i++) {
+    g.fillStyle = cols[i % cols.length]; g.beginPath(); g.ellipse(x + 44, 6 + (h - 58) / 2, 40, 36, 0, 0, 7); g.fill();
+    g.fillStyle = cols[(i * 3 + 2) % cols.length]; g.beginPath(); g.ellipse(x + 44 + r() * 8, 6 + (h - 58) / 2 + 4, 24, 20, 0, 0, 7); g.fill();
+    g.fillStyle = '#d6d2c8'; g.fillRect(x + 6, h - 62, 76, 3);
+  }
+  if (text) { g.fillStyle = '#ffffff'; g.font = font(40); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('預約專線：03-466-7555', w * 0.5, h - 28); }
 }
 const CT = {
   tianyi: () => sg('cnTianyi', 1024, 192, (g) => {
@@ -2852,9 +2863,46 @@ const CT = {
     g.font = font(120); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('陽光煎匙', 280, 135);
     g.font = font(36, 700); g.textAlign = 'right'; g.fillText('手作、新鮮、早午餐', 980, 236);
   }),
-  hutSign: () => sg('cnHutSign', 128, 128, (g) => {
-    g.clearRect(0, 0, 128, 128); g.fillStyle = '#1e1e1e'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill(); g.fillStyle = '#f4f1ea'; g.beginPath(); g.arc(64, 64, 50, 0, 7); g.fill();
-    g.fillStyle = '#1e1e1e'; g.beginPath(); g.arc(50, 58, 6, 0, 7); g.arc(78, 58, 6, 0, 7); g.fill(); g.lineWidth = 5; g.strokeStyle = '#1e1e1e'; g.beginPath(); g.arc(64, 70, 18, 0.2, Math.PI - 0.2); g.stroke();
+  // 原泰阿杜: the round sign (a man in sunglasses), the food-photo banner, the orange-pink brick tile
+  aduSign: () => sg('cnAduSign', 256, 256, (g) => {
+    g.clearRect(0, 0, 256, 256); g.fillStyle = '#17120f'; g.beginPath(); g.arc(128, 128, 126, 0, 7); g.fill();
+    g.fillStyle = '#3b6fa8'; g.beginPath(); g.arc(128, 128, 112, 0, 7); g.fill();
+    g.fillStyle = '#e9a24a'; g.beginPath(); g.arc(128, 128, 112, Math.PI * 0.55, Math.PI * 1.45); g.fill();
+    g.fillStyle = '#e8b48f'; g.beginPath(); g.ellipse(100, 140, 44, 56, 0, 0, 7); g.fill();     // face
+    g.fillStyle = '#1b1613'; g.beginPath(); g.ellipse(100, 98, 52, 30, 0, Math.PI, 0); g.fill(); // hair
+    g.fillRect(52, 98, 14, 40);
+    g.fillStyle = '#0d0d0d'; g.fillRect(64, 124, 34, 22); g.fillRect(102, 124, 34, 22); g.fillRect(96, 130, 10, 5); // sunglasses
+    g.fillStyle = '#7a3a2c'; g.beginPath(); g.ellipse(100, 176, 14, 5, 0, 0, 7); g.fill();
+    g.fillStyle = '#f6efe0'; g.font = font(70); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('阿', 190, 96); g.fillText('杜', 190, 168);
+  }),
+  gdBannerN: () => sg('cnGdBannerN', 1536, 176, (g) => gdBanner(g, 1536, 176, true)),
+  gdBannerC: () => sg('cnGdBannerC', 384, 176, (g) => gdBanner(g, 384, 176, false)),
+  gdBrick: () => ctex('cnGdBrick', 128, 128, (g) => { // 1 m of staggered 25 x 12.5 cm tiles, pale grout (tinted by the material)
+    g.fillStyle = '#f4f1ec'; g.fillRect(0, 0, 128, 128); const r = lcg(131);
+    for (let row = 0; row < 8; row++) for (let c = 0; c < 5; c++) {
+      const x = c * 32 - (row % 2 ? 16 : 0), y = row * 16, v = 188 + r() * 40 | 0;
+      g.fillStyle = `rgb(${v},${v - 8},${v - 14})`; g.fillRect(x + 1.5, y + 1.5, 29, 13);
+    }
+  }),
+  gdPosters: () => sg('cnGdPosters', 128, 96, (g) => {
+    g.fillStyle = '#e9f0f4'; g.fillRect(0, 0, 128, 96); const r = lcg(7);
+    for (let y = 0; y < 3; y++) for (let x = 0; x < 4; x++) { g.fillStyle = ['#4f8fd0', '#f0cf45', '#e8744a', '#8fc7a2'][(x + y * 2) % 4]; g.fillRect(x * 32 + 3, y * 32 + 3, 26, 26); g.fillStyle = '#ffffff'; g.fillRect(x * 32 + 8 + r() * 6, y * 32 + 8, 8, 10); }
+  }),
+  gdStripe: () => ctex('cnGdStripe', 64, 64, (g) => { for (let x = 0; x < 64; x += 16) { g.fillStyle = '#f3f0dc'; g.fillRect(x, 0, 8, 64); g.fillStyle = '#f0cf45'; g.fillRect(x + 8, 0, 8, 64); } }),
+  xsValance: () => sg('cnXsValance', 1024, 128, (g) => {
+    for (let x = 0; x < 1024; x += 64) { g.fillStyle = '#f3f0dc'; g.fillRect(x, 0, 32, 128); g.fillStyle = '#f0cf45'; g.fillRect(x + 32, 0, 32, 128); }
+    g.fillStyle = 'rgba(243,240,220,.85)'; g.fillRect(250, 20, 524, 88);
+    g.fillStyle = '#4a5a8a'; g.font = font(84); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('餡實餃色', 512, 66);
+  }),
+  xsBanner: () => sg('cnXsBanner', 768, 128, (g) => { // red banner with a yellow burst (the small print is unreadable in the photos: left out)
+    g.fillStyle = '#c8202a'; g.fillRect(0, 0, 768, 128); g.fillStyle = '#f2c230'; g.beginPath();
+    for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, rr = i % 2 ? 40 : 60; g.lineTo(100 + Math.cos(a) * rr, 64 + Math.sin(a) * rr); } g.closePath(); g.fill();
+    g.fillStyle = '#f2c230'; g.fillRect(200, 52, 500, 8); g.fillRect(200, 72, 420, 8);
+  }),
+  xsFlag: () => sg('cnXsFlag', 192, 512, (g) => {
+    g.fillStyle = '#f2d24a'; g.fillRect(0, 0, 192, 512); g.strokeStyle = '#b8862a'; g.lineWidth = 6; g.strokeRect(8, 8, 176, 496);
+    g.fillStyle = '#9a3a22'; g.font = font(92); g.textAlign = 'center'; g.textBaseline = 'middle';
+    [...'餡實餃色'].forEach((ch, i) => g.fillText(ch, 96, 70 + i * 100)); g.font = font(30, 700); g.fillText('早午晚餐', 96, 478);
   }),
   reed: () => ctex('cnReed', 64, 64, (g) => { g.fillStyle = '#b58a4a'; g.fillRect(0, 0, 64, 64); const r = lcg(97); for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(${90 + r() * 60 | 0},${60 + r() * 40 | 0},20,.5)`; g.fillRect(r() * 64, 0, 1.5, 64); } }),
 };
@@ -3030,22 +3078,12 @@ function buildDarenCorner(I, scene) {
     }
     ac(k, 0.3, F + 1.2);
   }
-  // ---------- a small reed-roofed kiosk with a round sign, in front of the corner of the OSM town houses (f1550, f1551) ----------
-  {
-    const { k, w, d } = lot('B', 'hut');
-    k.box(0.2, w - 0.2, 0, 2.4, 0.6, d, MR.white);
-    k.box(-0.2, w + 0.2, 2.4, 2.6, -0.8, d, def('cnReedM', () => std({ map: CT.reed() })), { col: false });
-    shopGlass(k, 0.5, w - 0.5, 0, 2.0, ROWT.shop('hut', '#f1e6cc', '#7a5a3a', 89), 0.58);
-    k.box(0.6, 2.2, 0.4, 0.45, -0.5, -0.2, '#b8232a', { col: false });                              // red bench
-    for (const x of [0.65, 2.15]) k.box(x, x + 0.05, 0, 0.4, -0.45, -0.25, '#b8232a', { col: false });
-    blade(k, CT.hutSign(), 0.3, 3.0, 0.7, 0.5);
-  }
   // ---------- concrete aprons along both streets ----------
   {
     const kA = kits[0], kB = kits[1];
     // the kerbside 1.8 m along 中北路 is its green walkway (js/map.js): concrete only behind it
     if (S.apronA > 1.85) kA.box(-17.8, 0.3, -0.5, 0.05, -(S.apronA - 1.8), 0, MR.concrete, { col: false, surface: true });
-    kB.box(-0.3, 35, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
+    kB.box(-0.3, 31.7, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
   }
   finishRow(scene, kits);
 }
@@ -3062,13 +3100,15 @@ function buildDarenCorner(I, scene) {
 export const DAREN_ROAD = [[-225.2, 90.3], [-183.9, 114.8], [-171.0, 157.2], [-167.7, 165.0], [-121.4, 210.9], [-97.7, 233.9], [-79.8, 254.6], [-75.6, 259.8], [-64.6, 270.5], [-60.8, 274.2], [-53.7, 283.3], [-31.8, 301.3], [24.5, 348.8]];
 const DAREN_SET = 4.3, DAREN_APRON = 1.8;
 export const DAREN_ST = {
-  drop: ['f1552', 'f1553', 'f1554', 'f1555', 'f1556', 'f1557', // generic filler houses these lots replace
+  drop: ['f1550', 'f1551', 'f1552', 'f1553', 'f1554', 'f1555', 'f1556', 'f1557', // generic filler houses these lots replace
     'f1549', 'f1559', 'f1542', 'f1543', 'f1544', 'f1545', 'f1546', 'f1547', 'f1548', 'f1526',
     'f1666', 'f1665', 'f1664', 'f1663', 'f1662', 'f1661', 'f1660', 'f1659', 'f1658', 'f1657', 'f1656'],
   lots: [
-    // right side after the OSM town houses f1550 / f1551
-    [60, 64.6, 1, { nf: 5, wall: 'grey', sign: ['原泰阿杜', '#1d1a17', '#e8c27a', '音樂餐酒館'], ground: 'shop', awn: '#2a2522', bal: 'cage' }],
-    [64.6, 69, 1, { nf: 5, wall: 'tile', sign: ['餡實餃色', '#c0392b', '#ffffff'], ground: 'shop', bal: 'grille', hood: '#4aa597' }],
+    // right side after 原泰阿杜 and 餡實餃色 (buildDarenGd, s 48-57). Those two shops are on the old f1550 / f1551 plots (14 and 16
+    // 大仁街, next to 陽光煎匙 at 12), so the two lots below carry no sign: what their real shops are could not be read.
+    [57, 60, 1, { nf: 5, wall: 'grey', sign: null, ground: 'gate', awn: '#1e1e1f', bal: 'grille', hood: '#3f8a6a' }],
+    [60, 64.6, 1, { nf: 5, wall: 'grey', sign: null, ground: 'shop', awn: '#2a2522', bal: 'cage' }],
+    [64.6, 69, 1, { nf: 5, wall: 'tile', sign: null, ground: 'shop', bal: 'grille', hood: '#4aa597' }],
     [69, 75, 1, { nf: 5, wall: 'beige', sign: ['大三元麻將會館', '#8a1414', '#f4c64a'], ground: 'gate', bal: 'cage', vert: ['麻將', '#8a1414', '#f4c64a'] }],
     [75, 80.2, 1, { nf: 4, wall: 'tile', sign: ['丸冰', '#f3f1ec', '#555046', "maru's ice"], ground: 'shop', awn: '#e8e4da', bal: 'grille', hood: '#4aa597' }],
     [80.2, 85.6, 1, { nf: 5, wall: 'grey', sign: null, ground: 'shutter', awn: '#3f8a6a', bal: 'cage', hood: '#4aa597', roof: 'shack' }],
@@ -3224,6 +3264,121 @@ function buildDarenStreet(I, scene) {
     else if (sp.roof === 'tank') k.cyl(w / 2, d - 2, 0.6, top + 0.12, top + 1.5, '#d8d8d0', { seg: 12 });
     k.box(-0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete, { col: false, surface: true });
   });
+  finishRow(scene, kits);
+}
+
+// =====================================================================
+// 原泰阿杜 泰國私廚 (大仁街 14 號) and 餡實餃色 (16 號), where the bend of 大仁街 was filled with the generic OSM houses f1550 / f1551.
+// From Google street view / review photos (2026-01): 12 陽光煎匙 · 14 原泰阿杜 (4 floors of orange-pink brick tile on the
+// corner, reed-fringe awning, red food-photo banner, round sign) · 16 餡實餃色 (3 floors of mustard tile, striped awning, tin
+// frame on the roof). Frame N runs up 大仁街 (B frame, from B x 31.5 where 陽光煎匙 ends); the corner (B x ~42, 42 degrees)
+// is cut by a short chamfer; frame S is the lot frame of the s 52-57 lot, the same facade line as the lots of DAREN_ST.
+// =====================================================================
+const GD_X0 = 31.5, GD_CH = 1.3, GD_DA = 14, GD_DB = 12;
+function darenGdGeom() {
+  const S = DAREN_SPEC, fB = darenFrame(S.angB), [ox, oz] = fB(GD_X0, 0);
+  const lot = darenLotFrame([52, 57, 1]), cs = Math.cos(S.angB), sn = Math.sin(S.angB);
+  const p1 = [(lot.ox - ox) * cs + (lot.oz - oz) * sn, -(lot.ox - ox) * sn + (lot.oz - oz) * cs]; // south end of 原泰阿杜, in frame N
+  const psi = lot.ang - S.angB, t = p1[1] / Math.sin(psi), cx = p1[0] - t * Math.cos(psi);          // corner (cx, 0)
+  const dS = [Math.cos(psi), Math.sin(psi)], nS = [-Math.sin(psi), Math.cos(psi)];
+  const pa = [cx - GD_CH, 0], pb = [cx + GD_CH * dS[0], GD_CH * dS[1]];
+  return { ox, oz, ang: S.angB, lot, p1, psi, cx, pa, pb, dS, nS, pts: [[0, 0], pa, pb, p1, [p1[0] + nS[0] * GD_DA, p1[1] + nS[1] * GD_DA], [0, GD_DA + 1]] };
+}
+export function darenGdFootprints() {
+  const G = darenGdGeom(), c = Math.cos(G.ang), s = Math.sin(G.ang), w = ([x, z]) => [G.ox + x * c - z * s, G.oz + x * s + z * c];
+  const out = [G.dS[1], -G.dS[0]], ap = 2.0, o = (p) => [p[0] + out[0] * ap, p[1] + out[1] * ap];
+  const a = [[0, -ap], [G.cx, -ap], o([G.cx, 0]), o(G.p1), G.pts[4], G.pts[5]].map(w);
+  const L = G.lot, lc = Math.cos(L.ang), ls = Math.sin(L.ang), p = (x, z) => [L.ox + x * lc - z * ls, L.oz + x * ls + z * lc];
+  return [a, [p(-0.1, -DAREN_APRON - 0.2), p(5.1, -DAREN_APRON - 0.2), p(5.1, GD_DB), p(-0.1, GD_DB)]];
+}
+function buildDarenGd(I, scene) {
+  const { MR, FRONT, shopGlass, ac, win, blade, shell } = rowTools();
+  const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
+  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+  const MC = {
+    brick: def('gdBrickM', () => std({ map: CT.gdBrick(), color: '#f0a888' })),
+    mustard: def('gdMustardM', () => std({ map: YHT.facade(), color: '#c08a45' })),
+    reed: def('cnReedM', () => std({ map: CT.reed() })),
+    stripe: def('gdStripeM', () => std({ map: CT.gdStripe(), roughness: 0.7 })),
+    tarp: def('gdTarpM', () => std({ color: '#8f908c', roughness: 0.8 })),
+    corr: def('gdCorrM', () => std({ color: '#7f8fa3', metalness: 0.4, roughness: 0.5 })),
+    hood: def('gdHoodM', () => std({ color: '#1d9a82', roughness: 0.6 })),
+  };
+  const G = darenGdGeom(), kits = [];
+  const kN = new Kit(I, G.ox, G.oz, G.ang); kits.push(kN);
+  const { cx, pa, pb, p1, psi } = G, LN = pa[0], F = 3.3, top = 13.2;
+  // ---------- 原泰阿杜: the building is a prism over the polygon (flat run, chamfer, short run towards 餡實餃色) ----------
+  kN.prism(G.pts, -0.8, top, MC.brick);
+  kN.prism(G.pts, top, top + 0.15, 'gray', { shadow: false });
+  for (let i = 0; i < G.pts.length; i++) { const a = G.pts[i], b = G.pts[(i + 1) % G.pts.length]; kN.wallLine(a[0], a[1], b[0], b[1], 0, top); }
+  const faceRot = (phi) => Math.PI - phi; // plane facing the street from a facade running along angle phi in frame N
+  // banner (food photos, phone line) along the 2F floor line: flat run, then folded round the chamfer
+  kN.box(0.05, LN, 3.2, 4.4, -0.3, 0, '#c91f2b', { col: false });
+  kN.plane(CT.gdBannerN(), LN - 0.1, 1.05, LN / 2, 3.8, -0.31, FRONT, { emissive: 0.3 });
+  const chL = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), chPhi = Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), mid = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2];
+  const nOut = (phi) => [Math.sin(phi), -Math.cos(phi)];
+  { const n = nOut(chPhi); kN.plane(CT.gdBannerC(), chL, 1.05, mid[0] + n[0] * 0.03, 3.8, mid[1] + n[1] * 0.03, faceRot(chPhi), { emissive: 0.3 }); }
+  // windows: iron grilles with an arched green hood, one pair per floor on the flat run, one on the chamfer
+  for (let f = 1; f < 4; f++) {
+    const y = f * F + 1.25;
+    for (const x of [3.2, 6.1]) { win(kN, x, y + 0.9, 1.7, 1.8, true); kN.box(x - 1.0, x + 1.0, y + 1.8, y + 1.9, -0.7, 0, MC.hood, { col: false }); kN.box(x - 1.0, x + 1.0, y - 0.12, y - 0.04, -0.3, 0, '#8a96a2', { col: false }); }
+    const n = nOut(chPhi), wc = Math.min(1.5, chL - 0.4);
+    kN.plane(YHT.win(), wc, 1.8, mid[0] + n[0] * 0.03, y + 0.9, mid[1] + n[1] * 0.03, faceRot(chPhi), {});
+    if (f < 3) ac(kN, 0.35, f * F + 0.3, -0.5);
+  }
+  // ground floor: stair door, wood-framed window, wood door, drinks counter, fence with plants, round sign
+  kN.box(0.1, 1.15, 0, 2.2, -0.06, 0, '#8d8f8a', { col: false });
+  kN.plane(YHT.win(), 0.85, 2.0, 0.62, 1.05, -0.07, FRONT);
+  shopGlass(kN, 1.4, 3.0, 0, 2.2, ROWT.shop('gd', '#f1e6cc', '#7a5a3a', 89), -0.03);
+  for (const x of [1.3, 3.0]) kN.box(x, x + 0.1, 0, 2.3, -0.1, 0, '#6b4a2a', { col: false });
+  kN.box(1.3, 3.1, 2.2, 2.3, -0.1, 0, '#6b4a2a', { col: false });
+  kN.box(3.2, 4.3, 0, 2.15, -0.08, 0, '#4a3322', { col: false });
+  shopGlass(kN, 6.3, LN - 0.2, 0, 2.2, ROWT.shop('gd2', '#efe0c0', '#6b4a2a', 97), -0.03);
+  kN.box(4.5, 6.2, 0, 1.15, -0.95, -0.25, '#dfe6ea', { col: false });                              // drinks counter
+  kN.plane(CT.gdPosters(), 1.6, 1.0, 5.35, 0.62, -0.96, FRONT);
+  kN.box(4.45, 6.25, 1.15, 1.22, -1.0, -0.2, '#7a5a3a', { col: false });
+  kN.box(6.3, LN + 0.1, 0, 1.0, -1.0, -0.94, '#8a6a44', { col: false });                              // wooden fence
+  for (const x of [6.4, 7.3, 8.2, LN]) kN.box(x, x + 0.07, 0, 1.1, -1.02, -0.92, '#6b4a2a', { col: false });
+  for (const [x, z, h] of [[6.7, -0.7, 0.5], [7.6, -0.6, 0.7], [8.5, -0.7, 0.45], [5.0, -1.2, 0.4]]) { kN.cyl(x, z, 0.2, 0, 0.35, '#6b4a2a', { seg: 8 }); kN.cyl(x, z, 0.3, 0.35, 0.35 + h, MR.plant, { r1: 0.38, seg: 8 }); }
+  kN.box(7.0, 8.4, 0.4, 0.45, -0.6, -0.2, '#b8232a', { col: false });                                 // red bench
+  for (const x of [7.05, 8.3]) kN.box(x, x + 0.05, 0, 0.4, -0.55, -0.25, '#b8232a', { col: false });
+  // reed-fringe awning (grey checked tarp on top) and the grey corrugated one round the corner
+  kN.box(1.0, LN + 0.3, 3.0, 3.08, -1.4, 0, MC.tarp, { col: false });
+  kN.box(1.0, LN + 0.3, 2.2, 2.95, -1.42, -1.36, MC.reed, { col: false, tile: [1, 1] });
+  kN.box(1.0, LN + 0.3, 2.9, 3.0, -1.4, 0, MC.reed, { col: false, tile: [1, 1] });
+  { const n = nOut(chPhi), o = 0.8; kN.slab(pa[0] + n[0] * o - 0.5, pa[1] + n[1] * o, pb[0] + n[0] * o + 0.4 * Math.cos(chPhi), pb[1] + n[1] * o + 0.4 * Math.sin(chPhi), 1.6, 2.7, 2.78, MR.roof, { col: false }); }
+  // round sign on a black bar, 2F, at the corner end of the flat run
+  kN.box(LN - 1.3, LN - 1.2, 5.45, 5.95, -1.9, 0, '#2b2b2b', { col: false });                           // black bar
+  kN.plane(CT.aduSign(), 1.5, 1.5, LN - 1.25, 7.0, -1.2, Math.PI + 0.8, { transparent: true, emissive: 0.3 }); // faces up and across the street
+  kN.box(LN - 1.27, LN - 1.23, 5.95, 6.3, -1.25, -1.15, '#2b2b2b', { col: false });
+  // roof: water tank and a tin shed at the back
+  kN.cyl(3.5, 8.5, 0.6, top + 0.15, top + 1.6, '#d8d8d0', { seg: 12 });
+  kN.box(1.5, 6.5, top + 0.15, top + 1.6, 9.5, 13.2, MR.roof, { col: false });
+  // concrete apron round the corner
+  const out = [Math.sin(psi), -Math.cos(psi)], o2 = (p, d) => [p[0] + out[0] * d, p[1] + out[1] * d];
+  kN.box(-0.3, LN, -0.5, 0.05, -1.8, 0, MR.concrete, { col: false, surface: true });
+  kN.prism([pa, [LN, -1.8], [cx, -1.8], o2([cx, 0], 1.8), o2(p1, 1.8), p1, pb], -0.5, 0.05, MR.concrete, { surface: true, shadow: false });
+
+  // ---------- 餡實餃色 (16): 3 floors of mustard tile, striped awning with its name, tin frame on the roof, yellow flag ----------
+  const L = G.lot, kS = new Kit(I, L.ox, L.oz, L.ang); kits.push(kS);
+  const w = 5, d = GD_DB, Fb = 3.1, topB = 6.4;
+  shell(kS, w, d, topB, MC.mustard, [0.6, 0.6]);
+  for (const x of [0, w - 0.12]) kS.box(x, x + 0.12, 0, topB, -0.06, 0, '#b9b6ae', { col: false });
+  for (const x of [1.3, 3.7]) { win(kS, x, Fb + 1.7, 1.2, 1.25, false); kS.box(x - 0.67, x + 0.67, Fb + 1.05, Fb + 1.12, -0.12, 0, '#f0f0ec', { col: false }); }
+  kS.box(0.1, w - 0.1, 2.35, 2.45, -0.05, 0, '#2a2522', { col: false });
+  kS.plane(CT.xsBanner(), w - 0.3, 0.55, w / 2, 1.95, -0.09, FRONT, { emissive: 0.3 });
+  kS.box(-0.1, w + 0.1, 2.62, 2.7, -1.5, 0, MC.stripe, { col: false });                               // awning
+  kS.plane(CT.xsValance(), w - 0.1, 0.45, w / 2, 2.4, -1.52, FRONT, { emissive: 0.25 });
+  kS.box(0.15, 1.5, 0, 2.3, -0.12, 0, '#241f1c', { col: false });                                     // dark entrance with red couplets
+  for (const x of [0.2, 1.3]) kS.box(x, x + 0.1, 0.7, 1.7, -0.14, -0.1, '#c8202a', { col: false });
+  shopGlass(kS, 1.7, w - 0.2, 0, 1.9, ROWT.shop('xs', '#f4e7cf', '#8a6a44', 93), -0.03);
+  kS.box(2.0, w - 0.3, 0, 1.0, -0.7, -0.3, '#cfd3d6', { col: false });                                 // open counter
+  for (const [x, z] of [[0.3, 2.0], [w - 0.4, 2.0], [0.3, 8.0], [w - 0.4, 8.0]]) kS.box(x, x + 0.1, topB, topB + 2.5, z, z + 0.1, '#6a6f75', { col: false });
+  kS.box(-0.1, w + 0.1, topB + 2.5, topB + 2.6, 1.9, 8.2, MC.corr, { col: false });                  // corrugated cover on the tin frame
+  for (const sd of [-1, 1]) kS.plane(CT.xsFlag(), 0.6, 2.2, 0.35 + sd * 0.04, topB - 1.2, -0.65, sd * Math.PI / 2, { emissive: 0.25 });
+  kS.box(0.32, 0.38, topB - 2.3, topB - 0.1, -0.7, -0.6, '#6a6f75', { col: false });
+  kS.box(0.32, 0.38, topB - 0.1, topB - 0.04, -0.7, 0, '#6a6f75', { col: false });
+  kS.box(-0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete, { col: false, surface: true });
   finishRow(scene, kits);
 }
 
@@ -3431,6 +3586,7 @@ export function buildInteriors(scene, data, collision) {
   buildTeaRow(I, scene);
   buildDarenCorner(I, scene);
   buildDarenStreet(I, scene);
+  buildDarenGd(I, scene);
   I.gordon = buildGordon(I, scene);
   I.arena = buildArena(I, scene, Kit, regMat); // 林口體育館 (演唱會, js/concert.js): far off the map
   buildGateExtras(I, scene); // 正門: concrete name wall, campus directory, car park portal, P totem (js/gate_extras.js)

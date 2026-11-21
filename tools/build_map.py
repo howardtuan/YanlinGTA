@@ -2039,6 +2039,11 @@ def main():
         name = t.get('name')
         h = b['floors'] * FLOOR_H + ROOF_H
         o = b['ovr']
+        if o and o.get('move'):   # footprint OSM traced off its place on the orthophoto
+            mx, mz = o['move']
+            pts = [[round(x + mx, 2), round(z + mz, 2)] for x, z in pts]
+            if b.get('holes'):
+                b['holes'] = [[[round(x + mx, 2), round(z + mz, 2)] for x, z in hole] for hole in b['holes']]
         if o and (o.get('floors') or o.get('h')):
             if o.get('floors'):
                 b['floors'] = int(o['floors'])

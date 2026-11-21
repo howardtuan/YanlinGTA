@@ -431,7 +431,7 @@ def apply_marks(out, stats):
     print('roads.json: %d ways marked, %d painted features' % (n, len(feats)))
 
 
-def shift_roads(out, items, by, real, stats, st):
+def shift_roads(out, items, by, real, stats, st, final_w={}):
     """tools/roads.json 'shift' (see its _doc): move an OSM way sideways onto the carriageway the
     orthophoto shows. Each entry gives anchors [x, z, v] near the way: at the anchor's place along
     the way its line moves v metres along (-uz, ux) of the way's direction (+ = the top of an
@@ -543,7 +543,8 @@ def shift_roads(out, items, by, real, stats, st):
             stats['warn'].append('roads.json shift: node shared with grade-separated way %s left alone' % WAY_OF.get(id(r)))
             continue
         # an OSM building / wall the old carriageway was clear of and the moved one runs into
-        hw = r['w'] / 2
+        # (at the width roads.json 'ways' narrows it to afterwards, when that is narrower than OSM's)
+        hw = min(r['w'], final_w.get(WAY_OF.get(id(r)), r['w'])) / 2
         for a0, b0, a, b in zip(r['pts'], r['pts'][1:], new, new[1:]):
             for kind, Pb in real.query(bbox_of([a, b], hw + 1)):
                 d1 = poly_seg_dist(Pb, a, b) if kind == 'b' else seg_seg(Pb[0], Pb[1], a, b)
@@ -660,7 +661,7 @@ def apply_roads(out, stats):
                 real.add(bbox_of([p, q]), ('w', [p, q]))
     st = dict(n=0, capped=[], cut=0, skipped=0, areas=0, fences=0, shifted=0, pushed=0)
     grown = []
-    orig = shift_roads(out, R.get('shift', []), by, real, stats, st)
+    orig = shift_roads(out, R.get('shift', []), by, real, stats, st, {e['way']: e['w'] for e in R['ways']})
     for r in orig:
         side = SIDEWALK if r['type'] in ('primary', 'secondary', 'tertiary') and not (r.get('name') or '').startswith('中北路') else 0.3
         grown.append((r, r['w'] / 2 + (side if side > 0.3 else 1.1)))
@@ -2039,6 +2040,8 @@ def main():
         name = t.get('name')
         h = b['floors'] * FLOOR_H + ROOF_H
         o = b['ovr']
+        if o and o.get('pts'):   # footprint redrawn on the orthophoto (OSM's outline runs into a street)
+            pts = [list(p) for p in o['pts']]
         if o and o.get('move'):   # footprint OSM traced off its place on the orthophoto
             mx, mz = o['move']
             pts = [[round(x + mx, 2), round(z + mz, 2)] for x, z in pts]

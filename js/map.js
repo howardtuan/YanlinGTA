@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { CollisionWorld, SegGrid, pointInPoly } from './collision.js';
+import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from './collision.js';
 import { H, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { buildFurniture } from './furniture.js';
-import { groundTex, facadeTex, shopTex, roofTex, corrugatedTex, concreteTex } from './textures.js';
+import { groundTex, facadeTex, facadeParam, FACP_TYPES, shopTex, roofTex, corrugatedTex, concreteTex } from './textures.js';
 import { plantVegetation } from './vegetation.js';
 
 export function mulberry32(a) {
@@ -105,7 +105,9 @@ const UP = [0, 1, 0];
 class Geo {
   // uvAt: optional [x,z] -> [u,v] for the flat helpers (default: world / 8 m)
   // alpha: colours carry a 4th (alpha) component
-  constructor(drape = false, uvAt = null, alpha = false) { this.p = []; this.n = []; this.c = []; this.uv = []; this.drape = drape; this.uvAt = uvAt; this.alpha = alpha; }
+  constructor(drape = false, uvAt = null, alpha = false) { this.p = []; this.n = []; this.c = []; this.uv = []; this.drape = drape; this.uvAt = uvAt; this.alpha = alpha; this.c2 = null; }
+  // facadeParam walls: every vertex also carries the current accent (.ac) and glass (.gc) colour
+  withAccents() { this.c2 = []; this.c3 = []; this.ac = [1, 1, 1]; this.gc = [0.5, 0.5, 0.5]; return this; }
   tri(a, b, c, col, nrm, uva, uvb, uvc) {
     // a,b,c: [x,y,z]; nrm: desired facing; fix winding
     // col: one [r,g,b] or one per corner [[r,g,b] x3]
@@ -118,6 +120,7 @@ class Geo {
     this.p.push(...a, ...b, ...c);
     this.n.push(...nrm, ...nrm, ...nrm);
     this.c.push(...ca, ...cb, ...cc);
+    if (this.c2) for (let k = 0; k < 3; k++) { this.c2.push(...this.ac); this.c3.push(...this.gc); }
     this.uv.push(...(uva || [0, 0]), ...(uvb || [0, 0]), ...(uvc || [0, 0]));
   }
   // col: one [r,g,b] or one per corner (a,b,c,d)
@@ -177,6 +180,7 @@ class Geo {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, this.alpha ? 4 : 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    if (this.c2) { g.setAttribute('aAccent', new THREE.Float32BufferAttribute(this.c2, 3)); g.setAttribute('aGlass', new THREE.Float32BufferAttribute(this.c3, 3)); }
     g.computeBoundingSphere();
     return new THREE.Mesh(g, mat);
   }
@@ -526,6 +530,12 @@ const STYLE_BY_NAME = {
   '月老宮': 'temple', '桃園白沙屯天上聖母': 'temple', '普忠里福德祠': 'temple', '盧氏宗祠': 'temple', '土地公廟': 'temple', '普仁福德祠(土地公廟)': 'temple',
 };
 const STYLE_PICK = ['tan', 'red', 'white', 'granite', 'brick'];
+// average colour of each PBR atlas: a building:colour tints the atlas by colour / reference
+const PBR_REF = { tan: '#968068', red: '#9e5240', granite: '#a7a6a2', white: '#e2dfd8', brick: '#944634' };
+// facadeParam texels are light grey: vertex colours are scaled up so the wall reads as the given
+// hex, and pulled 15% towards grey (tone mapping otherwise oversaturates strong survey colours)
+const FACP_GAIN = 1.15;
+const lookCol = (hex) => { const c = col(hex), y = (c[0] + c[1] + c[2]) / 3; return c.map(v => (y + (v - y) * 0.85) * FACP_GAIN); };
 const PBR_STYLES = new Set(['tan', 'red', 'granite', 'white', 'brick', 'commercial', 'town', 'temple']);
 const strHash = (s) => { let h = 7; for (const ch of s) h = (h * 31 + ch.codePointAt(0)) | 0; return Math.abs(h); };
 const mulCol = (c, k) => c.map(v => v * k);
@@ -902,10 +912,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     map: t.map, emissiveMap: t.emi, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0, vertexColors: true,
     normalMap: t.normalMap, roughnessMap: t.rm, metalnessMap: t.rm, roughness: 1, metalness: 1, envMapIntensity: o.env ?? 1,
   });
+  // low quality stores the 8x8 facade atlases at 64 px per cell (a quarter of the memory)
+  const texPx = quality === 'low' ? 64 : 128;
   const wallFor = (style, mat) => {
     const k = mat ? style + ':' + mat : style;
     if (!wallGeo[k] && PBR_STYLES.has(style) && !mat) {
-      wallMat[k] = makeWallMat(facadeTex(style));
+      wallMat[k] = makeWallMat(facadeTex(style, texPx));
       wallGeo[k] = new Geo();
     }
     if (!wallGeo[k]) {
@@ -913,6 +925,26 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const shiny = style === 'glass' || mat === 'glass' || mat === 'metal';
       wallMat[k] = new THREE.MeshStandardMaterial({ map: t.map, emissiveMap: t.emi, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0, vertexColors: true, roughness: shiny ? 0.4 : 0.85, metalness: mat === 'metal' ? 0.3 : style === 'glass' ? 0.15 : 0.0 });
       wallGeo[k] = new Geo();
+    }
+    return wallGeo[k];
+  };
+  // tools/looks.json walls: facadeParam atlas (one row per window type). The rm mask's R
+  // channel marks frames / pilasters / louvers (tinted by aAccent), metalness (B) the glass
+  // (tinted by aGlass); everything else keeps the wall's vertex colour.
+  const wallForParam = (base) => {
+    const k = 'facp:' + base;
+    if (!wallGeo[k]) {
+      const m = wallMat[k] = makeWallMat(facadeParam(base, texPx));
+      m.onBeforeCompile = (sh) => {
+        sh.vertexShader = 'attribute vec3 aAccent;\nattribute vec3 aGlass;\nvarying vec3 vAccent;\nvarying vec3 vGlass;\n' + sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n vAccent = aAccent; vGlass = aGlass;');
+        sh.fragmentShader = 'varying vec3 vAccent;\nvarying vec3 vGlass;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+          vec4 lookMask = texture2D(roughnessMap, vRoughnessMapUv);
+          float wA = smoothstep(0.5, 0.9, lookMask.r), wG = (1.0 - wA) * smoothstep(0.25, 0.7, lookMask.b);
+          diffuseColor.rgb = mix(diffuseColor.rgb, sampledDiffuseColor.rgb * vAccent, wA);
+          diffuseColor.rgb = mix(diffuseColor.rgb, sampledDiffuseColor.rgb * vGlass, wG);`);
+      };
+      m.customProgramCacheKey = () => 'facp';
+      wallGeo[k] = new Geo().withAccents();
     }
     return wallGeo[k];
   };
@@ -1066,6 +1098,107 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (lid) roofGeo.tri([cx, y0 + hh, cz], [p0[0], y0 + hh, p0[1]], [p1[0], y0 + hh, p1[1]], lid, UP);
     }
   };
+  // compass directions in map space (x = east, z = south)
+  const R2 = Math.SQRT1_2;
+  const DIRS = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0], ne: [R2, -R2], nw: [-R2, -R2], se: [R2, R2], sw: [-R2, R2] };
+  // does outward normal n face compass direction o (within ~50°, and nearest of o's family)
+  const facing = (n, o) => {
+    const dot = k => n[0] * DIRS[k][0] + n[2] * DIRS[k][1], d = dot(o);
+    return d > 0.64 && (o.length === 1 ? ['n', 'e', 's', 'w'] : ['ne', 'se', 'sw', 'nw']).every(k => dot(k) <= d + 1e-9);
+  };
+  // the footprint edge (>= minLen) whose outward normal is closest to compass direction `on`
+  const wallFacing = (pts, on, minLen = 0) => {
+    const dv = DIRS[on] || DIRS.s;
+    let best = null, bd = -2;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], c = pts[(i + 1) % pts.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
+      if (l < Math.max(minLen, 0.05)) continue;
+      const d = (dz / l) * dv[0] + (-dx / l) * dv[1];
+      if (d > bd) { bd = d; best = [a, c, l, [dz / l, 0, -dx / l]]; }
+    }
+    return best;
+  };
+  // entrance canopy / covered walkway outside the wall facing o.on (looks.json canopy and the
+  // 體育館 entrance_canopy): o.w long (m, along the wall, centred at fraction o.at from its
+  // west end; at 0 = 1 m from that end), o.d deep, eave o.h above the lowest ground under it.
+  // rise > 0: gabled tile roof (roofColour), else a flat slab o.t thick. Posts only, no collider.
+  const canopyAt = (pts, o) => {
+    const best = wallFacing(pts, o.on, o.minLen ?? Math.min(o.w, 6));
+    if (!best) return;
+    let [a, c, l, n] = best;
+    if (c[0] < a[0]) [a, c] = [c, a];  // a = west end
+    const len = Math.min(o.w, l - 2), tx = (c[0] - a[0]) / l, tz = (c[1] - a[1]) / l, D = o.d, eave = o.h, rr = o.rise || 0;
+    if (len < 1) return;
+    const s0 = Math.min(l - 1 - len, Math.max(1, (o.at || 0) * l - len / 2));
+    const at = (s, d) => [a[0] + tx * s + n[0] * d, a[1] + tz * s + n[2] * d];
+    const y = Hmin(...at(s0 + len / 2, D / 2), Math.max(len, D) / 2);
+    const Pq = (s, d, yy) => { const p = at(s0 - 1 + s, d); return [p[0], yy, p[1]]; };
+    const pc = col(o.colour || '#e6e2d8');
+    if (rr > 0) {
+      const rc = col(o.roofColour || '#9a4a3a');
+      rtri(Pq(1, 0, y + eave), Pq(1 + len, 0, y + eave), Pq(1 + len, D / 2, y + eave + rr), rc);
+      rtri(Pq(1, 0, y + eave), Pq(1 + len, D / 2, y + eave + rr), Pq(1, D / 2, y + eave + rr), rc);
+      rtri(Pq(1, D, y + eave), Pq(1 + len, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), rc);
+      rtri(Pq(1, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), Pq(1, D / 2, y + eave + rr), rc);
+      roofGeo.tri(Pq(1, 0, y + eave), Pq(1, D, y + eave), Pq(1, D / 2, y + eave + rr), pc, [-tx, 0, -tz]);
+      roofGeo.tri(Pq(1 + len, 0, y + eave), Pq(1 + len, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), pc, [tx, 0, tz]);
+    } else {
+      const m = at(s0 + len / 2, D / 2 - 0.05), t = o.t || 0.3;
+      ledgeGeo.box(m[0], m[1], Math.atan2(tz, tx), len, D + 0.1, y + eave - t, y + eave, pc);
+    }
+    if (o.posts !== false) for (let s = 1.3; s <= len + 0.8; s += len / Math.max(1, Math.round(len / 4))) {
+      const p = at(s0 - 1 + s, D - 0.3);
+      cylinder(p[0], p[1], H(p[0], p[1]) - 0.2, y + eave - H(p[0], p[1]) + 0.2, 0.18, col(o.postColour || o.colour || '#e6e2d8'), 6);
+    }
+  };
+  // ring offset inwards by d (outward for d < 0); mitred corners, CCW outer / CW courtyard rings
+  const offsetRing = (r, d) => r.map((p, i) => {
+    const q = r[(i - 1 + r.length) % r.length], c = r[(i + 1) % r.length];
+    const nrm = (u, w) => { const dx = w[0] - u[0], dz = w[1] - u[1], l = Math.hypot(dx, dz) || 1; return [dz / l, -dx / l]; };
+    const n1 = nrm(q, p), n2 = nrm(p, c), k = d / Math.max(0.35, 1 + n1[0] * n2[0] + n1[1] * n2[1]);
+    return [p[0] - (n1[0] + n2[0]) * k, p[1] - (n1[1] + n2[1]) * k];
+  });
+  // looks.json roof extras on a flat roof at y = top: boxes (stair cores, skylights, plant
+  // rooms) and rows of solar panels, placed in fractions of the footprint's oriented box
+  const lookRoof = (R, vp, holes, top) => {
+    const f = obb(vp), L = f.u1 - f.u0, W = f.v1 - f.v0;
+    const inRoof = (u, v) => { const p = f.P(u, v); return pointInPoly(p[0], p[1], vp) && !(holes || []).some(hh => pointInPoly(p[0], p[1], hh)); };
+    for (const bx of R.boxes || []) {
+      const [w, d] = bx.size;
+      let u = f.u0 + (bx.at?.[0] ?? 0.5) * L, v = f.v0 + (bx.at?.[1] ?? 0.5) * W;
+      // corner: 'nw' etc. puts the box 1 m inside the oriented-box corner nearest that direction
+      if (bx.corner) {
+        let bs = -Infinity;
+        for (const cu of [f.u0 + w / 2 + 1, f.u1 - w / 2 - 1]) for (const cv of [f.v0 + d / 2 + 1, f.v1 - d / 2 - 1]) {
+          const p = f.P(cu, cv), sc = p[0] * DIRS[bx.corner][0] + p[1] * DIRS[bx.corner][1];
+          if (sc > bs) { bs = sc; u = cu; v = cv; }
+        }
+      }
+      const wc = col(bx.colour || '#cfccc4');
+      roofBox(f, [u - w / 2, u + w / 2, v - d / 2, v + d / 2], top, bx.h ?? 3, wc, bx.topColour ? col(bx.topColour) : wc.map(x => x * 0.8));
+    }
+    if (R.solar) {
+      // panel rows across v every 2.2 m, 1.7 m deep, tilted; 2 m cells kept when all corners
+      // stay 1 m inside the roof, merged into runs along u
+      const S = R.solar === true ? {} : R.solar, [ua, ub] = S.u || [0, 1], [va, vb] = S.v || [0, 1];
+      const pcol = col(S.colour || '#2c3a55'), fcol = col('#9a9c9e'), y0 = top + 0.3, y1 = top + 0.75;
+      for (let v = f.v0 + Math.max(1, va * W); v + 1.7 <= f.v0 + Math.min(W - 1, vb * W); v += 2.2) {
+        let run = null;
+        const flush = () => {
+          if (!run) return;
+          const [u0, u1] = run, A = Q3(f, u0, v, y0), B = Q3(f, u1, v, y0), C = Q3(f, u1, v + 1.7, y1), D = Q3(f, u0, v + 1.7, y1);
+          roofGeo.quad(A, B, C, D, pcol, triN(A, B, C));
+          roofGeo.quad(D, C, Q3(f, u1, v + 1.7, top), Q3(f, u0, v + 1.7, top), fcol, [f.uz, 0, -f.ux].map(x => -x));
+          run = null;
+        };
+        for (let u = f.u0 + Math.max(1, ua * L); u + 2 <= f.u0 + Math.min(L - 1, ub * L); u += 2) {
+          const ok = inRoof(u, v) && inRoof(u + 2, v) && inRoof(u, v + 1.7) && inRoof(u + 2, v + 1.7);
+          if (ok) run = run ? [run[0], u + 2] : [u, u + 2]; else flush();
+        }
+        flush();
+      }
+    }
+  };
   const landmarkRoof = (b, pts, top, rise = 0) => {
     const f = obb(pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
     const inside = (u0, u1, v0, v1) => {
@@ -1112,36 +1245,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       }
     }
     if (b.feature.includes('entrance_canopy')) {
-      // 體育館: Google 街景目視（2017-09）: the main roof is flat with a parapet; the
-      // red-tile gabled roof is the covered walkway at the south-west entrance.
-      // Drawn along the west part of the most south-west facing wall (>= 12 m),
-      // 4 m deep outside it; posts only, no collider (people walk under it).
-      let best = null, bd = -2;
-      for (let i = 0; i < pts.length; i++) {
-        const a = pts[i], c = pts[(i + 1) % pts.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
-        if (l < 12) continue;
-        const d = (dz / l) * -Math.SQRT1_2 + (-dx / l) * Math.SQRT1_2;
-        if (d > bd) { bd = d; best = [a, c, l, [dz / l, 0, -dx / l]]; }
-      }
-      if (best) {
-        let [a, c, l, n] = best;
-        if (c[0] < a[0]) [a, c] = [c, a];  // a = west end
-        const len = Math.min(24, l - 2), tx = (c[0] - a[0]) / l, tz = (c[1] - a[1]) / l, D = 4, eave = 3.2, rr = 1.3;
-        const at = (s, d) => [a[0] + tx * s + n[0] * d, a[1] + tz * s + n[2] * d];
-        const y = Hmin(...at(len / 2, D / 2), Math.max(len, D) / 2);
-        const Pq = (s, d, yy) => { const p = at(s, d); return [p[0], yy, p[1]]; };
-        const rc = col('#9a4a3a'), pc = col('#e6e2d8');
-        rtri(Pq(1, 0, y + eave), Pq(1 + len, 0, y + eave), Pq(1 + len, D / 2, y + eave + rr), rc);
-        rtri(Pq(1, 0, y + eave), Pq(1 + len, D / 2, y + eave + rr), Pq(1, D / 2, y + eave + rr), rc);
-        rtri(Pq(1, D, y + eave), Pq(1 + len, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), rc);
-        rtri(Pq(1, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), Pq(1, D / 2, y + eave + rr), rc);
-        roofGeo.tri(Pq(1, 0, y + eave), Pq(1, D, y + eave), Pq(1, D / 2, y + eave + rr), pc, [-tx, 0, -tz]);
-        roofGeo.tri(Pq(1 + len, 0, y + eave), Pq(1 + len, D, y + eave), Pq(1 + len, D / 2, y + eave + rr), pc, [tx, 0, tz]);
-        for (let s = 1.3; s <= len + 0.8; s += len / Math.round(len / 4)) {
-          const p = at(s, D - 0.3);
-          cylinder(p[0], p[1], H(p[0], p[1]) - 0.2, y + eave - H(p[0], p[1]) + 0.2, 0.18, pc, 6);
-        }
-      }
+      // 體育館: Google 街景目視（2017-09）: the main roof is flat with a parapet. The covered
+      // walkway at the south-west entrance is a long flat orange slab (2026-11 survey: the
+      // red-brown pitched roof to the south is another building).
+      // Drawn along the west part of the most south-west facing wall (>= 12 m), 4 m deep
+      canopyAt(pts, { on: 'sw', minLen: 12, at: 0, w: 24, d: 4, h: 3.2, t: 0.4, colour: '#c8672e', postColour: '#e6e2d8' });
     }
     if (b.feature.includes('stair_drum')) {
       // 體育館: round stair tower (Google 街景目視, 2017-09). POSITION UNVERIFIED: the
@@ -1187,6 +1295,17 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
   };
   const tanks = []; const shopWalls = world.shopWalls = []; let oldSigns = 0;
+  // looks.json colliders (portals, deep fins, recessed floors under an overhang) are added at
+  // the very end of buildWorld: placement loops below test collision.blocked between shared
+  // random draws, so an earlier collider would change how often they draw
+  const lateColl = [];
+  // flat-roof parapet along one edge: ph high, 0.25 m thick
+  const parapetEdge = (a, c, n, y, ph, pc) => {
+    const y1 = y + ph, ix = n[0] * 0.25, iz = n[2] * 0.25;
+    roofGeo.quad([a[0], y, a[1]], [c[0], y, c[1]], [c[0], y1, c[1]], [a[0], y1, a[1]], pc, n);
+    roofGeo.quad([a[0], y1, a[1]], [c[0], y1, c[1]], [c[0] - ix, y1, c[1] - iz], [a[0] - ix, y1, a[1] - iz], pc.map(v => v * 1.05), UP);
+    roofGeo.quad([a[0] - ix, y, a[1] - iz], [c[0] - ix, y, c[1] - iz], [c[0] - ix, y1, c[1] - iz], [a[0] - ix, y1, a[1] - iz], pc.map(v => v * 0.8), [-n[0], 0, -n[2]]);
+  };
   // PBR extras (visual only): concrete floor ledges, soft contact shadows at the wall foot,
   // metal awnings over shopfronts, PBR flat roofs, rooftop AC units, temple roofs
   const ledgeGeo = new Geo(), aoGeo = new Geo(false, null, true), awnGeo = new Geo(), flatRoofGeo = new Geo(false, q => [q[0] / 10, q[1] / 10]);
@@ -1259,27 +1378,204 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       else if (style === 'town') style = 'town';
     }
     const pbr = PBR_STYLES.has(style) && !mk;
-    // textured PBR styles carry their own colour: keep only a subtle per-building variation
+    // textured PBR styles carry their own colour: keep only a subtle per-building variation k;
+    // a building:colour (osmCol) pulls the atlas towards it instead of being dropped
     if (pbr && style !== 'town') {
       const k = style === 'commercial' ? null : 0.9 + rnd2() * 0.14;
-      for (let i = 0; i < 3; i++) tint[i] = k === null ? 0.75 + tint[i] * 0.3 : k;
+      const oc = k !== null && PBR_REF[style] && osmCol(b) ? col(osmCol(b)) : null, ref = oc && col(PBR_REF[style]);
+      for (let i = 0; i < 3; i++) tint[i] = k === null ? 0.75 + tint[i] * 0.3 : oc ? k * (1 + (Math.min(3, Math.max(0.25, oc[i] / Math.max(0.005, ref[i]))) - 1) * 0.65) : k;
     } else if (pbr) for (let i = 0; i < 3; i++) tint[i] = Math.min(1.08, tint[i] * 1.08);
-    const g = wallFor(style, mk);
-    const bay = civic ? 3.6 : 3.0;
+    // tools/looks.json: applied after the legacy pick above, so every shared draw (rnd palette,
+    // rb civic, rnd2 tint) happens exactly as before. Look buildings use the facadeParam atlas.
+    const L = b.look, fp = L ? L.wall?.base || 'tile' : null;
+    if (L) { const wc = lookCol(hexOrNamed(L.wall?.colour) || osmCol(b) || pick); for (let i = 0; i < 3; i++) tint[i] = wc[i]; }
+    const g = fp ? wallForParam(fp) : wallFor(style, mk);
+    const bay = L?.windows?.bay ?? (civic ? 3.6 : 3.0);
     let acc = Math.floor(rnd() * 8) * bay;
+    let colAcc = Math.round(acc / bay);
     const vOff = Math.floor(rnd() * 8) / 8;
     // water stains at the wall foot, slightly darker under the roof line
     const cLo = tint.map(v => v * 0.7), cTop = tint.map(v => v * 0.88);
-    const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass') && !b.parts && !b.noShop;
+    // looks.json noShop (e.g. 溜冰場, 電力中心 are kind town): the shopfront and awning are not
+    // drawn, but the wall stays in shopWalls and its rnd2 draw happens, so furniture.js and
+    // everything after keep their sequences
+    const hideShop = !!L && !!b.noShop;
+    const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass') && !b.parts && (!b.noShop || hideShop);
     let sAcc = Math.floor(rb() * 8) * 4;
     const rc = osmRoofCol(b) ? col(osmRoofCol(b)) : tint.map(v => v * 0.62);
     // flat PBR roofs (concrete roofTex carries its own colour)
     const rcFlat = osmRoofCol(b) ? col(osmRoofCol(b)) : style === 'town' ? tint.map(v => v * 0.82) : tint.map(v => v * 0.9);
-    const pc = !pbr || style === 'town' ? tint.map(v => v * 0.95) : style === 'red' ? col('#e3ddd2') : style === 'tan' ? col('#a39380') : style === 'brick' ? col('#9a5442') : col('#d9d6cf');
+    const pc0 = !pbr || style === 'town' ? tint.map(v => v * 0.95) : style === 'red' ? col('#e3ddd2') : style === 'tan' ? col('#a39380') : style === 'brick' ? col('#9a5442') : col('#d9d6cf');
+    const pc = L?.parapet?.colour ? col(L.parapet.colour) : L ? tint.map(v => v * 0.86) : pc0, ph = L?.parapet?.h ?? 0.6;
+    const rcL = L?.roof?.colour ? col(L.roof.colour) : null;
+    let collPts = pts;  // lookWalls insets it under an overhanging top floor
+    // look.open pad: just above the highest ground under the footprint
+    const padY = L?.open ? Math.max(...pts.map(p => H(p[0], p[1])), H(pts.reduce((s, p) => s + p[0], 0) / pts.length, pts.reduce((s, p) => s + p[1], 0) / pts.length)) + 0.12 : 0;
     const lean2 = opts.low && b.synthetic;
+    // looks.json walls: split at every storey so each maps onto its window-type row of the
+    // facadeParam atlas; plinth / top-floor colours, setbacks, bands, fins and corner piers.
+    // Returns the rings the roof sits on (inset when the top floor steps back).
+    const lookWalls = (V, rings, vh, vf) => {
+      const fl = vh / vf > 2.8 ? (vh - 0.6) / vf : vh / vf, top = base + vh, yF = base + vf * fl, yS = Math.min(base + 1.2, top);
+      const W = L.windows || {}, tf = L.topFloor, tn = tf ? Math.min(vf - 1, tf.floors || 1) : 0, yT = base + (vf - tn) * fl, sb = tn ? tf.setback || 0 : 0;
+      const plTop = L.plinth ? base + (L.plinth.floors != null ? L.plinth.floors * fl : L.plinth.h ?? 1.2) : -Infinity;
+      const gain = lookCol;
+      const plCol = L.plinth?.colour && gain(L.plinth.colour), tfCol = tf?.colour && gain(tf.colour), tfGl = tf?.glass && col(tf.glass);
+      const stripes = L.wall?.stripes && L.wall.stripes.map(gain);
+      const f = obb(V.pts), R = FACP_TYPES.length, NONE = FACP_TYPES.indexOf('none');
+      const lines = [base, yS, plTop, yT, yF]; for (let j = 1; j < vf; j++) lines.push(base + j * fl);
+      // look.open (超巨溜冰場): an open-air pad, not a building. No walls; a kerb and a 1 m steel
+      // railing along the outer ring (the roof is replaced by the pad in the caller)
+      if (L.open) {
+        const kc = col(L.open.kerb || '#9a9a95'), rc2 = col(L.open.rail || '#b8bcbf');
+        const ring = rings[0];
+        for (let i = 0; i < ring.length; i++) {
+          const a = ring[i], c = ring[(i + 1) % ring.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
+          if (l < 0.05) continue;
+          const ang = Math.atan2(dz, dx), mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2;
+          ledgeGeo.box(mx, mz, ang, l + 0.25, 0.25, foot, padY + 0.08, kc);
+          ledgeGeo.box(mx, mz, ang, l, 0.06, padY + 0.95, padY + 1.02, rc2);
+          ledgeGeo.box(mx, mz, ang, l, 0.04, padY + 0.55, padY + 0.6, rc2);
+          for (let s = 0; s < l; s += l / Math.max(1, Math.round(l / 2.5))) ledgeGeo.box(a[0] + dx / l * s, a[1] + dz / l * s, ang, 0.06, 0.06, padY, padY + 0.98, rc2);
+        }
+        return rings;
+      }
+      // corner piers only at the ends of the walls picked by corner.on (else every real corner)
+      const cOn = L.corner?.on ? [].concat(L.corner.on).map(o => wallFacing(V.pts, o, L.corner.minLen ?? 8)).filter(Boolean).map(e => V.pts.indexOf(e[0])) : null;
+      // face overrides: on = compass direction(s) the wall faces, or 'long' / 'short' side. A
+      // wall matches only the nearest direction of each family (n/e/s/w, ne/se/sw/nw), so two
+      // entries such as on [s, e] and [n, w] never both apply to one diagonal wall
+      const matches = (on, n, tx, tz) => !on || [].concat(on).some(o => o === 'long' ? Math.abs(tx * f.ux + tz * f.uz) > 0.8
+        : o === 'short' ? Math.abs(tx * f.ux + tz * f.uz) <= 0.8 : DIRS[o] && facing(n, o));
+      const shade = (t, y) => mulCol(t, y < yS ? 0.7 + 0.3 * Math.max(0, (y - foot) / (yS - foot)) : 1 - 0.12 * Math.min(1, (y - yS) / Math.max(1, top - yS)));
+      const ledge = (a, c, n, l, yc, hh, o, lc) => {
+        const t0 = yc - hh / 2, t1 = yc + hh / 2, A = [a[0] + n[0] * o, a[1] + n[2] * o], C = [c[0] + n[0] * o, c[1] + n[2] * o];
+        ledgeGeo.quad([a[0], t1, a[1]], [c[0], t1, c[1]], [C[0], t1, C[1]], [A[0], t1, A[1]], lc, UP);
+        ledgeGeo.quad([A[0], t0, A[1]], [C[0], t0, C[1]], [C[0], t1, C[1]], [A[0], t1, A[1]], lc, n, [[0, 0], [l / 2, 0], [l / 2, 0.1], [0, 0.1]]);
+        ledgeGeo.quad([a[0], t0, a[1]], [c[0], t0, c[1]], [C[0], t0, C[1]], [A[0], t0, A[1]], mulCol(lc, 0.7), [0, -1, 0]);
+      };
+      const tiers = sb > 0 ? [[rings, foot, yT], [rings.map(r => offsetRing(r, sb)), yT, top]]
+        : sb < 0 ? [[rings.map(r => offsetRing(r, -sb)), foot, yT], [rings, yT, top]] : [[rings, foot, top]];
+      for (const [rs, y0, y1] of tiers) for (const ring of rs) for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], c = ring[(i + 1) % ring.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
+        if (l < 0.05) continue;
+        const tx = dx / l, tz = dz / l, n = [tz, 0, -tx];
+        const fc = Object.assign({}, ...(L.faces || []).filter(o => matches(o.on, n, tx, tz)));
+        const Wf = fc.windows ? { ...W, ...fc.windows } : W;
+        g.ac = gain(fc.accent || Wf.accent || '#e8e6e0');
+        const glassC = col(fc.glass || Wf.glass || '#7f93a3'), wallC = fc.colour ? gain(fc.colour) : tint, bayF = Wf.bay ?? bay;
+        const typeAt = k => (k === 0 && Wf.ground) || (tn && k >= vf - tn && tf.windows) || (Wf.types && Wf.types[Math.min(k, Wf.types.length - 1)]) || Wf.type || 'punched';
+        const nb = l >= bayF * 0.6 ? Math.max(1, Math.round(l / bayF)) : l / bayF;
+        const u0 = colAcc / 8, u1 = (colAcc + nb) / 8; colAcc += Math.ceil(nb);
+        const ys = [y0, y1, ...lines.filter(y => y > y0 + 0.01 && y < y1 - 0.01)].sort((p, q) => p - q);
+        for (let j = 0; j < ys.length - 1; j++) {
+          const ya = ys[j], yb = ys[j + 1], ym = (ya + yb) / 2;
+          if (yb - ya < 0.01) continue;
+          const k = ym < base ? -1 : ym >= yF ? vf : Math.min(vf - 1, Math.floor((ym - base) / fl));
+          const ti = k < 0 || k >= vf || nb < 0.6 ? NONE : FACP_TYPES.indexOf(typeAt(k)), row = ti < 0 ? NONE : ti;
+          const fy = k < 0 ? base - fl : base + k * fl;
+          const v = y => 1 - (row + 1 - Math.min(0.995, Math.max(0.005, (y - fy) / fl))) / R;
+          const inTop = tn && k >= vf - tn && k < vf;
+          const tk = ym < plTop && plCol ? plCol : tfCol && inTop ? tfCol : stripes && !fc.colour && k >= 1 && k < vf ? stripes[(k - 1) % stripes.length] : wallC;
+          g.gc = tfGl && inTop ? tfGl : glassC;
+          const ca = shade(tk, ya), cb = shade(tk, yb);
+          // shift each storey by 3 atlas columns so the lit / blind variants do not line up
+          // into full-height stripes at night
+          const us = k > 0 && k < vf ? (k * 3 % 8) / 8 : 0;
+          g.quad([a[0], ya, a[1]], [c[0], ya, c[1]], [c[0], yb, c[1]], [a[0], yb, a[1]], [ca, ca, cb, cb], n, [[u0 + us, v(ya)], [u1 + us, v(ya)], [u1 + us, v(yb)], [u0 + us, v(yb)]]);
+        }
+        // floor bands / sunshades: { colour | colours (cycled per floor; grade: spread bottom to
+        // top over all the bands of the wall instead), at (fraction of a storey above the slab, or
+        // a list for several per storey), from / to (storeys), every, h, depth, on }
+        for (const bd of L.bands || []) {
+          if (!matches(bd.on, n, tx, tz)) continue;
+          const ys2 = [];
+          for (let j = bd.from ?? 1; j <= (bd.to ?? vf - 1); j += bd.every || 1) for (const at of [].concat(bd.at || 0)) {
+            const y = base + (j + at) * fl;
+            if (y > base + 0.15 && y < top - 0.1) ys2.push([y, j]);
+          }
+          ys2.sort((p, q) => p[0] - q[0]).forEach(([y, j], m) => {
+            if (y <= y0 + 0.15 || y >= Math.min(y1, top) - 0.1) return;
+            const cs = bd.colours, ci = cs && (bd.grade ? Math.min(cs.length - 1, Math.floor(m * cs.length / ys2.length)) : j % cs.length);
+            ledge(a, c, n, l, y, bd.h ?? 0.22, bd.depth ?? 0.25, col(cs ? cs[ci] : bd.colour || '#e9e7e2'));
+          });
+        }
+        // vertical fins / pilasters standing proud of the wall, from storey `from` up
+        for (const fn of L.fins || []) {
+          if (!matches(fn.on, n, tx, tz) || l < fn.spacing * 0.8) continue;
+          const cnt = Math.max(1, Math.round(l / fn.spacing)), d = fn.depth ?? 0.5, fc2 = col(fn.colour || '#e9e7e2');
+          const ya = Math.max(y0, base + (fn.from ?? 1) * fl), yb = Math.min(y1, fn.to != null ? base + fn.to * fl : top);
+          if (yb - ya < 0.5) continue;
+          for (let k = fn.ends ? 0 : 0.5; k <= cnt - (fn.ends ? 0 : 0.5) + 1e-6; k++) {
+            const sp = k * l / cnt, x = a[0] + tx * sp + n[0] * d / 2, z = a[1] + tz * sp + n[2] * d / 2;
+            ledgeGeo.box(x, z, Math.atan2(tz, tx), fn.t ?? 0.2, d, ya, yb, fc2);
+          }
+          // deep fins reaching the ground: walking stops at their outer edge, not inside them
+          if (ya < base + 1.5 && d >= 0.5 && ring === rings[0]) lateColl.push(() => collision.addSegment(a[0] + n[0] * d, a[1] + n[2] * d, c[0] + n[0] * d, c[1] + n[2] * d));
+        }
+        // corner piers: a column on every real corner of the outer ring
+        if (L.corner && ring === rs[0] && (!cOn || cOn.includes(i) || cOn.includes((i - 1 + ring.length) % ring.length))) {
+          const q = ring[(i - 1 + ring.length) % ring.length], ex = a[0] - q[0], ez = a[1] - q[1], el = Math.hypot(ex, ez) || 1;
+          if (Math.abs(ex / el * tz - ez / el * tx) > 0.42) {
+            const w = L.corner.w ?? 0.9;
+            ledgeGeo.box(a[0], a[1], Math.atan2(tz, tx), w, w, Math.max(y0, base + (L.corner.from ?? 0) * fl), y1 === top ? top + ph : y1, col(L.corner.colour || '#e9e7e2'));
+          }
+        }
+      }
+      if (!sb) return rings;
+      // overhang: walking reaches the recessed lower walls
+      if (sb < 0 && V.pts === pts) collPts = offsetRing(pts, -sb);
+      // setback (> 0): terrace deck + railing around the stepped-back top floors;
+      // overhang (< 0): soffit under the projecting top floors
+      const inner = rings.map(r => offsetRing(r, Math.abs(sb)));
+      rings.forEach((ring, ri) => ring.forEach((a, i) => {
+        const c = ring[(i + 1) % ring.length], a2 = inner[ri][i], c2 = inner[ri][(i + 1) % ring.length];
+        const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) return;
+        const n = [dz / l, 0, -dx / l], P = (p, y) => [p[0], y, p[1]];
+        if (sb > 0) {
+          flatRoofGeo.quad(P(a, yT), P(c, yT), P(c2, yT), P(a2, yT), rcL || mulCol(tint, 0.85), UP, [a, c, c2, a2].map(p => [p[0] / 10, p[1] / 10]));
+          parapetEdge(a, c, n, yT, 1.0, pc);
+        } else roofGeo.quad(P(a2, yT), P(c2, yT), P(c, yT), P(a, yT), mulCol(tint, 0.6), [0, -1, 0]);
+      }));
+      return sb > 0 ? inner : rings;
+    };
+    // looks.json portal: a frontispiece standing P.d proud of the wall facing P.on, its face
+    // mapped to the arch row stretched over P.floors storeys, one arch per P.arches
+    // near [x, z]: use the wall facing P.on closest to that point (any length; w shrinks to fit)
+    const lookPortal = (P0) => {
+      let best = null;
+      if (P0.near) {
+        let bd = Infinity;
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i], c = pts[(i + 1) % pts.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]);
+          if (l < 2) continue;
+          const n = [(c[1] - a[1]) / l, 0, -(c[0] - a[0]) / l], q = closestOnSeg(P0.near[0], P0.near[1], a[0], a[1], c[0], c[1]), dd = Math.hypot(q[0] - P0.near[0], q[1] - P0.near[1]);
+          if (n[0] * DIRS[P0.on][0] + n[2] * DIRS[P0.on][1] > 0.3 && dd < bd) { bd = dd; best = [a, c, l, n]; }
+        }
+      } else best = wallFacing(pts, P0.on, P0.w + 2);
+      if (!best) return;
+      const P = { ...P0, w: Math.min(P0.w, best[2] - 0.2) };
+      const [a, c, l, n] = best, tx = (c[0] - a[0]) / l, tz = (c[1] - a[1]) / l, d = P.d ?? 0.6, top = base + h;
+      const fl = h / floors > 2.8 ? (h - 0.6) / floors : h / floors, yA = base + (P.floors || 1) * fl, yt = top + (P.rise ?? 0.6);
+      const s0 = Math.min(l - P.w, Math.max(0, (P.at ?? 0.5) * l - P.w / 2));
+      const p = (sv, o) => [a[0] + tx * sv + n[0] * o, a[1] + tz * sv + n[2] * o];
+      const A = p(s0, d), C = p(s0 + P.w, d), A0 = p(s0, 0), C0 = p(s0 + P.w, 0);
+      g.ac = lookCol(P.accent || L.windows?.accent || '#8a5a45'); g.gc = col('#7f93a3');
+      const tc = P.colour ? lookCol(P.colour) : tint, R = FACP_TYPES.length, AR = FACP_TYPES.indexOf(P.type || 'arch'), NO = FACP_TYPES.indexOf('none');
+      const v = (row, t) => 1 - (row + 1 - Math.min(0.995, Math.max(0.005, t))) / R;
+      const Q = (P0, P1, ya, yb, row, ta, tb, u1, nn) => g.quad([P0[0], ya, P0[1]], [P1[0], ya, P1[1]], [P1[0], yb, P1[1]], [P0[0], yb, P0[1]],
+        [mulCol(tc, 0.8), mulCol(tc, 0.8), tc, tc].map((q, i) => i < 2 && ya > base ? tc : q), nn, [[0, v(row, ta)], [u1, v(row, ta)], [u1, v(row, tb)], [0, v(row, tb)]]);
+      Q(A, C, foot, base, NO, 1 - (base - foot) / fl, 1, P.w / bay / 8, n);
+      Q(A, C, base, yA, AR, 0, 1, (P.arches || 3) / 8, n);
+      Q(A, C, yA, yt, NO, 0, (yt - yA) / fl, P.w / bay / 8, n);
+      Q(A0, A, foot, yt, NO, 0, 1, d / bay / 8, [-tx, 0, -tz]);
+      Q(C, C0, foot, yt, NO, 0, 1, d / bay / 8, [tx, 0, tz]);
+      roofGeo.quad([A0[0], yt, A0[1]], [C0[0], yt, C0[1]], [C[0], yt, C[1]], [A[0], yt, A[1]], pc, UP);
+      lateColl.push(() => collision.addPolygon([A0, C0, C, A], yt));
+    };
     // blocks of different height (overrides.json split, e.g. 全人教育村) share the base
     const vols = b.parts || [{ pts, h, floors, holes: b.holes }];
-    let pitched = false, onMain = false;
+    let pitched = false, pitchedV = false, onMain = false;
     for (const V of vols) {
       const vp = V.pts, vh = V.h, vf = V.floors || floors;
       // outer ring is CCW, courtyard rings CW, so the same normal faces outwards
@@ -1298,7 +1594,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         if (shop) {
           // 4 m shop bays; u runs right-to-left along the ring so signs read correctly
           const s0 = -sAcc / 32, s1 = -(sAcc + l) / 32, w0 = (foot - base) / 3.6, w1 = (yS - base) / 3.6; sAcc += l;
-          shopGeo.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [SHOP_LO, SHOP_LO, SHOP_HI, SHOP_HI], n,
+          if (!hideShop) shopGeo.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [SHOP_LO, SHOP_LO, SHOP_HI, SHOP_HI], n,
             [[s0, w0], [s1, w0], [s1, w1], [s0, w1]]);
           // street-facing shop walls: furniture.js hangs POI signs and parks scooters here
           shopWalls.push({ a, c, n, base, h, floors, bi });
@@ -1307,21 +1603,23 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
             const o = 1.25, y0 = base + 3.2, y1 = base + 2.85;
             const A0 = [a[0], y0, a[1]], C0 = [c[0], y0, c[1]], A1 = [a[0] + n[0] * o, y1, a[1] + n[2] * o], C1 = [c[0] + n[0] * o, y1, c[1] + n[2] * o];
             const ac = col(['#6d7a86', '#8a8f94', '#3f6f9f', '#a8a39a', '#4f7a5a'][Math.floor(rnd2() * 5)]);
-            awnGeo.quad(A0, C0, C1, A1, ac, [n[0] * 0.3, 0.95, n[2] * 0.3], [[0, 0], [l / 3, 0], [l / 3, 0.4], [0, 0.4]]);
-            awnGeo.quad(A0, C0, C1, A1, mulCol(ac, 0.6), [-n[0] * 0.3, -0.95, -n[2] * 0.3], [[0, 0], [l / 3, 0], [l / 3, 0.4], [0, 0.4]]);
+            if (!hideShop) {
+              awnGeo.quad(A0, C0, C1, A1, ac, [n[0] * 0.3, 0.95, n[2] * 0.3], [[0, 0], [l / 3, 0], [l / 3, 0.4], [0, 0.4]]);
+              awnGeo.quad(A0, C0, C1, A1, mulCol(ac, 0.6), [-n[0] * 0.3, -0.95, -n[2] * 0.3], [[0, 0], [l / 3, 0], [l / 3, 0.4], [0, 0.4]]);
+            }
           }
           if (!LANE_TYPES.has(shop.type)) onMain = true;
-        } else {
+        } else if (!fp) {
           g.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [cLo, cLo, tint, tint], n,
             [[u0, vAt(foot)], [u1, vAt(foot)], [u1, vAt(yS)], [u0, vAt(yS)]]);
         }
-        if (top > yS + 0.01) g.quad([a[0], yS, a[1]], [c[0], yS, c[1]], [c[0], top, c[1]], [a[0], top, a[1]], [tint, tint, cTop, cTop], n,
+        if (!fp && top > yS + 0.01) g.quad([a[0], yS, a[1]], [c[0], yS, c[1]], [c[0], top, c[1]], [a[0], top, a[1]], [tint, tint, cTop, cTop], n,
           [[u0, vAt(yS)], [u1, vAt(yS)], [u1, vAt(top)], [u0, vAt(top)]]);
         // the old fixed-word signs are gone (POI signs in furniture.js); their
         // draws stay so the shared rnd sequence (stalls, trees...) is unchanged
         if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && oldSigns < 260) { oldSigns++; rnd(); }
         // horizontal floor ledges give campus blocks real depth and shadow lines
-        if ((style === 'tan' || style === 'red' || style === 'white') && vh > 6) {
+        if (!fp && (style === 'tan' || style === 'red' || style === 'white') && vh > 6) {
           const fl = vh / vf;
           for (let fy = base + fl; fy < top - 1; fy += fl) {
             const o = style === 'white' ? 0.22 : 0.32, t0 = fy - 0.1, t1 = fy + 0.12;
@@ -1334,25 +1632,37 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
         if (ring === pts && !lean2) contactShadow(a, c, n);
       }
-      pitched = !b.parts && pitchedRoof(b, vp, top, rc, tint.map(v => v * 0.85));
-      if (!pitched) flatRoofGeo.flatPoly(vp, top, rcFlat, V.holes);
+      const rr = fp ? lookWalls(V, rings, vh, vf) : rings;
+      // looks.json roof.shape: a pitched roof drawn for looks only; `pitched` keeps the OSM
+      // value because it gates shared rnd / rnd2 draws further down
+      const shapeB = L?.roof?.shape && !b.roof ? { ...b, roof: L.roof.shape, roofH: L.roof.rise ?? b.roofH } : b;
+      const pv = !b.parts && pitchedRoof(shapeB, vp, top, rcL || rc, tint.map(v => v * 0.85));
+      pitched = shapeB === b ? pv : false; pitchedV = pv;
+      if (L?.open) { flatRoofGeo.flatPoly(vp, padY, col(L.open.floor || '#c9c9c4'), V.holes); continue; }
+      if (!pv) flatRoofGeo.flatPoly(rr[0], top, rcL || rcFlat, rr.length > 1 ? rr.slice(1) : V.holes);
+      if (!pv && L?.roof && !b.parts) lookRoof(L.roof, rr[0], rr.slice(1), top);
       // parapet
-      if (!pitched) for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+      if (!pv && ph > 0) for (const ring of rr) for (let i = 0; i < ring.length; i++) {
         const a = ring[i], c = ring[(i + 1) % ring.length];
         const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) continue;
-        const n = [dz / l, 0, -dx / l];
-        roofGeo.quad([a[0], top, a[1]], [c[0], top, c[1]], [c[0], top + 0.6, c[1]], [a[0], top + 0.6, a[1]], pc, n);
-        roofGeo.quad([a[0], top + 0.6, a[1]], [c[0], top + 0.6, c[1]], [c[0] - n[0] * 0.25, top + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, top + 0.6, a[1] - n[2] * 0.25], pc.map(v => v * 1.05), UP);
-        roofGeo.quad([a[0] - n[0] * 0.25, top, a[1] - n[2] * 0.25], [c[0] - n[0] * 0.25, top, c[1] - n[2] * 0.25], [c[0] - n[0] * 0.25, top + 0.6, c[1] - n[2] * 0.25], [a[0] - n[0] * 0.25, top + 0.6, a[1] - n[2] * 0.25], pc.map(v => v * 0.8), [-n[0], 0, -n[2]]);
+        parapetEdge(a, c, [dz / l, 0, -dx / l], top, ph, pc);
       }
     }
     const top = base + h;
     if (b.feature) landmarkRoof(b, pts, top, pitched);
+    if (L) {
+      for (const cp of L.canopy || []) canopyAt(pts, cp);
+      if (L.portal) lookPortal(L.portal);
+    }
     // rooftop extras on flat town roofs: 鐵皮加蓋 35% (lanes) / 15% (shops on a
     // main road), ~30% stair house (see SHED_P)
     let extraH = 0, tankAt = null;
     // low quality: no rooftop extras on the 補建街區 fill
     const lean = opts.low && b.synthetic;
+    // looks.json roof.extras false / a look pitched roof: the town stair house, shed and tank
+    // are not drawn, but their rb / rnd draws and extraH (which gates the AC rnd2 draws) stay
+    // as they were; only the collision top ignores the hidden extras
+    const noX = !!L && (L.roof?.extras === false || !!pitchedV);
     if (b.kind === 'town' && !pitched && !b.holes && floors >= 2 && !lean) {
       const f = obb(pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
       const inside = (u0, u1, v0, v1) => [[u0, v0], [u1, v0], [u1, v1], [u0, v1], [(u0 + u1) / 2, (v0 + v1) / 2]].every(([u, v]) => { const p = f.P(u, v); return pointInPoly(p[0], p[1], pts); });
@@ -1362,7 +1672,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (wantStair && L > 6 && W > 4.5) {
         const s = [f.u1 - 3.7, f.u1 - 0.7, f.v0 + 0.7, f.v0 + 3.3];
         if (inside(...s)) {
-          st = s; roofBox(f, s, top, 2.9, tint.map(v => v * 0.92), rc); extraH = 2.9;
+          st = s; if (!noX) roofBox(f, s, top, 2.9, tint.map(v => v * 0.92), rc); extraH = 2.9;
           const p = f.P((s[0] + s[1]) / 2, (s[2] + s[3]) / 2); tankAt = [p[0], top + 2.3, p[1]];
         }
       }
@@ -1371,7 +1681,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         if (st) su1 = Math.min(su1, st[0] - 0.5);
         const s = [f.u0 + 0.7, su1, f.v0 + 0.7, f.v1 - 0.7];
         if (s[1] - s[0] > 3 && inside(...s)) {
-          extraH = Math.max(extraH, shed(f, s, top, rb));
+          extraH = Math.max(extraH, noX ? 3.1 : shed(f, s, top, rb));
           if (!tankAt) {
             // tank on the free end of the roof, or none if the shed fills it
             const p = f.P((su1 + f.u1) / 2, (f.v0 + f.v1) / 2);
@@ -1382,17 +1692,21 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     if (!lean && b.kind === 'town' && rnd() < 0.55 && !pitched) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-      if (pointInPoly(cx, cz, pts)) { const p = [cx + (rnd() - .5), top, cz + (rnd() - .5)]; if (tankAt !== false) tanks.push(tankAt || p); }
+      if (pointInPoly(cx, cz, pts)) { const p = [cx + (rnd() - .5), top, cz + (rnd() - .5)]; if (tankAt !== false && !noX) tanks.push(tankAt || p); }
     }
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
     // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
-    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null });
+    // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
       collision.addPolygon(pts, -Infinity);
       for (const V of b.parts) collision.addPolygon(V.pts, base + V.h + 0.6);
-    } else collision.addPolygon(pts, Math.max(pitched ? top + pitched : top + 0.6, top + extraH));
+    } else {
+      const pi = collision.addPolygon(pts, L?.open ? padY + 1.1 : Math.max(pitched ? top + pitched : top + 0.6, noX ? -Infinity : top + extraH, pitchedV ? top + pitchedV : -Infinity));
+      if (collPts !== pts) lateColl.push(() => collision.insetPolygon(pi, collPts));
+    }
     if (b.name) {
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
       world.named[b.name] = { x: cx, z: cz, h, base, b };
@@ -1424,7 +1738,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // rooftop AC condensers in rows, vent stacks
   {
     const acGeo = new Geo();
-    for (const { pts, top: top0, town, parts } of acSpots) {
+    for (const { pts, top: top0, town, parts, skip } of acSpots) {
       let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
       const n = Math.min(14, Math.floor((x1 - x0) * (z1 - z0) / (town ? 120 : 90)));
       for (let k = 0; k < n; k++) {
@@ -1433,8 +1747,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         // split roof: the block under the unit; a unit across a block edge is dropped (its draws stay)
         const blk = parts && [[x, z], [x + 1.2, z + 1.2], [x - 1.2, z - 1.2]].map(([qx, qz]) => parts.find(([p]) => pointInPoly(qx, qz, p)));
         const top = !parts ? top0 : blk[0] && blk.every(q => q === blk[0]) ? blk[0][1] : null;
-        if (rnd2() < 0.25) { const a = rnd2() * 3; if (top !== null) acGeo.box(x, z, a, 0.5, 0.5, top, top + 1.1, col('#8f9497')); }
-        else if (top !== null) { acGeo.box(x, z, 0, 1.0, 0.7, top, top + 0.75, col('#e4e3de')); acGeo.box(x + 1.15, z, 0, 1.0, 0.7, top, top + 0.75, col('#dedcd6')); }
+        if (rnd2() < 0.25) { const a = rnd2() * 3; if (top !== null && !skip) acGeo.box(x, z, a, 0.5, 0.5, top, top + 1.1, col('#8f9497')); }
+        else if (top !== null && !skip) { acGeo.box(x, z, 0, 1.0, 0.7, top, top + 0.75, col('#e4e3de')); acGeo.box(x + 1.15, z, 0, 1.0, 0.7, top, top + 0.75, col('#dedcd6')); }
       }
     }
     if (acGeo.tris) { const am = acGeo.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.3 })); am.castShadow = quality !== 'low'; scene.add(am); world.tris.ac = acGeo.tris; }
@@ -2393,6 +2707,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       l.visible = d < 230;
     }
   };
+  for (const f of lateColl) f();
   return world;
 }
 

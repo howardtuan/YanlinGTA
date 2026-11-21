@@ -23,6 +23,14 @@ named extras drawn by js/map.js) and split (cut one footprint into blocks of
 different heights). The 'landmarks' section describes the hand-built landmarks
 in js/map.js and is copied to cycu.json without its source/note fields.
 
+tools/looks.json holds per-building facade looks for the campus (wall finish and
+colour, window type per storey, bands, plinth, fins, canopies, roof extras; see its
+_doc), keyed by OSM id, each entry with its own source and confidence. Its 'look'
+object is copied to the building as 'look' (js/map.js reads it); 'noShop' is
+copied as a plain field. Entries with 'skip' (a reason) are survey data only and
+are not merged. Kept apart from overrides.json so looks and sizes can
+be edited independently.
+
 tools/block_survey.json (地圖寫實化 7) classifies the blank blocks OSM leaves
 empty (by eye, Google 街景 / 衛星; text only). fill_blocks() turns each block's
 'plan' into deterministic synthetic buildings / ground / 鐵皮圍籬 marked
@@ -38,6 +46,7 @@ import json, math, os, re, hashlib, random
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'osm_raw.json')
 OVR = os.path.join(HERE, 'overrides.json')
+LOOKS = os.path.join(HERE, 'looks.json')
 DST = os.path.join(HERE, '..', 'data', 'cycu.json')
 
 LAT0, LON0 = 24.9580, 121.2425
@@ -373,6 +382,17 @@ def build_levels(sites):
             out['pads'].append(dict({k: v for k, v in p.items() if k != 'pts'}, site=name, pts=[w(q) for q in p['pts']]))
         for st in site.get('stairs', []):
             out['stairs'].append(dict({k: v for k, v in st.items() if k not in ('a', 'b')}, site=name, a=w(st['a']), b=w(st['b'])))
+    return out
+
+
+def load_looks():
+    """tools/looks.json buildings: {osm id: {name, source, confidence, look, noShop?}}."""
+    if not os.path.exists(LOOKS):
+        return {}
+    out = json.load(open(LOOKS, encoding='utf8')).get('buildings', {})
+    for oid, e in out.items():
+        if not e.get('source') or not e.get('confidence'):
+            raise SystemExit('looks.json %s (%s): every entry needs source and confidence' % (oid, e.get('name')))
     return out
 
 
@@ -1358,6 +1378,8 @@ def main():
     ovr_all = load_overrides()
     ovr = ovr_all.get('buildings', [])
     used_ovr = set()
+    looks = load_looks()
+    used_looks = set()
 
     def find_ovr(b):
         oid, name = osm_id(b['e']), b['t'].get('name')
@@ -1457,10 +1479,21 @@ def main():
                 rec['h'] = max(q['h'] for q in rec['parts'])
                 if o['split'].get('ac'):
                     rec['splitAc'] = 1   # js/map.js: keep the unsplit roof's AC units
+        lk = looks.get(oid)
+        if lk:
+            used_looks.add(oid)
+        if lk and not lk.get('skip'):
+            if lk.get('look'):
+                rec['look'] = lk['look']
+            if 'noShop' in lk:
+                rec['noShop'] = lk['noShop']
         out['buildings'].append(rec)
     for i, o in enumerate(ovr):
         if i not in used_ovr:
             stats['warn'].append('override not matched: %s' % (o.get('osm') or o.get('name')))
+    for oid in looks:
+        if oid not in used_looks:
+            stats['warn'].append('looks.json entry not matched: %s %s' % (oid, looks[oid].get('name', '')))
 
     # ---- everything else ----
     seen = set()

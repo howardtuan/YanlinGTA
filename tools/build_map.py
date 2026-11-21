@@ -47,6 +47,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, 'osm_raw.json')
 OVR = os.path.join(HERE, 'overrides.json')
 LOOKS = os.path.join(HERE, 'looks.json')
+WATER = os.path.join(HERE, 'water.json')
 DST = os.path.join(HERE, '..', 'data', 'cycu.json')
 
 LAT0, LON0 = 24.9580, 121.2425
@@ -394,6 +395,72 @@ def load_looks():
         if not e.get('source') or not e.get('confidence'):
             raise SystemExit('looks.json %s (%s): every entry needs source and confidence' % (oid, e.get('name')))
     return out
+
+
+def apply_water(out, stats):
+    """tools/water.json (see its _doc): fix water areas (kind / outline) and attach
+    'sink' (sunk water, banks, railings for js/map.js) to areas and waterway segments.
+    Runs after the block fill and grade so neither moves."""
+    if not os.path.exists(WATER):
+        return
+    W = json.load(open(WATER, encoding='utf8'))
+    for e in W.get('areas', []) + W.get('ways', []):
+        if not e.get('source') or not e.get('confidence'):
+            raise SystemExit('water.json %s: every entry needs source and confidence' % (e.get('name') or e.get('near') or e.get('along')))
+    for e in W.get('areas', []):
+        best, bd = None, 25.0
+        for a in out['areas']:
+            if a['kind'] != 'water' or a.get('synthetic') or ('name' in e and a.get('name') != e['name']):
+                continue
+            n = len(a['pts'])  # vertex mean (what the survey quoted)
+            d = math.hypot(sum(p[0] for p in a['pts']) / n - e['near'][0], sum(p[1] for p in a['pts']) / n - e['near'][1])
+            if d < bd:
+                best, bd = a, d
+        if best is None:
+            stats['warn'].append('water.json area not matched: %s %s' % (e.get('name', ''), e['near']))
+            continue
+        if 'pts' in e:
+            best['pts'] = [[float(x), float(z)] for x, z in e['pts']]
+        if 'kind' in e:
+            best['kind'] = e['kind']
+            best['was'] = 'water'  # trees keep off it as before (js/map.js), so no other tree moves
+        if 'sink' in e:
+            best['sink'] = e['sink']
+
+    def seg_d(px, pz, a, b):
+        dx, dz = b[0] - a[0], b[1] - a[1]; l2 = dx * dx + dz * dz or 1
+        t = max(0.0, min(1.0, ((px - a[0]) * dx + (pz - a[1]) * dz) / l2))
+        return math.hypot(px - a[0] - dx * t, pz - a[1] - dz * t)
+
+    def spec_at(px, pz):
+        best, bd = None, 25.0
+        for e in W.get('ways', []):
+            L = e['along']
+            d = min(seg_d(px, pz, L[i], L[i + 1]) for i in range(len(L) - 1))
+            if d < bd:
+                best, bd = e, d
+        return best
+
+    KEYS = ('w', 'top', 'drop', 'bank', 'mat', 'rail')
+    ways, n_cov = [], 0
+    for w in out['waterways']:
+        run = None  # consecutive segments with the same spec become one waterway
+        for a, b in zip(w['pts'], w['pts'][1:]):
+            e = spec_at((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) if w['w'] < 10 else None  # rivers are not in the survey
+            if e is not None and e.get('covered'):
+                run = None; n_cov += 1
+                continue
+            if run is None or run[0] is not e:
+                nw = dict(pts=[a, b], w=w['w'])
+                if e is not None:
+                    nw['w'] = e['w']
+                    nw['sink'] = {k: e[k] for k in KEYS if k in e and k != 'w'}
+                ways.append(nw); run = (e, nw)
+            else:
+                run[1]['pts'].append(b)
+    out['waterways'] = ways
+    stats['water'] = '%d sunk areas, %d sunk waterways, %d covered segments dropped' % (
+        sum(1 for a in out['areas'] if a.get('sink')), sum(1 for w in ways if w.get('sink')), n_cov)
 
 
 def path_proj(path, x, z):
@@ -1833,6 +1900,8 @@ def main():
     # viaducts / footbridge / underpass (overrides.json 'grade'); after the
     # block fill so the synthetic blocks stay exactly as they were
     out['grade'] = build_grade(out, ovr_all.get('grade', []), stats)
+    # sunk ponds / streams (tools/water.json); last, so nothing above moves
+    apply_water(out, stats)
 
     os.makedirs(os.path.dirname(DST), exist_ok=True)
     with open(DST, 'w', encoding='utf8') as f:
@@ -1854,6 +1923,8 @@ def main():
                  fs.get('buildings', 0), fs.get('areas', 0), fs.get('fences', 0)))
         for bid, t in sorted(fs.get('tally', {}).items()):
             print('  block %2d' % bid, ', '.join('%s %d' % (k, v) for k, v in sorted(t.items())))
+    if stats.get('water'):
+        print('water:', stats['water'])
     for s in stats['excluded']:
         print('excluded', s)
     for s in stats['warn']:

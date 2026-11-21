@@ -2107,10 +2107,8 @@ const ROWT = {
     g.clearRect(0, 0, 256, 64); g.fillStyle = '#2a2a2a'; g.font = font(44, 700); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34);
   }),
 };
-function buildTeaRow(I, scene) {
-  const S = TEA_SPEC, c = Math.cos(S.ang), s = Math.sin(S.ang);
-  const at = (lot) => { const [x0] = TEA_ROW[lot]; const k = new Kit(I, S.ox + x0 * c, S.oz + x0 * s, S.ang); k.lot = lot; return k; };
-  const width = (lot) => TEA_ROW[lot][1] - TEA_ROW[lot][0];
+// shared by the 中北路 / 大仁街 shop rows: materials and facade helpers (Kit frame: facade z = 0, street at z < 0)
+function rowTools() {
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
   const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
   const MR = {
@@ -2142,6 +2140,13 @@ function buildTeaRow(I, scene) {
     k.box(0, w, -0.8, top, 0, d, mat, { tile });
     k.box(-0.02, w + 0.02, top, top + 0.12, -0.04, d, 'gray', { col: false });
   };
+  return { MR, FRONT, shopGlass, ac, win, blade, shell };
+}
+function buildTeaRow(I, scene) {
+  const S = TEA_SPEC, c = Math.cos(S.ang), s = Math.sin(S.ang);
+  const at = (lot) => { const [x0] = TEA_ROW[lot]; const k = new Kit(I, S.ox + x0 * c, S.oz + x0 * s, S.ang); k.lot = lot; return k; };
+  const width = (lot) => TEA_ROW[lot][1] - TEA_ROW[lot][0];
+  const { MR, FRONT, shopGlass, ac, win, blade, shell } = rowTools();
   const kits = {};
 
   // ---------- 雪糕早午餐 / BRUNCH 活力早午餐 (5 floors, white tile, blue-grey sign band, grey rain hood) ----------
@@ -2578,6 +2583,307 @@ function buildGordon(I, scene) {
 }
 
 // =====================================================================
+// The corner across 中北路 from 大門口, where 大仁街 leaves 中北路 for the main gate (user's street-view photos).
+//   along 中北路 (north side, going west from the corner): 幾何光學 GEOMETRIC OPTICS · 經典數位印刷 JINGDIAN ·
+//     神威影印社 shen wei · 藍色美而美
+//   along 大仁街 (west side, going towards the gate): 天一影印 / 套房出租 / 天一打字行 in the tall corner building ·
+//     菁英 elite 英日語 (billboard on the roof) · 麻友趣 自助桌遊24H
+//     (mint-green siding, teal window hoods) · 溫州大餛飩 · LAYA BURGER 拉亞漢堡
+// Two frames share the corner point P (where the two facade lines meet): frame A runs east along 中北路 (the
+// row sits at x < 0), frame B runs up 大仁街 (x > 0); in both z grows away from the street. The corner
+// building is a prism filling the wedge between them (it has no shopfront on 中北路). None is enterable.
+// =====================================================================
+export const DAREN_SPEC = {
+  px: -223.66, pz: 96.45,                     // corner of the two facade lines (6.3 m off 中北路, 4.5 m off 大仁街)
+  angA: Math.atan2(-0.354, 0.935),            // +x east along 中北路
+  angB: Math.atan2(24.5, 41.3),               // +x up 大仁街 towards the gate
+  A: { geo: [-6, 0, 10], jd: [-10.2, -6, 10], sw: [-14, -10.2, 10], blue: [-17.8, -14, 10] }, // stop short of the tower behind (f1525)
+  B: { elite: [6, 11.5, 9], mahjong: [11.5, 18.5, 9], wonton: [18.5, 22.8, 9], laya: [22.8, 27, 9] }, // 戈登肉鋪 starts past 30
+  cornerB: 6, cornerD: 10.9, apronA: 2.6, apronB: 1.8,
+};
+const darenFrame = (ang) => { const c = Math.cos(ang), s = Math.sin(ang), { px, pz } = DAREN_SPEC; return (x, z) => [px + x * c - z * s, pz + x * s + z * c]; };
+export function darenFootprints() {
+  const S = DAREN_SPEC, a = darenFrame(S.angA), b = darenFrame(S.angB);
+  return [
+    [a(-17.9, -S.apronA - 0.2), a(0.3, -S.apronA - 0.2), b(0, -S.apronB - 0.2), b(27.2, -S.apronB - 0.2), b(27.2, 9.3), b(S.cornerB, S.cornerD), a(-17.9, 10.3)],
+  ];
+}
+const CT = {
+  tianyi: () => sg('cnTianyi', 1024, 192, (g) => {
+    g.fillStyle = '#25307a'; g.fillRect(0, 0, 1024, 192);
+    const papers = [['#c62d4a', 'PAPAGO'], ['#d86a9c', 'PAPAGO'], ['#3f8fc9', 'PAPAGO']];
+    papers.forEach(([c, t], i) => { g.fillStyle = c; g.fillRect(24 + i * 128, 26, 112, 140); g.fillStyle = '#fff'; g.font = 'italic 900 22px Georgia,serif'; g.textAlign = 'center'; g.fillText(t, 80 + i * 128, 102); });
+    g.fillStyle = '#ffffff'; g.font = font(96); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('天一影印', 470, 80);
+    g.font = '700 34px Georgia,serif'; g.fillText('TEL. 03-416-1671', 520, 158);
+  }),
+  tianyiBand: () => sg('cnTianyiBand', 1024, 96, (g) => {
+    g.fillStyle = '#2f6f68'; g.fillRect(0, 0, 1024, 96); g.fillStyle = '#ffffff'; g.font = font(54); g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText('天一影印廣場', 30, 50); g.font = '900 50px Arial'; g.fillText('TEL:4161671', 560, 50);
+  }),
+  tianyiShop: () => sg('cnTianyiShop', 512, 256, (g) => { // dark-blue glass with the service list
+    g.fillStyle = '#1d2a6b'; g.fillRect(0, 0, 512, 256); g.fillStyle = '#ffffff'; g.font = font(22, 700); g.textAlign = 'left';
+    ['· 論文印刷裝訂', '· 彩色輸出', '· 名片 / 海報', '· 講義 / 考古題', '· 掃描 / 護貝'].forEach((t, i) => g.fillText(t, 300, 40 + i * 42));
+    g.fillStyle = '#fbe6b8'; g.fillRect(20, 20, 250, 216); g.fillStyle = '#7a5a3a'; for (let y = 60; y < 236; y += 40) g.fillRect(20, y, 250, 4);
+  }),
+  suite: () => sg('cnSuite', 256, 128, (g) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#1e3f8a'; g.font = font(54); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('套房出租', 128, 52);
+    g.fillStyle = '#c41d2a'; g.font = font(22, 700); g.fillText('0932-xxx-xxx', 128, 104);
+  }),
+  geo: () => sg('cnGeo', 1024, 256, (g) => {
+    g.fillStyle = '#26272b'; g.fillRect(0, 0, 1024, 256);
+    g.fillStyle = '#e8a3b4'; g.beginPath(); g.moveTo(40, 210); g.lineTo(210, 210); g.lineTo(210, 40); g.closePath(); g.fill();
+    g.fillStyle = '#d8ead2'; g.fillRect(150, 120, 120, 110); g.fillStyle = '#a9d1ec'; g.beginPath(); g.arc(300, 120, 64, 0, 7); g.fill();
+    g.fillStyle = '#f2f2f2'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.font = '500 72px "Helvetica Neue",Arial,sans-serif'; g.fillText('GEOMETRIC', 390, 104); const gw = g.measureText('GEOMETRIC ').width;
+    g.font = '300 60px "Helvetica Neue",Arial,sans-serif'; g.fillText('OPTICS', Math.min(390 + gw, 1010 - g.measureText('OPTICS').width), 108);
+    g.textAlign = 'right'; g.font = font(44, 700); g.fillText('幾 何 光 學', 1000, 204);
+  }),
+  geoBlade: () => sg('cnGeoBlade', 256, 256, (g) => {
+    g.fillStyle = '#26272b'; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#e8a3b4'; g.beginPath(); g.moveTo(30, 200); g.lineTo(130, 200); g.lineTo(130, 90); g.closePath(); g.fill();
+    g.fillStyle = '#d8ead2'; g.fillRect(100, 140, 70, 64); g.fillStyle = '#a9d1ec'; g.beginPath(); g.arc(180, 130, 40, 0, 7); g.fill();
+    g.fillStyle = '#f2f2f2'; g.font = font(26, 700); g.textAlign = 'center'; g.fillText('幾何光學眼鏡所', 128, 46); g.font = '500 22px Arial'; g.fillText('GEOMETRIC OPTICS', 128, 74);
+  }),
+  siding: () => ctex('cnSiding', 64, 64, (g) => { g.fillStyle = '#d5d6d3'; g.fillRect(0, 0, 64, 64); for (let y = 0; y < 64; y += 8) { g.fillStyle = '#bfc0bc'; g.fillRect(0, y + 6, 64, 2); } }),
+  pink: () => ctex('cnPink', 128, 128, (g) => { // pink mosaic with a white diamond
+    g.fillStyle = '#d8a6a0'; g.fillRect(0, 0, 128, 128); const r = lcg(41);
+    for (let y = 0; y < 128; y += 8) for (let x = 0; x < 128; x += 8) { g.fillStyle = `rgb(${214 + r() * 14 | 0},${160 + r() * 14 | 0},${152 + r() * 12 | 0})`; g.fillRect(x + 1, y + 1, 7, 7); }
+  }),
+  jd: () => sg('cnJd', 1024, 192, (g) => {
+    g.fillStyle = '#1f6fd0'; g.fillRect(0, 0, 1024, 192); g.fillStyle = '#ffffff'; g.fillRect(780, 0, 244, 192);
+    g.fillStyle = '#ffffff'; g.beginPath(); g.roundRect(40, 30, 130, 130, 20); g.fill(); g.fillStyle = '#1f6fd0'; g.font = '900 120px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('J', 105, 100);
+    g.fillStyle = '#ffffff'; g.font = '700 70px "Helvetica Neue",Arial'; g.textAlign = 'left'; g.fillText('JINGDIAN', 200, 70); g.font = font(56); g.fillText('經典數位印刷', 200, 145);
+    g.fillStyle = '#1f6fd0'; g.font = font(34); g.textAlign = 'center'; g.fillText('桃園中原店', 900, 70); g.font = '700 26px Arial'; g.fillText('TEL (03)456-0318', 900, 130);
+  }),
+  jdVert: () => sg('cnJdVert', 192, 1024, (g) => {
+    g.fillStyle = '#1f6fd0'; g.fillRect(0, 0, 192, 1024); g.strokeStyle = '#ffffff'; g.lineWidth = 6; g.strokeRect(10, 10, 172, 1004);
+    g.fillStyle = '#ffffff'; g.font = font(112); g.textAlign = 'center'; g.textBaseline = 'middle'; [...'經典數位印刷'].forEach((ch, i) => g.fillText(ch, 96, 90 + i * 132));
+    g.font = font(24, 700); g.fillText('桃園中原店', 96, 900); g.fillText('(03)456-0318', 96, 950);
+  }),
+  sw: () => sg('cnSw', 1024, 192, (g) => {
+    g.fillStyle = '#2b3a9c'; g.fillRect(0, 0, 1024, 192); g.fillStyle = '#ffffff'; g.font = font(96); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('神威影印社', 30, 80);
+    g.fillStyle = '#4fb3ff'; g.font = 'italic 900 70px Arial'; g.fillText('shen wei', 560, 80); g.fillStyle = '#ffffff'; g.font = font(24, 700); g.fillText('論文 · 彩色 · 大圖 · 裝訂', 40, 160);
+  }),
+  swVert: () => sg('cnSwVert', 192, 1024, (g) => {
+    g.fillStyle = '#1e2b86'; g.fillRect(0, 0, 192, 1024); g.fillStyle = '#ffffff'; g.font = font(120); g.textAlign = 'center'; g.textBaseline = 'middle';
+    [...'神威影印社'].forEach((ch, i) => g.fillText(ch, 70, 90 + i * 150)); g.save(); g.translate(150, 520); g.rotate(Math.PI / 2); g.fillStyle = '#4fb3ff'; g.font = 'italic 900 72px Arial'; g.fillText('shen wei', 0, 0); g.restore();
+    g.font = font(26, 700); g.fillStyle = '#fff'; g.fillText('中原店', 96, 970);
+  }),
+  mem: () => sg('cnMem', 768, 192, (g) => {
+    g.fillStyle = '#2a63b8'; g.fillRect(0, 0, 768, 192); g.fillStyle = '#ffffff'; g.font = font(84); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('藍色美而美', 384, 82);
+    g.font = font(30, 700); g.fillText('早午餐 · 漢堡 · 蛋餅', 384, 158);
+  }),
+  elite: () => sg('cnElite', 1024, 512, (g) => { // the roof billboard
+    g.fillStyle = '#f6f6f2'; g.fillRect(0, 0, 1024, 512); g.fillStyle = '#2d3f9a'; g.fillRect(0, 410, 1024, 102);
+    g.fillStyle = '#2d3f9a'; g.font = 'italic 900 150px Georgia,serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('elite', 40, 170);
+    g.font = '400 34px Georgia,serif'; g.fillText('Language Academy', 60, 270); g.font = font(56); g.fillText('菁英英日語', 60, 350);
+    g.fillStyle = '#e9a23b'; g.beginPath(); g.ellipse(760, 230, 120, 150, 0, 0, 7); g.fill(); g.fillStyle = '#f0cfb2'; g.beginPath(); g.ellipse(760, 200, 62, 78, 0, 0, 7); g.fill();
+    g.fillStyle = '#3a2a22'; g.beginPath(); g.ellipse(760, 150, 70, 46, 0, Math.PI, 0); g.fill();
+    g.fillStyle = '#ffffff'; g.font = font(40); g.fillText('英日文會話', 40, 462); g.font = '900 52px Arial'; g.fillText('(03)426-6300', 560, 462);
+  }),
+  mahjong: () => sg('cnMahjong', 1024, 192, (g) => {
+    g.fillStyle = '#f7eef2'; g.fillRect(0, 0, 1024, 192); g.fillStyle = '#e0457b'; g.fillRect(0, 0, 1024, 14); g.fillRect(0, 178, 1024, 14);
+    g.fillStyle = '#f3c33b'; g.beginPath(); g.arc(90, 96, 66, 0, 7); g.fill(); g.fillStyle = '#c41d2a'; g.font = font(44); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('麻友', 90, 98);
+    g.fillStyle = '#c41d2a'; g.font = font(78); g.textAlign = 'left'; g.fillText('麻友趣', 190, 96); g.fillStyle = '#e0457b'; g.font = font(92); g.fillText('自助桌遊24H', 470, 96);
+  }),
+  mjBanner: () => sg('cnMjBan', 1024, 128, (g) => {
+    g.fillStyle = '#c8202a'; g.fillRect(0, 0, 1024, 128); g.fillStyle = '#ffe14d'; g.font = font(44); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('麻友趣音樂桌遊來回嘍～　不限時段　買一送一', 512, 66);
+  }),
+  mint: () => ctex('cnMint', 64, 64, (g) => { g.fillStyle = '#b9d3c0'; g.fillRect(0, 0, 64, 64); for (let x = 0; x < 64; x += 8) { g.fillStyle = '#a3c0ab'; g.fillRect(x + 6, 0, 2, 64); } }),
+  lattice: () => sg('cnLattice', 128, 128, (g) => { g.fillStyle = '#5c6c74'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#f2f2ee'; for (let i = 0; i <= 128; i += 16) { g.fillRect(i - 2, 0, 4, 128); g.fillRect(0, i - 2, 128, 4); } }),
+  tarp: () => ctex('cnTarp', 64, 64, (g) => { for (let x = 0; x < 64; x += 16) { g.fillStyle = '#4f8fd0'; g.fillRect(x, 0, 8, 64); g.fillStyle = '#eef3f7'; g.fillRect(x + 8, 0, 8, 64); } }),
+  wonton: () => sg('cnWonton', 768, 192, (g) => {
+    g.fillStyle = '#f6d23a'; g.fillRect(0, 0, 768, 192); g.strokeStyle = '#c41d2a'; g.lineWidth = 6; g.strokeRect(12, 12, 744, 168);
+    g.fillStyle = '#c41d2a'; g.font = `900 104px "Kaiti TC","STKaiti","BiauKai","Noto Serif TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('溫州大餛飩', 384, 92);
+    g.font = font(24, 700); g.fillStyle = '#5a3a1c'; g.fillText('餛飩湯 · 乾拌麵 · 炒飯', 384, 162);
+  }),
+  laya: () => sg('cnLaya', 768, 192, (g) => {
+    g.fillStyle = '#c62026'; g.fillRect(0, 0, 768, 192); g.fillStyle = '#f7c531'; g.beginPath(); g.ellipse(120, 96, 92, 70, 0, 0, 7); g.fill();
+    g.fillStyle = '#c62026'; g.font = '900 italic 52px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('LAYA', 120, 84); g.font = '900 22px Arial'; g.fillText('BURGER', 120, 126);
+    g.fillStyle = '#ffffff'; g.font = font(96); g.fillText('拉亞漢堡', 470, 96);
+  }),
+  layaVert: () => sg('cnLayaV', 160, 640, (g) => {
+    g.fillStyle = '#f7c531'; g.fillRect(0, 0, 160, 640); g.fillStyle = '#c62026'; g.font = '900 italic 56px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    [...'LAYA'].forEach((ch, i) => g.fillText(ch, 80, 70 + i * 90)); g.font = '900 30px Arial'; g.fillText('BURGER', 80, 450); g.font = font(40); g.fillText('漢堡', 80, 560);
+  }),
+};
+function buildDarenCorner(I, scene) {
+  const S = DAREN_SPEC, { MR, FRONT, shopGlass, ac, win, blade, shell } = rowTools();
+  const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
+  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+  const MC = {
+    beige: def('cnBeige', () => std({ map: YHT.facade(), color: '#efe2c4' })),
+    siding: def('cnSidingM', () => std({ map: CT.siding() })),
+    pink: def('cnPinkM', () => std({ map: CT.pink() })),
+    mint: def('cnMintM', () => std({ map: CT.mint() })),
+    tarp: def('cnTarpM', () => std({ map: CT.tarp(), roughness: 0.7 })),
+    teal: def('cnTeal', () => std({ color: '#4aa597', roughness: 0.5 })),
+    eliteBlue: def('cnEliteBlue', () => std({ color: '#2457b5', roughness: 0.6 })),
+  };
+  const fA = darenFrame(S.angA), fB = darenFrame(S.angB);
+  const kits = [];
+  const kit = (frame, ang, x0) => { const [x, z] = frame(x0, 0); const k = new Kit(I, x, z, ang); kits.push(k); return k; };
+  const lot = (side, name) => { const [x0, x1, d] = S[side][name]; return { k: kit(side === 'A' ? fA : fB, side === 'A' ? S.angA : S.angB, x0), w: x1 - x0, d }; };
+  // tall sign standing out from the wall (perpendicular to the facade), readable from both directions of the street
+  const tallBlade = (k, tex, x, y0, y1, out, gap = 0.15) => {
+    for (const sd of [-1, 1]) k.plane(tex, out, y1 - y0, x + sd * 0.04, (y0 + y1) / 2, -gap - out / 2, sd * Math.PI / 2, { emissive: 0.3 });
+    k.box(x - 0.035, x + 0.035, y0, y1, -gap - out, -gap, MR.white, { col: false });
+    for (const y of [y0 + 0.3, y1 - 0.3]) k.box(x - 0.02, x + 0.02, y, y + 0.05, -gap, 0, MR.black, { col: false });
+  };
+
+  // ---------- the corner building: 6 floors of cream tile, fronting 大仁街 only (天一影印 / 套房出租 / 天一打字行);
+  // on 中北路 the first shop is 幾何光學, whose east wall meets this building at the corner point P ----------
+  {
+    const kA = kit(fA, S.angA, 0), kB = kit(fB, S.angB, 0), top = 19.2, F = 3.2, W = S.cornerB, D = S.cornerD;
+    const toA = (bx, bz) => { const [x, z] = fB(bx, bz); return kA.l(x, z); };
+    const bb = toA(W, D), dA = S.A.geo[2];
+    const pts = [[0, 0], toA(W, 0), bb, [bb[0], dA], [0, dA]];
+    kA.prism(pts, -0.8, top, MC.beige);
+    kA.prism(pts, top, top + 0.15, 'gray', { shadow: false });
+    for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; kA.wallLine(a[0], a[1], b[0], b[1], 0, top); }
+    kB.box(0.8, 4.4, top + 0.15, top + 2.4, 3.0, 7.0, MR.roof, { col: false });                    // tin roof shed
+    // 大仁街 face (x 0..W): 天一影印 sign over a teal band and the shop; the 套房出租 stair door at the far end
+    kB.box(0.05, W - 0.05, 2.55, 3.45, -0.3, 0, '#25307a', { col: false });
+    kB.plane(CT.tianyi(), W - 0.15, 0.85, W / 2, 3.0, -0.31, FRONT, { emissive: 0.35 });
+    kB.plane(CT.tianyiBand(), 3.6, 0.34, 2.0, 2.36, -0.04, FRONT, { emissive: 0.25 });
+    shopGlass(kB, 0.1, 3.9, 0, 2.15, CT.tianyiShop(), -0.03);
+    kB.plane(CT.suite(), 0.9, 0.45, W - 1.0, 2.35, -0.05, FRONT);
+    kB.box(4.05, W - 0.1, 0, 2.15, -0.06, 0, '#7fae9a', { col: false });                            // tiled stair entrance
+    kB.plane(YHT.win(), 0.9, 2.0, W - 1.0, 1.0, -0.07, FRONT);
+    kB.plane(T.verticalText('天一打字行', 'tyType'), 0.34, 1.7, 4.2, 1.1, -0.08, FRONT);
+    kB.plane(ROWT.vert('suite', '#ffffff', '#c41d2a', '套房招租中'), 0.32, 1.6, W - 0.2, 1.1, -0.08, FRONT);
+    for (let f = 1; f < 6; f++) {
+      const y = f * F;
+      if (f === 1) { kB.box(0.2, W - 0.2, y + 0.4, y + 2.6, -0.06, 0, 'tint', { col: false }); for (let x = 0.2; x <= W - 0.2; x += 1.12) kB.box(x, x + 0.06, y + 0.4, y + 2.6, -0.1, 0, MR.white, { col: false }); }
+      else { win(kB, W / 2, y + 1.5, W - 1.4, 1.4, f > 3); kB.box(0.4, W - 0.4, y + 0.72, y + 0.8, -0.2, 0, MR.white, { col: false }); }
+      if (f < 4) ac(kB, W - 1.1, y + 0.05);
+    }
+    // the part of its east wall that rises above 幾何光學, seen from 中北路: AC units
+    for (const [z, y] of [[2.5, 13.6], [6.0, 13.6], [4.0, 16.8]]) kA.box(-0.45, -0.02, y, y + 0.52, z, z + 0.8, MR.ac, { col: false });
+  }
+  // ---------- 幾何光學 GEOMETRIC OPTICS (grey siding with white diamonds, big black sign, blade sign) ----------
+  {
+    const { k, w, d } = lot('A', 'geo'), F = 3.2, top = 12.8;
+    shell(k, w, d, top, MC.siding, [2, 2]);
+    k.box(0.05, w - 0.05, 2.45, 3.9, -0.38, 0, '#26272b', { col: false });
+    k.plane(CT.geo(), w - 0.15, 1.36, w / 2, 3.17, -0.39, FRONT, { emissive: 0.3 });
+    k.box(0, w, 2.3, 2.45, -0.8, 0, '#3a3b3e', { col: false });                                     // thin canopy
+    shopGlass(k, 1.3, w - 0.2, 0, 2.25, ROWT.shop('geo', '#fbf8f2', '#b48a5a', 47));
+    k.box(1.6, w - 0.5, 0, 0.02, -0.7, -0.1, '#8a2a2a', { col: false });                            // red door mat
+    k.plane(YHT.win(), 0.9, 2.2, 0.65, 1.1, -0.03, FRONT);                                          // steel gate to the stairs (west end)
+    for (let f = 1; f < 4; f++) { const y = f * F; win(k, w / 2 - 0.4, y + 1.5, 1.4, 1.5, false); win(k, w / 2 + 1.6, y + 1.5, 1.2, 1.1, false); }
+    for (let i = 0; i < 4; i++) { const x = 0.9 + i * 1.3, y = 3 * F + 2.65; k.box(x - 0.22, x + 0.22, y - 0.22, y + 0.22, -0.06, 0, MR.white, { col: false }); }
+    blade(k, CT.geoBlade(), w - 0.25, 5.6, 1.1, 0.9);
+  }
+  // ---------- 經典數位印刷 JINGDIAN (pink tile, blue sign, tall blue blade sign) ----------
+  {
+    const { k, w, d } = lot('A', 'jd'), F = 3.2, top = 12.8;
+    shell(k, w, d, top, MC.pink, [1.2, 1.2]);
+    k.box(0.05, w - 0.05, 2.45, 3.45, -0.32, 0, '#1f6fd0', { col: false });
+    k.plane(CT.jd(), w - 0.15, 0.95, w / 2, 2.95, -0.33, FRONT, { emissive: 0.35 });
+    k.plane(ROWT.vert('jd24', '#1f6fd0', '#ffffff', '24H'), 0.3, 0.6, w - 0.4, 1.9, -0.05, FRONT);
+    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('jd', '#f2f4f6', '#8b8f94', 53));
+    for (const [x, z, h] of [[1.0, -0.4, 0.5], [1.5, -0.45, 0.35]]) k.box(x - 0.25, x + 0.25, 0, h, z - 0.2, z + 0.2, '#b58b5a', { col: false });
+    for (let f = 1; f < 4; f++) { const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3, f === 1); }
+    for (let i = 0; i < 3; i++) { const x = 0.8 + i * 1.3, y = 3 * F + 2.65; k.box(x - 0.2, x + 0.2, y - 0.2, y + 0.2, -0.05, 0, MR.white, { col: false }); }
+    tallBlade(k, CT.jdVert(), 0.25, 4.2, 10.6, 1.25);
+  }
+  // ---------- 神威影印社 shen wei (white tile with iron balconies, dark-blue band and tall blade sign) ----------
+  {
+    const { k, w, d } = lot('A', 'sw'), F = 3.2, top = 12.8;
+    shell(k, w, d, top, MR.mosaic);
+    k.box(0.05, w - 0.05, 2.45, 3.4, -0.3, 0, '#2b3a9c', { col: false });
+    k.plane(CT.sw(), w - 0.15, 0.9, w / 2, 2.92, -0.31, FRONT, { emissive: 0.35 });
+    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('sw', '#eef0f3', '#7d8086', 59));
+    for (let f = 1; f < 4; f++) {
+      const y = f * F; win(k, w / 2, y + 1.55, w - 1.0, 1.4);
+      k.box(0.3, w - 0.3, y + 0.6, y + 0.68, -0.5, 0, 'metal', { col: false });
+      for (let x = 0.3; x <= w - 0.29; x += 0.22) k.box(x, x + 0.03, y + 0.68, y + 1.6, -0.5, -0.47, 'metal', { col: false });
+    }
+    tallBlade(k, CT.swVert(), w - 0.3, 3.9, 11.6, 1.2);
+  }
+  // ---------- 藍色美而美 (breakfast shop: blue sign, open front with the griddle) ----------
+  {
+    const { k, w, d } = lot('A', 'blue'), F = 3.2, top = 12.8;
+    shell(k, w, d, top, MR.mosaic);
+    k.box(0.05, w - 0.05, 2.45, 3.3, -0.3, 0, '#2a63b8', { col: false });
+    k.plane(CT.mem(), w - 0.15, 0.8, w / 2, 2.88, -0.31, FRONT, { emissive: 0.35 });
+    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('mem', '#f7ecd2', '#8a6a44', 79));
+    k.box(w - 1.9, w - 0.3, 0, 0.95, -0.8, -0.15, 'steel', { col: false });                          // griddle counter
+    k.box(w - 1.8, w - 0.4, 0.95, 0.98, -0.75, -0.2, '#2b2b2b', { col: false });
+    for (let f = 1; f < 4; f++) { const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3, f < 3); if (f < 3) ac(k, 0.3, y + 0.2); }
+  }
+  // ---------- 菁英 elite 英日語 (3 floors, blue awning, AC units, the billboard on the roof) ----------
+  {
+    const { k, w, d } = lot('B', 'elite'), F = 3.2, top = 9.6;
+    shell(k, w, d, top, MR.white);
+    k.box(-0.05, w + 0.05, 2.55, 2.75, -1.1, 0, MC.eliteBlue, { col: false });
+    k.box(-0.05, w + 0.05, 2.35, 2.75, -1.15, -1.05, MC.eliteBlue, { col: false });
+    shopGlass(k, 0.3, w - 0.3, 0, 2.3, ROWT.shop('elite', '#f1dcb8', '#6b4a2a', 61));
+    for (let i = 0; i < 4; i++) ac(k, 0.4 + i * 1.3, F + 0.3 + (i % 2) * 0.7);
+    win(k, w / 2, F + 1.9, w - 1.2, 0.9); win(k, w / 2, 2 * F + 1.5, w - 1.2, 1.3, false);
+    k.box(0.2, w - 0.2, top + 0.12, top + 4.2, 0.6, 0.75, MR.black, { col: false });               // billboard frame on the roof
+    k.plane(CT.elite(), w - 0.4, (w - 0.4) / 2, w / 2, top + 0.12 + (w - 0.4) / 4 + 0.6, 0.58, FRONT, { emissive: 0.3 });
+    for (const x of [0.5, w - 0.6]) k.box(x, x + 0.1, top, top + 0.75, 0.6, 1.6, MR.black, { col: false });
+    for (const x of [0.8, w - 0.9]) k.box(x, x + 0.08, top + 3.4, top + 3.5, -0.4, 0.6, MR.black, { col: false }); // floodlight arms
+  }
+  // ---------- 麻友趣 自助桌遊24H (mint siding, teal window hoods, lattice windows, tarp-covered machines) ----------
+  {
+    const { k, w, d } = lot('B', 'mahjong'), F = 3.2, top = 12.8;
+    shell(k, w, d, top, MC.mint, [1, 1]);
+    k.box(0, 0.4, 3.0, top, -0.06, 0, MR.brick, { col: false });                  // brick strip at the corner
+    k.box(0.05, w - 0.05, 2.5, 3.35, -0.6, -0.3, '#f7eef2', { col: false });
+    k.plane(CT.mahjong(), w - 0.15, 0.82, w / 2, 2.93, -0.61, FRONT, { emissive: 0.4 });
+    k.box(-0.05, w + 0.05, 3.35, 3.45, -1.4, 0, MR.roof, { col: false });                           // tin roof over the arcade
+    k.plane(CT.mjBanner(), 4.6, 0.58, w - 2.6, 2.05, -0.05, FRONT);
+    shopGlass(k, 0.4, 2.2, 0, 2.3, ROWT.shop('mj', '#e9f0ea', '#4a6a58', 67));
+    for (const x of [3.0, 4.4]) k.box(x, x + 1.2, 0, 1.7, -1.1, -0.2, MC.tarp, { col: false });     // claw machines under tarps
+    k.box(5.8, 6.8, 0, 1.1, -0.5, -0.1, '#cfd3d6', { col: false });                                 // drinking-water machine
+    for (let f = 1; f < 4; f++) {
+      const y = f * F;
+      for (const x of [w / 2 - 1.6, w / 2 + 1.6]) {
+        k.plane(CT.lattice(), 2.2, 1.6, x, y + 1.5, -0.03, FRONT);
+        k.box(x - 1.25, x + 1.25, y + 2.4, y + 2.5, -0.7, 0, MC.teal, { col: false });               // window hood
+      }
+      if (f < 3) { ac(k, 0.6, y + 0.1, -0.55); ac(k, w - 1.6, y + 0.1, -0.55); }
+    }
+    k.box(1.2, w - 1.2, top + 0.12, top + 2.6, 2.0, d - 0.5, MR.white, { col: false });             // rooftop room with a gable
+    k.plane(CT.lattice(), 1.8, 1.4, w / 2, top + 1.4, 1.98, FRONT);
+    k.box(0.9, w - 0.9, top + 2.6, top + 2.75, 1.4, d, MR.roof, { col: false });
+  }
+  // ---------- 溫州大餛飩 (older 3-floor house, yellow sign, steaming counter) ----------
+  {
+    const { k, w, d } = lot('B', 'wonton'), F = 3.1, top = 9.3;
+    shell(k, w, d, top, MR.grime, [3, 3]);
+    k.box(0.05, w - 0.05, 2.45, 3.25, -0.3, 0, '#f6d23a', { col: false });
+    k.plane(CT.wonton(), w - 0.15, 0.75, w / 2, 2.85, -0.31, FRONT, { emissive: 0.35 });
+    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('wonton', '#f4e7cf', '#8a6a44', 71));
+    k.box(0.5, 2.3, 0, 0.95, -0.9, -0.2, 'steel', { col: false });                      // the cooking counter at the front
+    for (const x of [0.9, 1.6]) k.cyl(x, -0.55, 0.22, 0.95, 1.3, 'steel', { seg: 12 });
+    k.box(0, w, 2.3, 2.4, -1.0, 0, '#c9c9c4', { col: false });
+    for (let f = 1; f < 3; f++) { const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3); ac(k, 0.3, y + 0.2); }
+  }
+  // ---------- LAYA BURGER 拉亞漢堡 (red sign, yellow vertical blade) ----------
+  {
+    const { k, w, d } = lot('B', 'laya'), F = 3.1, top = 9.3;
+    shell(k, w, d, top, MR.mosaic);
+    k.box(0.05, w - 0.05, 2.45, 3.25, -0.3, 0, '#c62026', { col: false });
+    k.plane(CT.laya(), w - 0.15, 0.75, w / 2, 2.85, -0.31, FRONT, { emissive: 0.35 });
+    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('laya', '#fbe9c6', '#c62026', 73));
+    for (let f = 1; f < 3; f++) { const y = f * F; win(k, w / 2, y + 1.5, w - 1.2, 1.3, false); ac(k, w - 1.2, y + 0.2); }
+    tallBlade(k, CT.layaVert(), w - 0.2, 3.4, 7.2, 0.9);
+  }
+  // ---------- concrete aprons along both streets ----------
+  {
+    const kA = kits[0], kB = kits[1];
+    kA.box(-17.8, 0.3, -0.5, 0.05, -S.apronA, 0, MR.concrete, { col: false, surface: true });
+    kB.box(-0.3, 27, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
+  }
+  for (const k of kits) k.finish(scene);
+}
+
+// =====================================================================
 // 正門 (中北路): 警衛亭 on the island between the two one-way lanes; enterable, sit and stand guard
 // (GUARD_SPECS[0] -> buildGuardhouse with kiosk = MAIN_GATE).
 // Google 街景 2017-09 / 2022-08 / 2024-08: a ~3 x 3 m kiosk, rounded front of dark glass toward
@@ -2753,6 +3059,7 @@ export function buildInteriors(scene, data, collision) {
   I.yh = buildYanlinHome(I, scene);
   I.tea = buildTeaShop(I, scene);
   buildTeaRow(I, scene);
+  buildDarenCorner(I, scene);
   I.gordon = buildGordon(I, scene);
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;

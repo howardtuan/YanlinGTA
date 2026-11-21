@@ -420,7 +420,7 @@ def apply_marks(out, stats):
         if r is None:
             stats['warn'].append('roads.json marks way %s (%s): not in the map' % (e['way'], e.get('name', '')))
             continue
-        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes') if k in e}
+        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes', 'walk') if k in e}
         n += 1
     feats = []
     for f in R.get('features', []):

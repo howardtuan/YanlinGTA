@@ -33,9 +33,28 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 const lerp = (a, b, t) => a + (b - a) * t;
 const lockPointer = el => { try { const r = el.requestPointerLock?.(); if (r && r.catch) r.catch(() => { }); } catch (e) { } };
 const isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
-// quality setting: 'auto' | 'low' | 'medium' | 'high'; auto = low on touch devices, else high
+// quality setting: 'auto' | 'low' | 'medium' | 'high'. auto picks from the graphics chip (integrated / mobile
+// GPUs and 4-core machines -> low, unknown -> medium, dedicated GPUs -> high) and steps down at runtime when
+// the frame rate stays low (_autoQuality).
 const QUALITY = ['low', 'medium', 'high'];
-const resolveQuality = q => QUALITY.includes(q) ? q : isTouch() ? 'low' : 'high';
+// per quality: view distance (m), fog thickness, max pixel ratio, sun shadows
+const QPROF = {
+// view: how far pedestrians, traffic and parked vehicles are drawn (x their normal range)
+  high: { far: 2600, fog: 1, pr: 1.6, shadows: true, view: 1 },
+  medium: { far: 1500, fog: 1.12, pr: 1.0, shadows: true, view: 0.8 },
+  low: { far: 750, fog: 1.6, pr: 0.8, shadows: false, view: 0.45 },
+};
+let _gpuGuess = null;
+function guessGpu() {
+  if (_gpuGuess) return _gpuGuess;
+  let name = '';
+  try { const gl = document.createElement('canvas').getContext('webgl'); const d = gl && gl.getExtension('WEBGL_debug_renderer_info'); name = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : ''; gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { }
+  const weak = /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|vega \d/i.test(name);
+  const strong = /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc a\d|apple m\d/i.test(name);
+  const cores = navigator.hardwareConcurrency || 4;
+  return (_gpuGuess = isTouch() ? 'low' : strong ? 'high' : weak || cores <= 4 ? 'low' : 'medium');
+}
+const resolveQuality = q => QUALITY.includes(q) ? q : guessGpu();
 const Q_NAME = { low: '低', medium: '中', high: '高（電影感）' };
 
 class Game {
@@ -108,6 +127,7 @@ class Game {
     })();
     this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: this.quality, featureTrees, mainGate: GUARD_SPECS(data)[0] });
     this.skyline = buildSkyline(this.scene, this.lowQ ? 70 : 180);
+    this._applyQuality(); // view distance / fog / shadows / skyline size for the chosen quality
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
     this.interiors = buildInteriors(this.scene, data, this.world.collision);
@@ -120,6 +140,7 @@ class Game {
     this.rig = new CameraRig(this.camera);
     this.traffic = new Traffic(this.scene, this.world, this.lowQ ? 14 : 26);
     this.peds = new Peds(this.scene, this.world, this.lowQ ? 18 : 32);
+    this.traffic.viewK = this.peds.viewK = this.viewK; // draw range for the quality level
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
     // pocket money (Peach Pay): start with NT$200, earn more at the McDonald's counter
@@ -186,7 +207,35 @@ class Game {
   }
 
   // ---------- sky & lighting ----------
-  _pixelRatio() { return Math.min(devicePixelRatio, this.quality === 'high' ? 1.6 : this.quality === 'medium' ? 1.35 : 1); }
+  _pixelRatio() { return Math.min(devicePixelRatio, QPROF[this.quality].pr); }
+  // view distance, fog, shadows and the distant skyline follow the quality level
+  _applyQuality() {
+    const P = QPROF[this.quality];
+    this.camera.far = P.far; this.camera.updateProjectionMatrix();
+    this.skySys.fogK = P.fog; this.viewK = P.view;
+    if (this.traffic) this.traffic.viewK = P.view; if (this.peds) this.peds.viewK = P.view;
+    if (this.world?.vegetation) this.world.vegetation.viewDist = 700 * P.view; // tree chunks
+    if (this.skyline) this.skyline.scale.setScalar(Math.min(1, (P.far * 0.92) / 2000)); // the backdrop sits 1.5-2 km out
+    const sh = this.renderer.shadowMap;
+    if (sh.enabled !== P.shadows) {
+      sh.enabled = P.shadows; this.skySys.sun.castShadow = P.shadows;
+      this.scene.traverse(o => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { x.needsUpdate = true; }); });
+    }
+  }
+  // auto quality: after a warm-up, step down one level when the game keeps running under 28 fps
+  _autoQuality(frameMs) {
+    if ((this.settings.quality || 'auto') !== 'auto' || this.quality === 'low' || document.hidden) return;
+    if (frameMs > 250) return; // tab was in the background
+    const A = this._aq || (this._aq = { t: 0, sum: 0, n: 0, warm: 0 });
+    if ((A.warm += frameMs) < 8000) return;
+    A.t += frameMs; A.sum += frameMs; A.n++;
+    if (A.t < 6000) return;
+    const fps = 1000 / (A.sum / A.n); A.t = A.sum = A.n = 0;
+    if (fps >= 28) return;
+    const next = this.quality === 'high' ? 'medium' : 'low';
+    this.setQuality(next); A.warm = 4000; // give the new level a moment before judging it
+    this.hud.toast(`偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，可在設定更改`, 'good', 4200);
+  }
   _sky() {
     // physically based sky + clouds + stars / moon, sun & ambient driven by the clock, IBL from the sky
     this.skySys = new SkySystem(this.scene, this.renderer, this.quality);
@@ -222,6 +271,7 @@ class Game {
     this.post.setQuality(q);
     this.post.setSize(innerWidth, innerHeight);
     this.world.setQuality?.(q);
+    this._applyQuality();
   }
 
   // ---------- spawning ----------
@@ -628,7 +678,7 @@ class Game {
   _qualityNote(q) {
     // the low-quality world (no MSAA, fewer 補建 rows, smaller crowds) is chosen at load time
     const pending = (q === 'low') !== this.lowQ;
-    return `目前：${Q_NAME[q]}畫質（自動＝觸控裝置用低畫質）` + (pending ? '・抗鋸齒與人車數量在重新整理後套用' : '');
+    return `目前：${Q_NAME[q]}畫質（自動＝依顯示卡挑選：內建顯示晶片、手機用低畫質；畫面不夠順會自動往下調）` + (pending ? '・抗鋸齒與人車數量在重新整理後套用' : '');
   }
   _fillNote() {
     const on = (this.settings.fill || 'on') !== 'off', now = this.data.buildings.some(b => b.synthetic) || this.data.areas.some(a => a.synthetic);
@@ -670,6 +720,7 @@ class Game {
   _loop() {
     requestAnimationFrame(() => this._loop());
     const now = performance.now();
+    if (this.state === 'play') this._autoQuality(now - this.last);
     const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
     this.time = (this.time || 0) + dt;
     if (this.input) { this.input.pollPad(dt); this._padMenus(); this.prompts?.tick(); }
@@ -857,7 +908,7 @@ class Game {
       this._locT = 0.5;
       const zn = !pl.vehicle && this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
       hud.setLocation(zn ? (zn.floorOf ? `${zn.name} ${zn.floorOf(pl.y)}F` : zn.name) : hud.locationName(wp.x, wp.z));
-      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160;
+      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160 * (this.viewK ?? 1);
     }
     // tip box fades after a while on foot
     if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', dual('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定',

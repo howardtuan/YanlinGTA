@@ -142,10 +142,11 @@ function shrub(seed) {
 // ---------- materials ----------
 function leafMaterial(kind, quality, uniforms) {
   const map = kind === 'frond' ? frondTex() : leafTex(kind === 'needle' ? 'needle' : 'broad');
-  const m = new THREE.MeshStandardMaterial({
-    map, vertexColors: true, alphaTest: kind === 'frond' ? 0.35 : kind === 'needle' ? 0.3 : 0.42, side: THREE.DoubleSide,
-    roughness: 0.78, metalness: 0, alphaToCoverage: quality !== 'low', envMapIntensity: 0.7,
-  });
+  const alphaTest = kind === 'frond' ? 0.35 : kind === 'needle' ? 0.3 : 0.42;
+  // low quality: Lambert lighting (much cheaper per pixel; leaves are most of the overdraw on integrated GPUs)
+  const m = quality === 'low'
+    ? new THREE.MeshLambertMaterial({ map, vertexColors: true, alphaTest, side: THREE.DoubleSide })
+    : new THREE.MeshStandardMaterial({ map, vertexColors: true, alphaTest, side: THREE.DoubleSide, roughness: 0.78, metalness: 0, alphaToCoverage: true, envMapIntensity: 0.7 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = uniforms.uTime;
     sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -160,7 +161,7 @@ function leafMaterial(kind, quality, uniforms) {
     sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       totalEmissiveRadiance += diffuseColor.rgb * 0.035;`);
   };
-  m.customProgramCacheKey = () => 'leaf' + kind;
+  m.customProgramCacheKey = () => 'leaf' + kind + (quality === 'low' ? 'L' : '');
   return m;
 }
 
@@ -186,7 +187,8 @@ const VARIANTS = { rain: 2, round: 2, pine: 1, palm: 1, shrub: 1 };
 export function plantVegetation(scene, spots, quality) {
   const uniforms = { uTime: { value: 0 } };
   const bark = barkTex();
-  const barkMat = new THREE.MeshStandardMaterial({ map: bark.map, normalMap: bark.normalMap, vertexColors: true, roughness: 0.95 });
+  const barkMat = quality === 'low' ? new THREE.MeshLambertMaterial({ map: bark.map, vertexColors: true })
+    : new THREE.MeshStandardMaterial({ map: bark.map, normalMap: bark.normalMap, vertexColors: true, roughness: 0.95 });
   const mats = {};
   const getLeaf = (k) => mats[k] || (mats[k] = leafMaterial(k, quality, uniforms));
   const chunks = [];
@@ -220,10 +222,11 @@ export function plantVegetation(scene, spots, quality) {
   }
   return {
     count: spots.length,
+    viewDist: 700, // set by main.js from the quality level (shorter on low)
     update(t, cam) {
       uniforms.uTime.value = t;
       if (!cam) return;
-      for (const c of chunks) { const d = Math.hypot(c.x - cam.x, c.z - cam.z); c.mesh.visible = d < 700; }
+      for (const c of chunks) { const d = Math.hypot(c.x - cam.x, c.z - cam.z); c.mesh.visible = d < this.viewDist; }
     },
   };
 }

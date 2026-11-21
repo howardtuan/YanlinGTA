@@ -157,7 +157,7 @@ export class SkySystem {
     const fog = dayH.clone().lerp(setH, sunset).lerp(nightH, night);
     U.fogColor.value.copy(fog);
     this.scene.fog.color.copy(fog);
-    this.scene.fog.density = lerp(0.00125, 0.0021, Math.max(sunset, night * 0.6));
+    this.scene.fog.density = lerp(0.00125, 0.0021, Math.max(sunset, night * 0.6)) * (this.fogK || 1); // thicker on low quality (shorter view distance)
     // sun / moon light
     const lightDir = elev > 0.04 ? sunDir : moonDir;
     const sunCol = C('#fff3e2').lerp(C('#ffb070'), sunset);

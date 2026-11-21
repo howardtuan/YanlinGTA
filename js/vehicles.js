@@ -228,7 +228,9 @@ export function buildJetSL() {
       guide([0.03, 0.004], [0.112, 0.042]); guide([0.114, 0.036], [0.078, -0.01]);
       // clear cover
       const cover = new THREE.Mesh(new THREE.ExtrudeGeometry(eye(0.04), { depth: 0.004, bevelEnabled: false }),
-        new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.03, transmission: 0.9, transparent: true, opacity: 0.22, clearcoat: 1, side: THREE.DoubleSide }));
+        // plain transparency, not transmission: a transmissive material makes three.js render the whole scene
+        // a second time every frame while any scooter is on screen (measured ~7 ms), for a few square cm of lens
+        new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.03, transparent: true, opacity: 0.22, clearcoat: 1, side: THREE.DoubleSide }));
       cover.position.z = 0.016; unit.add(cover);
       // sit flush on the face: it slopes back ~27 deg and curves back away from the centre line
       unit.position.set(0, 0.79, 0.655); unit.rotation.order = 'XZY'; unit.rotation.set(-0.5, 0.28 * s, -0.04 * s);
@@ -294,7 +296,7 @@ export function buildJetSL() {
   g.add(panel([[-0.66, 0.905], [-0.84, 0.935], [-0.86, 0.915], [-0.68, 0.89]], 0.3, black, { taper: tail, bevel: 0.012 }));
   const tl = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.05), new THREE.MeshStandardMaterial({ color: '#c01020', emissive: '#ff1a1a', emissiveIntensity: 0.9, roughness: 0.15 }));
   tl.position.set(0, 0.84, -0.905); tl.rotation.x = 0.5; g.add(tl);
-  const tlc = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.06), new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: 0.6, roughness: 0.05, transparent: true, opacity: 0.35 }));
+  const tlc = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.06), new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.05, transparent: true, opacity: 0.35 })); // no transmission (see the headlight cover)
   tlc.position.copy(tl.position); tlc.rotation.x = 0.5; g.add(tlc);
   for (const s of [-1, 1]) { const ti = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.04), new THREE.MeshStandardMaterial({ color: '#ffb066', emissive: '#ff8a1a', emissiveIntensity: 0.25 })); ti.position.set(0.1 * s, 0.795, -0.9); g.add(ti); }
 

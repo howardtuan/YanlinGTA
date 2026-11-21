@@ -116,7 +116,7 @@ export class Traffic {
       a.d += v.speed * dt;
       while (!a.dormant && a.d >= a.len) this._next(v);
       if (!a.dormant) this._place(v, dt);
-      v.mesh.visible = dPl < 230;
+      v.mesh.visible = dPl < 230 * (this.viewK ?? 1); // viewK: shorter on lower quality (main.js _applyQuality)
       if (v.rider && dPl < 60) v.rider.update(dt, { mode: 'ride' });
     }
   }
@@ -220,9 +220,10 @@ export class Peds {
       p.y = surfaceAt(p.pos.x, p.pos.z, p.state === 'walk' && p.edge.road.deck ? Infinity : p.y);
       p.ch.root.position.set(p.pos.x, p.y, p.pos.z);
       p.ch.root.rotation.y = p.heading;
-      p.ch.root.visible = dPl < 80;
+      const vr = 80 * (this.viewK ?? 1); // shorter on lower quality (main.js _applyQuality)
+      p.ch.root.visible = dPl < vr;
       p.ch.setDetail(dPl < 16);
-      if (dPl < 80) p.ch.update(dt, { speed, mode, pose });
+      if (dPl < vr) p.ch.update(dt, { speed, mode, pose });
     }
   }
   knock(p, dirX, dirZ) {

@@ -42,10 +42,10 @@ const SIGN = { o: tp(0, -7.25), ang: facing([-TT[0], -TT[1]]) };
 // car park portal: front at 大仁街 s 39.9, 5.0 m wide (n 3.2..8.2), 5.4 m deep; its back keeps clear of the
 // reserved footprint of js/weiche.js (the stair core stands out 2.8 m from the south-west wall, kept 3.3 m)
 const RAMP = { o: dp(39.9, 5.7), ang: facing([-DS[0], -DS[1]]), hw: 2.5, d: 5.4 };
-// the way in: a darker paved lane over the setts from the end of the entry lane (-197.1, 85.2, where the
-// barriers stand) south, then bending east into the portal's 5 m wide mouth (2018 panorama: cars cross the open
-// setts straight into the portal; nothing stands in the way). LANE_PTS is the centre line the checks sample.
-const LANE_W = 5.2;
+// the way in: over the open setts (no marked lane: 2022 photo from the 中北路 end) from the end of the entry
+// lane (-197.1, 85.2, where the barriers stand) south, then bending east inside the 大仁街 kerb railing into the
+// portal's 5 m wide mouth; the railing and the planting strip run on unbroken past the portal (2026 photo from
+// 大仁街), so there is no way in from the street itself. LANE_PTS is the centre line the checks sample (kept clear).
 const lanePt = (t) => {
   const P0 = [-197.1, 85.2], P3 = dp(33, 5.7), P1 = [P0[0], P0[1] + 8], P2 = [P3[0] - 7 * DS[0], P3[1] - 7 * DS[1]], u = 1 - t;
   return [0, 1].map((i) => u * u * u * P0[i] + 3 * u * u * t * P1[i] + 3 * u * t * t * P2[i] + t * t * t * P3[i]);
@@ -53,9 +53,9 @@ const lanePt = (t) => {
 export const LANE_PTS = (() => { const a = []; for (let i = 0; i <= 40; i++) a.push(lanePt(i / 40)); for (let q = 33.5; q <= 39.9; q += 0.5) a.push(dp(q, 5.7)); return a; })();
 // P totem at the 大仁街 mouth, face toward the end of 中北路 (bearing ~300°)
 const PT = { o: [-206.5, 96.7], ang: facing([-0.866, -0.5]) };
-const RAIL = { s0: 13.5, s1: 30, n: 3.1 };
+const RAIL = { s0: 13.5, s1: 39.8, n: 3.1 };
 
-// slender street trees on the planting strip along 大仁街 between the P totem and the car park (2022 photo); none in front of the portal, where the lane runs;
+// slender street trees on the planting strip along 大仁街 between the P totem and the car park (2022 photo); none on the way in to the portal;
 // js/main.js adds them to featureTrees (the footprints above keep the random trees off this strip)
 export function gateTrees() {
   return [24].map((s, i) => { const [x, z] = dp(s, 4.9); return { x, z, kind: 'round', s: 0.62 }; });
@@ -68,9 +68,8 @@ export function gateExtrasFootprints() {
     [ws(-1.8, -1.0), ws(6.8, -1.0), ws(6.8, 0.6), ws(-1.8, 0.6)],
     [wr(-RAMP.hw - 0.4, -0.6), wr(RAMP.hw + 0.1, -0.6), wr(RAMP.hw + 0.1, RAMP.d + 0.3), wr(-RAMP.hw - 0.4, RAMP.d + 0.3)],
     [wp(-0.6, -0.6), wp(0.6, -0.6), wp(0.6, 0.6), wp(-0.6, 0.6)],
-    // the lane in front of the portal (no trees, lamps or signs on it)
-    [dp(30.2, 0.4), dp(36.7, 0.4), dp(36.7, 7), dp(29, 7)],
-    [dp(21, 18.7), dp(21, 12), dp(33, 2.7), dp(40, 2.7), dp(40, 8.7), dp(33, 8.7), dp(27, 20)],
+    // the way in, inside the kerb railing, in front of the portal (no trees, lamps or signs on it)
+    [dp(21, 18.7), dp(21, 12), dp(33, 3.35), dp(40, 3.35), dp(40, 8.7), dp(33, 8.7), dp(27, 20)],
     [dp(RAIL.s0, RAIL.n - 0.55), dp(RAIL.s1, RAIL.n - 0.55), dp(RAIL.s1, RAIL.n + 0.25), dp(RAIL.s0, RAIL.n + 0.25)],
     // the open setts between the 大仁街 mouth, the grey wall and the portal (no trees: 2022 photo)
     [[-205.5, 89.5], [-191, 89.2], [-188.6, 93.6], [-189.6, 99.0], [-191, 102.6], [-198.5, 99.8], [-205, 96.2]],
@@ -365,36 +364,7 @@ function buildForecourt(I, scene) {
   });
 }
 
-function buildLane(I, scene) {
-  const hw = LANE_W / 2, left = [], right = [];
-  const cl = [];
-  for (let i = 0; i <= 48; i++) cl.push(lanePt(i / 48));
-  for (let q = 34; q <= 39.9; q += 1.1) cl.push(dp(q, 5.7));
-  cl.push(dp(39.95, 5.7));
-  for (let i = 0; i < cl.length; i++) {
-    const a = cl[Math.max(0, i - 1)], b = cl[Math.min(cl.length - 1, i + 1)];
-    let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
-    // width eases from 5.2 to the portal's 5.0 over the last 8 m
-    const w = i > 48 ? 2.5 : hw;
-    left.push([cl[i][0] + dz * w, cl[i][1] - dx * w]); right.push([cl[i][0] - dz * w, cl[i][1] + dx * w]);
-  }
-  const pos = [], idx = [];
-  for (let i = 0; i < left.length; i++) {
-    for (const [x, z] of [left[i], right[i]]) pos.push(x, H(x, z) + 0.03, z);
-  }
-  for (let i = 0; i < left.length - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#55575b', roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-  m.receiveShadow = true; scene.add(m);
-  // a dropped-kerb apron from the 大仁街 asphalt across the planting strip into the lane (the lane must meet the street)
-  const ap = [dp(30.6, 0.9), dp(36.2, 0.9), dp(36.2, 6.4), dp(29.2, 6.6)];
-  const ap_pos = []; for (const [x, z] of ap) ap_pos.push(x, H(x, z) + 0.035, z);
-  const ag = new THREE.BufferGeometry(); ag.setAttribute('position', new THREE.Float32BufferAttribute(ap_pos, 3)); ag.setIndex([0, 1, 2, 0, 2, 3]); ag.computeVertexNormals();
-  const am = new THREE.Mesh(ag, m.material); am.receiveShadow = true; scene.add(am);
-}
-
 export function buildGateExtras(I, scene) {
-  buildLane(I, scene);
   buildNameWall(I, scene);
   buildCarPark(I, scene);
   buildParkingTotem(I, scene);

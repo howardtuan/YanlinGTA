@@ -8,7 +8,7 @@ const SETTINGS_KEY = 'cycu-shun-settings-v2';
 // recorded sound effects (assets/sfx/*.m4a, made with Stable Audio Open on the home GPU). One-shots and the short
 // loops are decoded once after the first click; the long ambience beds stream through <audio>. Whatever is missing
 // or not loaded yet falls back to the WebAudio synth versions, so the game never goes silent.
-const SFX_DECODED = ['shutter', 'register', 'ding', 'scooter_start', 'car_start', 'engine_off', 'barrier', 'thud', 'cheer', 'sizzle'];
+const SFX_DECODED = ['shutter', 'register', 'ding', 'scooter_start', 'car_start', 'engine_off', 'barrier', 'thud', 'cheer', 'sizzle', 'horn_scooter', 'horn_car'];
 export function loadSettings() {
   // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
   // amb: 環境音 (birds / insects / night market), 'on' | 'off' — still under sfxVol
@@ -166,7 +166,12 @@ export class Audio {
     if (ft) { const fl = this.ctx.createBiquadFilter(); fl.type = ft; fl.frequency.value = ff; fl.Q.value = q; o.connect(fl); n = fl; }
     n.connect(g); g.connect(this._out || this.sfx); this._track(o); o.start(t); o.stop(t + dur + 0.05);
   }
-  horn(pitch = 1, vol = 1) { this.tone(420 * pitch, 0.35, 'square', 0.08 * vol); this.tone(530 * pitch, 0.35, 'square', 0.06 * vol); }
+  // pitch > 1.1 = scooter (thin electric beep), otherwise car; small random detune so NPC honks don't all sound identical
+  horn(pitch = 1, vol = 1) {
+    const scooter = pitch > 1.1, rate = 0.96 + Math.random() * 0.08;
+    if (this._play(scooter ? 'horn_scooter' : 'horn_car', (scooter ? 0.45 : 0.5) * vol, 0, rate)) return;
+    this.tone(420 * pitch, 0.35, 'square', 0.08 * vol); this.tone(530 * pitch, 0.35, 'square', 0.06 * vol);
+  }
   pickup() { [660, 880, 1320].forEach((f, i) => this.tone(f, 0.15, 'triangle', 0.18, i * 0.06)); }
   vote() { this.tone(880, 0.1, 'triangle', 0.15); this.tone(1175, 0.18, 'triangle', 0.15, 0.08); }
   bad() { this.tone(220, 0.25, 'sawtooth', 0.1, 0, 0.6); }

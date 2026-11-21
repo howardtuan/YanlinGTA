@@ -1,6 +1,7 @@
 // Procedural PBR-ish textures (colour + normal + roughness/metalness), drawn on canvases at load time.
 // Everything is generated, so the game stays a pure static site with no image assets to download.
 import * as THREE from 'three';
+import { fbmWasm, normalWasm } from './wasm/kernels.js';
 
 const CACHE = {};
 const cached = (k, f) => CACHE[k] || (CACHE[k] = f());
@@ -19,7 +20,9 @@ function vnoise(x, y, P, seed) {
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 // fbm over a size x size texture, P = lattice cells across the texture at the first octave
+// (WebAssembly version in wasm/kernels: same numbers, several times faster; this JS one is the fallback)
 function fbmField(size, P, oct, seed, gain = 0.5) {
+  const w = fbmWasm(size, P, oct, seed, gain); if (w) return w;
   const f = new Float32Array(size * size);
   let amp = 1, norm = 0, p = P;
   for (let o = 0; o < oct; o++) {
@@ -43,7 +46,7 @@ function toTex(cv, { srgb = true, repeat = true, aniso = 8 } = {}) {
 // height (Float32Array 0..1) -> tangent-space normal map canvas
 function normalFromHeight(hf, w, h, strength) {
   const cv = canvas(w, h), g = cv.getContext('2d'), img = g.createImageData(w, h), d = img.data;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+  if (!normalWasm(hf, w, h, strength, d)) for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const xl = (x - 1 + w) % w, xr = (x + 1) % w, yu = (y - 1 + h) % h, yd = (y + 1) % h;
     const dx = (hf[y * w + xr] - hf[y * w + xl]) * strength, dy = (hf[yd * w + x] - hf[yu * w + x]) * strength;
     const l = Math.hypot(dx, dy, 1), i = (y * w + x) * 4;

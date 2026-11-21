@@ -433,6 +433,10 @@ export class Vehicle {
     this.driver = null; // 'player' | 'ai' | null
     this.ai = null; this.bumpCooldown = 0; this.wheelRot = 0;
     this.mesh.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.castShadow = o.userData.shadow ?? (o.geometry.boundingSphere.radius > 0.4); } });
+    // the parts never move inside the vehicle and the body / wheels only move in sync(), so three.js
+    // need not recompose dozens of part matrices per vehicle every frame (100+ parked vehicles):
+    // matrices are refreshed in sync() (and airdrop.js) instead. Riders and labels added later stay automatic.
+    this.mesh.traverse(o => { o.updateMatrix(); o.matrixAutoUpdate = false; });
   }
   place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined; this.sync(); }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }
@@ -453,7 +457,8 @@ export class Vehicle {
       this.mesh.rotation.z = this.lean;
     }
     this.wheelRot += this.speed * dt / 0.3;
-    for (const w of this.mesh.userData.wheels) w.rotation.x = this.wheelRot;
+    for (const w of this.mesh.userData.wheels) { w.rotation.x = this.wheelRot; w.updateMatrix(); }
+    this.mesh.updateMatrix(); // matrixAutoUpdate is off (constructor)
   }
   // push the body (a row of circles along the capsule, radius hw) out of walls, trees, buildings
   resolveBody(collision) {

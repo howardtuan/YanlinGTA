@@ -160,6 +160,8 @@ GitHub Pages：Repo → Settings → Pages → Source 選 `main` 分支根目錄
 | `js/vegetation.js` | 雨豆樹、圓冠樹、黑松、大王椰子、灌木（含風吹搖曳） |
 | `js/terrain.js` | 地形高度查詢（`H(x,z)`）與橋面；遊戲邏輯的高度都是「離地高度」，只有畫面位置加上地形 |
 | `js/hud.js` / `js/audio.js` / `js/input.js` | 小地圖與大地圖 / 音效與音樂 / 鍵盤滑鼠觸控 |
+| `js/wasm/kernels.js`, `js/wasm/kernels.wasm` | WebAssembly 運算層：目前是程序貼圖的雜訊與法線圖運算（比 JS 快 3～19 倍、輸出逐 byte 相同）。瀏覽器不支援或載入失敗時，自動改用 JS 版（網址加 `?nowasm` 可強制用 JS） |
+| `wasm/kernels/` | 上面那個 `.wasm` 的 Rust 原始碼。`.wasm` 已經放進 repo，所以玩和部署都不需要編譯；改了 Rust 才要執行 `tools/build_wasm.sh` 重新編譯（需先 `rustup target add wasm32-unknown-unknown`），再用 `node tools/check_wasm.mjs` 確認輸出和 JS 版一致 |
 | `data/cycu.json` | 處理過的地圖資料 |
 | `data/terrain.json` | 10 m 地形格網（由內政部 DTM 產生，相對高程 135 m） |
 | `assets/music/yanlin-opera.m4a` | 彥霖歌劇 |

@@ -26,6 +26,7 @@ import { Airdrop } from './airdrop.js';
 import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
+import { initKernels } from './wasm/kernels.js';
 
 const $ = id => document.getElementById(id);
 // bind a click handler; a missing element (an older cached index.html) must not stop the game from loading
@@ -67,9 +68,11 @@ class Game {
   async init() {
     setLoad(0.02, '載入地圖資料');
     // terrain is optional: without data/terrain.json the world stays flat
+    // WebAssembly kernels (procedural textures) load alongside; without them the JS versions run
     const [data, terrain] = await Promise.all([
       fetch('data/cycu.json' + (window.__q || '')).then(r => r.json()),
       fetch('data/terrain.json' + (window.__q || '')).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      initKernels(),
     ]);
     loadTerrain(terrain);
     this.data = data;
@@ -117,6 +120,9 @@ class Game {
     r.domElement.id = 'game';
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
+    // the scene root never moves: without this it marks itself dirty every frame and forces three.js to
+    // recompute the world matrix of every object, even ones that are frozen (matrixAutoUpdate = false)
+    this.scene.matrixAutoUpdate = false;
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 2600);
     // rAF stops in background tabs but the WebAudio engine drone would keep humming
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.audio?.setEngine(false, 0); });
@@ -204,8 +210,9 @@ class Game {
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
     setLoad(0.95, '準備出發');
     this.missions = new Missions(this);
-    // warm up a frame so shaders compile behind the loading screen
-    this.renderer.compile(this.scene, this.camera);
+    // warm up a frame so shaders compile behind the loading screen; compileAsync lets the driver
+    // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
+    try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }
     this._menus();
     this.last = performance.now();
     this.state = 'title';

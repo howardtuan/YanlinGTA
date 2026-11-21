@@ -151,6 +151,7 @@ export class Airdrop {
       const sy = at.y - 1.4 - hang;
       v.mesh.position.set(at.x + Math.sin(R.t * 1.7) * 0.15, Math.max(R.gy, sy), at.z + Math.cos(R.t * 1.3) * 0.15);
       v.mesh.rotation.y = R.spot.h + Math.sin(R.t * 0.8) * 0.2;
+      v.mesh.updateMatrix(); // vehicle matrices only update on request (vehicles.js)
       const pos = R.cable.geometry.attributes.position;
       pos.setXYZ(0, at.x, at.y - 1.4, at.z); pos.setXYZ(1, v.mesh.position.x, v.mesh.position.y + 1.25, v.mesh.position.z); pos.needsUpdate = true;
       v.mesh.visible = true;

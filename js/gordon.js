@@ -1,4 +1,4 @@
-// 戈登肉鋪：正門對面（大仁街）的高級肉鋪，建築在 js/interiors.js（buildGordon）。
+// 戈登肉鋪：校史館前草坪上的高級肉鋪，建築在 js/interiors.js（buildGordon）。
 // 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
 // 結完帳如果還不是好友，他會問要不要互加（js/friends.js，訊息＋Peachgram）。
 // 購物籃與買過的東西會存檔（save.js 的 gordon）。

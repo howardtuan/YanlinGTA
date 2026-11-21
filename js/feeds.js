@@ -47,7 +47,7 @@ export const FRIEND_POSTS = {
     { who: '吱吱', img: G('e_gym'), cap: '健身 → 排球 → 排位，完美的一天 🎮💪', likes: 148, ago: 1500 },
   ],
   gd: [
-    { who: '女拳大帝', img: G('gd_shop'), cap: '戈登肉鋪中原店，就在中原大學正門對面 🥩 來買肉報我名字（沒折扣）#戈登肉鋪 #代切', likes: 312, ago: 260 },
+    { who: '女拳大帝', img: G('gd_shop'), cap: '戈登肉鋪中原店，就在校史館前面的草坪上 🥩 來買肉報我名字（沒折扣）#戈登肉鋪 #代切', likes: 312, ago: 260 },
     { who: '女拳大帝', img: G('gd'), cap: '練完背來顧店，誰說肉鋪老闆不能有背肌 💪', likes: 187, ago: 1600 },
   ],
 };

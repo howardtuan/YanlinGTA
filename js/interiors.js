@@ -2597,7 +2597,7 @@ function buildGordon(I, scene) {
 //     神威影印社 shen wei · 藍色美而美
 //   along 大仁街 (west side, going towards the gate): 天一影印 / 套房出租 / 天一打字行 in the tall corner building ·
 //     菁英 elite 英日語 (billboard on the roof) · 信義房屋 本透店 for sale · 麻友趣 自助桌遊24H
-//     (mint-green siding, teal window hoods) · 陽光煎匙 · a little reed-roofed kiosk, then 戈登肉鋪
+//     (mint-green siding, teal window hoods) · 陽光煎匙 · a little reed-roofed kiosk, then the two OSM town houses (f1550, f1551)
 // Two frames share the corner point P (where the two facade lines meet): frame A runs east along 中北路 (the
 // row sits at x < 0), frame B runs up 大仁街 (x > 0); in both z grows away from the street. The corner
 // building is a prism filling the wedge between them (it has no shopfront on 中北路). None is enterable.
@@ -2607,7 +2607,7 @@ export const DAREN_SPEC = {
   angA: Math.atan2(-0.354, 0.935),            // +x east along 中北路
   angB: Math.atan2(24.5, 41.3),               // +x up 大仁街 towards the gate
   A: { geo: [-6, 0, 10], jd: [-10.2, -6, 10], sw: [-14, -10.2, 10], blue: [-17.8, -14, 10] }, // stop short of the tower behind (f1525)
-  B: { elite: [6, 11.5, 9], sinyi: [11.5, 16.5, 9], mahjong: [16.5, 25.5, 9], sunny: [25.5, 31.5, 9], hut: [31.5, 35, 5] }, // B x = metres along 大仁街; 戈登肉鋪 from ~42
+  B: { elite: [6, 11.5, 9], sinyi: [11.5, 16.5, 9], mahjong: [16.5, 25.5, 9], sunny: [25.5, 31.5, 9], hut: [31.5, 35, 5] }, // B x = metres along 大仁街; the OSM town houses f1550 / f1551 from ~42
   cornerB: 6, cornerD: 10.9, apronA: 1.6, apronB: 1.8, // apronA: to the kerb of 中北路 (8.5 m, tools/roads.json)
 };
 const darenFrame = (ang) => { const c = Math.cos(ang), s = Math.sin(ang), { px, pz } = DAREN_SPEC; return (x, z) => [px + x * c - z * s, pz + x * s + z * c]; };
@@ -2896,7 +2896,7 @@ function buildDarenCorner(I, scene) {
     }
     ac(k, 0.3, F + 1.2);
   }
-  // ---------- a small reed-roofed kiosk with a round sign, in front of 戈登肉鋪's corner ----------
+  // ---------- a small reed-roofed kiosk with a round sign, in front of the corner of the OSM town houses (f1550, f1551) ----------
   {
     const { k, w, d } = lot('B', 'hut');
     k.box(0.2, w - 0.2, 0, 2.4, 0.6, d, MR.white);
@@ -2917,7 +2917,7 @@ function buildDarenCorner(I, scene) {
 }
 
 // =====================================================================
-// 大仁街, past 戈登肉鋪: rows of 4–7 floor 公寓 with shops on the ground floor, laid out from Google street view
+// 大仁街, past the OSM town houses f1550 / f1551: rows of 4–7 floor 公寓 with shops on the ground floor, laid out from Google street view
 // (2026-05) and the OSM shop names. A generic street-house kit: each lot is a row in DAREN_ST.lots
 //   [s0, s1, side, spec]  s = metres along 大仁街 from 中北路, side +1 = right walking from 中北路, -1 = left
 //   spec: nf floors, fh floor height, d depth, wall (WALL key), sign [text, bg, fg, sub?] or null,
@@ -2932,7 +2932,7 @@ export const DAREN_ST = {
     'f1549', 'f1559', 'f1542', 'f1543', 'f1544', 'f1545', 'f1546', 'f1547', 'f1548', 'f1526',
     'f1666', 'f1665', 'f1664', 'f1663', 'f1662', 'f1661', 'f1660', 'f1659', 'f1658', 'f1657', 'f1656'],
   lots: [
-    // right side after 戈登肉鋪
+    // right side after the OSM town houses f1550 / f1551
     [60, 64.6, 1, { nf: 5, wall: 'grey', sign: ['原泰阿杜', '#1d1a17', '#e8c27a', '音樂餐酒館'], ground: 'shop', awn: '#2a2522', bal: 'cage' }],
     [64.6, 69, 1, { nf: 5, wall: 'tile', sign: ['餡實餃色', '#c0392b', '#ffffff'], ground: 'shop', bal: 'grille', hood: '#4aa597' }],
     [69, 75, 1, { nf: 5, wall: 'beige', sign: ['大三元麻將會館', '#8a1414', '#f4c64a'], ground: 'gate', bal: 'cage', vert: ['麻將', '#8a1414', '#f4c64a'] }],

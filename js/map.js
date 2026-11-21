@@ -1232,11 +1232,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair ? pairSide(r) : 0;
       if (M.edge) { if (inner !== 1) lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D); }
       if (M.centre === 'pair' && inner) { const o = inner * (r.w / 2 - 0.15); lineGaps(r, yAt, o, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, o - inner * 0.3, 0.12, YELLOW, G[0], D); }
-      if (M.centre === 'double-yellow') { lineGaps(r, yAt, 0.15, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, -0.15, 0.12, YELLOW, G[0], D); }
-      else if (M.centre === 'yellow') lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D);
-      else if (M.centre === 'yellow-dash') lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D, Infinity, true);
-      else if (M.centre === 'white-dash') lineGaps(r, yAt, 0, 0.12, WHITE, G[0], D, Infinity, true);
-      if (two) { const lw = e / n; for (let k = 1; k < n; k++) for (const sd of [1, -1]) lineGaps(r, yAt, sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      // cv: the centre line off the middle of the carriageway (+ = (-uz, ux)), where one side is wider (kerbside parking)
+      const cv = M.cv || 0;
+      if (M.centre === 'double-yellow') { lineGaps(r, yAt, cv + 0.15, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, cv - 0.15, 0.12, YELLOW, G[0], D); }
+      else if (M.centre === 'yellow') lineGaps(r, yAt, cv, 0.15, YELLOW, G[0], D);
+      else if (M.centre === 'yellow-dash') lineGaps(r, yAt, cv, 0.15, YELLOW, G[0], D, Infinity, true);
+      else if (M.centre === 'white-dash') lineGaps(r, yAt, cv, 0.12, WHITE, G[0], D, Infinity, true);
+      if (two) for (const sd of [1, -1]) { const lw = (e - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, cv + sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
       else { const lw = 2 * e / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -e + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
       return;
     }
@@ -1597,7 +1599,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         for (let v = -W + 0.5; v <= W - 0.3; v += 0.9) marks.strip(P(-L, v), P(L, v), 0.45, 0.05, WHITE);
       } else if (f.t === 'stop') marks.strip(P(0, -W), P(0, W), 0.4, 0.045, WHITE);
       else if (f.t === 'arrow') { // 直行箭頭, one per lane across w; it points the way traffic drives in its lane
-        const v = (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux, k = R.oneway || v >= 0 ? 1 : -1;
+        const v = (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux, k = R.oneway || v >= ((R.marks && R.marks.cv) || 0) ? 1 : -1;
         const dx = q.ux * k, dz = q.uz * k, n = f.w && f.w > 5 ? Math.round(f.w / 3.3) : 1;
         for (let j = 0; j < n; j++) {
           const o = (j - (n - 1) / 2) * (f.w || 3.3) / n, cx = f.x - dz * o, cz = f.z + dx * o;
@@ -1702,8 +1704,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // OSM buildings judge their street on the OSM road widths (r.rw: width from tools/roads.json), so
   // the shop fronts, and the shared rnd2 draws they gate, stay as before; the 補建 fill, cut back
   // behind the new kerbs and drawing from its own streams, faces the roads as they are now
-  const preRoads = data.roads.some(r => r.rw) ? new SegGrid(20) : roadGrid;
-  if (preRoads !== roadGrid) for (const sg of roadGrid.segs) preRoads.add(sg[0], sg[1], sg[2], sg[3], sg[5].rw ? sg[5].osm.w : sg[4], sg[5]);
+  // (a road tools/roads.json 'shift' moved sideways, r.sh, counts on its OSM line too)
+  const preRoads = data.roads.some(r => r.rw || r.sh) ? new SegGrid(20) : roadGrid;
+  if (preRoads !== roadGrid) {
+    for (const sg of roadGrid.segs) if (!sg[5].sh) preRoads.add(sg[0], sg[1], sg[2], sg[3], sg[5].rw ? sg[5].osm.w : sg[4], sg[5]);
+    for (const r of data.roads) if (r.sh) for (let i = 0; i < r.osm.pts.length - 1; i++) preRoads.add(r.osm.pts[i][0], r.osm.pts[i][1], r.osm.pts[i + 1][0], r.osm.pts[i + 1][1], r.osm.w, r);
+  }
   const facesStreet = (a, c, n, grid = preRoads) => {
     const mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, px = mx + n[0] * 4, pz = mz + n[2] * 4;
     const q = grid.nearest(px, pz, sg => sg[5].drive && (sg[5].type !== 'service' || sg[5].name));
@@ -3007,10 +3013,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const osmRoads = data.roads.some(r => r.osm) ? new SegGrid(20) : roadGrid, gradeGhosts = [];
   // a lamp / tree spot laid out by the old (OSM) width of a road tools/roads.json widened: the same
   // spot as far outside the new kerb as it was outside the old one (null if the road left it alone)
+  // ... or moved sideways by tools/roads.json 'shift' (r.sh): out to clr past its new kerb
   const offWidened = (x, z, clr) => {
-    const q = roadGrid.nearest(x, z, s => s[5].rw && s[5].w > s[5].osm.w && !s[5].under);
-    if (!q.seg || q.d >= clr) return null;
+    const q = roadGrid.nearest(x, z, s => (s[5].sh || (s[5].rw && s[5].w > s[5].osm.w)) && !s[5].under);
+    if (!q.seg) return null;
     const r = q.seg[5], vx = x - q.q[0], vz = z - q.q[1], d = Math.hypot(vx, vz) || 1;
+    if (r.sh) return d < r.w / 2 + clr ? [q.q[0] + vx / d * (r.w / 2 + clr), q.q[1] + vz / d * (r.w / 2 + clr)] : null;
+    if (q.d >= clr) return null;
     const k = Math.max(d, r.osm.w / 2 + clr) + (r.w - r.osm.w) / 2;
     return [q.q[0] + vx / d * k, q.q[1] + vz / d * k];
   };

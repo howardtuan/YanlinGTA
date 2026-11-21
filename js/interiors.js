@@ -284,7 +284,7 @@ export class Kit {
   }
   plane(tex, w, h, x, y, z, rotY = 0, o = {}) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, transparent: !!o.transparent, roughness: 0.8, emissive: o.emissive ? '#ffffff' : '#000000', emissiveMap: o.emissive ? tex : null, emissiveIntensity: o.emissive || 0, side: o.double ? THREE.DoubleSide : THREE.FrontSide }));
-    m.position.set(x, y, z); m.rotation.y = rotY; this.group.add(m); return m;
+    m.position.set(x, y, z); m.rotation.y = rotY; m.userData.kitPlane = { tex, o }; this.group.add(m); return m;
   }
   finish(scene, shadow = true) {
     for (const [mat, list] of this.parts) {
@@ -295,6 +295,102 @@ export class Kit {
     }
     scene.add(this.group);
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// finishRow: Kit.finish for a whole row of buildings that nobody walks into (the 中北路 / 大仁街 shop
+// rows). It looks exactly the same, but draws in far fewer pieces:
+//  - the plain parts of every building are merged per material across the row (one mesh per colour for
+//    the whole row instead of one per colour per building);
+//  - the textured planes (signs, shop windows, shutters ...) are baked into the row's world frame and
+//    their canvases packed into a texture atlas, one mesh per kind of plane (transparent / glow / sides).
+// Planes whose texture is tiled or alpha-tested after k.plane() (the 麥食堂 wire mesh) stay as they were,
+// and so does anything else a builder put into k.group (prisms, extra meshes).
+// ---------------------------------------------------------------------------------------------
+// Each image sits on a 16-pixel grid with 16 px of its own edge colour around it, and the sheet is a power
+// of two high: every mipmap level of the sheet then lines up with the image's own, so small text far away
+// stays as sharp as it was on its own texture (odd offsets shift and soften it).
+const ATLAS_W = 2048, ATLAS_MAX_H = 4096, ATLAS_GAP = 16;
+const alignUp = v => Math.ceil(v / ATLAS_GAP) * ATLAS_GAP;
+function atlasable(m) {
+  const kp = m.userData.kitPlane; if (!kp || !m.visible || m.children.length) return false;
+  const mat = m.material, t = kp.tex;
+  return mat.map === t && mat.alphaTest === 0 && t.repeat.x === 1 && t.repeat.y === 1 && t.offset.x === 0 && t.offset.y === 0 && t.rotation === 0
+    && t.image && t.image.width <= ATLAS_W && t.image.height <= ATLAS_MAX_H;
+}
+// pack images (unique) into one or more sheets; returns Map image -> { sheet, x, y, w, h }
+function packAtlas(images) {
+  const list = [...images].sort((a, b) => b.height - a.height || b.width - a.width);
+  const sheets = [], at = new Map();
+  let sheet = null, x = 0, y = 0, rowH = 0;
+  const newSheet = () => { sheet = { items: [], h: 0 }; sheets.push(sheet); x = 0; y = 0; rowH = 0; };
+  newSheet();
+  for (const img of list) {
+    const w = alignUp(img.width) + ATLAS_GAP * 2, h = alignUp(img.height) + ATLAS_GAP * 2; // slot: gap, image, gap
+    if (x + w > ATLAS_W) { x = 0; y += rowH; rowH = 0; }
+    if (y + h > ATLAS_MAX_H) newSheet();
+    const ix = x + ATLAS_GAP, iy = y + ATLAS_GAP;
+    sheet.items.push({ img, x: ix, y: iy }); at.set(img, { sheet, x: ix, y: iy, w: img.width, h: img.height });
+    x += w; rowH = Math.max(rowH, h); sheet.h = Math.max(sheet.h, y + rowH);
+  }
+  for (const sh of sheets) {
+    const cv = document.createElement('canvas'); cv.width = ATLAS_W; cv.height = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h)));
+    const g = cv.getContext('2d'), P = ATLAS_GAP;
+    for (const { img, x: X, y: Y } of sh.items) {
+      const w = img.width, h = img.height;
+      g.drawImage(img, X, Y);
+      // repeat the edge pixels into the gap so mipmaps do not pull in the neighbours
+      g.drawImage(img, 0, 0, w, 1, X, Y - P, w, P); g.drawImage(img, 0, h - 1, w, 1, X, Y + h, w, P);
+      g.drawImage(img, 0, 0, 1, h, X - P, Y, P, h); g.drawImage(img, w - 1, 0, 1, h, X + w, Y, P, h);
+    }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    sh.tex = t; sh.H = cv.height;
+  }
+  return at;
+}
+export function finishRow(scene, kits, shadow = true) {
+  const parts = new Map(); // material key -> geometries in world space
+  const planes = [];       // { mesh, matrix }
+  for (const k of kits) {
+    k.group.updateMatrix();
+    for (const [mat, list] of k.parts) {
+      const g = mergeGeometries(list, false); g.applyMatrix4(k.group.matrix);
+      if (!parts.has(mat)) parts.set(mat, []); parts.get(mat).push(g);
+    }
+    k.parts.clear();
+    for (const m of [...k.group.children]) {
+      if (!atlasable(m)) continue;
+      m.updateMatrix(); planes.push({ mesh: m, matrix: new THREE.Matrix4().multiplyMatrices(k.group.matrix, m.matrix) });
+      k.group.remove(m);
+    }
+  }
+  const out = new THREE.Group(); out.name = 'shopRow';
+  for (const [mat, list] of parts) {
+    const mesh = new THREE.Mesh(mergeGeometries(list, false), M(mat));
+    mesh.castShadow = shadow && mat !== 'glass'; mesh.receiveShadow = false; mesh.name = 'row:' + mat;
+    out.add(mesh);
+  }
+  // planes: group by everything about the material except the texture
+  const at = packAtlas(new Set(planes.map(p => p.mesh.material.map.image)));
+  const groups = new Map();
+  for (const p of planes) {
+    const m = p.mesh.material, A = at.get(m.map.image);
+    const key = [A.sheet.tex.uuid, m.transparent, m.emissiveIntensity, m.side, m.depthWrite, m.roughness].join('|');
+    if (!groups.has(key)) groups.set(key, { src: m, sheet: A.sheet, geos: [] });
+    const g = p.mesh.geometry.clone(); g.applyMatrix4(p.matrix);
+    const uv = g.attributes.uv, W = ATLAS_W, H = A.sheet.H;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (A.x + uv.getX(i) * A.w) / W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
+    groups.get(key).geos.push(g);
+    p.mesh.geometry.dispose(); m.dispose();
+  }
+  for (const { src, sheet, geos } of groups.values()) {
+    const mat = src.clone(); mat.map = sheet.tex; if (src.emissiveMap) mat.emissiveMap = sheet.tex;
+    const mesh = new THREE.Mesh(mergeGeometries(geos, false), mat); mesh.name = 'row:planes';
+    out.add(mesh);
+  }
+  scene.add(out);
+  for (const k of kits) if (k.group.children.length) scene.add(k.group);
+  return out;
 }
 
 // =====================================================================
@@ -2304,7 +2400,7 @@ function buildTeaRow(I, scene) {
     const k = kits[lot], w = a[1] - a[0], d = teaApron(lot) - 1.8;
     if (d > 0.05) k.box(-0.01, w + 0.01, -0.5, 0.05, -d, 0, MR.concrete, { col: false, surface: true });
   }
-  for (const k of Object.values(kits)) k.finish(scene);
+  finishRow(scene, Object.values(kits));
 }
 
 // =====================================================================
@@ -2917,7 +3013,7 @@ function buildDarenCorner(I, scene) {
     if (S.apronA > 1.85) kA.box(-17.8, 0.3, -0.5, 0.05, -(S.apronA - 1.8), 0, MR.concrete, { col: false, surface: true });
     kB.box(-0.3, 35, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
   }
-  for (const k of kits) k.finish(scene);
+  finishRow(scene, kits);
 }
 
 // =====================================================================
@@ -3094,7 +3190,7 @@ function buildDarenStreet(I, scene) {
     else if (sp.roof === 'tank') k.cyl(w / 2, d - 2, 0.6, top + 0.12, top + 1.5, '#d8d8d0', { seg: 12 });
     k.box(-0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete, { col: false, surface: true });
   });
-  for (const k of kits) k.finish(scene);
+  finishRow(scene, kits);
 }
 
 // =====================================================================

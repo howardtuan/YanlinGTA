@@ -5,7 +5,7 @@
 // close-up while he lowers the scooter. When he isn't flying he walks around campus (CampusPilot) — there is only ever one of him.
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
-import { createPilot, CampusPilot } from './pilot.js';
+import { createPilot, CampusPilot, PILOT_CALL_VOICE } from './pilot.js';
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const T_IN = 7, T_LOWER = 4.5, T_OUT = 8, HOVER = 16, CINE_OUT = 4.5; // the film ends 4.5 s into the fly-away
@@ -165,6 +165,7 @@ export class Airdrop {
     };
     this._look.copy(this.run.from);
     this._cinema(true);
+    g.audio.voice(PILOT_CALL_VOICE, 1, 'pilot');
     return null;
   }
   // rotor thump, louder when it is close

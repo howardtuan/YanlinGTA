@@ -59,7 +59,8 @@ export function createPilot() {
 
 // ---- the pilot on foot: turns up somewhere on campus near you, strolls the footpaths for a few minutes, wanders off,
 // and shows up again somewhere else later. Hidden whenever he is flying (Airdrop passes busy = true).
-const PILOT_VOICES = [1, 2, 3, 4].map(n => `assets/sfx/pilot/voice${n}.mp3`);
+export const PILOT_CALL_VOICE = 'assets/sfx/pilot/voice1.mp3';        // played when you call the helicopter (airdrop.js)
+const PILOT_VOICES = [2, 3, 4].map(n => `assets/sfx/pilot/voice${n}.mp3`); // greeting him on foot: one of these at random
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export class CampusPilot {
   constructor(game) {
@@ -69,14 +70,14 @@ export class CampusPilot {
   }
   _build() {
     const ch = this.ch = createPilot();
-    const tag = makeLabel('🚁 彥霖航空 機長', { height: 0.26, size: 40 }); tag.position.set(0, 2.12, 0); ch.root.add(tag);
+    const tag = makeLabel('🚁 勞大', { height: 0.26, size: 40 }); tag.position.set(0, 2.12, 0); ch.root.add(tag);
     ch.root.visible = false; this.g.scene.add(ch.root);
     // walk up to him and press E: he stops, turns to you and says one of his lines (a random clip, never the same twice running)
     const pos = this.pos;
     this.g.interiors.actions.push({
       get x() { return pos.x; }, get z() { return pos.z; }, r: 2.4, y: 0, anyY: true,
       cond: () => this.on,
-      label: () => '按 <kbd>E</kbd> 和機長打招呼',
+      label: () => '按 <kbd>E</kbd> 和勞大打招呼',
       fn: () => this.greet(),
     });
   }

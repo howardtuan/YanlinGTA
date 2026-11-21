@@ -20,7 +20,7 @@ const APPS = [
   { id: 'missions', name: '任務', icon: '📋', bg: 'linear-gradient(#7aa7ff,#2f6bff)', noArt: true },
   { id: 'stock', name: '靈感股', icon: '📈', bg: 'linear-gradient(#ff6b6b,#c81e2a)', noArt: true },
   { id: 'news', name: 'PYtoday', icon: '📰', bg: 'linear-gradient(#ff3b3b,#1a1a1a)', noArt: true },
-  { id: 'tix', name: '拓原系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (js/concert.js)
+  { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (js/concert.js)
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
   { id: 'wallet', name: 'Peach Pay', icon: '💳', bg: 'linear-gradient(#ffb38a,#ff6f61)' },
@@ -94,12 +94,12 @@ export class Phone {
       <div class="ph-status"><span class="ph-time">17:30</span><span class="ph-island"></span><span class="ph-icons">▂▄▆ <b>5G</b> <i class="ph-batt"><i></i></i></span></div>
       <div class="ph-view"></div>
       <div class="ph-boot hidden">${PEACH()}</div>
-      <div class="ph-home-bar" title="主畫面"></div>
-    </div><div class="ph-btn ph-btn-a"></div><div class="ph-btn ph-btn-b"></div><div class="ph-btn ph-btn-c"></div></div>
+    </div><button class="ph-homebtn" title="Home 鍵（回主畫面）" aria-label="Home"><i></i></button><div class="ph-btn ph-btn-a"></div><div class="ph-btn ph-btn-b"></div><div class="ph-btn ph-btn-c"></div></div>
     <div class="ph-hint"><kbd>E</kbd> 收起手機 · <kbd>Esc</kbd> 返回</div>`;
     document.getElementById('app').appendChild(el);
     this.view = el.querySelector('.ph-view');
-    el.querySelector('.ph-home-bar').onclick = () => (this.app ? this.home() : this.close());
+    // Home key: in an app -> home screen; on page 2 -> page 1; on page 1 -> put the phone away
+    el.querySelector('.ph-homebtn').onclick = () => { this.g.audio.tap?.(); if (this.story) this._storyClose(); if (this.app) this.home(); else if (this.page > 0) this._setPage(0); else this.close(); };
     addEventListener('resize', () => this._scale());
   }
   get unreadTotal() { return this.chats.reduce((s, c) => s + c.unread, 0); }
@@ -189,7 +189,7 @@ export class Phone {
     for (const d of this.view.querySelectorAll('.ph-dots i')) d.onclick = () => this._setPage(+d.dataset.p);
     this._swipe(this.view.querySelector('.ph-pages'), pages.length);
     this._setPage(this.page, true);
-    this._homeSel(Math.min(this.homeSel, this._order.length - 1));
+    this._homeSel(Math.min(this.homeSel, this._order.length - 1), false);
   }
   // drag / swipe / trackpad sideways scroll between home pages
   _swipe(el, n) {
@@ -215,20 +215,27 @@ export class Phone {
       this._setPage(this.page + ((e.deltaX || e.deltaY) > 0 ? 1 : -1));
     };
   }
-  _setPage(p, instant) {
+  // fromSel: called by _homeSel (the keyboard selection already sits on this page)
+  _setPage(p, instant, fromSel = false) {
     const n = this._pageStart.length - 1; this.page = Math.max(0, Math.min(n - 1, p));
+    // swiping / dots / Home key: the keyboard selection moves to the page you are on, so a redraw of the home
+    // screen (which re-applies the selection) can't flip you back to the other page
+    const st = this._pageStart;
+    if (!fromSel && this.homeSel < st[st.length - 1] && (this.homeSel < st[this.page] || this.homeSel >= st[this.page + 1])) {
+      this.homeSel = st[this.page]; this.view.querySelectorAll('.ph-app').forEach((b, k) => b.classList.toggle('sel', k === this.homeSel));
+    }
     const track = this.view.querySelector('.ph-track'); if (!track) return;
     if (instant) track.style.transition = 'none';
     track.style.transform = `translateX(${-this.page * 100}%)`;
     if (instant) { void track.offsetWidth; track.style.transition = ''; }
     this.view.querySelectorAll('.ph-dots i').forEach((d, k) => d.classList.toggle('on', k === this.page));
   }
-  _homeSel(i) {
+  _homeSel(i, follow = true) {
     this.homeSel = Math.max(0, Math.min(this._order.length - 1, i));
     this.view.querySelectorAll('.ph-app').forEach((b, k) => b.classList.toggle('sel', k === this.homeSel));
     // keyboard selection on a grid icon flips to its page (dock icons stay on the current page)
     const st = this._pageStart;
-    if (this.homeSel < st[st.length - 1]) { const pg = this.homeSel < st[1] ? 0 : 1; if (pg !== this.page) this._setPage(pg); }
+    if (follow && this.homeSel < st[st.length - 1]) { const pg = this.homeSel < st[1] ? 0 : 1; if (pg !== this.page) this._setPage(pg, false, true); }
   }
   _dateStr() { const d = new Date(); return `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`; }
   _temp() { return Math.round(this.g.night > 0.5 ? 19 : 24 + Math.sin((this.g.clock % 1440) / 1440 * Math.PI) * 3); }
@@ -298,8 +305,8 @@ export class Phone {
   _frame(title, body, opt = {}) {
     // slide in only when we land on a different page; re-rendering the same page (likes, buy, keypad, tabs) stays put
     const key = this.app + '|' + title, still = key === this._frameKey; this._frameKey = key;
-    this.view.innerHTML = `<div class="ph-appview ${opt.cls || ''} ${still ? 'still' : ''}"><div class="ph-nav"><button class="ph-back">‹ ${esc(opt.back || '主畫面')}</button><b>${esc(title)}</b><span>${opt.right || ''}</span></div><div class="ph-content">${body}</div></div>`;
-    this.view.querySelector('.ph-back').onclick = () => (opt.onBack ? opt.onBack() : this.home());
+    this.view.innerHTML = `<div class="ph-appview ${opt.cls || ''} ${still ? 'still' : ''}"><div class="ph-nav">${opt.back ? `<button class="ph-back">‹ ${esc(opt.back)}</button>` : '<span class="ph-back"></span>'}<b>${esc(title)}</b><span>${opt.right || ''}</span></div><div class="ph-content">${body}</div></div>`;
+    const bk = this.view.querySelector('button.ph-back'); if (bk) bk.onclick = () => (opt.onBack ? opt.onBack() : this.home());
     return this.view.querySelector('.ph-content');
   }
   openApp(id) {

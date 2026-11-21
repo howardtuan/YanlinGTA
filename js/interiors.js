@@ -2404,8 +2404,8 @@ function buildTeaRow(I, scene) {
 }
 
 // =====================================================================
-// 戈登肉鋪 Gordon Meat Shop: 一層樓的獨棟店面，蓋在校史館前面、小路對面的草坪上（鐘塔那片草坪的西緣），
-// 店門面向小路和校史館，門口一條步道接到路邊；不佔用任何原本的街屋。
+// 戈登肉鋪 Gordon Meat Shop: 一層樓的獨棟店面，蓋在校史館西南側、緊鄰校史館的那片椰子樹草坪上（不是鐘塔那片大草坪），
+// 店門面向草坪外的校內道路，門口一條步道接到路邊；不佔用任何原本的街屋。
 // 1F 照使用者給的店內照片：黑色招牌（金色 Gordon＋牛頭、白字戈登肉鋪、MEAT·SHOP），整面玻璃落地窗與玻璃門；
 // 店內是原木條天花板＋軌道投射燈、右手邊一整面直條木格柵後面藏著波浪形的暖光燈條、
 // 黑色臥式冷凍櫃（中間兩台並排一島、右牆兩台、左前一台）、直立冷藏展示櫃、
@@ -2413,10 +2413,11 @@ function buildTeaRow(I, scene) {
 // Local frame: x along the shop front, z into the shop (0 = glass front); u = W - x is measured from the
 // RIGHT wall as you walk in (the LED wave wall), so the layout reads like the photos.
 // =====================================================================
-// origin = front corner at the south end; +x runs NNE along the service road (-58,76)-(-77,130), +z east into the
-// lawn. The glass front stands 8 m east of the road's centre line, clear of the trees along it, opposite the
-// middle of 校史館; the ground there is level within 0.3 m. PATH: length of the walk from the door to the road.
-export const GD_SPEC = { ox: -60.47, oz: 107.28, ang: Math.atan2(-0.944, 0.332), W: 9.78, D: 17.42, NF: 1, FH: 3.42, PATH: 6.6 };
+// The lawn is the OSM grass (-113,63) (-90,71) (-102,105) (-126,97) between 校史館 and the road (-83,67)-(-115,55).
+// origin = the front's west corner; +x runs along the lawn's road edge (ENE), +z into the lawn (toward 維澈樓).
+// The glass front stands 3 m inside the lawn edge, centred on it. The ground rises ~0.35 m to the back, so the
+// floor sits at the highest corner (buildGordon). PATH: length of the walk from the door to the road.
+export const GD_SPEC = { ox: -107.11, oz: 68.22, ang: Math.atan2(0.3285, 0.9446), W: 9.78, D: 17.42, NF: 1, FH: 3.42, PATH: 5.4 };
 export function gordonOutline() {
   const { ox, oz, ang, W, D } = GD_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
   const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
@@ -2497,6 +2498,19 @@ const GDT = {
     g.fillStyle = '#141414'; g.fillRect(0, 0, w, h); g.fillStyle = '#b3202a'; g.fillRect(0, 0, 14, h);
     g.fillStyle = '#fff'; g.font = '900 40px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.textBaseline = 'middle'; g.fillText(t, 30, h / 2 + 2);
   }, false),
+  // sign stand outside the door: 快閃店（廣告專區）
+  popup: () => ctex('gdPopup', 384, 512, (g, w, h) => {
+    g.fillStyle = '#fbfaf6'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#111'; g.fillRect(0, 0, w, 14); g.fillRect(0, h - 14, w, 14);
+    g.strokeStyle = '#c9a24e'; g.lineWidth = 6; g.strokeRect(22, 34, w - 44, h - 68);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#b3202a'; g.font = '900 30px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('POP-UP STORE', w / 2, 92);
+    g.fillStyle = '#111'; g.font = '900 104px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+    g.fillText('快閃店', w / 2, 220);
+    g.fillStyle = '#c9a24e'; g.fillRect(70, 292, w - 140, 4);
+    g.fillStyle = '#333'; g.font = '800 46px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('（廣告專區）', w / 2, 350);
+    g.fillStyle = '#777'; g.font = '700 24px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('戈登肉鋪 Gordon Meat Shop', w / 2, 430);
+  }, false),
   cut: () => ctex('gdCut', 256, 256, (g, w, h) => { // 代切 board by the door
     g.fillStyle = '#121212'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d8c49a'; g.lineWidth = 4; g.beginPath(); g.arc(128, 104, 66, 0, 7); g.stroke();
     g.fillStyle = '#f2efe8'; g.font = '900 78px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('代切', 128, 106);
@@ -2522,7 +2536,10 @@ function gdBull(g, x, y, s, fill) {
 }
 function buildGordon(I, scene) {
   const S = GD_SPEC, W = S.W, D = S.D, F = S.FH, top = Math.max(F * S.NF, F + 1.3), CH = 3.25; // top: roof over the sign box; CH: shop ceiling
-  const k = new Kit(I, S.ox, S.oz, S.ang), base = k.base;
+  const k = new Kit(I, S.ox, S.oz, S.ang);
+  // floor level = the highest ground under the shop, so the lawn never pokes through the floor
+  k.base = Math.max(...[[0, 0], [W, 0], [W, D], [0, D], [W / 2, D / 2]].map(([x, z]) => H(...k.w(x, z)))) + 0.02; k.group.position.y = k.base;
+  const base = k.base;
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
   const std = (o, lift = 0) => {
     const m = new THREE.MeshStandardMaterial({ roughness: 0.8, envMapIntensity: 0.5, ...o });
@@ -2588,6 +2605,15 @@ function buildGordon(I, scene) {
   k.plane(GDT.tv(), 2.5, 1.38, X(6.3), 1.28, 0.345, Math.PI, { emissive: 0.85 });
   k.box(X(6.6), X(6.0), 0.06, 0.55, 0.36, 0.42, MT.black, { col: false });
   k.plane(GDT.cut(), 0.8, 0.8, X(1.0), 1.5, 0.15, Math.PI, { emissive: 0.4 });
+  // 快閃店（廣告專區）sign stand on the paving, just left of the door as you face the shop: a white board on a black
+  // frame with two legs, printed on both sides
+  { const sx = DU1 + 0.75, sz = -0.75, bw = 0.78, bh = 1.04, y0 = 0.5;
+    k.box(sx - bw / 2 - 0.03, sx + bw / 2 + 0.03, y0 - 0.03, y0 + bh + 0.03, sz - 0.03, sz + 0.03, MT.black, { col: false });
+    for (const lx of [sx - bw / 2 + 0.05, sx + bw / 2 - 0.05]) k.box(lx - 0.02, lx + 0.02, 0.04, y0, sz - 0.02, sz + 0.02, MT.black, { col: false });
+    k.box(sx - bw / 2, sx + bw / 2, 0.04, 0.07, sz - 0.18, sz + 0.18, MT.black, { col: false });
+    k.plane(GDT.popup(), bw, bh, sx, y0 + bh / 2, sz - 0.035, Math.PI, { emissive: 0.25 });
+    k.plane(GDT.popup(), bw, bh, sx, y0 + bh / 2, sz + 0.035, 0, { emissive: 0.25 });
+    k.wallRect(sx - bw / 2, sx + bw / 2, sz - 0.18, sz + 0.18, 0, y0 + bh); }
   // collision: the glass front (door gap open), the side and back walls of the shop
   k.wallRect(0.2, DU0, 0.04, 0.14, 0, CH); k.wallRect(DU1, W - 0.2, 0.04, 0.14, 0, CH);
   // sliding glass door leaves (part on its own mesh so it can move)
@@ -2599,7 +2625,11 @@ function buildGordon(I, scene) {
   }
   // paving in front of the glass and a walk across the lawn from the door to the road
   k.box(0, W, -0.6, 0.04, -1.4, 0, MT.bmarble, { col: false, tile: [0.6, 0.6] });
-  k.box(DU0 - 0.2, DU1 + 0.2, -0.6, 0.03, -1.4 - S.PATH, -1.4, '#bdb8ae', { col: false, tile: [0.6, 0.6] });
+  // the walk follows the lawn down to the road: short slabs, each on the ground under it (local y = H - base)
+  for (let z = -1.4; z > -1.4 - S.PATH + 1e-6; z -= 0.6) {
+    const z0 = Math.max(-1.4 - S.PATH, z - 0.6), gy = H(...k.w((DU0 + DU1) / 2, (z + z0) / 2)) - base;
+    k.box(DU0 - 0.2, DU1 + 0.2, gy - 0.3, gy + 0.04, z0, z, '#bdb8ae', { col: false, tile: [0.6, 0.6] });
+  }
 
   // ---------------- 1F shop ----------------
   k.box(0.2, W - 0.2, -0.6, 0.06, 0.2, D - 0.2, MT.oak, { col: false, tile: [1.6, 1.6] });

@@ -200,10 +200,14 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 /* ---------------- i-Piyan phone ---------------- */
 #phone{--ps:1;position:fixed;right:34px;top:50%;z-index:30;transform:translateY(-50%) scale(var(--ps));transform-origin:right center;animation:phUp .28s cubic-bezier(.2,.9,.3,1.1);font-family:-apple-system,"SF Pro TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;color:#111}
 @keyframes phUp{from{transform:translateY(-38%) scale(var(--ps));opacity:0}}
-.ph-body{position:relative;width:300px;height:630px;border-radius:52px;padding:11px;background:linear-gradient(145deg,#4a4d52,#1c1d20 40%,#33363b);box-shadow:0 0 0 2px #77797e inset,0 30px 70px rgba(0,0,0,.6),0 0 0 1px #000}
+.ph-body{position:relative;width:300px;height:630px;border-radius:52px;padding:11px 11px 74px;background:linear-gradient(145deg,#4a4d52,#1c1d20 40%,#33363b);box-shadow:0 0 0 2px #77797e inset,0 30px 70px rgba(0,0,0,.6),0 0 0 1px #000}
 .ph-btn{position:absolute;width:4px;border-radius:2px;background:#55585d}
 .ph-btn-a{left:-3px;top:120px;height:28px}.ph-btn-b{left:-3px;top:165px;height:52px}.ph-btn-c{right:-3px;top:180px;height:80px}
-.ph-screen{position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:#000}
+.ph-screen{position:relative;width:100%;height:100%;border-radius:42px 42px 16px 16px;overflow:hidden;background:#000}
+/* physical Home key under the screen (old iPhone): round, recessed, a rounded square drawn on it */
+.ph-homebtn{position:absolute;left:50%;bottom:11px;width:52px;height:52px;margin-left:-26px;border-radius:50%;border:0;padding:0;cursor:pointer;background:radial-gradient(circle at 50% 40%,#2e3034,#141517 70%);box-shadow:0 0 0 2px #5d6066,inset 0 2px 4px rgba(0,0,0,.7),inset 0 -1px 2px rgba(255,255,255,.08)}
+.ph-homebtn i{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border:1.5px solid #8a8d93;border-radius:4px}
+.ph-homebtn:active{transform:scale(.94);box-shadow:0 0 0 2px #7a7d83,inset 0 3px 6px rgba(0,0,0,.85)}
 .ph-status{position:absolute;top:0;left:0;right:0;height:44px;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:4px 26px 0 30px;font:600 14px/1 -apple-system,system-ui,sans-serif;color:#fff;pointer-events:none;mix-blend-mode:difference}
 .ph-island{position:absolute;left:50%;top:10px;width:96px;height:28px;margin-left:-48px;border-radius:16px;background:#000;mix-blend-mode:normal}
 .ph-icons{font-size:10px;letter-spacing:-1px;display:flex;align-items:center;gap:4px}.ph-icons b{font-size:11px;letter-spacing:0}
@@ -213,7 +217,6 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .ph-boot{position:absolute;inset:0;z-index:9;background:#000;display:flex;align-items:center;justify-content:center;animation:phBoot .9s ease}
 .ph-boot .peach-logo{width:74px;height:74px}
 @keyframes phBoot{0%{opacity:1}80%{opacity:1}100%{opacity:0}}
-.ph-home-bar{position:absolute;left:50%;bottom:7px;width:120px;height:5px;margin-left:-60px;border-radius:3px;background:rgba(255,255,255,.85);z-index:6;cursor:pointer;mix-blend-mode:difference}
 .ph-hint{position:absolute;right:0;left:0;bottom:-30px;text-align:center;font-size:12px;color:#fff;text-shadow:0 1px 3px #000}
 #phone.flash .ph-screen::after{content:'';position:absolute;inset:0;background:#fff;z-index:20;animation:phFlash .18s}
 @keyframes phFlash{from{opacity:1}to{opacity:0}}

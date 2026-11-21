@@ -1,4 +1,4 @@
-// 演唱會：手機「拓原系統」App 搶 ITZY / aespa 在林口體育館的演唱會門票，開演當天搭接駁車進場。
+// 演唱會：手機「皮元系統」App 搶 ITZV / aespo 在林口體育館的演唱會門票，開演當天搭接駁車進場。
 // - 每團每週一場（day + 7n，19:00），開演前兩天 12:00 開賣；越貴的區越早賣完，開賣 45 分鐘（遊戲時間）全部售完。
 // - 搶票：排隊 → 選區（錢不夠買不了）→ 依序按驗證碼（限時）→ 付款成功，票會存檔。
 // - 林口體育館在地圖外（js/arena.js）。19:00 開演：主螢幕疊上 YouTube 播放器（youtube-nocookie，官方頻道的 MV），
@@ -11,11 +11,11 @@ import { makeLabel } from './map.js';
 // official M/Vs (checked with YouTube oEmbed: JYP Entertainment / SMTOWN channels)
 export const CONCERTS = [
   {
-    id: 'itzy', name: 'ITZY', title: 'ITZY LIVE in TAIPEI', day: 2, color: '#ff4fa3', color2: '#ffd23f',
+    id: 'itzy', name: 'ITZV', title: 'ITZV LIVE in TAIPEI', day: 2, color: '#ff4fa3', color2: '#ffd23f',
     videos: ['pNfTK39k55U', 'zndvqTc4P9I', 'fE2h3lGlOsk', 'wTowEKjDGkU', '_ysomCGaZLw', 'MjCZfZfucEc'], // DALLA DALLA, ICY, WANNABE, Not Shy, 마.피.아. In the morning, LOCO
   },
   {
-    id: 'aespa', name: 'aespa', title: 'aespa LIVE in TAIPEI', day: 4, color: '#9b7bff', color2: '#7fe3ff',
+    id: 'aespa', name: 'aespo', title: 'aespo LIVE in TAIPEI', day: 4, color: '#9b7bff', color2: '#7fe3ff',
     videos: ['ZeerrnuLi5E', '4TWR90KJl84', 'WPdWvnAAurg', 'Os_heh8vPfs', 'D8VEhcPeSlc', 'phuiiNCxRMg', 'jWQx2f-CErU'], // Black Mamba, Next Level, Savage, Spicy, Drama, Supernova, Whiplash
   },
 ];
@@ -91,8 +91,8 @@ export class Concerts {
     for (const c of CONCERTS) {
       const n = this.next(c), tk = this.ticket(c);
       const key1 = `sale-${c.id}-${n.show}`, key2 = `day-${c.id}-${n.show}`;
-      if (!tk && clock >= n.open - 30 && clock < n.open && !this.told.has(key1)) { this.told.add(key1); g.hud.toast(`🎫 ${c.title} 門票 ${hhmm(n.open)} 開賣！打開手機「拓原系統」`, 'good', 3200); g.audio.notify?.(); }
-      if (tk && clock >= n.show * DAY + GATE_OPEN && clock < n.start && !this.told.has(key2)) { this.told.add(key2); g.hud.toast(`🎤 今晚 ${hhmm(SHOW_AT)} ${c.name} 演唱會！打開「拓原系統」搭接駁車去林口體育館`, 'good', 3600); g.audio.notify?.(); }
+      if (!tk && clock >= n.open - 30 && clock < n.open && !this.told.has(key1)) { this.told.add(key1); g.hud.toast(`🎫 ${c.title} 門票 ${hhmm(n.open)} 開賣！打開手機「皮元系統」`, 'good', 3200); g.audio.notify?.(); }
+      if (tk && clock >= n.show * DAY + GATE_OPEN && clock < n.start && !this.told.has(key2)) { this.told.add(key2); g.hud.toast(`🎤 今晚 ${hhmm(SHOW_AT)} ${c.name} 演唱會！打開「皮元系統」搭接駁車去林口體育館`, 'good', 3600); g.audio.notify?.(); }
     }
     if (!this.inArena) return;
     const A = this.inArena;
@@ -351,7 +351,7 @@ export class Concerts {
       g.audio.pickup?.(); g.hud.toast(`🛍️ ${it.n}：${it.t}`, 'good', 2600);
     };
   }
-  // 接駁車回中原（公車站，或在拓原系統按離場）
+  // 接駁車回中原（公車站，或在皮元系統按離場）
   leave() {
     const g = this.g, A = this.inArena; if (!A || this._moving) return;
     this.fade('🚌 搭接駁車回中原…', () => {
@@ -367,7 +367,7 @@ export class Concerts {
   toJSON() { return { tickets: this.tickets, told: [...this.told].slice(-20) }; }
   load(d) { if (!d) return; this.tickets = d.tickets || {}; for (const k of d.told || []) this.told.add(k); }
 
-  // ---------------- 拓原系統（搶票 App） (rendered into the phone) ----------------
+  // ---------------- 皮元系統（搶票 App） (rendered into the phone) ----------------
   app(ph) {
     const g = this.g; this.ph = ph; clearTimeout(this._appT);
     const cards = CONCERTS.map(c => {
@@ -385,7 +385,7 @@ export class Concerts {
       return `<div class="cx-card" style="--c1:${c.color};--c2:${c.color2}"><div class="cx-head"><b>${c.title}</b><small>林口體育館 · ${when(n.show, SHOW_AT)}</small></div>${st}</div>`;
     }).join('');
     const prices = ARENA_ZONES.map(z => `NT$ ${z.price.toLocaleString()}`).join('／');
-    const el = ph._frame('拓原系統', `<div class="cx-top">🎫 拓原系統 · 演唱會售票<small>Peach Pay 餘額 NT$ ${g.money.toLocaleString()}</small></div>${cards}<div class="cx-note">票價：${prices}｜每場限購一張</div>`, { cls: 'ph-tix' });
+    const el = ph._frame('皮元系統', `<div class="cx-top">🎫 皮元系統 · 演唱會售票<small>Peach Pay 餘額 NT$ ${g.money.toLocaleString()}</small></div>${cards}<div class="cx-note">票價：${prices}｜每場限購一張</div>`, { cls: 'ph-tix' });
     for (const b of el.querySelectorAll('[data-grab]')) b.onclick = () => this._queue(CONCERTS.find(c => c.id === b.dataset.grab));
     for (const b of el.querySelectorAll('[data-go]')) b.onclick = () => this.go(CONCERTS.find(c => c.id === b.dataset.go));
     el.querySelector('[data-leave]')?.addEventListener('click', () => { ph.close(); ph._last = null; this.leave(); });
@@ -396,7 +396,7 @@ export class Concerts {
     const g = this.g, ph = this.ph, n = this.next(c); this._busy = c; clearTimeout(this._appT);
     const late = Math.max(0, g.clock - n.open);
     let ahead = Math.round(300 + late * 420 + Math.random() * 500); const total = ahead, t0 = performance.now(), dur = 2500 + Math.min(4000, ahead * 0.8);
-    const el = ph._frame('排隊中', `<div class="cx-q"><b>${c.title}</b><div class="cx-qn">你前面還有 <span id="cxAhead">${ahead}</span> 人</div><div class="cx-bar"><i id="cxBar"></i></div><small>請勿關閉頁面，輪到你會自動進入選位</small></div>`, { cls: 'ph-tix', back: '拓原系統', onBack: () => { this._busy = null; this.app(ph); } });
+    const el = ph._frame('排隊中', `<div class="cx-q"><b>${c.title}</b><div class="cx-qn">你前面還有 <span id="cxAhead">${ahead}</span> 人</div><div class="cx-bar"><i id="cxBar"></i></div><small>請勿關閉頁面，輪到你會自動進入選位</small></div>`, { cls: 'ph-tix', back: '皮元系統', onBack: () => { this._busy = null; this.app(ph); } });
     const tick = () => {
       if (!this._alive(c)) return;
       const k = Math.min(1, (performance.now() - t0) / dur); ahead = Math.round(total * (1 - k));
@@ -407,12 +407,12 @@ export class Concerts {
   }
   _zones(c, msg = '') {
     const g = this.g, ph = this.ph, n = this.next(c);
-    if (g.clock >= n.sold) { this._busy = null; ph._frame('售完', `<div class="cx-q"><b>😭 全部售完了</b><small>下次開賣早點進來排隊！</small></div>`, { cls: 'ph-tix', back: '拓原系統', onBack: () => this.app(ph) }); return; }
+    if (g.clock >= n.sold) { this._busy = null; ph._frame('售完', `<div class="cx-q"><b>😭 全部售完了</b><small>下次開賣早點進來排隊！</small></div>`, { cls: 'ph-tix', back: '皮元系統', onBack: () => this.app(ph) }); return; }
     const rows = ARENA_ZONES.map((z, i) => {
       const sold = this.zoneSold(n, i), left = sold ? 0 : this.seatsLeft(n, i);
       return `<button class="cx-zone" data-z="${i}" ${sold ? 'disabled' : ''}><span>${z.name}<small>${sold ? '已售完' : `剩餘 ${left.toLocaleString()} 張`}</small></span><b>NT$ ${z.price.toLocaleString()}</b></button>`;
     }).join('');
-    const el = ph._frame('選擇區域', `<div class="cx-top">${c.title}<small>餘額 NT$ ${g.money.toLocaleString()}</small></div>${msg ? `<div class="cx-err">${msg}</div>` : ''}${rows}`, { cls: 'ph-tix', back: '拓原系統', onBack: () => { this._busy = null; this.app(ph); } });
+    const el = ph._frame('選擇區域', `<div class="cx-top">${c.title}<small>餘額 NT$ ${g.money.toLocaleString()}</small></div>${msg ? `<div class="cx-err">${msg}</div>` : ''}${rows}`, { cls: 'ph-tix', back: '皮元系統', onBack: () => { this._busy = null; this.app(ph); } });
     // live counts: re-render while you are still looking at this page
     clearTimeout(this._zT); this._zT = setTimeout(() => { if (this._alive(c) && el.isConnected) this._zones(c, msg); }, 1500);
     for (const b of el.querySelectorAll('[data-z]')) b.onclick = () => {
@@ -455,13 +455,13 @@ export class Concerts {
     this.tickets[c.id] = { show: n.show, zone: zi, seat };
     this._busy = null; g.audio.pickup?.();
     ph._frame('購票成功', `<div class="cx-q"><b>🎉 搶到了！</b><div class="cx-tk">🎫 ${c.title}<small>${z.name} · ${seat}</small><small>${when(n.show, SHOW_AT)} · 林口體育館</small></div>
-      <small>開演當天 ${hhmm(GATE_OPEN)} 起可以在這裡搭接駁車進場</small></div>`, { cls: 'ph-tix', back: '拓原系統', onBack: () => this.app(ph) });
+      <small>開演當天 ${hhmm(GATE_OPEN)} 起可以在這裡搭接駁車進場</small></div>`, { cls: 'ph-tix', back: '皮元系統', onBack: () => this.app(ph) });
     g.hud.toast(`🎫 搶到 ${c.name} ${z.name}！`, 'good', 3000);
   }
 }
 const _C = {};
 // 應援手燈 (non-official, one look per group): curved grip with rubber rings and a lit button, metal collar, a
-// translucent shell round a bright core (ITZY: round shell with a heart inside; aespa: faceted crystal), and a soft glow
+// translucent shell round a bright core (ITZV: round shell with a heart inside; aespo: faceted crystal), and a soft glow
 function makeLightstick(c) {
   const g = new THREE.Group(), col = new THREE.Color(c.color), dark = c.id === 'aespa';
   const body = new THREE.MeshStandardMaterial({ color: dark ? '#1c1c22' : '#f4f2ee', roughness: 0.25, metalness: 0.15, emissive: col, emissiveIntensity: 0.06 });
@@ -477,11 +477,11 @@ function makeLightstick(c) {
   const head = new THREE.Group(); head.position.y = 0.177 + 0.052; g.add(head);
   const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.32, roughness: 0.05, metalness: 0.2, emissive: col, emissiveIntensity: 0.55, depthWrite: false, flatShading: dark });
   const coreMat = new THREE.MeshBasicMaterial({ color: col.clone().lerp(new THREE.Color('#ffffff'), 0.35), toneMapped: false });
-  if (dark) { // aespa: faceted crystal with a bright inner crystal
+  if (dark) { // aespo: faceted crystal with a bright inner crystal
     const sh = new THREE.Mesh(new THREE.OctahedronGeometry(0.055, 1), shellMat); sh.scale.set(0.85, 1.15, 0.85); head.add(sh);
     const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.026, 0), coreMat); core.scale.set(0.8, 1.3, 0.8); head.add(core);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.047, 0.0028, 6, 6), metal); ring.rotation.x = Math.PI / 2; head.add(ring);
-  } else { // ITZY: round shell, a heart glowing inside
+  } else { // ITZV: round shell, a heart glowing inside
     const sh = new THREE.Mesh(new THREE.SphereGeometry(0.054, 32, 20), shellMat); sh.scale.set(1, 1.05, 0.9); head.add(sh);
     const hs = new THREE.Shape(); hs.moveTo(0, -0.022); hs.bezierCurveTo(-0.03, 0.0, -0.022, 0.026, 0, 0.012); hs.bezierCurveTo(0.022, 0.026, 0.03, 0.0, 0, -0.022);
     const hg = new THREE.ExtrudeGeometry(hs, { depth: 0.01, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 3, curveSegments: 16 }); hg.center();

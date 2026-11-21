@@ -159,7 +159,7 @@
 // with it as ?v=… — each deploy gets fresh URLs and one consistent set of files.
 // New files in js/ belong in MODS (a missing one still loads, just without the stamp).
 (async () => {
-  const MODS = ['airdrop', 'audio', 'bodymesh', 'character', 'chats', 'collision', 'controls', 'feeds', 'friends', 'furniture', 'gateduty', 'hud', 'input', 'interiors', 'jersey', 'main', 'map', 'mckitchen', 'mcshift', 'mcuniform', 'missions', 'modeling', 'nano', 'nav', 'npc', 'pc', 'phone', 'physics', 'physworld', 'pilot', 'player', 'post', 'prompts', 'race', 'ragdoll', 'save', 'scooters', 'sky', 'stocks', 'stockui', 'terrain', 'textures', 'vegetation', 'vehicles', 'vehphys', 'wardrobe', 'wasm/kernels'];
+  const MODS = ['airdrop', 'audio', 'bodymesh', 'character', 'chats', 'collision', 'controls', 'feeds', 'friends', 'furniture', 'gateduty', 'hud', 'input', 'interiors', 'jersey', 'main', 'map', 'mckitchen', 'mcshift', 'mcuniform', 'missions', 'modeling', 'nano', 'nav', 'npc', 'pc', 'phone', 'physics', 'physworld', 'pilot', 'player', 'post', 'prompts', 'race', 'ragdoll', 'save', 'scooters', 'sky', 'stocks', 'stockui', 'terrain', 'textures', 'vegetation', 'vehicles', 'vehphys', 'walker', 'wardrobe', 'wasm/kernels'];
   let v = '';
   try {
     const r = await fetch('js/main.js', { method: 'HEAD', cache: 'no-store' });

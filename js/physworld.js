@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { terrainGrid, H, surfaceAt, deckList, levelList, LV_CUT } from './terrain.js';
 import { G, groups } from './physics.js';
 
-const WALL_T = 0.1;   // half thickness of a wall (m)
+export const WALL_T = 0.1; // half thickness of a wall (m; js/walker.js stops that much earlier)
 const DECK_T = 0.15;  // half thickness of a deck / stair slab
 const FREE_WALL_H = 4; // free-standing walls without a height band: from the ground up this far
 const TRUNK_H = 6;

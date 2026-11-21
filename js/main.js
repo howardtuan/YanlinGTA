@@ -31,6 +31,7 @@ import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
 import { Chassis } from './vehphys.js';
 import { Ragdoll } from './ragdoll.js';
+import { Walker } from './walker.js';
 import { buildPhysicsWorld } from './physworld.js';
 
 const $ = id => document.getElementById(id);
@@ -225,6 +226,8 @@ class Game {
     // characters thrown by a hit go limp (js/ragdoll.js) unless ?noragdoll (or no physics)
     const rag = /[?&]noragdoll\b/.test(location.search) ? null : (ch, vel, spin, opt) => Ragdoll.start(this.physics, ch, vel, spin, opt);
     this.player.ragdoll = this.peds.ragdoll = this.traffic.ragdoll = rag;
+    // walking against walls through the physics character controller (js/walker.js) unless ?oldwalk
+    this.player.walker = /[?&]oldwalk\b/.test(location.search) ? null : Walker.attach(this.physics);
     Vehicle.onRide = (v, on) => {
       // (the stand-ins of the vehicle and of you on foot go first: the new body must not start inside them)
       if (on && this.physics.ready && !/[?&]arcadecar\b/.test(location.search) && !v.body) { this.physics.dropMover(v); this.physics.dropMover(this.player); Chassis.attach(this.physics, v); }

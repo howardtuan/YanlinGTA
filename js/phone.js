@@ -135,8 +135,10 @@ export class Phone {
     if (inp.hit('Escape', 'Backspace')) { if (this.cur) this.openApp('messages'); else if (this.app) this.home(); else this.close(); return this.open ? null : 'closed'; }
     if (this.cur) {
       const st = this.cur;
-      if (inp.hit('ArrowUp', 'ArrowLeft', 'Digit1', 'Numpad1')) this._pick(inp.hit('Digit1', 'Numpad1') ? 0 : Math.max(0, st.choice - 1));
-      if (inp.hit('ArrowDown', 'ArrowRight', 'Digit2', 'Numpad2')) this._pick(inp.hit('Digit2', 'Numpad2') ? 1 : Math.min(1, st.choice + 1));
+      const nOpt = this._options(st)?.length || 2;
+      for (let k = 0; k < 4; k++) if (inp.hit('Digit' + (k + 1), 'Numpad' + (k + 1))) this._pick(k);
+      if (inp.hit('ArrowUp', 'ArrowLeft')) this._pick(Math.max(0, st.choice - 1));
+      if (inp.hit('ArrowDown', 'ArrowRight')) this._pick(Math.min(nOpt - 1, st.choice + 1));
       if (inp.hit('Tab', 'Enter')) this._send();
     } else if (!this.app) {
       // grid then dock share one selection order
@@ -709,11 +711,11 @@ export class Phone {
     t.scrollTop = t.scrollHeight;
   }
   // options for the next message: scripted rounds first; after those, Gemini Nano (Chrome) suggests two more forever
+  // A contact's `always` options (勞大's 你在哪？) are offered on every turn, after the others.
   _options(st) {
-    const R = st.c.script[st.round];
-    if (R) return R.choices;
-    if (Nano.on && st.aiOpts?.length) return st.aiOpts.map(t => ({ t, ai: true }));
-    return null;
+    const R = st.c.script[st.round], A = st.c.always || [];
+    const base = R ? R.choices : Nano.on && st.aiOpts?.length ? st.aiOpts.map(t => ({ t, ai: true })) : [];
+    return base.length || A.length ? [...base, ...A] : null;
   }
   _renderCompose() {
     const st = this.cur; if (!st) return;
@@ -743,6 +745,13 @@ export class Phone {
     const ch = opts[st.choice], g = this.g;
     st.busy = true; st.read = false;
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) });
+    if (ch.ask) { // an `always` option: its reply is worked out from the game right now, then it may act (e.g. set a route)
+      st.choice = 0; g.audio.send?.(); this._renderThread(); this._renderCompose();
+      setTimeout(() => { st.read = true; if (this.cur === st) this._renderThread(); }, 350);
+      const out = ch.ask(g);
+      this._deliver(st, out.r.map(text => ({ who: st.c.id, text })), 0, 650, out.then);
+      return;
+    }
     if (!ch.ai) st.round++;
     st.choice = 0; st.aiOpts = null;
     g.audio.send?.();
@@ -773,7 +782,7 @@ export class Phone {
     }).catch(() => { st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
   }
   // replies arrive one by one with a typing indicator; they land even if you leave the chat
-  _deliver(st, replies, v, delay) {
+  _deliver(st, replies, v, delay, then) {
     const g = this.g;
     const dropTyping = () => { const ti = st.msgs.findIndex(m => m.typing); if (ti >= 0) st.msgs.splice(ti, 1); };
     replies.forEach((rp, k) => {
@@ -788,6 +797,7 @@ export class Phone {
           st.busy = false;
           if (this.cur === st) this._renderCompose();
           if (v) g.addVotes(v, `${st.c.group ? '競選小組' : st.c.name}幫你拉票 +${v} 票`);
+          then?.();
         }
       }, delay);
       delay += 250;

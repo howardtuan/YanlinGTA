@@ -271,6 +271,38 @@ export const CONTACTS = [
       },
     ],
   },
+  {
+    // 勞大（彥霖航空的直升機駕駛員，js/pilot.js）：一開始就是好友。「你在哪？」每一輪都能問，
+    // 他會回現在在哪；在校園散步的話會設定導航，路線跟著他走（nav.track）。
+    // newer: 舊存檔（沒有記聊天室 id）照順序對回聊天室時跳過這個
+    id: 'laoda', name: '勞大', sub: '彥霖航空・直升機駕駛員', avatar: '🚁', color: '#552583', unread: 1, newer: true,
+    history: [
+      { day: '今天' },
+      ['laoda', 'Man 我勞大，要空運機車打給我 🚁'],
+      ['laoda', '平常沒在飛的時候，我都在校園散步，想找我就問我在哪'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '你的背號為什麼是 24？', r: ['因為以前一天睡8小時，現在一天睡24小時', '孩子們，這並不好笑'] },
+          { t: '謝啦勞大，機車空運超準時', r: ['Man 這是專業 🏀', '下次一樣打給我'] },
+        ],
+      },
+    ],
+    always: [{
+      t: '你在哪？',
+      ask: (g) => {
+        const A = g.airdrop, w = A?.walker;
+        if (!w) return { r: ['Man 我在忙，等等再說'] };
+        if (A.busy) return { r: ['Man 我在天上開直升機啦 🚁', '等我降落再說'] };
+        if (!w.on && !w.appear()) return { r: ['我在學校散步啊', '你先回校園再問我，我傳定位給你'] }; // you are off campus
+        return {
+          r: ['Man 我在校園散步', '定位傳給你了，沿著路線走過來找我 📍'],
+          then: () => { if (g.nav.track(w)) g.hud.toast('🧭 已設定導航到勞大身邊（路線會跟著他走）', 'good', 2400); },
+        };
+      },
+    }],
+  },
 ];
 
 // 加了好友才會出現的聊天室（js/friends.js）。unread = 加好友當下的未讀數。

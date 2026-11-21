@@ -102,6 +102,9 @@ export class CampusPilot {
     const len = await this.g.audio.voice(PILOT_VOICES[i], 1, 'pilot');
     if (len && this.on) this.pause = Math.max(this.pause, len + 0.8);
   }
+  // where the route goes when you asked him 你在哪？ on the phone (nav.track); null once he has gone
+  get navArrive() { return '📍 找到勞大了！走到他旁邊按 E 打招呼'; }
+  navPos() { return this.on ? { x: this.pos.x, z: this.pos.z } : null; }
   // pick a campus footpath node 30–90 m from the player; false when there is none (you are off campus)
   appear() {
     const w = this.g.world, p = this.g.player.worldPos();
@@ -128,6 +131,7 @@ export class CampusPilot {
     if (!this.on) { if ((this.wait -= dt) <= 0 && !this.appear()) this.wait = 15; return; }
     const dPl = Math.hypot(this.pos.x - p.x, this.pos.z - p.z);
     this.life -= dt;
+    if (this.g.nav?.follow === this) this.life = Math.max(this.life, 30); // he waits for you while you are on your way
     if (dPl > 170 || (this.life <= 0 && dPl > 60)) { this.hide(); return; } // left behind, or done and out of sight
     let speed = 0;
     if (this.talking) this.pause = Math.max(this.pause, 0.5); // stays put, facing you, until the dialog is closed

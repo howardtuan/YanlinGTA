@@ -49,8 +49,15 @@ export class Nav {
     game.scene.add(this.mesh);
   }
   get groundOn() { return this.g.settings.navGround !== 'off'; }
-  set(x, z) { this.target = { x, z }; this.path = null; this.mode = null; this._route(); this.g.hud.navRoute = this.path; this.g.hud.navTarget = this.target; this.g.audio.blip?.(); this.g._saveT = 9.5; }
-  clear() { this.target = null; this.path = null; this.g.hud.navRoute = null; this.g.hud.navTarget = null; this.mesh.visible = false; this.g._saveT = 9.5; }
+  set(x, z) { this.follow = null; this.target = { x, z }; this.path = null; this.mode = null; this._route(); this.g.hud.navRoute = this.path; this.g.hud.navTarget = this.target; this.g.audio.blip?.(); this.g._saveT = 9.5; }
+  clear() { this.follow = null; this.target = null; this.path = null; this.g.hud.navRoute = null; this.g.hud.navTarget = null; this.mesh.visible = false; this.g._saveT = 9.5; }
+  // a target that moves (勞大 strolling the campus): obj.navPos() gives { x, z }, or null once it is gone (then the pin stays
+  // where it last was). The route follows it, re-routed quietly whenever it has moved a few metres.
+  track(obj) { const q = obj.navPos(); if (!q) return false; this.set(q.x, q.z); this.follow = obj; return true; }
+  _follow() {
+    const q = this.follow.navPos(); if (!q) { this.follow = null; return; }
+    if (Math.hypot(q.x - this.target.x, q.z - this.target.z) > 3) { this.target = { x: q.x, z: q.z }; this._route(); }
+  }
   _route() {
     const g = this.g, w = g.world, p = g.player.worldPos(), drive = !!g.player.vehicle;
     const nodes = drive ? w.driveNodes : w.walkNodes;
@@ -63,9 +70,10 @@ export class Nav {
   update(dt) {
     const g = this.g, hud = g.hud;
     if (!this.target || g.state !== 'play') { if (this.mesh.visible) this.mesh.visible = false; return; }
+    if (this.follow) this._follow();
     const p = g.player.worldPos(), drive = !!g.player.vehicle;
     if (Math.hypot(p.x - this.target.x, p.z - this.target.z) < (drive ? 12 : 6)) {
-      hud.toast('📍 已抵達標點', 'good', 2200); g.audio.checkpoint?.(); this.clear(); return;
+      hud.toast(this.follow?.navArrive || '📍 已抵達標點', 'good', 2200); g.audio.checkpoint?.(); this.clear(); return;
     }
     // trim what is behind you; re-route when you are off the line or changed between foot and vehicle
     const P = this.path; let best = Infinity, bi = 0;

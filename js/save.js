@@ -26,7 +26,7 @@ export function writeSave(g) {
     race: { wins: g.race.wins, runs: g.race.runs },
     friends: g.friends?.toJSON() || [],
     stories: [...g.phone.storySeen].slice(-80),
-    chats: g.phone.chats.map(c => ({ round: c.round, unread: c.unread, msgs: c.msgs })),
+    chats: g.phone.chats.map(c => ({ id: c.c.id, round: c.round, unread: c.unread, msgs: c.msgs })),
     notes: g.pc?.notes ?? null,
     pin: g.nav?.target || null,
     stocks: g.market?.toJSON() || null,
@@ -47,7 +47,9 @@ export function applySave(g, d) {
   if (d.race) Object.assign(g.race, d.race);
   g.friends?.load(d.friends); // before the chats: friends' chat rooms come after the built-in ones
   for (const id of d.stories || []) g.phone.storySeen.add(id);
-  (d.chats || []).forEach((c, i) => { const ch = g.phone.chats[i]; if (ch && c) { ch.round = c.round; ch.unread = c.unread; if (c.msgs) ch.msgs = c.msgs; } });
+  // by chat id; older saves have none, so match them by position, skipping chats added since (newer)
+  const legacy = g.phone.chats.filter(x => !x.c.newer);
+  (d.chats || []).forEach((c, i) => { const ch = c?.id ? g.phone.chats.find(x => x.c.id === c.id) : legacy[i]; if (ch && c) { ch.round = c.round; ch.unread = c.unread; if (c.msgs) ch.msgs = c.msgs; } });
   if (d.notes != null && g.pc) g.pc.notes = d.notes;
   if (d.pin && g.nav) g.nav.set(d.pin.x, d.pin.z);
   if (d.stocks && g.market) g.market.load(d.stocks);

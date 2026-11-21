@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
 import { buildScooter as buildCommuter } from './scooters.js';
+import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 
 const MC = {};
 const m = (c, o = {}) => { const k = c + JSON.stringify(o); return MC[k] || (MC[k] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.5, ...o })); };
@@ -414,6 +415,91 @@ function segSeg(a, b) {
 // above THROW a scooter rider is thrown off (js/main.js)
 export const CRASH_STOP = 4, CRASH_THROW = 7.5;
 
+// ---------- far LOD: one merged, vertex-coloured mesh per vehicle beyond ~30 m ----------
+// A parked commuter scooter is ~26 meshes (draw calls, x2 with shadows); 150+ vehicles stand around the map.
+// Up close the original parts are drawn unchanged; far away they are hidden and one baked copy is drawn instead.
+//
+// RULES FOR ADDING VEHICLES / PARTS (multi-developer safety):
+// - A builder just returns a Group of meshes, as now; the far copy is made automatically.
+// - A part that moves or toggles on its own after construction (door, indicator, handlebar ...) must be marked
+//   `part.userData.dynamic = true`, or be stored in the root's userData (`g.userData.door = door`), which marks
+//   it automatically. Dynamic parts keep updating their matrix, are left out of the far copy and stay drawn.
+// - Wheels (root.userData.wheels) are the exception: they turn in sync() and are baked into the far copy.
+// - Forgot to mark one? lodCheck() notices within ~0.5 s that an unmarked part moved / toggled, makes it update
+//   normally again, turns the far copy off for that vehicle and logs a warning — nothing silently breaks.
+// - Children added to v.mesh after construction (riders, labels) are never touched.
+const LOD_FAR = 32, LOD_NEAR = 28; // m from the camera, with hysteresis
+const LOD_TINY = 0.045; // parts smaller than this (bounding radius, m) are left out of the far copy
+const farMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.1 });
+const FAR_GEO = new Map(); // shape + colour signature -> geometry, shared by every identical model + colour
+const _wm = new THREE.Matrix4();
+// content key of a geometry (many builders make a fresh BoxGeometry per vehicle, so the uuid never repeats)
+const GKEY = new WeakMap();
+function geoKey(g) {
+  let k = GKEY.get(g); if (k) return k;
+  let h = 2166136261 >>> 0;
+  const mix = (arr) => { const u = new Uint32Array(arr.buffer, arr.byteOffset, (arr.byteLength / 4) | 0); for (let i = 0; i < u.length; i++) h = Math.imul(h ^ u[i], 16777619) >>> 0; };
+  mix(g.attributes.position.array); if (g.index) mix(g.index.array instanceof Uint16Array ? new Uint32Array(Uint32Array.from(g.index.array)) : g.index.array);
+  k = h.toString(36) + ':' + g.attributes.position.count; GKEY.set(g, k); return k;
+}
+function partColour(mat) {
+  if (mat.emissive && mat.emissiveIntensity > 0.5 && mat.emissive.getHex()) return mat.emissive; // lamps
+  return mat.map ? DARK : mat.color; // textured parts (plates, decals): a neutral dark tone
+}
+const DARK = new THREE.Color('#1c1c1e');
+// Shape and colour are cached separately: identical models share one position/normal buffer (also on the GPU)
+// and each colour variant only adds a small Uint8 colour attribute (9 scooter colours ~ 1 shape + 9 x 0.1 MB).
+const FAR_SHAPE = new Map(); // shape signature -> { position, normal, counts, sphere }
+function farGeometry(root, parts) {
+  const inv = _wm.copy(root.matrixWorld).invert();
+  const rel = parts.map(o => new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+  let shapeSig = '', colSig = '';
+  for (let i = 0; i < parts.length; i++) {
+    shapeSig += geoKey(parts[i].geometry) + rel[i].elements.map(v => v.toFixed(3)).join(',') + ';';
+    colSig += partColour(parts[i].material).getHexString();
+  }
+  const key = shapeSig + '|' + colSig;
+  if (FAR_GEO.has(key)) return FAR_GEO.get(key);
+  let shape = FAR_SHAPE.get(shapeSig);
+  if (!shape) {
+    const geos = [];
+    for (let i = 0; i < parts.length; i++) {
+      const src = parts[i].geometry, m = rel[i];
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', src.attributes.position.clone());
+      if (src.attributes.normal) g.setAttribute('normal', src.attributes.normal.clone());
+      if (src.index) g.setIndex(src.index.clone());
+      const n = g.index ? g.toNonIndexed() : g;
+      if (!n.attributes.normal) n.computeVertexNormals();
+      n.applyMatrix4(m);
+      if (m.determinant() < 0) { // mirrored part: restore the triangle winding (front faces)
+        for (const k of ['position', 'normal']) { const a = n.attributes[k].array; for (let j = 0; j < a.length; j += 9) for (let c = 0; c < 3; c++) { const t = a[j + 3 + c]; a[j + 3 + c] = a[j + 6 + c]; a[j + 6 + c] = t; } }
+      }
+      geos.push(n);
+    }
+    const merged = geos.length ? mergeGeometries(geos) : null;
+    if (!merged) { FAR_GEO.set(key, null); return null; }
+    merged.computeBoundingSphere();
+    shape = { position: merged.attributes.position, normal: merged.attributes.normal, counts: geos.map(g => g.attributes.position.count), sphere: merged.boundingSphere };
+    FAR_SHAPE.set(shapeSig, shape);
+  }
+  const col = new Uint8Array(shape.position.count * 3);
+  let o = 0;
+  for (let i = 0; i < parts.length; i++) {
+    const c = partColour(parts[i].material), r = Math.round(c.r * 255), g = Math.round(c.g * 255), b = Math.round(c.b * 255);
+    for (let j = 0; j < shape.counts[i]; j++, o += 3) { col[o] = r; col[o + 1] = g; col[o + 2] = b; }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', shape.position); geo.setAttribute('normal', shape.normal);
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3, true));
+  geo.boundingSphere = shape.sphere.clone();
+  FAR_GEO.set(key, geo);
+  return geo;
+}
+let lodWarned = 0;
+const snap = o => ({ p: o.position.clone(), q: o.quaternion.clone(), s: o.scale.clone(), v: o.visible });
+const moved = (o, s) => !o.position.equals(s.p) || !o.quaternion.equals(s.q) || !o.scale.equals(s.s);
+
 export class Vehicle {
   constructor(kind, rnd = Math.random, opt = {}) {
     this.id = VID++;
@@ -433,11 +519,61 @@ export class Vehicle {
     this.driver = null; // 'player' | 'ai' | null
     this.ai = null; this.bumpCooldown = 0; this.wheelRot = 0;
     this.mesh.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); o.castShadow = o.userData.shadow ?? (o.geometry.boundingSphere.radius > 0.4); } });
-    // the parts never move inside the vehicle and the body / wheels only move in sync(), so three.js
-    // need not recompose dozens of part matrices per vehicle every frame (100+ parked vehicles):
-    // matrices are refreshed in sync() (and airdrop.js) instead. Riders and labels added later stay automatic.
-    this.mesh.traverse(o => { o.updateMatrix(); o.matrixAutoUpdate = false; });
+    this._lodInit();
+    // static parts never move inside the vehicle and the body / wheels only move in sync(), so three.js need
+    // not recompose dozens of part matrices per vehicle every frame (100+ parked vehicles): matrices are
+    // refreshed in sync() (and airdrop.js) instead. Dynamic parts, riders and labels added later stay automatic.
+    this.mesh.traverse(o => { if (this._dyn.has(o)) return; o.updateMatrix(); o.matrixAutoUpdate = false; });
   }
+  // see the far LOD rules above the class
+  _lodInit() {
+    const root = this.mesh, wheels = new Set(root.userData.wheels || []);
+    // dynamic: marked parts and parts the builder kept a reference to (other than the wheels), with their subtrees
+    const dyn = this._dyn = new Set();
+    const refs = new Set();
+    for (const [k, v] of Object.entries(root.userData)) if (k !== 'wheels') for (const o of [v].flat()) if (o && o.isObject3D) refs.add(o);
+    root.traverse(o => { if (o !== root && (o.userData.dynamic || refs.has(o) || (o.parent && dyn.has(o.parent)))) dyn.add(o); });
+    root.updateMatrixWorld(true);
+    const near = [], bake = [];
+    root.traverse(o => {
+      if (!o.isMesh || dyn.has(o) || !o.visible) return;
+      near.push(o);
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const r = o.geometry.boundingSphere.radius * o.matrixWorld.getMaxScaleOnAxis();
+      if (!Array.isArray(o.material) && !o.material.transparent && r >= LOD_TINY) bake.push(o);
+    });
+    const geo = near.length > 2 ? farGeometry(root, bake) : null;
+    if (!geo) { this._lod = null; return; }
+    const far = new THREE.Mesh(geo, farMat);
+    far.castShadow = true; far.visible = false; far.userData.lodFar = true;
+    root.add(far);
+    // change detection: every drawn part except the wheel nodes themselves (they turn in sync())
+    this._lod = { near, far, isFar: false, snaps: new Map(near.map(o => [o, snap(o)])), skip: wheels };
+  }
+  // dist: camera distance (m); called a few times a second for every vehicle (main.js _vehicleLod)
+  lod(dist) {
+    const L = this._lod; if (!L) return;
+    if (!L.isFar) this.lodCheck();
+    if (!this._lod) return;
+    const far = L.isFar ? dist > LOD_NEAR : dist > LOD_FAR;
+    if (far === L.isFar) return;
+    L.isFar = far; L.far.visible = far;
+    for (const o of L.near) o.visible = far ? false : L.snaps.get(o).v;
+  }
+  // an unmarked part changed after construction: let it update normally and drop the far copy for this vehicle
+  lodCheck() {
+    const L = this._lod; if (!L) return;
+    for (const o of L.near) {
+      const s = L.snaps.get(o);
+      if (o.visible === s.v && (L.skip.has(o) || !moved(o, s))) continue;
+      if (lodWarned++ < 5) console.warn(`[vehicles] 「${this.label}」的零件 ${o.name || o.geometry?.type || ''} 在建好之後被移動或切換顯示，但沒有標記成會動的零件。已自動改回逐格更新，並關閉這台車的遠處簡化模型。請在建模時設定 part.userData.dynamic = true（js/vehicles.js 檔頭有說明）。`);
+      // back to the plain behaviour for the whole vehicle: every part updates its own matrix, no far copy
+      this.mesh.remove(L.far); this._lod = null;
+      this.mesh.traverse(c => { if (c !== this.mesh) c.matrixAutoUpdate = true; });
+      return;
+    }
+  }
+  get lodFar() { return !!this._lod?.isFar; }
   place(x, z, h) { this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined; this.sync(); }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }
   sync(dt = 0) {

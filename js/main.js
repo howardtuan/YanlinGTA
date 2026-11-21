@@ -26,7 +26,7 @@ import { Airdrop } from './airdrop.js';
 import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
-import { initKernels } from './wasm/kernels.js';
+import { initKernels, kernelsReady } from './wasm/kernels.js';
 
 const $ = id => document.getElementById(id);
 // bind a click handler; a missing element (an older cached index.html) must not stop the game from loading
@@ -54,14 +54,17 @@ let _gpuGuess = null;
 function guessGpu() {
   if (_gpuGuess) return _gpuGuess;
   let name = '';
-  try { const gl = document.createElement('canvas').getContext('webgl'); const d = gl && gl.getExtension('WEBGL_debug_renderer_info'); name = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : ''; gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { }
-  const weak = /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|vega \d/i.test(name);
-  const strong = /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc a\d|apple m\d/i.test(name);
+  // same GPU the game will use: on dual-GPU laptops the default context may be the integrated one
+  try { const gl = document.createElement('canvas').getContext('webgl', { powerPreference: 'high-performance' }); const d = gl && gl.getExtension('WEBGL_debug_renderer_info'); name = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : ''; gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { }
+  // laptop / entry GPUs: AMD APUs ("Radeon 780M Graphics"), GeForce MX; an unreadable name counts as weak too
+  const weak = !name || /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|radeon(\(tm\))? \d{3,4}m\b|vega \d|geforce mx|\bmx ?\d{3}\b/i.test(name);
+  const strong = !/geforce mx|\bmx ?\d{3}\b/i.test(name) && /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc(\(tm\))? a\d|apple m\d/i.test(name);
   const cores = navigator.hardwareConcurrency || 4;
   // a dedicated card (e.g. Intel Arc) is not 'weak' even though its name says Intel; auto stops at medium
   return (_gpuGuess = isTouch() ? 'low' : !strong && (weak || cores <= 4) ? 'low' : 'medium');
 }
-const resolveQuality = q => QUALITY.includes(q) ? q : guessGpu();
+// 'auto': the level an earlier session stepped down to (settings.autoQ, _autoQuality) or the GPU guess
+const resolveQuality = (q, s) => QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu();
 const Q_NAME = { xlow: '超低', low: '低', medium: '中', high: '高（電影感）' };
 
 class Game {
@@ -79,7 +82,7 @@ class Game {
     this.settings = loadSettings();
     // quality: sky / shadows / post-processing / lamp lights switch live; the low-quality world
     // (MSAA, 補建街區 back rows, crowd sizes) only changes with a reload
-    this.quality = resolveQuality(this.settings.quality);
+    this.quality = resolveQuality(this.settings.quality, this.settings);
     this.lowQ = this.quality === 'low' || this.quality === 'xlow';
     this.xlowQ = this.quality === 'xlow';
     // 補建街區: synthetic content for blocks OSM leaves empty (tools/block_survey.json,
@@ -214,6 +217,7 @@ class Game {
     // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
     try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }
     this._menus();
+    if (/[?&]perf\b/.test(location.search)) this._perfOverlay();
     this.last = performance.now();
     this.state = 'title';
     this.titleT = 0;
@@ -250,7 +254,9 @@ class Game {
     if (fps >= 28) return;
     const next = QUALITY[Math.max(0, QUALITY.indexOf(this.quality) - 1)];
     this.setQuality(next); A.warm = 4000; // give the new level a moment before judging it
-    this.hud.toast(`偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，可在設定更改`, 'good', 4200);
+    // remember it: the next load starts at this level (with its lighter world, crowds and no MSAA)
+    this.settings.autoQ = next; saveSettings(this.settings);
+    this.hud.toast(`偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，下次開啟會直接用這個畫質，可在設定更改`, 'good', 4200);
   }
   _sky() {
     // physically based sky + clouds + stars / moon, sun & ambient driven by the clock, IBL from the sky
@@ -634,7 +640,7 @@ class Game {
     const s = this.settings;
     const opt = (v, t) => `<button data-music="${v}" class="${s.music === v ? 'on' : ''}">${t}</button>`;
     const q = (v, t) => `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
-    const qNow = resolveQuality(s.quality);
+    const qNow = resolveQuality(s.quality, s);
     const fl = (v, t) => `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
     const full = !!document.fullscreenElement;
     const nv = (v, t) => `<button data-nav="${v}" class="${(s.navGround || 'on') === v ? 'on' : ''}">${t}</button>`;
@@ -666,9 +672,10 @@ class Game {
     };
     $('setSens').oninput = (e) => { s.sens = +e.target.value; $('vSens').textContent = s.sens.toFixed(1); save(); };
     for (const b of document.querySelectorAll('#setQuality button')) b.onclick = () => {
-      s.quality = b.dataset.q; save();
+      s.quality = b.dataset.q; if (s.quality === 'auto') delete s.autoQ; // picking 自動 again re-detects from scratch
+      save();
       for (const o of document.querySelectorAll('#setQuality button')) o.classList.toggle('on', o === b);
-      const qn = resolveQuality(s.quality);
+      const qn = resolveQuality(s.quality, s);
       // sky, shadows, bloom / colour grade and lamp lights switch now
       this.setQuality(qn);
       $('qNote').textContent = this._qualityNote(qn);
@@ -744,12 +751,47 @@ class Game {
     else if (this.state === 'play') this._update(dt);
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
     this._updateSky(dt);
+    this._vehicleLod(dt);
     this.world.update(this.time, this.night, this.clock, this.state === 'title' ? this._titlePos : this.player.worldPos());
     for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = b.y0 + Math.sin(this.time * 3 + b.ph) * 0.15; }
     for (const b of this.beams) if (b.visible) b.material.opacity = 0.22 + Math.sin(this.time * 4) * 0.06;
+    if (this._perf) this._perf.begin();
     this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
+    if (this._perf) this._perf.end(now);
     if (this._shot) { const cb = this._shot; this._shot = null; cb(this.renderer.domElement.toDataURL('image/jpeg', 0.85)); }
     this.input.endFrame();
+  }
+  // far vehicles (> ~30 m from the camera) draw one baked mesh instead of their parts (vehicles.js lod)
+  _vehicleLod(dt) {
+    if ((this._lodT = (this._lodT || 0) + dt) < 0.25 || !this.traffic) return;
+    this._lodT = 0;
+    const c = this.camera.position;
+    const each = list => { for (const v of list) v.lod?.(Math.hypot(v.mesh.position.x - c.x, v.mesh.position.y - c.y, v.mesh.position.z - c.z)); };
+    each(this.vehicles); each(this.traffic.agents);
+    if (this.race) each(this.race.vehicles());
+  }
+  // ?perf in the URL: fps, frame time, draw calls and triangles per frame (all passes) in the top-left corner,
+  // so players on slow machines can send a screenshot that shows where the time goes
+  _perfOverlay() {
+    const r = this.renderer, el = document.createElement('div');
+    Object.assign(el.style, { position: 'fixed', left: '6px', top: '6px', zIndex: 99999, font: '12px/1.35 ui-monospace,monospace', color: '#fff', background: 'rgba(0,0,0,.62)', padding: '4px 7px', borderRadius: '4px', pointerEvents: 'none', whiteSpace: 'pre' });
+    document.body.appendChild(el);
+    r.info.autoReset = false; // the post chain renders several passes per frame: count them all
+    const P = { n: 0, ms: 0, t0: performance.now(), calls: 0, tris: 0, last: 0 };
+    let gpu = '';
+    try { const d = r.getContext().getExtension('WEBGL_debug_renderer_info'); gpu = d ? r.getContext().getParameter(d.UNMASKED_RENDERER_WEBGL) : ''; } catch (e) { }
+    gpu = gpu.replace(/^ANGLE \((.*)\)$/, '$1').replace(/Direct3D.*$|\(0x[0-9a-f]+\)/gi, '').slice(0, 60);
+    this._perf = {
+      begin: () => r.info.reset(),
+      end: (now) => {
+        P.n++; P.calls = r.info.render.calls; P.tris = r.info.render.triangles;
+        if (P.last) P.ms += now - P.last; P.last = now;
+        if (now - P.t0 < 500) return;
+        const fps = P.ms > 0 ? 1000 * (P.n - 1) / P.ms : 0;
+        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${this.quality}  WASM ${kernelsReady() ? '開' : '關'}\n${gpu}`;
+        P.n = 0; P.ms = 0; P.t0 = now; P.last = now;
+      },
+    };
   }
   _titleCam(dt) {
     this.titleT += dt;

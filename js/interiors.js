@@ -11,6 +11,7 @@ import { dressCrew, CREW_SHIRT } from './mcuniform.js';
 import { H } from './terrain.js';
 import { buildArena } from './arena.js';
 import { buildGateExtras } from './gate_extras.js';
+import { buildWeiche } from './weiche.js';
 
 // ---------------- textures ----------------
 const TEX = {};
@@ -3433,6 +3434,7 @@ export function buildInteriors(scene, data, collision) {
   I.gordon = buildGordon(I, scene);
   I.arena = buildArena(I, scene, Kit, regMat); // 林口體育館 (演唱會, js/concert.js): far off the map
   buildGateExtras(I, scene); // 正門: concrete name wall, campus directory, car park portal, P totem (js/gate_extras.js)
+  buildWeiche(I, scene, data);
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

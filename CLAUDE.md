@@ -27,7 +27,9 @@ const chrome = await launchRemoteChrome({ port, args: ['--lang=zh-TW', '--window
 try { /* ... */ } finally { chrome.kill(); }
 ```
 
-- 不指定主機時會在兩台之間挑比較空的那台，區網連不上會自動改走 Tailscale；要指定就傳 `host: 'oldpc'`，或設 `REMOTE_CHROME_HOST`。
+- 不指定主機時依權重自動分配，預設 oldpc:olddesk = 4:1（實測同時開 8 支，oldpc 整批 10 秒、olddesk 47 秒）。會把 Mac 上所有 session 開著的通道一起算進去，所以多個 session 同時跑也會照比例分，不用自己分工。要改比例設 `REMOTE_CHROME_WEIGHTS=oldpc:4,olddesk:1`（設 0 就不用那台），要指定單台就傳 `host: 'oldpc'` 或設 `REMOTE_CHROME_HOST`。
+- 一次要開很多支時，直接同時呼叫 `launchRemoteChrome()` 就好，不用自己挑主機。olddesk 同時開超過 2～3 支會明顯變慢，自己切批次時，每批交給 olddesk 的量大約是 oldpc 的四分之一。
+- 每支開好後工具會實際測一次 WebGL，拿不到顯示卡就自動重開；區網連不上會自動改走 Tailscale。
 - 預設用遠端的顯示卡跑 WebGL；Mac 專用的 `--use-angle=swiftshader` 這類參數會自動拿掉。
 - 不是 node 的工具可以用命令列：`node ~/Workspace/scripts/remote-chrome.mjs <port> [--host oldpc]`，印出 `READY` 後就能連，結束時 kill 掉這支程式。
 - **跑完一定要關**：腳本結束前呼叫 `chrome.kill()`，背景跑的批次工作做完也要確認收掉。ssh 一斷，遠端 2 秒內會自己清乾淨。交出結果前先用 `pgrep -fl 'remote-chrome-tunnel|Google Chrome.*headless'` 確認自己沒有留下通道或 Mac 本機的無頭 Chrome。

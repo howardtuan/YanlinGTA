@@ -276,7 +276,7 @@ export function createCharacter(opts = {}) {
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
-// st: {speed, air, mode:'foot'|'ride'|'drive'|'down', pose:'peace'|'cheer'|'wave'|null}
+// st: {speed, air, mode:'foot'|'ride'|'drive'|'down', pose:'peace'|'cheer'|'wave'|'give'|'phone'|'talk'|'look'|null}
 function animate(ch, dt, st) {
   const sp = st.speed || 0;
   // blink every 2–6 s (eyelids show for ~0.13 s)
@@ -335,6 +335,19 @@ function animate(ch, dt, st) {
     t.shL = [-2.5, 0, 0.6 + Math.sin(ch.poseT * 9) * 0.3]; t.elL = -0.4;
   } else if (st.pose === 'give') {
     t.shR = [-1.4, 0.3, -0.1]; t.elR = -0.2;
+  } else if (st.pose === 'phone') {
+    // looking down at a phone held in the right hand (thumb scrolling)
+    t.shR = [-0.55, 0.35, -0.25]; t.elR = -1.75; t.shL = [-0.35, -0.3, 0.2]; t.elL = -1.3;
+    t.headX = 0.42 + Math.sin(ch.poseT * 1.3) * 0.03;
+    ch.setHandPose('grip');
+  } else if (st.pose === 'talk') {
+    // chatting: one hand gestures, the head nods now and then
+    const g = Math.sin(ch.poseT * 2.3) * 0.5 + 0.5;
+    t.shR = [-0.5 - g * 0.5, 0.2, -0.2]; t.elR = -0.9 - g * 0.4;
+    t.headX = Math.max(0, Math.sin(ch.poseT * 1.7)) * 0.12; t.headZ = Math.sin(ch.poseT * 0.6) * 0.06;
+  } else if (st.pose === 'look') {
+    // looking around (waiting for someone)
+    t.headY = Math.sin(ch.poseT * 0.8) * 0.75; t.headX = -0.05;
   }
   ch.pose = st.pose || null;
 
@@ -345,6 +358,7 @@ function animate(ch, dt, st) {
   ch.torso.rotation.y = lerp(ch.torso.rotation.y, t.torsoY, k);
   ch.head.rotation.x = lerp(ch.head.rotation.x, t.headX, k);
   ch.head.rotation.z = lerp(ch.head.rotation.z, t.headZ, k);
+  if (st.mode !== 'drive') ch.head.rotation.y = lerp(ch.head.rotation.y, t.headY, Math.min(1, dt * 4)); // (the helicopter pilot turns his own, airdrop.js)
   const setRot = (o, r) => { o.rotation.x = lerp(o.rotation.x, r[0], k); o.rotation.y = lerp(o.rotation.y, r[1], k); o.rotation.z = lerp(o.rotation.z, r[2], k); };
   setRot(aR.sh, t.shR); setRot(aL.sh, t.shL);
   aR.el.rotation.x = lerp(aR.el.rotation.x, t.elR, k); aL.el.rotation.x = lerp(aL.el.rotation.x, t.elL, k);

@@ -171,6 +171,7 @@ class Game {
     this.traffic.viewK = this.peds.viewK = this.viewK; // draw range for the quality level
     // a wreck is only cleared away where the camera does not look (within 70° of its view direction, 150 m)
     { const cf = new THREE.Vector3(); this.traffic.inView = p => { const c = this.camera.position, dx = p.x - c.x, dz = p.z - c.z, d = Math.hypot(dx, dz); if (d > 150) return false; if (d < 4) return true; this.camera.getWorldDirection(cf); const l = Math.hypot(cf.x, cf.z) || 1; return (dx * cf.x + dz * cf.z) / (d * l) > Math.cos(1.22); }; }
+    this.peds.inView = this.traffic.inView; this.traffic.peds = this.peds; // traffic stops for pedestrians; stuck walkers are put back where you cannot see
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
     // pocket money (Peach Pay): start with NT$200, earn more at the McDonald's counter

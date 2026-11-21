@@ -1,23 +1,55 @@
 // Played as a short film: 21:9 letterbox, HUD hidden, the player can't move, and a street-level camera
 // follows the helicopter in, watches the scooter touch down and the helicopter leave, then hands back.
 // 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JET SL hanging under it on a cable, lowers it
-// onto the road next to you, lets go and flies off again.
+// onto the road next to you, lets go and flies off again. Its pilot (pilot.js) sits behind a glass canopy and gets a short
+// close-up while he lowers the scooter. When he isn't flying he walks around campus (CampusPilot) — there is only ever one of him.
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
+import { createPilot, CampusPilot } from './pilot.js';
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const T_IN = 7, T_LOWER = 4.5, T_OUT = 8, HOVER = 16, CINE_OUT = 4.5; // the film ends 4.5 s into the fly-away
+const CLOSE = 2.3;  // pilot close-up at the start of the lowering
+const NOSE = 0.45; // where the white body ends and the glass canopy begins (z)
 
 function buildHeli() {
   const g = new THREE.Group();
   const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.2, ...o });
   // 彥霖航空 livery: white body, dark green belly stripe and tail with a thin orange line, green lettering
-  const white = mat('#f2f3f5'), green = mat('#00664f'), orange = mat('#f39800'), dark = mat('#26282d'), glass = mat('#1d3550', { roughness: 0.1, metalness: 0.6 });
+  const white = mat('#f2f3f5'), green = mat('#00664f'), orange = mat('#f39800'), dark = mat('#26282d');
+  // rough enough that the sun's glint doesn't land as a white spot on the pilot's face in the close-up
+  const glass = mat('#7d9fbd', { roughness: 0.6, metalness: 0.05, transparent: true, opacity: 0.26, depthWrite: false });
   const add = (geo, m, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; g.add(o); return o; };
-  add(new THREE.CapsuleGeometry(1.05, 2.4, 6, 16), white, 0, 0, 0, Math.PI / 2, 0, 0).scale.set(1, 1, 0.92);   // cabin
-  add(new THREE.BoxGeometry(2.12, 0.34, 3.2), green, 0, -0.45, -0.2);                                        // green stripe
-  add(new THREE.BoxGeometry(2.14, 0.07, 3.1), orange, 0, -0.24, -0.2);                                       // orange pinstripe
-  add(new THREE.SphereGeometry(0.95, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), glass, 0, 0.05, 1.45, Math.PI / 2.4, 0, 0); // windscreen
+  // cabin: white body tube with a rounded tail end, and in front a glass canopy over a white chin
+  const R = 1.05, SY = 0.92, SZ = 1.45, GL = 0.56 * Math.PI; // canopy glass down to theta GL (y ≈ -0.18)
+  add(new THREE.CylinderGeometry(R, R, 1.2 + NOSE, 20, 1, true), white, 0, 0, (NOSE - 1.2) / 2, Math.PI / 2, 0, 0).scale.set(1, 1, SY);
+  add(new THREE.SphereGeometry(R, 20, 10, Math.PI, Math.PI), white, 0, 0, -1.2).scale.set(1, SY, 1);
+  const chin = add(new THREE.SphereGeometry(R, 24, 8, 0, Math.PI, GL, Math.PI - GL), mat('#f2f3f5', { side: THREE.DoubleSide }), 0, 0, NOSE);
+  chin.scale.set(1, SY, SZ);
+  const canopy = add(new THREE.SphereGeometry(R, 28, 12, 0, Math.PI, 0, GL), glass, 0, 0, NOSE);
+  canopy.scale.set(1, SY, SZ); canopy.castShadow = false; canopy.renderOrder = 2;
+  const frame = (pts) => add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.03, 5), white, 0, 0, 0);
+  const arc = (a0, a1, f) => { const p = []; for (let i = 0; i <= 16; i++) p.push(f(a0 + (a1 - a0) * i / 16)); return p; };
+  const e0 = Math.asin(Math.cos(GL)); // angle of the canopy's lower edge
+  frame(arc(e0, Math.PI - e0, (a) => new THREE.Vector3(Math.cos(a) * R * 1.01, Math.sin(a) * R * SY * 1.01, NOSE)));            // door pillar
+  frame(arc(Math.PI / 2, e0, (a) => new THREE.Vector3(0, Math.sin(a) * R * SY * 1.01, NOSE + Math.cos(a) * R * SZ * 1.01)));   // centre bar
+  // cockpit: back wall, floor, two seats, instrument panel
+  const dim = mat('#3a3d43', { roughness: 0.8, side: THREE.DoubleSide }), seatM = mat('#2a2c31', { roughness: 0.85 });
+  add(new THREE.CircleGeometry(R * 0.99, 24), dim, 0, 0, NOSE - 0.02).scale.set(1, SY, 1);
+  add(new THREE.CircleGeometry(1, 24, 0, Math.PI), dim, 0, -0.75, NOSE, Math.PI / 2, 0, 0).scale.set(0.66, 0.96, 1);
+  for (const x of [-0.4, 0.4]) {
+    add(new THREE.BoxGeometry(0.48, 0.12, 0.5), seatM, x, -0.3, NOSE + 0.3);
+    add(new THREE.BoxGeometry(0.48, 0.8, 0.1), seatM, x, 0.08, NOSE + 0.04, -0.1, 0, 0);
+  }
+  add(new THREE.BoxGeometry(1.3, 0.28, 0.3), dark, 0, -0.12, NOSE + 1.05, -0.55, 0, 0);
+  // the pilot, in the left seat (the side the film camera sees); he only casts a shadow inside the cabin anyway
+  const pilot = createPilot();
+  pilot.root.position.set(0.4, -0.72, NOSE + 0.24);
+  pilot.root.traverse(o => { if (o.isMesh) o.castShadow = false; });
+  g.add(pilot.root);
+  pilot.update(1, { mode: 'drive' });
+  add(new THREE.BoxGeometry(2.12, 0.34, 2.2), green, 0, -0.45, -0.7);                                       // green stripe
+  add(new THREE.BoxGeometry(2.14, 0.07, 2.15), orange, 0, -0.24, -0.68);                                      // orange pinstripe
   add(new THREE.CylinderGeometry(0.28, 0.13, 4.6, 10), white, 0, 0.35, -3.6, Math.PI / 2, 0, 0);              // tail boom
   add(new THREE.BoxGeometry(0.12, 1.3, 0.8), green, 0, 0.9, -5.7, -0.3, 0, 0);                                 // fin
   add(new THREE.BoxGeometry(1.6, 0.08, 0.45), white, 0, 0.45, -5.4);                                           // stabiliser
@@ -37,13 +69,24 @@ function buildHeli() {
   c.font = '900 68px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.fillText('彥霖航空', 256, 50);
   c.font = '800 30px "Arial",sans-serif'; c.fillText('YANLIN AIR', 256, 106);
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.65), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); p.position.set(s * 1.02, 0.28, -0.3); p.rotation.y = s * Math.PI / 2; g.add(p); }
-  return { g, rotor, tail };
+  for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.525), new THREE.MeshBasicMaterial({ map: tex, transparent: true })); p.position.set(s * 1.02, 0.28, -0.58); p.rotation.y = s * Math.PI / 2; g.add(p); }
+  return { g, rotor, tail, pilot };
+}
+
+// the pilot blinks and holds the controls; while he lowers the scooter he looks down out of his (left) window
+function pilotTick(H, dt, down) {
+  const p = H.pilot; p.update(dt, { mode: 'drive' });
+  p.head.rotation.y += ((down ? 0.55 : 0) - p.head.rotation.y) * Math.min(1, dt * 4);
+  if (down) p.head.rotation.x = 0.3; // animate() eases it back to level once he stops
 }
 
 export class Airdrop {
-  constructor(game) { this.g = game; this.run = null; this.cinema = false; this._look = new THREE.Vector3(); }
+  constructor(game) {
+    this.g = game; this.run = null; this.cinema = false; this._look = new THREE.Vector3(); this._v = new THREE.Vector3();
+    this.walker = new CampusPilot(game); // the pilot on foot, while the helicopter is parked
+  }
   get busy() { return !!this.run; }
+  _heli() { return this.H || (this.H = buildHeli()); } // built once, reused for every delivery
   // letterbox to a 21:9 picture, hide the HUD; the game freezes the player while this is on
   _cinema(on) {
     this.cinema = on;
@@ -68,8 +111,15 @@ export class Airdrop {
     // lowering: aim at the middle of the cable so the helicopter and the touch-down both stay in the 21:9 frame
     const want = R.phase === 'lower' ? new THREE.Vector3().lerpVectors(h, s, 0.5) : h;
     this._look.lerp(want, Math.min(1, dt * 3));
-    cam.position.copy(R.cam); cam.lookAt(this._look);
-    if (cam.fov !== 70) { this._fov = this._fov ?? cam.fov; cam.fov = 70; cam.updateProjectionMatrix(); }
+    let fov = 70;
+    if (R.phase === 'lower' && R.t < CLOSE) {
+      // close-up: the pilot through the side of the canopy, looking down at the scooter he is lowering
+      const H = R.H.g; H.updateMatrixWorld();
+      cam.position.copy(H.localToWorld(this._v.set(2.6, 0.5, NOSE + 1.8)));
+      cam.lookAt(H.localToWorld(this._v.set(0.4, 0.42, NOSE + 0.3)));
+      fov = 38;
+    } else { cam.position.copy(R.cam); cam.lookAt(this._look); }
+    if (cam.fov !== fov) { this._fov = this._fov ?? cam.fov; cam.fov = fov; cam.updateProjectionMatrix(); }
   }
   // returns an error message, or null when the helicopter is on its way
   call() {
@@ -90,7 +140,7 @@ export class Airdrop {
     }
     if (!spot) return '附近沒有空地可以降落';
     if (pl.vehicle === v) return '你正騎著它呢 🛵';
-    const H = buildHeli(); g.scene.add(H.g);
+    const H = this._heli(); g.scene.add(H.g);
     const cable = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: '#222' }));
     cable.frustumCulled = false; g.scene.add(cable);
     const gy = surfaceAt(spot.x, spot.z);
@@ -117,11 +167,19 @@ export class Airdrop {
     this._cinema(true);
     return null;
   }
+  // rotor thump, louder when it is close
+  _chop(R, at, dt, loud) {
+    const pp = this.g.player.worldPos(), d = Math.hypot(at.x - pp.x, at.z - pp.z, at.y - surfaceAt(pp.x, pp.z));
+    R.chop -= dt;
+    if (R.chop <= 0) { R.chop = 0.11; const vol = loud * Math.max(0, 1 - d / 220); if (vol > 0.005) this.g.audio.noise?.(0.07, 120, 1.2, vol, 0, 'lowpass'); }
+  }
   update(dt) {
+    this.walker.update(dt, !!this.run); // off campus while he is up in the helicopter
     const R = this.run; if (!R) return;
     const g = this.g, { H, v } = R;
     R.t += dt;
     H.rotor.rotation.y += dt * 28; H.tail.rotation.x += dt * 40;
+    pilotTick(H, dt, R.phase === 'lower');
     let hang = 4; // cable length
     const at = new THREE.Vector3();
     if (R.phase === 'in') {
@@ -156,9 +214,6 @@ export class Airdrop {
       pos.setXYZ(0, at.x, at.y - 1.4, at.z); pos.setXYZ(1, v.mesh.position.x, v.mesh.position.y + 1.25, v.mesh.position.z); pos.needsUpdate = true;
       v.mesh.visible = true;
     }
-    // rotor thump, louder when it is close
-    const pp = g.player.worldPos(), d = Math.hypot(at.x - pp.x, at.z - pp.z, at.y - surfaceAt(pp.x, pp.z));
-    R.chop -= dt;
-    if (R.chop <= 0) { R.chop = 0.11; const vol = 0.16 * Math.max(0, 1 - d / 220); if (vol > 0.005) g.audio.noise?.(0.07, 120, 1.2, vol, 0, 'lowpass'); }
+    this._chop(R, at, dt, 0.16);
   }
 }

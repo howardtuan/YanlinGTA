@@ -56,7 +56,23 @@ function wAt(keys, y) {
   return keys[keys.length - 1][1];
 }
 
-// ch: the rig from createCharacter; o: { shirt, bottom, skin, sock, pants, female, build }
+// torso cross-sections in the root frame (bind pose): [y, half width, half depth, z offset]; f = 1 for the female build.
+// Exported so clothes worn over the body (jersey.js) can follow it; widths scale by build, depths by (0.5 + build / 2).
+export const torsoProfile = (f) => [
+  [0.83, 0.1, 0.08, 0], [0.88, 0.165 + 0.01 * f, 0.115, 0], [0.925, 0.188 + 0.012 * f, 0.126, -0.004],
+  [0.97, 0.19 + 0.012 * f, 0.127, -0.005], [1.06, 0.168 - 0.022 * f, 0.112 - 0.008 * f, 0],
+  [1.18, 0.178 - 0.015 * f, 0.12, 0.005], [1.3, 0.195 - 0.018 * f, 0.13 + 0.008 * f, 0.012],
+  [1.4, 0.212 - 0.02 * f, 0.125, 0.004], [1.46, 0.212 - 0.02 * f, 0.112, -0.006], [1.5, 0.18 - 0.015 * f, 0.096, -0.01], [1.525, 0.13 - 0.012 * f, 0.084, -0.01],
+  [1.548, 0.072, 0.062, -0.002], [1.6, 0.056, 0.054, 0.004], [1.66, 0.05, 0.048, 0.008],
+];
+// leg radius along the hip-pivot frame: [y, r] ascending (shorts add a loose offset on top)
+export const LEG_PROF = [
+  [-0.88, 0.04], [-0.83, 0.043], [-0.77, 0.047], [-0.66, 0.06], [-0.56, 0.066], [-0.48, 0.062], [-0.43, 0.064],
+  [-0.37, 0.07], [-0.28, 0.08], [-0.15, 0.09], [-0.06, 0.096], [0.0, 0.085], [0.05, 0.06], [0.09, 0.03], // top stays inside the pelvis
+];
+
+// ch: the rig from createCharacter; o: { shirt, bottom, skin, sock, pants, female, build, hem (shorts length, e.g. -0.4
+//   for knee-length basketball shorts; default -0.3), arm (upper-arm thickness, 1 = default) }
 export function buildSkinnedBody(ch, o) {
   const { root, hips, torso, head, arms, legs } = ch;
   root.updateMatrixWorld(true);
@@ -71,13 +87,7 @@ export function buildSkinnedBody(ch, o) {
   const bump = (y, c, wd) => Math.exp(-(((y - c) / wd) ** 2));
 
   // ---- torso + neck (root frame) ----
-  const prof = [ // y, half width, half depth, z offset
-    [0.83, 0.1, 0.08, 0], [0.88, 0.165 + 0.01 * f, 0.115, 0], [0.925, 0.188 + 0.012 * f, 0.126, -0.004],
-    [0.97, 0.19 + 0.012 * f, 0.127, -0.005], [1.06, 0.168 - 0.022 * f, 0.112 - 0.008 * f, 0],
-    [1.18, 0.178 - 0.015 * f, 0.12, 0.005], [1.3, 0.195 - 0.018 * f, 0.13 + 0.008 * f, 0.012],
-    [1.4, 0.212 - 0.02 * f, 0.125, 0.004], [1.46, 0.212 - 0.02 * f, 0.112, -0.006], [1.5, 0.18 - 0.015 * f, 0.096, -0.01], [1.525, 0.13 - 0.012 * f, 0.084, -0.01],
-    [1.548, 0.072, 0.062, -0.002], [1.6, 0.056, 0.054, 0.004], [1.66, 0.05, 0.048, 0.008],
-  ];
+  const prof = torsoProfile(f);
   const tw = [[1.6, [[B.head, 1]]], [1.548, [[B.torso, 0.65], [B.head, 0.35]]], [1.5, [[B.torso, 1]]], [1.1, [[B.torso, 1]]], [0.98, [[B.hips, 1]]]];
   const rings = [];
   for (const [y, rx, rz, cz] of prof) {
@@ -99,7 +109,9 @@ export function buildSkinnedBody(ch, o) {
       [-0.172, 0.058, 0], [-0.168, 0.065, 1], [-0.1, 0.064, 1], [-0.03, 0.065, 1], [0.015, 0.056, 1], [0.045, 0.038, 1], [0.062, 0.016, 1],
     ];
     const side = a.s; // the inner side of the arm faces the torso (-side in x)
-    const r = prof.map(([y, rr, sl]) => ({ y, rx: rr * (1 - 0.1 * f) * bw, rz: rr * (1 - 0.1 * f), w: wAt(keys, y), col: sl ? shirt : skin,
+    const ak = o.arm || 1;
+    const kA = (y) => 1 + (ak - 1) * Math.min(1, Math.max(0.15, (y + 0.48) / 0.26)); // thicker upper arm, wrist nearly as is
+    const r = prof.map(([y, rr, sl]) => ({ y, rx: rr * kA(y) * (1 - 0.1 * f) * bw, rz: rr * kA(y) * (1 - 0.1 * f), w: wAt(keys, y), col: sl ? shirt : skin,
       ao: (sa) => 1 - (0.1 + 0.22 * bump(y, -0.05, 0.07)) * Math.max(0, -side * sa) ** 2 }));
     r[0].cap = 0.012; r[r.length - 1].cap = 0.012;
     sweep(r, toRoot(a.sh), out);
@@ -108,18 +120,22 @@ export function buildSkinnedBody(ch, o) {
   legs.forEach((l, i) => {
     const hp = 7 + i * 3, kn = hp + 1, ft = hp + 2;
     const keys = [[0.06, [[B.hips, 0.5], [hp, 0.5]]], [-0.03, [[hp, 1]]], [-0.37, [[hp, 1]]], [-0.43, [[hp, 0.5], [kn, 0.5]]], [-0.49, [[kn, 1]]], [-0.8, [[kn, 1]]], [-0.86, [[kn, 0.4], [ft, 0.6]]]];
-    const prof = [ // y, r
-      [-0.88, 0.04], [-0.83, 0.043], [-0.77, 0.047], [-0.66, 0.06], [-0.56, 0.066], [-0.48, 0.062], [-0.43, 0.064],
-      [-0.37, 0.07], [-0.28, 0.08], [-0.15, 0.09], [-0.06, 0.096], [0.0, 0.085], [0.05, 0.06], [0.09, 0.03], // top stays inside the pelvis
-    ];
-    let rr = prof.map(([y, r]) => ({ y, r }));
-    const pantsCol = (y) => o.pants ? (y > -0.845 ? bottom : sock) : y > -0.3 ? bottom : y < -0.775 ? sock : skin;
+    let rr = LEG_PROF.map(([y, r]) => ({ y, r }));
+    const hem = !o.pants && o.hem ? o.hem : null; // longer shorts (basketball): hem rings added below
+    if (hem) {
+      const base = rr; // ascending y
+      const rAt = (y) => { for (let j = 0; j + 1 < base.length; j++) if (y >= base[j].y && y <= base[j + 1].y) return base[j].r + (base[j + 1].r - base[j].r) * (y - base[j].y) / (base[j + 1].y - base[j].y); return base[0].r; };
+      rr = base.filter(q => Math.abs(q.y - hem) > 0.012);
+      for (const y of [hem - 0.01, hem]) rr.push({ y, r: rAt(y) });
+      rr.sort((a, b) => a.y - b.y);
+    }
+    const pantsCol = (y) => o.pants ? (y > -0.845 ? bottom : sock) : y > (hem ?? -0.3) - (hem ? 0.0005 : 0) ? bottom : y < -0.775 ? sock : skin;
     const ringsL = [];
     for (const { y, r } of rr) {
-      const loose = y > -0.02 ? 0 : !o.pants && y > -0.3 ? 0.014 : o.pants ? 0.006 : 0; // shorts / trousers sit a little off the leg
+      const loose = y > -0.02 ? 0 : hem ? (y >= hem ? 0.024 : 0) : !o.pants && y > -0.3 ? 0.014 : o.pants ? 0.006 : 0; // shorts / trousers sit a little off the leg
       const side = l.s, ao = (sa, ca) => 1 - 0.13 * Math.max(0, -side * sa) ** 2 * (y > -0.4 ? 1 : 0.4) - 0.16 * Math.max(0, -ca) ** 2 * bump(y, -0.43, 0.06);
       ringsL.push({ y, rx: (r + loose) * (1 + 0.04 * f) * bw, rz: r + loose, w: wAt(keys, y), col: pantsCol(y), ao });
-      if (!o.pants && y === -0.28) ringsL.splice(ringsL.length - 1, 0, { y: -0.29, rx: (r + 0.002) * bw, rz: r + 0.002, w: wAt(keys, -0.29), col: skin }); // shorts hem
+      if (!hem && !o.pants && y === -0.28) ringsL.splice(ringsL.length - 1, 0, { y: -0.29, rx: (r + 0.002) * bw, rz: r + 0.002, w: wAt(keys, -0.29), col: skin }); // shorts hem
     }
     ringsL.sort((a, b) => a.y - b.y);
     ringsL[0].cap = 0.012; ringsL[ringsL.length - 1].cap = 0.02;

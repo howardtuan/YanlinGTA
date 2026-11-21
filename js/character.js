@@ -68,8 +68,34 @@ function poseHand(hand, pose, side) {
   }
 }
 
+// ring of beard round the mouth, projected onto the cheek ellipsoid (centre 0,0.05,0.012; radii 0.1, 0.08, 0.095)
+function goateeGeo() {
+  const N = 40, yc = 0.031, pos = [], idx = [];
+  const onCheek = (x, y, lift) => {
+    const q = 1 - (x / 0.1) ** 2 - ((y - 0.05) / 0.08) ** 2;
+    return [x, y, 0.012 + 0.095 * Math.sqrt(Math.max(0, q)) + lift];
+  };
+  for (let i = 0; i < N; i++) {
+    const a = i / N * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), up = sn > 0;
+    const taper = up ? 1 : 1 - 0.3 * -sn;                              // the chin part narrows to a point
+    const inner = [c * 0.026, yc + sn * (up ? 0.017 : 0.024)];          // mouth opening, a lip's gap all round
+    const outer = [c * 0.04 * taper, yc + sn * (up ? 0.025 : 0.053)];   // moustache 8 mm, chin down to y -0.022
+    const mid = [(inner[0] + outer[0]) / 2, (inner[1] + outer[1]) / 2];
+    pos.push(...onCheek(...inner, 0.0025), ...onCheek(...mid, 0.0042), ...onCheek(...outer, 0.0025));
+  }
+  for (let i = 0; i < N; i++) {
+    const a = i * 3, b = ((i + 1) % N) * 3;
+    for (let r = 0; r < 2; r++) idx.push(a + r, a + r + 1, b + r, b + r, a + r + 1, b + r + 1); // facing out (+z)
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+
 // ---------- character ----------
-// opts: hero (bool), skin, shirt, shorts, pants(bool), hair, hairStyle ('bowl'|'short'|'long'|'pony'), glasses, shoes, bag
+// opts: hero (bool), skin, shirt, shorts, pants(bool), hair, hairStyle ('bowl'|'short'|'long'|'pony'; anything else = bald),
+// glasses, shoes, bag; build (override the per-person build), beard ('goatee'); skinned body only: hem (shorts
+// length, default -0.3 m below the hip), arm (upper-arm thickness)
 export function createCharacter(opts = {}) {
   const hero = !!opts.hero;
   const skin = mat(opts.skin || '#e8c3a2', { roughness: 0.65 });
@@ -88,6 +114,7 @@ export function createCharacter(opts = {}) {
     eye: 0.9 + hash01(id, 1) * 0.24, gap: 0.94 + hash01(id, 2) * 0.12, jaw: 0.92 + hash01(id, 3) * 0.16,
     nose: 0.85 + hash01(id, 4) * 0.35, build: (female ? 0.94 : 0.97) + hash01(id, 5) * 0.12,
   };
+  if (opts.build) fv.build = opts.build;
 
   const root = new THREE.Group();
   const body = pivot(0, 0, 0); root.add(body); // bobbing container
@@ -136,6 +163,9 @@ export function createCharacter(opts = {}) {
     const mouth = mesh(geo('mouth', () => new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI)), mat('#8a4a3e'), 0, 0.035, 0.103);
     mouth.rotation.z = Math.PI; head.add(mouth);
   }
+  // neat goatee: a moustache joined to a chin beard in a ring round the mouth, laid 3.5 mm over the cheek shell
+  // and parented to the cheek so it follows the per-person jaw width
+  if (opts.beard === 'goatee') cheek.add(mesh(geo('goatee', goateeGeo), mat(opts.hair || '#141010', { roughness: 0.95 })));
   // hair
   const hs = opts.hairStyle || (hero ? 'bowl' : 'short');
   if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony') {
@@ -227,7 +257,7 @@ export function createCharacter(opts = {}) {
     legs.push({ hp, kn, ft, s });
   }
   let bodyMesh = null;
-  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { shirt: opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build });
+  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { shirt: opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm });
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
   // small parts (eyes, fingers, glasses, hair tips…) don't cast shadows and can be hidden at distance

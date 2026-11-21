@@ -24,6 +24,8 @@ export function writeSave(g) {
     job: { shifts: g.job.shifts, earned: g.job.earned, best: g.job.best, totalVotes: g.job.totalVotes },
     gate: { votesGiven: g.gate.votesGiven, shifts: g.gate.shifts, best: g.gate.best },
     race: { wins: g.race.wins, runs: g.race.runs },
+    friends: g.friends?.toJSON() || [],
+    stories: [...g.phone.storySeen].slice(-80),
     chats: g.phone.chats.map(c => ({ round: c.round, unread: c.unread, msgs: c.msgs })),
     notes: g.pc?.notes ?? null,
     pin: g.nav?.target || null,
@@ -43,6 +45,8 @@ export function applySave(g, d) {
   if (d.job) Object.assign(g.job, d.job);
   if (d.gate) Object.assign(g.gate, d.gate);
   if (d.race) Object.assign(g.race, d.race);
+  g.friends?.load(d.friends); // before the chats: friends' chat rooms come after the built-in ones
+  for (const id of d.stories || []) g.phone.storySeen.add(id);
   (d.chats || []).forEach((c, i) => { const ch = g.phone.chats[i]; if (ch && c) { ch.round = c.round; ch.unread = c.unread; if (c.msgs) ch.msgs = c.msgs; } });
   if (d.notes != null && g.pc) g.pc.notes = d.notes;
   if (d.pin && g.nav) g.nav.set(d.pin.x, d.pin.z);

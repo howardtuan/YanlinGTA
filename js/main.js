@@ -25,6 +25,7 @@ import { Nav } from './nav.js';
 import { Airdrop } from './airdrop.js';
 import { Market } from './stocks.js';
 import { Race } from './race.js';
+import { Friends } from './friends.js';
 
 const $ = id => document.getElementById(id);
 // bind a click handler; a missing element (an older cached index.html) must not stop the game from loading
@@ -161,6 +162,7 @@ class Game {
     this.nav = new Nav(this);           // map waypoint + route
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
     this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
+    this.friends = new Friends(this);   // 同學 you can befriend (排球少年 吱吱 at the 體育館)
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
     onClick('bmClose', () => this.closeMap());
     onClick('bmClear', () => { this.nav.clear(); $('bmClear').classList.add('hidden'); });
@@ -780,7 +782,7 @@ class Game {
     }
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this._sleeping || this.airdrop.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen;
+    pl.frozen = inDialog || this._sleeping || this.airdrop.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;

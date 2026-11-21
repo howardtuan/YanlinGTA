@@ -4,7 +4,7 @@ import { stockUI } from './stockui.js';
 import { CONTACTS } from './chats.js';
 import { Nano } from './nano.js';
 import { dual } from './prompts.js';
-import { PEOPLE, FEED, FEED_POOL, STORIES, STORY_POOL, FEED_IMAGES, PCARD, PCARD_POOL } from './feeds.js';
+import { PEOPLE, FEED, FEED_POOL, STORY_SETS, STORY_TIMES, FRIEND_ONLY, FEED_IMAGES, PCARD, PCARD_POOL } from './feeds.js';
 
 const PEACH = (fill = '#fff') => `<svg viewBox="0 0 64 64" class="peach-logo" aria-hidden="true">
   <path d="M32 19c-3-3-8-5-13-4C10 17 5 25 6 35c1 13 12 23 26 23s25-10 26-23c1-10-4-18-13-20-5-1-10 1-13 4z" fill="${fill}"/>
@@ -72,7 +72,8 @@ export class Phone {
     const now = game.clock;
     this.feed = FEED.map((p, i) => ({ ...p, id: 'f' + i, at: now - p.ago }));
     this.pcard = PCARD.map((p, i) => ({ ...p, id: 'c' + i, at: now - p.ago }));
-    this.stories = STORIES.map((x, i) => ({ ...x, id: 's' + i, at: now - 40 - i * 25, seen: false }));
+    this.storySeen = new Set(); // ids of stories already watched ('名字|日|0或1')
+    this.friends = new Set();   // friend ids (js/friends.js): their chats and Peachgram show up
     this.poolI = { feed: 0, pcard: 0, story: 0 }; this.nextPost = now + 30; this.fresh = { gram: 0, pcard: 0 };
     this.page = 0;
     Nano.init();
@@ -377,11 +378,26 @@ export class Phone {
     return m < 2 ? '剛剛' : m < 60 ? `${m} 分鐘` : m < 1440 ? `${Math.floor(m / 60)} 小時` : m < 2880 ? '昨天' : `${Math.floor(m / 1440)} 天`;
   }
   _person(who) { return PEOPLE[who] || { av: who[0], color: '#c7c7cc' }; }
-  // newest story per person; unseen first
+  // someone only friends can see (吱吱) and not added yet
+  _hidden(who) { const id = FRIEND_ONLY[who]; return !!id && !this.friends.has(id); }
+  // stories up right now, grouped per person (oldest first inside a group); people with unseen ones first.
+  // Everyone posts twice a day at their own times (STORY_TIMES); a story stays up for 24 game hours.
   _storyList() {
-    const by = new Map();
-    for (const st of this.stories) { const cur = by.get(st.who); if (!cur || st.at > cur.at) by.set(st.who, st); }
-    return [...by.values()].sort((a, b) => (a.seen - b.seen) || (b.at - a.at));
+    const now = this.g.clock, day = Math.floor(now / 1440), out = [];
+    for (const who of Object.keys(STORY_SETS)) {
+      if (this._hidden(who)) continue;
+      const set = STORY_SETS[who], times = STORY_TIMES[who] || [9 * 60, 20 * 60], items = [];
+      for (const d of [day - 1, day]) for (let k = 0; k < 2; k++) {
+        const at = d * 1440 + times[k]; if (at > now || now - at >= 1440) continue;
+        const n = set.length, st = set[(((d * 2 + k) % n) + n) % n];
+        items.push({ ...st, who, at, id: `${who}|${d}|${k}` });
+      }
+      if (!items.length) continue;
+      items.sort((a, b) => a.at - b.at);
+      for (const it of items) it.seen = this.storySeen.has(it.id);
+      out.push({ who, items, seen: items.every(it => it.seen), at: items[items.length - 1].at });
+    }
+    return out.sort((a, b) => (a.seen - b.seen) || (b.at - a.at));
   }
   _gram(tab = 'feed') {
     const g = this.g; this.fresh.gram = 0; this._gramTab = tab;
@@ -393,7 +409,7 @@ export class Phone {
         <div class="pg-cap"><b>${likes} 個讚</b><br><b>${esc(p.who)}</b> ${esc(p.cap)}</div></div>`;
     };
     const mine = this.myPosts.map((p, i) => ({ who: 'yanlin_im34', mine: true, img: p.photo, cap: p.cap, likes: p.likes, at: p.at, id: 'm' + i }));
-    const all = [...mine, ...this.feed].sort((a, b) => b.at - a.at);
+    const all = [...mine, ...this.feed.filter(p => !this._hidden(p.who))].sort((a, b) => b.at - a.at);
     let body;
     if (tab === 'feed') {
       this._stories = this._storyList();
@@ -426,16 +442,21 @@ export class Phone {
   _rerender(fn) { const y = this.view.querySelector('.ph-content')?.scrollTop || 0; fn(); const c = this.view.querySelector('.ph-content'); if (c) c.scrollTop = y; }
   // ---- story viewer: tap right / left half (or ← →), auto-advances every 5 s, Esc closes ----
   _storyOpen(i) {
-    const list = this._stories || this._storyList(); if (!list[i]) return;
-    this.story = { list, i };
+    const groups = this._stories || this._storyList(); if (!groups[i]) return;
+    // start at this person's first unseen story
+    const k = Math.max(0, groups[i].items.findIndex(it => !it.seen));
+    this.story = { groups, gi: i, k };
     const ov = document.createElement('div'); ov.className = 'st-view';
     this.view.appendChild(ov); this._storyShow();
   }
   _storyShow() {
     const S = this.story; if (!S) return;
-    const x = S.list[S.i], P = this._person(x.who); x.seen = true;
+    const grp = S.groups[S.gi], x = grp.items[S.k], P = this._person(x.who);
+    x.seen = true; this.storySeen.add(x.id); grp.seen = grp.items.every(it => it.seen);
     const ov = this.view.querySelector('.st-view'); if (!ov) return;
-    ov.innerHTML = `<img src="${x.img}" alt=""><div class="st-bars">${S.list.map((_, k) => `<i class="${k < S.i ? 'done' : k === S.i ? 'run' : ''}"><b></b></i>`).join('')}</div>
+    const bg = x.img ? `<img src="${x.img}" alt="">` : `<div class="st-bg" style="background:${x.bg}"></div>`;
+    const txt = `<div class="st-txt ${x.img ? 'on-img' : ''}">${x.s ? `<span class="st-stk">${x.s}</span>` : ''}${esc(x.t || '').replace(/\n/g, '<br>')}</div>`;
+    ov.innerHTML = `${bg}${txt}<div class="st-bars">${grp.items.map((_, k) => `<i class="${k < S.k ? 'done' : k === S.k ? 'run' : ''}"><b></b></i>`).join('')}</div>
       <div class="st-head"><span class="ph-av" style="background:${P.color}">${P.av}</span><b>${esc(x.who)}</b><small>${this._ago(x.at)}</small><button class="st-x">✕</button></div>
       <div class="st-tap st-l"></div><div class="st-tap st-r"></div>
       <div class="st-reply">傳送訊息給 ${esc(x.who)}…　❤️</div>`;
@@ -446,8 +467,9 @@ export class Phone {
   }
   _storyGo(d) {
     const S = this.story; if (!S) return;
-    S.i += d; if (S.i < 0) S.i = 0;
-    if (S.i >= S.list.length) { this._storyClose(); return; }
+    S.k += d;
+    if (S.k < 0) { if (S.gi > 0) { S.gi--; S.k = S.groups[S.gi].items.length - 1; } else S.k = 0; }
+    else if (S.k >= S.groups[S.gi].items.length) { S.gi++; S.k = 0; if (S.gi >= S.groups.length) { this._storyClose(); return; } }
     this._storyShow();
   }
   _storyClose() {
@@ -464,12 +486,12 @@ export class Phone {
     this.nextPost += 30;
     for (const p of this.feed.slice(0, 6)) p.likes += 1 + Math.floor(Math.random() * 12);
     for (const p of this.pcard.slice(0, 4)) p.n += Math.floor(Math.random() * 6);
-    const fp = { ...FEED_POOL[this.poolI.feed++ % FEED_POOL.length] };
+    let fp = { ...FEED_POOL[this.poolI.feed++ % FEED_POOL.length] };
+    while (this._hidden(fp.who)) fp = { ...FEED_POOL[this.poolI.feed++ % FEED_POOL.length] };
     const cp = { ...PCARD_POOL[this.poolI.pcard++ % PCARD_POOL.length] };
     const publish = () => {
       this.feed.unshift({ ...fp, id: 'f' + (this.feed.length + this.poolI.feed * 100), at: g.clock, likes: 3 + Math.floor(Math.random() * 40) });
       this.pcard.unshift({ ...cp, id: 'c' + (this.pcard.length + this.poolI.pcard * 100), at: g.clock, n: 1 + Math.floor(Math.random() * 15) });
-      if (Math.random() < 0.6) { const st = STORY_POOL[this.poolI.story++ % STORY_POOL.length]; this.stories.push({ ...st, id: 's' + this.stories.length, at: g.clock, seen: false }); }
       this.feed.length = Math.min(this.feed.length, 40); this.pcard.length = Math.min(this.pcard.length, 40);
       const viewing = this.open && !this.story && !this.cur;
       if (!(viewing && this.app === 'gram')) this.fresh.gram++;

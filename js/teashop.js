@@ -8,6 +8,8 @@ import { TEA_BOARD } from './interiors.js';
 
 const EMOJI = { 珍珠奶茶: '🧋', 茉莉綠茶: '🍵', 四季春青茶: '🍵', 冬瓜檸檬: '🍋', 蜂蜜檸檬綠: '🍯', 鮮奶紅茶: '🥛' };
 export const TEA_MENU = TEA_BOARD.map(([name, price]) => ({ name, price, emoji: EMOJI[name] || '🥤' }));
+// 隱藏款: not on the menu board; only on the order sheet while 吱吱 is working (he makes it for you), easter-egg talk only
+export const TEA_SECRET = { name: '隱藏款彥霖特調', price: 60, emoji: '🤫', secret: true };
 const SUGAR = ['正常糖', '少糖', '半糖', '微糖', '無糖'];
 const ICE = ['正常冰', '少冰', '微冰', '去冰', '溫'];
 
@@ -68,12 +70,12 @@ export class TeaShop {
   }
   // the order sheet: drinks (1–6), sweetness and ice, and a chat with 吱吱 when he is working
   open() {
-    const g = this.g, zz = this.on; let sugar = 2, ice = 1;
+    const g = this.g, zz = this.on, menu = zz ? [...TEA_MENU, TEA_SECRET] : TEA_MENU; let sugar = 2, ice = 1;
     document.exitPointerLock?.();
     this.facing = zz ? this.zz : this.clerk;
     const chips = (arr, sel, id) => `<div class="ts-chips" id="${id}">${arr.map((t, i) => `<button class="ts-chip${i === sel ? ' on' : ''}" data-i="${i}">${t}</button>`).join('')}</div>`;
-    g.modal('🧋 茶學苑 Tea Arts', `<p class="ts-hi">${zz ? '吱吱在櫃台後面搖飲料，看到你揮了揮手：「欸！彥霖！要喝什麼？」' : '店員：「歡迎光臨茶學苑～請問要喝什麼？」'}</p>
-      <div class="ts-menu">${TEA_MENU.map((d, i) => `<button class="menu-btn ts-drink" data-d="${i}"${g.money < d.price ? ' data-poor="1"' : ''}><span>${i + 1}. ${d.emoji} ${d.name}</span><small>NT$ ${d.price}</small></button>`).join('')}</div>
+    g.modal('🧋 茶學苑 Tea Arts', `<p class="ts-hi">${zz ? '吱吱在櫃台後面搖飲料，看到你揮了揮手：「欸！彥霖！要喝什麼？」<br><small>他壓低聲音：「我在班才有隱藏款喔 🤫」</small>' : '店員：「歡迎光臨茶學苑～請問要喝什麼？」'}</p>
+      <div class="ts-menu">${menu.map((d, i) => `<button class="menu-btn ts-drink${d.secret ? ' ts-secret' : ''}" data-d="${i}"${g.money < d.price ? ' data-poor="1"' : ''}><span>${i + 1}. ${d.emoji} ${d.name}</span><small>NT$ ${d.price}</small></button>`).join('')}</div>
       <div class="ts-lbl">甜度</div>${chips(SUGAR, sugar, 'tsSugar')}
       <div class="ts-lbl">冰塊</div>${chips(ICE, ice, 'tsIce')}
       <div class="modal-btns" style="margin-top:12px">${zz ? '<button class="menu-btn primary" id="tsChat"><span>💬 和吱吱聊天</span><small>C</small></button>' : ''}
@@ -88,12 +90,12 @@ export class TeaShop {
     const key = (e) => {
       if (!g._modalOpen) { removeEventListener('keydown', key, true); this.facing = null; return; } // closed with ✕
       const n = /^Digit([1-9])$/.exec(e.code)?.[1];
-      if (n && TEA_MENU[n - 1]) { e.preventDefault(); e.stopPropagation(); done(() => this.order(TEA_MENU[n - 1], sugar, ice)); }
+      if (n && menu[n - 1]) { e.preventDefault(); e.stopPropagation(); done(() => this.order(menu[n - 1], sugar, ice)); }
       else if (e.code === 'KeyC' && zz) { e.preventDefault(); e.stopPropagation(); done(() => this.chat()); }
       else if (e.code === 'Escape') { e.preventDefault(); e.stopPropagation(); done(); }
     };
     addEventListener('keydown', key, true);
-    body.querySelectorAll('.ts-drink').forEach(b => b.onclick = () => done(() => this.order(TEA_MENU[+b.dataset.d], sugar, ice)));
+    body.querySelectorAll('.ts-drink').forEach(b => b.onclick = () => done(() => this.order(menu[+b.dataset.d], sugar, ice)));
     if (zz) document.getElementById('tsChat').onclick = () => done(() => this.chat());
     document.getElementById('tsBye').onclick = () => done();
   }
@@ -111,12 +113,17 @@ export class TeaShop {
     }
     g.spend(d.price, `茶學苑 ${d.name}`);
     const take = ZZ_TAKE[Math.floor(Math.random() * ZZ_TAKE.length)];
-    const lines = zz
+    const lines = d.secret
+      ? [['彥霖', '吱吱，聽說你們有隱藏款？'], ['吱吱', '噓——小聲點 🤫 這個只有我在班的時候做'],
+        ['吱吱', '隱藏款彥霖特調：四季春打底、加檸檬跟一點蜂蜜，最後撒上……資管要贏的決心'],
+        ['彥霖', '最後那個是什麼啦 😂'], ['吱吱', `${SUGAR[sugar]}${ICE[ice]}，好了！喝了就知道，保證跟你一樣順 ✌`]]
+      : zz
       ? [['彥霖', `一杯${spec}！`], ['吱吱', take(spec)], ['吱吱', this.voted ? '好了～小心拿，選舉加油！' : '好了～杯套我幫你寫了「票投彥霖」，拿去 ✌']]
       : [['彥霖', `一杯${spec}，謝謝`], ['店員', `好的，${spec}，請稍等～`], ['店員', '久等了，小心拿喔！']];
     g.dialog(lines, () => {
       end();
-      g.hud.toast(`${d.emoji} ${spec} get！體力回復`, 'good', 2200); g.audio.pickup?.();
+      g.hud.toast(d.secret ? '🤫 隱藏款彥霖特調 get！吱吱說別告訴別人' : `${d.emoji} ${spec} get！體力回復`, 'good', 2400); g.audio.pickup?.();
+      if (d.secret) return; // the 隱藏款 is just for the talk: no boost, no votes
       g.player.boost = 30;
       if (zz && !this.voted) { this.voted = true; g.addVotes(2, '吱吱的杯套拉票 +2 票'); }
     });

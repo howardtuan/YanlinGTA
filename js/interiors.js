@@ -1945,6 +1945,357 @@ function buildTeaShop(I, scene) {
 }
 
 // =====================================================================
+// 中北路 south side around 茶學苑 (from the user's street-view photos, east -> west):
+//   雪糕早午餐 / BRUNCH 活力早午餐 · 大門口 影印 · [中北路193巷] · 麥食堂 (2 floors + roof canopy, a shuttered
+//   unit next to 茶學苑) · 茶學苑 · 早啊早餐店 · 新時代眼鏡 · 得正 · 一成專業影印中心 · ZEISS 173/175 風格店
+// Same frame as TEA_SPEC (+x runs west along 中北路, +z away from the street, facade z = 0). Each building
+// is its own Kit so it sits on its own ground; none is enterable. TEA_ROW lists [x0, x1, depth] per lot.
+// =====================================================================
+const TEA_ROW = {
+  brunch: [-22.4, -17.2, 11], daimen: [-17.2, -13.0, 11], mai: [-7.4, -0.05, 10],
+  zaoa: [6.02, 9.3, 10], newera: [9.3, 13.6, 11], dezheng: [13.6, 18.0, 11], yicheng: [18.0, 21.6, 11], zeiss: [21.6, 30.0, 12],
+};
+const TEA_APRON = 2.6; // concrete apron (騎樓 strip) in front of the row, out to the kerb
+export function teaRowFootprints() {
+  const { ox, oz, ang } = TEA_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
+  const w = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
+  const r = (x0, x1, d) => [w(x0, -TEA_APRON - 0.2), w(x1, -TEA_APRON - 0.2), w(x1, d + 0.3), w(x0, d + 0.3)];
+  const R = TEA_ROW; // the 193巷 between 大門口 and 麥食堂 stays clear
+  return [r(R.brunch[0] - 0.2, R.daimen[1] + 0.1, 11), r(R.mai[0] - 0.1, R.mai[1], 10), r(R.zaoa[0], R.zeiss[1] + 0.2, 12)];
+}
+const sg = (key, w, h, draw) => ctex(key, w, h, draw, false);
+const ROWT = {
+  // lit shop interior seen through the glass: warm back wall, shelves / counter, ceiling lights
+  shop: (key, wall, shelf, seed = 1) => sg('row_' + key, 256, 192, (g) => {
+    const gr = g.createLinearGradient(0, 0, 0, 192); gr.addColorStop(0, '#fff7e4'); gr.addColorStop(0.25, wall); gr.addColorStop(1, '#3a3027');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 192); const r = lcg(seed);
+    g.fillStyle = 'rgba(255,255,240,.9)'; for (let x = 20; x < 256; x += 60) g.fillRect(x, 6, 34, 5);
+    g.fillStyle = shelf; for (let y = 56; y < 150; y += 30) g.fillRect(8, y, 240, 5);
+    for (let i = 0; i < 40; i++) { g.fillStyle = `hsl(${r() * 360 | 0},45%,${45 + r() * 30 | 0}%)`; g.fillRect(10 + r() * 230, 40 + (r() * 4 | 0) * 30, 6 + r() * 8, 14); }
+    g.fillStyle = 'rgba(30,24,20,.85)'; g.fillRect(0, 150, 256, 42);
+  }),
+  shutter: () => ctex('rowShutter', 64, 64, (g) => { // rolling shutter ribs
+    g.fillStyle = '#a7acae'; g.fillRect(0, 0, 64, 64);
+    for (let y = 0; y < 64; y += 8) { g.fillStyle = '#c4c8ca'; g.fillRect(0, y, 64, 3); g.fillStyle = '#868b8e'; g.fillRect(0, y + 6, 64, 2); }
+  }),
+  brick: () => ctex('rowBrick', 128, 128, (g) => { // red-brown facing tiles (一成)
+    g.fillStyle = '#6e2a1e'; g.fillRect(0, 0, 128, 128); const r = lcg(23);
+    for (let y = 0; y < 128; y += 8) for (let x = (y / 8) % 2 ? -8 : 0; x < 128; x += 16) { g.fillStyle = `rgb(${150 + r() * 30 | 0},${58 + r() * 16 | 0},${40 + r() * 10 | 0})`; g.fillRect(x + 1, y + 1, 14, 6); }
+  }),
+  grime: () => ctex('rowGrime', 128, 128, (g) => { // weathered grey concrete (早啊)
+    g.fillStyle = '#a19f98'; g.fillRect(0, 0, 128, 128); const r = lcg(31);
+    for (let i = 0; i < 60; i++) { const x = r() * 128; g.fillStyle = `rgba(60,58,52,${0.05 + r() * 0.12})`; g.fillRect(x, r() * 40, 2 + r() * 6, 30 + r() * 90); }
+  }),
+  alWin: () => sg('rowAlWin', 256, 128, (g) => { // aluminium sliding window, no grille
+    g.fillStyle = '#d4d6d6'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#566673'; g.fillRect(8, 8, 240, 112);
+    g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(14, 12, 40, 104); g.fillRect(134, 12, 26, 104);
+    g.fillStyle = '#d4d6d6'; g.fillRect(124, 0, 8, 128);
+  }),
+  mesh: () => ctex('rowMesh', 64, 64, (g) => { // diamond wire mesh (麥食堂 2F balcony)
+    g.clearRect(0, 0, 64, 64); g.strokeStyle = 'rgba(225,228,226,.95)'; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(0, 32); g.lineTo(32, 0); g.lineTo(64, 32); g.lineTo(32, 64); g.closePath(); g.stroke();
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(1, 1); g.moveTo(64, 64); g.lineTo(63, 63); g.stroke();
+  }),
+  awning: () => ctex('rowAwning', 64, 64, (g) => { for (let x = 0; x < 64; x += 16) { g.fillStyle = '#2f8a5a'; g.fillRect(x, 0, 8, 64); g.fillStyle = '#e9efe6'; g.fillRect(x + 8, 0, 8, 64); } }),
+  // ---- signs ----
+  mai: () => sg('rowMai', 1024, 192, (g) => {
+    g.fillStyle = '#26356b'; g.fillRect(0, 0, 1024, 192);
+    g.fillStyle = '#ffffff'; g.font = `900 120px "Kaiti TC","STKaiti","BiauKai","Noto Serif TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('麥食堂', 470, 92);
+    g.fillStyle = '#e83b3b'; g.beginPath(); g.arc(660, 52, 14, 0, 7); g.fill();
+    g.fillStyle = '#ffffff'; g.font = font(26, 700); g.fillText('韓式炸雞 · 豆腐煲 · 專門店', 470, 166);
+  }),
+  maiBanner: () => sg('rowMaiBan', 512, 160, (g) => {
+    g.fillStyle = '#d9262c'; g.fillRect(0, 0, 512, 160); g.fillStyle = '#ffe14d'; g.font = font(38); g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText('歡慶麥食堂3/5正式開幕!!', 16, 34); g.fillStyle = '#ffffff'; g.font = font(32); g.fillText('凡2人同行', 16, 84); g.fillText('限時韓式炸雞免費送', 16, 130);
+    g.fillStyle = '#ffffff'; g.fillRect(420, 60, 76, 76); g.fillStyle = '#111'; for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) if ((i * 7 + j * 3) % 4 < 2) g.fillRect(426 + i * 11, 66 + j * 11, 10, 10);
+  }),
+  vert: (key, bg, fg, text, sub) => sg('rowV_' + key, 128, 128 * text.length + (sub ? 96 : 0), (g, w, h) => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = font(100); g.textAlign = 'center'; g.textBaseline = 'middle';
+    [...text].forEach((ch, i) => g.fillText(ch, 64, 64 + i * 128));
+    if (sub) { g.font = font(22, 700); g.fillText(sub, 64, h - 48); }
+  }),
+  daimen: () => sg('rowDaimen', 1024, 192, (g) => {
+    g.fillStyle = '#3a2d9c'; g.fillRect(0, 0, 1024, 192); g.textBaseline = 'middle';
+    g.lineWidth = 8; g.strokeStyle = '#f7d23a'; g.font = font(120); g.textAlign = 'left'; g.strokeText('大門口', 20, 82); g.fillStyle = '#ffffff'; g.fillText('大門口', 20, 82);
+    g.font = font(34, 700); g.fillText('03-456-6577', 40, 166);
+    g.font = font(28, 700); const L = ['· 論文 備審 作品集製作', '· 環裝 膠裝 騎馬釘', '· 文件掃描 護貝', '· 合約書製作'], R = ['· 精裝平裝', '· 大圖輸出', '· 傳單印刷'];
+    L.forEach((t, i) => g.fillText(t, 420, 34 + i * 42)); R.forEach((t, i) => g.fillText(t, 790, 34 + i * 42));
+  }),
+  brunch: () => sg('rowBrunch', 1024, 256, (g) => {
+    g.fillStyle = '#3f5670'; g.fillRect(0, 0, 1024, 256);
+    // left: orange board with the bunny face and 雪糕 早午餐
+    g.fillStyle = '#f2f0ea'; g.fillRect(20, 40, 560, 176); g.fillStyle = '#f08a2c'; g.fillRect(30, 50, 540, 156);
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(110, 128, 56, 46, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(80, 64, 12, 30, -0.3, 0, 7); g.ellipse(140, 64, 12, 30, 0.3, 0, 7); g.fill();
+    g.fillStyle = '#5a3a1c'; g.beginPath(); g.arc(94, 124, 5, 0, 7); g.arc(126, 124, 5, 0, 7); g.fill();
+    g.fillStyle = '#ffffff'; g.font = font(96); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('雪 糕', 380, 104); g.font = font(44); g.fillText('早 午 餐', 380, 176);
+    // right: BRUNCH 活力早午餐 and the branch phone
+    g.font = '900 64px Georgia,serif'; g.fillText('BRUNCH', 800, 70); g.font = font(64); g.fillText('活力早午餐', 800, 148);
+    g.fillStyle = '#d9262c'; g.fillRect(660, 192, 280, 44); g.fillStyle = '#fff'; g.font = font(26, 700); g.fillText('中原店 03-2830807', 800, 215);
+  }),
+  zaoa: () => sg('rowZaoa', 768, 192, (g) => {
+    g.fillStyle = '#5b4337'; g.fillRect(0, 0, 768, 192); g.strokeStyle = '#e8ddd0'; g.lineWidth = 4; g.strokeRect(10, 10, 748, 172);
+    g.fillStyle = '#ffffff'; g.font = font(92); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('早啊 早餐店', 384, 82);
+    g.font = '700 26px Georgia,serif'; g.fillText('MORNING BRUNCH', 300, 156); g.font = font(22, 700); g.fillText('☎ 03-438-8138', 610, 156);
+  }),
+  newera: () => sg('rowNewEra', 512, 768, (g) => { // the billboard over 2F–3F
+    const gr = g.createLinearGradient(0, 0, 512, 768); gr.addColorStop(0, '#dfeef7'); gr.addColorStop(1, '#9cc3dc'); g.fillStyle = gr; g.fillRect(0, 0, 512, 768);
+    g.fillStyle = '#6c8aa2'; g.font = font(40); g.textAlign = 'left'; g.fillText('創時代視界', 30, 70); g.font = font(26, 700); g.fillText('洞察每一刻的細節', 30, 114);
+    // a woman in glasses, drawn with a few shapes
+    g.fillStyle = '#2c2420'; g.beginPath(); g.ellipse(250, 430, 120, 150, 0, 0, 7); g.fill();
+    g.fillStyle = '#f2d6c4'; g.beginPath(); g.ellipse(250, 450, 86, 112, 0, 0, 7); g.fill();
+    g.fillStyle = '#f4f6f8'; g.beginPath(); g.moveTo(140, 760); g.quadraticCurveTo(250, 560, 380, 760); g.fill();
+    g.strokeStyle = '#3a3a3a'; g.lineWidth = 5; g.beginPath(); g.ellipse(214, 438, 30, 22, 0, 0, 7); g.ellipse(290, 438, 30, 22, 0, 0, 7); g.stroke();
+    g.fillStyle = '#b5534a'; g.beginPath(); g.ellipse(252, 516, 18, 7, 0, 0, 7); g.fill();
+    g.fillStyle = '#f2e96a'; g.beginPath(); g.arc(420, 470, 50, 0, 7); g.fill(); g.fillStyle = '#5a5a40'; g.font = font(26); g.textAlign = 'center'; g.fillText('眼界', 420, 462); g.fillText('升級', 420, 494);
+    g.fillStyle = '#1a3f9c'; g.fillRect(440, 20, 56, 56); g.fillStyle = '#fff'; g.font = '900 17px Arial'; g.fillText('ZEISS', 468, 54);
+  }),
+  newSign: () => sg('rowNewSign', 128, 1024, (g) => {
+    g.fillStyle = '#a8456f'; g.fillRect(0, 0, 128, 1024); g.fillStyle = '#ffffff'; g.fillRect(10, 10, 108, 90);
+    g.fillStyle = '#a8456f'; g.font = '900 46px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEW', 64, 56);
+    g.fillStyle = '#ffffff'; g.font = font(96); [...'新時代眼鏡'].forEach((ch, i) => g.fillText(ch, 60, 180 + i * 140));
+    g.font = font(20, 700); g.fillText('無限創意 專業精神', 64, 900); g.fillText('中原店', 64, 960);
+  }),
+  posters: () => sg('rowPosters', 512, 256, (g) => { // eyewear posters on the ground floor
+    g.fillStyle = '#eef0f2'; g.fillRect(0, 0, 512, 256);
+    for (const [x, c] of [[8, '#f6d9e2'], [262, '#dfe9f3']]) {
+      g.fillStyle = c; g.fillRect(x, 8, 242, 240); g.fillStyle = '#3a2a22'; g.beginPath(); g.ellipse(x + 90, 130, 60, 78, 0, 0, 7); g.fill();
+      g.fillStyle = '#f1d2c0'; g.beginPath(); g.ellipse(x + 92, 140, 44, 58, 0, 0, 7); g.fill();
+      g.strokeStyle = '#222'; g.lineWidth = 4; g.beginPath(); g.ellipse(x + 74, 132, 16, 12, 0, 0, 7); g.ellipse(x + 112, 132, 16, 12, 0, 0, 7); g.stroke();
+      g.fillStyle = '#c23a4a'; g.font = font(30); g.textAlign = 'center'; g.fillText(x < 200 ? '新·鏡界' : '輕盈無感', x + 190, 120);
+    }
+  }),
+  prize: () => sg('rowPrize', 128, 128, (g) => {
+    g.clearRect(0, 0, 128, 128); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
+    g.strokeStyle = '#f07a2a'; g.lineWidth = 10; g.beginPath(); g.arc(64, 64, 52, 0, 7); g.stroke();
+    g.fillStyle = '#f07a2a'; g.font = 'italic 900 30px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Prize', 64, 66);
+  }),
+  dezheng: () => sg('rowDezheng', 1024, 192, (g) => {
+    g.fillStyle = '#1f5bb8'; g.fillRect(0, 0, 1024, 192); g.fillStyle = '#ffffff'; g.textBaseline = 'middle'; g.textAlign = 'center';
+    g.font = `900 130px "Kaiti TC","STKaiti","BiauKai","Noto Serif TC",serif`; g.fillText('得', 100, 98); g.fillText('正', 924, 98);
+    g.font = 'italic 900 70px Georgia,serif'; g.fillText('OOLONG TEA', 512, 74); g.font = '700 44px Georgia,serif'; g.fillText('PROJECT', 512, 140);
+  }),
+  dzBanner: () => sg('rowDzBan', 512, 96, (g) => {
+    g.fillStyle = '#6b1d1d'; g.fillRect(0, 0, 512, 96); g.fillStyle = '#f2c46d'; g.font = font(52); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('陳皮　烏龍', 256, 50);
+  }),
+  dzBlade: () => sg('rowDzBlade', 128, 128, (g) => {
+    g.fillStyle = '#2a6fd6'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#ffffff';
+    for (const v of [44, 76]) { g.fillRect(v - 6, 20, 12, 88); g.fillRect(20, v - 6, 88, 12); }
+  }),
+  yicheng: () => sg('rowYicheng', 128, 1152, (g) => { // tall white sign with rounded ends, red text
+    g.clearRect(0, 0, 128, 1152); g.fillStyle = '#f7f5f0'; g.beginPath(); g.roundRect(4, 4, 120, 1144, 60); g.fill();
+    g.strokeStyle = '#c9c4ba'; g.lineWidth = 4; g.stroke();
+    g.fillStyle = '#222'; g.font = `900 92px "Kaiti TC","STKaiti","BiauKai","Noto Serif TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('一', 64, 100); g.fillText('成', 64, 200);
+    g.fillStyle = '#d0202a'; g.font = font(96); [...'專業影印中心'].forEach((ch, i) => g.fillText(ch, 64, 330 + i * 136));
+  }),
+  ycBand: () => sg('rowYcBand', 768, 160, (g) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 768, 160); g.fillStyle = '#d0202a'; g.font = font(54); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('一成專業影印中心', 384, 50);
+    g.fillStyle = '#2b5fb0'; g.font = font(24, 700); g.fillText('論文 / 講義 / 彩色輸出 / 大圖海報 / 名片', 384, 102);
+    g.fillStyle = '#c62828'; g.fillRect(0, 124, 768, 36); g.fillStyle = '#fff'; g.font = font(22, 700); g.fillText('TEL: 03-4667363 · 03-4667381', 384, 142);
+  }),
+  zeiss: () => sg('rowZeiss', 1024, 512, (g) => { // the big white banner over the 2F slats
+    g.fillStyle = '#fbfbfb'; g.fillRect(0, 0, 1024, 512); g.strokeStyle = '#1f4fa8'; g.lineWidth = 8;
+    g.beginPath(); g.moveTo(250, 190); g.lineTo(250, 160); g.lineTo(290, 160); g.moveTo(780, 330); g.lineTo(780, 360); g.lineTo(740, 360); g.stroke();
+    g.fillStyle = '#222'; g.font = font(62, 700); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('挑戰想像的極限', 512, 262);
+    g.fillStyle = '#666'; g.font = '300 56px Georgia,serif'; g.fillText('175', 110, 70); g.font = '300 24px Georgia,serif'; g.fillText('years', 110, 108);
+    g.fillStyle = '#1a3f9c'; g.fillRect(900, 200, 90, 90); g.fillStyle = '#fff'; g.font = '900 24px Arial'; g.fillText('ZEISS', 945, 250);
+  }),
+  zBand: () => sg('rowZBand', 512, 96, (g) => {
+    g.fillStyle = '#6f7f8f'; g.fillRect(0, 0, 512, 96); g.fillStyle = '#1a3f9c'; g.fillRect(20, 14, 120, 68); g.fillStyle = '#fff'; g.font = '900 30px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ZEISS', 80, 50);
+    g.font = font(28, 700); g.fillText('蔡司優視力專家', 300, 50);
+  }),
+  num: (key, text) => sg('rowNum' + key, 256, 64, (g) => {
+    g.clearRect(0, 0, 256, 64); g.fillStyle = '#2a2a2a'; g.font = font(44, 700); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 34);
+  }),
+};
+function buildTeaRow(I, scene) {
+  const S = TEA_SPEC, c = Math.cos(S.ang), s = Math.sin(S.ang);
+  const at = (lot) => { const [x0] = TEA_ROW[lot]; const k = new Kit(I, S.ox + x0 * c, S.oz + x0 * s, S.ang); k.lot = lot; return k; };
+  const width = (lot) => TEA_ROW[lot][1] - TEA_ROW[lot][0];
+  const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
+  const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
+  const MR = {
+    mosaic: def('rowMosaic', () => std({ map: YHT.facade(), color: '#e4e4e0' })),
+    grime: def('rowGrimeM', () => std({ map: ROWT.grime() })),
+    brick: def('rowBrickM', () => std({ map: ROWT.brick() })),
+    shutter: def('rowShutterM', () => std({ map: ROWT.shutter(), metalness: 0.3, roughness: 0.55 })),
+    awning: def('rowAwningM', () => std({ map: ROWT.awning() })),
+    rust: def('rowRust', () => std({ color: '#7a4a2c', roughness: 0.9 })),
+    roof: def('rowRoof', () => std({ color: '#b7bcbf', metalness: 0.5, roughness: 0.45 })),
+    black: def('rowBlack', () => std({ color: '#1e1e1f', metalness: 0.4, roughness: 0.5 })),
+    green: def('rowGreen', () => std({ color: '#4f7f60', metalness: 0.3, roughness: 0.6 })),
+    ac: def('rowAC', () => std({ color: '#e4e1d8', roughness: 0.6 })),
+    white: def('rowWhite', () => std({ color: '#f3f2ee', roughness: 0.6 })),
+    concrete: def('rowConcrete', () => std({ color: '#a3a19b', roughness: 0.95 })),
+    plant: def('rowPlant', () => std({ color: '#4c7d3a', roughness: 0.9 })),
+    blue: def('rowBlue', () => std({ color: '#2f6db3', roughness: 0.7 })),
+  };
+  const FRONT = Math.PI; // planes facing the street
+  const shopGlass = (k, x0, x1, y0, y1, tex, z = -0.02) => { // lit interior + glass + thin black frame
+    k.plane(tex, x1 - x0, y1 - y0, (x0 + x1) / 2, (y0 + y1) / 2, z, FRONT, { emissive: 0.55 });
+    k.box(x0, x1, y1, y1 + 0.06, z - 0.05, 0, MR.black, { col: false });
+    for (const x of [x0, x1 - 0.05]) k.box(x, x + 0.05, y0, y1, z - 0.05, 0, MR.black, { col: false });
+  };
+  const ac = (k, x, y, z = -0.42) => { k.box(x, x + 0.8, y, y + 0.5, z, -0.02, MR.ac, { col: false }); k.box(x + 0.05, x + 0.75, y + 0.06, y + 0.44, z - 0.01, z, '#9a9a94', { col: false }); };
+  const win = (k, x, y, w, h, grille = true) => k.plane(grille ? YHT.win() : ROWT.alWin(), w, h, x, y, -0.02, FRONT);
+  const blade = (k, tex, x, y, size, out) => { for (const sd of [-1, 1]) k.plane(tex, size, size, x + sd * 0.025, y, -out, sd * Math.PI / 2, { transparent: true, emissive: 0.3 }); k.box(x - 0.03, x + 0.03, y + size / 2 - 0.05, y + size / 2, -out - size / 2, 0, MR.black, { col: false }); };
+  const shell = (k, w, d, top, mat, tile = [0.6, 0.6]) => {
+    k.box(0, w, -0.8, top, 0, d, mat, { tile });
+    k.box(-0.02, w + 0.02, top, top + 0.12, -0.04, d, 'gray', { col: false });
+  };
+  const kits = {};
+
+  // ---------- 雪糕早午餐 / BRUNCH 活力早午餐 (5 floors, white tile, blue-grey sign band, grey rain hood) ----------
+  {
+    const k = at('brunch'), w = width('brunch'), d = TEA_ROW.brunch[2], F = 3.0, top = 15; kits[k.lot] = k;
+    shell(k, w, d, top, MR.mosaic);
+    k.box(0.1, w - 0.1, 2.5, 3.9, -0.3, 0, '#3f5670', { col: false });
+    k.plane(ROWT.brunch(), w - 0.3, 1.32, w / 2, 3.2, -0.31, FRONT, { emissive: 0.3 });
+    k.box(-0.05, w + 0.05, 4.2, 4.35, -1.0, 0, '#9aa3ab', { col: false });                      // rain hood over the shopfront
+    k.box(-0.05, w + 0.05, 4.0, 4.35, -1.05, -0.95, '#3f5670', { col: false });
+    k.plane(ROWT.shutter(), w - 0.6, 0.6, w / 2, 2.15, -0.03, FRONT);                            // shutter half up
+    shopGlass(k, 0.3, w - 0.3, 0, 1.85, ROWT.shop('brunch', '#e9c98f', '#7a5a3a', 3));
+    k.box(0.6, 1.3, 0, 1.2, -0.7, -0.6, '#f08a2c', { col: false });                               // A-frame menu board
+    for (let f = 1; f < 5; f++) { const y = f * F + 1.4; win(k, w / 2, y + 0.85, w - 1.0, 1.5, false); k.box(0.3, w - 0.3, y - 0.05, y + 0.05, -0.15, 0, '#8a96a2', { col: false }); }
+    ac(k, w - 1.2, 2 * F + 0.4); ac(k, 0.4, 3 * F + 0.4);
+    k.cyl(w / 2, d - 2, 0.6, top + 0.12, top + 1.5, '#d8d8d0', { seg: 12 });                    // water tank
+  }
+  // ---------- 大門口 影印 (4 floors, white tile, purple sign; side wall with AC units faces the 193巷) ----------
+  {
+    const k = at('daimen'), w = width('daimen'), d = TEA_ROW.daimen[2], F = 3.2, top = 12.8; kits[k.lot] = k;
+    shell(k, w, d, top, MR.mosaic);
+    k.box(0.05, w - 0.05, 2.6, 3.6, -0.32, 0, '#3a2d9c', { col: false });
+    k.plane(ROWT.daimen(), w - 0.15, 0.94, w / 2, 3.1, -0.33, FRONT, { emissive: 0.35 });
+    k.box(0.1, w - 0.1, 2.3, 2.6, -0.08, 0, '#1d4f5c', { col: false });
+    shopGlass(k, 0.2, w - 0.2, 0, 2.3, ROWT.shop('daimen', '#eef2f4', '#8b8f94', 5));
+    for (const x of [0.5, w - 0.9]) k.plane(ROWT.vert('dm', '#3a2d9c', '#ffffff', '大門口影印'), 0.36, 1.8, x, 1.15, -0.04, FRONT);
+    for (let f = 1; f < 4; f++) { const y = f * F; win(k, w / 2, y + 1.55, w - 1.0, 1.4, false); k.box(0.2, w - 0.2, y + 0.75, y + 0.82, -0.18, 0, '#cfcfca', { col: false }); }
+    ac(k, w - 1.3, F + 0.4); ac(k, 0.4, 2 * F + 2.2);
+    for (const [z, y] of [[2.2, 4.3], [4.6, 4.3], [2.2, 7.5], [5.4, 10.7]]) k.box(w, w + 0.42, y, y + 0.52, z, z + 0.8, MR.ac, { col: false }); // on the lane-side wall
+  }
+  // ---------- 麥食堂 block: 2 floors with a mesh-caged 2F balcony and a rusty canopy roof over the terrace ----------
+  {
+    const k = at('mai'), w = width('mai'), d = TEA_ROW.mai[2], top = 6.6; kits[k.lot] = k;
+    k.box(0, w, -0.8, 3.0, 0, d, MR.white);                                                     // ground floor
+    k.box(0, w, 3.0, top, 1.1, d, MR.white);                                                    // 2F set back behind the balcony
+    k.box(0, w, 2.9, 3.15, -0.35, 1.1, MR.concrete, { col: false });                             // balcony slab
+    k.box(0, w, 3.15, 3.75, -0.35, -0.2, MR.white, { col: false });                              // parapet
+    k.box(0, w, 6.3, top, -0.35, 1.1, MR.white, { col: false });                                 // lintel
+    const mesh = k.plane(ROWT.mesh(), w - 0.2, 2.55, w / 2, 5.0, -0.3, FRONT, { transparent: true, double: true });
+    mesh.material.map.repeat.set((w - 0.2) / 0.3, 2.55 / 0.3); mesh.material.alphaTest = 0.3; mesh.material.needsUpdate = true;
+    for (let x = 0; x <= w + 0.01; x += w / 4) k.box(Math.min(x, w - 0.06), Math.min(x, w - 0.06) + 0.06, 3.75, 6.3, -0.33, -0.27, MR.black, { col: false });
+    for (const x of [1.0, 3.2, 5.4]) win(k, x + 0.5, 4.8, 1.6, 1.3, false);
+    for (const x of [0.4, 2.5, 4.9]) k.box(x, x + 0.5, 3.75, 4.05, -0.3, -0.05, MR.plant, { col: false }); // potted plants on the parapet
+    // roof terrace: back room, railing, rusty corrugated canopy on black posts
+    k.box(0, w, top, top + 0.15, 0, d, 'gray', { col: false });
+    k.box(0.3, w - 0.3, top + 0.15, top + 2.4, 4.0, d - 0.2, MR.white, { col: false });
+    k.box(0, w, top + 0.15, top + 1.1, -0.35, -0.3, MR.white, { col: false });
+    k.box(-0.3, w + 0.3, 9.05, 9.12, -0.9, d, MR.rust, { col: false });
+    k.box(-0.3, w + 0.3, 9.12, 9.2, -0.9, d, MR.roof, { col: false });
+    for (const x of [0, w / 2, w - 0.1]) k.box(x, x + 0.1, top, 9.05, -0.3, -0.2, MR.black, { col: false });
+    // east unit (x 0..4.2): 麥食堂 — navy sign, red opening banner, glass front, white vertical sign at the east end
+    k.box(0.05, 4.2, 2.35, 2.95, -0.25, 0, '#26356b', { col: false });
+    k.plane(ROWT.mai(), 4.1, 0.6, 2.13, 2.65, -0.26, FRONT, { emissive: 0.35 });
+    k.plane(ROWT.maiBanner(), 1.5, 0.47, 3.35, 1.95, -0.06, FRONT);
+    shopGlass(k, 0.2, 4.1, 0, 2.3, ROWT.shop('mai', '#f4dcae', '#6b3b2a', 9), -0.03);
+    k.plane(ROWT.vert('mai', '#ffffff', '#c41d2a', '韓式炸雞', '豆腐煲專門店'), 0.42, 1.95, -0.255, 1.7, -0.345, FRONT);
+    k.box(-0.47, -0.04, 0.7, 2.7, -0.34, -0.3, MR.white, { col: false });
+    k.box(0, 4.3, 0, 0.16, -0.9, 0, MR.concrete, { col: false, surface: true });                 // two steps up to the door
+    k.box(0, 4.3, 0.16, 0.32, -0.45, 0, MR.concrete, { col: false, surface: true });
+    // west unit (x 4.3..w): closed shutter under a white wall, round signs
+    k.plane(ROWT.shutter(), w - 4.6, 2.5, (4.3 + w) / 2, 1.25, -0.02, FRONT);
+    k.box(5.25, 5.8, 2.55, 3.05, -0.08, 0, MR.black, { col: false });                              // small black logo board
+  }
+  // ---------- 早啊早餐店 (narrow 4-floor old concrete house, grilles, AC units, tin shack on the roof) ----------
+  {
+    const k = at('zaoa'), w = width('zaoa'), d = TEA_ROW.zaoa[2], F = 3.0, top = 12; kits[k.lot] = k;
+    shell(k, w, d, top, MR.grime, [3, 3]);
+    k.box(0.05, w - 0.05, 2.45, 3.15, -0.25, 0, '#5b4337', { col: false });
+    k.plane(ROWT.zaoa(), w - 0.15, 0.62, w / 2, 2.8, -0.26, FRONT, { emissive: 0.3 });
+    k.box(0, w, 2.25, 2.35, -0.8, 0, '#6b4a3a', { col: false });                                  // cloth awning
+    shopGlass(k, 0.15, w - 0.95, 0, 2.2, ROWT.shop('zaoa', '#f1e2c4', '#8a6d4c', 11));
+    k.plane(YHT.win(), 0.7, 2.1, w - 0.5, 1.05, -0.03, FRONT);                                    // iron gate to the stairs
+    k.box(0.4, 1.0, 0, 0.9, -0.5, -0.05, '#3f7a4c', { col: false });                              // crates by the door
+    for (let f = 1; f < 4; f++) { const y = f * F; win(k, w / 2 + 0.3, y + 1.5, 1.9, 1.3); ac(k, 0.15, y + 0.4); }
+    k.box(0.4, w - 0.4, F + 0.75, F + 2.3, -0.45, -0.4, 'metal', { col: false });                // 2F grille cage
+    k.box(0.2, w - 0.2, top + 0.12, top + 2.2, 1.2, d - 0.5, MR.roof, { col: false });           // rooftop tin shack
+    k.box(0, w, top + 2.2, top + 2.3, 0.6, d, MR.roof, { col: false });
+  }
+  // ---------- 新時代眼鏡 (billboard over 2F-3F, tall pink sign by 早啊, eyewear posters, Prize disc) ----------
+  {
+    const k = at('newera'), w = width('newera'), d = TEA_ROW.newera[2], F = 3.1, top = 12.4; kits[k.lot] = k;
+    shell(k, w, d, top, MR.mosaic);
+    k.box(0.25, w - 0.1, 3.2, 9.4, -0.45, -0.35, MR.black, { col: false });
+    k.plane(ROWT.newera(), w - 0.45, 6.0, (0.25 + w - 0.1) / 2, 6.3, -0.46, FRONT, { emissive: 0.3 });
+    for (const y of [4.0, 8.6]) k.box(0.25, w - 0.1, y, y + 0.06, -0.35, 0, 'metal', { col: false });
+    k.box(-0.05, 0.5, 2.6, 13.6, -0.75, -0.55, '#a8456f', { col: false });                        // the tall pink sign
+    k.plane(ROWT.newSign(), 0.5, 10.9, 0.22, 8.1, -0.76, FRONT, { emissive: 0.35 });
+    k.box(0.15, 0.3, 2.6, 13.6, -0.55, 0, MR.black, { col: false });
+    k.plane(ROWT.posters(), 2.6, 1.3, w - 1.55, 1.55, -0.03, FRONT);
+    k.plane(ROWT.shutter(), 1.2, 2.4, 1.15, 1.2, -0.02, FRONT);
+    k.box(0.5, w, 2.4, 2.6, -0.1, 0, MR.white, { col: false });
+    blade(k, ROWT.prize(), 0.95, 2.3, 0.6, 0.45);
+    win(k, w / 2, 3 * F + 1.5, 2.6, 1.3); ac(k, 0.7, 3 * F + 0.3);
+  }
+  // ---------- 得正 (white tile with red-brown edging, balcony cages, blue sign and blade) ----------
+  {
+    const k = at('dezheng'), w = width('dezheng'), d = TEA_ROW.dezheng[2], F = 3.2, top = 12.8; kits[k.lot] = k;
+    shell(k, w, d, top, MR.mosaic);
+    for (const x of [0, w - 0.18]) k.box(x, x + 0.18, 3.0, top, -0.08, 0, '#8a3a2a', { col: false });
+    k.box(0.05, w - 0.05, 2.5, 3.4, -0.3, 0, '#1f5bb8', { col: false });
+    k.plane(ROWT.dezheng(), w - 0.15, 0.82, w / 2, 2.95, -0.31, FRONT, { emissive: 0.35 });
+    k.plane(ROWT.dzBanner(), 2.4, 0.45, w / 2, 2.15, -0.05, FRONT);
+    shopGlass(k, 0.2, w - 0.2, 0, 1.9, ROWT.shop('dezheng', '#efe6d2', '#5b4a35', 13));
+    k.cyl(w - 0.7, -0.5, 0.2, 0, 0.5, '#5a4a3a', { seg: 10 }); k.cyl(w - 0.7, -0.5, 0.5, 0.5, 1.6, MR.plant, { r1: 0.25, seg: 8 }); // potted 雞蛋花
+    for (let f = 1; f < 4; f++) {
+      const y = f * F; win(k, w / 2, y + 1.55, w - 1.2, 1.4);
+      k.box(0.35, w - 0.35, y + 0.6, y + 0.68, -0.55, 0, 'metal', { col: false });
+      for (let x = 0.35; x <= w - 0.34; x += 0.25) k.box(x, x + 0.03, y + 0.68, y + 2.5, -0.55, -0.52, '#dedfdc', { col: false });
+      k.box(0.35, w - 0.35, y + 2.5, y + 2.56, -0.55, 0, 'metal', { col: false });
+    }
+    blade(k, ROWT.dzBlade(), w - 0.35, 5.6, 0.85, 0.75);
+  }
+  // ---------- 一成專業影印中心 (red brick, green window cages, fire ladder, tall white sign, green awning) ----------
+  {
+    const k = at('yicheng'), w = width('yicheng'), d = TEA_ROW.yicheng[2], F = 3.1, top = 12.4; kits[k.lot] = k;
+    shell(k, w, d, top, MR.brick, [1.5, 1.5]);
+    k.plane(ROWT.ycBand(), w - 0.2, 0.62, w / 2, 2.75, -0.04, FRONT, { emissive: 0.25 });
+    k.box(-0.05, w + 0.05, 2.3, 2.38, -1.0, 0, MR.awning, { col: false });
+    shopGlass(k, 0.2, w - 0.2, 0, 2.25, ROWT.shop('yicheng', '#f3f3ee', '#7d7f84', 17));
+    for (const x of [0.6, 2.6]) k.plane(ROWT.vert('yc', '#ffffff', '#d0202a', '數位影印'), 0.3, 1.2, x, 1.2, -0.05, FRONT);
+    for (const [x, z, h] of [[2.9, -0.6, 0.9], [3.0, -1.0, 0.6], [0.3, -0.7, 0.45]]) k.box(x - 0.25, x + 0.25, 0, h, z - 0.2, z + 0.2, MR.blue, { col: false }); // boxes of paper
+    for (let f = 1; f < 4; f++) {
+      const y = f * F; win(k, w / 2 + 0.3, y + 1.5, 2.2, 1.4);
+      k.box(w / 2 - 0.85, w / 2 + 1.45, y + 0.75, y + 2.25, -0.45, -0.4, MR.green, { col: false });
+    }
+    k.plane(ROWT.yicheng(), 0.72, 6.5, 1.45, 7.3, -0.62, FRONT, { transparent: true, emissive: 0.35 });
+    k.box(1.42, 1.48, 3.6, 11.0, -0.6, 0, MR.black, { col: false });
+    for (const x of [0.12, 0.52]) k.box(x, x + 0.04, 3.0, top + 0.8, -0.95, -0.91, MR.rust, { col: false }); // fire ladder
+    for (let y = 3.2; y < top + 0.8; y += 0.35) k.box(0.12, 0.56, y, y + 0.03, -0.94, -0.92, MR.rust, { col: false });
+  }
+  // ---------- ZEISS 173 / 175 風格店 (white vertical slats over the upper floors, big banner, glass front) ----------
+  {
+    const k = at('zeiss'), w = width('zeiss'), d = TEA_ROW.zeiss[2], top = 10.8; kits[k.lot] = k;
+    shell(k, w, d, top, MR.white);
+    for (let x = 0.1; x < w; x += 0.28) k.box(x, x + 0.08, 3.4, top + 0.8, -0.62, -0.5, MR.white, { col: false });
+    k.box(0, w, top + 0.8, top + 0.9, -0.65, 0, MR.white, { col: false });
+    k.plane(ROWT.zeiss(), 5.6, 2.8, w / 2 + 0.6, 6.2, -0.64, FRONT, { emissive: 0.2 });
+    k.box(0.1, 3.6, 2.6, 3.3, -0.66, -0.1, '#6f7f8f', { col: false });
+    k.plane(ROWT.zBand(), 3.5, 0.66, 1.85, 2.95, -0.67, FRONT, { emissive: 0.25 });
+    k.box(3.6, w, 2.6, 3.3, -0.66, -0.6, MR.white, { col: false });
+    for (let x = 3.7; x < w; x += 0.22) k.box(x, x + 0.06, 2.6, 3.3, -0.7, -0.66, MR.white, { col: false });
+    shopGlass(k, 0.15, w - 0.15, 0, 2.55, ROWT.shop('zeiss', '#f6efe3', '#3d3a36', 19));
+    k.plane(ROWT.num('173', '173'), 1.2, 0.3, w - 1.2, 2.4, -0.06, FRONT);
+    k.plane(ROWT.num('175', '風格店 175'), 1.8, 0.3, 2.6, 2.4, -0.06, FRONT);
+  }
+  // ---------- concrete apron along the shopfronts (the tea shop has its own deck) ----------
+  for (const [lot, a] of Object.entries(TEA_ROW)) {
+    const k = kits[lot], w = a[1] - a[0];
+    k.box(-0.01, w + 0.01, -0.5, 0.05, -TEA_APRON, 0, MR.concrete, { col: false, surface: true });
+  }
+  for (const k of Object.values(kits)) k.finish(scene);
+}
+
+// =====================================================================
 // 正門 (中北路): 警衛亭 on the island between the two one-way lanes; enterable, sit and stand guard
 // (GUARD_SPECS[0] -> buildGuardhouse with kiosk = MAIN_GATE).
 // Google 街景 2017-09 / 2022-08 / 2024-08: a ~3 x 3 m kiosk, rounded front of dark glass toward
@@ -2119,6 +2470,7 @@ export function buildInteriors(scene, data, collision) {
   const mcd = buildMcD(I, scene);
   I.yh = buildYanlinHome(I, scene);
   I.tea = buildTeaShop(I, scene);
+  buildTeaRow(I, scene);
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

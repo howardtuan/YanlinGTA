@@ -59,6 +59,7 @@ export function createPilot() {
 
 // ---- the pilot on foot: turns up somewhere on campus near you, strolls the footpaths for a few minutes, wanders off,
 // and shows up again somewhere else later. Hidden whenever he is flying (Airdrop passes busy = true).
+const PILOT_VOICES = [1, 2, 3, 4].map(n => `assets/sfx/pilot/voice${n}.mp3`);
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export class CampusPilot {
   constructor(game) {
@@ -70,6 +71,23 @@ export class CampusPilot {
     const ch = this.ch = createPilot();
     const tag = makeLabel('🚁 彥霖航空 機長', { height: 0.26, size: 40 }); tag.position.set(0, 2.12, 0); ch.root.add(tag);
     ch.root.visible = false; this.g.scene.add(ch.root);
+    // walk up to him and press E: he stops, turns to you and says one of his lines (a random clip, never the same twice running)
+    const pos = this.pos;
+    this.g.interiors.actions.push({
+      get x() { return pos.x; }, get z() { return pos.z; }, r: 2.4, y: 0, anyY: true,
+      cond: () => this.on,
+      label: () => '按 <kbd>E</kbd> 和機長打招呼',
+      fn: () => this.greet(),
+    });
+  }
+  async greet() {
+    let i; do i = Math.floor(Math.random() * PILOT_VOICES.length); while (PILOT_VOICES.length > 1 && i === this._lastVoice);
+    this._lastVoice = i;
+    const p = this.g.player.worldPos();
+    this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
+    this.pause = Math.max(this.pause, 2.5);
+    const len = await this.g.audio.voice(PILOT_VOICES[i], 1, 'pilot');
+    if (len && this.on) this.pause = Math.max(this.pause, len + 0.8);
   }
   // pick a campus footpath node 30–90 m from the player; false when there is none (you are off campus)
   appear() {
@@ -99,7 +117,11 @@ export class CampusPilot {
     this.life -= dt;
     if (dPl > 170 || (this.life <= 0 && dPl > 60)) { this.hide(); return; } // left behind, or done and out of sight
     let speed = 0;
-    if (this.pause > 0) this.pause -= dt;
+    if (this.pause > 0) {
+      this.pause -= dt;
+      if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); // turned to you while talking
+      if (this.pause <= 0) this.face = null;
+    }
     else {
       speed = 1.35; this.d += speed * dt;
       if (this.d >= this.len) {

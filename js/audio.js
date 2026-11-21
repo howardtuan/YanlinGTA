@@ -264,6 +264,23 @@ export class Audio {
     s.connect(g); g.connect(this._out || this.sfx); this._track(s); s.start(this.ctx.currentTime + when);
     return true;
   }
+  // a voice clip from any file (decoded on first use, then cached); stops the previous clip from the same group so
+  // lines never talk over each other. Resolves to the clip length in seconds (0 when it can't be played).
+  async voice(url, vol = 1, group = 'voice') {
+    if (!this.ctx) return 0;
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => { });
+    const cache = this._voiceBuf ||= {};
+    try {
+      cache[url] ||= fetch(url).then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(b => this.ctx.decodeAudioData(b));
+      const b = await cache[url];
+      const cur = (this._voiceSrc ||= {})[group]; if (cur) { try { cur.stop(); } catch (e) { } }
+      const s = this.ctx.createBufferSource(); s.buffer = b;
+      const g = this.ctx.createGain(); g.gain.value = vol;
+      s.connect(g); g.connect(this.sfx); s.start();
+      this._voiceSrc[group] = s; s.onended = () => { if (this._voiceSrc[group] === s) this._voiceSrc[group] = null; };
+      return b.duration;
+    } catch (e) { delete cache[url]; return 0; }
+  }
   // looped recorded buffer at gain 0 (skid / sizzle), driven with _hold like the synth beds
   _loopBuf(name, dest = this.sfx) {
     const b = this.buf && this.buf[name]; if (!b) return null;

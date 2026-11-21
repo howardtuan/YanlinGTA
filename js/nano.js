@@ -59,9 +59,17 @@ const clip = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 export const Nano = {
   // 'off' (not Chrome / no API) | 'checking' | 'unavailable' | 'downloadable' | 'downloading' | 'available' | 'error'
   state: 'off', progress: 0, fails: 0, langOpt: null, listeners: new Set(),
-  get on() { return this.state === 'available' && this.fails < 3; },
+  // stallUntil: Chrome's model service can hang (create / prompt never return until Chrome is restarted); after a
+  // timeout the chats use their scripted replies for STALL_MS instead of waiting on it again every message
+  get on() { return this.state === 'available' && this.fails < 3 && !(Date.now() < this.stallUntil); },
+  get stalled() { return this.state === 'available' && Date.now() < this.stallUntil; },
+  _stall() {
+    this.stallUntil = Date.now() + 180000; this._emit();
+    clearTimeout(this._stallT); this._stallT = setTimeout(() => this._emit(), 180500);
+  },
   get chrome() { return isChrome(); },
   label() {
+    if (this.stalled) return 'AI 沒有回應，暫時改用劇本對話（重開 Chrome 通常就會恢復）';
     return {
       off: isChrome() ? '這版 Chrome 沒有開放內建 AI' : '非 Chrome 瀏覽器（使用劇本對話）',
       checking: '檢查中…', unavailable: '此裝置無法使用 Gemini Nano', downloadable: '可下載（開啟聊天時自動下載）',
@@ -134,17 +142,36 @@ export const Nano = {
     } finally { s.destroy?.(); }
   },
   // ask the model for the contact's replies to `text` (null = suggest two ways to start a new topic)
+  // Never hangs the chat: session creation and each prompt get REPLY_MS (under phone.js's 15 s fallback, so a stalled
+  // prompt is aborted here first); a prompt that runs over is aborted and its
+  // session thrown away (a stuck prompt would otherwise block every later prompt on that session), and a session whose
+  // context is nearly full is rebuilt from the last messages (a full context makes the model slow, then fail).
   async reply(st, text) {
-    const s = await this.sessionFor(st);
+    const REPLY_MS = 14000, t0 = performance.now();
+    const left = () => Math.max(3000, REPLY_MS - (performance.now() - t0));
+    const drop = (s) => { if (st.session) st.session = null; try { s?.destroy?.(); } catch (e) { } };
+    const within = (p, ms, onLate) => new Promise((res, rej) => {
+      const id = setTimeout(() => { onLate?.(); rej(new Error('timeout')); }, ms);
+      p.then(v => { clearTimeout(id); res(v); }, e => { clearTimeout(id); rej(e); });
+    });
+    let s;
+    try { s = await within(this.sessionFor(st), left(), () => { st.session = null; }); }
+    catch (e) { console.warn('[Nano] session', e?.message || e); if (e?.message === 'timeout') this._stall(); throw e; }
+    const used = s.contextUsage ?? s.inputUsage, quota = s.contextWindow ?? s.inputQuota;
+    if (used != null && quota && used > quota * 0.7) { drop(s); s = await within(this.sessionFor(st), left()); }
     const C = st.c, members = st.members;
     const q = text == null
       ? '（彥霖打開了聊天室還沒說話。replies 請給一則你主動開啟的新話題訊息，options 給彥霖兩種回法。只輸出 JSON。）'
       : `彥霖傳來：「${text}」\n請以角色身分回覆，只輸出 JSON。`;
     const sch = schema(C.group, members);
     let raw;
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 60000));
-    try { raw = await Promise.race([s.prompt(q, { responseConstraint: sch }), timeout]); }
-    catch (e) { if (e?.message === 'timeout') throw e; raw = await Promise.race([s.prompt(q), timeout]); } // older builds without responseConstraint
+    const ask = (opts) => { const ac = new AbortController(); return within(s.prompt(q, { ...opts, signal: ac.signal }), left(), () => { ac.abort(); drop(s); }); };
+    try { raw = await ask({ responseConstraint: sch }); }
+    catch (e) {
+      if (e?.message === 'timeout') { console.warn('[Nano] reply timed out after', Math.round(performance.now() - t0), 'ms'); this._stall(); throw e; }
+      try { raw = await ask({}); } // older builds without responseConstraint
+      catch (e2) { console.warn('[Nano] reply failed', e2?.name, e2?.message); if (e2?.name === 'QuotaExceededError' || e2?.message !== 'timeout') drop(s); throw e2; }
+    }
     const out = parse(raw);
     if (!out || !Array.isArray(out.replies) || !out.replies.length) { this.fails++; throw new Error('bad output'); }
     this.fails = 0;

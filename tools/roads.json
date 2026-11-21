@@ -1,5 +1,5 @@
 {
- "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島), edge (white edge lines) and lanes (lanes per direction); js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there.",
+ "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there.",
  "ways": [
   {
    "way": 13944868,
@@ -1669,7 +1669,11 @@
    "edge": false,
    "lanes": 3,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：分隔道路，中間是有樹的分隔島（寬約 2～3 m，x −820 附近較窄）。x≈−760 是育樂路口：西側斑馬線橫跨兩向，東行停止線在 x≈−770.6。x −645 附近東行外側車道有一段長約 20 m 的網狀黃線（延伸到埔頂橋上）。南側人行道上有綠色自行車道（不屬於車道）。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：分隔道路，中間是有樹的分隔島（寬約 2～3 m，x −820 附近較窄）。x≈−760 是育樂路口：西側斑馬線橫跨兩向，東行停止線在 x≈−770.6。x −645 附近東行外側車道有一段長約 20 m 的網狀黃線（延伸到埔頂橋上）。南側人行道上有綠色自行車道（不屬於車道）。；人行道依 NLSC 2024 正射在 x≈-800～-150 切 14 處判讀：北側紅磚約 2.5 m（x≈-820～-665 是約 9.5 m 灰色鋪面帶），南側紅磚約 3～3.5 m",
+   "walk": {
+    "n": 9.5,
+    "col": "#bdb9b0"
+   }
   },
   {
    "way": 1034725675,
@@ -1678,7 +1682,11 @@
    "edge": false,
    "lanes": 3,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：分隔島上種樹。x≈−470 大路口西口有寬約 5～6 m 的斑馬線橫跨兩向，東行停止線在 x≈−485.5；路口內有轉彎導引虛線。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：分隔島上種樹。x≈−470 大路口西口有寬約 5～6 m 的斑馬線橫跨兩向，東行停止線在 x≈−485.5；路口內有轉彎導引虛線。；人行道依 NLSC 2024 正射在 x≈-800～-150 切 14 處判讀：北側紅磚約 2.5 m（x≈-820～-665 是約 9.5 m 灰色鋪面帶），南側紅磚約 3～3.5 m",
+   "walk": {
+    "n": 2.5,
+    "col": "#b5675a"
+   }
   },
   {
    "way": 1034725677,
@@ -1687,7 +1695,11 @@
    "edge": false,
    "lanes": 3,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路樹樹冠蓋住分隔島邊緣，量測信心降低。x≈−615 北側巷口有網狀黃線，巷口有斑馬線；x≈−499 起點附近靠分隔島有一排橘黃色方塊標線。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路樹樹冠蓋住分隔島邊緣，量測信心降低。x≈−615 北側巷口有網狀黃線，巷口有斑馬線；x≈−499 起點附近靠分隔島有一排橘黃色方塊標線。；人行道依 NLSC 2024 正射在 x≈-800～-150 切 14 處判讀：北側紅磚約 2.5 m（x≈-820～-665 是約 9.5 m 灰色鋪面帶），南側紅磚約 3～3.5 m",
+   "walk": {
+    "s": 3.5,
+    "col": "#b5675a"
+   }
   },
   {
    "way": 307703446,
@@ -1696,7 +1708,11 @@
    "edge": false,
    "lanes": 3,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：北側路樹遮住一部分路緣。x≈−683 與 −707 北側巷口各有一塊網狀黃線。育樂路口東側有一條只橫跨西行車道的斑馬線（x≈−731.5）。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：北側路樹遮住一部分路緣。x≈−683 與 −707 北側巷口各有一塊網狀黃線。育樂路口東側有一條只橫跨西行車道的斑馬線（x≈−731.5）。；人行道依 NLSC 2024 正射在 x≈-800～-150 切 14 處判讀：北側紅磚約 2.5 m（x≈-820～-665 是約 9.5 m 灰色鋪面帶），南側紅磚約 3～3.5 m",
+   "walk": {
+    "s": 3.5,
+    "col": "#b5675a"
+   }
   },
   {
    "way": 202680076,
@@ -1705,7 +1721,11 @@
    "edge": false,
    "lanes": 3,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：x≈−260 有一塊網狀黃線，幾乎蓋滿整條西行車道（長約 8 m）。x≈−303、−108 有號誌路口和斑馬線。x≈−143 靠分隔島有一排橘黃色方塊。x>−110 的路段超出遊戲範圍（z<−900）。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：x≈−260 有一塊網狀黃線，幾乎蓋滿整條西行車道（長約 8 m）。x≈−303、−108 有號誌路口和斑馬線。x≈−143 靠分隔島有一排橘黃色方塊。x>−110 的路段超出遊戲範圍（z<−900）。；人行道依 NLSC 2024 正射在 x≈-800～-150 切 14 處判讀：北側紅磚約 2.5 m（x≈-820～-665 是約 9.5 m 灰色鋪面帶），南側紅磚約 3～3.5 m",
+   "walk": {
+    "s": 3.0,
+    "col": "#b5675a"
+   }
   },
   {
    "way": 204272555,
@@ -1714,7 +1734,11 @@
    "edge": false,
    "lanes": 3,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：x −280～−320 被高樓陰影蓋住。x≈−229 有一塊長約 20 m、蓋滿整條東行車道的網狀黃線。號誌路口 −303、−108 兩側都有斑馬線，−108 路口有機車待轉區白框。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：x −280～−320 被高樓陰影蓋住。x≈−229 有一塊長約 20 m、蓋滿整條東行車道的網狀黃線。號誌路口 −303、−108 兩側都有斑馬線，−108 路口有機車待轉區白框。；人行道依 NLSC 2024 正射在 x≈-800～-150 切 14 處判讀：北側紅磚約 2.5 m（x≈-820～-665 是約 9.5 m 灰色鋪面帶），南側紅磚約 3～3.5 m",
+   "walk": {
+    "n": 2.5,
+    "col": "#b5675a"
+   }
   },
   {
    "way": 204272556,

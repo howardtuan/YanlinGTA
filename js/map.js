@@ -1247,23 +1247,36 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     return false;
   });
+  // surveyed widths / paving per side (tools/roads.json marks walk: {n, s} or {e, w} in metres, col): the
+  // side of a segment is named by the compass side its outward normal faces; a side not given stays 2.5 m on
+  // primary..tertiary and has none elsewhere
+  const walkOf = (r, nx, nz, sd) => {
+    const W = r.marks && r.marks.walk, d = W ? (Math.abs(nz) >= Math.abs(nx) ? (nz * sd < 0 ? W.n : W.s) : (nx * sd > 0 ? W.e : W.w)) : null;
+    return d != null ? d : MARKED[r.type] ? 2.5 : 0;
+  };
+  const walkCol = r => r.marks && r.marks.walk && r.marks.walk.col ? col(r.marks.walk.col) : SIDEWALK;
   const sidewalk = (r) => {
-    if (!MARKED[r.type] || r.bridge || r.tunnel || (r.name || '').startsWith('中北路')) return;
+    if ((!MARKED[r.type] && !(r.marks && r.marks.walk)) || r.bridge || r.tunnel || (r.name || '').startsWith('中北路')) return;
+    const C = walkCol(r);
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
       if (l < 0.3 || (!inPlay(a, 20) && !inPlay(b, 20))) continue;
       const nx = -dz / l, nz = dx / l;
       for (const sd of [1, -1]) {
-        const o = sd * (r.w / 2 + 1.35), oc = sd * (r.w / 2 + 0.1);
+        const W = walkOf(r, nx, nz, sd); if (!W) continue;
+        const o = sd * (r.w / 2 + 0.1 + W / 2), oc = sd * (r.w / 2 + 0.1);
         const mx = (a[0] + b[0]) / 2 + nx * sd * (r.w / 2 + 1.35), mz = (a[1] + b[1]) / 2 + nz * sd * (r.w / 2 + 1.35);
         if (r.oneway && facesOther(r, mx, mz)) {   // median kerb only
           walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
           continue;
         }
-        walks.strip([a[0] + nx * o, a[1] + nz * o], [b[0] + nx * o, b[1] + nz * o], 2.5, 0.02, SIDEWALK);
+        walks.strip([a[0] + nx * o, a[1] + nz * o], [b[0] + nx * o, b[1] + nz * o], W, 0.02, C);
         walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
       }
-      if (i > 0 && turnAt(r, i) > 0.1 && !(r.oneway && facesOther(r, a[0], a[1]))) walks.disc(a[0], a[1], r.w / 2 + 2.6, 0.02, SIDEWALK, 12);
+      if (i > 0 && turnAt(r, i) > 0.1 && !(r.oneway && facesOther(r, a[0], a[1]))) {
+        const W = Math.max(walkOf(r, nx, nz, 1), walkOf(r, nx, nz, -1));
+        if (W) walks.disc(a[0], a[1], r.w / 2 + 0.1 + W, 0.02, C, 12);
+      }
     }
   };
   // tunnels: building passages stay on the surface; underground ones (layer<0,

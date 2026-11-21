@@ -64,6 +64,8 @@ for (const id of ICON_ART) { const im = new Image(); im.onerror = () => ICON_FAI
 const DOCK = ['messages', 'camera', 'wallet', 'settings'];
 const PAGE1 = 8;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// a promise that gives up after ms (the on-device AI can stall)
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
 const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 
 export class Phone {
@@ -825,30 +827,38 @@ export class Phone {
     // votes: scripted choices carry their own; AI small talk gives +1 every 3 messages, up to 3 per contact
     let v = ch.v || 0;
     if (ch.ai) { st.aiSent = (st.aiSent || 0) + 1; if (st.aiSent % 3 === 0 && (st.aiVotes || 0) < 3) { st.aiVotes = (st.aiVotes || 0) + 1; v = 1; } }
+    const fallback = scripted || [{ who: st.c.group ? (st.members || ['柏宇'])[0] : st.c.id, text: this._filler() }];
     if (Nano.on) {
       // typing indicator while the on-device model thinks
       setTimeout(() => { if (st.busy && !st.msgs.some(m => m.typing)) { st.msgs.push({ typing: true }); if (this.cur === st) this._renderThread(); } }, 600);
-      Nano.reply(st, ch.t).then(out => {
-        st.aiOpts = out.options.length === 2 ? out.options : null;
-        this._deliver(st, out.replies, v, 300);
-      }).catch(() => {
-        this._deliver(st, scripted || [{ who: st.c.group ? (st.members || ['柏宇'])[0] : st.c.id, text: this._filler() }], v, 300);
-      });
-    } else this._deliver(st, scripted || [{ who: st.c.id, text: this._filler() }], v, 650);
+      // what arrives if the game is reloaded while the model is still thinking (saved with the chat)
+      st.pending = { replies: fallback, v };
+      const tok = st.tok = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
+      // the on-device model can stall: after 15 s the normal reply comes instead, so the chat never hangs
+      withTimeout(Nano.reply(st, ch.t), 15000).then(out => {
+        if (!mine()) return; st.tok++;
+        st.aiOpts = out.options?.length === 2 ? out.options : null;
+        this._deliver(st, out.replies?.length ? out.replies : fallback, v, 300);
+      }).catch(() => { if (!mine()) return; st.tok++; this._deliver(st, fallback, v, 300); });
+    } else this._deliver(st, fallback, v, 650);
   }
   _filler() { const f = ['哈哈好啊', '收到 👍', '真的假的 😂', '好喔～', '有道理欸', '晚點再聊！']; return f[Math.floor(Math.random() * f.length)]; }
   // AI asks first when the scripted topics have run out
   _aiOpener(st) {
     st.busy = true;
-    Nano.reply(st, null).then(out => {
-      st.aiOpts = out.options.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];
-      this._deliver(st, out.replies, 0, 200);
-    }).catch(() => { st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
+    const tok = st.tok = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
+    withTimeout(Nano.reply(st, null), 15000).then(out => {
+      if (!mine()) return; st.tok++;
+      st.aiOpts = out.options?.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];
+      this._deliver(st, out.replies || [], 0, 200);
+    }).catch(() => { if (!mine()) return; st.tok++; st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
   }
-  // replies arrive one by one with a typing indicator; they land even if you leave the chat
+  // replies arrive one by one with a typing indicator; they land even if you leave the chat or put the phone away
+  // (timers keep running). st.pending holds what is still to come, so a reload in between resumes it (resumePending).
   _deliver(st, replies, v, delay, then) {
     const g = this.g;
     if (st._laughNext) { const L = st._laughNext; st._laughNext = null; replies = [...replies.filter(r => r.text.trim() !== L), { who: st.c.id, text: L }]; }
+    st.busy = true; st.pending = { replies: replies.slice(), v };
     const dropTyping = () => { const ti = st.msgs.findIndex(m => m.typing); if (ti >= 0) st.msgs.splice(ti, 1); };
     replies.forEach((rp, k) => {
       setTimeout(() => { dropTyping(); st.msgs.push({ typing: true }); if (this.cur === st) this._renderThread(); }, delay);
@@ -856,10 +866,13 @@ export class Phone {
       setTimeout(() => {
         dropTyping();
         st.msgs.push({ ...rp, time: hhmm(g.clock) }); st.lastAt = g.clock;
-        if (this.cur === st && this.open) this._renderThread(); else { st.unread++; g.audio.notify?.(); this._relist(); if (!this.open) g.hud.toast(`📱 ${st.c.group ? rp.who : st.c.name}：${rp.text}`, 'good', 2200); }
+        if (st.pending) st.pending.replies.shift();
+        // not looking at this chat (phone away, another app or another chat): unread badge, sound and a notice
+        if (this.cur === st && this.open) this._renderThread();
+        else { st.unread++; g.audio.notify?.(); this._relist(); g.hud.toast(`📱 ${st.c.group ? rp.who : st.c.name}：${rp.text}`, 'good', 2600); }
         g.audio.pickup?.();
         if (k === replies.length - 1) {
-          st.busy = false;
+          st.busy = false; st.pending = null;
           if (this.cur === st) this._renderCompose();
           if (v) g.addVotes(v, `${st.c.group ? '競選小組' : st.c.name}幫你拉票 +${v} 票`);
           then?.();
@@ -867,6 +880,14 @@ export class Phone {
       }, delay);
       delay += 250;
     });
-    if (!replies.length) { dropTyping(); st.busy = false; if (this.cur === st) { this._renderThread(); this._renderCompose(); } }
+    if (!replies.length) { dropTyping(); st.busy = false; st.pending = null; if (this.cur === st) { this._renderThread(); this._renderCompose(); } }
+  }
+  // after loading a save: drop leftover typing bubbles and deliver replies that were still on their way
+  resumePending() {
+    for (const st of this.chats) {
+      st.msgs = st.msgs.filter(m => !m.typing); st.busy = false;
+      const p = st.pending; st.pending = null;
+      if (p?.replies?.length) this._deliver(st, p.replies, p.v || 0, 2500);
+    }
   }
 }

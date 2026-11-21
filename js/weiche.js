@@ -64,7 +64,8 @@ export function weicheFootprints() {
   const F = frame(PTS);
   const z0 = BOX.front - 1.2, z1 = BOX.back;
   // the overhang and its columns, the stair along the north-east side, the stair core on the south-west side
-  return [[F.w(F.xSW(z0, 1.0), z0), F.w(F.xNE(z0, 1.0), z0), F.w(F.xNE(z1, 1.0), z1), F.w(F.xSW(z1, 3.3), z1)]];
+  // (2.8 m out of the wall at z 3..10: the south-west edge keeps 3.3 m out from z = 2 on)
+  return [[F.w(F.xSW(z0, 1.0), z0), F.w(F.xNE(z0, 1.0), z0), F.w(F.xNE(z1, 1.0), z1), F.w(F.xSW(z1, 3.3), z1), F.w(F.xSW(2.0, 3.3), 2.0)]];
 }
 
 // ---------------- textures / materials (shared, built once) ----------------
@@ -374,7 +375,14 @@ export function buildWeiche(I, scene, data) {
     const z0 = 3.0, z1 = 10.0, x0 = xSW(z0, 2.8), x1 = 5.0, top = TOP + FL;
     const y0 = Math.min(gy(x0, z0), gy(x0, z1)) - 0.3;
     k.box('core', x0, x1, y0, top, z0, z1); shape('core', [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y0, top);
-    k.box('coreTop', x0 - 0.1, x1 + 0.1, top, top + 0.25, z0 - 0.1, z1 + 0.1);
+    // the core is solid from the ground up (it stands 2.8 m out of the south-west wall)
+    const cc = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+    for (let i = 0; i < 4; i++) wallLocal(...cc[i], ...cc[(i + 1) % 4], y0, top);
+    // above the roof the terracotta block runs on across the end of the slab to about x = 11 m
+    // (the 2022-08 view from the gate shows it about half as wide as the end wall, right of the canopy)
+    const xp = 11.0;
+    k.box('core', x1 - 0.05, xp, TOP - 0.05, top, z0, z1);
+    k.box('coreTop', x0 - 0.1, xp + 0.1, top, top + 0.25, z0 - 0.1, z1 + 0.1);
     k.box('frame', x1 - 2.2, x1 - 1.0, top - 1.6, top - 0.6, z0 - 0.06, z0);                       // vent on top
     for (let f = 0; f < 10; f++) {                                                                    // one small window per storey
       const y = 1.5 + f * FL; if (y > top - 1.2) break;

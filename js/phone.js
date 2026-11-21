@@ -858,7 +858,11 @@ export class Phone {
     const opts = this._options(st); if (!opts && !typed) return false;
     const g = this.g;
     let ch = typed ? (st.c.always || []).find(a => a.match?.test(typed)) : opts[st.choice]; // (st.choice may be the typing box: nothing to send)
-    if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
+    // a scripted option sent through the typing box (picking an option puts its words there) is still that option:
+    // it keeps its written reply, its votes and moves the script on
+    const same = typed && !ch ? (opts || []).find(o => !o.ai && !o.ask && o.r && o.t.trim() === typed.trim()) : null;
+    if (same) ch = same;
+    else if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
     if (!ch) return false;
     // the AI is still thinking (a reply or a new topic it opens): you don't have to wait, sending anything drops the
     // answer it was working on (the on-device model can take long or stall)
@@ -886,7 +890,8 @@ export class Phone {
     let v = ch.v || 0;
     if (ch.ai) { st.aiSent = (st.aiSent || 0) + 1; if (st.aiSent % 3 === 0 && (st.aiVotes || 0) < 3) { st.aiVotes = (st.aiVotes || 0) + 1; v = 1; } }
     const fallback = scripted || [{ who: st.c.group ? (st.members || ['柏宇'])[0] : st.c.id, text: this._filler() }];
-    if (Nano.on) {
+    // scripted options always get their written reply (no AI); the AI only answers your own words and its own topics
+    if (Nano.on && !scripted) {
       // typing indicator while the on-device model thinks
       setTimeout(() => { if (st.busy && !st.msgs.some(m => m.typing)) { st.msgs.push({ typing: true }); if (this.cur === st) this._renderThread(); } }, 600);
       // what arrives if the game is reloaded while the model is still thinking (saved with the chat)

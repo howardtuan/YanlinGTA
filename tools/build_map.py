@@ -548,7 +548,7 @@ def shift_roads(out, items, by, real, stats, st):
             for kind, Pb in real.query(bbox_of([a, b], hw + 1)):
                 d1 = poly_seg_dist(Pb, a, b) if kind == 'b' else seg_seg(Pb[0], Pb[1], a, b)
                 d0 = poly_seg_dist(Pb, a0, b0) if kind == 'b' else seg_seg(Pb[0], Pb[1], a0, b0)
-                if d1 < hw - 0.3 and d0 >= hw - 0.3:
+                if d1 < hw - 0.3 and d0 >= hw - 0.3 and kind == 'b':   # (walls / hedges: push_barriers)
                     stats['warn'].append('roads.json shift way %s: now %.1f m into an OSM %s near (%.0f, %.0f)' % (
                         WAY_OF.get(id(r)), hw - d1, 'building' if kind == 'b' else 'wall', a[0], a[1]))
         r['osm'] = {'w': r['w'], 'pts': pre[id(r)][0] if id(r) in pre else [list(p) for p in r['pts']]}
@@ -556,6 +556,83 @@ def shift_roads(out, items, by, real, stats, st):
         r['sh'] = 1
         changed.append(r)
     return changed
+
+
+def push_barriers(out, moved, stats, st):
+    """An OSM wall / hedge running along a shifted road (shift_roads) that the new carriageway now
+    covers or comes within its draw margin of (and that did not stand in the old one) moves
+    sideways to just past the new kerb, so js/furniture.js (which drops the stretches within
+    0.3 m + half its thickness of a carriageway) still draws it; e.g. a median hedge OSM traced
+    along one kerb of the median. Only the 2 m steps near the road move (at most 2.5 m); the rest
+    of the barrier keeps its OSM vertices. Run after the widths are final."""
+    if not moved:
+        return
+    segs = Grid(20)
+    for r in moved:
+        for a, b in zip(r['pts'], r['pts'][1:]):
+            segs.add(bbox_of([a, b], r['w'] / 2 + 2), (r, a, b))
+
+    def near(x, z, P_of):
+        best = None
+        for r, _, _ in segs.query((x - 0.1, z - 0.1, x + 0.1, z + 0.1)):
+            P = P_of(r)
+            for a, b in zip(P, P[1:]):
+                d = pt_seg(x, z, a[0], a[1], b[0], b[1]) - r['w'] / 2
+                if best is None or d < best[0]:
+                    best = (d, r, a, b)
+        return best
+
+    def foot(x, z, a, b):
+        dx, dz = b[0] - a[0], b[1] - a[1]; l2 = dx * dx + dz * dz or 1
+        t = max(0, min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2))
+        return a[0] + dx * t, a[1] + dz * t
+
+    for br in out['barriers']:
+        if br.get('synthetic') or br.get('onArea') or br['type'] not in ('wall', 'hedge', 'sheet_fence'):
+            continue
+        pad = 0.3 + (0.8 if br['type'] == 'hedge' else 0.08 if br['type'] == 'sheet_fence' else 0.2) / 2 + 0.15
+        P = br['pts']
+        new, hit, most = [list(P[0])], False, 0.0
+        for p, q in zip(P, P[1:]):
+            L = math.hypot(q[0] - p[0], q[1] - p[1])
+            n = max(1, int(math.ceil(L / 2)))
+            pts = [[p[0] + (q[0] - p[0]) * k / n, p[1] + (q[1] - p[1]) * k / n] for k in range(n + 1)]
+            out_pts, seg_hit = [], False
+            for x, z in pts:
+                b1 = near(x, z, lambda r: r['pts'])
+                if b1 is None or b1[0] >= pad:
+                    out_pts.append([x, z]); continue
+                b0 = near(x, z, lambda r: r['osm']['pts'])
+                if b0 is None or b0[0] < -0.5 or b1[0] > b0[0] - 0.3:   # it stood in the old carriageway
+                    out_pts.append([x, z]); continue                       # already / the shift barely nears it
+                _, r, a, b = b1
+                dx, dz = b[0] - a[0], b[1] - a[1]; l = math.hypot(dx, dz) or 1
+                if abs(dx * (q[0] - p[0]) + dz * (q[1] - p[1])) < 0.9 * l * L:   # only along the road, not across it
+                    out_pts.append([x, z]); continue
+                fx, fz = foot(x, z, a, b)
+                ox, oz = foot(x, z, b0[2], b0[3])
+                sx, sz = x - ox, z - oz   # the side of the old line the barrier is on
+                nx, nz = -dz / l, dx / l
+                if nx * sx + nz * sz < 0:
+                    nx, nz = -nx, -nz
+                hw = r['w'] / 2 + pad
+                nxp, nzp = fx + nx * hw, fz + nz * hw
+                k = math.hypot(nxp - x, nzp - z)
+                if k > 2.5 or k < 0.05:   # (> 2.5: a junction mouth, not a kerb that moved past it)
+                    out_pts.append([x, z]); continue
+                most = max(most, k)
+                out_pts.append([nxp, nzp]); seg_hit = True
+            if seg_hit:
+                hit = True
+                new[-1] = out_pts[0]
+                new.extend(out_pts[1:])
+            else:
+                new.append(list(q))
+        if hit:
+            br['pts'] = [[round(x, 2), round(z, 2)] for x, z in new]
+            st['pushed'] += 1
+            st.setdefault('pushlog', []).append('%s (%.0f, %.0f)-(%.0f, %.0f) up to %.1f m' % (
+                br['type'], P[0][0], P[0][1], P[-1][0], P[-1][1], most))
 
 
 def apply_roads(out, stats):
@@ -581,7 +658,7 @@ def apply_roads(out, stats):
         if not br.get('synthetic'):
             for p, q in zip(br['pts'], br['pts'][1:]):
                 real.add(bbox_of([p, q]), ('w', [p, q]))
-    st = dict(n=0, capped=[], cut=0, skipped=0, areas=0, fences=0, shifted=0)
+    st = dict(n=0, capped=[], cut=0, skipped=0, areas=0, fences=0, shifted=0, pushed=0)
     grown = []
     orig = shift_roads(out, R.get('shift', []), by, real, stats, st)
     for r in orig:
@@ -703,6 +780,7 @@ def apply_roads(out, stats):
             for pp in parts:
                 nb = dict(br); nb['pts'] = pp; keep.append(nb)
     out['barriers'] = keep
+    push_barriers(out, orig, stats, st)
     stats['roads'] = st
 
 
@@ -2242,8 +2320,10 @@ def main():
         print('water:', stats['water'])
     if stats.get('roads'):
         st = stats['roads']
-        print('roads.json: %d widths, %d ways shifted; 補建 cut back: %d houses cut, %d skipped, %d ground areas, %d fence segments'
-              % (st['n'], st['shifted'], st['cut'], st['skipped'], st['areas'], st['fences']))
+        print('roads.json: %d widths, %d ways shifted, %d OSM walls / hedges pushed off them; 補建 cut back: %d houses cut, %d skipped, %d ground areas, %d fence segments'
+              % (st['n'], st['shifted'], st['pushed'], st['cut'], st['skipped'], st['areas'], st['fences']))
+        for c in st.get('pushlog', []):
+            print('  pushed off a shifted road: OSM', c)
         for c in st['capped']:
             print('  capped by an OSM building / wall:', c)
     for s in stats['excluded']:

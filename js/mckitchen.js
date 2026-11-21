@@ -77,6 +77,7 @@ export class McKitchen {
     // clamshell platen of the second grill: pivots on its hinge, upright when open
     const g = a.grill, hinge = new THREE.Group();
     hinge.position.copy(this.wpos(g.hinge[0], g.hinge[1], g.hingeY));
+    hinge.rotation.y = this.k.heading(0); // the slab's +x and its rotation.z swing are in the shop frame
     const slab = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.63, g.len - 0.1), steel); slab.position.set(0.035, 0.315, 0);
     const face = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.54, g.len - 0.2), dark); face.position.set(0.073, 0.31, 0);
     const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, g.len - 0.4, 8).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#dfe2e6', metalness: 0.9, roughness: 0.2 }));
@@ -108,7 +109,7 @@ export class McKitchen {
         for (const pgm of basketGeo) grp.add(new THREE.Mesh(pgm, wire));
         grp.add(new THREE.Mesh(handleGeo, dark));
         const l = load.clone(); grp.add(l);
-        grp.position.copy(this.wpos(x, z, 0)); grp.userData = { base: this.wpos(x, z, 0), load: l };
+        grp.position.copy(this.wpos(x, z, 0)); grp.rotation.y = this.k.heading(0); grp.userData = { base: this.wpos(x, z, 0), load: l };
         scene.add(grp); return grp;
       }), y: 0 };
     }

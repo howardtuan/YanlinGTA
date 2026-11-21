@@ -1,0 +1,118 @@
+// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，樓上沒有做）、南邊學習區，
+// 學習區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，js/zone_g.js 放了一塊甲板），
+// 入口在攤販東邊、麥當勞玻璃房西邊（從下沉區的西段樓梯下來），往東直接通到麥當勞的點餐大廳（js/interiors.js buildMcD）。
+// 地板是 js/zone_g.js 的坑（PIT.west / PIT.stall），天花在坑底上 2.8 m（= 學活外牆的牆腳），把學活空心的內部擋住。
+// 學活的碰撞輪廓在 js/zone_g.js 換成挖掉這塊的版本（蓋完地圖之後才換，共用亂數不變）。
+// Local frame: origin at (-152, -114), x east, z south (Kit angle 0).
+import * as THREE from 'three';
+import { H } from './terrain.js';
+
+export const SAC_B1 = { ox: -152, oz: -114, W: 16, D: 19.58, stallW: 9.3, stallD: 24.5, H: 2.8 }; // stallD stays 5 cm inside PIT.stall: a wall on the pit edge would count from the plaza (H() there)
+
+function tex(w, h, draw) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
+const signTex = (text, bg, fg, w = 512, h = 128, px = 64) => tex(w, h, (g) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.fillStyle = fg; g.font = `900 ${px}px "Noto Sans TC","PingFang TC",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 3); });
+
+export function buildSacB1(I, scene, Kit, regMat, collision = null) {
+  const S = SAC_B1, W = S.W, D = S.D, SW = S.stallW, SD = S.stallD, Hc = S.H;
+  const k = new Kit(I, S.ox, S.oz, 0);
+  k.base = H(S.ox + 2, S.oz + 2); k.group.position.y = k.base; // the pit floor (the origin is on the pit's edge)
+  const std = (o, lift = 0) => { const m = new THREE.MeshStandardMaterial({ roughness: 0.8, ...o }); if (lift) { m.emissive.set(o.color || '#ffffff'); if (o.map) m.emissiveMap = o.map; m.emissiveIntensity = lift; } return m; };
+  const terrazzo = tex(256, 256, (g) => { let s = 11; const r = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; g.fillStyle = '#c9c4ba'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 900; i++) { const v = 150 + r() * 80 | 0; g.fillStyle = `rgb(${v},${v - 6},${v - 14})`; g.fillRect(r() * 256, r() * 256, 2 + r() * 3, 2 + r() * 3); } g.fillStyle = 'rgba(90,85,80,.35)'; g.fillRect(0, 0, 256, 2); g.fillRect(0, 0, 2, 256); });
+  terrazzo.wrapS = terrazzo.wrapT = THREE.RepeatWrapping;
+  const wood = tex(128, 128, (g) => { g.fillStyle = '#b48a5a'; g.fillRect(0, 0, 128, 128); for (let y = 0; y < 128; y += 4) { g.fillStyle = `rgba(90,60,30,${0.08 + (y % 12) / 80})`; g.fillRect(0, y, 128, 1); } });
+  const books = tex(256, 128, (g) => { let s = 3; const r = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; g.fillStyle = '#3a2c20'; g.fillRect(0, 0, 256, 128); for (const y0 of [4, 68]) for (let x = 2; x < 254;) { const w = 5 + r() * 9 | 0, h = 40 + r() * 18 | 0; g.fillStyle = `hsl(${r() * 360 | 0},${35 + r() * 30 | 0}%,${30 + r() * 30 | 0}%)`; g.fillRect(x, y0 + 58 - h, w - 1, h); x += w; } });
+  const MO = {
+    floor: std({ map: terrazzo, roughness: 0.55 }, 0.22), wall: std({ color: '#efece4' }, 0.32), ceil: std({ color: '#f4f3ef' }, 0.42),
+    light: new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff6e2', emissiveIntensity: 1.1 }),
+    desk: std({ map: wood, roughness: 0.5 }, 0.15), steel: std({ color: '#9aa0a6', metalness: 0.6, roughness: 0.35 }, 0.1),
+    chair: std({ color: '#2f5d8a', roughness: 0.6 }, 0.12), shelf: std({ map: books, roughness: 0.7 }, 0.15), shelfWood: std({ color: '#6b4a2e', roughness: 0.6 }, 0.1),
+    stair: std({ color: '#d8d3c8', roughness: 0.6 }, 0.2), rail: std({ color: '#3a3d40', metalness: 0.6, roughness: 0.4 }),
+    counter: std({ color: '#d9d6cf', roughness: 0.4 }, 0.2), stallBack: std({ color: '#d7cbb5' }, 0.25), stove: std({ color: '#b6bbc0', metalness: 0.5, roughness: 0.35 }, 0.1),
+    dark: std({ color: '#2a2b2d', roughness: 0.6 }), shaft: new THREE.MeshStandardMaterial({ color: '#1a1a1c', roughness: 1, side: THREE.BackSide }),
+  };
+  const MT = Object.fromEntries(Object.entries(MO).map(([n, m]) => [n, regMat('sb1' + n, m)]));
+  const nc = { col: false };
+  // the stalls are under the plaza (H() there is the pit floor but people stand on the deck above), so their walls go in
+  // the world collision with a world-height band (pit floor .. +h) instead of I.walls (heights relative to the ground)
+  const cw = (x0, x1, z0, z1, y1) => { if (!collision) return; const p = k.rect(x0, x1, z0, z1); for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; collision.addSegment(a[0], a[1], b[0], b[1], k.base - 0.1, k.base + y1); } };
+  const cbox = (x0, x1, y0, y1, z0, z1, mat) => { k.box(x0, x1, y0, y1, z0, z1, mat, nc); cw(x0, x1, z0, z1, y1); };
+
+  // ---------------- shell ----------------
+  k.box(0, W, -0.3, 0.1, 0, D, MT.floor, { ...nc, tile: [2.4, 2.4] });
+  k.box(0, SW, -0.3, 0.02, D, SD, MT.floor, { ...nc, tile: [2.4, 2.4] }); // people stand on the pit floor (no surface: it would lift the plaza above too)
+  // floor at the pit floor + 0.1, level with the 麥當勞 (its edges lie on the pit's edge, where H() is the plaza)
+  const surf = (x0, x1, z0, z1) => I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => k.base + 0.1 - H(x, z));
+  surf(0, W, 0, D + 0.05);
+  k.box(0, 0.3, 0, Hc, 0, D, MT.wall);             // west wall (study area)
+  cbox(0, 0.3, 0, Hc, D, SD, MT.wall);              // west wall (stalls)
+  k.box(0, W, 0, Hc, 0, 0.3, MT.wall);             // north wall (stair hall)
+  cbox(0.3, SW, 0, Hc, SD - 0.3, SD, MT.wall);     // the stalls' back wall (under the plaza)
+  // ceiling 2.8 m up (the 活動中心's outer wall starts there), a square hole over the spiral stair
+  const SX = 6, SZ = 5, SR = 1.7, hx0 = SX - SR - 0.2, hx1 = SX + SR + 0.2, hz0 = SZ - SR - 0.2, hz1 = SZ + SR + 0.2;
+  for (const [x0, x1, z0, z1] of [[0, W, 0, hz0], [0, W, hz1, D + 0.35], [0, hx0, hz0, hz1], [hx1, W, hz0, hz1], [0, SW, D + 0.35, SD]]) k.box(x0, x1, Hc, Hc + 0.12, z0, z1, MT.ceil, { ...nc, tile: [0.6, 0.6] });
+  // the shaft over the stair (dark: the floors above are not built) and a beam over the entrance
+  k.box(hx0, hx1, Hc, Hc + 3.4, hz0, hz1, MT.shaft, nc);
+  k.box(SW, W, Hc - 0.35, Hc + 0.4, D - 0.1, D + 0.35, MT.wall, nc);
+  // the sign on that beam (street view 2017): a blue 影印部 board; 麥當勞 is inside to the right
+  const gate = tex(1024, 112, (g, w, h) => {
+    g.fillStyle = '#2b5fae'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffffff'; g.font = '900 72px "Noto Sans TC","PingFang TC",sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+    g.fillText('影印部', 30, h / 2 + 3); g.font = '700 34px "Noto Sans TC","PingFang TC",sans-serif'; g.fillText('影印 · 輸出 · 裝訂 · 文具', 290, h / 2 + 5);
+  });
+  k.plane(gate, 5.2, 0.57, (SW + W) / 2, Hc + 0.02, D + 0.36, 0, { emissive: 0.45 });
+  // downlights / light strips
+  for (let x = 2; x < W - 0.5; x += 3) for (let z = 1.5; z < D; z += 3) { if (Math.abs(x - SX) < 2.6 && Math.abs(z - SZ) < 2.6) continue; k.box(x - 0.6, x + 0.6, Hc - 0.02, Hc, z - 0.12, z + 0.12, MT.light, nc); }
+  for (let x = 1.6; x < SW - 0.5; x += 2.6) k.box(x - 0.5, x + 0.5, Hc - 0.02, Hc, 21.0, 21.24, MT.light, nc);
+
+  // ---------------- stair hall: round spiral stair (decor; its drum blocks you) ----------------
+  k.cyl(SX, SZ, 0.12, 0, Hc + 3.2, MT.rail, { seg: 12 });
+  const steps = 18, rise = (Hc + 3.2) / steps;
+  for (let i = 0; i < steps; i++) {
+    const a = i * Math.PI * 2 / 12, g = new THREE.BoxGeometry(SR - 0.15, 0.06, 0.62).translate((SR - 0.15) / 2 + 0.12, 0, 0);
+    g.rotateY(-a); g.translate(SX, (i + 1) * rise, SZ); k._part(MT.stair, g);
+    const px = SX + Math.cos(a) * (SR - 0.05), pz = SZ + Math.sin(a) * (SR - 0.05);
+    k._part(MT.rail, new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6).translate(px, (i + 1) * rise + 0.47, pz));
+  }
+  for (let i = 0; i < 6; i++) { const r = SR - 0.05, g = new THREE.TorusGeometry(r, 0.025, 6, 32, Math.PI * 2); g.rotateX(Math.PI / 2); g.translate(SX, 0.95 + i * rise * 2.0, SZ); k._part(MT.rail, g); }
+  k.wallRect(SX - SR, SX + SR, SZ - SR, SZ + SR, 0, Hc);
+  k.plane(signTex('樓梯 STAIRS ↑', '#2d3b4a', '#ffffff', 512, 96, 52), 1.6, 0.3, SX, 2.45, SZ + SR + 0.25, 0, { emissive: 0.5 });
+
+  // ---------------- study area: long desks with lamps, chairs, bookshelves on the west wall ----------------
+  // (the walk from the entrance to the 麥當勞 opening, x 11.5..16, stays clear: the 值班 customers come in there)
+  const chair = (x, z, face) => {
+    k.box(x - 0.22, x + 0.22, 0.44, 0.48, z - 0.21, z + 0.21, MT.chair, nc);
+    const bz = z + face * 0.2; k.box(x - 0.22, x + 0.22, 0.48, 0.9, bz - 0.02, bz + 0.02, MT.chair, nc);
+    for (const [dx, dz] of [[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]]) k._part(MT.steel, new THREE.CylinderGeometry(0.012, 0.012, 0.44, 5).translate(x + dx, 0.22, z + dz));
+  };
+  for (const z of [10.6, 14.2, 17.6]) for (const [x0, x1] of [[1.6, 5.2], [6.2, 9.8]]) {
+    k.box(x0, x1, 0.72, 0.76, z - 0.45, z + 0.45, MT.desk, nc); k.wallRect(x0, x1, z - 0.45, z + 0.45, 0, 0.76);
+    for (const x of [x0 + 0.1, x1 - 0.1]) k.box(x - 0.03, x + 0.03, 0, 0.72, z - 0.4, z + 0.4, MT.steel, nc);
+    k.box(x0 + 0.1, x1 - 0.1, 0.76, 1.06, z - 0.03, z + 0.03, MT.steel, nc); // low divider with a lamp bar
+    k.box(x0 + 0.3, x1 - 0.3, 1.04, 1.07, z - 0.12, z + 0.12, MT.light, nc);
+    for (let x = x0 + 0.6; x < x1 - 0.3; x += 1.2) { chair(x, z - 0.78, -1); chair(x, z + 0.78, 1); }
+  }
+  for (const z0 of [8.6, 12.2, 15.8]) { k.box(0.3, 0.75, 0, 2.1, z0, z0 + 3.2, MT.shelfWood); k.plane(books, 3.0, 1.9, 0.76, 1.05, z0 + 1.6, Math.PI / 2); }
+  k.plane(signTex('學 習 區', '#1f5f8b', '#ffffff', 512, 128, 72), 1.8, 0.45, 6.0, 2.45, 8.2, 0, { emissive: 0.45 });
+  k.box(5.0, 7.0, 2.2, 2.7, 8.14, 8.17, MT.dark, nc);
+
+  // ---------------- 學餐 stalls under the plaza: three counters facing north, menu boards above ----------------
+  const stalls = [['自助餐', '#c0392b'], ['麵 飯 館', '#d68910'], ['飲料・點心', '#1e8449']];
+  const sw = (SW - 0.3) / stalls.length;
+  stalls.forEach(([name, col], i) => {
+    const x0 = 0.3 + i * sw, x1 = x0 + sw, cx = (x0 + x1) / 2;
+    cbox(x0 + 0.15, x1 - 0.15, 0, 1.05, 22.2, 22.8, MT.counter);          // counter (blocks)
+    k.box(x0 + 0.1, x1 - 0.1, 1.05, 1.1, 22.15, 22.85, MT.steel, nc);
+    k.box(x0 + 0.3, x1 - 0.3, 1.1, 1.3, 22.35, 22.75, MT.light, nc);       // lit food tray / display
+    cbox(x0 + 0.2, x1 - 0.2, 0, 0.95, 23.5, 24.2, MT.stove);              // stoves / fridges at the back
+    cbox(x0 + 0.02, x0 + 0.12, 0, Hc, 22.2, SD - 0.3, MT.stallBack);     // partitions between the stalls
+    k.box(x0 + 0.2, x1 - 0.2, 2.15, 2.65, 21.9, 22.0, MT.dark, nc);        // header board
+    k.plane(signTex(name, col, '#ffffff', 512, 128, 76), sw - 0.5, 0.42, cx, 2.4, 21.89, Math.PI, { emissive: 0.6 });
+    k.plane(signTex('今日菜單', '#fbf7ee', '#333333', 512, 128, 60), sw - 0.8, 0.5, cx, 1.9, SD - 0.31, Math.PI, { emissive: 0.35 });
+  });
+  cbox(SW - 0.12, SW, 0, Hc, D, SD - 0.3, MT.stallBack); // east wall, along the 下沉區's west retaining wall
+
+  k.finish(scene);
+  I.zones.push({ name: '學生活動中心 B1 學習區', pts: k.rect(0, W, 0, D), y0: 0, y1: Hc, ceil: () => Hc - 0.3 });
+  I.zones.push({ name: '學生活動中心 B1 學餐', pts: k.rect(0, SW, D, SD), y0: 0, y1: Hc, ceil: () => Hc - 0.3 });
+  return { k };
+}

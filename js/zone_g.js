@@ -22,7 +22,7 @@
 // 沒有影像的面照同棟看得到的面推，入口、招牌等特殊構件不編。
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
-import { H, Hgrid, groundY, surfaceAt, addPit } from './terrain.js';
+import { H, Hgrid, groundY, surfaceAt, addPit, addBridge, LV_DECK } from './terrain.js';
 
 export const G_IDS = { sac: 'w392023427', bio: 'w392023428', qr: 'w392023429', pool: 'w392023430', gym: 'w392023437', lx: 'w392023431' };
 
@@ -106,29 +106,37 @@ function clipPoly(pts, keep) {
 }
 
 // ---------------- 學活南面下沉舞台＋B1 麥當勞、往二樓的大階梯（地形，js/main.js 在蓋地圖前呼叫） ----------------
-// 相片（2022～2025 評論相片、2024 正射）：南面廣場往北下降約 3.3 m 到 B1，麥當勞與 ARMENA COFFEE 店面朝南。
-// 西段（ARMENA 前，寬約 9 m）是中間有黃色扶手的直跑樓梯，東段（麥當勞前，寬約 19 m）是約 10 階的看台；
-// 西邊隔一條長花台，再往西是紅磚平台和往二樓門廊的大階梯（x -162.5..-156.1，約 22 階、上升約 3.8 m）。
-// 坑＝麥當勞室內＋下沉區（js/terrain.js addPit），範圍避開學活輪廓線，學活本體的 base 不受影響。
+// 相片（2022～2025 評論相片、2024 正射）與使用者給的 B1 平面圖：南面廣場往北下降約 3.3 m 到 B1。
+// B1 由西到東：樓梯廳（北）＋學習區（南）、學習區西南往南凸出到廣場底下的學餐攤販（js/sac_b1.js）、
+// 麥當勞（js/interiors.js，整間轉 180 度，點餐大廳在西邊、直接通學習區，南牆封起來），
+// 麥當勞南牆外是黑框弧形玻璃的練舞室，前面一塊 B1 小廣場，再往南是看台；B1 入口在攤販東邊、玻璃房西邊（街景：入口上方掛影印部、全家的招牌，進去右轉才是麥當勞），
+// 西段中間有黃色扶手的直跑樓梯從廣場下來正對入口。再往西是長花台、紅磚平台和往二樓門廊的大階梯
+// （x -162.5..-156.1，約 22 階、上升約 3.8 m）。坑都互相重疊幾公分（H() 用嚴格不等式，留縫會長出地形脊）。
+// 學活的 base 用 Hgrid 算（js/map.js footBase），坑壓到它的輪廓也不會下沉。
 export const PIT = {
   depth: 3.3,
   shop: [-135.95, -113.95, -111.9, -93.9],     // x0, z0, x1, z1：麥當勞室內（B1）
-  court: [-142.7, -94.35, -114.7, -81.0],      // 下沉區（樓梯、看台、店前 B1 地坪）
-  flatZ: -91.5,                                // 店前平地到這裡，再往南是往上的樓梯與看台
-  split: -133.8,                               // 西段樓梯／東段看台的分界
+  west: [-152.05, -114.05, -135.9, -94.42],    // 樓梯廳＋學習區（學活底下）
+  stall: [-152.05, -94.5, -142.65, -89.45],    // 學餐攤販（廣場底下：地面照畫，上面放甲板）
+  court: [-142.7, -94.5, -114.7, -78.0],       // 下沉區（入口前平地、西段樓梯、玻璃房、小廣場、看台）
+  flatW: -88.5,                                // 入口前的 B1 平地到這裡，再往南是西段樓梯
+  flatE: -85.0,                                // 玻璃房前的小廣場到這裡，再往南是看台
+  split: -136.0,                               // 西段樓梯／東段看台的分界（樓梯對齊入口 x -142.7..-136）
 };
+// 練舞室：麥當勞南牆外的黑框弧形玻璃房（弦在 z -94.0，往南凸出 sag m），沒有門
+export const ROOM = { A: [-135.6, -94.0], B: [-115.1, -94.0], sag: 5.5 };
 export const STAIR2F = { x: -159.3, w: 6.4, zFoot: -82.4, zTop: -92.55, rise: 3.8, steps: 22, landing: [-162.5, -94.35, -156.1, -92.55] };
 let pitY = null, landY = null;
 export function zoneGTerrain(data) {
   const g0 = Hgrid(-125, -100);
   pitY = g0 - PIT.depth;
-  addPit(...PIT.shop, pitY); addPit(...PIT.court, pitY);
+  addPit(...PIT.shop, pitY); addPit(...PIT.west, pitY); addPit(...PIT.stall, pitY, { mask: false }); addPit(...PIT.court, pitY);
   const L = data.levels || (data.levels = {}); L.stairs = L.stairs || []; L.pads = L.pads || [];
   const [x0, , x1, z1] = PIT.court, site = '學生活動中心南面下沉舞台';
   const top = (x) => Hgrid(x, z1 + 0.5);
   const xw = (x0 + PIT.split) / 2, xe = (PIT.split + x1) / 2;
-  L.stairs.push({ id: 'sac_b1_west', site, a: [xw, PIT.flatZ], b: [xw, z1], w: PIT.split - x0, y0: pitY, y1: top(xw), steps: 20, rail: 'center', railColour: '#e0b52a', wall: 'granite' });
-  L.stairs.push({ id: 'sac_b1_stage', site, a: [xe, PIT.flatZ], b: [xe, z1], w: x1 - PIT.split, y0: pitY, y1: top(xe), steps: 10, wall: 'granite', top: '#c4beb3' });
+  L.stairs.push({ id: 'sac_b1_west', site, a: [xw, PIT.flatW], b: [xw, z1], w: PIT.split - x0, y0: pitY, y1: top(xw), steps: 20, rail: 'center', railColour: '#e0b52a', wall: 'granite' });
+  L.stairs.push({ id: 'sac_b1_stage', site, a: [xe, PIT.flatE], b: [xe, z1], w: x1 - PIT.split, y0: pitY, y1: top(xe), steps: 10, wall: 'granite', top: '#c4beb3' });
   // 往二樓門廊的大階梯與頂端平台（學活內部沒有模型：在平台按 E 穿過學活到北側天橋，buildZoneG）
   const S2 = STAIR2F, gl = Hgrid(S2.x, S2.zTop - 1);
   landY = gl + S2.rise;
@@ -264,11 +272,6 @@ const postSignTex = () => textTex('gPostSign', 1024, 160, (g, W, Hh) => {
   g.fillStyle = '#2f7a3a'; g.font = '900 96px "Noto Sans TC","PingFang TC",sans-serif'; g.fillText('郵 局', 270, Hh / 2 + 6);
   g.fillStyle = '#ffffff'; g.font = '800 104px "Helvetica Neue",Arial,sans-serif'; g.fillText('POST', 690, Hh / 2 + 6);
 });
-const armenaSignTex = () => textTex('gArmenaSign', 1024, 128, (g, W, Hh) => {
-  g.fillStyle = '#24262a'; g.fillRect(0, 0, W, Hh);
-  g.fillStyle = '#efeae0'; g.beginPath(); g.arc(70, Hh / 2, 40, 0, 7); g.fill(); g.fillStyle = '#24262a'; g.font = '700 46px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('A', 70, Hh / 2 + 3);
-  g.fillStyle = '#efeae0'; g.font = '600 72px "Helvetica Neue",Arial,sans-serif'; g.textAlign = 'left'; g.fillText('ARMENA  COFFEE', 140, Hh / 2 + 4);
-});
 const vText = (key, text, colour, bg, font, w = 160, h = 1024) => textTex(key, w, h, (g, W, Hh) => {
   if (bg) { g.fillStyle = bg; g.fillRect(0, 0, W, Hh); }
   const chars = [...text], step = Hh / chars.length, px = Math.min(W * 0.78, step * 0.82);
@@ -301,7 +304,8 @@ function mat(key) {
     // B1 到懸挑底約 9.1 m：下段 B1 店面、3.0～3.7 m 黑色招牌帶、上段一樓用餐區
     mcdGlass: () => lit(shopGlassTex('gMcdGlassB1', '#1c1c1e', ['#5d5a52', '#6f5a40', '#2d241c'], 9.1, [3.0, 3.7], [0.05, 0.45, 2.4, 3.0, 3.7, 5.2, 6.8, 9.05])),
     mcdUpper: () => lit(shopGlassTex('gMcdUpper', null, ['#5f5c55', '#6b5a44', '#352b22'], 5.8, [0, 0], [0.05, 1.1, 3.4, 4.6, 5.75]), 0.35),
-    armena: () => lit(shopGlassTex('gArmena', '#24262a', ['#5b5348', '#6a5b48', '#2e2720'], 3.3, [2.55, 3.15], [0.05, 0.4, 2.5, 3.2])),
+    danceFloor: () => std({ color: '#b98a57', roughness: 0.45, emissive: '#b98a57', emissiveIntensity: 0.12 }),
+    mirror: () => std({ color: '#cfd6da', roughness: 0.05, metalness: 0.9, emissive: '#9aa4aa', emissiveIntensity: 0.15 }),
     pitFloor: () => std({ color: '#a9a49b', roughness: 0.85 }),
     planter: () => std({ color: '#b9b4aa', roughness: 0.8 }),
     shrub: () => std({ color: '#4f7a3a', roughness: 0.95 }),
@@ -435,7 +439,8 @@ export function buildZoneG(I, scene, data, collision = null) {
   const baseOf = (b, x, z) => (b && Number.isFinite(b.base) ? b.base : groundY(x, z));
   // I.addWall 的高度帶是「相對牆中點地面」的（js/physworld.js 會再加 H）：這裡傳世界高度，先換算
   const wallC = (ax, az, bx, bz, y0, y1) => { const g = H((ax + bx) / 2, (az + bz) / 2); I.addWall(ax, az, bx, bz, y0 - g, y1 - g); };
-  const colRound = (x, z, r, y1, m = 'column') => { const y0 = groundY(x, z) - 0.2; k.cyl(m, x, z, r, y0, y1, 18); const s = r * 0.9; for (const [a, c] of [[[x - s, z - s], [x + s, z - s]], [[x + s, z - s], [x + s, z + s]], [[x + s, z + s], [x - s, z + s]], [[x - s, z + s], [x - s, z - s]]]) wallC(a[0], a[1], c[0], c[1], y0, y1); shapes.push({ name: 'column', pts: [[x - r, z - r], [x + r, z - r], [x + r, z + r], [x - r, z + r]], y0, y1 }); };
+  // (圓柱站在學餐攤販上方的廣場上時，從廣場面起算，不是 B1)
+  const colRound = (x, z, r, y1, m = 'column') => { const st = PIT.stall, y0 = (x > st[0] && x < st[2] && z > st[1] && z < st[3] ? Hgrid(x, z) : groundY(x, z)) - 0.2; k.cyl(m, x, z, r, y0, y1, 18); const s = r * 0.9; for (const [a, c] of [[[x - s, z - s], [x + s, z - s]], [[x + s, z - s], [x + s, z + s]], [[x + s, z + s], [x - s, z + s]], [[x - s, z + s], [x - s, z - s]]]) wallC(a[0], a[1], c[0], c[1], y0, y1); shapes.push({ name: 'column', pts: [[x - r, z - r], [x + r, z - r], [x + r, z + r], [x - r, z + r]], y0, y1 }); };
 
   // ===== 學生活動中心 =====
   const sac = find(G_IDS.sac);
@@ -476,32 +481,40 @@ export function buildZoneG(I, scene, data, collision = null) {
     k.box('sacPlain', S.xS0, xEo, yO - 0.35, yO, zSo - 0.4, zSo);
     k.box('sacPlain', xEo - 0.4, xEo, yO - 0.35, yO, zNo, zSo);
     k.box('sacPlain', S.xN0, xEo, yO - 0.35, yO, zNo, zNo + 0.4);
-    // 圓柱：南面柱廊、東面騎樓、北面轉角（奶油色、很粗）；麥當勞南門（x -119.6..-116.6）前那根往東讓開到 -115.9
+    // 圓柱：南面柱廊、東面騎樓、北面轉角（奶油色、很粗）；落在練舞室玻璃裡的那幾根不畫
     const cS = zSo - 0.75, cE = xEo - 0.75;
-    for (const x of [cE, -115.9, -124.5, -131.5, -138.5, -145.5, -150.1, S.xS0 + 0.75]) colRound(x, cS, 0.55, yO);
+    const RP = arc3(ROOM.A, [(ROOM.A[0] + ROOM.B[0]) / 2, ROOM.A[1] + ROOM.sag], ROOM.B, 24);
+    const inRoom = (x, z) => x > ROOM.A[0] - 0.6 && x < ROOM.B[0] + 0.6 && z > ROOM.A[1] && z < arcZ(RP, Math.min(Math.max(x, ROOM.A[0]), ROOM.B[0])) + 0.6;
+    for (const x of [cE, -117.5, -124.5, -131.5, -138.5, -145.5, -150.1, S.xS0 + 0.75]) if (!inRoom(x, cS)) colRound(x, cS, 0.55, yO);
     // 北側緊鄰沿新中北路的服務道路，轉角圓柱放在輪廓內側
     for (const z of [-99.5, -116.5, -123.5, S.zN + 0.5]) colRound(cE, z, 0.55, yO);
-    // 麥當勞：在 B1，南面朝下沉舞台的弧形黑框玻璃店面，從 B1 地面一路到懸挑底（下段 B1、招牌帶、上段一樓用餐區），
-    // 圓柱落在玻璃外；室內（js/interiors.js buildMcD）的門在南牆 x -119.6..-116.6，玻璃在門前留開口
+    // 練舞室：麥當勞南牆外的黑框弧形玻璃房（B1 平面圖的粉紅半圓），從 B1 地面到廣場面上約 3.3 m，平屋頂；
+    // 玻璃整圈封閉（街景上弧形玻璃沒有門，進不去）；裡面木地板、北牆整面鏡子＋把桿
     {
-      const yP = pitY ?? B, A = [-134.0, -94.0], Q = [-124.5, -92.65], Bp = [-115.0, -94.0], door = [-119.7, -116.5];
-      const P = arc3(A, Q, Bp, 20), yD = yP + 2.75;
+      const yP = pitY ?? B, P = RP, yTop = yP + 6.6;
       let u = 0;
       for (let i = 0; i < P.length - 1; i++) {
-        const a = P[i], c = P[i + 1], l = Math.hypot(c[0] - a[0], c[1] - a[1]), mx = (a[0] + c[0]) / 2;
-        const y0 = Math.min(groundY(a[0], a[1]), groundY(c[0], c[1])) - 0.1, open = mx > door[0] && mx < door[1];
-        const ys = open ? yD : y0, v0 = (ys - y0) / (yO - y0);
-        k.quad('mcdGlass', [a[0], ys, a[1]], [c[0], ys, c[1]], [c[0], yO, c[1]], [a[0], yO, a[1]], [[u, v0], [u + l / 3, v0], [u + l / 3, 1], [u, 1]]);
-        if (!open) { k.slab('black', a[0], a[1], c[0], c[1], 0.12, y0, y0 + 0.3); wallC(a[0], a[1], c[0], c[1], y0, yO); }
-        else k.slab('black', a[0], a[1], c[0], c[1], 0.14, yD - 0.12, yD);
+        const a = P[i], c = P[i + 1], l = Math.hypot(c[0] - a[0], c[1] - a[1]);
+        const y0 = yP - 0.1, v1 = (yTop - y0) / 9.1; // mcdGlass 的貼圖是 9.1 m 高
+        k.quad('mcdGlass', [a[0], y0, a[1]], [c[0], y0, c[1]], [c[0], yTop, c[1]], [a[0], yTop, a[1]], [[u, 0], [u + l / 3, 0], [u + l / 3, v1], [u, v1]]);
+        k.slab('black', a[0], a[1], c[0], c[1], 0.12, y0, y0 + 0.3); wallC(a[0], a[1], c[0], c[1], y0, yTop);
+        k.slab('black', a[0], a[1], c[0], c[1], 0.16, yTop - 0.05, yTop + 0.35); // 屋頂邊的黑色收邊
         u += l / 3;
       }
-      // 門口兩側封板（玻璃與南牆之間）
-      for (const x of door) { const z = arcZ(P, x); k.box('black', x - 0.06, x + 0.06, yP, yD, z, -94.0); wallC(x, z, x, -94.0, yP - 0.1, yD); }
-      shapes.push({ name: 'mcdGlass', pts: [A, ...P, Bp], y0: yP, y1: B + S.ov });
-      // 招牌：玻璃中段的黑底「McDonald's」，高度約在廣場面（相片的招牌帶）
-      const mid = P[Math.round(P.length * 0.55)], nx = mid[0] - (-124.5), nz = mid[1] - (-104), l = Math.hypot(nx, nz);
+      const poly = [ROOM.A, ...P.slice(1, -1), ROOM.B];
+      k.flat('roofGrey', poly, yTop + 0.3); k.flat('soffit', poly, yTop, true);
+      k.flat('danceFloor', poly, yP + 0.02);
+      k.box('mirror', ROOM.A[0] + 0.3, ROOM.B[0] - 0.3, yP + 0.1, yP + 2.5, -94.0, -93.96);
+      k.box('rib', ROOM.A[0] + 0.6, ROOM.B[0] - 0.6, yP + 1.0, yP + 1.05, -93.72, -93.67);
+      for (let x = ROOM.A[0] + 1; x < ROOM.B[0] - 0.5; x += 2.5) k.box('rib', x - 0.02, x + 0.02, yP + 0.02, yP + 1.0, -93.86, -93.82);
+      for (let x = ROOM.A[0] + 2; x < ROOM.B[0] - 1; x += 3) for (const z of [-93.0, -91.0, -89.6]) if (z < arcZ(P, x) - 0.6) k.box('lamp', x - 0.6, x + 0.6, yTop - 0.03, yTop - 0.01, z - 0.1, z + 0.1);
+      shapes.push({ name: 'mcdGlass', pts: poly, y0: yP, y1: yTop });
+      I.zones.push({ name: '學生活動中心 B1 練舞室', pts: poly, y0: 0, y1: 6.6, ceil: () => 6.2 });
+      // 招牌：玻璃中段的黑底「McDonald's」，高度約在廣場面（街景的招牌帶）；玻璃整圈沒有門，麥當勞要從西邊 B1 入口進去右轉
+      const mid = P[Math.round(P.length * 0.55)], c0 = [(ROOM.A[0] + ROOM.B[0]) / 2, -104], nx = mid[0] - c0[0], nz = mid[1] - c0[1], l = Math.hypot(nx, nz);
       sign(group, mcdSignTex(), 5.6, 0.7, mid[0] + nx / l * 0.07, yP + 3.3, mid[1] + nz / l * 0.07, nx / l, nz / l, 0.55);
+    }
+    {
       // 麥當勞上面那層（一樓用餐區）在東面、南面東段臨街：從街面到懸挑底的玻璃
       const g1 = H(S.xE + 0.5, -104);
       k.wall('mcdUpper', S.xE + 0.45, -94.0, S.xE + 0.45, -113.9, g1 - 0.1, yO, 3, yO - g1 + 0.1, 0, 0);
@@ -526,28 +539,48 @@ export function buildZoneG(I, scene, data, collision = null) {
       const mid = P[Math.round(P.length / 2)], nx = mid[0] - (S.xE - 6), nz = mid[1] - (S.zN + 6), l = Math.hypot(nx, nz);
       sign(group, postSignTex(), 5.2, 0.82, mid[0] + nx / l * 0.06, B + 3.25, mid[1] + nz / l * 0.06, nx / l, nz / l, 0.35);
     }
-    // 下沉舞台：B1 地坪、東西擋土牆、ARMENA 店面、西側長花台、東側矮牆。碰撞線有高度帶（js/collision.js addSegment），
-    // 只擋腳在坑裡（或樓梯上）的人，廣場上的人走到邊緣會掉下去
+    // 下沉區：B1 地坪、東西擋土牆、西側長花台、東側矮牆。碰撞線有高度帶（js/collision.js addSegment），
+    // 只擋腳在坑裡（或樓梯上）的人，廣場上的人走到邊緣會掉下去（西段樓梯上方的柱廊邊另外有矮牆）
     if (pitY !== null) {
-      const [x0, z0, x1, z1] = PIT.court, yP = pitY, gW = Hgrid(x0 - 1.5, -88), gE = Hgrid(x1 + 1.5, -88), gN = Hgrid(-140, -95);
+      const [x0, z0, x1, z1] = PIT.court, yP = pitY, gW = Hgrid(x0 - 1.5, -88), gE = Hgrid(x1 + 1.5, -88);
       const seg = (ax, az, bx, bz, ya, yb) => { if (collision) collision.addSegment(ax, az, bx, bz, ya, yb); };
       k.flat('pitFloor', [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], yP + 0.005);
-      k.flat('pitFloor', [[PIT.shop[0], -94.0], [PIT.shop[2], -94.0], [PIT.shop[2], z0], [PIT.shop[0], z0]], yP + 0.004);
-      // 擋土牆（花崗石），頂端壓一條收邊
-      k.box('planter', x0 - 0.5, x0, yP - 0.2, gW + 0.05, z0, z1); seg(x0, z0, x0, z1, yP - 0.1, gW - 0.45);
+      // 擋土牆（花崗石），頂端壓一條收邊；西牆北段同時是學餐攤販的東牆
+      // （攤販那段只畫攤販天花以上：下面是攤販自己的東牆，js/sac_b1.js）
+      k.box('planter', x0 - 0.5, x0, yP - 0.2, gW + 0.05, PIT.stall[3], z1); k.box('planter', x0 - 0.5, x0, yP + 2.75, gW + 0.05, z0, PIT.stall[3]); seg(x0, z0, x0, z1, yP - 0.1, gW - 0.45);
       k.box('planter', x1, x1 + 0.5, yP - 0.2, gE + 0.05, -94.0, z1); seg(x1, -94.0, x1, z1, yP - 0.1, gE - 0.45);
       // 東側：沿看台的矮牆（廣場那側的人不會掉下去）
       k.box('planter', x1, x1 + 0.3, gE, gE + 0.9, -93.9, z1); seg(x1 + 0.15, -93.9, x1 + 0.15, z1, gE - 0.6, gE + 0.9);
-      // 西側長花台（廣場面，花崗石框＋灌木）
-      const px0 = -144.9, px1 = x0 - 0.2, pz0 = -92.7, pz1 = -81.1;
+      // 西側長花台（攤販屋頂的廣場面上，花崗石框＋灌木），花台北邊到學活牆之間是柱廊下的矮牆
+      const px0 = -144.9, px1 = x0 - 0.2, pz0 = -92.7, pz1 = z1 - 0.1;
       k.box('planter', px0, px1, gW - 0.2, gW + 0.55, pz0, pz1); k.box('shrub', px0 + 0.2, px1 - 0.2, gW + 0.55, gW + 1.05, pz0 + 0.2, pz1 - 0.2);
       for (const [a, c] of [[[px0, pz0], [px1, pz0]], [[px1, pz0], [px1, pz1]], [[px1, pz1], [px0, pz1]], [[px0, pz1], [px0, pz0]]]) seg(a[0], a[1], c[0], c[1], gW - 0.6, gW + 0.6);
       shapes.push({ name: 'planter', pts: [[px0, pz0], [px1, pz0], [px1, pz1], [px0, pz1]], y0: gW, y1: gW + 1 });
-      // ARMENA COFFEE：學活本體南牆下的 B1 店面（x0..-136），黑框玻璃＋黑底招牌，門在西端靠樓梯底
-      k.wall('armena', x0, -94.37, PIT.shop[0], -94.37, yP - 0.1, gN, 2.4, gN - yP + 0.1, 0, 0);
-      sign(group, armenaSignTex(), 4.4, 0.55, (x0 + PIT.shop[0]) / 2, yP + 2.85, -94.32, 0, 1, 0.4);
-      seg(x0, -94.37, PIT.shop[0], -94.37, yP - 0.1, gN - 0.45);
+      k.box('planter', x0 - 0.3, x0, gW, gW + 0.9, -94.42, pz0); seg(x0 - 0.15, -94.42, x0 - 0.15, pz0, gW - 0.6, gW + 0.9);
+      // 學餐攤販上方的廣場：甲板（地面照畫，js/terrain.js addPit mask: false），B1 的天花在 js/sac_b1.js
+      const st = PIT.stall;
+      addBridge([[(st[0] + st[2]) / 2, st[1] + 0.05], [(st[0] + st[2]) / 2, st[3] + 0.05]], st[2] - st[0], { yAt: () => gW, lv: LV_DECK });
+      // 學活南牆線（x -152..入口東緣）：挖空之後學活的碰撞輪廓沒有這段，補一條只擋廣場高度以上的線
+      seg(-152.0, -94.43, PIT.west[2], -94.43, yP + 2.6, yO);
       shapes.push({ name: 'pit', pts: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y0: yP, y1: gW });
+    }
+    // 學活的碰撞輪廓：B1 西半（學習區、樓梯廳）挖空，跟麥當勞一樣能走進去。蓋完地圖（樹、灌木、冷氣都放完）才換，
+    // 共用亂數不變；頂點數一樣、外框不變（新增的兩點在原本南邊的線上），新線段要登記到碰撞格子
+    if (collision && pitY !== null) {
+      const NEW = [[-181, -128.55], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-152, -114], [-152, -94.415], [-160, -94.431], [-195.2, -94.5], [-195.05, -118.2], [-181, -118.2]];
+      const same = (a, b) => a.length === b.length && a.every((p, i) => Math.abs(p[0] - b[i][0]) < 1e-6 && Math.abs(p[1] - b[i][1]) < 1e-6);
+      const pi = collision.polys.findIndex(p => p.pts === sac.pts || same(p.pts, sac.pts));
+      const P = pi >= 0 ? collision.polys[pi] : null;
+      if (P && P.pts.length === NEW.length) {
+        P.pts = NEW;
+        for (let i = 0; i < NEW.length; i++) {
+          const a = NEW[i], b = NEW[(i + 1) % NEW.length], si = P.s0 + i;
+          collision.segs[si] = [a[0], a[1], b[0], b[1]];
+          collision._each(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1]), (ix, iz) => { const c = collision._cell(ix, iz); if (!c.s.includes(si)) c.s.push(si); });
+        }
+      } else console.warn('[zone_g] 學活碰撞輪廓找不到，B1 西半沒有挖空');
+      // 執行期生成（機車、直升機、行人）別生在 B1 裡：原本這裡在學活輪廓內本來就算擋住，結果一樣
+      if (Array.isArray(collision.reserved)) collision.reserved.push([[-152, -114], [PIT.west[2], -114], [PIT.west[2], -94.42], [-152, -94.42]]);
     }
     // 屋頂北側中央的長弧頂採光罩（約 64×10 m，離北緣約 10 m）
     {

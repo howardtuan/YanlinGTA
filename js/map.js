@@ -2095,7 +2095,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     let m = Infinity, M = -Infinity;
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], c = pts[(i + 1) % pts.length], n = Math.ceil(Math.hypot(c[0] - a[0], c[1] - a[1]) / 5);
-      for (let k = 0; k < n; k++) { const y = H(a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n); if (y < m) m = y; if (y > M) M = y; }
+      for (let k = 0; k < n; k++) { const y = Hgrid(a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n); if (y < m) m = y; if (y > M) M = y; } // Hgrid, not H(): a B1 pit under an outline (js/zone_g.js) must not sink the building
     }
     if (m === Infinity) { footLo = 0; return 0; }
     footLo = m;

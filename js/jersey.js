@@ -1,6 +1,6 @@
 // 湖人隊紫色球衣（宣言版 Statement 的經典樣式，參考 2018–2025 那套）：深挖袖口的紫色背心、V 字（wishbone）領，
 // 領口和袖口是金邊加一條白色細線，身體兩側黑色側條（金＋白滾邊），胸前斜體金字 LAKERS 加白邊；球褲兩側同款側條。
-// 不放背號。
+// 背號 24：胸前 LAKERS 下方一個小的、背後一個大的，金字加白邊。
 // 球衣是一層包在連續身體（bodymesh.js）軀幹外 9 mm 的殼，掛在 torso 骨上；圖案全部畫在一張程序貼圖上，
 // 袖口和領口用 alphaTest 挖空，滾邊寬度用貼圖上的表面距離算，所以轉角、腋下都一樣寬。
 import * as THREE from 'three';
@@ -90,6 +90,20 @@ function jerseyTexture(prof, bw) {
   g.lineJoin = 'round'; g.lineWidth = 16 / k; g.strokeStyle = LAKERS.white; g.strokeText('LAKERS', 0, 0);
   g.fillStyle = LAKERS.gold; g.fillText('LAKERS', 0, 0);
   const wd = g.getImageData(0, 0, ww, wh).data;
+  // the number 24: a small one under LAKERS on the chest, a big one on the back (metres, x as seen by the viewer)
+  const NUM = '24';
+  const numStamp = (x0, x1, yt, yb) => {
+    const nw = 400, nh = Math.round(nw * (yt - yb) / (x1 - x0));
+    const nc = document.createElement('canvas'); nc.width = nw; nc.height = nh; const ng = nc.getContext('2d');
+    ng.font = '900 400px "Arial Black","Helvetica Neue",Arial,sans-serif'; ng.textBaseline = 'middle'; ng.textAlign = 'center';
+    const m = ng.measureText(NUM), asc = m.actualBoundingBoxAscent || 145, des = m.actualBoundingBoxDescent || 145;
+    const sx = (nw * 0.86) / m.width, sy = (nh * 0.86) / (asc + des);
+    ng.setTransform(sx, 0, 0, sy, nw / 2, nh / 2 + (asc - des) / 2 * sy); // centre the glyphs' ink box
+    ng.lineJoin = 'round'; ng.lineWidth = nw * 0.05 / Math.min(sx, sy); ng.strokeStyle = LAKERS.white; ng.strokeText(NUM, 0, 0);
+    ng.fillStyle = LAKERS.gold; ng.fillText(NUM, 0, 0);
+    return { x0, x1, yt, yb, w: nw, h: nh, d: ng.getImageData(0, 0, nw, nh).data };
+  };
+  const numFront = numStamp(-0.06, 0.06, 1.265, 1.165), numBack = numStamp(-0.115, 0.115, 1.42, 1.13);
 
   const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH; const ctx = cv.getContext('2d');
   const img = ctx.createImageData(TW, TH), px = img.data;
@@ -105,6 +119,12 @@ function jerseyTexture(prof, bw) {
       const tx = Math.min(ww - 1, ((X[i] - WX0) / (WX1 - WX0) * ww) | 0), ty = Math.min(wh - 1, ((WYT - y) / (WYT - WYB) * wh) | 0);
       const q = (ty * ww + tx) * 4, al = wd[q + 3] / 255;
       if (al > 0) col = [col[0] + (wd[q] - col[0]) * al, col[1] + (wd[q + 1] - col[1]) * al, col[2] + (wd[q + 2] - col[2]) * al];
+    }
+    const st = front[i] ? numFront : numBack, vx = front[i] ? X[i] : -X[i]; // from behind, the viewer's right is -x
+    if (y < st.yt && y > st.yb && vx > st.x0 && vx < st.x1) {
+      const tx = Math.min(st.w - 1, ((vx - st.x0) / (st.x1 - st.x0) * st.w) | 0), ty = Math.min(st.h - 1, ((st.yt - y) / (st.yt - st.yb) * st.h) | 0);
+      const q = (ty * st.w + tx) * 4, al = st.d[q + 3] / 255;
+      if (al > 0) col = [col[0] + (st.d[q] - col[0]) * al, col[1] + (st.d[q + 1] - col[1]) * al, col[2] + (st.d[q + 2] - col[2]) * al];
     }
     px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; px[o + 3] = 255;
   }

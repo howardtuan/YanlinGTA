@@ -2922,7 +2922,9 @@ function buildDarenCorner(I, scene) {
 export const DAREN_ROAD = [[-225.2, 90.3], [-183.9, 114.8], [-171.0, 157.2], [-167.7, 165.0], [-121.4, 210.9], [-97.7, 233.9], [-79.8, 254.6], [-75.6, 259.8], [-64.6, 270.5], [-60.8, 274.2], [-53.7, 283.3], [-31.8, 301.3], [24.5, 348.8]];
 const DAREN_SET = 4.3, DAREN_APRON = 1.8;
 export const DAREN_ST = {
-  drop: ['f1552', 'f1553', 'f1554', 'f1555', 'f1556', 'f1557'], // generic filler houses these lots replace
+  drop: ['f1552', 'f1553', 'f1554', 'f1555', 'f1556', 'f1557', // generic filler houses these lots replace
+    'f1549', 'f1559', 'f1542', 'f1543', 'f1544', 'f1545', 'f1546', 'f1547', 'f1548', 'f1526',
+    'f1666', 'f1665', 'f1664', 'f1663', 'f1662', 'f1661', 'f1660', 'f1659', 'f1658', 'f1657', 'f1656'],
   lots: [
     // right side after 戈登肉鋪
     [60, 64.6, 1, { nf: 5, wall: 'grey', sign: ['原泰阿杜', '#1d1a17', '#e8c27a', '音樂餐酒館'], ground: 'shop', awn: '#2a2522', bal: 'cage' }],
@@ -2939,6 +2941,32 @@ export const DAREN_ST = {
     [78.5, 84, -1, { nf: 5, wall: 'grey', sign: ['沐樂食堂', '#2f2a26', '#f0d9a8'], ground: 'shop', awn: '#3a3530', bal: 'cage' }],
     [84, 88.5, -1, { nf: 4, wall: 'grime', sign: null, ground: 'gate', bal: 'grille', roof: 'shack' }],
     [88.5, 94, -1, { nf: 7, fh: 3.0, wall: 'beige', sign: ['墨爾漢堡', '#ffffff', '#222222'], ground: 'shop', awn: '#c62026', bal: 'grille' }],
+    // section 3: the bend to 大仁四街 (s ≈ 166). Right: grey stone-tile 公寓 with green slanted awnings; left: red-brown
+    // tile blocks with a dark arcade, then 7–8 floor towers
+    [93, 99, 1, { nf: 5, wall: 'beige', sign: null, ground: 'gate', bal: 'grille', roof: 'tank' }],
+    [100, 105, 1, { nf: 5, wall: 'grey', sign: null, ground: 'shutter', bal: 'cage', hood: '#3f8a6a' }],
+    [105, 110, 1, { nf: 5, wall: 'stone', sign: null, ground: 'gate', awn: '#3f8a6a', bal: 'grille', hood: '#3f8a6a' }],
+    [110, 115.5, 1, { nf: 5, wall: 'stone', sign: ['晨食司控', '#f4f4f0', '#2a5aa8'], ground: 'shop', awn: '#3f8a6a', bal: 'grille', hood: '#3f8a6a' }],
+    [115.5, 121, 1, { nf: 5, wall: 'stone', sign: ['8 Code 鬆餅', '#f3e3c8', '#5a3a1c'], ground: 'shop', awn: '#3f8a6a', bal: 'grille', hood: '#3f8a6a' }],
+    [121, 126, 1, { nf: 5, wall: 'stone', sign: null, ground: 'shutter', awn: '#3f8a6a', bal: 'grille', hood: '#3f8a6a', roof: 'shack' }],
+    [126, 131.5, 1, { nf: 5, wall: 'grey', sign: ['功夫温泉', '#1f3a5f', '#ffffff'], ground: 'shop', bal: 'cage' }],
+    [131.5, 137, 1, { nf: 5, wall: 'tile', sign: null, ground: 'gate', bal: 'grille', hood: '#3f8a6a' }],
+    [137, 143, 1, { nf: 6, wall: 'grey', sign: ['桌弄', '#8a2a22', '#f6e7d0'], ground: 'shop', bal: 'grille', vert: ['桌弄', '#a3262a', '#ffffff'] }],
+    [143, 148, 1, { d: 7, nf: 5, wall: 'tile', sign: null, ground: 'shutter', bal: 'cage', hood: '#3f8a6a' }],
+    [148, 153.5, 1, { d: 7, nf: 5, wall: 'tile', sign: ['Carousel 旋轉木馬', '#f6e8ef', '#c2477a', '兒童服飾'], ground: 'shop', awn: '#e7b3c8', bal: 'grille' }],
+    [153.5, 158, 1, { d: 7, nf: 5, wall: 'grey', sign: null, ground: 'gate', bal: 'cage', roof: 'shack' }],
+    [158, 161.5, 1, { d: 7, nf: 5, wall: 'tile', sign: ['川督極品麻辣臭豆腐', '#d0202a', '#ffffff'], ground: 'shop', awn: '#2a63b8', bal: 'grille' }],
+    [104, 110, -1, { nf: 5, wall: 'redbrown', sign: ['享玩桌遊', '#2a7a4a', '#ffffff'], ground: 'shop', bal: 'grille' }],
+    [110, 116, -1, { nf: 5, wall: 'redbrown', sign: null, ground: 'gate', bal: 'grille', roof: 'tank' }],
+    [116, 122, -1, { nf: 5, wall: 'redbrown', sign: null, ground: 'shutter', bal: 'grille' }],
+    [122, 128, -1, { nf: 5, wall: 'pinkGrey', sign: null, ground: 'shutter', bal: 'cage', hood: '#3f8a6a' }],
+    [128, 134, -1, { nf: 6, wall: 'beige', sign: null, ground: 'gate', bal: 'grille' }],
+    [134, 140, -1, { nf: 8, wall: 'beige', sign: null, ground: 'shop', awn: '#2a63b8', bal: 'open' }],
+    [140, 145, -1, { nf: 8, wall: 'beige', sign: null, ground: 'shutter', bal: 'open' }],
+    [145, 149.5, -1, { nf: 5, wall: 'tile', sign: ['AS艾拾金耳', '#1d1d1f', '#e8c27a', '采耳專門店'], ground: 'shop', bal: 'grille' }],
+    [149.5, 153.5, -1, { nf: 5, wall: 'tile', sign: ['州味涼麵', '#f2c230', '#8a1414'], ground: 'shop', awn: '#c62026', bal: 'grille' }],
+    [153.5, 158, -1, { nf: 5, wall: 'grey', sign: ['福祿壽囍鯛魚燒', '#c62026', '#ffe14d'], ground: 'shop', bal: 'cage' }],
+    [158, 164, -1, { nf: 8, wall: 'tile', sign: ['德式披薩', '#2f2a26', '#ffffff'], ground: 'shop', bal: 'open' }],
   ],
 };
 function darenAt(s) {
@@ -2978,6 +3006,8 @@ function buildDarenStreet(I, scene) {
     beige: def('dsBeige', () => std({ map: YHT.facade(), color: '#eadfc6' })),
     grey: def('dsGrey', () => std({ map: YHT.facade(), color: '#c9c8c2' })),
     pinkGrey: def('dsPinkGrey', () => std({ map: YHT.facade(), color: '#e3cfc9' })),
+    stone: def('dsStone', () => std({ map: YHT.facade(), color: '#b9b7af' })),
+    redbrown: def('dsRedBrown', () => std({ map: YHT.facade(), color: '#b07a66' })),
     grime: MR.grime, brick: MR.brick, mosaic: MR.mosaic,
   };
   const kits = [];

@@ -12,6 +12,7 @@ import { H } from './terrain.js';
 import { buildArena } from './arena.js';
 import { buildGateExtras } from './gate_extras.js';
 import { buildWeiche } from './weiche.js';
+import { buildZhongbeiStreet } from './street_zhongbei.js';
 
 // ---------------- textures ----------------
 const TEX = {};
@@ -3587,6 +3588,7 @@ export function buildInteriors(scene, data, collision) {
   buildDarenCorner(I, scene);
   buildDarenStreet(I, scene);
   buildDarenGd(I, scene);
+  buildZhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }); // 中北路兩側街屋（js/street_zhongbei.js）
   I.gordon = buildGordon(I, scene);
   I.arena = buildArena(I, scene, Kit, regMat); // 林口體育館 (演唱會, js/concert.js): far off the map
   buildGateExtras(I, scene); // 正門: concrete name wall, campus directory, car park portal, P totem (js/gate_extras.js)

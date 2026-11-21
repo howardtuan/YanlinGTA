@@ -399,7 +399,7 @@ def load_looks():
     return out
 
 
-MARK_CENTRE = ('double-yellow', 'yellow', 'yellow-dash', 'white-dash', 'none', 'median')
+MARK_CENTRE = ('double-yellow', 'yellow', 'yellow-dash', 'white-dash', 'none', 'median', 'pair', 'pair-other')
 MARK_FEATURES = ('box', 'zebra', 'stop', 'bikebox', 'arrow')
 
 

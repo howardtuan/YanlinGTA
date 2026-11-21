@@ -1,5 +1,5 @@
 {
- "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there.",
+ "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there.",
  "ways": [
   {
    "way": 13944868,
@@ -1292,6 +1292,15 @@
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
   },
   {
+   "way": 949091267,
+   "name": "普忠路",
+   "type": "tertiary",
+   "w": 9.0,
+   "was": 7.4,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面實測路緣到路緣；往東南那半幅（雙黃線到西南路緣，含白邊線外約 2.5 m 路肩／停車空間），量 3 處 9.0、9.5、8.9，第二人盲測 8.9"
+  },
+  {
    "way": 1014540804,
    "name": "",
    "type": "service",
@@ -1766,6 +1775,60 @@
    "lanes": 3,
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：標線和前後路段一樣，橋上沒有其他特殊標線。"
+  },
+  {
+   "way": 41603225,
+   "name": "普忠路",
+   "centre": "double-yellow",
+   "edge": false,
+   "lanes": 2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：中心線是粗黃實線，解析度不夠，分不出是單黃還是雙黃，推定是雙黃。每向 2 車道（白虛線）。836～883 段有 5 處網狀黃線；路口有 670、743（斜向斑馬線）、805、888、900、962 等斑馬線與停止線；z>600 以後超出遊戲範圍"
+  },
+  {
+   "way": 107152511,
+   "name": "普忠路地下道",
+   "centre": "double-yellow",
+   "edge": false,
+   "lanes": 2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：開挖式地下道，從上面看得到路面。中段的中心線很淡、是連續的，可能是褪色的雙黃線；靠西北端路口 (27,-682) 前 30 m 變成明顯的粗橘黃實線。兩側各 2 車道，車道線是白虛線。出口有停止線和斑馬線；(40,-660) 附近有一條橫跨的淺色帶，是天橋或陸橋的影子，不是標線"
+  },
+  {
+   "way": 359637608,
+   "name": "普忠路地下道",
+   "centre": "double-yellow",
+   "edge": false,
+   "lanes": 2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：中心線是淡色連續線（在 v≈+1），可能是褪色雙黃線。每向 2 車道，白虛線。(232,-450) 和 (165,-500) 附近有橫跨全路的白色直線，可能是伸縮縫，不是停止線。沒有斑馬線也沒有網狀線"
+  },
+  {
+   "way": 359637610,
+   "name": "普忠路",
+   "centre": "double-yellow",
+   "edge": false,
+   "lanes": 3,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：車道數不對稱：往西北 3 車道（約 12 m，含停車）、往東南 2 車道（約 6.5 m）。lanesPerDir 填較多的那一向。粗橘黃雙黃線很明顯。兩端路口都有停止線、斑馬線，還有機車停等區或待轉區"
+  },
+  {
+   "way": 949091267,
+   "name": "普忠路",
+   "centre": "pair",
+   "edge": true,
+   "lanes": 2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：沒有實體分隔島。OSM 拆成兩條 oneway，實際上是同一條路面，中間是雙黃線。白邊線離路緣約 2.5 m。有機車停等區、綠底斑馬線（349 號誌）、多處路邊網狀線和橫跨兩向的網狀線 (554,-96)"
+  },
+  {
+   "way": 949091268,
+   "name": "普忠路",
+   "centre": "pair-other",
+   "edge": true,
+   "lanes": 2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：從雙黃線到東北側路緣，白邊線在路緣內約 0.8 m。每向 2 車道。(401,-270) 有網狀線，只在這半邊"
   }
  ],
  "features": [
@@ -2914,6 +2977,425 @@
    "w": 5,
    "way": 26186388,
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：北側車道的小塊網狀線（出入口前）"
+  },
+  {
+   "t": "zebra",
+   "x": 676.5,
+   "z": 40.3,
+   "ang": 49.7,
+   "len": 3.5,
+   "w": 18.5,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：662/670 號誌路口東南側，離 670,31.5 號誌點 10.9 m（剛好超過 10 m）"
+  },
+  {
+   "t": "stop",
+   "x": 682.2,
+   "z": 40.1,
+   "ang": 49.7,
+   "w": 9,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往西北方向車道的停止線"
+  },
+  {
+   "t": "zebra",
+   "x": 675.4,
+   "z": 21.2,
+   "ang": 139.7,
+   "len": 3,
+   "w": 16,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：跨 662/670 路口東北側的支道，不是跨普忠路；離最近點 11.6 m"
+  },
+  {
+   "t": "zebra",
+   "x": 737.1,
+   "z": 106.5,
+   "ang": -86.1,
+   "len": 4,
+   "w": 30.0,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：743 路口是斜交路口，這條是斜向斑馬線，條紋帶軸向約 3.9 度；離 743.5,114.9 號誌點 10.6 m；斜交路口，條紋帶軸向約 3.9 度（近東西向），ang 改成條紋方向 -86.1、帶長依正射約 30 m"
+  },
+  {
+   "t": "stop",
+   "x": 722.5,
+   "z": 100.9,
+   "ang": 47.6,
+   "w": 7,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的停止線，信心低"
+  },
+  {
+   "t": "zebra",
+   "x": 762.5,
+   "z": 133.8,
+   "ang": 47.6,
+   "len": 3.5,
+   "w": 17,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：743 路口東南側；離最近點 26.8 m"
+  },
+  {
+   "t": "stop",
+   "x": 767.3,
+   "z": 134.4,
+   "ang": 47.6,
+   "w": 8,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往西北方向的停止線"
+  },
+  {
+   "t": "stop",
+   "x": 794.9,
+   "z": 178.9,
+   "ang": 49,
+   "w": 6,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的停止線"
+  },
+  {
+   "t": "bikebox",
+   "x": 796.7,
+   "z": 181,
+   "ang": 49,
+   "len": 5.5,
+   "w": 6,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：機車停等區，在停止線和斑馬線中間"
+  },
+  {
+   "t": "zebra",
+   "x": 805.1,
+   "z": 184.3,
+   "ang": 49,
+   "len": 3,
+   "w": 17.5,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：沒有號誌的路口；離最近點 92.8 m"
+  },
+  {
+   "t": "box",
+   "x": 827.5,
+   "z": 204.2,
+   "ang": 69.7,
+   "len": 7.5,
+   "w": 8,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：只畫在往西北那半邊"
+  },
+  {
+   "t": "box",
+   "x": 837.8,
+   "z": 247.1,
+   "ang": 69.7,
+   "len": 5.5,
+   "w": 14,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀"
+  },
+  {
+   "t": "box",
+   "x": 851.9,
+   "z": 292.2,
+   "ang": 73.1,
+   "len": 5,
+   "w": 15,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀"
+  },
+  {
+   "t": "box",
+   "x": 861.3,
+   "z": 319.8,
+   "ang": 73.1,
+   "len": 10.5,
+   "w": 13,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀"
+  },
+  {
+   "t": "box",
+   "x": 873.5,
+   "z": 381.5,
+   "ang": 73.3,
+   "len": 5.5,
+   "w": 7,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：只畫在西側（往南）那半邊"
+  },
+  {
+   "t": "zebra",
+   "x": 888.3,
+   "z": 410.7,
+   "ang": 73.3,
+   "len": 3,
+   "w": 13,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：下半段在大樓陰影裡，寬度是推估的"
+  },
+  {
+   "t": "stop",
+   "x": 891.3,
+   "z": 412.9,
+   "ang": 73.3,
+   "w": 7,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往北方向的停止線"
+  },
+  {
+   "t": "stop",
+   "x": 892.7,
+   "z": 440.3,
+   "ang": 71.1,
+   "w": 7,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往南方向的停止線，信心低"
+  },
+  {
+   "t": "zebra",
+   "x": 900.4,
+   "z": 453,
+   "ang": 71.1,
+   "len": 3,
+   "w": 15.5,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀"
+  },
+  {
+   "t": "stop",
+   "x": 905.6,
+   "z": 458.1,
+   "ang": 71.1,
+   "w": 7,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往北方向的停止線"
+  },
+  {
+   "t": "zebra",
+   "x": 907.7,
+   "z": 442,
+   "ang": 161.1,
+   "len": 3,
+   "w": 6,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：跨東側支道"
+  },
+  {
+   "t": "stop",
+   "x": 958.1,
+   "z": 587.9,
+   "ang": 52.9,
+   "w": 7,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的停止線"
+  },
+  {
+   "t": "zebra",
+   "x": 962.3,
+   "z": 588.2,
+   "ang": 52.9,
+   "len": 3.5,
+   "w": 15.5,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀"
+  },
+  {
+   "t": "zebra",
+   "x": 979.3,
+   "z": 593.2,
+   "ang": 142.9,
+   "len": 3,
+   "w": 17.5,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：跨東北側支道"
+  },
+  {
+   "t": "zebra",
+   "x": 962.2,
+   "z": 604.6,
+   "ang": 142.9,
+   "len": 3,
+   "w": 6,
+   "way": 41603225,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：跨西南側支道，只看到一部分"
+  },
+  {
+   "t": "stop",
+   "x": 338.8,
+   "z": -327.6,
+   "ang": 48.1,
+   "w": 7,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的停止線"
+  },
+  {
+   "t": "bikebox",
+   "x": 341.2,
+   "z": -325,
+   "ang": 48.1,
+   "len": 7,
+   "w": 7,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：機車停等區（白框），從雙黃線畫到邊線"
+  },
+  {
+   "t": "zebra",
+   "x": 355.8,
+   "z": -312.5,
+   "ang": 48.1,
+   "len": 3.2,
+   "w": 15,
+   "way": 949091267,
+   "osm": true,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：綠底白條紋，橫跨整條路（兩條 oneway way 都有）；離 349.3,-316.6 號誌點 7.7 m"
+  },
+  {
+   "t": "box",
+   "x": 401.5,
+   "z": -269.8,
+   "ang": 47.3,
+   "len": 5,
+   "w": 6.5,
+   "way": 949091268,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：oneway 段，只畫在往西北那半邊，正對東北側的出入口"
+  },
+  {
+   "t": "box",
+   "x": 422,
+   "z": -230.9,
+   "ang": 47.9,
+   "len": 9,
+   "w": 4,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路邊禁停網狀線，從路緣畫到第一車道"
+  },
+  {
+   "t": "box",
+   "x": 450.2,
+   "z": -199.4,
+   "ang": 47.9,
+   "len": 18.5,
+   "w": 4,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路邊禁停網狀線，正對西南側巷口"
+  },
+  {
+   "t": "box",
+   "x": 554.5,
+   "z": -95.6,
+   "ang": 48.6,
+   "len": 11.5,
+   "w": 13,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：網狀線橫跨兩向車道（兩條 oneway way 都有）"
+  },
+  {
+   "t": "stop",
+   "x": 644.4,
+   "z": 12.4,
+   "ang": 37.8,
+   "w": 10,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的停止線"
+  },
+  {
+   "t": "zebra",
+   "x": 651.4,
+   "z": 16.5,
+   "ang": 37.8,
+   "len": 3.5,
+   "w": 16.5,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：662 路口西北側，畫得略斜；離 662.3,22.5 號誌點 12.4 m"
+  },
+  {
+   "t": "bikebox",
+   "x": 653.6,
+   "z": 21.8,
+   "ang": 37.8,
+   "len": 3.5,
+   "w": 4,
+   "way": 949091267,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路口內的機車待轉區（白方框）"
+  },
+  {
+   "t": "zebra",
+   "x": 26.5,
+   "z": -680.7,
+   "ang": -130.5,
+   "len": 3,
+   "w": 16.5,
+   "way": 107152511,
+   "osm": true,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路口東南側（地下道那一側）；離 crossing 19.3,-682 7.3 m"
+  },
+  {
+   "t": "stop",
+   "x": 33.8,
+   "z": -680.4,
+   "ang": -130.5,
+   "w": 8,
+   "way": 107152511,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：地下道出口往西北方向的停止線"
+  },
+  {
+   "t": "zebra",
+   "x": 12.2,
+   "z": -697,
+   "ang": -128.5,
+   "len": 4,
+   "w": 17,
+   "way": 359637610,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路口西北側，畫得略斜；離最近點 16.6 m"
+  },
+  {
+   "t": "bikebox",
+   "x": 3.6,
+   "z": -700.3,
+   "ang": -128.5,
+   "len": 6.3,
+   "w": 7.5,
+   "way": 359637610,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的機車停等區（白框）"
+  },
+  {
+   "t": "stop",
+   "x": 1.7,
+   "z": -702.7,
+   "ang": -128.5,
+   "w": 7.5,
+   "way": 359637610,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往東南方向的停止線"
+  },
+  {
+   "t": "stop",
+   "x": -97.2,
+   "z": -870.7,
+   "ang": -117.4,
+   "w": 7.5,
+   "way": 359637610,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：往西北方向的停止線"
+  },
+  {
+   "t": "zebra",
+   "x": -103.5,
+   "z": -873.4,
+   "ang": -117.4,
+   "len": 3.5,
+   "w": 18,
+   "way": 359637610,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：離 -107.6,-884.3 號誌點 11.6 m（剛好超過 10 m）"
+  },
+  {
+   "t": "bikebox",
+   "x": -102.6,
+   "z": -878.5,
+   "ang": -117.4,
+   "len": 3.8,
+   "w": 3,
+   "way": 359637610,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：路口內的機車待轉區"
   }
  ]
 }

@@ -1207,12 +1207,29 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       acc += l;
     }
   };
+  // which side (+1 / -1, the sign of a line offset) of one-way r the other carriageway lies on (0: neither)
+  const pairSide = (r) => {
+    let best = 0, bl = 0;
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (l <= bl) continue;
+      const nx = -(b[1] - a[1]) / l, nz = (b[0] - a[0]) / l, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, o = r.w / 2 + 1;
+      const p = facesOther(r, mx + nx * o, mz + nz * o), m = facesOther(r, mx - nx * o, mz - nz * o);
+      if (p !== m) { best = p ? 1 : -1; bl = l; }
+    }
+    return best;
+  };
   const markRoad = (r, yAt) => {
     const two = !r.oneway, e = r.w / 2 - 0.35;
     const lanes = Math.max(1, r.lanes || (two ? 2 : r.type === 'primary' ? 3 : 2));
     if (r.marks) { // surveyed: as painted, every line running through and broken only where it must
       const M = r.marks, { G, D } = streetGaps(r), n = Math.max(1, M.lanes || 1);
-      if (M.edge) { lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D); }
+      // pair / pair-other: one of the two one-way ways OSM splits a two-way street into (no median, just
+      // 雙黃線 between them): 'pair' paints the 雙黃線 along its edge that faces the other way, 'pair-other'
+      // nothing there; neither gets a white edge line on that side
+      const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair ? pairSide(r) : 0;
+      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D); }
+      if (M.centre === 'pair' && inner) { const o = inner * (r.w / 2 - 0.15); lineGaps(r, yAt, o, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, o - inner * 0.3, 0.12, YELLOW, G[0], D); }
       if (M.centre === 'double-yellow') { lineGaps(r, yAt, 0.15, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, -0.15, 0.12, YELLOW, G[0], D); }
       else if (M.centre === 'yellow') lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D);
       else if (M.centre === 'yellow-dash') lineGaps(r, yAt, 0, 0.15, YELLOW, G[0], D, Infinity, true);
@@ -1551,8 +1568,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const q = f.at, R = q.r;
       if (!inPlay([q.x, q.z])) continue;
       if (f.t === 'box') { // 網狀黃線: outline + diagonal grid; kerb to kerb, or w wide round its surveyed centre
-        // (one nearly as wide as the street is laid kerb to kerb: the OSM line can be off the real centre by a metre or two)
-        const part = f.w && f.w < R.w - 1.5, v0 = part ? (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux : 0, h = f.len / 2, e = (part ? f.w / 2 : R.w / 2) - 0.35;
+        // (one nearly as wide as the street is laid kerb to kerb: the OSM line can be off the real centre by a metre or two;
+        // one much wider spans both one-way ways of a split street, round its surveyed centre)
+        const part = f.w && (f.w < R.w - 1.5 || f.w > R.w + 1.5), v0 = part ? (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux : 0, h = f.len / 2, e = (part ? f.w / 2 : R.w / 2) - 0.35;
         const P = (u, v) => [q.x + q.ux * u - q.uz * (v + v0), q.z + q.uz * u + q.ux * (v + v0)];
         const bar = (u0, v0, u1, v1) => marks.strip(P(u0, v0), P(u1, v1), 0.14, 0.045, YELLOW);
         bar(-h, -e, h, -e); bar(-h, e, h, e); bar(-h, -e, -h, e); bar(h, -e, h, e);

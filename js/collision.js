@@ -66,6 +66,11 @@ export class CollisionWorld {
     this.circles.push([x, z, r]); this.stampC.push(0);
     this._each(x - r, z - r, x + r, z + r, (ix, iz) => this._cell(ix, iz).c.push(ci));
   }
+  // drop a circle added earlier at exactly (x,z) (a tree removed after placement)
+  removeCircleAt(x, z) {
+    const ci = this.circles.findIndex(c => c[0] === x && c[1] === z);
+    if (ci >= 0) this.circles[ci] = [1e9, 1e9, 0];
+  }
   // highest roof over (x,z), or -Infinity outside every building
   topAt(x, z) {
     const c = this.grid.get(this._key(Math.floor(x / this.cell), Math.floor(z / this.cell)));

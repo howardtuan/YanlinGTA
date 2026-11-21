@@ -207,7 +207,11 @@ export function plantVegetation(scene, spots, quality) {
         Q.setFromAxisAngle(UP, r() * Math.PI * 2);
         const sc = s.s; S.set(sc * (0.92 + r() * 0.16), sc * (0.9 + r() * 0.2), sc * (0.92 + r() * 0.16)); P.set(s.x, s.y ?? 0, s.z);
         M.compose(P, Q, S);
-        const hl = hues[kind]; items.push({ x: s.x, z: s.z, m: M.clone(), c: new THREE.Color(hl[Math.floor(r() * hl.length)]) });
+        const hl = hues[kind], c = new THREE.Color(hl[Math.floor(r() * hl.length)]);
+        // hidden spots (js/map.js: on stairs / astride a retaining wall) still take their
+        // draws and their slot in the variant cycle, so every other plant looks the same
+        if (s.hide) return;
+        items.push({ x: s.x, z: s.z, m: M.clone(), c });
       });
       if (!items.length) continue;
       if (sp.trunk) chunked(scene, sp.trunk, barkMat, items, 180, true, true, chunks);

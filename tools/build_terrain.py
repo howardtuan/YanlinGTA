@@ -25,6 +25,10 @@ lightly smoothed. Enterable buildings (js/interiors.js) are flattened to their
 entrance height on the footprint grown by FLAT_PAD, with every grid cell that
 touches that area pinned so the game's triangle interpolation is exactly constant
 there; small ponds and the fountain are flattened to their median bank height.
+Sunken plazas (data/cycu.json levels.sinks, from tools/overrides.json 'levels')
+pin only the grid posts inside their rectangle to the given height, so the cut
+does not spill a whole cell onto the roads around them; raised terraces and
+stairs are not in the grid (js/terrain.js adds them on top).
 
 Encoding: heights in decimetres; per row, r0[i] is the first value and rows[i]
 holds one char per following column, chr(OFF + delta) with |delta| <= 45.
@@ -247,26 +251,33 @@ def main():
             return h00 + u * (h10 - h00) + v * (h11 - h10)
         return h00 + v * (h01 - h00) + u * (h11 - h01)
 
-    # ---- flatten: (target, polys, pad, ramp) ----
+    # ---- flatten: (target, polys, pad, ramp, cells) ----
+    # cells: pin every corner of each cell touching the padded footprint (exactly
+    # flat on it); otherwise only the posts inside it
     jobs = []
     for name, polys, door in interior_zones(data):
-        jobs.append((name, round(bil(*door), 1), polys, FLAT_PAD, RAMP))
+        jobs.append((name, round(bil(*door), 1), polys, FLAT_PAD, RAMP, True))
     for name, pts in pond_zones(data, gx0, gz0, gx1, gz1):
         banks = sorted(bil(x, z) for x, z in pts)  # water level: median bank height
-        jobs.append((name, round(banks[len(banks) // 2], 1), [pts], 0.0, POND_RAMP))
+        jobs.append((name, round(banks[len(banks) // 2], 1), [pts], 0.0, POND_RAMP, True))
+    for sk in data.get('levels', {}).get('sinks', []):
+        jobs.append((sk['name'], sk['y'], [sk['pts']], 0.0, sk.get('ramp', RAMP), False))
     half = STEP * math.sqrt(2) / 2
     W = [[0.0] * nx for _ in range(nz)]
     T = [[0.0] * nx for _ in range(nz)]
     flat = []
-    for name, target, polys, pad, ramp in jobs:
+    for name, target, polys, pad, ramp, cells in jobs:
         xs = [p[0] for pl in polys for p in pl]; zs = [p[1] for pl in polys for p in pl]
         reach = pad + half + ramp + STEP
         i0 = max(0, int((min(xs) - reach - gx0) / STEP)); i1 = min(nx - 1, int((max(xs) + reach - gx0) / STEP) + 1)
         j0 = max(0, int((min(zs) - reach - gz0) / STEP)); j1 = min(nz - 1, int((max(zs) + reach - gz0) / STEP) + 1)
-        # pin every corner of each cell that touches the padded footprint
         pinned = set()
-        for j in range(j0, j1):
-            for i in range(i0, i1):
+        for j in range(j0, j1 + (not cells)):
+            for i in range(i0, i1 + (not cells)):
+                if not cells:
+                    if min(poly_d(gx0 + i * STEP, gz0 + j * STEP, p) for p in polys) <= pad:
+                        pinned.add((j, i))
+                    continue
                 cx, cz = gx0 + (i + 0.5) * STEP, gz0 + (j + 0.5) * STEP
                 if min(poly_d(cx, cz, p) for p in polys) <= pad + half:
                     pinned.update(((j, i), (j, i + 1), (j + 1, i), (j + 1, i + 1)))

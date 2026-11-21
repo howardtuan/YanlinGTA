@@ -33,10 +33,11 @@ export function H(x, z) {
   return u >= v ? h00 + u * (h10 - h00) + v * (h11 - h10) : h00 + v * (h01 - h00) + u * (h11 - h01);
 }
 
-// lowest ground under a small object (centre + ring), for things that must not float
+// lowest ground under a small object (centre + ring), for things that must not float;
+// counts raised levels (pads / stairs below) but not bridge decks
 export function Hmin(x, z, r = 0) {
-  let m = H(x, z);
-  if (r > 0) for (let a = 0; a < 8; a++) m = Math.min(m, H(x + Math.cos(a * 0.785) * r, z + Math.sin(a * 0.785) * r));
+  let m = groundY(x, z);
+  if (r > 0) for (let a = 0; a < 8; a++) m = Math.min(m, groundY(x + Math.cos(a * 0.785) * r, z + Math.sin(a * 0.785) * r));
   return m;
 }
 
@@ -82,15 +83,106 @@ export function addBridge(pts, w) {
     return ys[ys.length - 1];
   };
 }
-export function clearBridges() { bgrid.clear(); decks.length = 0; }
+export function clearBridges() { bgrid.clear(); decks.length = 0; levels.length = 0; }
 
-// ground for characters and vehicles: terrain, or a bridge deck when on one
+// ---------- height levels: raised pads, stairs and ramps ----------
+// Outdoor level changes smaller than the 10 m terrain grid (tools/overrides.json
+// "levels", carried into data/cycu.json by tools/build_map.py):
+//  - sinks: below-ground areas (sunken plazas) are cut into the terrain grid
+//    itself by tools/build_terrain.py, so H() already holds them;
+//  - pads: flat raised areas (terraces, platforms) at an absolute height y;
+//  - stairs / ramps: a w-wide strip from a (bottom, y0) to b (top, y1); the
+//    walkable surface is a smooth slope (steps > 0 only changes the drawing).
+// Pads and stairs share the bridge bucket grid (entries < 0), and
+// surfaceAt() = max(terrain, bridge deck, pad, stair slope), so the player,
+// NPCs, vehicles and the camera follow them like a bridge. groundY() is the
+// same without bridge decks: things placed on the ground use it (via Hmin).
+// The edges are drawn and sealed by js/map.js (retaining walls / stair sides
+// with 2D collision segments wherever the drop is above a step), so a pad
+// is only reached by its stairs and ramps; vehicles may drive up stairs.
+const levels = [];
+const STEP_UP = 0.3; // drops up to this stay open (a kerb); higher ones get a wall
+export { STEP_UP };
+const register = (li, minx, minz, maxx, maxz) => {
+  for (let ix = Math.floor(minx / BC); ix <= Math.floor(maxx / BC); ix++) for (let iz = Math.floor(minz / BC); iz <= Math.floor(maxz / BC); iz++) {
+    const kk = bkey(ix, iz); let lst = bgrid.get(kk); if (!lst) bgrid.set(kk, lst = []); lst.push(-1 - li);
+  }
+};
+const inPoly = (x, z, pts) => {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i][0], zi = pts[i][1], xj = pts[j][0], zj = pts[j][1];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi + 1e-12) + xi) inside = !inside;
+  }
+  return inside;
+};
+// pts: polygon [[x,z]...], y: absolute top height
+export function addPad(pts, y, info = {}) {
+  let minx = 1e9, minz = 1e9, maxx = -1e9, maxz = -1e9;
+  for (const [x, z] of pts) { minx = Math.min(minx, x); maxx = Math.max(maxx, x); minz = Math.min(minz, z); maxz = Math.max(maxz, z); }
+  const L = { ...info, kind: 'pad', pts, y, minx, minz, maxx, maxz };
+  register(levels.length, minx, minz, maxx, maxz); levels.push(L);
+  return L;
+}
+// a, b: bottom / top centre [x,z]; y0, y1: heights there ('ground' = terrain); n: steps (0 = ramp)
+export function addStair(a, b, w, y0, y1, n = 0, info = {}) {
+  const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz) || 1, ux = dx / len, uz = dz / len;
+  if (y0 === 'ground') y0 = H(a[0], a[1]);
+  if (y1 === 'ground') y1 = H(b[0], b[1]);
+  const hw = w / 2, ex = Math.abs(uz) * hw, ez = Math.abs(ux) * hw;
+  const L = { ...info, kind: 'stair', ax: a[0], az: a[1], ux, uz, len, hw, y0, y1, n };
+  L.pts = [[a[0] + uz * hw, a[1] - ux * hw], [b[0] + uz * hw, b[1] - ux * hw], [b[0] - uz * hw, b[1] + ux * hw], [a[0] - uz * hw, a[1] + ux * hw]];
+  register(levels.length, Math.min(a[0], b[0]) - ex, Math.min(a[1], b[1]) - ez, Math.max(a[0], b[0]) + ex, Math.max(a[1], b[1]) + ez);
+  levels.push(L);
+  return L;
+}
+export const levelList = () => levels;
+// walk-surface height of one level at (x,z), -Infinity outside it
+export function levelY(L, x, z) {
+  if (L.kind === 'pad') return x >= L.minx && x <= L.maxx && z >= L.minz && z <= L.maxz && inPoly(x, z, L.pts) ? L.y : -Infinity;
+  const px = x - L.ax, pz = z - L.az;
+  // the ends reach 5 cm past the drawn stair so no rounding sliver opens between a
+  // stair and the pad it meets (data/cycu.json coordinates are rounded to 1 cm)
+  let d = px * L.ux + pz * L.uz;
+  if (d < -0.05 || d > L.len + 0.05 || Math.abs(px * L.uz - pz * L.ux) > L.hw) return -Infinity;
+  d = d < 0 ? 0 : d > L.len ? L.len : d;
+  // stairs: the slope runs half a riser above the step nosings, so feet stay
+  // within +-half a riser of the drawn treads (ramps: straight)
+  const t = L.n > 0 ? Math.min(1, d / L.len + 0.5 / L.n) : d / L.len;
+  return L.y0 + (L.y1 - L.y0) * t;
+}
+// highest pad / stair at (x,z), ignoring `skip` (a level object), or -Infinity
+export function levelTop(x, z, skip = null) {
+  const l = bgrid.get(bkey(Math.floor(x / BC), Math.floor(z / BC)));
+  let y = -Infinity;
+  if (l) for (let n = 0; n < l.length; n++) {
+    if (l[n] >= 0) continue;
+    const L = levels[-1 - l[n]];
+    if (L !== skip) { const v = levelY(L, x, z); if (v > y) y = v; }
+  }
+  return y;
+}
+// ground including pads and stairs (no bridge decks): for things standing on it
+export function groundY(x, z) { const g = H(x, z), t = levels.length ? levelTop(x, z) : -Infinity; return t > g ? t : g; }
+// within `pad` metres of a stair / ramp footprint, or up to `foot` metres in front of
+// its bottom end (walls along a street keep a gap there)
+export function nearStair(x, z, pad = 0, foot = pad) {
+  for (const L of levels) {
+    if (L.kind !== 'stair') continue;
+    const px = x - L.ax, pz = z - L.az, d = px * L.ux + pz * L.uz;
+    if (d >= -foot && d <= L.len + pad && Math.abs(px * L.uz - pz * L.ux) <= L.hw + pad) return true;
+  }
+  return false;
+}
+
+// ground for characters and vehicles: terrain, a pad / stair, or a bridge deck when on one
 export function surfaceAt(x, z) {
   const g = H(x, z);
   const l = bgrid.get(bkey(Math.floor(x / BC), Math.floor(z / BC)));
   if (!l) return g;
   let y = g;
   for (let n = 0; n < l.length; n++) {
+    if (l[n] < 0) { const v = levelY(levels[-1 - l[n]], x, z); if (v > y) y = v; continue; }
     const s = decks[l[n]];
     const dx = s.bx - s.ax, dz = s.bz - s.az, l2 = dx * dx + dz * dz || 1;
     let t = ((x - s.ax) * dx + (z - s.az) * dz) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t;

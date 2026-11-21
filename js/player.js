@@ -93,9 +93,11 @@ export class Player {
     const [fx, fz] = v.forward();
     const cands = [[fz, -fx], [-fz, fx], [-fx, -fz], [fx, fz]];
     let placed = false;
+    const y0 = surfaceAt(v.pos.x, v.pos.z);
     for (const [cx, cz] of cands) {
       const x = v.pos.x + cx * v.exitSide, z = v.pos.z + cz * v.exitSide;
-      if (!collision.blocked(x, z, 0.4)) { this.pos.set(x, surfaceAt(x, z), z); placed = true; break; }
+      // and on the vehicle's own level, not over a retaining wall (terrain.js height levels)
+      if (!collision.blocked(x, z, 0.4) && Math.abs(surfaceAt(x, z) - y0) < 0.5) { this.pos.set(x, surfaceAt(x, z), z); placed = true; break; }
     }
     if (!placed) this.pos.set(v.pos.x + fz * 2.5, surfaceAt(v.pos.x + fz * 2.5, v.pos.z - fx * 2.5), v.pos.z - fx * 2.5);
     this.heading = v.heading; this.ch.root.rotation.set(0, v.heading, 0);

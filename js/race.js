@@ -511,10 +511,12 @@ export class Race {
   _hud() {
     const C = this.C, P = this.pl, order = this._standings(), me = order.indexOf('you') + 1;
     const lap = clamp(Math.floor(Math.max(0, P.prog) / C.len) + 1, 1, LAPS);
-    this.el.pos.innerHTML = `<b>${me}</b><small>/ ${order.length}</small>`;
-    this.el.lap.textContent = P.done ? '完賽' : `第 ${lap} / ${LAPS} 圈`;
-    this.el.time.textContent = fmt(P.time || 0);
-    this.el.list.innerHTML = order.map((r, i) => r === 'you' ? `<li class="me">${i + 1}. 彥霖</li>` : `<li>${i + 1}. <i style="background:${r.color}"></i>${r.name}</li>`).join('');
+    // runs every frame: write each element only when its text changes
+    const put = (k, v, html) => { const c = this._hudC || (this._hudC = {}); if (c[k] !== v) { c[k] = v; if (html) this.el[k].innerHTML = v; else this.el[k].textContent = v; } };
+    put('pos', `<b>${me}</b><small>/ ${order.length}</small>`, true);
+    put('lap', P.done ? '完賽' : `第 ${lap} / ${LAPS} 圈`);
+    put('time', fmt(P.time || 0));
+    put('list', order.map((r, i) => r === 'you' ? `<li class="me">${i + 1}. 彥霖</li>` : `<li>${i + 1}. <i style="background:${r.color}"></i>${r.name}</li>`).join(''), true);
     if (lap !== this._lap) { if (this._lap && lap === LAPS && !P.done) { this.g.hud.bigToast('最後一圈！', 'FINAL LAP', 1800); this.g.audio.checkpoint(); } this._lap = lap; }
   }
   _ui() {

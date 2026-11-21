@@ -1,0 +1,17 @@
+[package]
+name = "kernels"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Built with tools/build_wasm.sh into js/wasm/kernels.wasm (committed, so the game stays a static site).
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -106,7 +106,8 @@ export class HUD {
     g.fillStyle = '#3fa9ff'; g.strokeStyle = '#fff'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(0, -10); g.lineTo(7, 8); g.lineTo(0, 4); g.lineTo(-7, 8); g.closePath(); g.fill(); g.stroke();
     g.restore();
-    $('compassN').style.transform = `translateX(-50%) rotate(${-rot}rad)`;
+    const cr = Math.round(-rot * 200) / 200; // ~0.3 degree steps; restyle only when it turns
+    if (cr !== this._compass) { this._compass = cr; $('compassN').style.transform = `translateX(-50%) rotate(${cr}rad)`; }
   }
 
   // ---------- big map ----------
@@ -188,11 +189,12 @@ export class HUD {
   setVotes(n) { $('voteNum').textContent = n; }
   setBallots(n) { $('ballotNum').textContent = n; }
   setMoney(n) { $('moneyNum').textContent = n.toLocaleString('en-US'); }
-  setClock(min) { const h = Math.floor(min / 60) % 24, m = Math.floor(min % 60); $('clock').textContent = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }
+  setClock(min) { const h = Math.floor(min / 60) % 24, m = Math.floor(min % 60), t = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; if (t !== this._clock) { this._clock = t; $('clock').textContent = t; } }
   setLocation(t) { if (this._loc !== t) { this._loc = t; $('locName').textContent = t; } }
   setTip(title, html) { $('tipBox').querySelector('.tip-title').textContent = title; $('tipText').innerHTML = html; }
-  setPrompt(html) { const p = $('prompt'); if (!html) p.classList.add('hidden'); else { p.innerHTML = html; p.classList.remove('hidden'); } }
-  setSpeed(kmh) { const s = $('speedo'); if (kmh === null) s.classList.add('hidden'); else { s.classList.remove('hidden'); $('speedNum').textContent = Math.round(kmh); } }
+  // called every frame: rewrite the DOM only when the content changes (avoids per-frame layout / style work)
+  setPrompt(html) { if (html === this._prompt) return; this._prompt = html; const p = $('prompt'); if (!html) p.classList.add('hidden'); else { p.innerHTML = html; p.classList.remove('hidden'); } }
+  setSpeed(kmh) { const v = kmh === null ? null : Math.round(kmh); if (v === this._speed) return; this._speed = v; const s = $('speedo'); if (v === null) s.classList.add('hidden'); else { s.classList.remove('hidden'); $('speedNum').textContent = v; } }
   setObjective(title, text) {
     const o = $('objective');
     if (!text) { o.classList.add('hidden'); return; }

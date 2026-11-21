@@ -150,7 +150,7 @@ class Kit:  # mirrors Kit.w() in js/interiors.js
 
 def interior_zones(data):
     """Flatten zones for the enterable buildings. Keep in sync with js/interiors.js
-    (IM_SPEC / imFootprint, MCD_SPEC / sacTrimmedPts, GUARD_SPECS / guardFootprint)."""
+    (IM_SPEC / imFootprint, MCD_SPEC / sacTrimmedPts, MAIN_GATE, GUARD_SPECS / guardFootprint)."""
     zones = []
     # 資管系館
     ang = math.atan2(16.9, 49.3); L, D = 46, 12.5
@@ -162,8 +162,15 @@ def interior_zones(data):
            [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5]]
     zones.append(('學生活動中心/麥當勞', [[[x0, z0], [x1 + 5, z0], [x1 + 5, z1 + 2], [x0, z1 + 2]], sac],
                   [x0 + (x1 - x0) + 3, z0 + 10]))
-    # 警衛室 x2
-    specs = [dict(x=-201.2, z=79.6, ang=math.atan2(78.1 - 79.7, -195.6 + 200.0), name='正門警衛室')]
+    # 正門: guard kiosk island between the two lanes + the name wall's lawn (MAIN_GATE), level with the kiosk
+    k = Kit(-201.2, 82.25, math.atan2(-2.25, 5.2))
+    island = [[-4.9, 0], [-4, -0.8], [-3, -1.55], [-2.4, -2], [-1.8, -2.05], [2.6, -2.05], [3.1, -1.8], [3.35, -1.2], [3.35, 1.2],
+              [3.1, 1.8], [2.6, 2.1], [-2, 2.05], [-2.5, 2], [-3, 1.65], [-4, 0.8]]
+    wl = Kit(-205.2, 73.0, 0.35)
+    lawn = [[-5, -1.4], [3.6, -1.4], [3.6, 1.2], [-5, 2.4]]
+    zones.append(('正門警衛室', [[k.w(*p) for p in island], [wl.w(*p) for p in lawn]], k.w(0, 0)))
+    # 警衛室 (A6 side gate)
+    specs = []
     a6 = next((p for p in data['pois'] if p['name'] == 'A6校門'), {'x': 128.4, 'z': -14.5})
     best = None
     for r in data['roads']:
@@ -202,8 +209,8 @@ def interior_zones(data):
 def pond_zones(data, gx0, gz0, gx1, gz1):
     out = []
     for a in data['areas']:
-        if a['kind'] != 'water':
-            continue
+        if a['kind'] != 'water' or a.get('synthetic'):
+            continue  # 補建街區 water can be switched off in game, so it keeps the DTM
         xs = [p[0] for p in a['pts']]; zs = [p[1] for p in a['pts']]
         if max(xs) - min(xs) > 200 or max(zs) - min(zs) > 200:
             continue  # rivers keep the DTM channel

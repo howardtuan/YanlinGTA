@@ -1,0 +1,1493 @@
+{
+ "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane.",
+ "ways": [
+  {
+   "way": 26186361,
+   "name": "中園路",
+   "type": "secondary",
+   "w": 9.5,
+   "was": 7.4,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 26186388,
+   "name": "中北路二段",
+   "type": "residential",
+   "w": 11.0,
+   "was": 7,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 41603225,
+   "name": "普忠路",
+   "type": "tertiary",
+   "w": 13.5,
+   "was": 8.0,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 6 處實測路緣到路緣；(786,163) 北端路口附近約 18 m（有轉向車道）；(892,424)~(965,590) 約 14 m"
+  },
+  {
+   "way": 41603232,
+   "name": "弘揚路",
+   "type": "service",
+   "w": 9.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 109840856,
+   "name": "忠義路",
+   "type": "residential",
+   "w": 14.0,
+   "was": 4.7,
+   "confidence": "high",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 110412965,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 110693014,
+   "name": "新中北路469巷",
+   "type": "service",
+   "w": 7.5,
+   "was": 5,
+   "confidence": "high",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 110955663,
+   "name": "杭州路",
+   "type": "service",
+   "w": 6.5,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 110955673,
+   "name": "莒光路",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 111082784,
+   "name": "",
+   "type": "service",
+   "w": 8.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 5 處實測路緣到路緣；z>-200: 7.5; z -250..-700: 8.5-10; z<-800: ~7 (trees)"
+  },
+  {
+   "way": 113468849,
+   "name": "日新路",
+   "type": "service",
+   "w": 7.5,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 114223758,
+   "name": "廣州路",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 115098704,
+   "name": "忠信路",
+   "type": "unclassified",
+   "w": 12.0,
+   "was": 8,
+   "confidence": "high",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣；東段(x≈-257)含建物陰影約12 m；西段(x≈-543)含停車約15 m"
+  },
+  {
+   "way": 173308897,
+   "name": "大仁二街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 202592410,
+   "name": "力行北街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 202592699,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 202680076,
+   "name": "中華路二段",
+   "type": "primary",
+   "w": 11.5,
+   "was": 10.7,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 5 處實測路緣到路緣；x>-280 約 14 m (zhw200/zhw170)"
+  },
+  {
+   "way": 202685334,
+   "name": "幸福街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 202688801,
+   "name": "利民路",
+   "type": "service",
+   "w": 9.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 202688802,
+   "name": "民有街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 202688803,
+   "name": "國泰街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 202688854,
+   "name": "振興街",
+   "type": "service",
+   "w": 6.5,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 202803056,
+   "name": "中華路一段835巷",
+   "type": "service",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 10 條的典型寬度（E 中華路一段 743/805/835 巷（鐵路旁，紅磚鋪面的 living_street 或有停車帶））"
+  },
+  {
+   "way": 203754199,
+   "name": "中園路",
+   "type": "secondary",
+   "w": 9.5,
+   "was": 7.4,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 203758027,
+   "name": "新中北路",
+   "type": "tertiary",
+   "w": 9.0,
+   "was": 8.0,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 5 處實測路緣到路緣"
+  },
+  {
+   "way": 203758055,
+   "name": "杭州路",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 204272556,
+   "name": "中華路二段",
+   "type": "primary",
+   "w": 12.0,
+   "was": 10.7,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 204391238,
+   "name": "中山東路二段",
+   "type": "secondary",
+   "w": 10.5,
+   "was": 7.4,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣",
+   "lanes": 3
+  },
+  {
+   "way": 229986606,
+   "name": "實踐路91巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 229990579,
+   "name": "協同街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 229990580,
+   "name": "振興街124巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 237549338,
+   "name": "實踐路70巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 237549339,
+   "name": "實踐路80巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 307703444,
+   "name": "中園路",
+   "type": "secondary",
+   "w": 9.5,
+   "was": 7.4,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 307703446,
+   "name": "中華路二段",
+   "type": "primary",
+   "w": 11.5,
+   "was": 10.7,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 307857178,
+   "name": "新中北路",
+   "type": "tertiary",
+   "w": 9.5,
+   "was": 8.0,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 307857193,
+   "name": "新中北路",
+   "type": "tertiary",
+   "w": 9.0,
+   "was": 8.0,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 6 處實測路緣到路緣；x≈-60~-20 被陰影遮住，估約 8 m；(412,93) 約 10 m"
+  },
+  {
+   "way": 307857195,
+   "name": "新中北路",
+   "type": "tertiary",
+   "w": 9.5,
+   "was": 8.0,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 315253248,
+   "name": "和祥街",
+   "type": "service",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 315253253,
+   "name": "中北路二段318巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 315253254,
+   "name": "甘肅三街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 316225993,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 359542104,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 359542105,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（C5 透天排屋 living_street）"
+  },
+  {
+   "way": 359542106,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 359542107,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（C5 透天排屋 living_street）"
+  },
+  {
+   "way": 359542108,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 359542114,
+   "name": "信陽街",
+   "type": "service",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 359543731,
+   "name": "大仁街84巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 359637610,
+   "name": "普忠路",
+   "type": "tertiary",
+   "w": 17.0,
+   "was": 14.6,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣",
+   "lanes": 5
+  },
+  {
+   "way": 438075796,
+   "name": "中華路一段805巷32弄",
+   "type": "living_street",
+   "w": 8.0,
+   "was": 5,
+   "confidence": "high",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 438075809,
+   "name": "中華路一段805巷",
+   "type": "living_street",
+   "w": 9.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 438075818,
+   "name": "中華路一段835巷",
+   "type": "living_street",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 438075825,
+   "name": "中華路一段805巷22弄",
+   "type": "service",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 10 條的典型寬度（E 中華路一段 743/805/835 巷（鐵路旁，紅磚鋪面的 living_street 或有停車帶））"
+  },
+  {
+   "way": 438075826,
+   "name": "普忠路211巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 440611862,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 442038393,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 442184915,
+   "name": "新中北路249巷11弄",
+   "type": "service",
+   "w": 4.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 443224884,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 444651265,
+   "name": "實踐路52巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 444651276,
+   "name": "寧夏一街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 444658023,
+   "name": "普忠路770巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣；(833,488) 一帶有路邊停車，鋪面約 8 m；(855,569) 一帶約 5 m"
+  },
+  {
+   "way": 469117782,
+   "name": "",
+   "type": "service",
+   "w": 8.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 469117787,
+   "name": "",
+   "type": "service",
+   "w": 8.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣；z≈-292 南段縮到約4.5 m"
+  },
+  {
+   "way": 492473771,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 492473774,
+   "name": "全人大道",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 492473775,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣；x≈-233 段在樹林內看不到，可能只是約3 m步道"
+  },
+  {
+   "way": 492473778,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 492480428,
+   "name": "新中一街",
+   "type": "service",
+   "w": 6.5,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 492480429,
+   "name": "新中二街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 492480431,
+   "name": "新中二街10巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 9 條的典型寬度（F 新中一街、新中二街一帶及新中北路469巷）"
+  },
+  {
+   "way": 492480432,
+   "name": "新中一街9巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 9 條的典型寬度（F 新中一街、新中二街一帶及新中北路469巷）"
+  },
+  {
+   "way": 492480433,
+   "name": "新中一街19巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 9 條的典型寬度（F 新中一街、新中二街一帶及新中北路469巷）"
+  },
+  {
+   "way": 492480434,
+   "name": "新中一街25巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 9 條的典型寬度（F 新中一街、新中二街一帶及新中北路469巷）"
+  },
+  {
+   "way": 492480435,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 492480436,
+   "name": "新中一街10巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 9 條的典型寬度（F 新中一街、新中二街一帶及新中北路469巷）"
+  },
+  {
+   "way": 492485764,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 492485767,
+   "name": "實踐路58巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 492485769,
+   "name": "大勇二街7巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 492485770,
+   "name": "實踐路11巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 492485771,
+   "name": "民享街",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 622940319,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 622940321,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 622940322,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 623299935,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 637853931,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 637853996,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 637854000,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 650093312,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 652011310,
+   "name": "中山東路二段",
+   "type": "secondary",
+   "w": 12.0,
+   "was": 13,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣",
+   "lanes": 4
+  },
+  {
+   "way": 664718087,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 664718092,
+   "name": "",
+   "type": "service",
+   "w": 8.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 664718094,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 664718095,
+   "name": "",
+   "type": "service",
+   "w": 7.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 664718097,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 664718098,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 664718100,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 664718103,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 664718111,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 664793705,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 664942583,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 664942587,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 664942588,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 664942589,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 664942590,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 664942591,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 664942592,
+   "name": "中華路二段25巷",
+   "type": "service",
+   "w": 4.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 4 條的典型寬度（G 農路、停車場內道路）"
+  },
+  {
+   "way": 664942593,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 664942594,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 692558700,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 692558701,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 692558703,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 700658269,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 700658270,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 700658289,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 700658290,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 700658291,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 700658292,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 700658296,
+   "name": "新中北路838巷",
+   "type": "service",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "high",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 700658313,
+   "name": "金鋒二街98巷",
+   "type": "service",
+   "w": 3.5,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 700658318,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 700658322,
+   "name": "大仁二街40巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 700658323,
+   "name": "大仁一街35巷",
+   "type": "service",
+   "w": 3.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
+  },
+  {
+   "way": 700658338,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 759473388,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 759473389,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 759477595,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 759477596,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 759767371,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 760800794,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 760800795,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（C5 透天排屋 living_street）"
+  },
+  {
+   "way": 760800796,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（C5 透天排屋 living_street）"
+  },
+  {
+   "way": 760800799,
+   "name": "普忠路616巷",
+   "type": "residential",
+   "w": 5.0,
+   "was": 7,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 813831043,
+   "name": "",
+   "type": "service",
+   "w": 6.0,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 813831044,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 865600114,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 910108953,
+   "name": "中華路二段",
+   "type": "primary",
+   "w": 12.0,
+   "was": 10.7,
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1014540804,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 1014540805,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 1022460389,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（C5 透天排屋 living_street）"
+  },
+  {
+   "way": 1022460390,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（C5 透天排屋 living_street）"
+  },
+  {
+   "way": 1022460395,
+   "name": "中華路一段805巷30弄",
+   "type": "living_street",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 10 條的典型寬度（E 中華路一段 743/805/835 巷（鐵路旁，紅磚鋪面的 living_street 或有停車帶））"
+  },
+  {
+   "way": 1022460396,
+   "name": "中華路一段743巷52弄",
+   "type": "living_street",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1022460397,
+   "name": "中華路一段835巷68弄",
+   "type": "living_street",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 10 條的典型寬度（E 中華路一段 743/805/835 巷（鐵路旁，紅磚鋪面的 living_street 或有停車帶））"
+  },
+  {
+   "way": 1022460399,
+   "name": "中華路一段835巷",
+   "type": "service",
+   "w": 7.0,
+   "was": 5,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 10 條的典型寬度（E 中華路一段 743/805/835 巷（鐵路旁，紅磚鋪面的 living_street 或有停車帶））"
+  },
+  {
+   "way": 1022460409,
+   "name": "",
+   "type": "living_street",
+   "w": 6.0,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣"
+  },
+  {
+   "way": 1034725677,
+   "name": "中華路二段",
+   "type": "primary",
+   "w": 11.5,
+   "was": 10.7,
+   "confidence": "high",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 3 處實測路緣到路緣"
+  },
+  {
+   "way": 1034725679,
+   "name": "中北路",
+   "type": "residential",
+   "w": 9.0,
+   "was": 7,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 2 處實測路緣到路緣；x≈-576 含停車約10.5 m；x≈-665 約7.5 m"
+  },
+  {
+   "way": 1042541925,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 1099000291,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 1099000852,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 25 條的典型寬度（C2 停車場車道 parking aisles）"
+  },
+  {
+   "way": 1114826114,
+   "name": "",
+   "type": "service",
+   "w": 5.5,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1114826115,
+   "name": "",
+   "type": "unclassified",
+   "w": 6.5,
+   "was": 8,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1153472274,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1323153274,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 1323153275,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 22 條的典型寬度（C6 商業/工業出入口與社區道路）"
+  },
+  {
+   "way": 1323153945,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 1323153946,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 1323153947,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 1323153948,
+   "name": "",
+   "type": "service",
+   "w": 7.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1323839903,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 1323840337,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  },
+  {
+   "way": 1455425316,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1455425329,
+   "name": "",
+   "type": "service",
+   "w": 3.0,
+   "was": 4.2,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+  },
+  {
+   "way": 1486850312,
+   "name": "",
+   "type": "service",
+   "w": 6.5,
+   "was": 4.2,
+   "confidence": "low",
+   "source": "NLSC 2024 正射：同類道路實測 33 條的典型寬度（C1 工廠/廠區內部道路 (factory driveways)）"
+  }
+ ]
+}

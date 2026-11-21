@@ -48,6 +48,8 @@ SRC = os.path.join(HERE, 'osm_raw.json')
 OVR = os.path.join(HERE, 'overrides.json')
 LOOKS = os.path.join(HERE, 'looks.json')
 WATER = os.path.join(HERE, 'water.json')
+ROADS = os.path.join(HERE, 'roads.json')
+WAY_OF = {}   # id(road dict) -> OSM way id (tools/roads.json is keyed by way)
 DST = os.path.join(HERE, '..', 'data', 'cycu.json')
 
 LAT0, LON0 = 24.9580, 121.2425
@@ -395,6 +397,148 @@ def load_looks():
         if not e.get('source') or not e.get('confidence'):
             raise SystemExit('looks.json %s (%s): every entry needs source and confidence' % (oid, e.get('name')))
     return out
+
+
+def apply_roads(out, stats):
+    """tools/roads.json (see its _doc): measured carriageway widths by OSM way.
+
+    Roads on a bridge / tunnel / grade separation keep the grade's width. A road
+    only widens as far as the OSM buildings and walls beside it allow (its kerb,
+    or the back of the sidewalk on primary..tertiary, stays clear of them); the
+    補建 (synthetic) houses, ground and fences the block fill laid along the old
+    kerb are cut back behind the new one instead (ones left too small are
+    skipped: they draw from their own random streams). Every road changed here
+    keeps its OSM width / line in r['osm'] (as build_grade does), so js/map.js
+    lays the trees and lamps out as before and moves the ones the wider road takes."""
+    if not os.path.exists(ROADS):
+        return
+    R = json.load(open(ROADS, encoding='utf8'))
+    by = {WAY_OF.get(id(r)): r for r in out['roads']}
+    real = Grid(20)
+    for bd in out['buildings']:
+        if not bd.get('synthetic'):
+            real.add(bbox_of(bd['pts']), ('b', bd['pts']))
+    for br in out['barriers']:
+        if not br.get('synthetic'):
+            for p, q in zip(br['pts'], br['pts'][1:]):
+                real.add(bbox_of([p, q]), ('w', [p, q]))
+    st = dict(n=0, capped=[], cut=0, skipped=0, areas=0, fences=0)
+    grown = []
+    for e in R['ways']:
+        if not e.get('source') or not e.get('confidence'):
+            raise SystemExit('roads.json way %s: every entry needs source and confidence' % e['way'])
+        r = by.get(e['way'])
+        if r is None:
+            stats['warn'].append('roads.json way %s (%s): not in the map' % (e['way'], e.get('name', '')))
+            continue
+        if r.get('grade') or r.get('bridge') or r.get('tunnel') or 'osm' in r:
+            stats['warn'].append('roads.json way %s: on / moved by a grade separation, skipped' % e['way'])
+            continue
+        if abs(r['w'] - e['was']) > 0.05:
+            stats['warn'].append('roads.json way %s: width from OSM is %s, survey saw %s' % (e['way'], r['w'], e['was']))
+        side = SIDEWALK if r['type'] in ('primary', 'secondary', 'tertiary') and not (r.get('name') or '').startswith('中北路') else 0.3
+        w = e['w']
+        if w > r['w']:
+            # the nearest OSM building / wall that the old road was clear of
+            room = 1e9
+            for a, b in zip(r['pts'], r['pts'][1:]):
+                for kind, P in real.query(bbox_of([a, b], w / 2 + side + 1)):
+                    dd = poly_seg_dist(P, a, b) if kind == 'b' else seg_seg(P[0], P[1], a, b)
+                    if dd >= r['w'] / 2 + (side if kind == 'b' else 0) - 0.05:
+                        room = min(room, dd - (side if kind == 'b' else 0.2))
+            if room < w / 2:
+                cap = max(r['w'], math.floor(room * 2 * 2) / 2)
+                st['capped'].append('%s %s %.1f->%.1f' % (e['way'], e.get('name', ''), w, cap))
+                w = cap
+        if abs(w - r['w']) < 0.05:
+            continue
+        r['osm'] = {'w': r['w'], 'pts': [list(p) for p in r['pts']]}
+        r['rw'] = 1   # width from roads.json (js/map.js: the OSM width stays in r.osm.w)
+        if w > r['w']:
+            grown.append((r, w / 2 + (side if side > 0.3 else 1.1)))
+        r['w'] = w
+        if e.get('lanes'):
+            r['lanes'] = e['lanes']
+        st['n'] += 1
+
+    # 補建 houses / ground / fences behind the new kerbs
+    def cut_back(P, closed=True):
+        """clip ring P off every grown road strip; None when nothing is left"""
+        hit = False
+        for r, half in grown:
+            for a, b in zip(r['pts'], r['pts'][1:]):
+                L = math.hypot(b[0] - a[0], b[1] - a[1])
+                if L < 0.5 or not P:
+                    continue
+                if poly_seg_dist(P, a, b) >= half - 0.01:
+                    continue
+                ux, uz = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+                cx = sum(p[0] for p in P) / len(P); cz = sum(p[1] for p in P) / len(P)
+                t = (cx - a[0]) * ux + (cz - a[1]) * uz
+                if t < -half or t > L + half:
+                    continue   # beyond this segment's end: the next segment / the junction decides
+                sd = 1 if (cx - a[0]) * -uz + (cz - a[1]) * ux > 0 else -1   # left of a->b = +
+                nx, nz = -uz * sd * half, ux * sd * half
+                p0, q0 = [a[0] + nx - ux * 50, a[1] + nz - uz * 50], [b[0] + nx + ux * 50, b[1] + nz + uz * 50]
+                P = clip_half(P, p0, q0, sd) if closed else P
+                hit = True
+                if len(P) < 3:
+                    return None, True
+        return P, hit
+
+    for bd in out['buildings']:
+        if not bd.get('synthetic') or bd.get('skip'):
+            continue
+        P, hit = cut_back(bd['pts'])
+        if not hit:
+            continue
+        if P is None or area(P) < 20 or min(max(p[i] for p in P) - min(p[i] for p in P) for i in (0, 1)) < 3:
+            bd['skip'] = 1; st['skipped'] += 1
+        else:
+            bd['pre'] = bd['pts']; bd['pts'] = P; st['cut'] += 1
+    # cut ground keeps its old ring in 'pre': js/map.js lays the 補建 woods' / lawns' trees
+    # out on it (one random stream for all of them), and a wood / lawn left with nothing stays
+    # in the list as 'gone' so the ones after it keep their draws
+    for ar in out['areas']:
+        if not ar.get('synthetic'):
+            continue
+        P, hit = cut_back(ar['pts'])
+        if hit:
+            pre = ar['pts']
+            if P is None or area(P) < 4:
+                if ar['kind'] in ('wood', 'grass'):
+                    ar['gone'] = 1
+                ar['pts'] = []
+            else:
+                ar['pts'] = P
+            ar['pre'] = pre
+            st['areas'] += 1
+    out['areas'] = [ar for ar in out['areas'] if ar['pts'] or ar.get('gone')]
+    keep = []
+    for br in out['barriers']:
+        if not br.get('synthetic'):
+            keep.append(br); continue
+        parts, cur = [], []
+        for p, q in zip(br['pts'], br['pts'][1:]):
+            near = any(seg_seg(p, q, a, b) < half for r, half in grown for a, b in zip(r['pts'], r['pts'][1:]))
+            if near:
+                if len(cur) > 1:
+                    parts.append(cur)
+                cur = []
+                st['fences'] += 1
+            else:
+                if not cur:
+                    cur = [p]
+                cur.append(q)
+        if len(cur) > 1:
+            parts.append(cur)
+        if len(parts) == 1 and len(parts[0]) == len(br['pts']):
+            keep.append(br)
+        else:
+            for pp in parts:
+                nb = dict(br); nb['pts'] = pp; keep.append(nb)
+    out['barriers'] = keep
+    stats['roads'] = st
 
 
 def apply_water(out, stats):
@@ -1798,6 +1942,7 @@ def main():
             if t.get('area') == 'yes':
                 continue
             r = dict(pts=pts, w=w, type=hw, nodes=e.get('nodes', []))
+            WAY_OF[id(r)] = e['id']
             if name:
                 r['name'] = name
             if hw in DRIVABLE:
@@ -1900,6 +2045,9 @@ def main():
     # viaducts / footbridge / underpass (overrides.json 'grade'); after the
     # block fill so the synthetic blocks stay exactly as they were
     out['grade'] = build_grade(out, ovr_all.get('grade', []), stats)
+    # measured carriageway widths (tools/roads.json); after the block fill and
+    # grade so neither moves, and the old width stays in r['osm'] for js/map.js
+    apply_roads(out, stats)
     # sunk ponds / streams (tools/water.json); last, so nothing above moves
     apply_water(out, stats)
 
@@ -1925,6 +2073,12 @@ def main():
             print('  block %2d' % bid, ', '.join('%s %d' % (k, v) for k, v in sorted(t.items())))
     if stats.get('water'):
         print('water:', stats['water'])
+    if stats.get('roads'):
+        st = stats['roads']
+        print('roads.json: %d widths; 補建 cut back: %d houses cut, %d skipped, %d ground areas, %d fence segments'
+              % (st['n'], st['cut'], st['skipped'], st['areas'], st['fences']))
+        for c in st['capped']:
+            print('  capped by an OSM building / wall:', c)
     for s in stats['excluded']:
         print('excluded', s)
     for s in stats['warn']:

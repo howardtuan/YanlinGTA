@@ -962,6 +962,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const DIRT_TINT = { site: '#ffffff', weeds: '#c9c7a4' };
     const LINE = col('#e8eee4');
     for (const a of data.areas) {
+      // a 補建 wood / lawn a wider road took (tools/roads.json) keeps its slot for the tree layout
+      if (a.gone) { fillGreens.push({ ring: null, lay: a.pre, dense: a.kind === 'wood' }); continue; }
       const c = AREA_COL[a.kind]; if (!c) continue;
       const k = a.kind;
       const g = k === 'water' ? gWater : k === 'track' ? gTrack : k === 'farm' ? gFarm : k === 'dirt' || k === 'construction' ? gDirt
@@ -973,7 +975,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       // holes ride along on the ring array so inArea() can skip them
       const ring = a.holes ? Object.assign(a.pts.slice(), { holes: a.holes }) : a.pts;
       if (a.kind === 'water' || a.was === 'water') waterPolys.push(ring); // was: water that is not there any more (tools/water.json); plants keep off it as before
-      if (a.synthetic && (a.kind === 'wood' || a.kind === 'grass')) fillGreens.push({ ring, dense: a.kind === 'wood' });
+      if (a.synthetic && (a.kind === 'wood' || a.kind === 'grass')) fillGreens.push({ ring, lay: a.pre, dense: a.kind === 'wood' });
       else if (a.kind === 'park' || a.kind === 'grass') greenPolys.push(ring);
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
       if (a.kind === 'parking') parkingPolys.push(ring);
@@ -1011,7 +1013,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
   world.waterPolys = waterPolys;
   // lawns / parks (incl. 補建 greens) — footstep surface
-  world.greenAt = (x, z) => greenPolys.some(p => inArea(x, z, p)) || fillGreens.some(f => inArea(x, z, f.ring));
+  world.greenAt = (x, z) => greenPolys.some(p => inArea(x, z, p)) || fillGreens.some(f => f.ring && inArea(x, z, f.ring));
   // paved floors of the height-level sites (sunken plaza), draped like the areas
   if (LV.floors && LV.floors.length) {
     const g = new Geo(true, uvS(2.5));
@@ -1143,6 +1145,18 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   };
   // 2.5 m sidewalk + curb on primary..tertiary; 中北路 has none (see below)
   const SIDEWALK = col('#ffffff'), CURB = col('#d6d4cf');
+  // divided roads (環中東路, 中華路二段, 中園路, 普忠路...): the two one-way carriageways
+  // only have a kerbed median between them (NLSC 2024 正射 survey, tools/roads.json), so
+  // no sidewalk on the side that faces the other carriageway
+  const carriageways = data.roads.filter(q => q.oneway && q.drive && !q.bridge && !q.tunnel);
+  const facesOther = (r, x, z) => carriageways.some(q => {
+    if (q === r) return false;
+    for (let j = 0; j < q.pts.length - 1; j++) {
+      const c = closestOnSeg(x, z, q.pts[j][0], q.pts[j][1], q.pts[j + 1][0], q.pts[j + 1][1]);
+      if (Math.hypot(c[0] - x, c[1] - z) < q.w / 2 + 2.6) return true;
+    }
+    return false;
+  });
   const sidewalk = (r) => {
     if (!MARKED[r.type] || r.bridge || r.tunnel || (r.name || '').startsWith('中北路')) return;
     for (let i = 0; i < r.pts.length - 1; i++) {
@@ -1151,10 +1165,15 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const nx = -dz / l, nz = dx / l;
       for (const sd of [1, -1]) {
         const o = sd * (r.w / 2 + 1.35), oc = sd * (r.w / 2 + 0.1);
+        const mx = (a[0] + b[0]) / 2 + nx * sd * (r.w / 2 + 1.35), mz = (a[1] + b[1]) / 2 + nz * sd * (r.w / 2 + 1.35);
+        if (r.oneway && facesOther(r, mx, mz)) {   // median kerb only
+          walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
+          continue;
+        }
         walks.strip([a[0] + nx * o, a[1] + nz * o], [b[0] + nx * o, b[1] + nz * o], 2.5, 0.02, SIDEWALK);
         walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
       }
-      if (i > 0 && turnAt(r, i) > 0.1) walks.disc(a[0], a[1], r.w / 2 + 2.6, 0.02, SIDEWALK, 12);
+      if (i > 0 && turnAt(r, i) > 0.1 && !(r.oneway && facesOther(r, a[0], a[1]))) walks.disc(a[0], a[1], r.w / 2 + 2.6, 0.02, SIDEWALK, 12);
     }
   };
   // tunnels: building passages stay on the surface; underground ones (layer<0,
@@ -1514,9 +1533,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // ground floor shop fronts (town / commercial walls facing a street)
   const shopGeo = new Geo();
   const SHOP_LO = [0.72, 0.72, 0.72], SHOP_HI = [1, 1, 1];
-  const facesStreet = (a, c, n) => {
+  // OSM buildings judge their street on the OSM road widths (r.rw: width from tools/roads.json), so
+  // the shop fronts, and the shared rnd2 draws they gate, stay as before; the 補建 fill, cut back
+  // behind the new kerbs and drawing from its own streams, faces the roads as they are now
+  const preRoads = data.roads.some(r => r.rw) ? new SegGrid(20) : roadGrid;
+  if (preRoads !== roadGrid) for (const sg of roadGrid.segs) preRoads.add(sg[0], sg[1], sg[2], sg[3], sg[5].rw ? sg[5].osm.w : sg[4], sg[5]);
+  const facesStreet = (a, c, n, grid = preRoads) => {
     const mx = (a[0] + c[0]) / 2, mz = (a[1] + c[1]) / 2, px = mx + n[0] * 4, pz = mz + n[2] * 4;
-    const q = roadGrid.nearest(px, pz, sg => sg[5].drive && (sg[5].type !== 'service' || sg[5].name));
+    const q = grid.nearest(px, pz, sg => sg[5].drive && (sg[5].type !== 'service' || sg[5].name));
     // the facing road's props (truthy) or null; type tells main roads from lanes
     return q.seg && q.d < 4 && (q.q[0] - mx) * n[0] + (q.q[1] - mz) * n[2] > 0 ? q.seg[5] : null;
   };
@@ -1900,11 +1924,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return M - m > h / 2 ? (m + M) / 2 : m;
   };
   world.buildings = data.buildings;
-  const rndW = rnd;
+  const rndW = rnd, rnd2W = rnd2;
   data.buildings.forEach((b, bi) => {
     // 補建街區 buildings (synthetic) draw from their own stream, so turning the
     // fill off leaves the shared sequence (palette, stalls, trees...) unchanged
     const rnd = b.synthetic ? mulberry32(hashStr('fill:' + b.id)) : rndW;
+    // ... and their tints / awnings / rooftop AC from their own rnd2 as well (it used to be the
+    // shared one, so any change to the fill re-dealt every tree's species after it)
+    const rnd2 = b.synthetic ? mulberry32(hashStr('fill2:' + b.id)) : rnd2W;
     const pts = b.pts; const h = b.h;
     const base = b.base = footBase(pts, h); const foot = footLo - 0.5;
     if (b.skip) {
@@ -2151,7 +2178,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         if (l < 0.05) continue;
         const n = [dz / l, 0, -dx / l]; // outward for CCW (x,z)
         const u0 = acc / (bay * 8), u1 = (acc + l) / (bay * 8); acc += l;
-        const shop = shops && ring === pts && l > 2.5 && facesStreet(a, c, n);
+        const shop = shops && ring === pts && l > 2.5 && facesStreet(a, c, n, b.synthetic ? roadGrid : preRoads);
         const yS = shop ? Math.min(base + 3.6, top - 0.3) : Math.min(base + 1.2, top);
         // wall foot goes 0.5 m below the lowest ground so slopes never show a gap
         if (shop) {
@@ -2260,7 +2287,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
     // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
     // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
-    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
@@ -2301,7 +2328,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // rooftop AC condensers in rows, vent stacks
   {
     const acGeo = new Geo();
-    for (const { pts, top: top0, town, parts, skip } of acSpots) {
+    for (const { r2, pts, top: top0, town, parts, skip } of acSpots) {
+      const rnd2 = r2 || rnd2W;
       let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [x, z] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
       const n = Math.min(14, Math.floor((x1 - x0) * (z1 - z0) / (town ? 120 : 90)));
       for (let k = 0; k < n; k++) {
@@ -2811,6 +2839,15 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // round them: both are placed as on the OSM roads (build_map.py keeps them in r.osm) without the
   // grade walls, then the spots the grade separations take are dropped (gradeGhosts: dropped lamps).
   const osmRoads = data.roads.some(r => r.osm) ? new SegGrid(20) : roadGrid, gradeGhosts = [];
+  // a lamp / tree spot laid out by the old (OSM) width of a road tools/roads.json widened: the same
+  // spot as far outside the new kerb as it was outside the old one (null if the road left it alone)
+  const offWidened = (x, z, clr) => {
+    const q = roadGrid.nearest(x, z, s => s[5].rw && s[5].w > s[5].osm.w && !s[5].under);
+    if (!q.seg || q.d >= clr) return null;
+    const r = q.seg[5], vx = x - q.q[0], vz = z - q.q[1], d = Math.hypot(vx, vz) || 1;
+    const k = Math.max(d, r.osm.w / 2 + clr) + (r.w - r.osm.w) / 2;
+    return [q.q[0] + vx / d * k, q.q[1] + vz / d * k];
+  };
   if (osmRoads !== roadGrid) for (const r of data.roads) { const o = r.osm || r; for (let i = 0; i < o.pts.length - 1; i++) osmRoads.add(o.pts[i][0], o.pts[i][1], o.pts[i + 1][0], o.pts[i + 1][1], o.w, r); }
   // OSM street_lamp nodes where mapped; elsewhere one every 30 m, sides
   // alternating along each road (no lamp within 15 m of an OSM one)
@@ -2859,6 +2896,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     collision.muted = null;
     // the ones a grade separation takes: under a deck, on a cut's wall, in a lane moved over them
+    // ... and the ones a road widened by tools/roads.json now covers move out to its new kerb
+    spots = spots.map(p => { const m = offWidened(p[0], p[1], 0.6); return m ? [m[0], m[1], p[2]] : p; });
     spots = spots.filter(([x, z]) => {
       if (laneClear(x, z, roadGrid) && !collision.blocked(x, z, 0.3)) return true;
       gradeGhosts.push([x, z, 0.2]); return false;
@@ -2965,8 +3004,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // spot is first tested as on the map without them (OSM roads, their walls muted, the lamps
     // and trees they take kept as ghosts) and drawn as there; only then are those spots dropped.
     const ghosts = [...gradeGhosts];
+    // 補建 houses cut back behind a wider road (tools/roads.json) still block as they stood
+    const cutHouses = data.buildings.filter(b => b.pre).map(b => ({ P: b.pre, box: [Math.min(...b.pre.map(p => p[0])), Math.min(...b.pre.map(p => p[1])), Math.max(...b.pre.map(p => p[0])), Math.max(...b.pre.map(p => p[1]))] }));
+    const inCutHouse = (x, z, r) => cutHouses.some(({ P, box }) => x > box[0] - r && x < box[2] + r && z > box[1] - r && z < box[3] + r &&
+      (pointInPoly(x, z, P) || P.some((p, i) => { const q = P[(i + 1) % P.length], c = closestOnSeg(x, z, p[0], p[1], q[0], q[1]); return Math.hypot(c[0] - x, c[1] - z) < r; })));
     const okOsm = (x, z, r) => {
       if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2)) return false;
+      if (cutHouses.length && inCutHouse(x, z, r)) return false;
       collision.muted = gradeSegs;
       const ok = okSpot(x, z, r, osmRoads);
       collision.muted = null;
@@ -3022,7 +3066,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // 補建街區 woods (dense) and lawns (a few trees), own stream; low quality: half
     {
       const fr = mulberry32(7007), k = opts.low ? 2 : 1;
-      for (const { ring, dense } of fillGreens) {
+      // laid out on the ring before tools/roads.json cut it (lay), so the stream runs as before;
+      // the trees the wider road took are moved / hidden with the others (moveTree)
+      for (const { ring: ring0, lay, dense } of fillGreens) {
+        const ring = lay || ring0;
         const [x0, z0, x1, z1] = polyBox(ring);
         const n = Math.min(dense ? 700 : 120, Math.floor(polyArea(ring) / ((dense ? 90 : 360) * k)));
         for (let i = 0, t = 0; i < n && t < n * 4; t++) {
@@ -3086,9 +3133,18 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
     const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8)) return false; collision.removeCircleAt(x, z); return true; };
+    // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
+    // order, same draws); one that would land in a building, another road or water is hidden
+    const moveTree = (p, cr) => {
+      const m = offWidened(p[0], p[1], 1.0);
+      if (!m) return false;
+      collision.removeCircleAt(p[0], p[1]);
+      if (roadGrid.nearest(m[0], m[1]).d < 1.0 || collision.blocked(m[0], m[1], 0.8) || sink.inside(m[0], m[1], 0.8)) return true;
+      p[0] = m[0]; p[1] = m[1]; collision.addCircle(m[0], m[1], cr); return false;
+    };
     const veg = [];
-    for (const [x, z, kind, s] of spots) veg.push({ x, z, y: groundY(x, z) - 0.15, kind, s, hide: hideTree(x, z) });
-    for (const [x, z, s] of palms) veg.push({ x, z, y: groundY(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3, hide: hideTree(x, z) });
+    for (const p of spots) { const gone = moveTree(p, 0.35), [x, z, kind, s] = p; veg.push({ x, z, y: groundY(x, z) - 0.15, kind, s, hide: gone || hideTree(x, z) }); }
+    for (const p of palms) { const gone = moveTree(p, 0.3), [x, z, s] = p; veg.push({ x, z, y: groundY(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3, hide: gone || hideTree(x, z) }); }
     for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;

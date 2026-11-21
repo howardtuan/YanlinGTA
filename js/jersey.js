@@ -9,14 +9,14 @@ import { torsoProfile, LEG_PROF } from './bodymesh.js';
 // Lakers gold is the official #FDB927. The official purple #552583 comes out blue-violet under the game's sky light
 // (measured on screen: 51, 27, 158), so the cloth uses a warmer #74267a that lands near it at midday (82, 29, 143).
 export const LAKERS = { purple: '#74267a', gold: '#fdb927', white: '#ffffff', black: '#141414' };
-const HIPS = 0.93;            // torso pivot height in the bind pose (character.js)
-const Y0 = 0.9, Y1 = 1.548;   // from over the shorts' waistband up to the base of the neck (root frame)
+export const HIPS = 0.93;            // torso pivot height in the bind pose (character.js)
+export const Y0 = 0.9, Y1 = 1.548;   // from over the shorts' waistband up to the base of the neck (root frame)
 const OFF = 0.009;            // how far the cloth sits off the skin
-const TW = 1536, TH = 512;    // texture: u runs round the body (seam at the back), v up the body
-const pe = (t) => Math.sign(t) * Math.abs(t) ** 0.8; // the torso's superellipse cross-section (e = 2.5), as in bodymesh
+export const TW = 1536, TH = 512;    // texture: u runs round the body (seam at the back), v up the body
+export const pe = (t) => Math.sign(t) * Math.abs(t) ** 0.8; // the torso's superellipse cross-section (e = 2.5), as in bodymesh
 
 // cross-section of the cloth at height y (root frame)
-function section(prof, y, bw) {
+export function section(prof, y, bw) {
   const yy = Math.min(Math.max(y, 0.95), Y1); // below the waist it hangs straight down
   let r = prof[prof.length - 1];
   for (let i = 0; i + 1 < prof.length; i++) {
@@ -29,7 +29,7 @@ function section(prof, y, bw) {
 // is (x, y) on the cloth? (front = the chest side) — deep tank-top armholes, a V neck, a low scoop at the back of the neck
 const armX = (y) => 0.135 + 0.13 * Math.min(1, Math.max(0, (1.5 - y) / 0.24)) ** 1.4;
 const VY = 1.4, VK = 0.095 / (Y1 - VY);
-function onCloth(x, y, front) {
+export function onCloth(x, y, front) {
   const ax = Math.abs(x);
   if (y > 1.27 && ax > armX(y)) return false;
   if (front && y > VY && ax < VK * (y - VY)) return false;
@@ -136,7 +136,7 @@ function jerseyTexture(prof, bw) {
 
 // ---------------------------------------------------------------- meshes
 const geoCache = new Map();
-function shellGeometry(prof, bw) {
+export function shellGeometry(prof, bw) {
   const key = bw.toFixed(3);
   if (geoCache.has(key)) return geoCache.get(key);
   const ys = new Set([Y0, 0.925, 0.95, 0.97, 1.5, 1.512, 1.525, 1.536, Y1]);

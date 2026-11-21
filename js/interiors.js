@@ -10,6 +10,8 @@ import { createCharacter } from './character.js';
 import { dressCrew, CREW_SHIRT } from './mcuniform.js';
 import { H } from './terrain.js';
 import { buildArena } from './arena.js';
+import { buildGarryHome } from './garryhome.js';
+import { buildClubRoom } from './clubroom.js';
 import { buildGateExtras } from './gate_extras.js';
 import { buildWeiche } from './weiche.js';
 import { buildZhongbeiStreet } from './street_zhongbei.js';
@@ -561,7 +563,8 @@ function buildIM(I, scene) {
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14 };
 export function sacTrimmedPts() {
-  return [[-194.7, -128.6], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5]];
+  // NE corner: 麥當勞 (buildMcD); SW corner: 古箏社教室 (js/clubroom.js, CLUB 14 x 10.4 m)
+  return [[-181, -128.55], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5], [-195.05, -118.2], [-181, -118.2]];
 }
 // Look of the real store (photos of 中原大學麥當勞): dark grey 60 cm floor tiles, white grid ceiling with
 // square downlights, white counter on a black plinth under a dropped soffit with digital menu boards,
@@ -1618,6 +1621,7 @@ function buildYanlinHome(I, scene) {
   const PX0 = 2.75;                           // shop / hallway partition
   const SZ0 = 5.6, SZ1 = 9.3, NS = 14;        // straight flight at the back, 14 risers up to 2F
   const LZ1 = 10.4;                           // end of the 2F landing
+  const GZ0 = 9.42, GZ1 = 10.28;              // doorway in the right wall at the landing -> 黃蓋瑞's flat (js/garryhome.js)
   const CX0 = 1.75;                           // 2F corridor: lx CX0..SX0, from the landing back to the room (1.6 m wide)
   const RZ1 = 4.4;                            // 彥霖's room: full width lx 0.2..SX1, lz 0.2..RZ1
   const DX0 = 3.2, DX1 = 4.05;                // room door, bottom-right corner (bottom wall)
@@ -1628,7 +1632,9 @@ function buildYanlinHome(I, scene) {
 
   // ---------------- shell ----------------
   k.box(0, 0.2, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
-  k.box(W - 0.2, W, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
+  // right wall: a doorway at the 2F landing into 黃蓋瑞's flat next door (js/garryhome.js), same floor, other unit
+  k.box(W - 0.2, W, -0.6, top, 0, GZ0, MT.facade, { tile: [0.6, 0.6] }); k.box(W - 0.2, W, -0.6, top, GZ1, D, MT.facade, { tile: [0.6, 0.6] });
+  k.box(W - 0.2, W, -0.6, F, GZ0, GZ1, MT.facade); k.box(W - 0.2, W, F + 1.62, top, GZ0, GZ1, MT.facade);
   k.box(0.2, W - 0.2, -0.6, top, D - 0.2, D, MT.facade, { tile: [0.6, 0.6] });
   k.box(0, W, top - 0.2, top, 0, D, 'gray', { col: false });
   k.box(0, W, top, top + 0.9, -0.05, 0.15, MT.facade, { col: false, tile: [0.6, 0.6] }); // parapet
@@ -1834,7 +1840,10 @@ function buildYanlinHome(I, scene) {
   const skin = (x0, x1, y0, y1, z0, z1) => k.box(x0, x1, y0, y1, z0, z1, MT.plaster, { col: false });
   skin(0.2, 0.21, 0, F - 0.25, 0.2, 6.0);                                    // shop, left wall
   skin(SX1 - 0.01, SX1, 0, F - 0.2, 0.2, SZ0);                               // 1F hallway, right wall
-  skin(SX1 - 0.01, SX1, 0, 2 * F - 0.2, SZ0, LZ1);                           // stair well, right wall
+  skin(SX1 - 0.01, SX1, 0, 2 * F - 0.2, SZ0, GZ0); skin(SX1 - 0.01, SX1, 0, F, GZ0, GZ1); skin(SX1 - 0.01, SX1, F + 1.62, 2 * F - 0.2, GZ0, GZ1);
+  skin(SX1 - 0.01, SX1, 0, 2 * F - 0.2, GZ1, LZ1);                           // stair well, right wall (doorway to 黃蓋瑞's)
+  k.box(SX1 - 0.03, SX1, F + 1.62, F + 1.68, GZ0 - 0.04, GZ1 + 0.04, MT.door, { col: false });
+  k.plane(T.sign('黃宅 2F', '#f4efe2', '#2a4a7a', 'garryPlate', 192, 80, 40), 0.26, 0.1, SX1 - 0.035, F + 1.45, GZ0 - 0.2, -Math.PI / 2);
   skin(SX1 - 0.01, SX1, F, 2 * F - 0.2, RZ1 + 0.15, SZ0);                    // lobby, right wall
   skin(SX0, SX1, 2.15, F - 0.2, 0.2, 0.21);                                  // 1F hallway, front wall
   skin(0.2, 0.21, F, CH, 0.21, RZ1);                                         // room: left wall
@@ -3615,6 +3624,8 @@ export function buildInteriors(scene, data, collision) {
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene);
   I.yh = buildYanlinHome(I, scene);
+  I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC);
+  I.club = buildClubRoom(I, scene, Kit, regMat); // 古箏社教室 in the SW corner of 活動中心 (js/clubroom.js) // 黃蓋瑞家: next door to 彥霖's, same floor (js/garryhome.js)
   I.tea = buildTeaShop(I, scene);
   buildTeaRow(I, scene);
   buildDarenCorner(I, scene);

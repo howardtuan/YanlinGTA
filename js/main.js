@@ -32,7 +32,10 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
+import { GARRY_IDS, garryOutline } from './garryhome.js';
+import { clubFootprint } from './clubroom.js';
 import { Concerts } from './concert.js';
+import { Garry } from './garry.js';
 import { Gordon } from './gordon.js';
 import { LibraryLink } from './library.js';
 import { Hank } from './hank.js';
@@ -123,7 +126,8 @@ class Game {
       if (b.id === WEICHE_ID) b.look = weicheLook(); // 維澈樓: facade look only (js/weiche.js adds the timber box, stair, columns)
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
-      if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
+      if (GARRY_IDS.includes(b.id)) { b.skip = true; if (b.id === GARRY_IDS[0]) b.pts = garryOutline(YH_SPEC); } // 黃蓋瑞家 (js/garryhome.js) replaces both
+      else if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
         const c = Math.cos(YH_SPEC.ang), s = Math.sin(YH_SPEC.ang), ext = YH_SPEC.W * (YH_SPEC.k - 1);
         b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
       }
@@ -136,7 +140,7 @@ class Game {
     for (const n of ZB_ST.ownSign) OWN_SIGN.add(n); // 中北路街屋自己掛的店名（js/street_zhongbei.js）
     for (const p of data.pois) if (OWN_SIGN.has(p.name)) p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints(), ...darenGdFootprints()];
+    const reserved = [imFootprint(), yhFootprint(), garryOutline(YH_SPEC), clubFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints(), ...darenGdFootprints()];
     reserved.push(...zbFootprints()); // 中北路街屋的保留範圍（js/street_zhongbei.js）
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
@@ -273,6 +277,7 @@ class Game {
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
     setLoad(0.95, '準備出發');
     this.missions = new Missions(this);
+    this.garry = new Garry(this);       // 黃蓋瑞: runs on the track, 古箏社 at 活動中心, lives next door to 彥霖 (js/garry.js)
     // warm up a frame so shaders compile behind the loading screen; compileAsync lets the driver
     // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
     try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }

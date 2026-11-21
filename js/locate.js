@@ -30,6 +30,13 @@ export function friendLocations(g) {
       else add('hank', '漢克', '🎸', '#2b2f3a', null, m === 'walk' ? '在校園另一頭散步' : '騎 ZMAX 在外面兜風（距離太遠）');
     }
   }
+  if (has('garry')) { // 黃蓋瑞 (js/garry.js)
+    const G = g.garry, m = G?.mode;
+    if (m === 'run') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在體育園區跑道慢跑');
+    else if (m === 'club') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在活動中心的古箏社教室');
+    else if (m === 'sleep') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間睡覺（彥霖隔壁）');
+    else if (G) add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間（彥霖隔壁）');
+  }
   return out;
 }
 
@@ -47,7 +54,7 @@ export function locateUI(root, g) {
         <span class="lc-main"><b>${esc(f.name)}</b><small>${esc(f.status)}</small></span>
         <span class="lc-side"><small>${dist}</small>${f.x != null ? `<button class="lc-go" data-id="${f.id}">導航</button>` : ''}</span></div>`;
     }).join('');
-    const more = g.friends && ['zz', 'gd', 'hank'].some(id => !g.friends.added.has(id)) ? '<div class="lc-note">在校園裡認識新朋友、加好友，他們就會出現在這裡 📍</div>' : '';
+    const more = g.friends && ['zz', 'gd', 'hank', 'garry'].some(id => !g.friends.added.has(id)) ? '<div class="lc-note">在校園裡認識新朋友、加好友，他們就會出現在這裡 📍</div>' : '';
     root.innerHTML = `<div class="lc"><canvas class="lc-map" width="552" height="420"></canvas><div class="lc-list">${rows}${more}</div></div>`;
     drawMap(root.querySelector('.lc-map'), g, L, p);
     root.querySelectorAll('.lc-go').forEach(b => b.onclick = () => {

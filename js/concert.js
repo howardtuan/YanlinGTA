@@ -462,7 +462,7 @@ export class Concerts {
 const _C = {};
 // 應援手燈 (non-official, one look per group): curved grip with rubber rings and a lit button, metal collar, a
 // translucent shell round a bright core (ITZV: round shell with a heart inside; aespo: faceted crystal), and a soft glow
-function makeLightstick(c) {
+export function makeLightstick(c) {
   const g = new THREE.Group(), col = new THREE.Color(c.color), dark = c.id === 'aespa';
   const body = new THREE.MeshStandardMaterial({ color: dark ? '#1c1c22' : '#f4f2ee', roughness: 0.25, metalness: 0.15, emissive: col, emissiveIntensity: 0.06 });
   const rubber = new THREE.MeshStandardMaterial({ color: '#3a3a40', roughness: 0.9, emissive: col, emissiveIntensity: 0.03 });

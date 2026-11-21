@@ -5,3 +5,6 @@ Thumbs.db
 *.log
 tools/.cache/
 wasm/target/
+
+# 只放在本機、不上傳的素材（例如黃蓋瑞的起床鬧鐘影片 assets/private/garry_alarm.mp4）
+assets/private/

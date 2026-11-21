@@ -865,3 +865,10 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
 .lc-side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.lc-side small{color:#8e8e93;font-size:12px}
 .lc-go{border:0;border-radius:12px;background:#007aff;color:#fff;font-weight:700;font-size:12px;padding:4px 10px;cursor:pointer;font-family:inherit}
 .lc-note{padding:12px;color:#8e8e93;font-size:12px;text-align:center}
+/* 黃蓋瑞的起床鬧鐘 (js/garry.js): a phone in the middle of the screen */
+#garryAlarm{position:fixed;inset:0;z-index:65;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}
+#garryAlarm .ga-phone{width:min(330px,86vw);background:#0d1020;border:8px solid #1c1c22;border-radius:34px;padding:16px 12px 14px;display:flex;flex-direction:column;gap:10px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.6);animation:gaShake .5s infinite}
+#garryAlarm .ga-head{display:flex;flex-direction:column;align-items:center}#garryAlarm .ga-head b{font-size:40px;font-weight:900}#garryAlarm .ga-head span{font-size:13px;color:#ffb3d1}
+#garryAlarm .ga-ring{display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 0;font-size:64px}#garryAlarm .ga-ring small{font-size:13px;color:#aaa}#garryAlarm .ga-ring b{font-size:16px}
+#garryAlarm .ga-x{border:0;border-radius:999px;padding:11px;font-weight:900;font-size:15px;background:#ff4f6d;color:#fff;cursor:pointer}
+@keyframes gaShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-1.2deg)}75%{transform:rotate(1.2deg)}}

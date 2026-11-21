@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { freezeStatic } from './freeze.js';
 import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from './collision.js';
 import { H, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP, addCut, LV_DECK } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
@@ -763,6 +764,7 @@ const DIRT_COL = { site: '#a8825a', weeds: '#7f7c56' };
 const ROAD_LAYER = { footway: 0, path: 0, cycleway: 0, steps: 0, pedestrian: 0, track: 0, service: 1, living_street: 2, residential: 2, unclassified: 3, tertiary: 4, secondary: 5, primary: 6 };
 
 export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
+  const before = new Set(scene.children); // see freezeStatic at the end
   const B = data.bounds;
   const rnd = mulberry32(20240034);
   // purely visual extras (PBR upgrade) draw from their own stream so the shared sequence stays as it was
@@ -3576,6 +3578,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
   };
   for (const f of lateColl) f();
+  // nothing the world builds moves afterwards (only the night point lights follow the lamps): skip
+  // recomputing all those matrices every frame
+  for (const o of scene.children) if (!before.has(o)) freezeStatic(o);
   return world;
 }
 

@@ -202,6 +202,37 @@ function faceGeo(jaw, chin = 0) {
 // polo (true: 系學會幹部T — a polo collar, a two-button placket and the lion logo on the left chest),
 // imTee (true: 資管系服 — geometric lion on the left chest, the Information Management code print on the back),
 // chin (0..1: a narrower, pointier chin)
+// The head's parts never move against the head (only the head pivot turns, and the eyelids blink), so they
+// are merged into one mesh per material — the small detail parts (hidden at distance) apart from the rest.
+// About 15–25 pieces become 5–8: fewer draw calls for every person on screen. skip: parts that must stay
+// separate (the eyelids). Only plain materials (no texture) are merged; anything else stays as it is.
+const _rel = new THREE.Matrix4(), _inv = new THREE.Matrix4();
+function mergeHead(head, skip) {
+  head.updateMatrixWorld(true);
+  _inv.copy(head.matrixWorld).invert();
+  const groups = new Map(), victims = [];
+  head.traverse(o => {
+    if (!o.isMesh || skip.has(o) || o.material.map || !o.visible) return;
+    const key = o.material.uuid + (o.userData.detail ? '|d' : '');
+    if (!groups.has(key)) groups.set(key, { mat: o.material, detail: o.userData.detail, list: [] });
+    groups.get(key).list.push(o);
+  });
+  for (const { mat, detail, list } of groups.values()) {
+    if (list.length < 2) continue;
+    const geos = list.map(o => {
+      _rel.multiplyMatrices(_inv, o.matrixWorld);
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
+      return g.applyMatrix4(_rel);
+    });
+    const m = new THREE.Mesh(mergeGeometries(geos, false), mat);
+    m.userData.detail = detail; m.userData.merged = true; m.castShadow = true;
+    head.add(m);
+    victims.push(...list);
+  }
+  for (const o of victims) o.parent.remove(o);
+}
+
 export function createCharacter(opts = {}) {
   const hero = !!opts.hero;
   // same roughness as the skinned body's vertex-coloured material, so face, neck and hands read as one skin tone
@@ -442,16 +473,20 @@ export function createCharacter(opts = {}) {
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
   // small parts (eyes, fingers, glasses, hair tips…) don't cast shadows and can be hidden at distance
-  const details = [];
   root.traverse(o => {
     if (!o.isMesh) return;
     if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-    if (o.geometry.boundingSphere.radius < 0.04) { o.castShadow = false; details.push(o); }
+    o.userData.detail = o.geometry.boundingSphere.radius < 0.04;
   });
+  mergeHead(head, new Set(lids));
+  const details = [];
+  root.traverse(o => { if (o.isMesh && o.userData.detail) { o.castShadow = false; details.push(o); } });
   const ch = { root, body, hips, torso, head, arms, legs, phase: 0, hero, pose: null, poseT: 0, blend: 0, details, detailOn: true, bodyMesh, lids, blinkT: 1 + Math.random() * 4 };
   ch.setDetail = (on) => { if (ch.detailOn === on) return; ch.detailOn = on; for (const d of details) d.visible = on; };
   ch.setHandPose = (pose) => { if (hero) for (const a of arms) poseHand(a.hand, pose, a.s); };
   ch.update = (dt, st) => animate(ch, dt, st);
+  // free what belongs to this figure alone (the merged head parts, the skinned body); shared parts stay
+  ch.dispose = () => { root.traverse(o => { if (o.isMesh && o.userData.merged) o.geometry.dispose(); }); if (bodyMesh) { bodyMesh.geometry.dispose(); bodyMesh.skeleton?.dispose(); } };
   return ch;
 }
 

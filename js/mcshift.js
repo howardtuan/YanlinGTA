@@ -289,7 +289,7 @@ export class McShift {
       if (c.label && (c.labelT -= dt) <= 0) { c.ch.root.remove(c.label); c.label = null; }
     }
     // gone out of the door
-    for (const c of this.customers) if (c.state === 'leaving' && !c.path.length) { g.scene.remove(c.ch.root); c.gone = true; }
+    for (const c of this.customers) if (c.state === 'leaving' && !c.path.length) { g.scene.remove(c.ch.root); c.ch.dispose?.(); c.gone = true; }
     if (this.customers.some(c => c.gone)) this.customers = this.customers.filter(c => !c.gone);
   }
   // over-the-shoulder shot from the kitchen: 彥霖 at the register, the queue across the counter

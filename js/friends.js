@@ -34,6 +34,24 @@ export const FRIENDS = {
       [['吱吱', '晚上 10 點排位，記得上線 🎮']],
       [['吱吱', '體保生也是要交報告的……救我']],
     ],
+    // 在正門外的茶學苑打工時（js/teashop.js）說的話
+    shop: {
+      intro: [
+        ['吱吱', '歡迎光臨茶學苑～欸？彥霖！'],
+        ['彥霖', '吱吱？你在這裡打工喔！'],
+        ['吱吱', '對啊，練完球來搖飲料，順便練手臂 💪'],
+        ['彥霖', '體保生還要打工，也太猛'],
+        ['吱吱', '同屆的挺你，系排那邊我幫你拉票。欸，我們好像還沒互加耶？'],
+      ],
+      again: [['吱吱', '又是你！想好了嗎？要不要互加？']],
+      chat: [
+        [['吱吱', '搖雪克杯也是重訓，今天搖了兩百杯 🔥']],
+        [['吱吱', '剛剛好幾個客人說要投你，我有幫你講好話'], ['彥霖', '感謝吱吱 🙏']],
+        [['吱吱', '偷偷推薦你冬瓜檸檬，練完球喝超爽']],
+        [['吱吱', '下班要去健身房，練完回宿舍打排位 🎮']],
+        [['吱吱', '店長說我搖的最均勻，跟我的托球一樣穩 🏐']],
+      ],
+    },
   },
 };
 
@@ -46,17 +64,19 @@ export class Friends {
       game.interiors.actions.push({
         x: f.spot.x, z: f.spot.z, r: 2.8, y: 0, anyY: true,
         label: () => `按 <kbd>E</kbd> 和${f.name}聊天`,
+        cond: () => n.ch.root.visible, // at work (js/teashop.js) he isn't here
         fn: (g) => this.talk(id),
       });
     }
   }
-  talk(id) {
-    const f = FRIENDS[id], g = this.g;
-    if (this.added.has(id)) { g.dialog(f.chat[Math.floor(Math.random() * f.chat.length)]); return; }
-    g.dialog(this._met?.[id] ? f.again : f.intro, () => { (this._met ||= {})[id] = true; this._ask(id); });
+  // at: where you meet him ('shop' = 茶學苑, see FRIENDS[id].shop); cb runs when the talk is over
+  talk(id, at, cb) {
+    const f = FRIENDS[id], g = this.g, s = (at && f[at]) || f;
+    if (this.added.has(id)) { const c = s.chat || f.chat; g.dialog(c[Math.floor(Math.random() * c.length)], cb); return; }
+    g.dialog(this._met?.[id] ? (s.again || f.again) : (s.intro || f.intro), () => { (this._met ||= {})[id] = true; this._ask(id, cb); });
   }
   // after the talk: add as friend (messages + Peachgram) or not
-  _ask(id) {
+  _ask(id, cb) {
     const f = FRIENDS[id], g = this.g;
     document.exitPointerLock?.();
     g.modal(`要加 ${f.short} 好友嗎？`, `<p style="margin:0 0 12px;line-height:1.7">加入後 ${f.short} 會出現在 i-Piyan 的 <b>訊息</b>，Peachgram 也看得到他的 <b>貼文</b> 和 <b>限時動態</b>。</p>
@@ -66,7 +86,7 @@ export class Friends {
       removeEventListener('keydown', key, true);
       g.closeModal(); g.resume();
       if (yes) this.add(id);
-      g.dialog(yes ? f.yes : f.no);
+      g.dialog(yes ? f.yes : f.no, cb);
     };
     // Enter / 1 = 加好友, Esc / 2 = 下次再說 (kept away from the game so Esc doesn't also pause)
     const key = (e) => {

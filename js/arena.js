@@ -20,12 +20,12 @@ const BACK = FZ + 8;                    // back wall behind the stage
 
 // ticket zones (js/concert.js sells them): floor standing blocks, then the two seat rings
 export const ARENA_ZONES = [
-  { name: '搖滾站區 A', price: 6880, kind: 'floor', z0: 8, z1: 19 },
-  { name: '搖滾站區 B', price: 5880, kind: 'floor', z0: -12, z1: 4 },
-  { name: '搖滾站區 C', price: 4880, kind: 'floor', z0: -31, z1: -15 },
-  { name: '下層看台 黃橙區', price: 3880, kind: 'ring', ring: 'low', row: 5, side: true },
-  { name: '下層看台 藍區', price: 2880, kind: 'ring', ring: 'low', row: 7, side: false },
-  { name: '上層看台', price: 1880, kind: 'ring', ring: 'up', row: 6, side: false },
+  { name: '搖滾站區 A', price: 6880, seats: 1200, kind: 'floor', z0: 8, z1: 19 },
+  { name: '搖滾站區 B', price: 5880, seats: 1500, kind: 'floor', z0: -12, z1: 4 },
+  { name: '搖滾站區 C', price: 4880, seats: 1800, kind: 'floor', z0: -31, z1: -15 },
+  { name: '下層看台 黃橙區', price: 3880, seats: 3000, kind: 'ring', ring: 'low', row: 5, side: true },
+  { name: '下層看台 藍區', price: 2880, seats: 2500, kind: 'ring', ring: 'low', row: 7, side: false },
+  { name: '上層看台', price: 1880, seats: 4500, kind: 'ring', ring: 'up', row: 6, side: false },
 ];
 
 // ---- the bowl's outline at offset d from the floor edge: an open U from the stage end on +x, round the
@@ -239,7 +239,8 @@ export function buildArena(I, scene, Kit, regMat) {
   const SW = 22, SH = SW * 9 / 16, SY = 3.6, SZ = BACK - 1.2;
   box(MT.black, -SW / 2 - 0.5, SW / 2 + 0.5, SY - 0.5, SY + SH + 0.5, SZ, SZ + 0.4);
   box(MT.screenOff, -SW / 2, SW / 2, SY, SY + SH, SZ - 0.02, SZ);
-  const screen = [[-SW / 2, SY + SH], [SW / 2, SY + SH], [-SW / 2, SY], [SW / 2, SY]] // TL, TR, BL, BR as seen from the floor
+  // TL, TR, BL, BR as seen from the floor: facing the stage (+z) your left hand is +x
+  const screen = [[SW / 2, SY + SH], [-SW / 2, SY + SH], [SW / 2, SY], [-SW / 2, SY]]
     .map(([x, y]) => { const [wx, wz] = k.w(x, SZ - 0.03); return new THREE.Vector3(wx, k.base + y, wz); });
   for (const s of [1, -1]) box(MT.black, s * 17 - 5, s * 17 + 5, 5.6, 11.8, BACK - 3, BACK - 2.7);
   // truss with a row of white and blue lamps, line-array speakers hanging either side
@@ -455,8 +456,12 @@ function buildPlaza(I, scene, k) {
   for (const x of [-10, -5, 0, 5, 10]) for (let z = gz - 14; z <= gz - 2; z += 2.4) rod(MT.steel, [x, 0, z], [x, 1.05, z], 0.025);
   for (let j = 0; j < 4; j++) { const x0 = -10 + j * 5; box(MT.dark, x0 + 0.6, x0 + 4.4, 0, 0.85, gz - 4.8, gz - 4.0, true); }
   box(MT.tent, -11, 11, 3.0, 3.15, gz - 7, gz - 2); for (const x of [-11, 11]) for (const z of [gz - 7, gz - 2]) rod(MT.steel, [x, 0, z], [x, 3, z], 0.06);
-  for (let r = 0; r < 3; r++) { const z = gz - 17 - r * 2.6; rod(MT.steel, [-20, 1.05, z], [20, 1.05, z], 0.03); for (let x = -20; x <= 20; x += 2.5) rod(MT.steel, [x, 0, z], [x, 1.05, z], 0.025); }
-  k.wallLine(-24, gz - 14, -10, gz - 14, 0, 1.1); k.wallLine(10, gz - 14, 24, gz - 14, 0, 1.1);
+  // the queue: a serpentine of stanchion fences (enter at the south-west, snake up to the lanes)
+  const fence = (x0, z0, x1, z1) => { rod(MT.steel, [x0, 1.05, z0], [x1, 1.05, z1], 0.03); const L = Math.hypot(x1 - x0, z1 - z0); for (let t = 0; t <= L + 0.01; t += 2.5) rod(MT.steel, [x0 + (x1 - x0) * t / L, 0, z0 + (z1 - z0) * t / L], [x0 + (x1 - x0) * t / L, 1.05, z0 + (z1 - z0) * t / L], 0.025); k.wallLine(x0, z0, x1, z1, 0, 1.1); };
+  for (let r = 0; r < 3; r++) { const z = gz - 17 - r * 2.6; if (r % 2) fence(-20, z, 17.5, z); else fence(-17.5, z, 20, z); }
+  fence(-20, gz - 22.2, -20, gz - 14); fence(20, gz - 22.2, 20, gz - 14); fence(-20, gz - 14, -10, gz - 14); fence(10, gz - 14, 20, gz - 14);
+  for (const x of [-10, -5, 0, 5, 10]) k.wallLine(x, gz - 14, x, gz - 2, 0, 1.1); // lane rails
+  k.wallLine(-24, gz - 14, -20, gz - 14, 0, 1.1); k.wallLine(20, gz - 14, 24, gz - 14, 0, 1.1);
   // a row of portable toilets (blue / white) off to the west
   for (let i = 0; i < 8; i++) { const x = -44 - i * 1.4, z = gz - 22; box(i % 2 ? MT.toiletW : MT.toiletB, x - 0.6, x + 0.6, 0, 2.3, z - 0.6, z + 0.6, true); box(MT.toiletW, x - 0.65, x + 0.65, 2.3, 2.42, z - 0.65, z + 0.65); }
   // stalls: white pop-up tents with a coloured valance and sign, a table with goods
@@ -505,7 +510,7 @@ function buildPlaza(I, scene, k) {
     group: g0, banner, truck, stalls: STALLS,
     people: ppl.slice(0, 64).map(([x, z, h]) => ({ ...xz(k, x, z), h })), // concert.js puts characters here
     bus: xz(k, 9, bz + 3), arrive: { ...xz(k, 4, bz + 6), h: 0 }, // h 0 = facing +z, toward the arena
-    gate: xz(k, 0, gz - 5.6), staff: [-7.5, 7.5].map(x => ({ ...xz(k, x, gz - 3.6), h: Math.PI })),
+    gate: xz(k, 2.5, gz - 7), staff: [-7.5, 7.5].map(x => ({ ...xz(k, x, gz - 3.6), h: Math.PI })),
     out: { ...xz(k, 0, gz - 10), h: Math.PI },
     walk: [[-7, gz - 26], [7, gz - 26], [7, bz + 10], [-7, bz + 10]].map(([x, z]) => xz(k, x, z)),
   };

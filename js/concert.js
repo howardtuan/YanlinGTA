@@ -78,6 +78,12 @@ export class Concerts {
     return { show, open, sold: open + SALE_LEN, start: show * DAY + SHOW_AT };
   }
   zoneSold(n, zi, clock = this.g.clock) { return clock >= n.open + SOLD_AFTER[zi]; }
+  // tickets left in a zone: most go in the first minutes after the sale opens, the last few trickle out
+  seatsLeft(n, zi, clock = this.g.clock) {
+    const k = Math.min(1, Math.max(0, (clock - n.open) / SOLD_AFTER[zi])), cap = ARENA_ZONES[zi].seats;
+    const jitter = Math.floor(clock * 7 + zi * 13) % 9; // a little noise between refreshes
+    return Math.max(1, Math.round(cap * Math.pow(1 - k, 1.8)) - jitter);
+  }
   ticket(c) { const t = this.tickets[c.id]; return t && t.show * DAY + GATE_CLOSE > this.g.clock ? t : null; }
   // ---------------- per frame ----------------
   update(dt) {
@@ -134,6 +140,7 @@ export class Concerts {
   }
   // lay the YouTube player over the main screen (called right before the frame is drawn)
   frame() {
+    if (this.inArena) this._bump();
     if (this.inArena?.inside) this._stickFollow();
     const el = this.el; if (!el || !this.inArena) return;
     const cam = this.g.camera, cv = this.g.renderer.domElement.getBoundingClientRect();
@@ -286,6 +293,21 @@ export class Concerts {
       const o = this.ar.plaza.out; g.player.place(o.x, o.z, o.h); g.player.y = 0; g.rig.yaw = o.h;
     }, () => g.hud.toast('🚌 接駁車在廣場另一頭的公車站，走過去按 E 搭車回中原', 'good', 3600));
   }
+  // nobody walks through people: outside the characters (queue, vendors, staff, walkers), inside the audience
+  // (the spots under the lightsticks). Pushes you out of anyone closer than R, after you moved this frame.
+  _bump() {
+    const pl = this.g.player; if (pl.vehicle || pl.seat) return;
+    const p = pl.pos, R = 0.6;
+    const push = (x, z) => { const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz); if (d < R && d > 1e-4) { p.x = x + dx / d * R; p.z = z + dz / d * R; } };
+    if (!this.inArena.inside) { for (const q of this.people || []) push(q.ch.root.position.x, q.ch.root.position.z); return; }
+    // inside: audience spots on a 2 m grid (arena-local), only those on your level
+    const ar = this.ar, o = ar.fx.position;
+    if (!this._grid) { this._grid = new Map(); ar.spots.forEach((sp, i) => { const k = `${Math.floor(sp[0] / 2)},${Math.floor(sp[2] / 2)}`; (this._grid.get(k) || this._grid.set(k, []).get(k)).push(i); }); }
+    const lx = p.x - o.x, lz = p.z - o.z, cx = Math.floor(lx / 2), cz = Math.floor(lz / 2);
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const n of this._grid.get(`${cx + i},${cz + j}`) || []) {
+      const sp = ar.spots[n]; if (sp.hidden || Math.abs(sp[1] - pl.y) > 0.5) continue; push(sp[0] + o.x, sp[2] + o.z);
+    }
+  }
   // inside the hall you watch in first person (no body in the way of the stage); js/player.js CameraRig.fp
   _fp(on) { const g = this.g; g.rig.fp = on; g.player.ch.root.visible = !on; }
   // your own lightstick (bought at the 手燈 stall): held up at the lower right of the view during the show
@@ -387,11 +409,14 @@ export class Concerts {
     const g = this.g, ph = this.ph, n = this.next(c);
     if (g.clock >= n.sold) { this._busy = null; ph._frame('售完', `<div class="cx-q"><b>😭 全部售完了</b><small>下次開賣早點進來排隊！</small></div>`, { cls: 'ph-tix', back: '拓原系統', onBack: () => this.app(ph) }); return; }
     const rows = ARENA_ZONES.map((z, i) => {
-      const sold = this.zoneSold(n, i), left = sold ? 0 : Math.max(1, Math.round((n.open + SOLD_AFTER[i] - g.clock) / SOLD_AFTER[i] * 100));
-      return `<button class="cx-zone" data-z="${i}" ${sold ? 'disabled' : ''}><span>${z.name}<small>${sold ? '已售完' : `剩餘 ${left}%`}</small></span><b>NT$ ${z.price.toLocaleString()}</b></button>`;
+      const sold = this.zoneSold(n, i), left = sold ? 0 : this.seatsLeft(n, i);
+      return `<button class="cx-zone" data-z="${i}" ${sold ? 'disabled' : ''}><span>${z.name}<small>${sold ? '已售完' : `剩餘 ${left.toLocaleString()} 張`}</small></span><b>NT$ ${z.price.toLocaleString()}</b></button>`;
     }).join('');
     const el = ph._frame('選擇區域', `<div class="cx-top">${c.title}<small>餘額 NT$ ${g.money.toLocaleString()}</small></div>${msg ? `<div class="cx-err">${msg}</div>` : ''}${rows}`, { cls: 'ph-tix', back: '拓原系統', onBack: () => { this._busy = null; this.app(ph); } });
+    // live counts: re-render while you are still looking at this page
+    clearTimeout(this._zT); this._zT = setTimeout(() => { if (this._alive(c) && el.isConnected) this._zones(c, msg); }, 1500);
     for (const b of el.querySelectorAll('[data-z]')) b.onclick = () => {
+      clearTimeout(this._zT);
       const zi = +b.dataset.z, z = ARENA_ZONES[zi];
       if (this.zoneSold(this.next(c), zi)) return this._zones(c, `${z.name} 剛剛賣完了！`);
       if (g.money < z.price) return this._zones(c, `餘額不足：${z.name} 要 NT$ ${z.price.toLocaleString()}，還差 NT$ ${(z.price - g.money).toLocaleString()}`);

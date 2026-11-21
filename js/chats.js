@@ -311,7 +311,7 @@ export const CONTACTS = [
     // 勞大（彥霖航空的直升機駕駛員，js/pilot.js）：一開始就是好友。「你在哪？」每一輪都能問，
     // 他會回現在在哪；在校園散步的話會設定導航，路線跟著他走（nav.track）。
     // newer: 舊存檔（沒有記聊天室 id）照順序對回聊天室時跳過這個
-    id: 'laoda', name: '勞大', sub: '彥霖航空・直升機駕駛員', avatar: '🚁', color: '#552583', unread: 1, newer: true,
+    id: 'laoda', name: '勞大', sub: '彥霖航空・直升機駕駛員', avatar: '<img class="ph-avimg" src="assets/gram/laoda_av.jpg" alt="">', color: '#552583', unread: 1, newer: true,
     history: [
       { day: '今天' },
       ['laoda', 'Man 我勞大，要空運機車打給我 🚁'],

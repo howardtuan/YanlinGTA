@@ -5,7 +5,7 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -73,10 +73,11 @@ class Game {
     // that building carries its own shop sign
     for (const p of data.pois) if (p.name === '孫師傅牛肉拉麵') p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint)];
+    const reserved = [imFootprint(), yhFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {
+      if (s.main) { keep.push(...mainGateKeep()); continue; } // 正門: lift gates across both lanes, bollards
       const c = Math.cos(s.ang), sn = Math.sin(s.ang), w = (x, z) => ({ x: s.x + x * c - z * sn, z: s.z + x * sn + z * c });
       keep.push({ ...w(4.2, 3.6), r: 3 }, { ...w(6.7, 3.6), r: 4.5 });
     }

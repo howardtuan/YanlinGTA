@@ -786,7 +786,7 @@ def keepouts(out):
     for n in ('鐘塔', '中原噴水池', 'A6校門'):
         if n in poi:
             circ.append((poi[n]['x'], poi[n]['z'], 20))
-    circ.append((-201.2, 79.6, 18))              # 正門警衛室
+    circ.append((-201.2, 82.25, 18))             # 正門警衛室 + 校名牆 (MAIN_GATE)
     ang = math.atan2(16.9, 49.3); c, s = math.cos(ang), math.sin(ang)
     w = lambda x, z: [79.9 + x * c - z * s, 92.6 + x * s + z * c]
     polys.append(([w(-5, -0.5), w(52.5, -0.5), w(52.5, 16.5), w(-5, 16.5)], 14))       # 資管系館 + flatten pad / ramp

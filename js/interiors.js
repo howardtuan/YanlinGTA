@@ -108,6 +108,8 @@ function M(key) {
     floor: () => std({ map: T.floor(), roughness: 0.6 }),
     door: () => std({ color: '#b0353c' }),
     glass: () => new THREE.MeshStandardMaterial({ color: '#9fd3e6', transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.3, depthWrite: false }),
+    // dark tinted glass (正門警衛亭)
+    tint: () => new THREE.MeshStandardMaterial({ color: '#25313a', transparent: true, opacity: 0.78, roughness: 0.06, metalness: 0.3, depthWrite: false, emissive: '#ffe2b0', emissiveIntensity: 0 }),
     metal: () => std({ color: '#8d9196', metalness: 0.7, roughness: 0.35 }),
     desk: () => std({ color: '#cfa774' }),
     chairBlue: () => std({ color: '#3f6fb5' }),
@@ -253,6 +255,29 @@ class Kit {
     for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; this.I.addWall(a[0], a[1], b[0], b[1], y0 * this.sc, y1 * this.sc); }
   }
   wallLine(x0, z0, x1, z1, y0, y1) { const a = this.w(x0, z0), b = this.w(x1, z1); this.I.addWall(a[0], a[1], b[0], b[1], y0 * this.sc, y1 * this.sc); }
+  _part(mat, g) { if (!this.parts.has(mat)) this.parts.set(mat, []); this.parts.get(mat).push(g); return g; }
+  // wall slab of thickness th along the segment (x0,z0)-(x1,z1), for walls that are not axis-aligned
+  slab(x0, z0, x1, z1, th, y0, y1, mat, o = {}) {
+    const dx = x1 - x0, dz = z1 - z0, g = new THREE.BoxGeometry(Math.hypot(dx, dz), y1 - y0, th);
+    g.rotateY(-Math.atan2(dz, dx)); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    if (o.col !== false) this.wallLine(x0, z0, x1, z1, y0, y1);
+    return this._part(mat, g);
+  }
+  cyl(x, z, r, y0, y1, mat, o = {}) {
+    const g = new THREE.CylinderGeometry(o.r1 ?? r, r, y1 - y0, o.seg || 10); g.translate(x, (y0 + y1) / 2, z);
+    if (o.col) this.wallRect(x - r, x + r, z - r, z + r, y0, y1);
+    return this._part(mat, g);
+  }
+  // vertical prism over a local polygon [[x,z]..] (own mesh: ExtrudeGeometry is not indexed);
+  // bevel rounds the top / bottom edges, inset pulls the sides in
+  prism(pts, y0, y1, mat, o = {}) {
+    const b = o.bevel || 0, sh = new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, -z)));
+    const g = new THREE.ExtrudeGeometry(sh, { depth: y1 - y0 - 2 * b, bevelEnabled: b > 0 || !!o.inset, bevelThickness: b, bevelSize: b, bevelOffset: -b - (o.inset || 0), bevelSegments: b > 0 ? 2 : 1, curveSegments: 1 });
+    g.rotateX(-Math.PI / 2); g.translate(0, y0 + b, 0);
+    const m = new THREE.Mesh(g, M(mat)); m.castShadow = o.shadow !== false; m.receiveShadow = true; this.group.add(m);
+    if (o.surface) this.I.addSurface(pts.map(([x, z]) => this.w(x, z)), y1 * this.sc);
+    return m;
+  }
   plane(tex, w, h, x, y, z, rotY = 0, o = {}) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, transparent: !!o.transparent, roughness: 0.8, emissive: o.emissive ? '#ffffff' : '#000000', emissiveMap: o.emissive ? tex : null, emissiveIntensity: o.emissive || 0, side: o.double ? THREE.DoubleSide : THREE.FrontSide }));
     m.position.set(x, y, z); m.rotation.y = rotY; this.group.add(m); return m;
@@ -1232,39 +1257,49 @@ function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
 
 // =====================================================================
 // 警衛室 (main gate on 中北路, side gates A6 and 新中北路): enterable, sit and stand guard; the 新中北路 one runs the 門禁 quest
+// (the main gate's booth is the glass kiosk of buildMainKiosk below: kiosk = MAIN_GATE)
 // =====================================================================
-function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null) {
+function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null, kiosk = null) {
   const k = new Kit(I, x, z, ang);
   const W = 3.4, D = 2.8, H = 2.8;
-  k.box(0, W, 0, 0.1, 0, D, 'floor', { col: false, surface: true });
-  // lower walls
-  k.box(0, W, 0, 1.0, 0, 0.12, 'white'); k.box(0, 0.12, 0, 1.0, 0, D, 'white'); k.box(W - 0.12, W, 0, 1.0, 0, D, 'white');
-  k.box(1.2, W, 0, 1.0, D - 0.12, D, 'white'); k.box(0, 0.25, 0, 1.0, D - 0.12, D, 'white');
-  // glass band + door opening (front, x 0.25..1.2)
-  k.box(0, W, 1.0, 2.3, 0, 0.08, 'glass'); k.box(0, 0.08, 1.0, 2.3, 0, D, 'glass'); k.box(W - 0.08, W, 1.0, 2.3, 0, D, 'glass');
-  k.box(1.2, W, 1.0, 2.3, D - 0.08, D, 'glass'); k.box(0, 0.25, 1.0, 2.3, D - 0.08, D, 'glass');
-  k.box(0, W, 2.3, H, 0, 0.12, 'white', { col: false }); k.box(0, 0.12, 2.3, H, 0, D, 'white', { col: false }); k.box(W - 0.12, W, 2.3, H, 0, D, 'white', { col: false });
-  k.box(0, W, 2.3, H, D - 0.12, D, 'white', { col: false });
-  k.box(-0.5, W + 0.5, H, H + 0.22, -0.5, D + 0.5, 'gray', { col: false });
-  for (const [px, pz] of [[0, 0], [W, 0], [0, D], [W, D]]) k.box(px - 0.06, px + 0.06, 0, H, pz - 0.06, pz + 0.06, 'metal', { col: false });
-  k.plane(T.sign('警衛室', '#1f3b73', '#ffffff', 'guard', 256, 96, 60), 1.5, 0.55, W / 2, H - 0.25, D + 0.02);
-  // desk with monitor & phone, chair
-  k.box(0.15, W - 0.15, 0.75, 0.8, 0.15, 0.75, 'desk'); k.wallRect(0.15, W - 0.15, 0.15, 0.75, 0, 0.8);
-  k.box(1.4, 2.0, 0.8, 1.2, 0.25, 0.3, 'dark', { col: false });
-  k.plane(T.cctv(), 0.56, 0.36, 1.7, 1.0, 0.31, 0, { emissive: 0.8 });
-  k.box(2.4, 2.65, 0.8, 0.86, 0.3, 0.5, 'dark', { col: false });
-  k.box(1.5, 1.95, 0.45, 0.5, 1.15, 1.6, 'dark', { col: false }); k.box(1.5, 1.95, 0.5, 1.0, 1.58, 1.62, 'dark', { col: false });
-  k.box(1.68, 1.77, 0, 0.45, 1.33, 1.42, 'metal', { col: false });
+  const booth = kiosk ? buildMainKiosk(k) : { seat: [1.72, 1.38], face: Math.PI, y0: 0, y1: H, pts: [[0, 0], [W, 0], [W, D], [0, D]] };
+  if (!kiosk) {
+    k.box(0, W, 0, 0.1, 0, D, 'floor', { col: false, surface: true });
+    // lower walls
+    k.box(0, W, 0, 1.0, 0, 0.12, 'white'); k.box(0, 0.12, 0, 1.0, 0, D, 'white'); k.box(W - 0.12, W, 0, 1.0, 0, D, 'white');
+    k.box(1.2, W, 0, 1.0, D - 0.12, D, 'white'); k.box(0, 0.25, 0, 1.0, D - 0.12, D, 'white');
+    // glass band + door opening (front, x 0.25..1.2)
+    k.box(0, W, 1.0, 2.3, 0, 0.08, 'glass'); k.box(0, 0.08, 1.0, 2.3, 0, D, 'glass'); k.box(W - 0.08, W, 1.0, 2.3, 0, D, 'glass');
+    k.box(1.2, W, 1.0, 2.3, D - 0.08, D, 'glass'); k.box(0, 0.25, 1.0, 2.3, D - 0.08, D, 'glass');
+    k.box(0, W, 2.3, H, 0, 0.12, 'white', { col: false }); k.box(0, 0.12, 2.3, H, 0, D, 'white', { col: false }); k.box(W - 0.12, W, 2.3, H, 0, D, 'white', { col: false });
+    k.box(0, W, 2.3, H, D - 0.12, D, 'white', { col: false });
+    k.box(-0.5, W + 0.5, H, H + 0.22, -0.5, D + 0.5, 'gray', { col: false });
+    for (const [px, pz] of [[0, 0], [W, 0], [0, D], [W, D]]) k.box(px - 0.06, px + 0.06, 0, H, pz - 0.06, pz + 0.06, 'metal', { col: false });
+    k.plane(T.sign('警衛室', '#1f3b73', '#ffffff', 'guard', 256, 96, 60), 1.5, 0.55, W / 2, H - 0.25, D + 0.02);
+    // desk with monitor & phone, chair
+    k.box(0.15, W - 0.15, 0.75, 0.8, 0.15, 0.75, 'desk'); k.wallRect(0.15, W - 0.15, 0.15, 0.75, 0, 0.8);
+    k.box(1.4, 2.0, 0.8, 1.2, 0.25, 0.3, 'dark', { col: false });
+    k.plane(T.cctv(), 0.56, 0.36, 1.7, 1.0, 0.31, 0, { emissive: 0.8 });
+    k.box(2.4, 2.65, 0.8, 0.86, 0.3, 0.5, 'dark', { col: false });
+    k.box(1.5, 1.95, 0.45, 0.5, 1.15, 1.6, 'dark', { col: false }); k.box(1.5, 1.95, 0.5, 1.0, 1.58, 1.62, 'dark', { col: false });
+    k.box(1.68, 1.77, 0, 0.45, 1.33, 1.42, 'metal', { col: false });
+  }
   // boom barriers. Each one pivots on a post next to the booth and points straight across its lane
   // (local -z or +z: the booth's x axis runs along the road). Rz lifts the bar, Ry turns it across.
   const barCv = ctex('bar', 128, 16, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#fff' : '#d0151f'; g.fillRect(i * 16, 0, 16, 16); } }, true);
   const barMat = new THREE.MeshStandardMaterial({ map: barCv }); barCv.repeat.set(3, 1);
   const hinges = [];
-  const boom = (lx, lz, dir, L) => {
+  const boom = (lx, lz, dir, L, o = {}) => {
     const arm = new THREE.Group();
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), M('gray')); post.position.set(0, 0.55, 0);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 0.3), M(o.post || 'gray')); post.position.set(0, 0.55, 0);
     const bar = new THREE.Mesh(new THREE.BoxGeometry(L, 0.1, 0.1), barMat); bar.position.set(L / 2, 0, 0);
     const hinge = new THREE.Group(); hinge.position.set(0, 1.0, 0); hinge.add(bar); hinge.rotation.y = dir < 0 ? Math.PI / 2 : -Math.PI / 2;
+    // warning signs hanging under the bar, readable from both sides (正門: 減速慢行, 20)
+    (o.signs || []).forEach((t, i) => {
+      const round = t === '20', sw = round ? 0.42 : 0.7, sh = round ? 0.42 : 0.26;
+      const g = mergeGeometries([0, Math.PI].map(side => new THREE.PlaneGeometry(sw, sh).rotateY(side).translate(0, 0, side ? -0.056 : 0.056)), false);
+      const m = new THREE.Mesh(g, gateSignMat(t)); m.position.set(L * (0.45 + i * 0.22), -0.05 - sh / 2, 0); hinge.add(m);
+    });
     arm.add(post, hinge); arm.position.set(lx, 0, lz); k.group.add(arm);
     hinges.push({ hinge, at: k.w(lx, lz + dir * L / 2) });
   };
@@ -1284,19 +1319,19 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
     k.plane(sg, span, 0.62, gx - 0.26, 4.35, (zNear + zFar) / 2, -Math.PI / 2);
   } else if (lanes) {
     // main gate: the booth sits on the island between the in and out lanes -> one boom across each
-    for (const ln of lanes) boom(ln.dir < 0 ? W + 0.5 : -0.5, ln.from, ln.dir, ln.len);
+    for (const ln of lanes) boom(ln.x ?? (ln.dir < 0 ? W + 0.5 : -0.5), ln.from, ln.dir, ln.len, ln);
   } else boom(W + 0.8, D + 0.8, 1, 5);
   k.finish(scene);
-  I.zones.push({ name, pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.3 });
-  const seat = k.w(1.72, 1.38);
+  I.zones.push({ name, pts: booth.pts.map(([px, pz]) => k.w(px, pz)), y0: booth.y0, y1: booth.y1, ceil: () => booth.y1 - 0.3 });
+  const seat = k.w(...booth.seat);
   let duty = 0, dutyVotes = 0;
   I.actions.push({
-    x: seat[0], z: seat[1], r: 1.1, y: 0,
+    x: seat[0], z: seat[1], r: 1.1, y: booth.y0,
     label: (g) => g.player.seat ? '按 <kbd>E</kbd> 起身' : gateOpt?.quest ? '按 <kbd>E</kbd> 坐下值班：🚧 新中北路側門門禁「別讓怪人進來」' : '按 <kbd>E</kbd> 坐下值班',
     fn: (g) => {
       if (g.player.seat) { g.player.standUp(); g.hud.toast('下班囉', 'good', 1000); return; }
       if (gate && g.gate) { g.player.sitAt(seat[0], seat[1], k.heading(Math.PI)); g.gate.start(gate); return; }
-      g.player.sitAt(seat[0], seat[1], k.heading(Math.PI)); // face the desk/window (-z local)
+      g.player.sitAt(seat[0], seat[1], k.heading(booth.face)); // face the desk/window (-z local; the kiosk: -x)
       g.hud.toast('👮 值班中…同學經過會跟你打招呼', 'good', 2200);
     },
   });
@@ -1700,6 +1735,144 @@ function buildYanlinHome(I, scene) {
   return { k, door: doorAt, room: k.w(2, 2.5), setWardrobe: (o) => { wTarget = o ? 1 : 0; } };
 }
 
+// =====================================================================
+// 正門 (中北路): 警衛亭 on the island between the two one-way lanes; enterable, sit and stand guard
+// (GUARD_SPECS[0] -> buildGuardhouse with kiosk = MAIN_GATE).
+// Google 街景 2017-09 / 2022-08 / 2024-08: a ~3 x 3 m kiosk, rounded front of dark glass toward
+// 中北路 over a white-grey dado, an overhanging roof slab with a green roof, on a low kerbed island;
+// a clipped-hedge planter with a card reader on the island nose, a CCTV lamp post, a boom across
+// each lane at the OSM barrier=lift_gate nodes, yellow-and-white bollards along the exit lane, and the
+// name wall's kerbed lawn (js/map.js draws the wall and the spire from MAIN_GATE.wall / spire).
+// =====================================================================
+// NOTE: tools/build_terrain.py flattens the terrain under the island and the lawn from a copy of
+// these numbers; after changing them, sync it and rerun the script.
+export const MAIN_GATE = {
+  // kiosk centre; local +x runs ENE along the island (mean heading of the two lanes), +z toward the entry lane
+  x: -201.2, z: 82.25, ang: Math.atan2(-2.25, 5.2), name: '正門警衛室',
+  // OSM node where 中北路 ends at the gate; both one-way lanes start / end there (js/map.js paves them)
+  streetNode: 286745347,
+  // island outline (local, ~8 m long), >= 5 cm inside both 4.2 m lanes
+  island: [[-4.9, 0], [-4, -0.8], [-3, -1.55], [-2.4, -2], [-1.8, -2.05], [2.6, -2.05], [3.1, -1.8], [3.35, -1.2], [3.35, 1.2], [3.1, 1.8],
+    [2.6, 2.1], [-2, 2.05], [-2.5, 2], [-3, 1.65], [-4, 0.8]],
+  // buildGuardhouse lanes: one boom per lane on the OSM barrier=lift_gate nodes, exit lane (-200.7,77.3)
+  // and entry lane (-197.1,85.2). x / from: post (local; the exit lane's on the island, the entry lane's on
+  // the far kerb), dir: arm toward -z / +z, len: arm length; yellow housings and warning signs on the arms
+  lanes: [
+    { x: 2.42, from: -1.88, dir: -1, len: 4.6, post: '#e8b922', signs: ['減速慢行'] },
+    { x: 2.59, from: 6.75, dir: -1, len: 4.6, post: '#e8b922', signs: ['減速慢行', '20'] },
+  ],
+  // bollards along the far edge of the exit lane (local), ~(-206.6,77.2) to (-199.6,74.4)
+  bollards: [-2.9, -1.96, -1.02, -0.08, 0.86, 1.8, 2.74, 3.68, 4.62].map(x => [x, x < 2.71 ? -6.79 : -6.77 + (x - 2.71) * 0.12]),
+  // world: black granite 校名牆 (axis ESE, faces SSW toward 中北路) on a kerbed lawn (wall-local
+  // polygon), twisted stainless spire just off its west end
+  wall: { x: -205.2, z: 73.0, ang: 0.35, W: 6, H: 2.9, D: 1.5, lawn: [[-5, -1.4], [3.6, -1.4], [3.6, 1.2], [-5, 2.4]] },
+  spire: { x: -209.2, z: 73.0, h: 12.2 },
+  // world: forecourt pavers between the grate, the exit lane's outer edge and the lawn (the lanes and the
+  // end of 中北路 are paved by js/map.js); ±3 m, Google 衛星圖 / 街景 2024-08 heading 30-40
+  forecourt: [[-216, 80], [-213.4, 71.6], [-209.6, 70.9], [-202, 74.9], [-201.56, 75.38], [-206.46, 77.58], [-207.39, 78.41], [-210.99, 84.31], [-212.68, 84.8]],
+};
+const gateFrame = (s) => { const c = Math.cos(s.ang), sn = Math.sin(s.ang); return (x, z) => [s.x + x * c - z * sn, s.z + x * sn + z * c]; };
+// reserved footprints (js/main.js): trees, furniture and spawns keep off the island and the lawn
+export function mainGateFootprint() { const w = gateFrame(MAIN_GATE); return MAIN_GATE.island.map(([x, z]) => w(x, z)); }
+export function mainGateLawn() { const w = gateFrame(MAIN_GATE.wall); return MAIN_GATE.wall.lawn.map(([x, z]) => w(x, z)); }
+// keep-clear spots for street furniture: boom posts and arms, bollards
+export function mainGateKeep() {
+  const w = gateFrame(MAIN_GATE), out = [];
+  for (const ln of MAIN_GATE.lanes) {
+    const [px, pz] = w(ln.x, ln.from), [mx, mz] = w(ln.x, ln.from + ln.dir * ln.len / 2);
+    out.push({ x: px, z: pz, r: 1.5 }, { x: mx, z: mz, r: ln.len / 2 + 1 });
+  }
+  for (const [x, z] of MAIN_GATE.bollards) { const [bx, bz] = w(x, z); out.push({ x: bx, z: bz, r: 0.8 }); }
+  return out;
+}
+
+const GATE_SIGN_MATS = {};
+const gateSignMat = (t) => GATE_SIGN_MATS[t] ||= new THREE.MeshStandardMaterial({ map: gateSign(t), roughness: 0.6, transparent: t === '20' });
+function gateSign(text) {
+  if (text === '20') return ctex('gate20', 128, 128, (g) => {
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#d0151f'; g.lineWidth = 14; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#111'; g.font = font(58); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('20', 64, 68);
+  }, false);
+  return T.sign(text, '#ffd23f', '#d0151f', 'gate' + text, 256, 96, 62);
+}
+
+// the 正門 kiosk on its island (buildGuardhouse adds the lane booms, the seat action and duty votes);
+// k is the kiosk frame (MAIN_GATE). Returns the seat (local), the way the guard faces, the room outline.
+function buildMainKiosk(k) {
+  const G = MAIN_GATE;
+  const ISL = 0.15, Y0 = ISL + 0.1, DADO = ISL + 0.7, TOP = ISL + 2.75;
+  // island (walkable) + clipped-hedge planter on its nose
+  k.prism(G.island, -0.3, ISL, '#a8a59d', { surface: true, shadow: false });
+  const planter = [[-4.45, 0], [-4.25, -0.35], [-3.6, -0.72], [-2.8, -1.12], [-2.1, -1.45], [-1.95, -1.3], [-1.95, 1.3], [-2.1, 1.45], [-2.8, 1.12], [-3.6, 0.72], [-4.25, 0.35]];
+  k.prism(planter, ISL, ISL + 0.2, '#a9a69e', { shadow: false });
+  k.prism(planter, ISL + 0.2, ISL + 1.0, '#3c6a2e', { bevel: 0.12, inset: 0.08 });
+  planter.forEach((p, i) => k.wallLine(...p, ...planter[(i + 1) % planter.length], 0, ISL + 1.0));
+  // card reader at the planter's exit-lane corner
+  k.box(-2.75, -2.35, ISL, ISL + 0.12, -1.7, -1.3, '#e8e8e4');
+  k.box(-2.69, -2.41, ISL + 0.12, ISL + 1.3, -1.64, -1.36, '#f2f2ee');
+  k.box(-2.76, -2.7, ISL + 0.9, ISL + 1.15, -1.6, -1.4, 'dark', { col: false });
+
+  // kiosk: half-round front (-x) toward 中北路, straight back with the door (+x) toward the campus
+  const R = 1.45, CX = -0.15, BX = 1.6, DOOR = 0.45;
+  const plan = (o) => {
+    const p = [[BX + o, R + o]];
+    for (let i = 0; i <= 8; i++) { const a = Math.PI / 2 + i / 8 * Math.PI; p.push([CX + Math.cos(a) * (R + o), Math.sin(a) * (R + o)]); }
+    p.push([BX + o, -R - o]); return p;
+  };
+  k.prism(plan(0), ISL, Y0, 'floor', { surface: true, shadow: false });
+  const wl = plan(-0.06);
+  const wallRun = (a, b) => {
+    k.slab(...a, ...b, 0.12, ISL, DADO, '#dcdad3');
+    k.slab(...a, ...b, 0.14, DADO - 0.04, DADO, 'metal', { col: false }); // sill
+    k.slab(...a, ...b, 0.03, DADO, TOP, 'tint');
+  };
+  for (let i = 0; i < wl.length - 1; i++) wallRun(wl[i], wl[i + 1]);
+  const bx = BX - 0.06, bz = R - 0.06;
+  wallRun([bx, -bz], [bx, -DOOR]); wallRun([bx, DOOR], [bx, bz]);
+  k.slab(bx, -DOOR, bx, DOOR, 0.12, ISL + 2.25, TOP, 'metal', { col: false }); // over the door
+  for (const [x, z] of [...wl, [bx, -DOOR], [bx, DOOR]]) k.box(x - 0.035, x + 0.035, ISL, TOP, z - 0.035, z + 0.035, 'metal', { col: false });
+  // roof slab with a green roof
+  k.prism(plan(0.3), TOP, TOP + 0.22, '#e4e2dc');
+  k.prism(plan(0.18), TOP + 0.22, TOP + 0.36, '#4a6b35', { bevel: 0.05 });
+  {
+    // low shrub tufts of a few sizes and tones (no shared RNG: fixed per tuft)
+    const tufts = [[-1.2, 0.3], [-0.6, -0.8], [-0.3, 0.9], [0.5, -0.2], [0.9, 0.95], [1.2, -1.0], [-1.0, -0.4], [0.2, 0.5], [-1.45, -0.95], [1.35, 0.25], [-0.2, -1.2], [0.75, -0.75]];
+    const tone = ['#3f6230', '#4b6d36', '#56733a'];
+    for (let t = 0; t < 3; t++) {
+      const geo = mergeGeometries(tufts.filter((_, i) => i % 3 === t).map(([x, z], i) => new THREE.IcosahedronGeometry(0.22 + ((i + t) % 4) * 0.05, 1).scale(1.1 + (i % 2) * 0.25, 0.42 + t * 0.06, 0.9).rotateY(i + t).translate(x, TOP + 0.38, z)), false);
+      const m = new THREE.Mesh(geo, M(tone[t])); m.castShadow = true; k.group.add(m);
+    }
+  }
+  k.box(0.2, 1.0, TOP - 0.04, TOP, -0.25, 0.25, 'light', { col: false });
+  // lit at night: the tinted glass glows warm from the ceiling light (as the real kiosk does)
+  const tint = M('tint');
+  k.I.updaters.push((dt, g) => { tint.emissiveIntensity = (g.night || 0) * 0.32; });
+  k.plane(T.sign('警衛室', '#1f3b73', '#ffffff', 'guard', 256, 96, 60), 0.9, 0.34, BX + 0.03, ISL + 2.5, 0, Math.PI / 2);
+  // desk under the front window with CCTV monitor and phone; the guard faces 中北路
+  k.box(-1.05, -0.45, Y0 + 0.72, Y0 + 0.77, -0.85, 0.85, 'desk', { col: false });
+  k.box(-1.05, -0.45, Y0, Y0 + 0.72, -0.85, -0.8, 'metal', { col: false }); k.box(-1.05, -0.45, Y0, Y0 + 0.72, 0.8, 0.85, 'metal', { col: false });
+  k.wallRect(-1.05, -0.45, -0.85, 0.85, Y0, Y0 + 0.77);
+  k.box(-0.95, -0.9, Y0 + 0.77, Y0 + 1.17, -0.32, 0.32, 'dark', { col: false });
+  k.plane(T.cctv(), 0.56, 0.36, -0.885, Y0 + 0.97, 0, Math.PI / 2, { emissive: 0.8 });
+  k.box(-0.8, -0.6, Y0 + 0.77, Y0 + 0.83, 0.45, 0.7, 'dark', { col: false });
+  k.box(-0.18, 0.24, Y0 + 0.45, Y0 + 0.5, -0.22, 0.22, 'dark', { col: false }); k.box(0.22, 0.26, Y0 + 0.5, Y0 + 1.0, -0.22, 0.22, 'dark', { col: false });
+  k.cyl(0.03, 0, 0.04, Y0, Y0 + 0.45, 'metal');
+  // CCTV lamp post on the exit-lane side, two thin masts behind the kiosk
+  k.cyl(-0.75, -1.75, 0.1, ISL, ISL + 8.5, '#dcdcd6', { r1: 0.07, col: true });
+  for (const [a, h] of [[0.6, 4.6], [2.6, 4.9], [-1.6, 5.2]]) k.slab(-0.75, -1.75, -0.75 + Math.cos(a) * 0.35, -1.75 + Math.sin(a) * 0.35, 0.16, ISL + h, ISL + h + 0.18, 'dark', { col: false });
+  k.box(-0.8, 0.3, ISL + 8.4, ISL + 8.5, -1.8, -1.7, '#dcdcd6', { col: false });
+  k.box(0.0, 0.5, ISL + 8.3, ISL + 8.42, -1.85, -1.65, 'light', { col: false });
+  for (const z of [-1.0, 1.0]) k.cyl(2.6, z, 0.04, ISL, ISL + 7, '#d9d9d4', { col: true });
+  // bollards: white with a yellow head
+  for (const [x, z] of G.bollards) { k.cyl(x, z, 0.09, -0.2, 0.75, '#f0f0ec', { col: true }); k.cyl(x, z, 0.095, 0.75, 0.92, '#f2c230'); }
+  // the name wall's lawn: grey kerb, grass on top (walkable)
+  const lawn = mainGateLawn().map(([x, z]) => k.l(x, z));
+  k.prism(lawn, -0.3, 0.13, '#a9a69e', { shadow: false });
+  k.prism(lawn, 0.13, 0.16, '#5f8a3e', { inset: 0.14, shadow: false, surface: true });
+  return { seat: [0.05, 0], face: -Math.PI / 2, y0: Y0, y1: TOP, pts: plan(0) }; // face the desk and the front window (-x local)
+}
+
 // ---------------- entry point ----------------
 export function nearestRoadDir(data, x, z) {
   let best = null, bd = 1e9;
@@ -1713,8 +1886,8 @@ export function nearestRoadDir(data, x, z) {
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const GUARD_SPECS = (data) => {
   // main gate: replace OSM 警衛室 (中北路 正門); side gate: A6 校門
-  // 正門: booth on the island between the two one-way lanes of 中北路 (local -z: lane up to 4.6 m out, local +z: lane 4.6-8.8 m)
-  const out = [{ x: -201.2, z: 79.6, ang: Math.atan2(78.1 - 79.7, -195.6 + 200.0), name: '正門警衛室', lanes: [{ from: -0.25, dir: -1, len: 5.0 }, { from: 3.4, dir: 1, len: 5.8 }] }];
+  // 正門: glass kiosk on the island between the two one-way lanes of 中北路, one boom per lane (MAIN_GATE)
+  const out = [{ ...MAIN_GATE, main: true }];
   const a6 = data.pois.find(p => p.name === 'A6校門') || { x: 128.4, z: -14.5 };
   const r = nearestRoadDir(data, a6.x, a6.z);
   const nx = -Math.sin(r.ang), nz = Math.cos(r.ang), off = r.w / 2 + 2.2;
@@ -1730,6 +1903,7 @@ export const GUARD_SPECS = (data) => {
   return out;
 };
 export function guardFootprint(s) {
+  if (s.main) return mainGateFootprint();
   const c = Math.cos(s.ang), sn = Math.sin(s.ang); const w = (x, z) => [s.x + x * c - z * sn, s.z + x * sn + z * c];
   return [w(-0.6, -0.6), w(5, -0.6), w(5, 3.8), w(-0.6, 3.8)];
 }
@@ -1739,7 +1913,7 @@ export function buildInteriors(scene, data, collision) {
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene);
   I.yh = buildYanlinHome(I, scene);
-  for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null);
+  for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;
   return I;

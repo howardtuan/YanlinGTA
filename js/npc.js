@@ -72,7 +72,7 @@ export class Traffic {
       // avoid stacking
       if (this.agents.some(o => o !== v && !o.ai.dormant && Math.hypot(o.pos.x - n.x, o.pos.z - n.z) < 12)) continue;
       Object.assign(v.ai, { from: n, edge: e, to: e.to, d: 0, len: Math.hypot(e.to.x - n.x, e.to.z - n.z) || 1, dormant: false, stunned: 0, wreck: 0, ox: 0, oz: 0,
-        pv: null, lat: 0, latT: 0, stuckT: 0, passT: 0, passObj: null, blocker: null, ignore: null, ignoreT: 0, turnT: 0, thPrev: null, uturns: 0 });
+        pv: null, lat: 0, latT: 0, stuckT: 0, passT: 0, passObj: null, blocker: null, ignore: null, ignoreT: 0, turnT: 0, thPrev: null, uturns: 0, bStillT: 0, bObj: null, backing: false, qx: undefined });
       this._enter(v);
       v.knocked = false; v.fallen = false; v.lean = 0; if (v.rider) { this._riderHome(v); v.rider.root.visible = true; } // a recycled wreck
       v.hf = v.hb = e.road.deck ? Infinity : undefined; // spawned on a viaduct: start on its deck
@@ -135,26 +135,42 @@ export class Traffic {
     const wv = a.weave * Math.sin(this.time * 0.45 + a.ph) * Math.min(1, Math.abs(v.speed) / 4);
     const lat = a.lat + wv;
     x += -tz * lat; z += tx * lat;
-    // back on the lane after being thrown (landed()) or turning back: from where it was, eased in instead of a jump
-    if (a.ox || a.oz) {
-      x += a.ox; z += a.oz;
-      const e = Math.exp(-dt * 1.5); a.ox *= e; a.oz *= e;
-      if (Math.hypot(a.ox, a.oz) < 0.02) a.ox = a.oz = 0;
-    }
-    // facing: along the path, turned a little toward a sideways move
+    // where it should be (px, pz) and which way that spot is moving (th): along the path, swung toward a sideways move
     let th = Math.atan2(tx, tz);
-    if (dt > 0) {
-      const lv = (lat - (a.latPrev ?? lat)) / dt;
-      th += Math.atan2(lv, Math.max(2, Math.abs(v.speed))) * 0.8;
+    if (dt > 0 && a.qx !== undefined) {
+      const mx = x - a.qx, mz = z - a.qz;
+      if (Math.hypot(mx, mz) > 0.002) th = Math.atan2(mx, mz) + (v.speed < -0.05 ? Math.PI : 0); // backing up: facing away from the move
+      else if (a.thT !== undefined) th = a.thT;
     }
-    a.latPrev = lat;
-    v.pos.set(x, 0, z);
-    const rate = a.turnT > 0 ? 2.2 : 8, maxYaw = (v.kind === 'scooter' ? 3.5 : 2.6) * dt; // no snapping round
-    const dh = angDiff(th, v.heading) * Math.min(1, dt * rate);
-    v.heading += dt === 0 ? angDiff(th, v.heading) : Math.max(-maxYaw, Math.min(maxYaw, dh));
+    a.qx = x; a.qz = z; a.thT = th;
+    if (dt === 0) { v.heading = th; a.ox = a.oz = 0; a.thPrev = th; v.pos.set(x, 0, z); v.sync(0); return; }
+    // it drives like a car: it turns only while it moves (no tighter than its turning circle) and moves only
+    // about the way it faces; what it cannot follow is kept as an offset from its spot (ox, oz) that it
+    // steers away as it drives on (also where it was thrown to (landed()) or turned back (_uturn()))
+    const ds = Math.abs(v.speed) * dt, sc = v.kind === 'scooter';
+    const maxYaw = Math.min(sc ? 3.5 : 2.6, Math.abs(v.speed) / (sc ? 1.8 : 3.2) + (a.turnT > 0 ? 0.35 : 0)) * dt;
+    if (a.ox || a.oz) {
+      const e = Math.exp(-ds / (sc ? 3 : 5)); a.ox *= e; a.oz *= e;
+      if (Math.hypot(a.ox, a.oz) < 0.02) a.ox = a.oz = 0;
+      // steer back toward its spot
+      const fx0 = Math.sin(th), fz0 = Math.cos(th), side = -a.ox * fz0 + a.oz * fx0;
+      th += Math.max(-0.6, Math.min(0.6, side * 0.35)); // (a larger heading turns it to the right, away from a spot on its left)
+    }
+    const dh = angDiff(th, v.heading) * Math.min(1, dt * 8);
+    v.heading += Math.max(-maxYaw, Math.min(maxYaw, dh));
+    const hx = Math.sin(v.heading), hz = Math.cos(v.heading);
+    let mx = x + a.ox - v.pos.x, mz = z + a.oz - v.pos.z;
+    const fw = mx * hx + mz * hz, s = mx * hz - mz * hx, sMax = Math.abs(fw) * (sc ? 0.1 : 0.06) + 0.005 * dt;
+    if (Math.abs(s) > sMax) {
+      const cut = s - Math.sign(s) * sMax; // the sideways part it cannot do now
+      mx -= cut * hz; mz += cut * hx; a.ox -= cut * hz; a.oz += cut * hx;
+    }
+    // too far off (stuck against its own turning circle): put it on its spot when you cannot see it
+    if (Math.hypot(a.ox, a.oz) > 14 && !this.inView(v.pos)) { a.ox = a.oz = 0; mx = x - v.pos.x; mz = z - v.pos.z; v.heading = th; }
+    v.pos.set(v.pos.x + mx, 0, v.pos.z + mz);
     // steer from how fast it is turning (scooters lean into corners)
-    const yaw = dt > 0 && a.thPrev !== null ? angDiff(th, a.thPrev) / dt : 0;
-    a.thPrev = th;
+    const yaw = a.thPrev !== null ? angDiff(v.heading, a.thPrev) / dt : 0;
+    a.thPrev = v.heading;
     v.steer += (Math.max(-1, Math.min(1, yaw * 0.6)) - v.steer) * Math.min(1, dt * 6);
     v.sync(dt);
   }
@@ -181,7 +197,7 @@ export class Traffic {
     const okL = left >= minL, okR = right <= maxR && v.kind === 'scooter';
     if (!okL && !okR) return false;
     a.latT = okR && (!okL || Math.abs(right) < Math.abs(left)) ? right : left;
-    a.passT = 8; a.passObj = o;
+    a.passT = 8; a.passObj = o; a.revD = 0; a.backing = false; a.passGap = 99; a.passClr = 99;
     return true;
   }
   // turn back along the edge it is on (two-way roads only)
@@ -190,7 +206,7 @@ export class Traffic {
     const rev = a.to.adj.find(e => e.drive && e.to === a.from && e.road === a.edge.road);
     if (!rev) return false;
     const x0 = v.pos.x, z0 = v.pos.z;
-    Object.assign(a, { from: a.to, to: a.from, edge: rev, d: Math.max(0, a.len - a.d), pv: null, lat: 0, latT: 0, passT: 0, passObj: null, ox: 0, oz: 0, turnT: 1.6, latPrev: undefined });
+    Object.assign(a, { from: a.to, to: a.from, edge: rev, d: Math.max(0, a.len - a.d), pv: null, lat: 0, latT: 0, passT: 0, passObj: null, ox: 0, oz: 0, turnT: 1.6, qx: undefined, backing: false, bStillT: 0 });
     this._enter(v);
     const [x, z] = lanePt(a.from, a.to, a.len, a.d, this._lane(v));
     a.ox = x0 - x; a.oz = z0 - z; // eased from where it is (_place)
@@ -235,6 +251,12 @@ export class Traffic {
         if (oh !== undefined && Math.cos(oh - v.heading) < -0.3 && side > 0.6) return; // oncoming, in the other lane
         if (side > r + margin) return;
         const g = ahead - r - v.radius;
+        // swinging out around it: it is in the way only if it is still in the way once it is out there
+        if (o === a.passObj) {
+          const sl = -dx * fz + dz * fx, clr = Math.abs(sl - (a.latT - a.lat));
+          a.passGap = g; a.passClr = Math.abs(sl) - r - v.hw;
+          if (clr > r + v.hw + 0.3) return;
+        }
         if (g < blocked) { blocked = g; blocker = o; }
       };
       const vm = v.hw + 0.4;
@@ -243,6 +265,12 @@ export class Traffic {
       for (const o of player.extraObstacles || []) check(o, o.pos.x, o.pos.z, o.radius, o.mesh.position.y, o.heading, vm);
       for (const q of peds) if (!q.dormant && q.state !== 'fly') check(q, q.pos.x, q.pos.z, 0.3, q.y ?? 0, undefined, v.hw + 0.35, 12);
       a.blocker = blocker;
+      // what is ahead stands still (a stopped car, a wreck, you standing there): plan to go round it early,
+      // while there is still room to steer out
+      if (blocker && blocker === a.bObj && Math.hypot(blocker.pos.x - a.bx, blocker.pos.z - a.bz) < 0.3 * dt) a.bStillT += dt;
+      else a.bStillT = 0;
+      a.bObj = blocker; if (blocker) { a.bx = blocker.pos.x; a.bz = blocker.pos.z; }
+      if (blocker && a.passT <= 0 && a.bStillT > 0.6 + a.patience * 0.4 && blocked < 16 && (!blocker.ai || blocker.ai.wreck > 0 || blocker.ai.stuckT > 1)) this._pass(v, blocker);
       // two that wait for each other (crossing at a junction): the higher id goes first, the other keeps waiting;
       // head on in one lane: the higher id swings out
       if (blocker && blocker.ai && blocker.ai.blocker === v && a.id > blocker.ai.id) {
@@ -261,16 +289,23 @@ export class Traffic {
         const o = a.passObj;
         const oa = o ? (o.pos.x - v.pos.x) * fx + (o.pos.z - v.pos.z) * fz : -99;
         const gone = !o || o.ai?.dormant || o.dormant || oa < -((o.radius || 0.5) + v.radius + 1);
-        if (gone || (a.passT <= 0 && Math.abs(oa) > (o.radius || 0.5) + v.radius + 1)) { a.passT = 0; a.passObj = null; a.latT = 0; }
-        else { if (a.passT <= 0) a.passT = 1; want = Math.min(want, 6); if (blocked > 0.4) want = Math.max(want, 1.2); }
+        if (gone || (a.passT <= 0 && Math.abs(oa) > (o.radius || 0.5) + v.radius + 1)) { a.passT = 0; a.passObj = null; a.latT = 0; a.backing = false; }
+        else {
+          if (a.passT <= 0) a.passT = 1;
+          want = Math.min(want, 4); if (blocked > 0.4) want = Math.max(want, 1.5);
+          // too close to steer out in time: back up a few metres first
+          if (a.passObj === o && a.passGap < 1 && a.passClr < 0.3 && (a.revD || 0) < 5) a.backing = true;
+          if (a.backing) { if ((a.revD || 0) >= 5 || a.passGap > 4.5) a.backing = false; else want = -1.6; }
+          if (v.speed < 0) a.revD = (a.revD || 0) - v.speed * dt;
+        }
       }
       // sideways: as fast as it moves along (a stopped car does not slide sideways)
-      // (swinging out to pass: a steady sidestep, it creeps forward meanwhile)
-      { const dl = a.latT - a.lat, mx = (a.passT > 0 ? 0.9 : 0.15 + Math.abs(v.speed) * 0.3) * dt; a.lat += Math.max(-mx, Math.min(mx, dl)); }
+      // (swinging out to pass: a sharper sidestep while it creeps forward)
+      if (v.speed >= 0) { const dl = a.latT - a.lat, mx = (0.05 + v.speed * (a.passT > 0 ? 0.6 : 0.3)) * dt; a.lat += Math.max(-mx, Math.min(mx, dl)); }
       const brake = blocked < 4 ? 14 : 8;
       v.speed += Math.max(-brake * dt, Math.min(a.acc * dt, want - v.speed));
       // stuck behind something: honk (if you are around), swing out, turn back, and at last be recycled
-      const stuck = blocker && v.speed < 0.6 && want < 1;
+      const stuck = blocker && !a.backing && v.speed < 0.6 && want < 1;
       if (stuck) a.stuckT += dt; else a.stuckT = Math.max(0, a.stuckT - dt * 2);
       if (stuck && a.stuckT > 1.5 + a.patience && dPl < 25 && a.honkT <= 0) {
         audio && audio.horn(v.kind === 'scooter' ? 1.35 : 1, Math.max(0.15, 1 - dPl / 25)); a.honkT = 3 + this.rnd() * 3;
@@ -283,7 +318,7 @@ export class Traffic {
         else a.stuckT = 2.5 + a.patience - 0.5; // in sight: keep trying to get around
       }
       a.waitT = stuck ? a.waitT + dt : 0;
-      a.d += Math.max(0, v.speed) * dt;
+      a.d = Math.max(0, a.d + v.speed * dt); // (backing up only while swinging out to pass)
       while (!a.dormant && a.d >= a.len) this._next(v);
       if (!a.dormant) this._place(v, dt);
       v.mesh.visible = !a.dormant && dPl < 230 * (this.viewK ?? 1); // viewK: shorter on lower quality (main.js _applyQuality)
@@ -300,7 +335,7 @@ export class Traffic {
     if (!v.fallen && upY > 0.8 && along > -2 && along < l + 2 && Math.abs(side - lane) < 2.5 && Math.abs(angDiff(th, v.heading)) < 0.9) {
       a.d = Math.max(0, Math.min(l, along)); a.stunned = 1.5; v.speed = 0; a.wreck = 0;
       // where it is against its lane spot: _place eases that away once it drives on
-      const k = a.d / l; a.ox = p.x - (f.x + dx * k - dz / l * lane); a.oz = p.z - (f.z + dz * k + dx / l * lane);
+      const k = a.d / l; a.ox = p.x - (f.x + dx * k - dz / l * lane); a.oz = p.z - (f.z + dz * k + dx / l * lane); a.qx = undefined;
       if (v.rider && v.rider.lieT === undefined) v.rider.root.visible = true; // (a thrown rider gets back on when it is up, _riderTick)
     } else { a.wreck = 20; v.speed = 0; }
   }

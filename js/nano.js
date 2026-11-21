@@ -126,7 +126,9 @@ export const Nano = {
     const sys = `${BASE}\n\n你扮演：${C.group ? `群組「${C.name}」裡的其他成員` : `「${C.name}」（${C.sub || '家人'}）`}。\n${PERSONA[C.id] || ''}\n` +
       (C.group ? `replies 每則的 who 要填發言人名字（${members.join('、')}之一）。` : `replies 每則的 who 填「${C.name}」。`);
     st.members = members;
+    this.active = (this.active || 0) + 1; // creating it (the model may be loading) also gets the GPU (main.js)
     st.session = this._create({ initialPrompts: [{ role: 'system', content: sys }] }).catch(e => { st.session = null; throw e; });
+    st.session.finally(() => this.active--).catch(() => { });
     return st.session;
   },
   // new Peachgram caption + Pcard post for the half-hourly feed refresh (fresh session each time)
@@ -149,11 +151,13 @@ export const Nano = {
   // signal: aborting it stops the generation for real (the model works on one prompt at a time, so an answer nobody
   // wants any more would otherwise hold up the next one). `active` counts replies in progress (main.js draws the game
   // at a low frame rate meanwhile, leaving the GPU to the model).
-  async reply(st, text, signal) {
+  // onReplies(replies): called as soon as the replies part of the answer is out, before the two options for you are
+  // written (measured in a game tab: replies done ~2.5 s, whole answer ~4 s); the returned value then has early: true.
+  async reply(st, text, signal, onReplies) {
     this.active = (this.active || 0) + 1;
-    try { return await this._reply(st, text, signal); } finally { this.active--; }
+    try { return await this._reply(st, text, signal, onReplies); } finally { this.active--; }
   },
-  async _reply(st, text, signal) {
+  async _reply(st, text, signal, onReplies) {
     const SESSION_MS = 40000, PROMPT_MS = 25000, T = performance.now();
     const within = (p, ms, onLate) => new Promise((res, rej) => {
       const id = setTimeout(() => { onLate?.(); rej(new Error('timeout')); }, ms);
@@ -175,43 +179,61 @@ export const Nano = {
     const sch = schema(C.group, members);
     if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
     const t0 = performance.now();
-    // one fresh clone per prompt (see sessionFor); aborted and destroyed when it runs over. Streamed, so a reply that
-    // runs away (the model repeating itself) is cut off at MAX_CHARS right away instead of after the whole time limit.
-    const MAX_CHARS = 600;
+    // one fresh clone per prompt (see sessionFor); aborted and destroyed when it runs over. Streamed, so:
+    // - a reply that runs away (the model repeating itself) is cut off at MAX_CHARS right away;
+    // - a prompt that gets stuck (no first word within STUCK_MS, or no new words for STUCK_MS; measured: the first
+    //   words normally come within ~1 s, but now and then a prompt never answers at all) is dropped and asked again
+    //   on a fresh clone, once, instead of waiting out the whole time limit;
+    // - the replies are handed to onReplies as soon as they are complete.
+    const MAX_CHARS = 600, STUCK_MS = 6000;
+    const norm = (list) => list.slice(0, 3).map(r => {
+      const t = clip(typeof r === 'string' ? r : r?.text, 80);
+      const who = C.group ? (members.includes(r?.who) ? r.who : members[Math.floor(Math.random() * members.length)]) : C.id;
+      return { who, text: t };
+    }).filter(r => r.text);
+    let early = false;
     const ask = async (opts) => {
       const c = await base.clone(), ac = new AbortController(), stop = () => ac.abort();
       signal?.addEventListener('abort', stop);
+      let last = performance.now(), stuck = false;
+      const dog = setInterval(() => { if (performance.now() - last > STUCK_MS) { stuck = true; ac.abort(); } }, 500);
       const run = async () => {
         if (!c.promptStreaming) return c.prompt(q, { ...opts, signal: ac.signal });
         let acc = '';
         for await (const ch of c.promptStreaming(q, { ...opts, signal: ac.signal })) {
+          last = performance.now();
           acc = acc && ch.length > acc.length && ch.startsWith(acc) ? ch : acc + ch; // older builds stream the whole text so far (always longer), newer ones just the new part (may repeat itself)
           if (acc.length > MAX_CHARS) { ac.abort(); throw new Error('runaway'); }
+          if (!early && onReplies) {
+            const k = acc.indexOf('"options"');
+            if (k > 0) { const head = parse(acc.slice(0, k).replace(/,\s*$/, '') + '}'); const rs = Array.isArray(head?.replies) ? norm(head.replies) : [];
+              if (rs.length) { early = true; try { onReplies(rs); } catch (e) { } } }
+          }
         }
         return acc;
       };
       try { return await within(run(), PROMPT_MS - (performance.now() - t0), () => ac.abort()); }
-      finally { signal?.removeEventListener('abort', stop); try { c.destroy(); } catch (e) { } }
+      catch (e) { if (stuck && !signal?.aborted) throw new Error('stuck'); throw e; }
+      finally { clearInterval(dog); signal?.removeEventListener('abort', stop); try { c.destroy(); } catch (e) { } }
     };
     let raw;
-    try { raw = await ask({ responseConstraint: sch }); }
-    catch (e) {
-      if (signal?.aborted) throw e; // cancelled by the chat (you sent something else)
-      if (e?.message === 'runaway') { console.warn('[Nano] reply ran away, cut at', MAX_CHARS, 'chars'); this.fails++; throw e; }
-      if (e?.message === 'timeout') { console.warn('[Nano] reply timed out after', Math.round(performance.now() - t0), 'ms'); this._stall(); throw e; }
-      try { raw = await ask({}); } // older builds without responseConstraint
-      catch (e2) { console.warn('[Nano] reply failed', e2?.name, e2?.message); if (e2?.message === 'timeout') this._stall(); else { st.session = null; try { base.destroy(); } catch (x) { } } throw e2; }
+    for (let tries = 0; ; tries++) {
+      try { raw = await ask({ responseConstraint: sch }); break; }
+      catch (e) {
+        if (signal?.aborted) throw e; // cancelled by the chat (you sent something else)
+        if (e?.message === 'stuck' && tries === 0 && !early) { console.warn('[Nano] prompt stuck, asking again'); continue; }
+        if (e?.message === 'runaway') { console.warn('[Nano] reply ran away, cut at', MAX_CHARS, 'chars'); this.fails++; throw e; }
+        if (e?.message === 'timeout' || e?.message === 'stuck') { console.warn('[Nano] reply', e.message, 'after', Math.round(performance.now() - t0), 'ms'); if (!early) this._stall(); throw e; }
+        try { raw = await ask({}); break; } // older builds without responseConstraint
+        catch (e2) { console.warn('[Nano] reply failed', e2?.name, e2?.message); if (e2?.message === 'timeout' || e2?.message === 'stuck') this._stall(); else { st.session = null; try { base.destroy(); } catch (x) { } } throw e2; }
+      }
     }
     const out = parse(raw);
     if (!out || !Array.isArray(out.replies) || !out.replies.length) { this.fails++; throw new Error('bad output'); }
     this.fails = 0;
     console.info('[Nano] reply in', Math.round(performance.now() - T), 'ms (session', Math.round(t0 - T), 'ms, prompt', Math.round(performance.now() - t0), 'ms)');
-    const replies = out.replies.slice(0, 3).map(r => {
-      const t = clip(typeof r === 'string' ? r : r.text, 80);
-      let who = C.group ? (members.includes(r.who) ? r.who : members[Math.floor(Math.random() * members.length)]) : C.id;
-      return { who, text: t };
-    }).filter(r => r.text);
+    const replies = norm(out.replies);
     const opts = (Array.isArray(out.options) ? out.options : []).map(o => clip(String(o || '').replace(/^\s*彥霖\s*[：:]\s*/, ''), 60)).filter(Boolean).slice(0, 2);
-    return { replies, options: opts };
+    return { replies, options: opts, early };
   },
 };

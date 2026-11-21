@@ -775,7 +775,7 @@ export class Phone {
     const tag = this.view.querySelector('.ph-ai');
     if (tag) { tag.textContent = Nano.on ? '✨ Gemini Nano' : Nano.state === 'downloading' ? `⬇ AI ${Math.round(Nano.progress * 100)}%` : ''; }
     // scripted topics used up: the AI opens a new one (also when only `always` options like 你在哪？ are left)
-    if (Nano.on && !st.c.script[st.round] && !st.aiOpts?.length && !st.busy) this._aiOpener(st);
+    if (Nano.on && !st.c.script[st.round] && !st.aiOpts?.length && !st.busy && !st.optsPending) this._aiOpener(st);
     // with the on-device AI you can also type your own message; keep what you typed across re-renders
     const old = box.querySelector('.ph-type'), typed = old ? old.value : '', hadFocus = !!old && document.activeElement === old;
     // the typing box (AI on) is selectable like an option (blue when chosen); ↑ sends what is in the box. Clicking an
@@ -863,6 +863,8 @@ export class Phone {
     // the AI is still thinking (a reply or a new topic it opens): you don't have to wait, sending anything drops the
     // answer it was working on (the on-device model can take long or stall)
     if (think) { st.tok++; st.aiAbort?.abort(); st.busy = false; st.pending = null; st.msgs = st.msgs.filter(m => !m.typing); }
+    // its options for you were still being written: drop them (and free the model for this message)
+    if (st.optsPending) { st.optsPending = false; st.aiAbort?.abort(); }
     st.busy = true; st.read = false;
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) }); st.lastAt = g.clock;
     // a contact with `laugh` (勞大) always ends his answer with that line when you laughed
@@ -893,11 +895,13 @@ export class Phone {
       if (this.cur === st) this._renderCompose(); // 你在哪？ stays usable while it thinks
       // the on-device model can stall: after REPLY_LIMIT the normal reply comes instead, so the chat never hangs
       st.aiAbort = new AbortController();
-      withTimeout(Nano.reply(st, ch.t, st.aiAbort.signal), REPLY_LIMIT).then(out => {
+      withTimeout(Nano.reply(st, ch.t, st.aiAbort.signal, this._early(st, tok, v)), REPLY_LIMIT).then(out => {
+        if (out.early) return this._lateOpts(st, tok, out.options);
         if (!mine()) return; st.tok++;
         st.aiOpts = out.options?.length === 2 ? out.options : null;
         this._deliver(st, out.replies?.length ? out.replies : fallback, v, 300);
       }).catch(() => {
+        if (st.optsPending && st.tok === tok) return this._lateOpts(st, tok, null);
         if (!mine()) return; st.tok++;
         // the AI failed or timed out: stock reply plus stock topics, so it doesn't start another (maybe just as slow) AI round
         st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏'];
@@ -911,11 +915,28 @@ export class Phone {
     st.busy = true;
     const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
     st.aiAbort = new AbortController();
-    withTimeout(Nano.reply(st, null, st.aiAbort.signal), REPLY_LIMIT).then(out => {
+    withTimeout(Nano.reply(st, null, st.aiAbort.signal, this._early(st, tok, 0)), REPLY_LIMIT).then(out => {
+      if (out.early) return this._lateOpts(st, tok, out.options);
       if (!mine()) return; st.tok++;
       st.aiOpts = out.options?.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];
       this._deliver(st, out.replies || [], 0, 200);
-    }).catch(() => { if (!mine()) return; st.tok++; st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
+    }).catch(() => { if (st.optsPending && st.tok === tok) return this._lateOpts(st, tok, null); if (!mine()) return; st.tok++; st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
+  }
+  // the AI's replies are out before it has written your two options (nano.js onReplies): show them right away; the
+  // options follow (_lateOpts). Meanwhile it no longer counts as thinking, and no new topic is started.
+  _early(st, tok, v) {
+    return (rs) => {
+      if (st.tok !== tok || !st.busy) return;
+      st.aiWait = null; st.optsPending = true;
+      st.msgs = st.msgs.filter(m => !m.typing);
+      this._deliver(st, rs, v, 150);
+    };
+  }
+  _lateOpts(st, tok, opts) {
+    if (st.tok !== tok) return; // you have sent something since
+    st.optsPending = false;
+    st.aiOpts = opts?.length === 2 ? opts : ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏'];
+    if (this.cur === st && !st.busy) this._renderCompose();
   }
   // replies arrive one by one with a typing indicator; they land even if you leave the chat or put the phone away
   // (timers keep running). st.pending holds what is still to come, so a reload in between resumes it (resumePending).

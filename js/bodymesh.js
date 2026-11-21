@@ -111,7 +111,9 @@ export function buildSkinnedBody(ch, o) {
     const side = a.s; // the inner side of the arm faces the torso (-side in x)
     const ak = o.arm || 1;
     const kA = (y) => 1 + (ak - 1) * Math.min(1, Math.max(0.15, (y + 0.48) / 0.26)); // thicker upper arm, wrist nearly as is
-    const r = prof.map(([y, rr, sl]) => ({ y, rx: rr * kA(y) * (1 - 0.1 * f) * bw, rz: rr * kA(y) * (1 - 0.1 * f), w: wAt(keys, y), col: sl ? shirt : skin,
+    // o.longSleeve (jackets): the sleeve runs down to a cuff at the wrist and sits a little off the arm
+    const sleeve = (y, sl) => sl || (o.longSleeve && y > -0.45);
+    const r = prof.map(([y, rr, sl]) => ({ y, rx: (rr * kA(y) * (1 - 0.1 * f) + (o.longSleeve && sleeve(y, sl) ? 0.007 : 0)) * bw, rz: rr * kA(y) * (1 - 0.1 * f) + (o.longSleeve && sleeve(y, sl) ? 0.007 : 0), w: wAt(keys, y), col: sleeve(y, sl) ? shirt : skin,
       ao: (sa) => 1 - (0.1 + 0.22 * bump(y, -0.05, 0.07)) * Math.max(0, -side * sa) ** 2 }));
     r[0].cap = 0.012; r[r.length - 1].cap = 0.012;
     sweep(r, toRoot(a.sh), out);

@@ -5,7 +5,7 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -27,6 +27,7 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
+import { Gordon } from './gordon.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
 import { Chassis } from './vehphys.js';
@@ -107,6 +108,8 @@ class Game {
       if (b.name === '警衛室') b.skip = true;
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
+      // 戈登肉鋪 (interiors.js) takes the two town houses across 大仁街 from the main gate
+      if (GD_SPEC.ids.includes(b.id)) { b.skip = true; if (b.id === GD_SPEC.ids[0]) { b.pts = gordonOutline(); b.name = '戈登肉鋪'; } }
       if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
         const c = Math.cos(YH_SPEC.ang), s = Math.sin(YH_SPEC.ang), ext = YH_SPEC.W * (YH_SPEC.k - 1);
         b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
@@ -116,7 +119,7 @@ class Game {
     const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵']); // 中北路 row around 茶學苑 (js/interiors.js buildTeaRow)
     for (const p of data.pois) if (OWN_SIGN.has(p.name)) p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
+    const reserved = [imFootprint(), yhFootprint(), teaFootprint(), ...teaRowFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {
@@ -189,7 +192,8 @@ class Game {
     this.nav = new Nav(this);           // map waypoint + route
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
     this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
-    this.friends = new Friends(this);   // 同學 you can befriend (排球少年 吱吱 at the 體育館)
+    this.gordon = new Gordon(this);     // 戈登肉鋪 across from the main gate: freezers, basket, checkout
+    this.friends = new Friends(this);   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
     this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
     onClick('bmClose', () => this.closeMap());
@@ -1001,6 +1005,7 @@ class Game {
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];
     if (this.interiors.yh) { const d = this.interiors.yh.door; markers.push({ x: d[0], z: d[1], icon: '🏠', color: '#ff8fb1', label: '彥霖的家', near: 120 }); }
+    if (this.interiors.gordon) { const d = this.interiors.gordon.door; markers.push({ x: d[0], z: d[1], icon: '🥩', color: '#c9a24e', label: '戈登肉鋪', near: 120 }); }
     // side quest: 新中北路側門門禁 (always on the map)
     if (!this.gate.active) for (const gq of Object.values(this.interiors.gates || {})) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }
     const range = pl.vehicle ? 170 : 110;

@@ -428,6 +428,16 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .pg-img img{display:block}
 .ph-ai{font-style:normal;font-size:9.5px;font-weight:700;color:#8e44ff;letter-spacing:.2px;min-height:0}
 .ph-ai:empty{display:none}
+/* 戈登肉鋪 (js/gordon.js): freezer picks and the checkout */
+.gd-shop{display:flex;flex-direction:column;gap:6px}
+.gd-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.06)}
+.gd-ic{font-size:24px;width:30px;text-align:center}.gd-nm{flex:1;min-width:0;display:flex;flex-direction:column}.gd-nm small{opacity:.7;font-size:12px}
+.gd-pr{font-weight:800;color:#f1d68a;white-space:nowrap}
+.gd-add,.gd-rm{border:0;border-radius:8px;padding:7px 10px;font-weight:800;cursor:pointer;background:#c9a24e;color:#1b1406;white-space:nowrap;font-family:inherit}
+.gd-rm{background:#3a3b40;color:#fff}.gd-add kbd{background:rgba(0,0,0,.2);border-radius:4px;padding:0 4px;margin-right:2px}
+.gd-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;padding:6px 2px;opacity:.9}
+.gd-total{text-align:right;font-size:16px;padding:4px 2px}.gd-total b{color:#f1d68a;font-size:20px}
+.gd-hint{font-size:12px;opacity:.75}.gd-hint.bad{color:#ff8a8f;opacity:1}
 .ph-refresh{border:0;background:none;color:inherit;font-size:20px;line-height:1;cursor:pointer;padding:0 2px}
 .ph-pull{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 0;color:#8e8e93;font-size:12px}
 .ph-pull i{width:14px;height:14px;border-radius:50%;border:2px solid #c7c7cc;border-top-color:#007aff;animation:phSpin .7s linear infinite}

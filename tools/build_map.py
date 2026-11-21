@@ -420,7 +420,7 @@ def apply_marks(out, stats):
         if r is None:
             stats['warn'].append('roads.json marks way %s (%s): not in the map' % (e['way'], e.get('name', '')))
             continue
-        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes', 'walk') if k in e}
+        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes', 'walk', 'cv') if k in e}
         n += 1
     feats = []
     for f in R.get('features', []):
@@ -429,6 +429,133 @@ def apply_marks(out, stats):
         feats.append({k: f[k] for k in ('t', 'x', 'z', 'ang', 'len', 'w', 'way', 'osm') if k in f})
     out['roadMarks'] = feats
     print('roads.json: %d ways marked, %d painted features' % (n, len(feats)))
+
+
+def shift_roads(out, items, by, real, stats, st):
+    """tools/roads.json 'shift' (see its _doc): move an OSM way sideways onto the carriageway the
+    orthophoto shows. Each entry gives anchors [x, z, v] near the way: at the anchor's place along
+    the way its line moves v metres along (-uz, ux) of the way's direction (+ = the top of an
+    _survey/xsec.py cut). Between anchors v is interpolated along the way; past the first / last
+    anchor it holds for HOLD m, then eases back to 0 over another HOLD m. A node shared with other
+    ways moves in all of them (as overrides.json grade 'move' does). Returns the roads whose line
+    changed; each keeps its OSM line in r['osm'] and gets r['sh'] = 1 (js/map.js lays trees, lamps
+    and shop fronts out on the OSM line, then moves the spots the moved road now covers)."""
+    HOLD = 40.0
+    moved = {}   # node id -> [sum x, sum z, n]
+    pre = {}     # id(r) -> its OSM line before the extra vertices (r['osm'] keeps that one)
+    own = {}     # id(r) -> (r, {index: [x, z]}) for ways without a node list
+    for e in items:
+        if not e.get('source') or not e.get('confidence') or not e.get('at'):
+            raise SystemExit('roads.json shift way %s: needs at, source and confidence' % e.get('way'))
+        r = by.get(e['way'])
+        if r is None:
+            stats['warn'].append('roads.json shift way %s: not in the map' % e['way'])
+            continue
+        if r.get('grade') or r.get('bridge') or r.get('tunnel') or 'osm' in r:
+            stats['warn'].append('roads.json shift way %s: on / moved by a grade separation, skipped' % e['way'])
+            continue
+        P = r['pts']
+        S = [0.0]
+        for a, b in zip(P, P[1:]):
+            S.append(S[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+        A = []
+        for x, z, v in e['at']:
+            best = None
+            for i, (a, b) in enumerate(zip(P, P[1:])):
+                dx, dz = b[0] - a[0], b[1] - a[1]; l2 = dx * dx + dz * dz or 1
+                t = max(0, min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2))
+                d = math.hypot(a[0] + dx * t - x, a[1] + dz * t - z)
+                if best is None or d < best[0]:
+                    best = (d, S[i] + t * math.sqrt(l2))
+            if best[0] > r['w'] / 2 + 6:
+                stats['warn'].append('roads.json shift way %s: anchor (%s, %s) is %.1f m off the way' % (e['way'], x, z, best[0]))
+            A.append((best[1], v))
+        A.sort()
+        # extra vertices where v changes slope (anchors, end of hold, end of ease) so the line follows
+        # the anchors and not only the OSM nodes; they get their own (negative) node ids
+        cuts = sorted({a for a, _ in A} | {A[0][0] - HOLD, A[0][0] - 2 * HOLD, A[-1][0] + HOLD, A[-1][0] + 2 * HOLD})
+        nodes = r.get('nodes') or []
+        NP, NN, NS = [P[0]], [nodes[0]] if len(nodes) == len(P) else None, [0.0]
+        k = 0
+        for i in range(1, len(P)):
+            for c in cuts:
+                if S[i - 1] + 3 < c < S[i] - 3:
+                    t = (c - S[i - 1]) / (S[i] - S[i - 1])
+                    NP.append([round(P[i - 1][0] + (P[i][0] - P[i - 1][0]) * t, 1), round(P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t, 1)])
+                    NS.append(c)
+                    if NN is not None:
+                        k += 1; NN.append(-(e['way'] * 100 + k))
+            NP.append(P[i]); NS.append(S[i])
+            if NN is not None:
+                NN.append(nodes[i])
+        if len(NP) != len(P):
+            pre[id(r)] = ([list(p) for p in P], list(nodes))
+            r['pts'] = P = NP; S = NS
+            if NN is not None:
+                r['nodes'] = NN
+
+        def v_at(s):
+            if s <= A[0][0]:
+                k = A[0][0] - s; return A[0][1] * (1 if k <= HOLD else max(0, 1 - (k - HOLD) / HOLD))
+            if s >= A[-1][0]:
+                k = s - A[-1][0]; return A[-1][1] * (1 if k <= HOLD else max(0, 1 - (k - HOLD) / HOLD))
+            for (s0, v0), (s1, v1) in zip(A, A[1:]):
+                if s0 <= s <= s1:
+                    return v0 + (v1 - v0) * (s - s0) / ((s1 - s0) or 1)
+        nodes = r.get('nodes') or []
+        for i, p in enumerate(P):
+            v = v_at(S[i])
+            if abs(v) < 0.05:
+                continue
+            nx = nz = 0.0
+            for j, k in ((i - 1, i), (i, i + 1)):
+                if 0 <= j and k < len(P):
+                    dx, dz = P[k][0] - P[j][0], P[k][1] - P[j][1]; l = math.hypot(dx, dz) or 1
+                    nx += -dz / l; nz += dx / l
+            l = math.hypot(nx, nz) or 1
+            q = [p[0] + nx / l * v, p[1] + nz / l * v]
+            if len(nodes) == len(P):
+                m = moved.setdefault(nodes[i], [0.0, 0.0, 0])
+                m[0] += q[0]; m[1] += q[1]; m[2] += 1
+            else:
+                own.setdefault(id(r), (r, {}))[1][i] = q
+        r['sh'] = 1
+        st['shifted'] += 1
+    changed = []
+    for r in out['roads']:
+        new = None
+        for i, n in enumerate(r.get('nodes') or []):
+            if n in moved and i < len(r['pts']) and len(r['nodes']) == len(r['pts']):
+                m = moved[n]
+                new = new or [list(p) for p in r['pts']]
+                new[i] = [round(m[0] / m[2], 1), round(m[1] / m[2], 1)]
+        if id(r) in own:
+            new = new or [list(p) for p in r['pts']]
+            for i, q in own[id(r)][1].items():
+                new[i] = [round(q[0], 1), round(q[1], 1)]
+        if new is None or new == r['pts']:
+            if id(r) in pre:   # nothing moved after all: back to the OSM vertices
+                r['pts'], nn = pre[id(r)]
+                if nn:
+                    r['nodes'] = nn
+            continue
+        if r.get('grade') or 'osm' in r:
+            stats['warn'].append('roads.json shift: node shared with grade-separated way %s left alone' % WAY_OF.get(id(r)))
+            continue
+        # an OSM building / wall the old carriageway was clear of and the moved one runs into
+        hw = r['w'] / 2
+        for a0, b0, a, b in zip(r['pts'], r['pts'][1:], new, new[1:]):
+            for kind, Pb in real.query(bbox_of([a, b], hw + 1)):
+                d1 = poly_seg_dist(Pb, a, b) if kind == 'b' else seg_seg(Pb[0], Pb[1], a, b)
+                d0 = poly_seg_dist(Pb, a0, b0) if kind == 'b' else seg_seg(Pb[0], Pb[1], a0, b0)
+                if d1 < hw - 0.3 and d0 >= hw - 0.3:
+                    stats['warn'].append('roads.json shift way %s: now %.1f m into an OSM %s near (%.0f, %.0f)' % (
+                        WAY_OF.get(id(r)), hw - d1, 'building' if kind == 'b' else 'wall', a[0], a[1]))
+        r['osm'] = {'w': r['w'], 'pts': pre[id(r)][0] if id(r) in pre else [list(p) for p in r['pts']]}
+        r['pts'] = new
+        r['sh'] = 1
+        changed.append(r)
+    return changed
 
 
 def apply_roads(out, stats):
@@ -454,8 +581,12 @@ def apply_roads(out, stats):
         if not br.get('synthetic'):
             for p, q in zip(br['pts'], br['pts'][1:]):
                 real.add(bbox_of([p, q]), ('w', [p, q]))
-    st = dict(n=0, capped=[], cut=0, skipped=0, areas=0, fences=0)
+    st = dict(n=0, capped=[], cut=0, skipped=0, areas=0, fences=0, shifted=0)
     grown = []
+    orig = shift_roads(out, R.get('shift', []), by, real, stats, st)
+    for r in orig:
+        side = SIDEWALK if r['type'] in ('primary', 'secondary', 'tertiary') and not (r.get('name') or '').startswith('中北路') else 0.3
+        grown.append((r, r['w'] / 2 + (side if side > 0.3 else 1.1)))
     for e in R['ways']:
         if not e.get('source') or not e.get('confidence'):
             raise SystemExit('roads.json way %s: every entry needs source and confidence' % e['way'])
@@ -463,7 +594,7 @@ def apply_roads(out, stats):
         if r is None:
             stats['warn'].append('roads.json way %s (%s): not in the map' % (e['way'], e.get('name', '')))
             continue
-        if r.get('grade') or r.get('bridge') or r.get('tunnel') or 'osm' in r:
+        if r.get('grade') or r.get('bridge') or r.get('tunnel') or ('osm' in r and not r.get('sh')):
             stats['warn'].append('roads.json way %s: on / moved by a grade separation, skipped' % e['way'])
             continue
         if abs(r['w'] - e['was']) > 0.05:
@@ -484,9 +615,11 @@ def apply_roads(out, stats):
                 w = cap
         if abs(w - r['w']) < 0.05:
             continue
-        r['osm'] = {'w': r['w'], 'pts': [list(p) for p in r['pts']]}
+        if 'osm' not in r:   # (a shifted road already keeps its OSM line there)
+            r['osm'] = {'w': r['w'], 'pts': [list(p) for p in r['pts']]}
         r['rw'] = 1   # width from roads.json (js/map.js: the OSM width stays in r.osm.w)
         if w > r['w']:
+            grown = [g for g in grown if g[0] is not r]
             grown.append((r, w / 2 + (side if side > 0.3 else 1.1)))
         r['w'] = w
         if e.get('lanes'):
@@ -2109,8 +2242,8 @@ def main():
         print('water:', stats['water'])
     if stats.get('roads'):
         st = stats['roads']
-        print('roads.json: %d widths; 補建 cut back: %d houses cut, %d skipped, %d ground areas, %d fence segments'
-              % (st['n'], st['cut'], st['skipped'], st['areas'], st['fences']))
+        print('roads.json: %d widths, %d ways shifted; 補建 cut back: %d houses cut, %d skipped, %d ground areas, %d fence segments'
+              % (st['n'], st['shifted'], st['cut'], st['skipped'], st['areas'], st['fences']))
         for c in st['capped']:
             print('  capped by an OSM building / wall:', c)
     for s in stats['excluded']:

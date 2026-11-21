@@ -399,6 +399,38 @@ def load_looks():
     return out
 
 
+MARK_CENTRE = ('double-yellow', 'yellow', 'yellow-dash', 'white-dash', 'none', 'median')
+MARK_FEATURES = ('box', 'zebra', 'stop', 'bikebox', 'arrow')
+
+
+def apply_marks(out, stats):
+    """tools/roads.json 'marks' and 'features' (see its _doc): the painted markings of a street as
+    the NLSC 2024 orthophoto shows them. 'marks' sets r['marks'] = {centre, edge, lanes} on that OSM
+    way (js/map.js draws it instead of the class defaults); 'features' (網狀黃線, 斑馬線, 停止線,
+    機車停等區, lane arrows at their surveyed spots) go to out['roadMarks'] as they are."""
+    if not os.path.exists(ROADS):
+        return
+    R = json.load(open(ROADS, encoding='utf8'))
+    by = {WAY_OF.get(id(r)): r for r in out['roads']}
+    n = 0
+    for e in R.get('marks', []):
+        if not e.get('source') or not e.get('confidence') or e.get('centre') not in MARK_CENTRE:
+            raise SystemExit('roads.json marks way %s: needs source, confidence and a centre in %s' % (e.get('way'), MARK_CENTRE))
+        r = by.get(e['way'])
+        if r is None:
+            stats['warn'].append('roads.json marks way %s (%s): not in the map' % (e['way'], e.get('name', '')))
+            continue
+        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes') if k in e}
+        n += 1
+    feats = []
+    for f in R.get('features', []):
+        if f.get('t') not in MARK_FEATURES or not f.get('source'):
+            raise SystemExit('roads.json feature %s: needs t in %s and a source' % (f, MARK_FEATURES))
+        feats.append({k: f[k] for k in ('t', 'x', 'z', 'ang', 'len', 'w', 'way', 'osm') if k in f})
+    out['roadMarks'] = feats
+    print('roads.json: %d ways marked, %d painted features' % (n, len(feats)))
+
+
 def apply_roads(out, stats):
     """tools/roads.json (see its _doc): measured carriageway widths by OSM way.
 
@@ -2048,6 +2080,8 @@ def main():
     # measured carriageway widths (tools/roads.json); after the block fill and
     # grade so neither moves, and the old width stays in r['osm'] for js/map.js
     apply_roads(out, stats)
+    # painted markings read off the same survey (tools/roads.json 'marks' / 'features')
+    apply_marks(out, stats)
     # sunk ponds / streams (tools/water.json); last, so nothing above moves
     apply_water(out, stats)
 

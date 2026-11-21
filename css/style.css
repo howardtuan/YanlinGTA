@@ -776,3 +776,5 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
 .ts-chip{border:0;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;background:rgba(255,255,255,.18);color:inherit;cursor:pointer}
 .ts-chip.on{background:var(--accent);color:var(--ink)}
 @media (max-width:520px){.ts-menu{grid-template-columns:1fr}}
+.ts-menu .ts-secret{grid-column:1/-1;background:linear-gradient(90deg,#2b1f3a,#5b3a7a);color:#ffe08a;box-shadow:0 0 0 2px #ffd23f inset}
+.ts-menu .ts-secret small{color:#ffe08a}

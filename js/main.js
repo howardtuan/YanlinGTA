@@ -23,6 +23,7 @@ import { PC } from './pc.js';
 import { Wardrobe } from './wardrobe.js';
 import { Nav } from './nav.js';
 import { Airdrop } from './airdrop.js';
+import { Market } from './stocks.js';
 import { Race } from './race.js';
 
 const $ = id => document.getElementById(id);
@@ -154,6 +155,7 @@ class Game {
     this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
     this.nav = new Nav(this);           // map waypoint + route
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
+    this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
     this.hud.onPin = (p) => { if (p) this.nav.set(p.x, p.z); else this.nav.clear(); $('bmClear')?.classList.toggle('hidden', !this.nav.target); };
     onClick('bmClose', () => this.closeMap());
     onClick('bmClear', () => { this.nav.clear(); $('bmClear').classList.add('hidden'); });
@@ -889,6 +891,7 @@ class Game {
     if (!this.race.active) this.missions.update(dt); // story timers wait while you race
     this.nav.update(dt);
     this.airdrop.update(dt);
+    this.market.update(); // 靈感股: new trading days, 定期定額 at the open
     // ---- 彩蛋 ---- after the missions so their big toasts win this frame; while another big toast
     // (任務完成／失敗、選票) is on screen the egg waits instead of overwriting it or being lost
     const btBusy = !$('bigToast').classList.contains('hidden');

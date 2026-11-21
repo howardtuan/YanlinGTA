@@ -27,6 +27,7 @@ export function writeSave(g) {
     chats: g.phone.chats.map(c => ({ round: c.round, unread: c.unread, msgs: c.msgs })),
     notes: g.pc?.notes ?? null,
     pin: g.nav?.target || null,
+    stocks: g.market?.toJSON() || null,
   };
   try { localStorage.setItem(KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
 }
@@ -45,6 +46,7 @@ export function applySave(g, d) {
   (d.chats || []).forEach((c, i) => { const ch = g.phone.chats[i]; if (ch && c) { ch.round = c.round; ch.unread = c.unread; if (c.msgs) ch.msgs = c.msgs; } });
   if (d.notes != null && g.pc) g.pc.notes = d.notes;
   if (d.pin && g.nav) g.nav.set(d.pin.x, d.pin.z);
+  if (d.stocks && g.market) g.market.load(d.stocks);
   if (d.look) g.player.setLook(d.look);
   if (d.pos) {
     g.player.place(d.pos.x, d.pos.z, d.pos.h || 0); g.player.y = d.pos.y || 0; g.rig.yaw = d.pos.h || 0;

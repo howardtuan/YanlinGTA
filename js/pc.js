@@ -4,6 +4,7 @@
 // 小算盤, 踩地雷, 競選後台 (live campaign numbers) and 終端機. Esc or the power button leaves the desk.
 // The easter-egg video is hidden in the terminal: typing PYL plays it. It is deliberately not listed anywhere.
 // The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
+import { stockUI } from './stockui.js';
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -16,7 +17,7 @@ const BOOKMARKS = [
 ];
 const APPS = [
   ['browser', '🌐', '瀏覽器'], ['notes', '📝', '記事本'], ['paint', '🎨', '小畫家'],
-  ['calc', '🧮', '小算盤'], ['mines', '💣', '踩地雷'], ['stats', '📊', '競選後台'], ['term', '💻', '終端機'],
+  ['calc', '🧮', '小算盤'], ['mines', '💣', '踩地雷'], ['stats', '📊', '競選後台'], ['stock', '📈', '靈感股'], ['term', '💻', '終端機'],
 ];
 const DEFAULT_NOTES = '競選待辦：\n- 掃街拉票，發完傳單\n- 去麥當勞打工賺零用錢\n- 新中北路障礙賽要拿第一\n- 記得月底前繳房租！\n';
 
@@ -227,6 +228,12 @@ export class PC {
   }
 
   // ---------------- 終端機 ----------------
+  // ---------------- 靈感股 (wide layout: list on the left, chart and orders on the right) ----------------
+  _stock(body) {
+    const ui = stockUI(body, this.g.market, { wide: true });
+    const t = setInterval(() => ui.refresh(), 1000);
+    this.wins.stock.cleanup = () => clearInterval(t);
+  }
   _term(body) {
     const PROMPT = 'C:\\Users\\yanlin>';
     body.innerHTML = `<div class="tm-out"></div><label class="tm-line"><span>${PROMPT}</span><input class="tm-in" spellcheck="false" autocomplete="off"></label>`;

@@ -691,3 +691,64 @@ kbd.pb-nin.pb-face{background:#3b3d44}
 #cinema.side .cb-a{left:0;transform:translateX(-100%)}#cinema.side .cb-b{right:0;transform:translateX(100%)}
 body.cinema #cinema .cb{transform:none}
 body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
+
+/* ---- 靈感股 (js/stockui.js): phone app (.sk-compact) and desktop window (.sk-wide) ---- */
+.ph-stock .ph-content{background:#12141c;padding:0}
+.sk{background:#12141c;color:#e8eaf0;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;font-size:13px;min-height:100%}
+.sk button{font-family:inherit;cursor:pointer}
+.sk-idx{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:10px 12px;background:#1a1d28;border-bottom:1px solid #262a38}
+.sk-idx small{display:block;color:#8b90a0;font-size:11px}.sk-idx b{font-size:20px;display:block;line-height:1.2}.sk-idx span{font-size:12px}
+.sk-st{text-align:right}.sk-pill{display:inline-block;font-style:normal;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px;background:#3a3f50;color:#fff;margin-bottom:3px}
+.sk-pill.sk-open{background:#e8323c}.sk-pill.sk-auction{background:#d98a1a}.sk-pill.sk-holiday{background:#555b6c}
+.sk-tabs{display:flex;background:#1a1d28;border-bottom:1px solid #262a38;position:sticky;top:0;z-index:2}
+.sk-tabs button{flex:1;border:0;background:none;color:#9aa0ad;padding:9px 0;font-weight:800;font-size:13px;border-bottom:2px solid transparent}
+.sk-tabs button.on{color:#fff;border-bottom-color:#e8323c}
+.sk-body{padding:8px 10px 14px}
+.sk-search{width:100%;box-sizing:border-box;background:#1f2230;border:1px solid #2e3344;border-radius:8px;color:#fff;padding:8px 10px;font-size:13px;margin-bottom:6px}
+.sk-row,.sk-hrow{display:flex;align-items:center;gap:8px;width:100%;border:0;border-bottom:1px solid #222634;background:none;color:inherit;padding:8px 2px;text-align:left}
+.sk-row.on{background:#1f2433}
+.sk-nm{flex:1;min-width:0}.sk-nm b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sk-nm small{color:#8b90a0;font-size:11px}
+.sk-px{font-weight:800;font-size:15px;min-width:58px;text-align:right}
+.sk-pc{color:#fff;font-weight:800;font-size:12px;border-radius:5px;padding:3px 0;min-width:62px;text-align:center}
+.sk-empty{color:#8b90a0;text-align:center;padding:26px 8px;line-height:1.6}
+.sk-back{border:0;background:none;color:#7aa7ff;font-weight:800;padding:2px 0 6px;font-size:13px}
+.sk-dh b{font-size:18px}.sk-dh small{color:#8b90a0}
+.sk-big{display:flex;align-items:baseline;gap:10px;margin:4px 0 6px}.sk-big b{font-size:30px;line-height:1}.sk-big span{font-size:13px;font-weight:700}
+.sk-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 6px;background:#1a1d28;border-radius:8px;padding:7px}
+.sk-stats div{min-width:0}.sk-stats small{display:block;color:#8b90a0;font-size:10px}.sk-stats b{font-size:12px;white-space:nowrap}
+.sk-seg{display:flex;gap:4px;margin:8px 0 6px}.sk-seg button{flex:1;border:1px solid #2e3344;background:#1a1d28;color:#9aa0ad;border-radius:6px;padding:5px 0;font-weight:800;font-size:12px}
+.sk-seg button.on{background:#e8eaf0;color:#12141c;border-color:#e8eaf0}
+.sk-cv{display:block;width:100%;height:190px;background:#151823;border-radius:8px}
+.sk-order{background:#1a1d28;border-radius:8px;padding:8px;margin-top:8px}
+.sk-qty{display:flex;align-items:center;gap:6px}.sk-qty button{width:34px;height:32px;border-radius:6px;border:1px solid #2e3344;background:#23273a;color:#fff;font-size:16px}
+.sk-qty input,.sk-dcarow input{flex:1;min-width:0;height:32px;box-sizing:border-box;background:#12141c;border:1px solid #2e3344;border-radius:6px;color:#fff;text-align:center;font-size:15px;font-weight:800}
+.sk-est{color:#9aa0ad;font-size:11.5px;margin:6px 0;line-height:1.5}.sk-est b{color:#fff}
+.sk-btns{display:flex;gap:6px}.sk-btns button{flex:1;border:0;border-radius:8px;padding:10px 0;font-weight:900;font-size:15px;color:#fff}
+.sk-buy{background:#e8323c}.sk-sell{background:#1f9d55}.sk-btns button:disabled{opacity:.35;cursor:not-allowed}
+.sk-note{color:#d9a54a;font-size:11px;margin-top:6px}.sk-msg{font-size:12px;margin-top:6px;color:#e8eaf0;min-height:1em}
+.sk-dca{background:#1a1d28;border-radius:8px;padding:8px;margin-top:8px}.sk-dca small{color:#8b90a0;font-size:11px;margin-left:6px}
+.sk-dcarow{display:flex;align-items:center;gap:5px;margin-top:6px}.sk-dcarow select{height:32px;background:#12141c;color:#fff;border:1px solid #2e3344;border-radius:6px;font-size:12px}
+.sk-dcarow button{border:0;background:#7aa7ff;color:#fff;font-weight:800;border-radius:6px;height:32px;padding:0 10px}
+.sk-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#1a1d28;border-radius:8px;padding:8px;margin-bottom:6px}
+.sk-sum small{display:block;color:#8b90a0;font-size:11px}.sk-sum b{font-size:14px}
+.sk-hv{text-align:right}.sk-hv b{display:block;font-size:14px}.sk-hv small{font-size:11px}
+.sk-plan,.sk-trade{display:flex;align-items:center;gap:8px;border-bottom:1px solid #222634;padding:8px 2px}
+.sk-plan button{border:1px solid #4a3036;background:none;color:#ff8a8f;border-radius:6px;padding:4px 10px}
+.sk-trade>b{font-size:13px;white-space:nowrap}
+/* desktop window: list on the left, detail on the right */
+.pc-stock{width:min(1000px,calc(100% - 210px));height:min(640px,calc(100% - 70px))}
+.pc-stock .pc-body{background:#12141c}
+.sk-wide{display:flex;flex-direction:column;height:100%;container-type:inline-size}
+.sk-wide .sk-body{flex:1;min-height:0;overflow:auto}
+.sk-cols{display:grid;grid-template-columns:300px 1fr;gap:12px;height:100%}
+.sk-left{display:flex;flex-direction:column;min-height:0}.sk-left .sk-rows{flex:1;overflow:auto}
+.sk-right{overflow:auto;padding-right:4px}
+.sk-wide .sk-cv{height:300px}
+.sk-wide .sk-stats{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}
+.sk-wide .sk-order,.sk-wide .sk-dca{display:inline-block;vertical-align:top;width:calc(50% - 6px);box-sizing:border-box}
+.sk-wide .sk-dca{margin-left:8px}
+/* a narrow desktop window: list above the detail, order and 定期定額 full width */
+@container (max-width:700px){
+  .sk-cols{display:block}.sk-left .sk-rows{max-height:220px}.sk-right{margin-top:8px}
+  .sk-wide .sk-order,.sk-wide .sk-dca{display:block;width:auto;margin-left:0}
+}

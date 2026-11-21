@@ -17,6 +17,7 @@ import { loadTerrain, surfaceAt } from './terrain.js';
 import { SkySystem } from './sky.js';
 import { PostFX } from './post.js';
 import { Phone } from './phone.js';
+import { Nano } from './nano.js';
 import { GateDuty } from './gateduty.js';
 import { McShift } from './mcshift.js';
 import { Prompts, dual } from './prompts.js';
@@ -813,8 +814,14 @@ class Game {
     for (const b of this.ballotList) if (!b.taken) { b.mesh.rotation.y = this.time * 2 + b.ph; b.mesh.position.y = b.y0 + Math.sin(this.time * 3 + b.ph) * 0.15; }
     for (const b of this.beams) if (b.visible) b.material.opacity = 0.22 + Math.sin(this.time * 4) * 0.06;
     if (this._perf) this._perf.begin();
-    this.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
-    this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
+    // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
+    // is frozen with the phone open anyway, and the model answers much sooner
+    const yieldGpu = Nano.active > 0 && this.phone?.open && !this._shot && now - (this._drawnAt || 0) < 160;
+    if (!yieldGpu) {
+      this._drawnAt = now;
+      this.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
+      this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
+    }
     if (this._perf) this._perf.end(now);
     if (this._shot) { const cb = this._shot; this._shot = null; cb(this.renderer.domElement.toDataURL('image/jpeg', 0.85)); }
     this.input.endFrame();

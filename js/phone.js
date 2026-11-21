@@ -853,7 +853,7 @@ export class Phone {
     if (!ch) return false;
     // the AI is still thinking (a reply or a new topic it opens): you don't have to wait, sending anything drops the
     // answer it was working on (the on-device model can take long or stall)
-    if (think) { st.tok++; st.busy = false; st.pending = null; st.msgs = st.msgs.filter(m => !m.typing); }
+    if (think) { st.tok++; st.aiAbort?.abort(); st.busy = false; st.pending = null; st.msgs = st.msgs.filter(m => !m.typing); }
     st.busy = true; st.read = false;
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) }); st.lastAt = g.clock;
     // a contact with `laugh` (勞大) always ends his answer with that line when you laughed
@@ -883,7 +883,8 @@ export class Phone {
       const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
       if (this.cur === st) this._renderCompose(); // 你在哪？ stays usable while it thinks
       // the on-device model can stall: after REPLY_LIMIT the normal reply comes instead, so the chat never hangs
-      withTimeout(Nano.reply(st, ch.t), REPLY_LIMIT).then(out => {
+      st.aiAbort = new AbortController();
+      withTimeout(Nano.reply(st, ch.t, st.aiAbort.signal), REPLY_LIMIT).then(out => {
         if (!mine()) return; st.tok++;
         st.aiOpts = out.options?.length === 2 ? out.options : null;
         this._deliver(st, out.replies?.length ? out.replies : fallback, v, 300);
@@ -900,7 +901,8 @@ export class Phone {
   _aiOpener(st) {
     st.busy = true;
     const tok = st.tok = st.aiWait = (st.tok || 0) + 1, mine = () => st.tok === tok && st.busy;
-    withTimeout(Nano.reply(st, null), REPLY_LIMIT).then(out => {
+    st.aiAbort = new AbortController();
+    withTimeout(Nano.reply(st, null, st.aiAbort.signal), REPLY_LIMIT).then(out => {
       if (!mine()) return; st.tok++;
       st.aiOpts = out.options?.length === 2 ? out.options : ['最近在忙什麼？', '要不要一起吃宵夜？'];
       this._deliver(st, out.replies || [], 0, 200);

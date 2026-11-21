@@ -146,8 +146,15 @@ export const Nano = {
   // loads), a short reply on a clone ~2–6 s. Creating the base session gets SESSION_MS (a creation that runs over keeps
   // going and is reused by the next message), each prompt PROMPT_MS; a prompt that runs over is aborted. A timeout pauses
   // the AI for a while (_stall). phone.js's own fallback (REPLY_LIMIT) is longer than both together.
-  async reply(st, text) {
-    const SESSION_MS = 40000, PROMPT_MS = 25000;
+  // signal: aborting it stops the generation for real (the model works on one prompt at a time, so an answer nobody
+  // wants any more would otherwise hold up the next one). `active` counts replies in progress (main.js draws the game
+  // at a low frame rate meanwhile, leaving the GPU to the model).
+  async reply(st, text, signal) {
+    this.active = (this.active || 0) + 1;
+    try { return await this._reply(st, text, signal); } finally { this.active--; }
+  },
+  async _reply(st, text, signal) {
+    const SESSION_MS = 40000, PROMPT_MS = 25000, T = performance.now();
     const within = (p, ms, onLate) => new Promise((res, rej) => {
       const id = setTimeout(() => { onLate?.(); rej(new Error('timeout')); }, ms);
       p.then(v => { clearTimeout(id); res(v); }, e => { clearTimeout(id); rej(e); });
@@ -156,7 +163,7 @@ export const Nano = {
     try { base = await within(this.sessionFor(st), SESSION_MS); }
     catch (e) { console.warn('[Nano] session', e?.message || e); if (e?.message === 'timeout') this._stall(); throw e; }
     const C = st.c, members = st.members, me = (m) => m.who === 'me' ? '彥霖' : C.group ? m.who : C.name;
-    const log = st.msgs.filter(m => m.text).slice(-16).map(m => `${me(m)}：${m.text}`).join('\n');
+    const log = st.msgs.filter(m => m.text).slice(-10).map(m => `${me(m)}：${m.text}`).join('\n');
     // a message that is only laughter is described instead of quoted: fed 「哈哈哈哈」 the model tends to keep laughing
     // until it hits the output limit (QuotaExceededError after a long wait); long runs of one character are shortened
     const laughOnly = text != null && /^[\s哈呵嘿嘻ㄏ笑死XxDd😂🤣!！~～.。]+$/.test(text) && /[哈呵嘿嘻ㄏ笑XxDd😂🤣]/.test(text);
@@ -166,12 +173,14 @@ export const Nano = {
       : laughOnly ? '彥霖剛傳來一串笑聲（他覺得很好笑）。請以角色身分回覆，只輸出 JSON。'
         : `彥霖剛傳來：「${said}」\n請以角色身分回覆這句，只輸出 JSON。`);
     const sch = schema(C.group, members);
+    if (signal?.aborted) throw new DOMException('cancelled', 'AbortError');
     const t0 = performance.now();
     // one fresh clone per prompt (see sessionFor); aborted and destroyed when it runs over. Streamed, so a reply that
     // runs away (the model repeating itself) is cut off at MAX_CHARS right away instead of after the whole time limit.
     const MAX_CHARS = 600;
     const ask = async (opts) => {
-      const c = await base.clone(), ac = new AbortController();
+      const c = await base.clone(), ac = new AbortController(), stop = () => ac.abort();
+      signal?.addEventListener('abort', stop);
       const run = async () => {
         if (!c.promptStreaming) return c.prompt(q, { ...opts, signal: ac.signal });
         let acc = '';
@@ -182,11 +191,12 @@ export const Nano = {
         return acc;
       };
       try { return await within(run(), PROMPT_MS - (performance.now() - t0), () => ac.abort()); }
-      finally { try { c.destroy(); } catch (e) { } }
+      finally { signal?.removeEventListener('abort', stop); try { c.destroy(); } catch (e) { } }
     };
     let raw;
     try { raw = await ask({ responseConstraint: sch }); }
     catch (e) {
+      if (signal?.aborted) throw e; // cancelled by the chat (you sent something else)
       if (e?.message === 'runaway') { console.warn('[Nano] reply ran away, cut at', MAX_CHARS, 'chars'); this.fails++; throw e; }
       if (e?.message === 'timeout') { console.warn('[Nano] reply timed out after', Math.round(performance.now() - t0), 'ms'); this._stall(); throw e; }
       try { raw = await ask({}); } // older builds without responseConstraint
@@ -195,6 +205,7 @@ export const Nano = {
     const out = parse(raw);
     if (!out || !Array.isArray(out.replies) || !out.replies.length) { this.fails++; throw new Error('bad output'); }
     this.fails = 0;
+    console.info('[Nano] reply in', Math.round(performance.now() - T), 'ms (session', Math.round(t0 - T), 'ms, prompt', Math.round(performance.now() - t0), 'ms)');
     const replies = out.replies.slice(0, 3).map(r => {
       const t = clip(typeof r === 'string' ? r : r.text, 80);
       let who = C.group ? (members.includes(r.who) ? r.who : members[Math.floor(Math.random() * members.length)]) : C.id;

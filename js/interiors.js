@@ -2967,6 +2967,40 @@ export const DAREN_ST = {
     [149.5, 153.5, -1, { nf: 5, wall: 'tile', sign: ['州味涼麵', '#f2c230', '#8a1414'], ground: 'shop', awn: '#c62026', bal: 'grille' }],
     [153.5, 158, -1, { nf: 5, wall: 'grey', sign: ['福祿壽囍鯛魚燒', '#c62026', '#ffe14d'], ground: 'shop', bal: 'cage' }],
     [158, 164, -1, { nf: 8, wall: 'tile', sign: ['德式披薩', '#2f2a26', '#ffffff'], ground: 'shop', bal: 'open' }],
+    // section 4: 大仁四街 to the end. Right: older 3–5 floor houses and 透天 with tin canopies, side lanes at
+    // s ≈ 199 (實踐路80巷), 233 (實踐路70巷), 265 (大仁三街), 294 (大仁街84巷); left: one-storey tin-roofed stalls up to
+    // where the campus starts (s ≈ 192)
+    [169.5, 174.5, 1, { nf: 4, wall: 'tile', sign: ['六季鮮魚湯', '#1f5aa8', '#ffffff'], ground: 'shop', awn: '#1f5aa8', bal: 'grille' }],
+    [174.5, 179.5, 1, { nf: 4, wall: 'beige', sign: null, ground: 'shutter', bal: 'grille', tin: true }],
+    [179.5, 185, 1, { nf: 5, wall: 'beige', sign: null, ground: 'gate', bal: 'cage', roof: 'shack' }],
+    [185, 190, 1, { nf: 5, wall: 'beige', sign: ['熊樂火鍋', '#2b2320', '#f6d9a0'], ground: 'shop', bal: 'grille', tin: true }],
+    [190, 195.5, 1, { nf: 5, wall: 'tile', sign: ['一起開丼', '#f4f1e6', '#c0392b', 'Ms.mo 奶酪小姐'], ground: 'shop', bal: 'grille', tin: true }],
+    [202.5, 208, 1, { nf: 4, wall: 'grey', sign: null, ground: 'shutter', bal: 'cage', tin: true }],
+    [208, 213, 1, { nf: 4, wall: 'tile', sign: null, ground: 'gate', bal: 'grille', tin: true }],
+    [213, 218.5, 1, { nf: 4, wall: 'tile', sign: ['漢堡邦', '#f2c230', '#8a1414'], ground: 'shop', bal: 'grille', tin: true }],
+    [218.5, 224, 1, { nf: 4, wall: 'grey', sign: null, ground: 'shutter', bal: 'grille', tin: true }],
+    [224, 230.5, 1, { nf: 4, wall: 'beige', sign: ['宜珍快餐', '#d0202a', '#ffffff'], ground: 'shop', bal: 'cage', tin: true }],
+    [235.5, 240.5, 1, { nf: 4, wall: 'tile', sign: ['艾修通訊', '#1f6fd0', '#ffffff'], ground: 'shop', bal: 'grille' }],
+    [240.5, 246, 1, { nf: 4, wall: 'beige', sign: ['中福鍋燒麵', '#f6e7c4', '#8a1414'], ground: 'shop', bal: 'grille', tin: true }],
+    [246, 251, 1, { nf: 3, wall: 'tile', sign: null, ground: 'shutter', bal: 'grille', tin: true, frame: '#c62026' }],
+    [251, 256, 1, { nf: 4, wall: 'grey', sign: ['花茶大師', '#3b6b3a', '#ffffff', 'Master Of Tea'], ground: 'shop', bal: 'grille' }],
+    [256, 261.5, 1, { nf: 3, wall: 'tile', sign: ['艾尚豆花', '#f4ead6', '#6b3a1a'], ground: 'shop', bal: 'grille', tin: true }],
+    [268.5, 273.5, 1, { nf: 4, wall: 'grey', sign: ['食麪', '#1d1d1f', '#ffffff'], ground: 'shop', bal: 'grille' }],
+    [273.5, 279, 1, { nf: 4, wall: 'beige', sign: null, ground: 'shutter', bal: 'cage', tin: true }],
+    [279, 285, 1, { nf: 3, wall: 'tile', sign: null, ground: 'gate', bal: 'grille', tin: true }],
+    [285, 290.5, 1, { nf: 4, wall: 'beige', sign: null, ground: 'shutter', bal: 'grille', roof: 'tank' }],
+    [296.5, 302, 1, { nf: 3, wall: 'beige', sign: null, ground: 'gate', bal: 'grille', tin: true }],
+    [302, 308, 1, { nf: 3, wall: 'tile', sign: null, ground: 'gate', bal: 'grille', tin: true }],
+    [308, 314, 1, { nf: 3, wall: 'beige', sign: ['找個地方 cafe', '#efe6d6', '#4a3a2a'], ground: 'shop', bal: 'grille', tin: true }],
+    [314, 320, 1, { nf: 4, wall: 'grey', sign: null, ground: 'shutter', bal: 'cage' }],
+    [320, 326, 1, { nf: 4, wall: 'tile', sign: ['咖喱就好啦', '#f2c230', '#5a3a1c'], ground: 'shop', bal: 'grille', tin: true }],
+    [326, 332, 1, { nf: 4, wall: 'beige', sign: null, ground: 'gate', bal: 'grille' }],
+    [332, 338, 1, { nf: 4, wall: 'tile', sign: null, ground: 'shutter', bal: 'cage', tin: true }],
+    [338, 344, 1, { nf: 4, wall: 'grey', sign: null, ground: 'gate', bal: 'grille' }],
+    [344, 351, 1, { nf: 4, wall: 'tile', sign: ['全家便利商店', '#0a9d58', '#ffffff', 'FamilyMart'], ground: 'shop', bal: 'grille' }],
+    [168, 176, -1, { d: 6, nf: 1, fh: 2.8, wall: 'grime', sign: null, ground: 'shutter', tin: true }],
+    [176, 184, -1, { d: 6, nf: 1, fh: 2.8, wall: 'grime', sign: null, ground: 'shop', tin: true }],
+    [184, 192, -1, { d: 6, nf: 1, fh: 2.8, wall: 'grime', sign: null, ground: 'shutter', tin: true }],
   ],
 };
 function darenAt(s) {
@@ -3024,6 +3058,8 @@ function buildDarenStreet(I, scene) {
       k.plane(genSign(text, bg, fg, sub), w - 0.15, 0.75, w / 2, 2.85, -0.29, FRONT, { emissive: 0.35 });
     } else k.box(0.05, w - 0.05, 2.45, 2.9, -0.06, 0, '#d8d6cf', { col: false });
     if (sp.awn) k.box(-0.05, w + 0.05, 2.3, 2.42, -1.2, 0, sp.awn, { col: false });
+    if (sp.tin) { const ty = nf === 1 ? top : sp.sign ? 3.35 : 2.95; k.box(-0.1, w + 0.1, ty, ty + 0.08, -1.3, nf === 1 ? d : 0, MR.roof, { col: false }); } // tin canopy over the sign (whole roof on a one-storey stall)
+    if (sp.frame) for (const [x0, x1, y0, y1] of [[0.1, 0.25, 0, 2.4], [w - 0.25, w - 0.1, 0, 2.4], [0.1, w - 0.1, 2.25, 2.4]]) k.box(x0, x1, y0, y1, -0.1, 0, sp.frame, { col: false });
     const doorW = 1.0;                                                                                         // stair door to the flats upstairs
     k.plane(YHT.win(), doorW - 0.1, 2.2, w - doorW / 2 - 0.1, 1.1, -0.03, FRONT);
     if (sp.ground === 'shop') shopGlass(k, 0.15, w - doorW - 0.2, 0, 2.3, ROWT.shop('ds' + i, ['#f4e7cf', '#eef2f4', '#f6ead2', '#f1dcb8'][i % 4], ['#8a6a44', '#7f858c', '#a07a4a', '#6b4a2a'][i % 4], 200 + i));

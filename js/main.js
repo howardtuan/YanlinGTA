@@ -27,7 +27,7 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
-import { Physics } from './physics.js';
+import { Physics, G } from './physics.js';
 import { buildPhysicsWorld } from './physworld.js';
 
 const $ = id => document.getElementById(id);
@@ -209,6 +209,7 @@ class Game {
     }
     { const nm = this.world.nightMarket; if (this.world.isFree(nm.x + 4, nm.z, 3)) this.world.addBoard(nm.x + 4, nm.z, 0, 0.8); }
     this._spawnParked();
+    Vehicle.knock = (o, by, nx, nz, impact) => this._knockVehicle(o, by, nx, nz, impact);
     this._ballots();
     this._beam();
     // start position: inside the old campus gate (舊校門)
@@ -760,6 +761,7 @@ class Game {
     if (this.state === 'title') this._titleCam(dt);
     else if (this.state === 'play') this._update(dt);
     else if (this.state === 'ending') { this.rig.yaw += dt * 0.1; this.rig.update(dt, { mdx: 0, mdy: 0 }, this.player, this.world.collision, 1, this.interiors); }
+    if (this.state === 'play') this._physMovers(dt);
     this.physics.update(this.state === 'play' || this.state === 'title' ? dt : 0);
     this._updateSky(dt);
     this._vehicleLod(dt);
@@ -991,11 +993,51 @@ class Game {
       '{L} 走路 · {R} 視角 · {LS} 衝刺 · {RB} 跳<br>{B} 上車 · {A} 互動／📱手機 · {X} 發傳單 · {Y} ✌ · {View} 地圖 · {Menu} 設定')); }
     if (pl.vehicle) this._tipMode = 'car';
   }
+  // physics stand-ins (js/physics.js movers): your vehicle or you on foot, traffic and race rivals near you
+  // push cones, barriers and knocked vehicles out of the way
+  _physMovers(dt) {
+    const P = this.physics; if (!P.ready) return;
+    const pl = this.player, wp = pl.worldPos(), list = [];
+    // boxes from 5 cm above the ground: a scooter (with its rider's legs) 0.9 m tall, a car 1.5 m
+    const veh = v => list.push({ key: v, x: v.pos.x, y: v.mesh.position.y, z: v.pos.z, yaw: v.heading, r: v.hw, hl: v.hl, ...(v.kind === 'scooter' ? { cy: 0.5, hh: 0.45 } : { cy: 0.8, hh: 0.75 }) });
+    if (pl.vehicle) veh(pl.vehicle);
+    else if (!pl.seat) list.push({ key: pl, x: pl.pos.x, y: pl.pos.y, z: pl.pos.z, yaw: 0, r: 0.3, hl: 0, cy: 0.9, group: G.CHAR });
+    for (const v of [...this.traffic.vehicles(), ...this.race.vehicles()]) if (v !== pl.vehicle && Math.abs(v.pos.x - wp.x) < 60 && Math.abs(v.pos.z - wp.z) < 60 && v.mesh.visible !== false) veh(v);
+    P.movers(list, dt);
+    P.focus = wp;
+  }
+  // a parked vehicle hit hard (js/vehicles.js KNOCK_MIN): thrown by physics until it rests. Momentum of the
+  // hitter (with its rider) against the parked one decides how hard; returns the factor the hitter's speed keeps
+  _knockVehicle(o, by, nx, nz, impact) {
+    const P = this.physics; if (!P.ready) return false;
+    const mass = v => v.kind === 'scooter' ? 110 : 1250, m1 = mass(by) + 70, m2 = mass(o), e = 0.3;
+    const dv = (1 + e) * m1 / (m1 + m2) * impact;
+    if (dv < 1) return false; // a scooter nudging a car: the usual push
+    const dx = -nx, dz = -nz, sc = o.kind === 'scooter';
+    // tip over the far side: spin about the horizontal axis across the push (stronger for a tall, light scooter)
+    const sp = dv * (sc ? 1.1 : 0.12);
+    const shape = sc ? { shape: 'box', hx: 0.3, hy: 0.5, hz: 0.88 } : { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 };
+    o.speed = 0; o.knocked = true;
+    const f = new THREE.Vector3();
+    const heading = q => { f.set(0, 0, 1).applyQuaternion(q); return Math.atan2(f.x, f.z); };
+    const rec = P.knock(o.mesh, shape, m2, { x: dx * dv, y: sc ? 1.2 : 0.3, z: dz * dv }, { x: dz * sp, y: (o.id % 2 ? 0.12 : -0.12) * dv, z: -dx * sp },
+      (p, q) => { o.pos.x = p.x; o.pos.z = p.z; o.heading = o.moveAng = heading(q); },
+      (p, q) => {
+        // at rest: back to the game's own pose (upright on its wheels, or a scooter lying on its side)
+        f.set(0, 1, 0).applyQuaternion(q);
+        o.knocked = false; o.pos.set(p.x, 0, p.z); o.heading = o.moveAng = heading(q); o.speed = 0;
+        if (sc) o.fallen = f.y < 0.6;
+        o.hf = o.hb = undefined; o.resolveBody(this.world.collision); o.sync();
+      });
+    if (!rec) { o.knocked = false; return false; }
+    if (by === this.player.vehicle) this.audio.bump(Math.min(3, dv / 3), by.kind);
+    return Math.max(0, (m1 - e * m2) / (m1 + m2));
+  }
   _nearestVehicle(r) {
     const p = this.player.pos; let best = null, bd = r;
     for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
       const d = Math.hypot(v.pos.x - p.x, v.pos.z - p.z) - (v.kind === 'scooter' ? 0 : 1);
-      if (d < bd && (!v.ai || Math.abs(v.speed) < 8)) { bd = d; best = v; }
+      if (d < bd && !v.knocked && (!v.ai || Math.abs(v.speed) < 8)) { bd = d; best = v; }
     }
     return best;
   }

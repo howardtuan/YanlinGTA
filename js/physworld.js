@@ -9,7 +9,8 @@
 //   tree trunks / poles -> cylinders
 //   interior floors (interiors.surfaces) -> triangle meshes
 //   a safety floor under the whole map
-// Everything is fixed (never moves), in collision group G.WORLD.
+// Everything is fixed (never moves), in collision group G.WORLD. Walls, trunks and deck slabs are merged per
+// 100 m tile into compound colliders (see TILE).
 import * as THREE from 'three';
 import { terrainGrid, H, surfaceAt, deckList, levelList, LV_CUT } from './terrain.js';
 import { G, groups } from './physics.js';
@@ -19,6 +20,10 @@ const DECK_T = 0.15;  // half thickness of a deck / stair slab
 const FREE_WALL_H = 4; // free-standing walls without a height band: from the ground up this far
 const TRUNK_H = 6;
 const WALL_LO = -100, WALL_HI = 400; // world y range walls are clipped to (the map is about -15 .. +60 m)
+// Walls, trunks and deck slabs are grouped per TILE x TILE m square and kind into one compound collider each
+// (a few hundred instead of ~25 000): Rapier's per-step cost grows with the number of colliders in the world
+// (25 000 separate ones: ~1.5-4 ms every step even with nothing moving; compounds: ~0.05 ms).
+const TILE = 100;
 
 export function buildPhysicsWorld(physics, collision, interiors) {
   const R = physics.R, world = physics.world;
@@ -29,7 +34,15 @@ export function buildPhysicsWorld(physics, collision, interiors) {
   const tags = physics.tags = { walls: new Set(), trunks: new Set(), ground: new Set() };
   const WG = groups(G.WORLD);
   const fixed = (desc) => world.createCollider(desc.setCollisionGroups(WG).setFriction(0.9));
-  const q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ');
+  const q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), ID = { x: 0, y: 0, z: 0, w: 1 };
+  // shapes collected per tile and kind, built as compounds at the end (see TILE)
+  const batch = new Map();
+  const put = (kind, shape, x, y, z, rot) => {
+    const tx = Math.floor(x / TILE), tz = Math.floor(z / TILE), k = `${kind}|${tx}|${tz}`;
+    let b = batch.get(k);
+    if (!b) batch.set(k, b = { kind, cx: (tx + 0.5) * TILE, cz: (tz + 0.5) * TILE, shapes: [], pos: [], rot: [] });
+    b.shapes.push(shape); b.pos.push({ x: x - b.cx, y, z: z - b.cz }); b.rot.push(rot ? { x: rot.x, y: rot.y, z: rot.z, w: rot.w } : ID);
+  };
   // a box from a to b (x,z) on top of a slope ya -> yb, half width hw, top surface on the slope
   const slab = (ax, az, ya, bx, bz, yb, hw, ht) => {
     const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
@@ -39,16 +52,19 @@ export function buildPhysicsWorld(physics, collision, interiors) {
     // the centre sits ht below the slope's mid point, measured along the slab's own up axis
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
     const cx = (ax + bx) / 2 - up.x * ht, cy = (ya + yb) / 2 - up.y * ht, cz = (az + bz) / 2 - up.z * ht;
-    fixed(R.ColliderDesc.cuboid(hw, ht, Math.hypot(len, yb - ya) / 2).setTranslation(cx, cy, cz).setRotation(q));
+    put('deck', new R.Cuboid(hw, ht, Math.hypot(len, yb - ya) / 2), cx, cy, cz, q);
   };
-  const wall = (ax, az, bx, bz, y0, y1) => {
+  const wall = (ax, az, bx, bz, y0, y1, own = false) => {
     // open-ended bands (y0 = -1e9 'everything below') clamped: Rapier keeps positions in 32-bit floats, so a
     // box centred at -5e8 would have its top tens of metres off
     y0 = Math.max(y0, WALL_LO); y1 = Math.min(y1, WALL_HI);
     const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
     if (len < 1e-3 || !(y1 > y0)) return;
     e.set(0, Math.atan2(dx, dz), 0); q.setFromEuler(e);
-    tags.walls.add(fixed(R.ColliderDesc.cuboid(WALL_T, (y1 - y0) / 2, len / 2 + WALL_T).setTranslation((ax + bx) / 2, (y0 + y1) / 2, (az + bz) / 2).setRotation(q)).handle);
+    const hy = (y1 - y0) / 2, hz = len / 2 + WALL_T, x = (ax + bx) / 2, y = (y0 + y1) / 2, z = (az + bz) / 2;
+    // own: a collider of its own (the map's edge: a 1.8 km wall would make one tile's compound huge)
+    if (own) tags.walls.add(fixed(R.ColliderDesc.cuboid(WALL_T, hy, hz).setTranslation(x, y, z).setRotation(q)).handle);
+    else put('wall', new R.Cuboid(WALL_T, hy, hz), x, y, z, q);
     stats.walls++;
   };
   const trimesh = (verts, idx) => { if (idx.length) fixed(R.ColliderDesc.trimesh(new Float32Array(verts), new Uint32Array(idx))); };
@@ -99,7 +115,9 @@ export function buildPhysicsWorld(physics, collision, interiors) {
       }
     }
     stats.terrainTris = idx.length / 3;
-    tags.ground.add(fixed(R.ColliderDesc.trimesh(new Float32Array(verts), new Uint32Array(idx))).handle);
+    // FIX_INTERNAL_EDGES: contacts across the shared edges use the neighbouring triangles, so something sliding
+    // over the ground (a knocked cone, later wheels) does not catch on the seams between triangles
+    tags.ground.add(fixed(R.ColliderDesc.trimesh(new Float32Array(verts), new Uint32Array(idx), R.TriMeshFlags.FIX_INTERNAL_EDGES)).handle);
     let lo = Infinity; for (let n = 0; n < h.length; n++) if (h[n] < lo) lo = h[n];
     // safety floor: anything that slips through ends up here instead of falling forever. A thin box over the
     // whole grid (plus a margin), top at lo - 30 (the JS ColliderDesc has no halfspace() in Rapier 0.21)
@@ -117,7 +135,7 @@ export function buildPhysicsWorld(physics, collision, interiors) {
     for (const [x, z, y] of [[s.ax, s.az, s.ya], [s.bx, s.bz, s.yb]]) {
       const k = `${x.toFixed(2)},${z.toFixed(2)},${y.toFixed(2)},${s.r}`;
       if (caps.has(k)) continue; caps.add(k);
-      fixed(R.ColliderDesc.cylinder(DECK_T, s.r).setTranslation(x, y - DECK_T, z));
+      put('deck', new R.Cylinder(DECK_T, s.r), x, y - DECK_T, z);
     }
   }
   stats.caps = caps.size;
@@ -159,15 +177,15 @@ export function buildPhysicsWorld(physics, collision, interiors) {
   for (const [x, z, r] of C.circles) {
     if (!(r > 0) || x > 1e8) continue; // removed trees
     const g = H(x, z) - 1;
-    tags.trunks.add(fixed(R.ColliderDesc.cylinder(TRUNK_H / 2 + 0.5, r).setTranslation(x, g + TRUNK_H / 2 + 0.5, z)).handle);
+    put('trunk', new R.Cylinder(TRUNK_H / 2 + 0.5, r), x, g + TRUNK_H / 2 + 0.5, z);
     stats.trunks++;
   }
   // the map's edge (CollisionWorld.resolve keeps bodies inside these bounds)
   const b = C.b;
   if (b) {
     const lo = -60, hi = 200;
-    wall(b.minX, b.minZ, b.maxX, b.minZ, lo, hi); wall(b.maxX, b.minZ, b.maxX, b.maxZ, lo, hi);
-    wall(b.maxX, b.maxZ, b.minX, b.maxZ, lo, hi); wall(b.minX, b.maxZ, b.minX, b.minZ, lo, hi);
+    wall(b.minX, b.minZ, b.maxX, b.minZ, lo, hi, true); wall(b.maxX, b.minZ, b.maxX, b.maxZ, lo, hi, true);
+    wall(b.maxX, b.maxZ, b.minX, b.maxZ, lo, hi, true); wall(b.minX, b.maxZ, b.minX, b.minZ, lo, hi, true);
   }
   // interiors: wall bands and floor heights are above the local ground (the terrain is flattened under
   // these buildings by tools/build_terrain.py), outdoor wall bands above are world heights
@@ -181,6 +199,12 @@ export function buildPhysicsWorld(physics, collision, interiors) {
       trimesh(verts, idx); stats.floors++;
     }
   }
+  // the compounds (tags: a wall / trunk compound's handle is in tags.walls / tags.trunks)
+  for (const b of batch.values()) {
+    const c = fixed(R.ColliderDesc.compound(b.shapes, b.pos, b.rot).setTranslation(b.cx, 0, b.cz));
+    if (b.kind === 'wall') tags.walls.add(c.handle); else if (b.kind === 'trunk') tags.trunks.add(c.handle);
+  }
+  stats.compounds = batch.size;
   stats.ms = Math.round(performance.now() - t0);
   stats.colliders = world.colliders.len();
   return stats;

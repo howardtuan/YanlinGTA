@@ -10,6 +10,7 @@ import { pointInPoly, closestOnSeg } from './collision.js';
 import { createCharacter } from './character.js';
 import { dressCrew, CREW_SHIRT } from './mcuniform.js';
 import { H } from './terrain.js';
+const Hterrain = H; // buildMcD shadows H with the store height
 import { buildArena } from './arena.js';
 import { buildGarryHome } from './garryhome.js';
 import { buildClubRoom } from './clubroom.js';
@@ -604,6 +605,8 @@ function buildIM(I, scene) {
 // NOTE: tools/build_terrain.py flattens the terrain under this footprint from a
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14 };
+// shop-local x of the door in the south wall (onto the sunken stage in front of the B1 store, js/zone_g.js)
+export const MCD_DOOR = [16.4, 19.4];
 export function sacTrimmedPts() {
   // NE corner: 麥當勞 (buildMcD); SW corner: 古箏社教室 (js/clubroom.js, CLUB 14 x 10.4 m)
   return [[-181, -128.55], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5], [-195.05, -118.2], [-181, -118.2]];
@@ -962,6 +965,12 @@ function mcdMaterials() {
 }
 function buildMcD(I, scene) {
   const S = MCD_SPEC; const k = new Kit(I, S.x0, S.z0, 0);
+  // the store is in the 活動中心's B1 (js/zone_g.js digs the pit: the shop and the sunken stage in front of it,
+  // js/terrain.js addPit), so the render base is the pit floor inside the shop, not the street at its corner;
+  // every height below stays relative to it (walls, floors, zones and actions follow H() there)
+  const street = Hterrain(S.x0, S.z0);
+  k.base = Hterrain(S.x0 + 2, S.z0 + 2); k.group.position.y = k.base;
+  const up = street - k.base; // street level above the shop floor (0 if there is no pit)
   const W = S.x1 - S.x0, D = S.z1 - S.z0, H = S.H;
   const MT = mcdMaterials(); // textures / materials of the real store (see MCT above)
   const put = (mat, g) => { if (!k.parts.has(mat)) k.parts.set(mat, []); k.parts.get(mat).push(g); };
@@ -969,11 +978,12 @@ function buildMcD(I, scene) {
   // terracotta tiles, kitchen behind the counter, golden-arches pillar at its right end), and the long
   // dining room opens on the counter's LEFT. The numbers below are written in a "design frame" whose z
   // is mirrored into the shop (mz): design z 0..10.25 = dining = the north part of the shop.
-  //   lobby   x 16.2..W   design z 10.4..D   door in the east glass front at design z 12.6..16.6
+  //   lobby   x 16.2..W   design z 10.4..D   (the door was in the east glass front at design z 12.6..16.6;
+  //   since the store went down to B1 it is in the south wall at x SD0..SD1, onto the sunken stage)
   //   counter x 15.2..16.2 design z 11.4..18.6 (customers on the east side), kitchen x 9.5..15.2 behind it
   //   dining  x 0.3..W    design z 0.3..10.25 (mural + banquette on the partition, striped wall at the far west end)
   //   x 0.3..9.3 / design z 10.4..D is back of house (closed)
-  const DZ = 10.25, KX = 9.5, CX0 = 15.2, CX1 = 16.2, CZ0 = 11.4, CZ1 = 18.6, DOOR0 = 12.6, DOOR1 = 16.6;
+  const DZ = 10.25, KX = 9.5, CX0 = 15.2, CX1 = 16.2, CZ0 = 11.4, CZ1 = 18.6, SD0 = MCD_DOOR[0], SD1 = MCD_DOOR[1];
   const mz = (z) => D - z; // design frame -> shop (mirror in z; planes are turned, not mirrored, so text still reads)
   const km = {
     box: (x0, x1, y0, y1, z0, z1, mat, o) => k.box(x0, x1, y0, y1, mz(z1), mz(z0), mat, o),
@@ -981,28 +991,32 @@ function buildMcD(I, scene) {
     plane: (tex, w, h, x, y, z, rotY = 0, o = {}) => k.plane(tex, w, h, x, y, mz(z), Math.PI - rotY, o),
   };
   // ---- shell ----
-  km.box(0, W, 0, 0.1, 0, D, MT.floor, { col: false, surface: true, tile: [1.2, 1.2] });
+  km.box(0, W, 0, 0.1, 0, D, MT.floor, { col: false, tile: [1.2, 1.2] });
+  // floor surface at k.base + 0.1 everywhere (the shop's edge 5 cm lies outside the pit, where H() is the street)
+  I.addSurface(k.rect(0, W, 0, D), (x, z) => k.base + 0.1 - Hterrain(x, z));
   km.box(CX0 - 0.2, W, 0.1, 0.104, DZ + 0.15, D, MT.lobby, { col: false, tile: [2.4, 2.4] }); // corridor tiles up to the counter
   km.box(KX, CX0 + 1.0, 0.1, 0.106, DZ + 0.15, D, MT.quarry, { col: false, tile: [0.3, 0.3] }); // red 15 cm quarry tiles behind it
   km.box(0, 0.3, 0, H, 0, D, 'white');
   k.box(0, W, 0, H, 0, 0.3, 'white');
-  k.box(0, W, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] }); // outside face keeps the 活動中心 windows
+  // south wall onto the sunken stage, with the door between the banquette's end and the trash cabinets
+  k.box(0, SD0, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] });
+  k.box(SD1, W, 0, H, D - 0.3, D, 'winWall', { tile: [3.2, H] });
+  k.box(SD0, SD1, 2.6, H, D - 0.3, D, 'winWall', { col: false, tile: [3.2, H] });
+  for (const x of [SD0, SD1]) k.box(x - 0.08, x + 0.08, 0, 2.6, D - 0.34, D + 0.04, MT.frame, { col: false });
+  k.box(SD0, SD1, 2.55, 2.65, D - 0.34, D + 0.04, MT.frame, { col: false }); // door transom
   km.box(0.3, CX1, 0, H, DZ, DZ + 0.15, MT.wall);                 // dining / kitchen partition
   km.box(KX - 0.2, KX, 0, H, 11.55, D - 0.3, MT.wall);           // kitchen back wall (back of house beyond)
   km.box(KX - 0.2, KX, 2.25, H, DZ + 0.15, 11.55, MT.wall, { col: false }); // …with the doorway to the back corridor
   km.box(KX, CX1, 0, H - 0.1, D - 0.34, D - 0.3, MT.wall, { col: false }); // kitchen side of the north wall
   km.box(CX1, W - 0.15, 2.7, H, DZ, DZ + 0.15, MT.wall, { col: false }); // header over the dining opening
   km.box(W - 0.15, W, 0, 0.35, 0, D, MT.frame, { col: false });
-  km.box(W - 0.15, W, 0, H, 0, DOOR0, 'glass'); km.box(W - 0.15, W, 0, H, DOOR1, D, 'glass');
-  km.box(W - 0.15, W, 2.6, H, DOOR0, DOOR1, 'glass', { col: false });
-  for (const z of [0, 5.2, DZ + 0.1, DOOR0, DOOR1, D]) km.box(W - 0.22, W + 0.04, 0, H, z - 0.08, z + 0.08, MT.frame, { col: false });
-  km.box(W - 0.22, W + 0.04, 2.55, 2.65, DOOR0, DOOR1, MT.frame, { col: false }); // door transom
-  // ---- outside: dark fascia with white "McDonald's" over the door, dark pillar with the golden arches ----
+  // east glass front (under the street since B1: its top shows as a low window strip on the street side)
+  km.box(W - 0.15, W, 0, H, 0, D, 'glass');
+  for (const z of [0, 5.2, DZ + 0.1, 12.6, 16.6, D]) km.box(W - 0.22, W + 0.04, 0, H, z - 0.08, z + 0.08, MT.frame, { col: false });
+  // ---- outside: dark fascia band (the "McDonald's" board and the curved glass front are js/zone_g.js) ----
   km.box(-0.05, W + 0.4, H, H + 1.2, -0.05, D + 0.05, MT.fasciaBox, { col: false });
-  km.plane(MCT.fascia(), 7.2, 1.0, W + 0.42, H + 0.6, (DOOR0 + DOOR1) / 2, Math.PI / 2, { emissive: 0.55 });
-  km.box(W, W + 0.9, 0, H + 1.2, 0.05, 0.95, MT.pillar);
-  km.plane(MCT.arches('#ffbc0d'), 0.8, 0.7, W + 0.91, 3.0, 0.5, Math.PI / 2, { emissive: 0.9, transparent: true });
-  km.box(0, W, H + 1.2, S.top, 0, D, 'sac', { col: false });
+  // the 活動中心 above, up to its roof (S.top is above the street)
+  km.box(0, W, H + 1.2, S.top + up, 0, D, 'sac', { col: false });
   // ---- ceiling: white 60 cm grid; square downlights over the dining room, troffers over lobby and kitchen ----
   km.box(0, W, H - 0.1, H, 0, D, MT.ceil, { col: false, tile: [0.6, 0.6] });
   for (let x = 1.5; x < W - 0.5; x += 1.8) for (let z = 1.4; z < DZ - 0.4; z += 1.8) {
@@ -1044,7 +1058,10 @@ function buildMcD(I, scene) {
   //      the Happy Meal column on the right (partition), yellow trash cabinets in the left foreground ----
   km.box(0.3, CX1, 0, H - 0.1, DZ - 0.04, DZ, MT.oak, { col: false, tile: [1.2, H] }); // partition, dining side
   km.plane(MCT.mural(), 12.4, 2.6, 9.5, 2.55, 0.32);
-  km.box(15.7, W - 0.15, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  // oak lining on the south wall, split around the south door (shop x SD0..SD1 = design x, the mirror is in z)
+  km.box(15.7, SD0, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  km.box(SD1, W - 0.15, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
+  km.box(SD0, SD1, 2.65, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
   km.box(0.3, 3.3, 0, H - 0.1, 0.3, 0.34, MT.oak, { col: false, tile: [1.2, H] });
   km.box(3.0, 16.2, 0, 0.42, 0.34, 1.0, MT.oak, { col: false, tile: [1.2, 0.42] });
   km.box(3.0, 16.2, 0.42, 0.62, 0.34, 1.0, MT.bench, { col: false });
@@ -1110,9 +1127,10 @@ function buildMcD(I, scene) {
   km.plane(MCT.bin('一般垃圾', '🗑', 'binA'), 0.9, 0.42, 21.4, 0.86, 0.955); km.plane(MCT.bin('資源回收', '♻', 'binB'), 0.9, 0.42, 20.2, 0.86, 0.955);
   km.plane(MCT.toss(), 2.2, 1.05, 20.8, 2.07, 0.955);
   // pole sign outside
-  k.box(W + 4, W + 4.3, 0, 7, D + 1, D + 1.3, 'metal', { col: false });
+  // (it stands on the street east of the pit: drawn from street level, its wall band is above the ground there)
+  k.box(W + 4, W + 4.3, up, up + 7, D + 1, D + 1.3, 'metal', { col: false });
   k.wallRect(W + 4, W + 4.3, D + 1, D + 1.3, 0, 7);
-  const pole = k.plane(T.mcLogo(), 3.2, 1.6, W + 4.15, 7.6, D + 1.15, Math.PI / 2, { emissive: 0.5, double: true });
+  const pole = k.plane(T.mcLogo(), 3.2, 1.6, W + 4.15, up + 7.6, D + 1.15, Math.PI / 2, { emissive: 0.5, double: true });
   k.finish(scene);
   I.zones.push({ name: '麥當勞 中原店', pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.4 });
   // crew in the real store's uniform (mcuniform.js): the counter girl at the middle register, and two in the
@@ -1192,11 +1210,11 @@ function buildMcD(I, scene) {
   //      home and ordering / shifts are off. If you are inside when it shuts, the shutter lets you out.
   const OPEN0 = 5 * 60, OPEN1 = 23 * 60;
   const shutterMat = new THREE.MeshStandardMaterial({ map: ctex('mcShutter', 64, 128, (g, w, h) => { g.fillStyle = '#9aa0a6'; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 8) { g.fillStyle = '#7c8288'; g.fillRect(0, y, w, 2); g.fillStyle = '#b5bac0'; g.fillRect(0, y + 2, w, 1); } }), metalness: 0.5, roughness: 0.5 });
-  const shutter = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.6, DOOR1 - DOOR0 + 0.2), shutterMat);
-  shutter.position.set(W + 0.12, 1.3, mz((DOOR0 + DOOR1) / 2)); shutter.visible = false; k.group.add(shutter);
+  const shutter = new THREE.Mesh(new THREE.BoxGeometry(SD1 - SD0 + 0.2, 2.6, 0.06), shutterMat);
+  shutter.position.set((SD0 + SD1) / 2, 1.3, D + 0.12); shutter.visible = false; k.group.add(shutter);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), new THREE.MeshBasicMaterial({ map: T.sign('本店已打烊・營業時間 05:00–23:00', '#1b1b1b', '#ffc72c', 'mcClosed', 1024, 256, 64) }));
-  sign.position.set(W + 0.16, 1.55, mz((DOOR0 + DOOR1) / 2)); sign.rotation.y = Math.PI / 2; sign.visible = false; k.group.add(sign);
-  const wi = I.walls.length; k.wallLine(W + 0.1, mz(DOOR0), W + 0.1, mz(DOOR1), 0, 2.6); const shutWall = I.walls[wi], wallY = [shutWall[4], shutWall[5]];
+  sign.position.set((SD0 + SD1) / 2, 1.55, D + 0.16); sign.visible = false; k.group.add(sign);
+  const wi = I.walls.length; k.wallLine(SD0, D + 0.1, SD1, D + 0.1, 0, 2.6); const shutWall = I.walls[wi], wallY = [shutWall[4], shutWall[5]];
   shutWall[4] = shutWall[5] = -100; // open: the wall is out of the way
   // the shop's own lit materials (signs, menu boards, panels, downlights) get their own copies so only they dim
   const lit = new Map();
@@ -1214,11 +1232,11 @@ function buildMcD(I, scene) {
     const p = game.player.pos, inside = pointInPoly(p.x, p.z, inShop);
     shutWall[4] = mcdState.closed && !inside ? wallY[0] : -100; shutWall[5] = mcdState.closed && !inside ? wallY[1] : -99;
   });
-  I.actions.push({ ...(() => { const e = k.w(W + 1.2, mz((DOOR0 + DOOR1) / 2)); return { x: e[0], z: e[1] }; })(), r: 2.2, y: 0, cond: () => mcdState.closed,
+  I.actions.push({ ...(() => { const e = k.w((SD0 + SD1) / 2, D + 1.2); return { x: e[0], z: e[1] }; })(), r: 2.2, y: 0, cond: () => mcdState.closed,
     label: () => '麥當勞已打烊（營業時間 05:00–23:00）', fn: (g) => g.hud.toast('🍟 麥當勞已打烊，早上 5 點再來吧', 'good', 2000) });
   // 漢克 (js/hank.js) works the register at the dining end, 18:00–22:00
   const hankSpot = { at: k.w(14.6, mz(12.6)), y: k.base, h: k.heading(Math.PI / 2), talk: k.w(17.0, mz(12.6)) };
-  const out = { entrance: k.w(W + 3, mz(14.6)), k, W, D, staff, crew, kitchen, busy: false, hankSpot };
+  const out = { entrance: k.w((SD0 + SD1) / 2, D + 3), door: [SD0, SD1], k, W, D, staff, crew, kitchen, busy: false, hankSpot };
   Object.defineProperty(out, 'closed', { get: () => mcdState.closed });
   return out;
 }
@@ -3679,7 +3697,7 @@ export function buildInteriors(scene, data, collision) {
   buildGateExtras(I, scene); // 正門: concrete name wall, campus directory, car park portal, P totem (js/gate_extras.js)
   buildWeiche(I, scene, data);
   buildZoneE(I, scene, data); // E 區：建築館、祐生、設計學院的外觀細節（js/zone_e.js）
-  buildZoneG(I, scene, data); // G 區校內建築外觀（js/zone_g.js）
+  buildZoneG(I, scene, data, collision); // G 區校內建築外觀（js/zone_g.js）
   buildDorms(I, scene, data); // 良善樓、恩慈樓外觀、大仁街校界牆、A2 門牆、恩慈小門 (js/dorms.js)
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;

@@ -11,14 +11,14 @@ import { CF_DROP, campusFix, campusAdd } from './campus_fix.js';
 import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
 import { applyZoneE, zoneEFootprints } from './zone_e.js';
-import { zoneGLook, zoneGFootprints } from './zone_g.js';
+import { zoneGLook, zoneGFootprints, zoneGTerrain } from './zone_g.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints } from './dorms.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
 import { pointInPoly } from './collision.js';
-import { loadTerrain, surfaceAt } from './terrain.js';
+import { loadTerrain, surfaceAt, pitAt } from './terrain.js';
 import { SkySystem } from './sky.js';
 import { PostFX } from './post.js';
 import { Phone } from './phone.js';
@@ -160,6 +160,7 @@ class Game {
     reserved.push(...zbFootprints()); // 中北路街屋的保留範圍（js/street_zhongbei.js）
     reserved.push(...zoneEFootprints()); // E 區自建部分的保留範圍（js/zone_e.js）
     reserved.push(...zoneGFootprints()); // G 區自建構件伸出輪廓的保留範圍（js/zone_g.js）
+    zoneGTerrain(data); // 學活南面下沉舞台與 B1 麥當勞（地形坑）、往二樓門廊的大階梯（js/zone_g.js）
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {
@@ -422,7 +423,7 @@ class Game {
       let placed = 0;
       for (let i = 0; i < n * 5 && placed < n; i++) {
         const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
-        if (!pointInPoly(x, z, a.pts) || !w.isFree(x, z, moto ? 1 : 2.2)) continue;
+        if (!pointInPoly(x, z, a.pts) || !w.isFree(x, z, moto ? 1 : 2.2) || pitAt(x, z, 2.5) !== null) continue; // not down in the 學活 pit (js/zone_g.js)
         if (this.vehicles.some(v => Math.hypot(v.pos.x - x, v.pos.z - z) < (moto ? 1.6 : 5))) continue;
         this._addVehicle(moto || rnd() < 0.5 ? 'scooter' : (rnd() < 0.3 ? 'taxi' : 'car'), x, z, moto ? Math.PI / 2 : rnd() * 6.28, rnd);
         placed++; if (a.synthetic) synParked[synRound(a)]++;

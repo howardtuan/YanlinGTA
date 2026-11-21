@@ -12,7 +12,7 @@
 // Everything is fixed (never moves), in collision group G.WORLD. Walls, trunks and deck slabs are merged per
 // 100 m tile into compound colliders (see TILE).
 import * as THREE from 'three';
-import { terrainGrid, H, surfaceAt, deckList, levelList, LV_CUT } from './terrain.js';
+import { terrainGrid, H, surfaceAt, deckList, levelList, LV_CUT, pitList } from './terrain.js';
 import { G, groups } from './physics.js';
 
 export const WALL_T = 0.1; // half thickness of a wall (m; js/walker.js stops that much earlier)
@@ -94,6 +94,13 @@ export function buildPhysicsWorld(physics, collision, interiors) {
       const z0 = Math.floor((Math.min(s.az, s.bz) - s.r - minZ) / step), z1 = Math.floor((Math.max(s.az, s.bz) + s.r - minZ) / step);
       for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) cutCell.add(j * nx + i);
     }
+    // ... and the cells under a pit (js/terrain.js addPit): their 1 m sub-grid follows H(), so it drops to the
+    // pit floor inside it (the pit's walls are js/zone_g.js collision lines)
+    for (const p of pitList()) {
+      const x0 = Math.floor((p.x0 - 1 - minX) / step), x1 = Math.floor((p.x1 + 1 - minX) / step);
+      const z0 = Math.floor((p.z0 - 1 - minZ) / step), z1 = Math.floor((p.z1 + 1 - minZ) / step);
+      for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) cutCell.add(j * nx + i);
+    }
     for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
       const k = j * nx + i;
       if (cutCell.has(k)) continue;
@@ -106,12 +113,21 @@ export function buildPhysicsWorld(physics, collision, interiors) {
       const i = k % nx, j = (k / nx) | 0;
       if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) continue;
       const x0 = minX + i * step, z0 = minZ + j * step, d = step / SUB, base = verts.length / 3;
-      for (let b = 0; b <= SUB; b++) for (let a = 0; a <= SUB; a++) { const x = x0 + a * d, z = z0 + b * d; verts.push(x, H(x, z), z); }
-      for (let b = 0; b < SUB; b++) for (let a = 0; a < SUB; a++) {
-        const p = base + b * (SUB + 1) + a, cx = x0 + (a + 0.5) * d, cz = z0 + (b + 0.5) * d;
-        // the 1 m sub-cells follow the 10 m cell's diagonal so heights stay those of H()
-        if (inCut(cx + d / 4, cz - d / 4) === false) idx.push(p, p + SUB + 2, p + 1);
-        if (inCut(cx - d / 4, cz + d / 4) === false) idx.push(p, p + SUB + 1, p + SUB + 2);
+      // sub-grid lines every d m, plus a pair 2 cm apart on each pit edge inside the cell (js/terrain.js addPit),
+      // so the pit's side is a vertical step, not a 1 m ramp that sinks the plaza or lifts the pit floor
+      const xs = [], zs = [];
+      for (let a = 0; a <= SUB; a++) { xs.push(x0 + a * d); zs.push(z0 + a * d); }
+      for (const p of pitList()) {
+        for (const e of [p.x0, p.x1]) if (e > x0 + 0.02 && e < x0 + step - 0.02 && p.z1 > z0 && p.z0 < z0 + step) xs.push(e - 0.01, e + 0.01);
+        for (const e of [p.z0, p.z1]) if (e > z0 + 0.02 && e < z0 + step - 0.02 && p.x1 > x0 && p.x0 < x0 + step) zs.push(e - 0.01, e + 0.01);
+      }
+      const ux = [...new Set(xs)].sort((a, b) => a - b), uz = [...new Set(zs)].sort((a, b) => a - b), NX = ux.length;
+      for (const z of uz) for (const x of ux) verts.push(x, H(x, z), z);
+      for (let b = 0; b < uz.length - 1; b++) for (let a = 0; a < NX - 1; a++) {
+        const p = base + b * NX + a, dx = ux[a + 1] - ux[a], dz = uz[b + 1] - uz[b], cx = ux[a] + dx / 2, cz = uz[b] + dz / 2;
+        // the sub-cells follow the 10 m cell's diagonal so heights stay those of H()
+        if (inCut(cx + dx / 4, cz - dz / 4) === false) idx.push(p, p + NX + 1, p + 1);
+        if (inCut(cx - dx / 4, cz + dz / 4) === false) idx.push(p, p + NX, p + NX + 1);
       }
     }
     stats.terrainTris = idx.length / 3;

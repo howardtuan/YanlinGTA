@@ -28,11 +28,13 @@ const VOTE_CAP = 24; // votes one player can earn from all shifts together (the 
 const WALK = 1.9;
 export const WAGE = 196; // hourly wage, one full shift = one hour
 
-// shop-local layout (see buildMcD): you walk in facing the counter (x 15.2–16.2, z 1.4–8.6, customers on
-// its east side), the door is in the east glass front at z 3.4–7.4, the dining room is on its left (north)
+// shop-local layout (see buildMcD): the counter is at x 15.2–16.2, z 1.4–8.6 (customers on its east side), the
+// dining room fills the south half (z 9.75–20) and the door is in its south wall at mcd.door (x 16.4–19.4), onto
+// the sunken stage in front of the B1 store; customers come in through the dining room's opening (x 16.2–19.8)
 const REGISTER = [14.6, 5.0];
 const LINE_Z = 5.0, SLOT = (i) => [17.0 + i * 1.15, LINE_Z];
-const LEAVE_Z = 6.6; // walk out beside the queue, still inside the door opening
+const LEAVE_Z = 6.6; // step out of the queue first
+const IN_WAY = [[18.0, 8.0], [17.9, 12.0]]; // lobby -> through the dining room's opening -> to the south door
 
 const GREET = ['學長好！', '你好～', '嗨嗨！', '不好意思～', '哈囉！'];
 const RECOG = ['欸！你不是那個資管系的候選人彥霖嗎？', '咦，彥霖學長怎麼在這裡打工？', '是競選海報上那個人耶！'];
@@ -153,20 +155,21 @@ export class McShift {
     const i = this.spawned++;
     const look = randomStudent(this.rnd);
     const ch = createCharacter({ ...look, face: true });
-    const W = this.mcd.W;
     // the first one is already inside (was reading the menu board); the rest come in through the door
-    const c = { ch, slot: this.customers.filter(o => o.state !== 'leaving').length, state: 'walk', lx: i === 0 ? 21.5 : W + 1.2, lz: LINE_Z, path: [], order: new Map(), said: '', recog: this.rnd() < 0.35, label: null, t: 0 };
+    const dx = this._doorX(), D = this.mcd.D;
+    const c = { ch, slot: this.customers.filter(o => o.state !== 'leaving').length, state: 'walk', lx: i === 0 ? 21.5 : dx, lz: i === 0 ? LINE_Z : D + 1.5, path: [], order: new Map(), said: '', recog: this.rnd() < 0.35, label: null, t: 0 };
     // order: later customers order more
     const lines = Math.min(3, 1 + Math.floor(this.rnd() * (1.6 + i * 0.35)));
     const pool = [...MENU]; for (let n = 0; n < lines; n++) { const m = pool.splice(Math.floor(this.rnd() * pool.length), 1)[0]; c.order.set(m.k, this.rnd() < 0.25 ? 2 : 1); }
     const qty = [...c.order.values()].reduce((a, b) => a + b, 0);
     c.max = c.patience = 18 + lines * 5 + qty * 2;
     c.say = this._orderText(c);
-    c.path = [SLOT(c.slot)];
+    c.path = i === 0 ? [SLOT(c.slot)] : [[dx, IN_WAY[1][1]], IN_WAY[0], SLOT(c.slot)];
     ch.root.position.copy(this.wpos(c.lx, c.lz, 0.1));
     this.g.scene.add(ch.root);
     this.customers.push(c);
   }
+  _doorX() { const d = this.mcd.door || [16.4, 19.4]; return (d[0] + d[1]) / 2; }
   _orderText(c) {
     const parts = [...c.order].map(([k, n]) => `${NUM[n]}${ITEM[k].unit}${ITEM[k].name.replace(/（.*）| 6塊/g, '')}`);
     const body = parts.length > 1 ? parts.slice(0, -1).join('、') + '，還有' + parts[parts.length - 1] : parts[0];
@@ -174,7 +177,8 @@ export class McShift {
   }
   _leave(c, emoji) {
     c.state = 'leaving';
-    c.path = [[c.lx, LEAVE_Z], [this.mcd.W + 3, LEAVE_Z]];
+    const dx = this._doorX();
+    c.path = [[c.lx, LEAVE_Z], IN_WAY[0], [dx, IN_WAY[1][1]], [dx, this.mcd.D + 2.2]]; // out of the south door, still on the flat B1 floor (the stage stair starts at D + 2.4, js/zone_g.js PIT.flatZ)
     if (emoji) this._say(c, emoji);
     if (this.front === c) this.front = null;
     // everyone behind moves up one place

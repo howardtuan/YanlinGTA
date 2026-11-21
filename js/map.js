@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { freezeStatic } from './freeze.js';
 import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from './collision.js';
-import { H, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP, addCut, LV_DECK } from './terrain.js';
+import { H, Hgrid, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP, addCut, LV_DECK, pitAt, pitRects } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { buildFurniture } from './furniture.js';
 import { groundTex, facadeTex, facadeParam, FACP_TYPES, shopTex, roofTex, corrugatedTex, concreteTex } from './textures.js';
@@ -57,14 +57,14 @@ function drapePieces(poly) {
 const TOL_LO = 0.08, TOL_HI = 0.1;
 function triFits(a, b, c, T) {
   const { minX, minZ, step: s, nx, nz } = T;
-  const ha = H(a[0], a[1]), hb = H(b[0], b[1]), hc = H(c[0], c[1]);
+  const ha = Hgrid(a[0], a[1]), hb = Hgrid(b[0], b[1]), hc = Hgrid(c[0], c[1]); // draped layers follow the grid; pits are masked
   const det = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
   if (Math.abs(det) < 1e-6) return true;
   let ok = true;
   const test = (x, z) => {
     const l1 = ((b[1] - c[1]) * (x - c[0]) + (c[0] - b[0]) * (z - c[1])) / det;
     const l2 = ((c[1] - a[1]) * (x - c[0]) + (a[0] - c[0]) * (z - c[1])) / det;
-    const d = H(x, z) - (l1 * ha + l2 * hb + (1 - l1 - l2) * hc);
+    const d = Hgrid(x, z) - (l1 * ha + l2 * hb + (1 - l1 - l2) * hc);
     if (d > TOL_LO || d < -TOL_HI) ok = false;
   };
   // the terrain is piecewise linear, so the worst point is a grid node inside
@@ -132,7 +132,7 @@ class Geo {
   }
   // convex polygon of [x,z] at height y (or y above the terrain when draping)
   fpoly(pts, y, col) {
-    const P = this.drape ? q => [q[0], H(q[0], q[1]) + y + TOL_LO, q[1]] : q => [q[0], y, q[1]];
+    const P = this.drape ? q => [q[0], Hgrid(q[0], q[1]) + y + TOL_LO, q[1]] : q => [q[0], y, q[1]];
     const uv = this.uvAt || (q => [q[0] / 8, q[1] / 8]);
     let pcs = [pts];
     if (this.drape) { pcs = []; adaptPieces(pts, pcs, 160); }
@@ -202,7 +202,7 @@ function groundGeometry(B) {
   const X = xs.length, Z = zs.length;
   const pos = new Float32Array(X * Z * 3);
   for (let j = 0; j < Z; j++) for (let i = 0; i < X; i++) {
-    const k = (j * X + i) * 3; pos[k] = xs[i]; pos[k + 1] = H(xs[i], zs[j]); pos[k + 2] = zs[j];
+    const k = (j * X + i) * 3; pos[k] = xs[i]; pos[k + 1] = Hgrid(xs[i], zs[j]); pos[k + 2] = zs[j]; // pits are masked, not drawn into the grid
   }
   const idx = [];
   for (let j = 0; j < Z - 1; j++) for (let i = 0; i < X - 1; i++) {
@@ -790,7 +790,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   world.inCampus = (x, z) => data.campus.some(r => pointInPoly(x, z, r));
 
   // viaducts, footbridge, road cuts: the ground is masked over the open cuts
-  const grade = gradeItems(data), cutR = cutRects(grade), sink = sinkPlan(data), maskCut = m => cutMask(m, cutR, sink.glsl);
+  const grade = gradeItems(data), cutR = cutRects(grade).concat(pitRects()), sink = sinkPlan(data), maskCut = m => cutMask(m, cutR, sink.glsl);
   world.inSink = sink.inside;
   // sunk ponds / streams: water, banks, railings and the culvert walls where a stream goes
   // under a road. Collision (sinkColl: a line along the top of every bank and across every
@@ -2081,7 +2081,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const t0 = j / k, t1 = (j + 1) / k;
       const p0 = [a[0] + (c[0] - a[0]) * t0, a[1] + (c[1] - a[1]) * t0], p1 = [a[0] + (c[0] - a[0]) * t1, a[1] + (c[1] - a[1]) * t1];
       const q0 = [p0[0] + n[0] * o, p0[1] + n[2] * o], q1 = [p1[0] + n[0] * o, p1[1] + n[2] * o];
-      const Y = p => [p[0], H(p[0], p[1]) + 0.06 + TOL_LO, p[1]];
+      if (pitAt(q0[0], q0[1]) !== null || pitAt(q1[0], q1[1]) !== null) continue; // not down into a pit (js/zone_g.js)
+      const Y = p => [p[0], Hgrid(p[0], p[1]) + 0.06 + TOL_LO, p[1]];
       aoGeo.tri(Y(p0), Y(p1), Y(q1), [AO_DARK, AO_DARK, AO_CLEAR], UP);
       aoGeo.tri(Y(p0), Y(q1), Y(q0), [AO_DARK, AO_CLEAR, AO_CLEAR], UP);
     }
@@ -3346,7 +3347,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       return false;
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
-    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8)) return false; collision.removeCircleAt(x, z); return true; };
+    // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way)
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null) return false; collision.removeCircleAt(x, z); return true; };
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
     // order, same draws); one that would land in a building, another road or water is hidden
     const moveTree = (p, cr) => {
@@ -3363,7 +3365,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
     // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
     const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || pitAt(x, z, 0.6) !== null });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;

@@ -18,7 +18,29 @@ export function loadTerrain(t) {
 }
 export const terrainGrid = () => G;
 
+// ---------- pits: runtime sunken areas (js/zone_g.js 學活南面下沉舞台＋B1 麥當勞) ----------
+// Axis-aligned rectangles registered before the world is built (js/main.js). Inside one H() is the
+// pit floor, so everything that stands on H (players, NPCs, vehicles, trees, pads / stairs, the
+// interiors and their physics walls / floors) follows it down. The 10 m grid itself is untouched:
+// js/map.js draws the ground mesh from Hgrid() and masks it over the pits (pitRects), js/physworld.js
+// refines the cells under a pit to 1 m so its floor follows H(). clearBridges() keeps the pits.
+const pits = [];
+export function addPit(x0, z0, x1, z1, y) { pits.push({ x0: Math.min(x0, x1), z0: Math.min(z0, z1), x1: Math.max(x0, x1), z1: Math.max(z0, z1), y }); }
+export const pitList = () => pits;
+// pit floor at (x,z) (within r metres of a pit when r > 0), or null
+export function pitAt(x, z, r = 0) {
+  for (let i = 0; i < pits.length; i++) { const p = pits[i]; if (x > p.x0 - r && x < p.x1 + r && z > p.z0 - r && z < p.z1 + r) return p.y; }
+  return null;
+}
+// mask rectangles for js/map.js cutMask: [cx, cz, ux, uz, half length, half width]
+export const pitRects = () => pits.map(p => [(p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, 1, 0, (p.x1 - p.x0) / 2, (p.z1 - p.z0) / 2]);
+
 export function H(x, z) {
+  if (pits.length) for (let i = 0; i < pits.length; i++) { const p = pits[i]; if (x > p.x0 && x < p.x1 && z > p.z0 && z < p.z1) return p.y; }
+  return Hgrid(x, z);
+}
+// the terrain grid alone (no pits): the ground mesh
+export function Hgrid(x, z) {
   if (!G) return 0;
   const { minX, minZ, step, nx, nz, h } = G;
   // outside the grid the edge value is reused (clamp)

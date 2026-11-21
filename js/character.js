@@ -27,6 +27,75 @@ function logoTexture() {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
+// 系學會幹部T: the white line-drawn lion on the left chest (user's photo): a lion with a crown, a speech bubble
+// saying 34TH and CYIMSA written underneath; white strokes on a transparent canvas
+function lionTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d'); g.strokeStyle = g.fillStyle = '#f6f6f2'; g.lineWidth = 6; g.lineCap = g.lineJoin = 'round';
+  // mane: a zigzag ring
+  g.beginPath(); for (let i = 0; i <= 28; i++) { const a = i / 28 * Math.PI * 2, r = i % 2 ? 50 : 62; const x = 104 + Math.cos(a) * r, y = 108 + Math.sin(a) * r * 0.95; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  // face, eyes, nose and an open mouth
+  g.beginPath(); g.ellipse(104, 112, 36, 32, 0, 0, 7); g.stroke();
+  g.beginPath(); g.arc(91, 104, 5, 0, 7); g.arc(117, 104, 5, 0, 7); g.fill();
+  g.beginPath(); g.moveTo(98, 118); g.lineTo(110, 118); g.lineTo(104, 124); g.closePath(); g.fill();
+  g.beginPath(); g.ellipse(104, 132, 9, 6, 0, 0, 7); g.stroke();
+  // little body and legs
+  g.beginPath(); g.moveTo(80, 166); g.lineTo(78, 200); g.moveTo(128, 166); g.lineTo(130, 200); g.moveTo(70, 200); g.lineTo(140, 200); g.stroke();
+  // crown
+  g.beginPath(); g.moveTo(86, 46); g.lineTo(90, 26); g.lineTo(98, 40); g.lineTo(104, 22); g.lineTo(110, 40); g.lineTo(118, 26); g.lineTo(122, 46); g.closePath(); g.stroke();
+  // speech bubble: 34TH
+  g.beginPath(); g.ellipse(196, 104, 40, 46, 0, 0, 7); g.stroke();
+  g.beginPath(); g.moveTo(170, 140); g.lineTo(158, 162); g.lineTo(184, 146); g.stroke();
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 34px "Comic Sans MS","Segoe Print",sans-serif'; g.fillText('34', 196, 88);
+  g.font = '700 26px "Comic Sans MS","Segoe Print",sans-serif'; g.fillText('TH', 196, 120);
+  g.font = '700 30px "Comic Sans MS","Segoe Print",sans-serif'; g.fillText('C Y I M S A', 104, 232);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// 資管系服 (deep olive tee, user's photos): front — a white geometric (low-poly line) lion head facing left on the
+// left chest; back — "Information Management" with a little Java program and "Since.1988" written down the side
+function geoLionTexture() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const g = cv.getContext('2d'); g.strokeStyle = '#f4f4ee'; g.lineWidth = 6; g.lineJoin = 'round';
+  const P = { // points of the head (muzzle on the left) and the mane spikes (right)
+    n: [40, 130], m: [62, 150], c: [92, 178], j: [130, 196], e: [92, 112], f: [70, 104], b: [112, 82], t: [150, 64], a: [118, 130],
+    k: [150, 150], h: [176, 110], i: [196, 74], l: [204, 136], o: [182, 180], q: [214, 196], r: [232, 110], s: [222, 56], u: [176, 40],
+    v: [240, 160], w: [150, 214], x: [120, 226], y: [100, 210],
+  };
+  const L = (...ks) => { g.beginPath(); ks.forEach((k, i) => (i ? g.lineTo(...P[k]) : g.moveTo(...P[k]))); g.stroke(); };
+  L('n', 'f', 'b', 't', 'u', 's', 'i', 'r', 'v', 'l', 'q', 'o', 'w', 'x', 'y', 'c', 'm', 'n');
+  L('f', 'e', 'a', 'k', 'j', 'c'); L('e', 'b'); L('a', 'b'); L('b', 'h', 't'); L('h', 'i'); L('h', 'k'); L('h', 'l'); L('l', 'k', 'o');
+  L('a', 'm'); L('k', 'w'); L('j', 'y'); L('l', 'i'); L('u', 'h'); L('o', 'l');
+  g.fillStyle = '#f4f4ee'; g.beginPath(); g.arc(98, 120, 6, 0, 7); g.fill(); // eye
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function imBackTexture() {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 768;
+  const g = cv.getContext('2d'), W = '#f2f1ea'; g.fillStyle = W; g.strokeStyle = W; g.lineWidth = 4;
+  g.font = '600 66px Georgia,"Times New Roman",serif'; g.fillText('Information Management', 140, 130);
+  g.fillRect(60, 150, 450, 4);
+  const mono = (s, x, y, size = 36) => { g.font = `700 ${size}px "Courier New",monospace`; g.fillText(s, x, y); };
+  mono('package CYCU;', 230, 230, 40); g.fillRect(230, 248, 330, 4);
+  mono('public class CYIM', 90, 320); mono('{', 90, 360);
+  mono('public static void main(String arg[])', 190, 400); mono('{', 200, 440);
+  mono('System.out.print("Information Management");', 250, 480); mono('}', 200, 520); mono('}', 90, 560);
+  for (const [x, y, w] of [[60, 410, 110], [60, 490, 170], [170, 530, 190], [220, 500, 640], [560, 410, 90]]) g.fillRect(x, y, w, 3);
+  g.fillRect(790, 60, 4, 140); g.fillRect(700, 560, 4, 120); g.fillRect(760, 560, 4, 170);
+  g.save(); g.translate(820, 230); g.rotate(Math.PI / 2); g.font = '500 54px Georgia,"Times New Roman",serif'; g.fillText('Since.1988', 0, 0); g.restore();
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// a print that follows the torso's curve: a plane bent round the superellipse cross-section at the given height
+// (rx, rz: the cloth's radii there; back = on the back, facing -z; ox: where its centre sits across the body)
+function curvedPrint(w, h, rx, rz, back, segs = 18, ox = 0) {
+  const g = new THREE.PlaneGeometry(w, h, segs, 1), P = g.attributes.position;
+  for (let i = 0; i < P.count; i++) {
+    const x = P.getX(i), q = Math.min(0.98, Math.abs((x + ox) / rx));
+    P.setZ(i, rz * (1 - q ** 2.5) ** 0.4);
+  }
+  if (back) { g.rotateY(Math.PI); }
+  g.computeVertexNormals(); return g;
+}
+
 // ---------- hand with individual fingers (hero only) ----------
 function buildHand(skin, side) {
   const hand = pivot();
@@ -129,6 +198,8 @@ function faceGeo(jaw, chin = 0) {
 // length, default -0.3 m below the hip), arm (upper-arm thickness);
 // jacket (colour: a leather biker jacket over the shirt: long sleeves, lapels, zip and snaps), brows ('thick'),
 // mouth ('flat': a closed, serious mouth instead of the smile), jaw (override the per-person jaw width),
+// polo (true: 系學會幹部T — a polo collar, a two-button placket and the lion logo on the left chest),
+// imTee (true: 資管系服 — geometric lion on the left chest, the Information Management code print on the back),
 // chin (0..1: a narrower, pointier chin)
 export function createCharacter(opts = {}) {
   const hero = !!opts.hero;
@@ -162,9 +233,32 @@ export function createCharacter(opts = {}) {
   if (!sk) torso.add(mesh(torsoG, shirt));
   // tee hem
   if (!sk) torso.add(mesh(geo('hem', () => new THREE.CylinderGeometry(0.205, 0.215, 0.07, 16).scale(1, 1, 0.8)), shirt, 0, 0.05, 0));
-  if (hero) {
+  if (hero && !opts.polo && !opts.imTee) {
     const patch = new THREE.Mesh(geo('patch', () => new THREE.PlaneGeometry(0.06, 0.06)), new THREE.MeshStandardMaterial({ map: logoTexture(), roughness: 0.8 }));
     patch.position.set(0.075, 0.43, 0.137); patch.rotation.y = 0.12; torso.add(patch);
+  }
+  // polo shirt (系學會幹部T): folded collar round the neck with two points at the front, a placket with two buttons,
+  // the white lion logo on the wearer's left chest (+x); torso-pivot frame = root y - 0.93
+  if (opts.polo) {
+    const cm = mat(opts.shirt || '#1d2340', { roughness: 0.9 }), bm = mat('#11152a', { roughness: 0.4 }), y0 = -0.93;
+    const collar = mesh(geo('poloCollar', () => { const g = new THREE.TorusGeometry(0.074, 0.021, 6, 20, Math.PI * 1.55); g.scale(1, 1, 0.7); g.rotateX(Math.PI / 2); g.rotateY(-2.36); return g; }), cm, 0, 1.535 + y0, -0.006);
+    torso.add(collar);
+    for (const sx of [-1, 1]) { // collar points lying on the chest
+      const tip = mesh(geo('poloTip', () => { const sh = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.058, 0.014), new THREE.Vector2(0.02, -0.06)]); return new THREE.ExtrudeGeometry(sh, { depth: 0.006, bevelEnabled: false }); }), cm, 0.012 * sx, 1.535 + y0, 0.074);
+      tip.scale.x = sx; tip.rotation.x = -0.35; torso.add(tip);
+    }
+    torso.add(mesh(geo('poloPlacket', () => new THREE.BoxGeometry(0.026, 0.11, 0.005)), cm, 0, 1.455 + y0, 0.116));
+    for (const by of [1.48, 1.435]) torso.add(mesh(geo('poloBtn', () => new THREE.SphereGeometry(0.0055, 8, 6)), bm, 0, by + y0, 0.12));
+    const logo = new THREE.Mesh(geo('poloLogo', () => new THREE.PlaneGeometry(0.1, 0.1)), new THREE.MeshStandardMaterial({ map: lionTexture(), transparent: true, alphaTest: 0.3, roughness: 0.85 }));
+    logo.position.set(0.078, 1.37 + y0, 0.139); logo.rotation.y = 0.14; torso.add(logo);
+  }
+  // 資管系服: prints sit 4 mm off the cloth, bent round the torso (torsoProfile at y 1.37 front / 1.28 back)
+  if (opts.imTee) {
+    const y0 = -0.93, bw = fv.build, rx = 0.205 * bw + 0.004, dz = 0.5 + bw / 2;
+    const front = new THREE.Mesh(geo('imLion' + bw.toFixed(2), () => curvedPrint(0.105, 0.105, rx, 0.128 * dz + 0.006, false, 6, 0.075)), new THREE.MeshStandardMaterial({ map: geoLionTexture(), transparent: true, alphaTest: 0.3, roughness: 0.85 }));
+    front.position.set(0.075, 1.37 + y0, 0.009); torso.add(front);
+    const backP = new THREE.Mesh(geo('imBack' + bw.toFixed(2), () => curvedPrint(0.3, 0.225, 0.19 * bw + 0.004, 0.124 * dz + 0.006, true)), new THREE.MeshStandardMaterial({ map: imBackTexture(), transparent: true, alphaTest: 0.3, roughness: 0.85 }));
+    backP.position.set(0, 1.28 + y0, -0.009); torso.add(backP);
   }
   // leather biker jacket (opts.jacket colour; the sleeves come from the skinned body): open front over the tee,
   // wide lapels with silver snaps, a stand collar round the back of the neck, a slanted silver zip and pocket zips.

@@ -180,9 +180,11 @@ export class Player {
   // change clothes (wardrobe at 彥霖's old room): rebuild the figure with the new colours, keep where it stands
   setLook(look) {
     if (this.vehicle) return;
-    this.look = { shirt: look.shirt, shorts: look.shorts, pants: !!look.pants };
+    // top: 'polo' = 系學會幹部T (collar, placket, lion logo), 'im' = 資管系服 (front lion, back code print);
+    // anything else is a plain tee in the shirt colour
+    this.look = { shirt: look.shirt, shorts: look.shorts, pants: !!look.pants, top: look.top || null };
     const old = this.ch, parent = old.root.parent;
-    const ch = createCharacter({ ...YANLIN_LOOK, ...this.look });
+    const ch = createCharacter({ ...YANLIN_LOOK, ...this.look, polo: this.look.top === 'polo', imTee: this.look.top === 'im' });
     ch.root.position.copy(old.root.position); ch.root.rotation.copy(old.root.rotation); ch.root.visible = old.root.visible;
     if (parent) { parent.remove(old.root); parent.add(ch.root); }
     this.ch = ch; this.pos = ch.root.position;

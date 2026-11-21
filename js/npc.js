@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Vehicle } from './vehicles.js';
+import { Vehicle, sameLevel } from './vehicles.js';
 import { createCharacter, randomStudent } from './character.js';
 import { mulberry32, makeLabel } from './map.js';
 import { surfaceAt } from './terrain.js';
@@ -92,15 +92,17 @@ export class Traffic {
       // look ahead for obstacles
       const [fx, fz] = v.forward();
       let blocked = 99;
-      const check = (ox, oz, r) => {
+      const vy = v.mesh.position.y;
+      const check = (ox, oz, r, oy) => {
+        if (!sameLevel(oy, vy)) return; // e.g. the player in the underpass below this street
         const dx = ox - v.pos.x, dz = oz - v.pos.z;
         const ahead = dx * fx + dz * fz; if (ahead < 0 || ahead > 14) return;
         const side = Math.abs(dx * fz - dz * fx); if (side > r + 1.2) return;
         blocked = Math.min(blocked, ahead - r - v.radius);
       };
-      for (const o of obstacles) if (o !== v) check(o.pos.x, o.pos.z, o.radius);
-      check(p.x, p.z, player.vehicle ? player.vehicle.radius : 0.5);
-      for (const o of player.extraObstacles || []) check(o.pos.x, o.pos.z, o.radius);
+      for (const o of obstacles) if (o !== v) check(o.pos.x, o.pos.z, o.radius, o.mesh.position.y);
+      check(p.x, p.z, player.vehicle ? player.vehicle.radius : 0.5, player.vehicle ? player.vehicle.mesh.position.y : player.pos.y);
+      for (const o of player.extraObstacles || []) check(o.pos.x, o.pos.z, o.radius, o.mesh.position.y);
       let want = target;
       if (blocked < 10) want = Math.max(0, target * (blocked - 1.5) / 8.5);
       // slow down for sharp turns near end of edge
@@ -207,7 +209,7 @@ export class Peds {
         const [fx, fz] = [Math.sin(p.heading), Math.cos(p.heading)];
         const ax = pl.x - p.pos.x, az = pl.z - p.pos.z;
         const ahead = ax * fx + az * fz, side = Math.abs(ax * fz - az * fx);
-        if (ahead > 0 && ahead < 1.3 && side < 0.7) speed = 0;
+        if (ahead > 0 && ahead < 1.3 && side < 0.7 && sameLevel(p.y, player.vehicle ? player.vehicle.mesh.position.y : pl.y)) speed = 0;
         else {
           speed = p.speed; p.d += p.speed * dt;
           while (p.d >= p.len) this._next(p);

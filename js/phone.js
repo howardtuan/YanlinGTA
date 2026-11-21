@@ -759,27 +759,52 @@ export class Phone {
     const box = this.view.querySelector('.ph-compose');
     const tag = this.view.querySelector('.ph-ai');
     if (tag) { tag.textContent = Nano.on ? '✨ Gemini Nano' : Nano.state === 'downloading' ? `⬇ AI ${Math.round(Nano.progress * 100)}%` : ''; }
+    // scripted topics used up: the AI opens a new one (also when only `always` options like 你在哪？ are left)
+    if (Nano.on && !st.c.script[st.round] && !st.aiOpts?.length && !st.busy) this._aiOpener(st);
+    // with the on-device AI you can also type your own message; keep what you typed across re-renders
+    const old = box.querySelector('.ph-type'), typed = old ? old.value : '', hadFocus = !!old && document.activeElement === old;
+    // one send row: empty box = send the chosen option (shown as the placeholder), typed text = send that instead
+    const typeRow = (ph) => `<div class="ph-input ph-typerow"><input class="ph-type" maxlength="80" autocomplete="off" spellcheck="false" placeholder="${esc(ph)}"><button class="ph-send" ${st.busy ? 'disabled' : ''}>↑</button></div>`;
     const opts = this._options(st);
     if (!opts) {
       if (Nano.on) {
-        box.innerHTML = '<div class="ph-done">✨ Gemini Nano 正在想新話題…</div>';
-        if (!st.busy) this._aiOpener(st);
+        box.innerHTML = '<div class="ph-done">✨ Gemini Nano 正在想新話題…</div>' + typeRow('自己輸入訊息…');
+        this._bindType(box, typed, hadFocus);
       } else box.innerHTML = `<div class="ph-done">目前沒有新的話題了${Nano.state === 'downloading' ? '<br><small>AI 模型下載完成後就能無限聊天</small>' : ''}</div>`;
       return;
     }
     st.choice = Math.min(st.choice, opts.length - 1);
     box.innerHTML = `<div class="ph-choices">${opts.map((ch, i) => `<button class="ph-choice ${i === st.choice ? 'on' : ''}" data-i="${i}"><kbd>${i + 1}</kbd>${esc(ch.t)}</button>`).join('')}</div>
-      <div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy ? 'disabled' : ''}>↑</button></div>
-      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話' : ''}</div>`;
+      ${Nano.on ? typeRow(`傳送「${opts[st.choice].t}」或自己輸入…`) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy ? 'disabled' : ''}>↑</button></div>`}
+      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話・可自己打字' : ''}</div>`;
     box.querySelectorAll('.ph-choice').forEach(b => b.onclick = () => this._pick(+b.dataset.i));
-    box.querySelector('.ph-send').onclick = () => this._send();
+    if (!Nano.on) box.querySelector('.ph-send').onclick = () => this._send();
+    this._bindType(box, typed, hadFocus);
     const t = this.view.querySelector('.ph-thread'); if (t) t.scrollTop = t.scrollHeight; // compose height changed
   }
+  // the free-typing box (Nano on): Enter sends what you typed (not while an IME is still composing), Esc leaves the box;
+  // other keys stay in the box instead of reaching the game
+  _bindType(box, typed, focus) {
+    const el = box.querySelector('.ph-type'); if (!el) return;
+    el.value = typed || '';
+    const go = () => { const t = el.value.trim(); if (!this.cur || this.cur.busy) return; el.value = ''; t ? this._send(t) : this._send(); };
+    el.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); go(); }
+      else if (e.key === 'Escape') { e.preventDefault(); el.blur(); }
+    };
+    el.onkeyup = (e) => e.stopPropagation();
+    box.querySelector('.ph-typerow .ph-send').onclick = go;
+    if (focus) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
   _pick(i) { if (!this.cur || this.cur.busy) return; const o = this._options(this.cur); if (!o) return; this.cur.choice = Math.min(i, o.length - 1); this._renderCompose(); }
-  _send() {
+  // typed = your own words (AI chats only); an `always` option with a `match` that fits them is answered by it instead
+  _send(typed) {
     const st = this.cur; if (!st || st.busy) return;
-    const opts = this._options(st); if (!opts) return;
-    const ch = opts[st.choice], g = this.g;
+    const opts = this._options(st); if (!opts && !typed) return;
+    const g = this.g;
+    let ch = typed ? (st.c.always || []).find(a => a.match?.test(typed)) : opts[st.choice];
+    if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
     st.busy = true; st.read = false;
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) }); st.lastAt = g.clock;
     if (ch.ask) { // an `always` option: its reply is worked out from the game right now, then it may act (e.g. set a route)

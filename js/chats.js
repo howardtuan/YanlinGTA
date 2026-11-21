@@ -326,7 +326,7 @@ export const CONTACTS = [
       },
     ],
     always: [{
-      t: '你在哪？',
+      t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/, // also when you type it yourself (AI chat)
       ask: (g) => {
         const A = g.airdrop, w = A?.walker;
         if (!w) return { r: ['Man 我在忙，等等再說'] };

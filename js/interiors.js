@@ -1,5 +1,5 @@
 // Enterable buildings: 資管系館 (multi-floor, classrooms, stairs, elevator), 麥當勞 (in 活動中心), 警衛室,
-// 孫師傅牛肉拉麵 with 彥霖's old room upstairs, 戈登肉鋪 (Gordon Meat Shop) across from the main gate.
+// 孫師傅牛肉拉麵 with 彥霖's old room upstairs, 戈登肉鋪 (Gordon Meat Shop) on the lawn in front of 校史館.
 // Provides height-aware walls, walkable surfaces (floors/stairs) and E-key actions.
 // All y values here are relative to the building's ground; tools/build_terrain.py
 // flattens the terrain around each footprint so that ground is one constant height.

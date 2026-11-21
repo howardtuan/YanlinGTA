@@ -169,20 +169,8 @@ def interior_zones(data):
     wl = Kit(-205.2, 73.0, 0.35)
     lawn = [[-5, -1.4], [3.6, -1.4], [3.6, 1.2], [-5, 2.4]]
     zones.append(('正門警衛室', [[k.w(*p) for p in island], [wl.w(*p) for p in lawn]], k.w(0, 0)))
-    # 警衛室 (A6 side gate)
+    # (the A6 side-gate guardhouse was removed; only the main gate and the 新中北路 side gate remain)
     specs = []
-    a6 = next((p for p in data['pois'] if p['name'] == 'A6校門'), {'x': 128.4, 'z': -14.5})
-    best = None
-    for r in data['roads']:
-        if not r.get('drive'):
-            continue
-        for a, b in zip(r['pts'], r['pts'][1:]):
-            d = seg_d(a6['x'], a6['z'], a[0], a[1], b[0], b[1])
-            if best is None or d < best[0]:
-                best = (d, math.atan2(b[1] - a[1], b[0] - a[0]), r['w'])
-    _, rang, rw = best
-    off = rw / 2 + 2.2
-    specs.append(dict(x=a6['x'] - math.sin(rang) * off, z=a6['z'] + math.cos(rang) * off, ang=rang, name='側門警衛室'))
     # 全人大道 side gate by the activity centre (mirror of GUARD_SPECS in js/interiors.js)
     best = None
     for r in data['roads']:

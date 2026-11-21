@@ -1256,7 +1256,7 @@ function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
 }
 
 // =====================================================================
-// 警衛室 (main gate on 中北路, side gates A6 and 新中北路): enterable, sit and stand guard; the 新中北路 one runs the 門禁 quest
+// 警衛室 (main gate on 中北路, side gate on 新中北路 by the activity centre): enterable, sit and stand guard; the side gate runs the 門禁 quest
 // (the main gate's booth is the glass kiosk of buildMainKiosk below: kiosk = MAIN_GATE)
 // =====================================================================
 function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null, kiosk = null) {
@@ -1313,7 +1313,7 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
     k.box(gx - 0.35, gx + 0.35, 0, 4.6, zNear - 0.7, zNear, 'white'); k.box(gx - 0.35, gx + 0.35, 0, 4.6, zFar, zFar + 0.7, 'white');
     k.box(gx - 0.4, gx + 0.4, 4.6, 4.75, zNear - 0.75, zNear + 0.05, 'gray', { col: false }); k.box(gx - 0.4, gx + 0.4, 4.6, 4.75, zFar - 0.05, zFar + 0.75, 'gray', { col: false });
     k.box(gx - 0.25, gx + 0.25, 4.0, 4.7, zFar + 0.35, zNear - 0.35, 'gray', { col: false });
-    const label = gateOpt.sign || '中原大學 A6 側門';
+    const label = gateOpt.sign || '中原大學 側門';
     const sg = T.sign(label, '#1f3b73', '#ffffff', 'gate' + label, 512, 96, 54), span = zNear - zFar - 0.9;
     k.plane(sg, span, 0.62, gx + 0.26, 4.35, (zNear + zFar) / 2, Math.PI / 2);
     k.plane(sg, span, 0.62, gx - 0.26, 4.35, (zNear + zFar) / 2, -Math.PI / 2);
@@ -1885,13 +1885,9 @@ export function nearestRoadDir(data, x, z) {
 // NOTE: tools/build_terrain.py flattens the terrain under this footprint from a
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const GUARD_SPECS = (data) => {
-  // main gate: replace OSM 警衛室 (中北路 正門); side gate: A6 校門
+  // only two guardhouses: the main gate (replaces the OSM 警衛室 on 中北路) and the 新中北路 side gate
   // 正門: glass kiosk on the island between the two one-way lanes of 中北路, one boom per lane (MAIN_GATE)
   const out = [{ ...MAIN_GATE, main: true }];
-  const a6 = data.pois.find(p => p.name === 'A6校門') || { x: 128.4, z: -14.5 };
-  const r = nearestRoadDir(data, a6.x, a6.z);
-  const nx = -Math.sin(r.ang), nz = Math.cos(r.ang), off = r.w / 2 + 2.2;
-  out.push({ x: a6.x + nx * off, z: a6.z + nz * off, ang: r.ang, name: '側門警衛室', gate: { off, roadW: r.w }, sideCandidate: [a6.x - nx * (off + 3.4), a6.z - nz * (off + 3.4)] });
   // 新中北路 side entrance by the student activity centre / McDonald's: 全人大道, booth on the east side
   // (the McDonald's building is on the west), gate across the road just inside campus
   const q = nearestRoadDir(data, -91.4, -117);

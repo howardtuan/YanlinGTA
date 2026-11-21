@@ -371,6 +371,160 @@ export function buildCar(color, taxi = false) {
   return g;
 }
 
+// =====================================================================
+// 偶爾出現在車流裡的超跑與重機（js/npc.js Traffic 抽到才會有）。外型參考：
+//   超跑 — ferrari：中置引擎、圓潤的長車頭、短車尾、圓形雙尾燈；lambo：銳利的楔形車身、超低車頭、
+//          側面大進氣口、Y 字尾燈；porsche：911 的圓燈、隆起的前葉子板、斜背車頂、整條橫向尾燈和小鴨尾。
+//   重機 — sport（仿賽，Kawasaki Ninja／Honda CBR 那種全整流罩、低把手、上翹座墊）；naked（街車，
+//          Z／CB 那種外露引擎、肌肉感油箱、平把）；retro（復古，Z900RS／CB1100 那種圓燈、淚滴油箱、長平座墊）。
+// 沒有任何廠牌標誌，只有外型。車身是側面輪廓往兩側擠出（panel），輪拱從輪廓下緣挖出來。
+// =====================================================================
+export const SUPERCARS = {
+  ferrari: { name: '法拉利', colors: ['#c8102e', '#ffd100', '#111214'] },
+  lambo: { name: '藍寶堅尼', colors: ['#7cd400', '#ff6a00', '#ffcc00', '#5b2a86'] },
+  porsche: { name: '保時捷', colors: ['#c7c9cc', '#f2f2f0', '#1e3a8a', '#d11a2a'] },
+};
+export const BIKES = {
+  sport: { name: '重機（仿賽）', colors: ['#5ec400', '#d71920', '#1c3f94'] },
+  naked: { name: '重機（街車）', colors: ['#5ec400', '#111214', '#b8bcc2'] },
+  retro: { name: '重機（復古）', colors: ['#5b2c1a', '#1d2b4f', '#111214'] },
+};
+// side profile with wheel arches cut out of the lower edge. top: [[z, y]] from the nose to the tail;
+// wheels: [[zc, yc, R]] front first; yb: underbody height; z ends taken from top[0] / top[last]
+function archProfile(top, wheels, yb) {
+  const pts = [], nose = top[0][0], tail = top[top.length - 1][0];
+  pts.push([nose, yb]);
+  for (const [zc, yc, R] of wheels) for (let i = 0; i <= 10; i++) { const a = i / 10 * Math.PI; pts.push([zc + R * Math.cos(a), Math.max(yb, yc + R * Math.sin(a))]); }
+  pts.push([tail, yb]);
+  for (let i = top.length - 1; i >= 0; i--) pts.push(top[i]);
+  return pts;
+}
+export function buildSupercar(style, color) {
+  const g = new THREE.Group(), body = paint(color), glass = m('#141c24', { roughness: 0.06, metalness: 0.75 });
+  const dark = m('#16171a', { roughness: 0.6 }), carbon = m('#202226', { roughness: 0.35, metalness: 0.3 });
+  const hlm = new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#fff4d6', emissiveIntensity: 1.1 });
+  const tlm = new THREE.MeshStandardMaterial({ color: '#700', emissive: '#ff1a1a', emissiveIntensity: 0.9 });
+  const W = 1.96, ZF = 1.32, ZR = -1.34, RF = 0.33, RR = 0.355, AR = 0.06; // arch clearance
+  const S = {
+    ferrari: { yb: 0.2,
+      top: [[2.28, 0.36], [2.24, 0.52], [1.9, 0.66], [1.3, 0.75], [0.7, 0.8], [0.0, 0.86], [-0.9, 0.9], [-1.7, 0.95], [-2.15, 0.92], [-2.26, 0.75], [-2.28, 0.42]],
+      glass: [[0.78, 0.79], [0.05, 1.15], [-0.55, 1.17], [-1.45, 0.96], [-1.45, 0.86]], gw: 1.52 },
+    lambo: { yb: 0.18,
+      top: [[2.34, 0.32], [2.3, 0.44], [1.6, 0.6], [0.9, 0.72], [0.0, 0.8], [-0.9, 0.86], [-1.8, 0.92], [-2.24, 0.9], [-2.3, 0.6], [-2.32, 0.36]],
+      glass: [[0.95, 0.71], [0.02, 1.12], [-0.68, 1.12], [-1.85, 0.94], [-1.85, 0.86]], gw: 1.46 },
+    porsche: { yb: 0.2,
+      top: [[2.2, 0.42], [2.17, 0.6], [1.85, 0.72], [1.4, 0.78], [0.75, 0.8], [0.0, 0.84], [-1.0, 0.86], [-1.75, 0.86], [-2.12, 0.8], [-2.2, 0.6], [-2.2, 0.4]],
+      glass: [[0.8, 0.8], [0.18, 1.24], [-0.45, 1.28], [-1.3, 1.08], [-1.95, 0.86], [-1.95, 0.8]], gw: 1.5 },
+  }[style];
+  const lower = panel(archProfile(S.top, [[ZF, RF, RF + AR], [ZR, RR, RR + AR]], S.yb), W, body,
+    { bevel: 0.07, taper: (z, y) => (y > 0.62 ? 1 - (y - 0.62) * 0.55 : 1) });
+  g.add(lower);
+  const gh = panel(S.glass, S.gw, glass, { bevel: 0.03, taper: (z, y) => 1 - Math.max(0, y - 0.86) * 0.7 });
+  g.add(gh);
+  // wheels: big, staggered (wider at the back), dark rims
+  const wheels = [];
+  for (const [x, z, r, w] of [[-0.84, ZF, RF, 0.27], [0.84, ZF, RF, 0.27], [-0.82, ZR, RR, 0.33], [0.82, ZR, RR, 0.33]]) { const wh = wheel(r, w, x, r, z); wheels.push(wh); g.add(wh); }
+  // lights, grilles, intakes per style
+  if (style === 'ferrari') {
+    for (const s of [-1, 1]) {
+      const hl = box(0.42, 0.06, 0.2, hlm, 0.6 * s, 0.74, 1.98); hl.rotation.x = 0.5; hl.rotation.y = -0.25 * s; g.add(hl);
+      for (const dx of [0.5, 0.76]) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 16).rotateX(Math.PI / 2), tlm); t.position.set(dx * s, 0.8, -2.36); g.add(t); }
+      g.add(box(0.05, 0.22, 0.6, dark, 0.985 * s, 0.6, -0.75)); // side intake
+    }
+    g.add(box(1.2, 0.16, 0.1, dark, 0, 0.36, 2.35)); // front grille
+    g.add(box(1.5, 0.14, 0.12, dark, 0, 0.36, -2.35)); // diffuser
+    for (const s of [-1, 1]) g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 12).rotateX(Math.PI / 2), m('#9aa0a6', { metalness: 0.9, roughness: 0.25 })).translateX(0.28 * s).translateY(0.34).translateZ(-2.38));
+  } else if (style === 'lambo') {
+    for (const s of [-1, 1]) {
+      const hl = box(0.5, 0.05, 0.16, hlm, 0.6 * s, 0.55, 2.12); hl.rotation.x = 0.35; hl.rotation.y = -0.3 * s; g.add(hl);
+      // Y-shaped tail lights: two bars meeting
+      const a = box(0.34, 0.04, 0.03, tlm, 0.62 * s, 0.8, -2.4); a.rotation.z = 0.45 * s; g.add(a);
+      const b = box(0.34, 0.04, 0.03, tlm, 0.62 * s, 0.72, -2.4); b.rotation.z = -0.45 * s; g.add(b);
+      // big angular side intake behind the doors
+      const sh = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.8, 0.0), new THREE.Vector2(0.55, 0.36), new THREE.Vector2(0.2, 0.36)]);
+      const ig = new THREE.ExtrudeGeometry(sh, { depth: 0.04, bevelEnabled: false }).rotateY(Math.PI / 2);
+      const intake = new THREE.Mesh(ig, dark); intake.position.set(0.97 * s - 0.02, 0.42, -0.35); g.add(intake);
+    }
+    g.add(box(1.7, 0.12, 0.1, dark, 0, 0.3, 2.4)); // splitter
+    g.add(box(1.4, 0.2, 0.1, dark, 0, 0.42, -2.39));
+    const wing = box(1.6, 0.03, 0.28, carbon, 0, 1.02, -2.05); g.add(wing);
+    for (const s of [-1, 1]) g.add(box(0.03, 0.12, 0.18, carbon, 0.6 * s, 0.96, -2.05));
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 6).rotateX(Math.PI / 2), m('#9aa0a6', { metalness: 0.9, roughness: 0.25 })).translateY(0.5).translateZ(-2.42));
+  } else {
+    // 911: round headlamps on the front wings, full-width light bar, small ducktail
+    for (const s of [-1, 1]) {
+      const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 20).rotateX(Math.PI / 2 - 0.35), hlm); hl.position.set(0.66 * s, 0.78, 1.96); g.add(hl);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.015, 6, 20), m('#9aa0a6', { metalness: 0.8, roughness: 0.3 })); ring.rotation.x = -0.35; ring.position.set(0.66 * s, 0.78, 1.99); g.add(ring);
+      g.add(box(0.05, 0.12, 0.35, dark, 0.985 * s, 0.4, 1.7));
+    }
+    g.add(box(1.72, 0.05, 0.04, tlm, 0, 0.76, -2.28)); // light bar
+    g.add(box(1.5, 0.12, 0.08, dark, 0, 0.38, 2.28));
+    const duck = box(1.3, 0.03, 0.22, body, 0, 0.88, -1.98); duck.rotation.x = -0.2; g.add(duck);
+    for (const s of [-1, 1]) g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.12, 12).rotateX(Math.PI / 2), m('#9aa0a6', { metalness: 0.9, roughness: 0.25 })).translateX(0.35 * s).translateY(0.3).translateZ(-2.3));
+  }
+  for (const s of [-1, 1]) { const mir = box(0.16, 0.08, 0.12, body, 0.86 * s, 0.98, 0.55); g.add(mir); }
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.17), new THREE.MeshBasicMaterial({ map: plateTex('RCA-' + (100 + Math.floor(Math.random() * 900))) }));
+  plate.position.set(0, 0.55, S.top[S.top.length - 1][0] - 0.085); plate.rotation.y = Math.PI; g.add(plate);
+  g.userData.wheels = wheels;
+  return g;
+}
+export function buildBike(style, color) {
+  const g = new THREE.Group(), body = paint(color), dark = m('#18191c', { roughness: 0.6 });
+  const metal = m('#a7acb2', { metalness: 0.85, roughness: 0.3 }), chrome = m('#dfe3e8', { metalness: 1, roughness: 0.12 });
+  const hlm = new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#fff4d6', emissiveIntensity: 1.1 });
+  const tlm = new THREE.MeshStandardMaterial({ color: '#700', emissive: '#ff1a1a', emissiveIntensity: 0.9 });
+  const ZF = 0.74, ZR = -0.72, RF = 0.31, RR = 0.32;
+  const wheels = [wheel(RF, 0.13, 0, RF, ZF), wheel(RR, 0.18, 0, RR, ZR)];
+  g.add(...wheels);
+  // fork, frame, swingarm, engine
+  const head = [0, style === 'retro' ? 1.0 : 0.92, 0.5];
+  for (const s of [-1, 1]) g.add(tube([0.085 * s, head[1], head[2] + 0.02], [0.085 * s, RF, ZF], 0.028, style === 'retro' ? chrome : m('#c9a227', { metalness: 0.7, roughness: 0.3 })));
+  g.add(tube(head, [0, 0.52, -0.22], 0.04, dark));
+  for (const s of [-1, 1]) g.add(tube([0.12 * s, 0.48, -0.2], [0.1 * s, RR, ZR], 0.03, metal));
+  g.add(box(0.3, 0.34, 0.44, m('#2a2c30', { metalness: 0.5, roughness: 0.4 }), 0, 0.46, 0.04)); // engine
+  if (style !== 'sport') for (let i = 0; i < 5; i++) g.add(box(0.36, 0.015, 0.3, metal, 0, 0.52 + i * 0.05, 0.12)); // cylinder fins
+  // tank, seat, tail
+  if (style === 'sport') {
+    // full fairing from the nose back under the tank, a tinted screen, upswept tail
+    // (the lower edge steps up over the front wheel so the tyre shows)
+    g.add(panel([[0.86, 0.66], [0.9, 0.8], [0.76, 0.98], [0.52, 1.04], [0.3, 0.92], [0.08, 0.6], [0.15, 0.36], [0.4, 0.38], [0.56, 0.66]], 0.44, body, { bevel: 0.035, taper: (z) => (z > 0.6 ? 0.7 : 1) }));
+    const scr = panel([[0.82, 0.98], [0.62, 1.15], [0.55, 1.05]], 0.3, m('#203040', { transparent: true, opacity: 0.6, roughness: 0.05 }), { bevel: 0.01 }); g.add(scr);
+    g.add(panel([[0.42, 0.92], [0.3, 1.02], [-0.05, 1.0], [-0.15, 0.86], [0.2, 0.78]], 0.36, body, { bevel: 0.04 })); // tank
+    g.add(panel([[-0.15, 0.86], [-0.15, 0.92], [-0.55, 0.98], [-0.95, 1.12], [-1.0, 1.06], [-0.6, 0.82]], 0.24, body, { bevel: 0.03 })); // tail
+    g.add(box(0.24, 0.05, 0.32, dark, 0, 0.93, -0.35)); // seat
+    for (const s of [-1, 1]) g.add(box(0.2, 0.03, 0.03, dark, 0.16 * s, 0.98, 0.5)); // clip-ons
+    g.add(box(0.26, 0.06, 0.04, hlm, 0, 0.82, 0.97));
+    g.add(box(0.18, 0.04, 0.03, tlm, 0, 1.08, -0.99));
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.36, 12).rotateX(Math.PI / 2 - 0.25), m('#3a3c40', { metalness: 0.7, roughness: 0.35 })).translateX(-0.16).translateY(0.42).translateZ(-0.55));
+  } else if (style === 'naked') {
+    g.add(panel([[0.48, 0.86], [0.35, 1.02], [0.0, 1.03], [-0.18, 0.9], [0.1, 0.76], [0.42, 0.74]], 0.4, body, { bevel: 0.05, taper: (z, y) => (y > 0.95 ? 0.85 : 1) })); // muscular tank
+    for (const s of [-1, 1]) g.add(panel([[0.55, 0.62], [0.5, 0.86], [0.25, 0.78], [0.3, 0.55]], 0.03, body, { x: 0.2 * s, bevel: 0.01 })); // radiator shrouds
+    g.add(box(0.26, 0.07, 0.42, dark, 0, 0.93, -0.38)); // seat
+    g.add(panel([[-0.55, 0.9], [-0.6, 0.98], [-0.95, 1.04], [-0.95, 0.98], [-0.6, 0.86]], 0.2, body, { bevel: 0.02 })); // short tail
+    g.add(box(0.72, 0.03, 0.03, dark, 0, 1.08, 0.42)); // flat wide bar
+    const hl = box(0.2, 0.14, 0.1, dark, 0, 0.98, 0.66); hl.rotation.x = -0.3; g.add(hl);
+    g.add(box(0.16, 0.08, 0.02, hlm, 0, 0.98, 0.72));
+    g.add(box(0.14, 0.04, 0.03, tlm, 0, 1.0, -0.96));
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.34, 6).rotateX(Math.PI / 2 - 0.3), m('#2a2c30', { metalness: 0.7, roughness: 0.35 })).translateX(-0.18).translateY(0.48).translateZ(-0.5));
+  } else {
+    // retro: teardrop tank, long flat bench, round chrome headlamp, upright bar, twin shocks, long chrome pipe
+    const tank = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 14), body); tank.scale.set(0.95, 0.62, 1.55); tank.position.set(0, 0.98, 0.18); g.add(tank);
+    g.add(box(0.27, 0.08, 0.66, m('#2a1a12', { roughness: 0.8 }), 0, 0.93, -0.45)); // bench
+    g.add(box(0.27, 0.02, 0.66, chrome, 0, 0.89, -0.45));
+    const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 20).rotateX(Math.PI / 2), chrome); hl.position.set(0, 1.0, 0.68); g.add(hl);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.088, 20), hlm); lens.position.set(0, 1.0, 0.745); g.add(lens);
+    g.add(tube([-0.34, 1.12, 0.38], [0.34, 1.12, 0.38], 0.016, chrome));
+    for (const s of [-1, 1]) { g.add(tube([0.24 * s, 1.12, 0.38], [0.12 * s, 1.0, 0.5], 0.016, chrome)); g.add(tube([0.14 * s, 0.9, -0.62], [0.12 * s, RR + 0.04, ZR + 0.05], 0.022, chrome)); }
+    g.add(tube([-0.16, 0.36, 0.25], [-0.17, 0.34, -0.95], 0.04, chrome)); // long pipe
+    const fender = new THREE.Mesh(new THREE.CylinderGeometry(RR + 0.05, RR + 0.05, 0.18, 16, 1, true, -0.2, 1.6).rotateZ(Math.PI / 2), body); fender.position.set(0, RR, ZR); g.add(fender);
+    g.add(box(0.12, 0.05, 0.03, tlm, 0, 0.9, -0.82));
+  }
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.09), new THREE.MeshBasicMaterial({ map: plateTex('HVY-' + (10 + Math.floor(Math.random() * 90))) }));
+  plate.position.set(0, 0.7, -1.0); plate.rotation.y = Math.PI; g.add(plate);
+  g.userData.wheels = wheels;
+  return g;
+}
+
 const SCOOTER_COLORS = ['#e8e8e8', '#c1121f', '#1d3557', '#ffb703', '#2a9d8f', '#111111', '#8ecae6', '#f28482', '#7b8a8b'];
 const CAR_COLORS = ['#f0f0f0', '#222222', '#9aa3ab', '#b5121b', '#1e3a8a', '#6b7280', '#d1d5db', '#14532d'];
 
@@ -517,9 +671,17 @@ export class Vehicle {
     this.id = VID++;
     this.kind = kind;
     const pick = a => a[Math.floor(rnd() * a.length)];
-    if (kind === 'scooter') {
+    if (kind === 'scooter' && BIKES[opt.model]) { // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
+      const B = BIKES[opt.model];
+      this.mesh = buildBike(opt.model, pick(B.colors)); this.model = opt.model;
+      Object.assign(this, { wb: 1.46, radius: 0.85, hl: 1.02, hw: 0.4, maxSpeed: 36, accel: 14, brake: 20, turn: 2.3, grip: 9.5, seat: new THREE.Vector3(0, 0.2, -0.32), exitSide: 1.1, label: B.name });
+    } else if (kind === 'scooter') {
       this.mesh = opt.jet ? buildJetSL() : buildCommuter(pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (scooters.js)
       Object.assign(this, { wb: 1.25, radius: 0.75, hl: 0.92, hw: 0.36, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
+    } else if (SUPERCARS[opt.model]) { // 超跑: a car, much quicker, a little wider and lower
+      const C = SUPERCARS[opt.model];
+      this.mesh = buildSupercar(opt.model, pick(C.colors)); this.model = opt.model;
+      Object.assign(this, { wb: 2.66, radius: 1.38, hl: 2.28, hw: 0.98, maxSpeed: 46, accel: 15, brake: 22, turn: 1.8, grip: 7.5, seat: new THREE.Vector3(0.38, 0.0, -0.35), exitSide: 2.0, label: `超跑・${C.name}` });
     } else {
       const taxi = kind === 'taxi';
       this.mesh = buildCar(taxi ? '#ffd000' : pick(CAR_COLORS), taxi);

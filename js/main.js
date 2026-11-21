@@ -32,6 +32,7 @@ import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
 import { Concerts } from './concert.js';
 import { Gordon } from './gordon.js';
+import { LibraryLink } from './library.js';
 import { NewsDesk } from './newsui.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
@@ -206,6 +207,7 @@ class Game {
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
     this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
     this.news = new NewsDesk(this);     // PYtoday: 3 made-up articles a day; company news moves 靈感股
+    this.library = new LibraryLink(this); // glowing circle at the library door: opens 中原大學電子書 HyRead
     this.gordon = new Gordon(this);     // 戈登肉鋪 (lawn in front of 校史館): freezers, basket, checkout
     this.friends = new Friends(this);   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
     this.concerts = new Concerts(this); // 搶票 App + 林口體育館演唱會 (ITZV / aespo)

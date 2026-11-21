@@ -38,10 +38,17 @@ export class Traffic {
     this.peds = null; // Peds (main.js): traffic stops for pedestrians in its path
     this.time = 0;
     this.agents = [];
+    // now and then a 超跑 (supercar) or a 重機 (big bike): its own random stream, so the rest of the traffic is as before;
+    // at least one of each once there are 3 cars / 3 scooters (also on the smallest traffic setting)
+    const rx = mulberry32(4242); let cars = 0, scs = 0, sup = 0, big = 0;
+    const CAR_M = ['ferrari', 'lambo', 'porsche'], BIKE_M = ['sport', 'naked', 'retro'];
     for (let i = 0; i < count; i++) {
       const r = this.rnd();
       const kind = r < 0.5 ? 'scooter' : r < 0.62 ? 'taxi' : 'car';
-      const v = new Vehicle(kind, this.rnd);
+      let model = null;
+      if (kind === 'car' && (rx() < 0.16 || (++cars >= 3 && !sup))) { model = CAR_M[(rx() * 3) | 0]; sup++; }
+      if (kind === 'scooter' && (rx() < 0.14 || (++scs >= 3 && !big))) { model = BIKE_M[(rx() * 3) | 0]; big++; }
+      const v = new Vehicle(kind, this.rnd, model ? { model } : {});
       v.driver = 'ai';
       const rider = kind === 'scooter' ? createCharacter({ ...randomStudent(this.rnd), face: false }) : null;
       if (rider) { rider.root.position.copy(v.seat); v.mesh.add(rider.root); rider.update(0.1, { mode: 'ride' }); rider.setDetail(false); }

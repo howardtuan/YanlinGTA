@@ -2932,14 +2932,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       Q.setFromUnitVectors(Y, N); P.set(px, groundY(px, pz) + 0.08, pz); M.compose(P, Q, S); poolM.setMatrixAt(i, M);
     });
     poolM.renderOrder = layerOrder++;
-    scene.add(poolM);
+    world.poolMesh = poolM; scene.add(world.poolMesh);
     world.poolMat = poolMat;
     // soft volumetric light cones under each lamp head
     const cone = new THREE.CylinderGeometry(0.25, 2.6, 6.8, 20, 1, true); cone.translate(0, 3.45, 0);
     const coneMat = new THREE.MeshBasicMaterial({ map: coneTexture(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: true });
     const coneM = new THREE.InstancedMesh(cone, coneMat, spots.length);
     spots.forEach(([x, z, r], i) => { const px = x + Math.sin(r) * 1.55, pz = z + Math.cos(r) * 1.55; M.makeTranslation(px, groundY(x, z) - 0.1, pz); coneM.setMatrixAt(i, M); });
-    coneM.renderOrder = 5; scene.add(coneM);
+    coneM.renderOrder = 5; world.coneMesh = coneM; scene.add(world.coneMesh);
     world.coneMat = coneMat;
   }
 
@@ -3349,6 +3349,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     if (world.lampMat) world.lampMat.emissiveIntensity = night * 3.2;
     if (world.poolMat) world.poolMat.opacity = night * 0.1;
     if (world.coneMat) world.coneMat.opacity = night * 0.05;
+    // fully faded out in the day: skip drawing them at all
+    if (world.poolMesh) world.poolMesh.visible = night > 0.001;
+    if (world.coneMesh) world.coneMesh.visible = night > 0.001;
     if (world.marketGlow) world.marketGlow.opacity = night * 0.05;
     if (world.stallBodyMat) world.stallBodyMat.emissiveIntensity = night * 0.08;
     if (world.foodSignMat) world.foodSignMat.emissiveIntensity = 0.15 + night * 0.7;

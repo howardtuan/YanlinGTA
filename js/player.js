@@ -2,10 +2,13 @@ import * as THREE from 'three';
 import { createCharacter } from './character.js';
 import { surfaceAt } from './terrain.js';
 import { Vehicle } from './vehicles.js';
+import { Ragdoll } from './ragdoll.js';
 
 // Yanlin — modelled after the reference photo:
 // black bowl-cut with full bangs, thin round light frames, black tee with small white chest logo,
 // white shorts, black wristband, white sneakers.
+const RAG_MAX = 1.8, RAG_LIE = 0.6; // thrown off as a ragdoll: s flying at most, s lying still at least
+const TUMBLE_MIN = 1e-3;
 export const YANLIN_LOOK = {
   hero: true, glasses: true, glassesColor: '#d6cfc0', hairStyle: 'bowl', hair: '#0e0e0f',
   skin: '#ecc8a6', shirt: '#121212', shorts: '#f3f2ec', shoes: '#f4f4f0',
@@ -24,8 +27,8 @@ export class Player {
   }
   setPose(p, t = 1.2) { this.pose = p; this.poseT = t; }
   // this.y is height above the ground; render y adds the terrain under (x,z)
-  place(x, z, h = 0) { this.pos.set(x, surfaceAt(x, z), z); this.heading = h; this.ch.root.rotation.y = h; }
-  sitAt(x, z, h) { this.seat = { x, z, h }; this.pos.set(x, this.y + surfaceAt(x, z), z); this.heading = h; this.vel.set(0, 0); }
+  place(x, z, h = 0) { this._unrag(); this.pos.set(x, surfaceAt(x, z), z); this.heading = h; this.ch.root.rotation.y = h; }
+  sitAt(x, z, h) { this._unrag(); this.seat = { x, z, h }; this.pos.set(x, this.y + surfaceAt(x, z), z); this.heading = h; this.vel.set(0, 0); }
   standUp() { if (!this.seat) return; const s = this.seat; this.seat = null; this.pos.x += Math.sin(s.h) * -0.7; this.pos.z += Math.cos(s.h) * -0.7; }
   updateFoot(dt, input, camYaw, collision, interiors) {
     if (this.seat) {
@@ -85,9 +88,16 @@ export class Player {
     this.lastFoot = foot;
   }
   // thrown off the scooter (js/main.js): fly with velocity (vx, vz) and vy for t seconds of no
-  // control, tumbling in the air, sliding to a stop, lying down until t runs out
-  throwOff(vx, vz, vy, t) { this.vel.set(vx, vz); this.vy = vy; this.y = Math.max(this.y, 0.6); this.tumble = t; this.spin = 0; this.speed = 0; }
+  // control, tumbling in the air, sliding to a stop, lying down until t runs out. With physics the body goes
+  // limp (a ragdoll, js/ragdoll.js; this.ragdoll is set by main.js) for RAG_MAX s at most, and you lie still
+  // at least RAG_LIE s, so a crash costs about as much time as before
+  throwOff(vx, vz, vy, t) {
+    this.vel.set(vx, vz); this.vy = vy; this.y = Math.max(this.y, 0.6); this.tumble = t; this.spin = 0; this.speed = 0;
+    const l = Math.hypot(vx, vz) || 1, sp = Math.min(6, l * 0.5); // head first over the handlebars
+    this.rag = this.ragdoll?.(this.ch, { x: vx, y: vy, z: vz }, { x: vz / l * sp, y: 0, z: -vx / l * sp }, { maxT: RAG_MAX }) || null;
+  }
   _tumble(dt, collision, interiors) {
+    if (this.rag) { this._ragdoll(dt, interiors); return; }
     this.tumble -= dt;
     const feet = this.pos.y, surf0 = feet - this.y;
     const ground = interiors ? interiors.groundAt(this.pos.x, this.pos.z, this.y) : 0;
@@ -111,7 +121,29 @@ export class Player {
     this.ch.update(dt, { mode: 'down' });
     if (this.tumble <= 0) { this.tumble = 0; this.vel.set(0, 0); this.ch.root.rotation.set(0, this.heading, 0); }
   }
+  // the ragdoll moves the body (and this.pos, the root's position); lie there t once it is still, then up
+  _ragdoll(dt, interiors) {
+    const r = this.rag;
+    this.speed = 0; this.vel.set(0, 0); this.vy = 0;
+    // (tumble stays above 0 until you are up: updateFoot and main.js take tumble > 0 as "lying")
+    this.tumble = Math.max(TUMBLE_MIN, this.tumble - dt);
+    if (!r.resting) { r.lie = RAG_LIE; return; }
+    if ((r.lie -= dt) > 0 || this.tumble > TUMBLE_MIN) return;
+    // up where the trunk lies, on the floor there (an interior floor above the ground, js/interiors.js)
+    this.tumble = 0; this.rag = null;
+    const p = this.pos, t = r.moved ? p.y : r.trunkY, surf = surfaceAt(p.x, p.z, t); // (moved: placed by the game)
+    this.y = this.ground = interiors ? interiors.groundAt(p.x, p.z, Math.max(0, t - surf - 0.3)) : 0;
+    p.y = surf + this.y;
+    Ragdoll.standUp(this.ch); this.ch.root.rotation.set(0, this.heading, 0);
+  }
+  // put by the game somewhere else while lying as a ragdoll: up at once
+  _unrag() {
+    if (!this.rag) return;
+    this.rag.end(); this.rag = null; this.tumble = 0; this.y = 0;
+    Ragdoll.standUp(this.ch); this.ch.root.rotation.set(0, this.heading, 0);
+  }
   enter(v) {
+    this._unrag();
     this.vehicle = v; v.driver = 'player'; v.fallen = false;
     v.mesh.add(this.ch.root);
     this.ch.root.position.copy(v.seat); this.ch.root.rotation.set(0, 0, 0);

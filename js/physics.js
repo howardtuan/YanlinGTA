@@ -24,6 +24,8 @@
 //   so is traffic hit hard (main.js _knockTraffic, js/npc.js Traffic.landed).
 // - The vehicle you ride is a dynamic body of its own (js/vehphys.js Chassis, P3; ?arcadecar: the old way).
 //   It hooks into every step through physics.before / physics.after.
+// - A character thrown by a hit (you off the scooter, a pedestrian, a traffic rider) goes limp as a ragdoll
+//   until it lies still (js/ragdoll.js Ragdoll.start, P4; ?noragdoll: the old tumble).
 // Every collider gets a collision group (G below) that decides what it collides with.
 //
 // Debug: ?physdebug in the URL draws every collider as lines; ?nophysics turns the engine off.
@@ -67,6 +69,7 @@ export class Physics {
     this.debug = null;
     this.props = new Set();   // addProp records
     this.knocked = new Set(); // knock records
+    this.rags = new Set();    // ragdolls flying (js/ragdoll.js)
     this.moverMap = new Map(); // key object -> { body, t, sig }
     this.focus = null; this._farT = 0;
   }
@@ -266,6 +269,7 @@ export class Physics {
     if (this.debug) this._drawDebug();
   }
   _sync(dt) {
+    for (const r of this.rags) r.pose(dt); // (may end itself: Set iteration copes with deleting the current one)
     for (const p of this.props) {
       if (p.off || p.body.isSleeping()) continue;
       const t = p.body.translation(), r = p.body.rotation();

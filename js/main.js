@@ -10,6 +10,7 @@ import { ZB_ST, zbFootprints } from './street_zhongbei.js';
 import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
 import { applyZoneE, zoneEFootprints } from './zone_e.js';
+import { zoneGLook, zoneGFootprints } from './zone_g.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
@@ -127,6 +128,7 @@ class Game {
       applyZoneE(b); // E 區：建築館、祐生、設計學院只換外觀／執行時切塊（js/zone_e.js）
       if (b.id === WEICHE_ID) b.look = weicheLook(); // 維澈樓: facade look only (js/weiche.js adds the timber box, stair, columns)
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
+      zoneGLook(b); // G 區校內建築：只換外觀 look／分段高度（js/zone_g.js 自建柱廊、弧形玻璃、斜裙、樓梯塔等）
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
       if (GARRY_IDS.includes(b.id)) { b.skip = true; if (b.id === GARRY_IDS[0]) b.pts = garryOutline(YH_SPEC); } // 黃蓋瑞家 (js/garryhome.js) replaces both
       else if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
@@ -145,6 +147,7 @@ class Game {
     const reserved = [imFootprint(), yhFootprint(), garryOutline(YH_SPEC), clubFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints(), ...darenGdFootprints()];
     reserved.push(...zbFootprints()); // 中北路街屋的保留範圍（js/street_zhongbei.js）
     reserved.push(...zoneEFootprints()); // E 區自建部分的保留範圍（js/zone_e.js）
+    reserved.push(...zoneGFootprints()); // G 區自建構件伸出輪廓的保留範圍（js/zone_g.js）
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {

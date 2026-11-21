@@ -16,6 +16,7 @@ import { buildClubRoom } from './clubroom.js';
 import { buildGateExtras } from './gate_extras.js';
 import { buildWeiche } from './weiche.js';
 import { buildZoneE } from './zone_e.js';
+import { buildZoneG } from './zone_g.js';
 import { buildZhongbeiStreet } from './street_zhongbei.js';
 
 // ---------------- textures ----------------
@@ -3677,6 +3678,7 @@ export function buildInteriors(scene, data, collision) {
   buildGateExtras(I, scene); // 正門: concrete name wall, campus directory, car park portal, P totem (js/gate_extras.js)
   buildWeiche(I, scene, data);
   buildZoneE(I, scene, data); // E 區：建築館、祐生、設計學院的外觀細節（js/zone_e.js）
+  buildZoneG(I, scene, data); // G 區校內建築外觀（js/zone_g.js）
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

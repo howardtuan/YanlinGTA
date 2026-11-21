@@ -25,6 +25,7 @@ export function writeSave(g) {
     gate: { votesGiven: g.gate.votesGiven, shifts: g.gate.shifts, best: g.gate.best },
     race: { wins: g.race.wins, runs: g.race.runs },
     friends: g.friends?.toJSON() || [],
+    gordon: g.gordon?.toJSON() || null,
     stories: [...g.phone.storySeen].slice(-80),
     chats: g.phone.chats.map(c => ({ id: c.c.id, round: c.round, unread: c.unread, msgs: c.msgs })),
     notes: g.pc?.notes ?? null,
@@ -45,6 +46,7 @@ export function applySave(g, d) {
   if (d.job) Object.assign(g.job, d.job);
   if (d.gate) Object.assign(g.gate, d.gate);
   if (d.race) Object.assign(g.race, d.race);
+  g.gordon?.load(d.gordon);
   g.friends?.load(d.friends); // before the chats: friends' chat rooms come after the built-in ones
   for (const id of d.stories || []) g.phone.storySeen.add(id);
   // by chat id; older saves have none, so match them by position, skipping chats added since (newer)

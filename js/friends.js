@@ -6,6 +6,8 @@ import { FRIEND_CONTACTS } from './chats.js';
 import { FRIEND_POSTS } from './feeds.js';
 
 // 排球少年 吱吱：資管系體保生，跟彥霖同屆。站在體育館南側入口（橘色雨遮）前面。
+// like the photo: 平頭, black leather biker jacket over a black tee, dark trousers, thick straight brows, serious mouth
+const GD_LOOK = { skin: '#ecc8a8', shirt: '#242424', jacket: '#121212', shorts: '#1d1e24', pants: true, hair: '#34302c', hairStyle: 'buzz', brows: 'thick', mouth: 'flat', jaw: 1.02, chin: 0.75, build: 1.04, glasses: false, shoes: '#141414', face: true };
 const ZZ_LOOK = { skin: '#f0cfb0', shirt: '#7a1f2c', shorts: '#161616', pants: false, hair: '#b8502a', hairStyle: 'short', glasses: false, shoes: '#1d1d1d', sock: '#f2f2f2', face: true };
 
 export const FRIENDS = {
@@ -53,16 +55,33 @@ export const FRIENDS = {
       ],
     },
   },
+  // 戈登肉鋪店長 女拳大帝：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞。站在櫃台後面（js/interiors.js 的
+  // buildGordon 給位置）；跟他說話、結帳都在櫃台（js/gordon.js），結完帳還不是好友的話他會問要不要互加。
+  gd: {
+    name: '戈登肉鋪店長 女拳大帝', short: '女拳大帝', look: GD_LOOK, noTalk: true,
+    spot: (g) => g.interiors.gordon?.keeper,
+    offer: [
+      ['女拳大帝', '欸，等一下。你是那個在選系會長的彥霖吧？'],
+      ['女拳大帝', '我 LOL 鑽石，健身也沒在輸。最近缺一個打積分的……'],
+      ['女拳大帝', '加個好友啦，先說好：輸了不准怪我，掛機我就封鎖你 😤'],
+    ],
+    yes: [['女拳大帝', '好！今晚 10 點上線，遲到一分鐘請我吃麥當勞 🍔🎮']],
+    no: [['女拳大帝', '嘖，不加就算了。下次來買肉再問你一次！']],
+    chat: [],
+  },
 };
 
 export class Friends {
   constructor(game) {
     this.g = game; this.added = new Set(); this.npcs = {};
     for (const [id, f] of Object.entries(FRIENDS)) {
-      const n = makeMissionNpc(game.scene, f.look, f.name, f.spot.x, f.spot.z, f.spot.h);
+      const sp = typeof f.spot === 'function' ? f.spot(game) : f.spot; if (!sp) continue;
+      const n = makeMissionNpc(game.scene, f.look, f.name, sp.x, sp.z, sp.h);
+      if (sp.y != null) n.ch.root.position.y = sp.y; // indoors: stands on the shop floor
       game.npcs.push(n); this.npcs[id] = n;
+      if (f.noTalk) continue; // someone else (a shop counter) handles talking to them
       game.interiors.actions.push({
-        x: f.spot.x, z: f.spot.z, r: 2.8, y: 0, anyY: true,
+        x: sp.x, z: sp.z, r: 2.8, y: 0, anyY: true,
         label: () => `按 <kbd>E</kbd> 和${f.name}聊天`,
         cond: () => n.ch.root.visible, // at work (js/teashop.js) he isn't here
         fn: (g) => this.talk(id),
@@ -74,6 +93,11 @@ export class Friends {
     const f = FRIENDS[id], g = this.g, s = (at && f[at]) || f;
     if (this.added.has(id)) { const c = s.chat || f.chat; g.dialog(c[Math.floor(Math.random() * c.length)], cb); return; }
     g.dialog(this._met?.[id] ? (s.again || f.again) : (s.intro || f.intro), () => { (this._met ||= {})[id] = true; this._ask(id, cb); });
+  }
+  // a shop asks after you pay: nothing if you are friends already
+  offer(id) {
+    const f = FRIENDS[id]; if (!f || this.added.has(id)) return;
+    this.g.dialog(f.offer || f.intro, () => this._ask(id));
   }
   // after the talk: add as friend (messages + Peachgram) or not
   _ask(id, cb) {

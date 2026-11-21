@@ -92,14 +92,49 @@ function goateeGeo() {
   return g;
 }
 
+// Head + jaw/cheeks as ONE surface: the old cheek ellipsoid overlapping the head sphere left a seam where the two
+// shaded differently (a two-tone band across the lower face). Each vertex of the head ellipsoid is pushed out
+// along its ray from the head centre to the cheek ellipsoid with a smooth max (polynomial, h = 6 mm, so the blend
+// adds at most 1.5 mm), and normals are averaged across the sphere's UV seam so nothing shows at the back.
+// Head ellipsoid: centre (0,0.1,0), radii 0.115 * (0.95, 1.08, 1); cheek: centre (0,0.05,0.012), radii
+// (0.1 * jaw, 0.08, 0.095 * (1 + (jaw - 1) / 2)) — the same shapes as before, just merged.
+// chin (0..1, opts.chin): tapers the lower face to a narrower, slightly longer and more forward chin.
+function faceGeo(jaw, chin = 0) {
+  const g = new THREE.SphereGeometry(0.115, 40, 30); g.scale(0.95, 1.08, 1.0); g.translate(0, 0.1, 0);
+  const P = g.attributes.position, o = [0, 0.1, 0], c = [0, 0.05, 0.012], R = [0.1 * jaw, 0.08, 0.095 * (1 + (jaw - 1) * 0.5)], h = 0.006;
+  for (let i = 0; i < P.count; i++) {
+    const v = [P.getX(i) - o[0], P.getY(i) - o[1], P.getZ(i) - o[2]], L = Math.hypot(...v); if (L < 1e-9) continue;
+    const d = v.map(x => x / L);
+    let A = 0, B = 0, C = -1;
+    for (let k = 0; k < 3; k++) { const dk = d[k] / R[k], ok = (o[k] - c[k]) / R[k]; A += dk * dk; B += 2 * ok * dk; C += ok * ok; }
+    const t = (-B + Math.sqrt(Math.max(0, B * B - 4 * A * C))) / (2 * A); // o is inside the cheek: the far root
+    const m = Math.max(L, t), e = Math.abs(L - t), r = e < h ? m + (h - e) ** 2 / (4 * h) : m;
+    let x = o[0] + d[0] * r, y = o[1] + d[1] * r, z = o[2] + d[2] * r;
+    if (chin) { // below the cheekbones (y 0.085) the face narrows toward the chin point
+      const low = Math.min(1, Math.max(0, (0.085 - y) / 0.085)), k = low ** 1.4;
+      x *= 1 - chin * 0.42 * k; y -= chin * 0.012 * low * low; z += chin * 0.008 * k * Math.max(0, d[2]);
+    }
+    P.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals();
+  const N = g.attributes.normal, key = (i) => `${P.getX(i).toFixed(5)},${P.getY(i).toFixed(5)},${P.getZ(i).toFixed(5)}`, sum = new Map();
+  for (let i = 0; i < P.count; i++) { const k = key(i), a = sum.get(k) || [0, 0, 0]; a[0] += N.getX(i); a[1] += N.getY(i); a[2] += N.getZ(i); sum.set(k, a); }
+  for (let i = 0; i < P.count; i++) { const a = sum.get(key(i)), l = Math.hypot(...a) || 1; N.setXYZ(i, a[0] / l, a[1] / l, a[2] / l); }
+  return g;
+}
+
 // ---------- character ----------
-// opts: hero (bool), skin, shirt, shorts, pants(bool), hair, hairStyle ('bowl'|'short'|'long'|'pony'; anything else = bald),
+// opts: hero (bool), skin, shirt, shorts, pants(bool), hair, hairStyle ('bowl'|'short'|'long'|'pony'|'buzz'; anything else = bald),
 // glasses, shoes, bag; build (override the per-person build), beard ('goatee'); skinned body only: hem (shorts
-// length, default -0.3 m below the hip), arm (upper-arm thickness)
+// length, default -0.3 m below the hip), arm (upper-arm thickness);
+// jacket (colour: a leather biker jacket over the shirt: long sleeves, lapels, zip and snaps), brows ('thick'),
+// mouth ('flat': a closed, serious mouth instead of the smile), jaw (override the per-person jaw width),
+// chin (0..1: a narrower, pointier chin)
 export function createCharacter(opts = {}) {
   const hero = !!opts.hero;
-  const skin = mat(opts.skin || '#e8c3a2', { roughness: 0.65 });
-  const shirt = mat(opts.shirt || '#161616', { roughness: 0.95 });
+  // same roughness as the skinned body's vertex-coloured material, so face, neck and hands read as one skin tone
+  const skin = mat(opts.skin || '#e8c3a2', { roughness: 0.82 });
+  const shirt = mat(opts.jacket || opts.shirt || '#161616', { roughness: opts.jacket ? 0.4 : 0.95 });
   const shortsM = mat(opts.shorts || '#f1f0ea', { roughness: 0.9 });
   const hairM = mat(opts.hair || '#111111', { roughness: 0.45 });
   const shoeM = mat(opts.shoes || '#f5f5f2', { roughness: 0.6 });
@@ -115,6 +150,7 @@ export function createCharacter(opts = {}) {
     nose: 0.85 + hash01(id, 4) * 0.35, build: (female ? 0.94 : 0.97) + hash01(id, 5) * 0.12,
   };
   if (opts.build) fv.build = opts.build;
+  if (opts.jaw) fv.jaw = opts.jaw;
 
   const root = new THREE.Group();
   const body = pivot(0, 0, 0); root.add(body); // bobbing container
@@ -130,6 +166,25 @@ export function createCharacter(opts = {}) {
     const patch = new THREE.Mesh(geo('patch', () => new THREE.PlaneGeometry(0.06, 0.06)), new THREE.MeshStandardMaterial({ map: logoTexture(), roughness: 0.8 }));
     patch.position.set(0.075, 0.43, 0.137); patch.rotation.y = 0.12; torso.add(patch);
   }
+  // leather biker jacket (opts.jacket colour; the sleeves come from the skinned body): open front over the tee,
+  // wide lapels with silver snaps, a stand collar round the back of the neck, a slanted silver zip and pocket zips.
+  // Torso-pivot frame: root y - 0.93; the chest surface is about z 0.13-0.14 between y 1.25 and 1.45 (torsoProfile).
+  if (opts.jacket) {
+    const L = mat(opts.jacket, { roughness: 0.32, metalness: 0.12 }), tee = mat(opts.shirt || '#232323', { roughness: 0.95 });
+    const silver = mat('#d9dbde', { metalness: 0.9, roughness: 0.22 }), y0 = -0.93;
+    torso.add(mesh(geo('jkTee', () => { const sh = new THREE.Shape([new THREE.Vector2(-0.05, 0.11), new THREE.Vector2(0.05, 0.11), new THREE.Vector2(0.012, -0.12), new THREE.Vector2(-0.012, -0.12)]); return new THREE.ShapeGeometry(sh); }), tee, 0, 1.39 + y0, 0.139));
+    for (const s of [-1, 1]) {
+      // lapel: from the collar (outer, high) down to the chest (inner, low), leaving the tee showing in a V
+      const lap = mesh(geo('jkLapel', () => new THREE.BoxGeometry(0.05, 0.22, 0.012)), L, 0.072 * s, 1.36 + y0, 0.136);
+      lap.rotation.set(-0.12, 0.28 * s, -0.32 * s); torso.add(lap);
+      torso.add(mesh(geo('jkSnap', () => new THREE.SphereGeometry(0.0068, 8, 6)), silver, 0.098 * s, 1.445 + y0, 0.12));
+      torso.add(mesh(geo('jkSnap', () => new THREE.SphereGeometry(0.0068, 8, 6)), silver, 0.05 * s, 1.27 + y0, 0.146));
+      const pz = mesh(geo('jkPocket', () => new THREE.BoxGeometry(0.075, 0.005, 0.005)), silver, 0.115 * s, 1.13 + y0, 0.126); pz.rotation.z = 0.55 * s; torso.add(pz);
+    }
+    const zip = mesh(geo('jkZip', () => new THREE.BoxGeometry(0.0055, 0.25, 0.006)), silver, 0.04, 1.13 + y0, 0.128); zip.rotation.z = -0.12; torso.add(zip);
+    const col = mesh(geo('jkCollar', () => { const g = new THREE.TorusGeometry(0.079, 0.017, 6, 18, Math.PI * 1.4); g.rotateX(Math.PI / 2); g.rotateY(-2.513); return g; }), L, 0, 1.54 + y0, -0.004);
+    torso.add(col);
+  }
   if (opts.bag) {
     const bag = mesh(geo('bag', () => new THREE.BoxGeometry(0.28, 0.34, 0.13)), mat(opts.bag), 0, 0.32, -0.2); torso.add(bag);
   }
@@ -137,10 +192,11 @@ export function createCharacter(opts = {}) {
   if (!sk) torso.add(mesh(geo('neck', () => new THREE.CylinderGeometry(0.055, 0.062, 0.1, 10)), skin, 0, 0.62, 0));
   const head = pivot(0, 0.68, 0.005); torso.add(head);
   head.scale.setScalar(hero ? 1.14 : 1.08);
-  head.add(mesh(geo('head', () => { const g = new THREE.SphereGeometry(0.115, 24, 18); g.scale(0.95, 1.08, 1.0); g.translate(0, 0.1, 0); return g; }), skin));
-  // jaw/cheeks for a rounder face
-  const cheek = mesh(geo('cheek', () => { const g = new THREE.SphereGeometry(0.1, 16, 12); g.scale(1.0, 0.8, 0.95); g.translate(0, 0.05, 0.012); return g; }), skin);
-  cheek.scale.set(fv.jaw, 1, 1 + (fv.jaw - 1) * 0.5); head.add(cheek);
+  // head with the jaw/cheeks merged into one smooth surface (faceGeo), per jaw width
+  const jk = Math.round(fv.jaw * 100) / 100, ck = Math.round((opts.chin || 0) * 100) / 100;
+  head.add(mesh(geo('face' + jk + 'c' + ck, () => faceGeo(jk, ck)), skin));
+  // the cheek frame stays (empty) so the goatee can follow the jaw width
+  const cheek = new THREE.Group(); cheek.scale.set(jk, 1, 1 + (jk - 1) * 0.5); head.add(cheek);
   for (const s of [-1, 1]) head.add(mesh(geo('ear', () => { const g = new THREE.SphereGeometry(0.026, 8, 8); g.scale(0.5, 1, 0.8); return g; }), skin, 0.108 * s, 0.1, 0));
 
   // face
@@ -157,18 +213,29 @@ export function createCharacter(opts = {}) {
       const lid = mesh(geo('lid', () => { const g = new THREE.SphereGeometry(0.0172, 10, 8); g.scale(1.32, 0.86, 0.62); return g; }), skin, ex, 0.103, 0.1068);
       lid.scale.setScalar(fv.eye); lid.visible = false; lid.castShadow = false; head.add(lid); lids.push(lid);
       // brows (mostly hidden under the bangs, peek out with expressions)
-      head.add(mesh(geo('brow', () => new THREE.BoxGeometry(0.03, 0.006, 0.006)), hairM, 0.04 * s, 0.137, 0.112));
+      if (opts.brows === 'thick') { const b = mesh(geo('browThick', () => new THREE.BoxGeometry(0.036, 0.0105, 0.008)), hairM, 0.041 * s, 0.13, 0.111); b.rotation.z = -0.06 * s; head.add(b); }
+      else head.add(mesh(geo('brow', () => new THREE.BoxGeometry(0.03, 0.006, 0.006)), hairM, 0.04 * s, 0.137, 0.112));
     }
     const nose = mesh(geo('nose', () => { const g = new THREE.SphereGeometry(0.014, 8, 8); g.scale(1, 0.9, 1); return g; }), skin, 0, 0.07, 0.113); nose.scale.setScalar(fv.nose); head.add(nose);
-    const mouth = mesh(geo('mouth', () => new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI)), mat('#8a4a3e'), 0, 0.035, 0.103);
-    mouth.rotation.z = Math.PI; head.add(mouth);
+    if (opts.mouth === 'flat') { // closed, slightly full lips: a serious face
+      head.add(mesh(geo('lipU', () => { const g = new THREE.CapsuleGeometry(0.0042, 0.026, 3, 8); g.rotateZ(Math.PI / 2); return g; }), mat('#a8695c'), 0, 0.041, 0.106));
+      head.add(mesh(geo('lipL', () => { const g = new THREE.CapsuleGeometry(0.005, 0.022, 3, 8); g.rotateZ(Math.PI / 2); return g; }), mat('#b97a6b'), 0, 0.0335, 0.105));
+    } else {
+      const mouth = mesh(geo('mouth', () => new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI)), mat('#8a4a3e'), 0, 0.035, 0.103);
+      mouth.rotation.z = Math.PI; head.add(mouth);
+    }
   }
   // neat goatee: a moustache joined to a chin beard in a ring round the mouth, laid 3.5 mm over the cheek shell
   // and parented to the cheek so it follows the per-person jaw width
   if (opts.beard === 'goatee') cheek.add(mesh(geo('goatee', goateeGeo), mat(opts.hair || '#141010', { roughness: 0.95 })));
   // hair
   const hs = opts.hairStyle || (hero ? 'bowl' : 'short');
-  if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony') {
+  if (hs === 'buzz') {
+    // 平頭 / buzz cut: one thin cap hugging the scalp, the hairline a little higher than 'short'
+    // matte, stubbly: no shine, the hairline high on the forehead, lower at the back
+    const buzzM = mat(opts.hair || '#111111', { roughness: 1 });
+    head.add(mesh(geo('buzzCap', () => { const g = new THREE.SphereGeometry(0.1172, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.36); g.rotateX(-0.22); g.scale(0.96, 1.09, 1.02); g.translate(0, 0.104, -0.003); return g; }), buzzM));
+  } else if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony') {
     // cap
     // SphereGeometry phi: front (+z) is phi = PI/2, back (-z) is 3PI/2
     head.add(mesh(geo('hairCap', () => { const g = new THREE.SphereGeometry(0.127, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.4); g.scale(1.0, 1.1, 1.04); g.translate(0, 0.108, -0.004); return g; }), hairM));
@@ -257,7 +324,7 @@ export function createCharacter(opts = {}) {
     legs.push({ hp, kn, ft, s });
   }
   let bodyMesh = null;
-  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { shirt: opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm });
+  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { longSleeve: !!opts.jacket, shirt: opts.jacket || opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm });
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
   // small parts (eyes, fingers, glasses, hair tips…) don't cast shadows and can be hidden at distance

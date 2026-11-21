@@ -312,6 +312,7 @@ export const CONTACTS = [
     // 他會回現在在哪；在校園散步的話會設定導航，路線跟著他走（nav.track）。
     // newer: 舊存檔（沒有記聊天室 id）照順序對回聊天室時跳過這個
     id: 'laoda', name: '勞大', sub: '彥霖航空・直升機駕駛員', avatar: '<img class="ph-avimg" src="assets/gram/laoda_av.jpg" alt="">', color: '#552583', unread: 1, newer: true,
+    laugh: '孩子們，這並不好笑', // 你傳的訊息有「哈哈」之類的笑，他的回覆最後一定補這句（js/phone.js）
     history: [
       { day: '今天' },
       ['laoda', 'Man 我勞大，要空運機車打給我 🚁'],

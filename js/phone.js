@@ -807,6 +807,8 @@ export class Phone {
     if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
     st.busy = true; st.read = false;
     st.msgs.push({ who: 'me', text: ch.t, time: hhmm(g.clock) }); st.lastAt = g.clock;
+    // a contact with `laugh` (勞大) always ends his answer with that line when you laughed
+    st._laughNext = st.c.laugh && /哈哈|笑死|XD|lol|LOL|😂|🤣/.test(ch.t) ? st.c.laugh : null;
     if (ch.ask) { // an `always` option: its reply is worked out from the game right now, then it may act (e.g. set a route)
       st.choice = 0; g.audio.send?.(); this._renderThread(); this._renderCompose();
       setTimeout(() => { st.read = true; if (this.cur === st) this._renderThread(); }, 350);
@@ -846,6 +848,7 @@ export class Phone {
   // replies arrive one by one with a typing indicator; they land even if you leave the chat
   _deliver(st, replies, v, delay, then) {
     const g = this.g;
+    if (st._laughNext) { const L = st._laughNext; st._laughNext = null; replies = [...replies.filter(r => r.text.trim() !== L), { who: st.c.id, text: L }]; }
     const dropTyping = () => { const ti = st.msgs.findIndex(m => m.typing); if (ti >= 0) st.msgs.splice(ti, 1); };
     replies.forEach((rp, k) => {
       setTimeout(() => { dropTyping(); st.msgs.push({ typing: true }); if (this.cur === st) this._renderThread(); }, delay);

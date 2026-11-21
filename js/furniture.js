@@ -310,12 +310,35 @@ export function buildFurniture(scene, world, data, ctx) {
     }
     coll.addCircle(px, pz, 0.2); poles.add(px, pz, 0);
   };
-  // a crossing surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; js/map.js paints it)
-  // stands in for the one a signal junction would get on that arm
-  const surveyedZebra = (x, z) => (data.roadMarks || []).some(f => f.t === 'zebra' && !f.osm && (f.x - x) ** 2 + (f.z - z) ** 2 < 100);
+  // crossings surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; js/map.js paints them)
+  // stand in for the one a signal junction would get on that arm:
+  // a surveyed zebra (roads.json feature without osm) within 10 m that crosses the same street as this arm
+  // (its ang = the street's direction, parallel to the arm): the orthophoto puts the crossing there instead
+  const surveyedZebra = (x, z, a) => (data.roadMarks || []).some(f => f.t === 'zebra' && !f.osm && (f.x - x) ** 2 + (f.z - z) ** 2 < 100 &&
+    Math.abs(Math.cos(f.ang * Math.PI / 180 - Math.atan2(a.ez, a.ex))) > 0.9);
+  // a surveyed zebra across this arm within 31 m of the junction, measured along the arm's own polyline
+  // (arms bend): the orthophoto shows where the real crossing is, so no generic one too
+  const surveyedOnArm = (a) => {
+    const P = a.road.pts, k = P.findIndex(p => p[0] === a.x && p[1] === a.z), dir = a.fwd ? 1 : -1;
+    if (k < 0) return false;
+    return (data.roadMarks || []).some(f => {
+      if (f.t !== 'zebra' || f.osm) return false;
+      let acc = 0;
+      for (let i = k; i + dir >= 0 && i + dir < P.length && acc < 31; i += dir) {
+        const p = P[i], q = P[i + dir], dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz) || 1;
+        const t = ((f.x - p[0]) * dx + (f.z - p[1]) * dz) / l, v = Math.abs((f.x - p[0]) * dz - (f.z - p[1]) * dx) / l;
+        if (t >= -0.5 && t <= l + 0.5 && acc + t > 0 && acc + t < 31 && v < a.w / 2 + 2) return true;
+        acc += l;
+      }
+      return false;
+    });
+  };
   // a junction of several signal nodes (divided roads) puts some arms' crossings out on the other carriageways'
   // pavement, where the 2024 正射 shows none: skip a crossing whose centre lies on another drivable way
   // (unless the survey saw a crossing there that it left to this code: osm: true)
+  // roads.json 'nozebra': the orthophoto shows plain asphalt where this code would lay a crossing (inner links of a
+  // multi-node junction, an arm without one): no generic zebra / stop line within 6 m of it
+  const noZebra = (x, z) => (data.roadMarks || []).some(f => f.t === 'nozebra' && (f.x - x) ** 2 + (f.z - z) ** 2 < 36);
   const osmZebra = (x, z) => (data.roadMarks || []).some(f => f.t === 'zebra' && f.osm && (f.x - x) ** 2 + (f.z - z) ** 2 < 100);
   const onOtherRoad = (x, z, own) => data.roads.some(q => {
     if (q === own || !q.drive || q.under || q.bridge) return false;
@@ -365,7 +388,7 @@ export function buildFurniture(scene, world, data, ctx) {
       const grp = Math.abs(a.ex * A0.ex + a.ez * A0.ez) > 0.7 ? 0 : 1;
       if (a.road.bridge) continue;
       const s = Math.max(...J.A.filter(o => o !== a).map(o => o.w / 2)) + 1.5;
-      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz) && (osmZebra(zx, zz) || !onOtherRoad(zx, zz, a.road))) { zebra(zx, zz, a.ex, a.ez, a.w); stopLine(a, s + 4.6); } }
+      { const zx = a.x + a.ex * (s + 1.8), zz = a.z + a.ez * (s + 1.8); if (!surveyedZebra(zx, zz, a) && !surveyedOnArm(a) && !noZebra(zx, zz) && (osmZebra(zx, zz) || !onOtherRoad(zx, zz, a.road))) { zebra(zx, zz, a.ex, a.ez, a.w); stopLine(a, s + 4.6); } }
       // far-side pole on the right of traffic leaving along this arm
       const [rx, rz] = right(a.ex, a.ez);
       for (const ds of [0, 3, 6]) {
@@ -403,7 +426,12 @@ export function buildFurniture(scene, world, data, ctx) {
     // OSM marked crossings
     for (const f of data.furniture) {
       if (f.t !== 'crossing' || !inB(f.x, f.z, 20)) continue;
-      const r = roadAt(f.x, f.z); if (r && r.d < 0) zebra(r.q[0], r.q[1], r.tx, r.tz, r.w);
+      const r = roadAt(f.x, f.z); if (!r || r.d >= 0) continue;
+      // a surveyed zebra within 10 m across the same street paints this crossing where the orthophoto has it
+      // (js/map.js), or the survey saw none here (nozebra)
+      if (noZebra(f.x, f.z) || (data.roadMarks || []).some(m => m.t === 'zebra' && !m.osm && (m.x - f.x) ** 2 + (m.z - f.z) ** 2 < 100 &&
+        Math.abs(Math.cos(m.ang * Math.PI / 180 - Math.atan2(r.tz, r.tx))) > 0.9)) continue;
+      zebra(r.q[0], r.q[1], r.tx, r.tz, r.w);
     }
   }
   stats.signalHeads = heads.length;

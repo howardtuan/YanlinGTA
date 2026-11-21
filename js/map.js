@@ -1281,6 +1281,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return d != null ? d : MARKED[r.type] ? 2.5 : 0;
   };
   const walkCol = r => r.marks && r.marks.walk && r.marks.walk.col ? col(r.marks.walk.col) : SIDEWALK;
+  const paves = data.roads.filter(q => q.pave);
+  const paved = (x, z) => paves.some(q => q.pts.slice(1).some((p, j) => { const c = closestOnSeg(x, z, q.pts[j][0], q.pts[j][1], p[0], p[1]); return Math.hypot(c[0] - x, c[1] - z) < q.w / 2 + 0.3; }));
   const sidewalk = (r) => {
     if ((!MARKED[r.type] && !(r.marks && r.marks.walk)) || r.bridge || r.tunnel || (r.name || '').startsWith('中北路')) return;
     const C = walkCol(r);
@@ -1293,6 +1295,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const o = sd * (r.w / 2 + 0.1 + W / 2), oc = sd * (r.w / 2 + 0.1);
         const mx = (a[0] + b[0]) / 2 + nx * sd * (r.w / 2 + 1.35), mz = (a[1] + b[1]) / 2 + nz * sd * (r.w / 2 + 1.35);
         if (r.oneway && facesOther(r, mx, mz)) {   // median kerb only
+          if (paved(a[0] + nx * oc + dx / 2, a[1] + nz * oc + dz / 2)) continue;   // median opening paved over (roads.json pave)
           walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
           continue;
         }

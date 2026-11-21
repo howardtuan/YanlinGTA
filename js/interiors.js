@@ -4,6 +4,7 @@
 // All y values here are relative to the building's ground; tools/build_terrain.py
 // flattens the terrain around each footprint so that ground is one constant height.
 import * as THREE from 'three';
+import { freezeStatic } from './freeze.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { pointInPoly, closestOnSeg } from './collision.js';
 import { createCharacter } from './character.js';
@@ -296,8 +297,11 @@ export class Kit {
       const geo = mergeGeometries(list, false);
       const mesh = new THREE.Mesh(geo, M(mat));
       mesh.castShadow = shadow && mat !== 'glass'; mesh.receiveShadow = false;
+      mesh.matrixAutoUpdate = false; // merged at the group's origin, never moves
       this.group.add(mesh);
     }
+    // the building stands still (its other parts, a sliding door say, keep their own matrixAutoUpdate)
+    this.group.updateMatrix(); this.group.matrixAutoUpdate = false;
     scene.add(this.group);
   }
 }
@@ -428,6 +432,8 @@ export function finishRow(scene, kits, shadow = true) {
   }
   scene.add(out);
   for (const k of kits) if (k.group.children.length) scene.add(k.group);
+  // a row never moves (that is what finishRow is for): matrices once, not every frame
+  freezeStatic(out); for (const k of kits) if (k.group.parent) freezeStatic(k.group);
   return out;
 }
 

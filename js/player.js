@@ -187,6 +187,7 @@ export class Player {
     const ch = createCharacter({ ...YANLIN_LOOK, ...this.look, polo: this.look.top === 'polo', imTee: this.look.top === 'im' });
     ch.root.position.copy(old.root.position); ch.root.rotation.copy(old.root.rotation); ch.root.visible = old.root.visible;
     if (parent) { parent.remove(old.root); parent.add(ch.root); }
+    old.dispose?.();
     this.ch = ch; this.pos = ch.root.position;
   }
   worldPos() { return this.vehicle ? this.vehicle.pos : this.pos; }

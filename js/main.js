@@ -34,16 +34,19 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 const lerp = (a, b, t) => a + (b - a) * t;
 const lockPointer = el => { try { const r = el.requestPointerLock?.(); if (r && r.catch) r.catch(() => { }); } catch (e) { } };
 const isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
-// quality setting: 'auto' | 'low' | 'medium' | 'high'. auto picks from the graphics chip (integrated / mobile
-// GPUs and 4-core machines -> low, unknown -> medium, dedicated GPUs -> high) and steps down at runtime when
-// the frame rate stays low (_autoQuality).
-const QUALITY = ['low', 'medium', 'high'];
+// quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high'. auto never goes above medium (high only when the
+// player picks it): integrated / mobile GPUs and 4-core machines -> low, everything else -> medium; it steps down
+// at runtime when the frame rate stays low (_autoQuality), as far as xlow (超低).
+// xlow is 'low' for the world, sky, post-processing and trees (subQ) plus its own, harsher profile here.
+const QUALITY = ['xlow', 'low', 'medium', 'high'];
+const subQ = q => (q === 'xlow' ? 'low' : q);
 // per quality: view distance (m), fog thickness, max pixel ratio, sun shadows
 const QPROF = {
 // view: how far pedestrians, traffic and parked vehicles are drawn (x their normal range)
   high: { far: 2600, fog: 1, pr: 1.6, shadows: true, view: 1 },
   medium: { far: 1500, fog: 1.12, pr: 1.0, shadows: true, view: 0.8 },
   low: { far: 750, fog: 1.6, pr: 0.8, shadows: false, view: 0.45 },
+  xlow: { far: 450, fog: 2.4, pr: 0.6, shadows: false, view: 0.3 },
 };
 let _gpuGuess = null;
 function guessGpu() {
@@ -53,10 +56,11 @@ function guessGpu() {
   const weak = /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|vega \d/i.test(name);
   const strong = /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc a\d|apple m\d/i.test(name);
   const cores = navigator.hardwareConcurrency || 4;
-  return (_gpuGuess = isTouch() ? 'low' : strong ? 'high' : weak || cores <= 4 ? 'low' : 'medium');
+  // a dedicated card (e.g. Intel Arc) is not 'weak' even though its name says Intel; auto stops at medium
+  return (_gpuGuess = isTouch() ? 'low' : !strong && (weak || cores <= 4) ? 'low' : 'medium');
 }
 const resolveQuality = q => QUALITY.includes(q) ? q : guessGpu();
-const Q_NAME = { low: '低', medium: '中', high: '高（電影感）' };
+const Q_NAME = { xlow: '超低', low: '低', medium: '中', high: '高（電影感）' };
 
 class Game {
   async init() {
@@ -72,7 +76,8 @@ class Game {
     // quality: sky / shadows / post-processing / lamp lights switch live; the low-quality world
     // (MSAA, 補建街區 back rows, crowd sizes) only changes with a reload
     this.quality = resolveQuality(this.settings.quality);
-    this.lowQ = this.quality === 'low';
+    this.lowQ = this.quality === 'low' || this.quality === 'xlow';
+    this.xlowQ = this.quality === 'xlow';
     // 補建街區: synthetic content for blocks OSM leaves empty (tools/block_survey.json,
     // generated, not real footprints). Off -> OSM only; low quality drops the
     // lod-marked back rows. Applies on reload.
@@ -117,7 +122,7 @@ class Game {
     addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); this.post?.setSize(innerWidth, innerHeight); this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this._checkRotate(); });
 
     this._sky();
-    this.post = new PostFX(r, this.scene, this.camera, this.quality);
+    this.post = new PostFX(r, this.scene, this.camera, subQ(this.quality));
     await nextFrame();
     setLoad(0.08, '搭建中原大學');
     // like the real 資管系館: big banyans, royal palms and a pine in the front garden
@@ -126,8 +131,8 @@ class Game {
       return [[5, D + 13, 'rain', 0.85], [41, D + 14, 'rain', 0.8], [15, D + 7.5, 'palm', 0.9], [31, D + 7.5, 'palm', 0.95], [-3, D + 9, 'pine', 0.8]]
         .map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: this.quality, featureTrees, mainGate: GUARD_SPECS(data)[0] });
-    this.skyline = buildSkyline(this.scene, this.lowQ ? 70 : 180);
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0] });
+    this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality(); // view distance / fog / shadows / skyline size for the chosen quality
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
@@ -139,8 +144,8 @@ class Game {
     this.hud = new HUD(this.world);
     this.player = new Player(this.scene);
     this.rig = new CameraRig(this.camera);
-    this.traffic = new Traffic(this.scene, this.world, this.lowQ ? 14 : 26);
-    this.peds = new Peds(this.scene, this.world, this.lowQ ? 18 : 32);
+    this.traffic = new Traffic(this.scene, this.world, this.xlowQ ? 8 : this.lowQ ? 14 : 26);
+    this.peds = new Peds(this.scene, this.world, this.xlowQ ? 10 : this.lowQ ? 18 : 32);
     this.traffic.viewK = this.peds.viewK = this.viewK; // draw range for the quality level
     this.vehicles = []; this.npcs = [];
     this.votes = 0; this.ballotsTaken = 0; this.clock = 17 * 60 + 20; this.playTime = 0;
@@ -226,7 +231,7 @@ class Game {
   }
   // auto quality: after a warm-up, step down one level when the game keeps running under 28 fps
   _autoQuality(frameMs) {
-    if ((this.settings.quality || 'auto') !== 'auto' || this.quality === 'low' || document.hidden) return;
+    if ((this.settings.quality || 'auto') !== 'auto' || this.quality === 'xlow' || document.hidden) return;
     if (frameMs > 250) return; // tab was in the background
     const A = this._aq || (this._aq = { t: 0, sum: 0, n: 0, warm: 0 });
     if ((A.warm += frameMs) < 8000) return;
@@ -234,13 +239,13 @@ class Game {
     if (A.t < 6000) return;
     const fps = 1000 / (A.sum / A.n); A.t = A.sum = A.n = 0;
     if (fps >= 28) return;
-    const next = this.quality === 'high' ? 'medium' : 'low';
+    const next = QUALITY[Math.max(0, QUALITY.indexOf(this.quality) - 1)];
     this.setQuality(next); A.warm = 4000; // give the new level a moment before judging it
     this.hud.toast(`偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，可在設定更改`, 'good', 4200);
   }
   _sky() {
     // physically based sky + clouds + stars / moon, sun & ambient driven by the clock, IBL from the sky
-    this.skySys = new SkySystem(this.scene, this.renderer, this.quality);
+    this.skySys = new SkySystem(this.scene, this.renderer, subQ(this.quality));
     this.sun = this.skySys.sun; this.hemi = this.skySys.hemi;
     // player vehicle headlight
     this.headlight = new THREE.SpotLight('#fff1d0', 0, 60, 0.55, 0.5, 1.2);
@@ -269,10 +274,10 @@ class Game {
     this.quality = q;
     this.renderer.setPixelRatio(this._pixelRatio());
     this.renderer.setSize(innerWidth, innerHeight);
-    this.skySys.setShadowQuality(q);
-    this.post.setQuality(q);
+    this.skySys.setShadowQuality(subQ(q));
+    this.post.setQuality(subQ(q));
     this.post.setSize(innerWidth, innerHeight);
-    this.world.setQuality?.(q);
+    this.world.setQuality?.(subQ(q));
     this._applyQuality();
   }
 
@@ -630,7 +635,7 @@ class Game {
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
       <div class="set-row"><label>🐦 環境音</label><div class="seg" id="setAmb">${['on', 'off'].map(v => `<button data-amb="${v}" class="${(s.amb || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
-      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
+      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('xlow', '超低')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
       <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this._qualityNote(qNow)}</small></div>
       <div class="set-row"><label>🧭 地面導航線</label><div class="seg" id="setNav">${nv('on', '開')}${nv('off', '關')}</div></div>
       <div class="set-row"><label>🖥 全螢幕</label><div class="seg" id="setFull">${fs('on', '開')}${fs('off', '關')}</div></div>
@@ -679,8 +684,8 @@ class Game {
   }
   _qualityNote(q) {
     // the low-quality world (no MSAA, fewer 補建 rows, smaller crowds) is chosen at load time
-    const pending = (q === 'low') !== this.lowQ;
-    return `目前：${Q_NAME[q]}畫質（自動＝依顯示卡挑選：內建顯示晶片、手機用低畫質；畫面不夠順會自動往下調）` + (pending ? '・抗鋸齒與人車數量在重新整理後套用' : '');
+    const pending = (q === 'low' || q === 'xlow') !== this.lowQ || (q === 'xlow') !== this.xlowQ;
+    return `目前：${Q_NAME[q]}畫質（自動＝最高用到中：內建顯示晶片、手機用低；畫面不夠順會一路往下調到超低；要高畫質請自己選「高」）` + (pending ? '・抗鋸齒與人車數量在重新整理後套用' : '');
   }
   _fillNote() {
     const on = (this.settings.fill || 'on') !== 'off', now = this.data.buildings.some(b => b.synthetic) || this.data.areas.some(a => a.synthetic);

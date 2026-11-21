@@ -23,6 +23,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { Kit, regMat, MAIN_GATE } from './interiors.js';
+import { H } from './terrain.js';
 
 // ---- frames -------------------------------------------------------------------------------------
 // 維澈樓 west terrace (tools/overrides.json 「維澈樓西側抬高平台」): o = the building's west corner, u along
@@ -38,17 +39,26 @@ const facing = (f) => Math.atan2(f[0], -f[1]);
 // ---- placements (world metres) --------------------------------------------------------------------
 // name wall + directory: x from the wall's south end (-1.3) to the base's north end (6.3) along the terrace
 const SIGN = { o: tp(0, -7.25), ang: facing([-TT[0], -TT[1]]) };
-// car park portal: front at 大仁街 s 39.9, 5.4 m wide (n 3.8..9.2), 5.4 m deep; its back keeps clear of the
+// car park portal: front at 大仁街 s 39.9, 5.0 m wide (n 3.2..8.2), 5.4 m deep; its back keeps clear of the
 // reserved footprint of js/weiche.js (the stair core stands out 2.8 m from the south-west wall, kept 3.3 m)
-const RAMP = { o: dp(39.9, 6.5), ang: facing([-DS[0], -DS[1]]), hw: 2.7, d: 5.4 };
+const RAMP = { o: dp(39.9, 5.7), ang: facing([-DS[0], -DS[1]]), hw: 2.5, d: 5.4 };
+// the way in: a darker paved lane over the setts from the end of the entry lane (-197.1, 85.2, where the
+// barriers stand) south, then bending east into the portal's 5 m wide mouth (2018 panorama: cars cross the open
+// setts straight into the portal; nothing stands in the way). LANE_PTS is the centre line the checks sample.
+const LANE_W = 5.2;
+const lanePt = (t) => {
+  const P0 = [-197.1, 85.2], P3 = dp(33, 5.7), P1 = [P0[0], P0[1] + 8], P2 = [P3[0] - 7 * DS[0], P3[1] - 7 * DS[1]], u = 1 - t;
+  return [0, 1].map((i) => u * u * u * P0[i] + 3 * u * u * t * P1[i] + 3 * u * t * t * P2[i] + t * t * t * P3[i]);
+};
+export const LANE_PTS = (() => { const a = []; for (let i = 0; i <= 40; i++) a.push(lanePt(i / 40)); for (let q = 33.5; q <= 39.9; q += 0.5) a.push(dp(q, 5.7)); return a; })();
 // P totem at the 大仁街 mouth, face toward the end of 中北路 (bearing ~300°)
 const PT = { o: [-206.5, 96.7], ang: facing([-0.866, -0.5]) };
 const RAIL = { s0: 13.5, s1: 30, n: 3.1 };
 
-// slender street trees on the planting strip along 大仁街 between the P totem and the car park (2022 photo);
+// slender street trees on the planting strip along 大仁街 between the P totem and the car park (2022 photo); none in front of the portal, where the lane runs;
 // js/main.js adds them to featureTrees (the footprints above keep the random trees off this strip)
 export function gateTrees() {
-  return [24, 30, 36].map((s, i) => { const [x, z] = dp(s, 4.9); return { x, z, kind: 'round', s: [0.62, 0.68, 0.6][i] }; });
+  return [24].map((s, i) => { const [x, z] = dp(s, 4.9); return { x, z, kind: 'round', s: 0.62 }; });
 }
 
 export function gateExtrasFootprints() {
@@ -58,6 +68,8 @@ export function gateExtrasFootprints() {
     [ws(-1.8, -1.0), ws(6.8, -1.0), ws(6.8, 0.6), ws(-1.8, 0.6)],
     [wr(-RAMP.hw - 0.4, -0.6), wr(RAMP.hw + 0.1, -0.6), wr(RAMP.hw + 0.1, RAMP.d + 0.3), wr(-RAMP.hw - 0.4, RAMP.d + 0.3)],
     [wp(-0.6, -0.6), wp(0.6, -0.6), wp(0.6, 0.6), wp(-0.6, 0.6)],
+    // the lane in front of the portal (no trees, lamps or signs on it)
+    [dp(21, 18.7), dp(21, 12), dp(33, 2.7), dp(40, 2.7), dp(40, 8.7), dp(33, 8.7), dp(27, 20)],
     [dp(RAIL.s0, RAIL.n - 0.55), dp(RAIL.s1, RAIL.n - 0.55), dp(RAIL.s1, RAIL.n + 0.25), dp(RAIL.s0, RAIL.n + 0.25)],
     // the open setts between the 大仁街 mouth, the grey wall and the portal (no trees: 2022 photo)
     [[-205.5, 89.5], [-191, 89.2], [-188.6, 93.6], [-189.6, 99.0], [-191, 102.6], [-198.5, 99.8], [-205, 96.2]],
@@ -263,12 +275,14 @@ function buildCarPark(I, scene) {
   k.box(-hw + 0.35, hw - 0.35, 2.02, 2.1, -0.05, 0.03, X.steel, { col: false });
   for (const x of [-hw + 0.6, hw - 0.6]) k.box(x - 0.015, x + 0.015, 2.1, TOPY - 0.46, -0.03, 0.01, X.steel, { col: false });
   // the ramp: lit floor at the mouth, darkening inward; the back closed in black
-  const fl = k.plane(GX.rampFloor(), 2 * hw - 0.6, D - 0.3, 0, 0.025, (D - 0.3) / 2, 0);
+  const fl = k.plane(GX.rampFloor(), 2 * hw - 0.6, D - 0.3, 0, -0.6, (D - 0.3) / 2, 0);
   fl.rotation.set(-Math.PI / 2, 0, Math.PI); // dark end of the texture at the back
+  fl.rotation.x = -Math.PI / 2 + Math.atan2(1.2, D - 0.3); // falls 1.2 m towards the back (y 0 at the mouth)
+  fl.position.y = 0.025 - 0.6;
   k.box(-hw + 0.3, hw - 0.3, -0.4, TOPY, D - 0.3, D, X.black);
-  // low wall across the viewer's left two thirds where the ramp turns down (2022 photo), its top lit
-  k.box(-0.6, hw - 0.3, 0, 1.0, 3.0, 3.25, X.concDark, { tile: [1.8, 1.2] });
-  k.box(-0.6, hw - 0.3, 1.0, 1.03, 2.98, 3.27, X.conc, { col: false });
+  // a low centre divider where the ramp turns down (2022 photo): one lane each side stays open
+  k.box(-0.2, 0.2, 0, 0.5, 3.0, D - 0.3, X.concDark, { tile: [1.8, 1.2] });
+  k.box(-0.22, 0.22, 0.5, 0.53, 2.98, D - 0.28, X.conc, { col: false });
   // ceiling lights inside the mouth
   for (const z of [0.9, 2.6]) k.box(-0.9, 0.9, TOPY - 0.06, TOPY - 0.02, z - 0.08, z + 0.08, 'light', { col: false });
   // green "go" lamp on the viewer's right wall
@@ -318,7 +332,7 @@ function buildForecourt(I, scene) {
   const X = mats();
   const one = (x, z, ang, fn) => { const k = new Kit(I, x, z, ang); fn(k); k.finish(scene); };
   // black lamp post (~6 m) with a short arm and a flat head toward the gate
-  one(-197, 89.5, Math.atan2(-0.9, -0.4), (k) => {
+  one(-193.2, 89.3, Math.atan2(-0.9, -0.4), (k) => {
     k.box(-0.18, 0.18, -0.3, 0.12, -0.18, 0.18, X.lamp, { col: false });
     k.cyl(0, 0, 0.08, 0, 6.0, X.lamp, { r1: 0.06, col: true });
     k.box(-0.02, 0.9, 5.85, 5.95, -0.03, 0.03, X.lamp, { col: false });
@@ -333,9 +347,9 @@ function buildForecourt(I, scene) {
     k.cyl(x, z, 0.07, 0.5, 0.7, X.orange, { r1: 0.02, seg: 12 });
     k.wallRect(x - 0.15, x + 0.15, z - 0.15, z + 0.15, 0, 0.7);
   };
-  for (const [x, z] of [[-198.1, 91.5], [-195, 92.1], [-191.3, 92.8], [-202.3, 99]]) one(x, z, 0, (k) => cone(k, 0, 0));
+  for (const [x, z] of [[-200.6, 90.2], [-193.6, 92.4], [-190.4, 93.2], [-202.3, 99]]) one(x, z, 0, (k) => cone(k, 0, 0));
   // white sign stand with a red arrow (pointing on toward the car park)
-  one(-196.5, 91.2, facing([-0.99, -0.1]), (k) => {
+  one(-193.4, 95.4, facing([-0.99, -0.1]), (k) => {
     k.box(-0.25, 0.25, 0, 0.05, -0.2, 0.2, X.steel, { col: false });
     k.cyl(0, 0, 0.025, 0.05, 1.2, X.steel);
     k.box(-0.33, 0.33, 1.05, 1.52, -0.03, 0.0, X.white);
@@ -350,7 +364,31 @@ function buildForecourt(I, scene) {
   });
 }
 
+function buildLane(I, scene) {
+  const hw = LANE_W / 2, left = [], right = [];
+  const cl = [];
+  for (let i = 0; i <= 48; i++) cl.push(lanePt(i / 48));
+  for (let q = 34; q <= 39.9; q += 1.1) cl.push(dp(q, 5.7));
+  cl.push(dp(39.95, 5.7));
+  for (let i = 0; i < cl.length; i++) {
+    const a = cl[Math.max(0, i - 1)], b = cl[Math.min(cl.length - 1, i + 1)];
+    let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    // width eases from 5.2 to the portal's 5.0 over the last 8 m
+    const w = i > 48 ? 2.5 : hw;
+    left.push([cl[i][0] + dz * w, cl[i][1] - dx * w]); right.push([cl[i][0] - dz * w, cl[i][1] + dx * w]);
+  }
+  const pos = [], idx = [];
+  for (let i = 0; i < left.length; i++) {
+    for (const [x, z] of [left[i], right[i]]) pos.push(x, H(x, z) + 0.03, z);
+  }
+  for (let i = 0; i < left.length - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#55575b', roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  m.receiveShadow = true; scene.add(m);
+}
+
 export function buildGateExtras(I, scene) {
+  buildLane(I, scene);
   buildNameWall(I, scene);
   buildCarPark(I, scene);
   buildParkingTotem(I, scene);

@@ -353,6 +353,29 @@ def load_overrides():
     return json.load(open(OVR, encoding='utf8'))
 
 
+def build_levels(sites):
+    """overrides.json 'levels' (see levels_doc there) -> data 'levels': pads,
+    stairs and floors in game x/z for js/terrain.js + js/map.js, sinks for
+    tools/build_terrain.py. Heights pass through unchanged."""
+    out = dict(pads=[], stairs=[], floors=[], sinks=[])
+    for site in sites:
+        (ox, oz), (dx, dz) = site['frame']['o'], site['frame']['u']
+        l = math.hypot(dx, dz); ux, uz = dx / l, dz / l
+        w = lambda p: [round(ox + p[0] * ux - p[1] * uz, 2), round(oz + p[0] * uz + p[1] * ux, 2)]
+        name = site['name']
+        if 'sink' in site:
+            s0, s1, t0, t1 = site['sink']['rect']
+            out['sinks'].append(dict(name=name, pts=[w((s0, t0)), w((s1, t0)), w((s1, t1)), w((s0, t1))],
+                                     y=site['sink']['y'], ramp=site['sink'].get('ramp', 10)))
+        for f in site.get('floors', []):
+            out['floors'].append(dict(site=name, pts=[w(p) for p in f['pts']], tint=f.get('tint', '#ffffff')))
+        for p in site.get('pads', []):
+            out['pads'].append(dict({k: v for k, v in p.items() if k != 'pts'}, site=name, pts=[w(q) for q in p['pts']]))
+        for st in site.get('stairs', []):
+            out['stairs'].append(dict({k: v for k, v in st.items() if k not in ('a', 'b')}, site=name, a=w(st['a']), b=w(st['b'])))
+    return out
+
+
 def clip_half(pts, p, q, keep):
     """Clip a ring to one side of the line p->q: keep=-1 left of it (cross < 0),
     keep=1 right of it. Works for the simple notched shapes used here."""
@@ -1603,6 +1626,9 @@ def main():
     # hand-built landmarks (map.js): looks checked against the sources in overrides.json
     out['landmarks'] = {k: {j: v for j, v in o.items() if j not in ('source', 'note')}
                         for k, o in ovr_all.get('landmarks', {}).items()}
+
+    # outdoor level changes (overrides.json 'levels'): local site frames -> game x/z
+    out['levels'] = build_levels(ovr_all.get('levels', []))
 
     # shops OSM lacks (overrides.json 'pois'); egg = easter-egg trigger (js/main.js)
     out['eggs'] = []

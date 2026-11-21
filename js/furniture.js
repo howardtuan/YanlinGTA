@@ -3,7 +3,7 @@
 // Static props share one vertex-coloured mesh; nothing here casts shadows.
 import * as THREE from 'three';
 import { pointInPoly, closestOnSeg } from './collision.js';
-import { H, Hmin } from './terrain.js';
+import { Hmin, groundY, nearStair } from './terrain.js';
 
 const UP = [0, 1, 0], DOWN = [0, -1, 0];
 // right-hand side of travel (x east, z south)
@@ -215,7 +215,7 @@ export function buildFurniture(scene, world, data, ctx) {
     const emit = (ax, az, bx, bz, hedge, first, last, hj, fence = null) => {
       const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz); if (l < 0.05) return;
       const hh = fence ? 2.2 : hedge ? 1.2 + hj : 1.8, th = fence ? 0.08 : hedge ? 0.8 : 0.2, ux = dz / l, uz = -dx / l;
-      const ya = H(ax, az), yb = H(bx, bz), c = fence || (hedge ? HEDGE : WALL);
+      const ya = groundY(ax, az), yb = groundY(bx, bz), c = fence || (hedge ? HEDGE : WALL);
       const side = (o, top0, top1, cc, s) => {
         const ox = ux * o * s, oz = uz * o * s;
         furn.quad([ax + ox, ya + top0, az + oz], [bx + ox, yb + top0, bz + oz], [bx + ox, yb + top1, bz + oz], [ax + ox, ya + top1, az + oz], cc, [ux * s, 0, uz * s]);
@@ -253,6 +253,7 @@ export function buildFurniture(scene, world, data, ctx) {
           let ok = inB(mx, mz, 150), road = false;
           if (ok) { const r = roads.nearest(mx, mz); if (r.seg && r.d < (r.seg[5].drive ? roadPad : 0) + th / 2) { ok = false; road = true; } }
           if (ok && gates.some(g => (g.x - mx) ** 2 + (g.z - mz) ** 2 < 6.25)) ok = false;
+          if (ok && nearStair(mx, mz, 1.5, 4)) ok = false; // outdoor stairs (terrain.js) pass through the wall
           if (ok && coll.insideAny(mx, mz)) ok = false;
           if (ok && !clear(mx, mz, 3)) { ok = false; log.wallSkipped.push({ barrier: bi, x: +mx.toFixed(1), z: +mz.toFixed(1) }); }
           st.push({ x0, z0, x1, z1, ok, road, brk: k === n - 1 });

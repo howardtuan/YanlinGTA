@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CollisionWorld, SegGrid, pointInPoly } from './collision.js';
-import { H, Hmin, terrainGrid, addBridge, clearBridges, DS } from './terrain.js';
+import { H, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { buildFurniture } from './furniture.js';
 import { groundTex, facadeTex, shopTex, roofTex, corrugatedTex, concreteTex } from './textures.js';
@@ -548,7 +548,13 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const rnd2 = mulberry32(777034);
   const quality = opts.quality || (opts.low ? 'low' : 'high');
   const world = { data, bounds: B, labels: [], animated: [], named: {}, tris: {} };
-  clearBridges();
+  clearBridges(); // (and the height levels)
+  // raised pads / stairs (terrain.js) go in first so every ground query below
+  // (furniture, lamps, trees: groundY / Hmin) already stands on them; their
+  // walls and collision are added after the trees (see 'height levels')
+  const LV = data.levels || {};
+  const lvPads = (LV.pads || []).map(d => ({ d, L: addPad(d.pts, d.y, { id: d.id }) }));
+  const lvStairs = (LV.stairs || []).map(d => ({ d, L: addStair(d.a, d.b, d.w, d.y0, d.y1, d.steps || 0, { id: d.id }) }));
   const collision = new CollisionWorld(B, 16);
   const roadGrid = new SegGrid(20);
   world.collision = collision; world.roadGrid = roadGrid;
@@ -667,6 +673,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   world.waterPolys = waterPolys;
   // lawns / parks (incl. 補建 greens) — footstep surface
   world.greenAt = (x, z) => greenPolys.some(p => inArea(x, z, p)) || fillGreens.some(f => inArea(x, z, f.ring));
+  // paved floors of the height-level sites (sunken plaza), draped like the areas
+  if (LV.floors && LV.floors.length) {
+    const g = new Geo(true, uvS(2.5));
+    for (const f of LV.floors) g.flatPoly(f.pts, 0.03, col(f.tint || '#ffffff'));
+    addFlat(g, gmat(T.paving(), { macroAmt: 0.15 }), 'levels');
+  }
   onProgress(0.25);
 
   // rail
@@ -1913,7 +1925,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const lampMat = new THREE.MeshStandardMaterial({ color: '#d8d8d0', emissive: '#ffd9a0', emissiveIntensity: 0 });
     const lensM = new THREE.InstancedMesh(lens, lampMat, spots.length);
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
-    spots.forEach(([x, z, r], i) => { Q.setFromAxisAngle(Y, r); P.set(x, H(x, z) - 0.1, z); M.compose(P, Q, S); poleM.setMatrixAt(i, M); armM.setMatrixAt(i, M); headM.setMatrixAt(i, M); lensM.setMatrixAt(i, M); collision.addCircle(x, z, 0.2); });
+    spots.forEach(([x, z, r], i) => { Q.setFromAxisAngle(Y, r); P.set(x, groundY(x, z) - 0.1, z); M.compose(P, Q, S); poleM.setMatrixAt(i, M); armM.setMatrixAt(i, M); headM.setMatrixAt(i, M); lensM.setMatrixAt(i, M); collision.addCircle(x, z, 0.2); });
     // thin poles: shadows only on high quality
     poleM.castShadow = !opts.low; armM.castShadow = !opts.low; headM.castShadow = !opts.low;
     scene.add(poleM, armM, headM, lensM);
@@ -1926,8 +1938,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     spots.forEach(([x, z, r], i) => {
       // tilt each pool to the local slope
       const px = x + Math.sin(r) * 1.5, pz = z + Math.cos(r) * 1.5;
-      N.set(H(px - 2, pz) - H(px + 2, pz), 4, H(px, pz - 2) - H(px, pz + 2)).normalize();
-      Q.setFromUnitVectors(Y, N); P.set(px, H(px, pz) + 0.08, pz); M.compose(P, Q, S); poolM.setMatrixAt(i, M);
+      N.set(groundY(px - 2, pz) - groundY(px + 2, pz), 4, groundY(px, pz - 2) - groundY(px, pz + 2)).normalize();
+      Q.setFromUnitVectors(Y, N); P.set(px, groundY(px, pz) + 0.08, pz); M.compose(P, Q, S); poolM.setMatrixAt(i, M);
     });
     poolM.renderOrder = layerOrder++;
     scene.add(poolM);
@@ -1936,7 +1948,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const cone = new THREE.CylinderGeometry(0.25, 2.6, 6.8, 20, 1, true); cone.translate(0, 3.45, 0);
     const coneMat = new THREE.MeshBasicMaterial({ map: coneTexture(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: true });
     const coneM = new THREE.InstancedMesh(cone, coneMat, spots.length);
-    spots.forEach(([x, z, r], i) => { const px = x + Math.sin(r) * 1.55, pz = z + Math.cos(r) * 1.55; M.makeTranslation(px, H(x, z) - 0.1, pz); coneM.setMatrixAt(i, M); });
+    spots.forEach(([x, z, r], i) => { const px = x + Math.sin(r) * 1.55, pz = z + Math.cos(r) * 1.55; M.makeTranslation(px, groundY(x, z) - 0.1, pz); coneM.setMatrixAt(i, M); });
     coneM.renderOrder = 5; scene.add(coneM);
     world.coneMat = coneMat;
   }
@@ -1946,7 +1958,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const n = quality === 'high' ? 8 : quality === 'medium' ? 4 : 0;
     const lights = [];
     for (let i = 0; i < n; i++) { const l = new THREE.PointLight('#ffcf94', 0, 24, 2); l.position.set(0, -100, 0); scene.add(l); lights.push(l); }
-    const heads = lampSpots.map(([x, z, r]) => ({ x: x + Math.sin(r) * 1.55, z: z + Math.cos(r) * 1.55, y: H(x, z) + 6.5 }));
+    const heads = lampSpots.map(([x, z, r]) => ({ x: x + Math.sin(r) * 1.55, z: z + Math.cos(r) * 1.55, y: groundY(x, z) + 6.5 }));
     let tick = 0, enabled = quality !== 'low';
     world.lampLights = {
       update(dt, night, p) {
@@ -2091,15 +2103,190 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (roadGrid.nearest(t.x, t.z).d < 1.0 || collision.blocked(t.x, t.z, 1.2)) continue;
       spots.push([t.x, t.z, t.kind, t.s]); collision.addCircle(t.x, t.z, 0.35);
     }
+    // height levels: nothing grows on stairs, narrow ramps or astride a retaining
+    // wall. Placement above ran unchanged (same random draws); the hidden plants keep
+    // their slot in plantVegetation (same looks for the rest) and trees lose their collider
+    const onLevelEdge = (x, z, r) => {
+      if (!lvPads.length && !lvStairs.length) return false;
+      if (lvStairs.some(({ L }) => (L.n > 0 || L.hw < 2) && levelY(L, x, z) > -Infinity)) return true;
+      const g = groundY(x, z);
+      for (let a = 0; a < 8; a++) if (Math.abs(groundY(x + Math.cos(a * 0.785) * r, z + Math.sin(a * 0.785) * r) - g) > STEP_UP) return true;
+      return false;
+    };
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8)) return false; collision.removeCircleAt(x, z); return true; };
     const veg = [];
-    for (const [x, z, kind, s] of spots) veg.push({ x, z, y: H(x, z) - 0.15, kind, s });
-    for (const [x, z, s] of palms) veg.push({ x, z, y: H(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3 });
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: H(x, z) - 0.1, kind: 'shrub', s });
+    for (const [x, z, kind, s] of spots) veg.push({ x, z, y: groundY(x, z) - 0.15, kind, s, hide: hideTree(x, z) });
+    for (const [x, z, s] of palms) veg.push({ x, z, y: groundY(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3, hide: hideTree(x, z) });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;
   }
   onProgress(0.85);
+
+  // ---------- height levels: pads, stairs, retaining walls (terrain.js) ----------
+  // Drawn after the trees and furniture, and their collision added last, so
+  // nothing placed earlier (or its random draws) changes. Every outer edge is
+  // sampled: where the ground beyond it (terrain or another level) is more than
+  // STEP_UP lower, a wall is drawn and a 2D segment seals it; stairs and ramps
+  // are open where they meet the level above, so they are the only way up.
+  if (lvPads.length || lvStairs.length) {
+    const shadows = quality !== 'low';
+    const gTop = new Geo(false, uvS(4)), gGrass = new Geo(false, uvS(6)), gBrick = new Geo(), gConc = new Geo(), gRail = new Geo(), gHedge = new Geo();
+    const WALL = { brick: ['#8a4a3a', gBrick], granite: ['#d2d0c9', gConc], concrete: ['#c4c1b9', gConc] };
+    const TREAD = col('#c9c6bf'), RISER = col('#b3b0a8'), CAP = col('#d9d6cf'), HEDGE = col('#4d7a3a'), HTOP = col('#5f8f45');
+    const seal = []; let sealed = 0;
+    // ground beside a level: terrain or any other level
+    const below = (L, x, z) => Math.max(H(x, z), levelTop(x, z, L));
+    // one straight edge A->B of level L, outward normal (nx,nz); top(t) = drawn
+    // top, walk(t) = walking height just inside. Returns the per-interval drop.
+    const edge = (L, A, B, nx, nz, top, walk, wall, m) => {
+      const dx = B[0] - A[0], dz = B[1] - A[1], len = Math.hypot(dx, dz);
+      m = m || Math.max(1, Math.ceil(len / 0.5));
+      const P = [], drop = [];
+      for (let k = 0; k <= m; k++) {
+        const x = A[0] + dx * k / m, z = A[1] + dz * k / m, qx = x + nx * 0.3, qz = z + nz * 0.3, g = below(L, qx, qz);
+        P.push({ x, z, g, terr: H(qx, qz) >= g - 1e-6, w: walk(k / m) });
+      }
+      const [wc, geo] = WALL[wall] || WALL.concrete, c = col(wc);
+      let run = null;
+      for (let k = 0; k < m; k++) {
+        const p = P[k], q = P[k + 1], y = top((k + 0.5) / m), d = y - Math.min(p.g, q.g);
+        drop.push(d);
+        if (d > 0.05) {
+          const y0 = Math.min(p.g, q.g) - 0.3, u0 = len * k / m / 4, u1 = len * (k + 1) / m / 4;
+          geo.quad([p.x, y0, p.z], [q.x, y0, q.z], [q.x, y, q.z], [p.x, y, p.z], c, [nx, 0, nz], [[u0, y0 / 4], [u1, y0 / 4], [u1, y / 4], [u0, y / 4]]);
+        }
+        // seal a drop (or a rise onto plain terrain) above a step's height
+        const dn = Math.max(p.w - p.g, q.w - q.g), up = Math.max(p.terr ? p.g - p.w : 0, q.terr ? q.g - q.w : 0);
+        if (dn > STEP_UP || up > STEP_UP) { if (!run) run = [p.x, p.z]; run[2] = q.x; run[3] = q.z; }
+        else if (run) { seal.push(run); run = null; }
+      }
+      if (run) seal.push(run);
+      return drop;
+    };
+    // thin square bar between two 3D points (rails, posts)
+    const bar = (a, b, r, c) => {
+      const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], l = Math.hypot(...d) || 1;
+      const u = Math.abs(d[1]) / l > 0.9 ? [1, 0, 0] : [0, 1, 0];
+      let s1 = [d[1] * u[2] - d[2] * u[1], d[2] * u[0] - d[0] * u[2], d[0] * u[1] - d[1] * u[0]]; const n1 = Math.hypot(...s1); s1 = s1.map(v => v / n1 * r);
+      let s2 = [d[1] * s1[2] - d[2] * s1[1], d[2] * s1[0] - d[0] * s1[2], d[0] * s1[1] - d[1] * s1[0]]; const n2 = Math.hypot(...s2); s2 = s2.map(v => v / n2 * r);
+      const C = (p, i, j) => [p[0] + s1[0] * i + s2[0] * j, p[1] + s1[1] * i + s2[1] * j, p[2] + s1[2] * i + s2[2] * j];
+      for (const [i0, j0, i1, j1] of [[1, 1, 1, -1], [1, -1, -1, -1], [-1, -1, -1, 1], [-1, 1, 1, 1]]) {
+        const nn = [s1[0] * (i0 + i1) + s2[0] * (j0 + j1), s1[1] * (i0 + i1) + s2[1] * (j0 + j1), s1[2] * (i0 + i1) + s2[2] * (j0 + j1)];
+        gRail.quad(C(a, i0, j0), C(b, i0, j0), C(b, i1, j1), C(a, i1, j1), c, nn);
+      }
+    };
+    // railing along a run: posts every ~1.6 m, a top and a middle rail
+    const railing = (pts, c, h = 1.0) => {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        bar([a[0], a[1] + h, a[2]], [b[0], b[1] + h, b[2]], 0.025, c);
+        bar([a[0], a[1] + h * 0.55, a[2]], [b[0], b[1] + h * 0.55, b[2]], 0.018, c);
+      }
+      let acc = 0;
+      for (let i = 0; i < pts.length; i++) {
+        if (i) acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][2] - pts[i - 1][2]);
+        if (i === 0 || i === pts.length - 1 || acc >= 1.6) { acc = 0; const p = pts[i]; bar([p[0], p[1], p[2]], [p[0], p[1] + h, p[2]], 0.03, c); }
+      }
+    };
+    // runs of consecutive intervals whose drop passes a threshold
+    const runsOf = (drop, min) => { const out = []; let r = null; drop.forEach((d, k) => { if (d > min) { if (!r) out.push(r = [k, k + 1]); else r[1] = k + 1; } else r = null; }); return out; };
+
+    for (const { d, L } of lvPads) {
+      const pts = L.pts, n = pts.length;
+      let area = 0; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n]; area += a[0] * b[1] - b[0] * a[1]; }
+      const sgn = area > 0 ? 1 : -1; // outward normal of edge a->b is sgn * (dz, -dx)
+      if (d.top === 'grass') {
+        gGrass.flatPoly(pts, L.y, col('#ffffff'));
+        // clipped shrubs filling the planter
+        let cx = 0, cz = 0; for (const p of pts) { cx += p[0]; cz += p[1]; } cx /= n; cz /= n;
+        const inner = pts.map(p => { const vx = cx - p[0], vz = cz - p[1], l = Math.hypot(vx, vz) || 1; return [p[0] + vx / l * 0.5, p[1] + vz / l * 0.5]; });
+        gHedge.flatPoly(inner, L.y + 0.55, HTOP);
+        for (let i = 0; i < n; i++) { const a = inner[i], b = inner[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], l = Math.hypot(ex, ez) || 1; gHedge.quad([a[0], L.y, a[1]], [b[0], L.y, b[1]], [b[0], L.y + 0.55, b[1]], [a[0], L.y + 0.55, a[1]], HEDGE, [sgn * ez / l, 0, -sgn * ex / l]); }
+      } else gTop.flatPoly(pts, L.y, col(d.top || '#e6e2da'));
+      for (let i = 0; i < n; i++) {
+        const A = pts[i], Bp = pts[(i + 1) % n], ex = Bp[0] - A[0], ez = Bp[1] - A[1], l = Math.hypot(ex, ez) || 1;
+        const nx = sgn * ez / l, nz = -sgn * ex / l;
+        const drop = edge(L, A, Bp, nx, nz, () => L.y + 0.06, () => L.y, d.wall);
+        const m = drop.length, at = k => [A[0] + ex * k / m, A[1] + ez * k / m];
+        // coping along the drawn wall
+        for (const [k0, k1] of runsOf(drop, 0.05)) {
+          const p = at(k0), q = at(k1), ix = -nx * 0.3, iz = -nz * 0.3;
+          gConc.quad([p[0], L.y + 0.06, p[1]], [q[0], L.y + 0.06, q[1]], [q[0] + ix, L.y + 0.06, q[1] + iz], [p[0] + ix, L.y + 0.06, p[1] + iz], CAP, UP);
+          gConc.quad([p[0] + ix, L.y, p[1] + iz], [q[0] + ix, L.y, q[1] + iz], [q[0] + ix, L.y + 0.06, q[1] + iz], [p[0] + ix, L.y + 0.06, p[1] + iz], CAP, [-nx, 0, -nz]);
+        }
+        if (d.edge === 'hedge') for (const [k0, k1] of runsOf(drop, 0.6)) {
+          const p = at(k0), q = at(k1), mx = (p[0] + q[0]) / 2 - nx * 0.65, mz = (p[1] + q[1]) / 2 - nz * 0.65;
+          gHedge.box(mx, mz, Math.atan2(ez, ex), Math.hypot(q[0] - p[0], q[1] - p[1]), 0.6, L.y, L.y + 0.6, HEDGE);
+        }
+        if (d.edge === 'railing') for (const [k0, k1] of runsOf(drop, 0.45)) {
+          const p = at(k0), q = at(k1), ix = -nx * 0.15, iz = -nz * 0.15;
+          railing([[p[0] + ix, L.y + 0.06, p[1] + iz], [q[0] + ix, L.y + 0.06, q[1] + iz]], col(d.railColour || '#8e9399'));
+        }
+      }
+    }
+
+    for (const { d, L } of lvStairs) {
+      const { ux, uz, len, hw, y0, y1, n } = L, rise = y1 - y0;
+      // local (s along, e across) -> world
+      const XZ = (s, e) => [L.ax + ux * s + uz * e, L.az + uz * s - ux * e];
+      const P = (s, e, y) => { const q = XZ(s, e); return [q[0], y, q[1]]; };
+      const treadY = s => n > 0 ? y0 + rise * Math.min(n, Math.floor(s / len * n + 1e-6) + 1) / n : y0 + rise * s / len;
+      const walk = s => levelY(L, ...XZ(Math.min(len - 1e-3, Math.max(1e-3, s)), 0));
+      const gb = Math.min(below(L, ...XZ(-0.3, hw)), below(L, ...XZ(-0.3, -hw)));
+      if (n > 0) {
+        for (let i = 0; i < n; i++) {
+          const s0 = len * i / n, s1 = len * (i + 1) / n, ty = y0 + rise * (i + 1) / n, by = i ? y0 + rise * i / n : Math.min(gb, y0) - 0.3;
+          gConc.quad(P(s0, -hw, ty), P(s1, -hw, ty), P(s1, hw, ty), P(s0, hw, ty), TREAD, UP, [[s0 / 2, -hw / 2], [s1 / 2, -hw / 2], [s1 / 2, hw / 2], [s0 / 2, hw / 2]]);
+          gConc.quad(P(s0, -hw, by), P(s0, hw, by), P(s0, hw, ty), P(s0, -hw, ty), RISER, [-ux, 0, -uz], [[-hw / 2, by / 2], [hw / 2, by / 2], [hw / 2, ty / 2], [-hw / 2, ty / 2]]);
+        }
+      } else {
+        // a ramp; with 'top' it is a sloping paved terrace (pad paving) instead of concrete
+        const [g, c, k] = d.top ? [gTop, col(d.top), 4] : [gConc, TREAD, 2];
+        g.quad(P(0, -hw, y0), P(len, -hw, y1), P(len, hw, y1), P(0, hw, y0), c, [0, 1, 0], [[0, -hw / k], [len / k, -hw / k], [len / k, hw / k], [0, hw / k]]);
+        if (y0 > gb + 0.05) gConc.quad(P(0, -hw, gb - 0.3), P(0, hw, gb - 0.3), P(0, hw, y0), P(0, -hw, y0), RISER, [-ux, 0, -uz]);
+      }
+      // sides (sampled per half tread so the drawn top follows the steps) and the bottom end
+      const per = n > 0 ? Math.max(1, Math.ceil(len / n / 0.5)) : 0, mSide = n > 0 ? n * per : 0;
+      const sideDrop = {};
+      for (const e of [hw, -hw]) {
+        const sg = Math.sign(e);
+        sideDrop[sg] = edge(L, XZ(0, e), XZ(len, e), uz * sg, -ux * sg, t => treadY(t * len) + 0.05, t => walk(t * len), d.wall || 'granite', mSide || undefined);
+      }
+      edge(L, XZ(0, -hw), XZ(0, hw), -ux, -uz, () => y0, () => walk(0), d.wall || 'granite');
+      edge(L, XZ(len, -hw), XZ(len, hw), ux, uz, () => y1, () => walk(len), d.wall || 'granite');
+      // rails follow the walking slope
+      const rc = col(d.railColour || '#a9adb2'), lineAt = (e, s0, s1) => {
+        const k = Math.max(2, Math.ceil((s1 - s0) / 1.6)), pts = [];
+        for (let i = 0; i <= k; i++) { const s = s0 + (s1 - s0) * i / k; pts.push(P(s, e, y0 + rise * s / len + (n > 0 ? rise / n / 2 : 0))); }
+        return pts;
+      };
+      if (d.rail === 'center') railing(lineAt(0, 0.3, len - 0.3), rc, 0.9);
+      if (d.rail === 'sides') for (const e of [hw - 0.12, -(hw - 0.12)]) railing(lineAt(e, 0.2, len - 0.2), rc, 0.9);
+      else if (d.edge === 'hedge') for (const sg of [1, -1]) for (const [k0, k1] of runsOf(sideDrop[sg], 0.6)) {
+        // clipped hedge on top of the wall (as on a pad), in ~2 m blocks following the slope
+        const m = sideDrop[sg].length, s0 = len * k0 / m, s1 = len * k1 / m, nb = Math.max(1, Math.round((s1 - s0) / 2));
+        for (let i = 0; i < nb; i++) {
+          const sa = s0 + (s1 - s0) * i / nb, sb = s0 + (s1 - s0) * (i + 1) / nb, q = XZ((sa + sb) / 2, sg * (hw - 0.65)), y = walk((sa + sb) / 2);
+          gHedge.box(q[0], q[1], Math.atan2(uz, ux), sb - sa, 0.6, y - 0.05, y + 0.6, HEDGE);
+        }
+      } else for (const sg of [1, -1]) for (const [k0, k1] of runsOf(sideDrop[sg], 0.45)) {
+        // guard rail where a stair side stands well above the ground
+        const m = sideDrop[sg].length; railing(lineAt(sg * (hw - 0.12), len * k0 / m, len * k1 / m), rc, 0.9);
+      }
+    }
+
+    const tex = T.paving(), conc = concreteTex(), grass = T.grass();
+    const solid = (t, o = {}) => new THREE.MeshStandardMaterial({ vertexColors: true, map: t.map || null, normalMap: t.normalMap || null, roughness: o.roughness ?? 0.9, metalness: o.metalness ?? 0, envMapIntensity: 0.5 });
+    for (const [g, m] of [[gTop, solid(tex)], [gGrass, solid(grass, { roughness: 1 })], [gBrick, solid(tex)], [gConc, solid(conc, { roughness: 0.85 })], [gRail, solid({}, { metalness: 0.6, roughness: 0.4 })], [gHedge, solid({}, { roughness: 1 })]]) {
+      if (!g.tris) continue;
+      const mesh = g.mesh(m); mesh.receiveShadow = true; mesh.castShadow = shadows && g !== gTop && g !== gGrass; scene.add(mesh);
+      world.tris.levels = (world.tris.levels || 0) + g.tris;
+    }
+    for (const s of seal) if (Math.hypot(s[2] - s[0], s[3] - s[1]) > 0.05) { collision.addSegment(s[0], s[1], s[2], s[3]); sealed++; }
+    world.levels = { pads: lvPads.length, stairs: lvStairs.length, sealed };
+  }
 
   // ---------- labels ----------
   const labelNames = Object.keys(world.named).filter(n => {

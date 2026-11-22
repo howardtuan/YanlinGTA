@@ -741,6 +741,7 @@ const STYLE_BY_NAME = {
   '張靜愚紀念圖書館': 'granite', '學生活動中心': 'tan', '全人教育村': 'brick', '電學大樓': 'tan', '力行大樓': 'red', '篤信大樓': 'white',
   '信實樓': 'brick', '恩慈樓': 'brick', '良善樓': 'brick', '喜樂樓': 'brick', '陸華樓': 'white', '維澈樓': 'white', '校史館': 'white',
   '行政大樓（含校史館）': 'white', // 行政大樓＝OSM 的「校史館」（js/zone_a.js 改名）
+  '商業設計館': 'white', // 商業設計館＝OSM 的「商設館」（js/zone_c.js 改名）
   '生物科技館': 'white', '真知教學大樓': 'white', '設計學院': 'granite', '室設系館': 'white', '景觀系館': 'tan', '恩惠堂': 'white', '恩惠堂副堂': 'white',
   '中原大學體育館': 'white', '中原大學室內游泳池': 'white', '薄膜中心': 'white', '熱誠樓A棟': 'brick', '熱誠樓B C棟': 'brick', '林森館': 'tan', '望樓': 'tan',
   '月老宮': 'temple', '桃園白沙屯天上聖母': 'temple', '普忠里福德祠': 'temple', '盧氏宗祠': 'temple', '土地公廟': 'temple', '普仁福德祠(土地公廟)': 'temple',

@@ -20,10 +20,13 @@ export function ctex(key, w, h, draw, repeat = true) {
 }
 export const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 export const T = {
+  // 資管系館欄板：灰色洗石子（細點）＋白色菱形嵌片、內圈淺灰菱形（2020～2022 相片）
   diamond: () => ctex('diamond', 128, 64, (g) => {
-    g.fillStyle = '#b9b9b4'; g.fillRect(0, 0, 128, 64);
-    g.fillStyle = 'rgba(0,0,0,0.06)'; for (let i = 0; i < 128; i += 6) g.fillRect(i, 0, 1, 64);
-    g.fillStyle = '#f4f4f0'; g.beginPath(); g.moveTo(64, 18); g.lineTo(78, 32); g.lineTo(64, 46); g.lineTo(50, 32); g.closePath(); g.fill();
+    g.fillStyle = '#b3b1aa'; g.fillRect(0, 0, 128, 64);
+    let r = 7; const rnd = () => (r = (r * 1664525 + 1013904223) >>> 0) / 4294967296;
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '40,38,34' : '255,255,250'},${rnd() * 0.22})`; g.fillRect(rnd() * 128, rnd() * 64, 1 + rnd() * 1.5, 1 + rnd() * 1.5); }
+    g.fillStyle = '#f2f1ec'; g.beginPath(); g.moveTo(64, 16); g.lineTo(80, 32); g.lineTo(64, 48); g.lineTo(48, 32); g.closePath(); g.fill();
+    g.fillStyle = '#c9c8c2'; g.beginPath(); g.moveTo(64, 24); g.lineTo(72, 32); g.lineTo(64, 40); g.lineTo(56, 32); g.closePath(); g.fill();
   }),
   windowWall: () => ctex('winwall', 256, 128, (g) => {
     g.fillStyle = '#efede6'; g.fillRect(0, 0, 256, 128);

@@ -2348,6 +2348,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       roofGeo.quad([A0[0], yt, A0[1]], [C0[0], yt, C0[1]], [C[0], yt, C[1]], [A[0], yt, A[1]], pc, UP);
       lateColl.push(() => collision.addPolygon([A0, C0, C, A], yt));
     };
+    // a split building (overrides.json parts) gets its contact shadow once round the whole outline, not per block
+    // (the shared cut edge between two blocks is no wall foot); visual only, no rnd draws
+    if (b.parts && !lean2) for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], c = pts[(i + 1) % pts.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (l >= 0.05) contactShadow(a, c, [(c[1] - a[1]) / l, 0, -(c[0] - a[0]) / l]);
+    }
     // blocks of different height (overrides.json split, e.g. 全人教育村) share the base
     const vols = b.parts || [{ pts, h, floors, holes: b.holes }];
     let pitched = false, pitchedV = false, onMain = false;
@@ -3078,7 +3084,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // lamp poles collide, so none may stand in any carriageway
     const laneClear = (x, z, roads = osmRoads) => { const q = roads.nearest(x, z, s => s[5].drive && !s[5].under); return !q.seg || q.d > 0.3; };
     let inLane = 0;
-    collision.muted = gradeSegs;
+    collision.muted = gradeSegs; collision.noReserved = true; // reserved outlines drop lamps only in the filter below (as gradeGhosts)
     for (const f of osm) {
       const q = osmRoads.nearest(f.x, f.z, s => s[5].drive && !s[5].under);
       let x = f.x, z = f.z, rot = 0;
@@ -3115,7 +3121,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         acc += l;
       }
     }
-    collision.muted = null;
+    collision.muted = null; collision.noReserved = false;
     // the ones a grade separation takes: under a deck, on a cut's wall, in a lane moved over them
     // ... and the ones a road widened by tools/roads.json now covers move out to its new kerb
     spots = spots.map(p => { const m = offWidened(p[0], p[1], 0.6); return m ? [m[0], m[1], p[2]] : p; });
@@ -3198,11 +3204,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // noPlant discs count as blocked for spots and species, as the old fountain collider was
     const nearNoPlant = (x, z, r) => noPlant.some(([px, pz, pr]) => (px - x) ** 2 + (pz - z) ** 2 < (pr + r) ** 2);
     // species from the visual-only stream, so layout and colliders don't depend on it
+    // ghosts (trees / lamps a reserved outline dropped after their draws) count like the colliders they stand for, so a
+    // reserved outline changes no species beyond the trees it drops (ghosts is declared below, before the first call)
+    const nearGhost = (x, z, r) => ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2);
     const pickKind = (x, z, s) => {
       const r = rnd2(), campus = world.inCampus(x, z);
       let kind = campus || greenAt(x, z) ? (r < 0.3 ? 'rain' : r < 0.66 ? 'round' : r < 0.84 ? 'pine' : 'palm') : (r < 0.18 ? 'palm' : 'round');
-      if (kind === 'rain' && (collision.blocked(x, z, 5.5) || nearNoPlant(x, z, 5.5))) kind = 'round';
-      if (kind === 'round' && (collision.blocked(x, z, 3.2) || nearNoPlant(x, z, 3.2))) kind = r < 0.5 ? 'palm' : 'pine';
+      if (kind === 'rain' && (collision.blocked(x, z, 5.5) || nearNoPlant(x, z, 5.5) || nearGhost(x, z, 5.5))) kind = 'round';
+      if (kind === 'round' && (collision.blocked(x, z, 3.2) || nearNoPlant(x, z, 3.2) || nearGhost(x, z, 3.2))) kind = r < 0.5 ? 'palm' : 'pine';
       const sc = kind === 'rain' ? 0.6 + (s - 0.8) * 0.45 : kind === 'round' ? 0.72 + (s - 0.8) * 0.5 : kind === 'pine' ? 0.72 + (s - 0.8) * 0.35 : 0.85 + (s - 0.8) * 0.3;
       return [kind, sc];
     };
@@ -3219,7 +3228,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (lawns.some(p => pointInPoly(x, z, p))) return false;
       if (parkingPolys.some(p => inArea(x, z, p))) return false;
       // keep 4 m clear around the custom-built buildings (entrances, guardhouses)
-      for (let k = 0; k < 8; k++) { const qx = x + Math.cos(k * 0.785) * 4, qz = z + Math.sin(k * 0.785) * 4; if (collision.reserved.some(p => pointInPoly(qx, qz, p))) return false; }
+      if (!collision.noReserved) for (let k = 0; k < 8; k++) { const qx = x + Math.cos(k * 0.785) * 4, qz = z + Math.sin(k * 0.785) * 4; if (collision.reserved.some(p => pointInPoly(qx, qz, p))) return false; }
       return true;
     };
     // Grade separations must not change the shared random streams (see street lamps): every
@@ -3230,12 +3239,15 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const cutHouses = data.buildings.filter(b => b.pre).map(b => ({ P: b.pre, box: [Math.min(...b.pre.map(p => p[0])), Math.min(...b.pre.map(p => p[1])), Math.max(...b.pre.map(p => p[0])), Math.max(...b.pre.map(p => p[1]))] }));
     const inCutHouse = (x, z, r) => cutHouses.some(({ P, box }) => x > box[0] - r && x < box[2] + r && z > box[1] - r && z < box[3] + r &&
       (pointInPoly(x, z, P) || P.some((p, i) => { const q = P[(i + 1) % P.length], c = closestOnSeg(x, z, p[0], p[1], q[0], q[1]); return Math.hypot(c[0] - x, c[1] - z) < r; })));
+    // The reserved outlines (custom-built parts, js/main.js) are left out of this first test as well: they keep trees
+    // and shrubs off only in the final okSpot (a tree dropped there stays as a ghost of the same size), so adding or
+    // changing a reserved outline no longer re-deals every tree and shrub after it in the shared rnd sequence.
     const okOsm = (x, z, r) => {
       if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2)) return false;
       if (cutHouses.length && inCutHouse(x, z, r)) return false;
-      collision.muted = gradeSegs;
+      collision.muted = gradeSegs; collision.noReserved = true;
       const ok = okSpot(x, z, r, osmRoads);
-      collision.muted = null;
+      collision.muted = null; collision.noReserved = false;
       return ok;
     };
     const tryTree = (x, z, s, palm = false) => {
@@ -3333,8 +3345,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         for (let t = 6; t < l - 4; t += 15) {
           const x0 = p0[0] + (p1[0] - p0[0]) * t / l, z0 = p0[1] + (p1[1] - p0[1]) * t / l;
           const d = Math.hypot(cx - x0, cz - z0) || 1, x = x0 + (cx - x0) / d * 5, z = z0 + (cz - z0) / d * 5;
-          if (!pointInPoly(x, z, pts) || roadGrid.nearest(x, z).d < 1.5 || collision.blocked(x, z, 4)) continue;
-          spots.push([x, z, 'rain', 0.75 + rnd2() * 0.25]); collision.addCircle(x, z, 0.35);
+          // reserved outlines only drop the tree after its draw (see okOsm), so they never shift rnd2
+          collision.noReserved = true; const hit = collision.blocked(x, z, 4); collision.noReserved = false;
+          if (!pointInPoly(x, z, pts) || roadGrid.nearest(x, z).d < 1.5 || hit) continue;
+          const sc = 0.75 + rnd2() * 0.25;
+          if (collision.blocked(x, z, 4)) continue;
+          spots.push([x, z, 'rain', sc]); collision.addCircle(x, z, 0.35);
         }
       }
     }

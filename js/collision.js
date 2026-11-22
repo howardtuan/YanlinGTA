@@ -105,7 +105,7 @@ export class CollisionWorld {
   // this.muted = [i0, i1): segments blocked() skips for now (js/map.js lays the trees out as without them)
   blocked(x, z, r, y = 0, ya) {
     if (this.extra && this.extra.blocked(x, z, r, y)) return true;
-    if (this.reserved && this.reserved.some(p => pointInPoly(x, z, p))) return true;
+    if (this.reserved && !this.noReserved && this.reserved.some(p => pointInPoly(x, z, p))) return true;
     if (this.insideAny(x, z)) return true;
     let hit = false;
     const st = ++this.stamp;

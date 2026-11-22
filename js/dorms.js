@@ -9,10 +9,11 @@
 //    brick low wall at the west corner; on the west end the red semicircular 2F balcony and the cobalt strips;
 //    on the north wing the entrance: two white square columns with black caps in a double-height opening, the
 //    teal curtain-wall band with the gold 「良善樓」 letters, and the ramp along the wall.
-//  恩慈樓 — south face white-grey render, ochre spandrels on the low floors, ribbon windows (look); the full-height
-//    dark glass stair tower standing out of the south face (about 5.5 x 7.5 m, centre about (16, 321)) with an
-//    orange-brown cap; the north entrance in the middle of the north wing: wide steps, a recessed double-height
-//    porch under a canopy and 「恩慈樓」 over it.
+//  恩慈樓 — the north wing is 8F, the connecting block and the south wing 10F (tools/overrides.json split); south face
+//    white-grey render, ochre spandrels on the low floors, ribbon windows (look); the full-height dark glass stair
+//    tower standing out of the south face (about 5.5 x 7.5 m, centre about (16, 321)) with an orange-brown cap; the
+//    north entrance: a double-height colonnade of four square piers, 「恩慈樓」 on the ochre band, a blue soffit, six wide
+//    steps between cheek walls; roof plant from the 2024 ortho (cooling towers, a plant room, a green-topped box).
 //  校界牆 — the OSM wall along 大仁街 / 大仁二街 (js/furniture.js keeps its collision) re-skinned as the real ~2.8 m
 //    red brick wall with grey piers every ~6 m, razor wire coils on brackets and graffiti on the street side; the
 //    low granite A2 gate wall with the dark 「中原大學」 panel and the orange 「A2 Gate」 block where it starts by
@@ -20,8 +21,9 @@
 // Sources: Google 街景 2024-08 (大仁街 80 號 pano P5ZW4SkfzKWabogzqeBhGw, pzUfCbkM9SefO-bOIYz_6Q; A2 門前
 // A45C3cQiAJY6cKhaSdFTRA), 2017-09 (北側步道 _sDi0ujaYYVk0n-uqe1jlA, DJi8z4TIZ4DLKl4C6HHrGQ), 2025-03 使用者 360
 // (大仁二街), NLSC 2024 正射. Survey notes: campus-survey/zone-F.md. Not seen: 良善 north-east side (follows the
-// south-west face), 恩慈 east end (kept as it is); 恩慈 north wing east end is probably 7-8F (kept at 10F: the
-// OSM outline is one slab, splitting it is left for later).
+// south-west face), 恩慈 east end (kept as it is). The 「恩慈北翼西端往西延 5～8 m」 seen on the ortho is not built: the
+// 2017 street view from the north path shows a 5-6 m walkway between the two buildings (a pergola, a low brick wall,
+// palms), and the extension would run into 良善樓's north wing; the ortho's lean of the tall roofs made it look joined.
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { H, groundY } from './terrain.js';
@@ -45,7 +47,7 @@ const EC = {
 // where the parts go along those faces (metres from the first point)
 const LS_ENT = { s0: 16.0, s1: 23.0 }, LS_RAMP = { s0: 8.0, s1: 16.0, w: 0.9, rise: 0.4 };
 const EC_TOWER = { s0: 15.3, s1: 20.8, out: 4.0, back: 1.0 };
-const EC_ENT = { s: 42, w: 10, d: 3.6, steps: 4, rise: 0.15 };
+const EC_ENT = { s: 38, w: 12, d: 3.7, steps: 6, rise: 0.15 };
 
 // ---------------- looks (tools/looks.json looks, edited; applied in js/main.js after the random draws) ----------------
 // 良善樓: keeps the tiles / grid windows / deep white ribs (their collision stays the same); the cobalt colour is now
@@ -67,6 +69,7 @@ export function enciLook(L) {
     { on: ['n', 'ne', 'nw', 'e', 'w'], colour: '#cf9a3c', h: 0.7, depth: 0.06, at: 0.2, from: 1 },
   ];
   o.parapet = { h: 0.6, colour: '#d2d0ca' };
+  if (o.roof) delete o.roof.boxes; // the roof plant is drawn in buildEnci (from the ortho)
   return o;
 }
 
@@ -217,6 +220,13 @@ const goldText = (key, text, w, h, px, font = '"Noto Serif TC","Songti TC","PMin
   const gr = g.createLinearGradient(0, h / 2 - px / 2, 0, h / 2 + px / 2); gr.addColorStop(0, '#f0d58f'); gr.addColorStop(0.5, '#c9a45c'); gr.addColorStop(1, '#9c7a3c');
   g.fillStyle = gr; g.fillText(text, w / 2, h / 2);
 }, false);
+// 恩慈樓 north entrance: dark brown letters on the ochre band (2017 street view)
+const nameBand = () => ctex('dmEcBand', 1024, 200, (g, W, Hh) => {
+  g.fillStyle = '#c9963a'; g.fillRect(0, 0, W, Hh);
+  g.font = '900 150px "Noto Serif TC","Songti TC","PMingLiU",serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(255,230,170,0.35)'; g.fillText('恩  慈  樓', W / 2 + 3, Hh / 2 + 4);
+  g.fillStyle = '#4a2a14'; g.fillText('恩  慈  樓', W / 2, Hh / 2);
+}, false);
 // A2 gate panel: dark grey with the school name and seal, orange "A2 Gate" block at the left
 const a2Tex = () => ctex('dmA2', 2048, 256, (g, W, Hh) => {
   g.fillStyle = '#2d2f33'; g.fillRect(0, 0, W, Hh);
@@ -272,6 +282,10 @@ function mat(key) {
     yellow: () => std({ color: '#e6b422', roughness: 0.5, metalness: 0.2 }),
     boom: () => std({ map: boomTex(), roughness: 0.5 }),
     mosaic: () => std({ color: '#c9d3d8', roughness: 0.6 }),
+    ochre: () => std({ color: '#c9963a', roughness: 0.7 }),
+    soffitBlue: () => std({ color: '#3f6f9e', roughness: 0.7 }),
+    greenTop: () => std({ color: '#9fd4a4', roughness: 0.8 }),
+    coolTower: () => std({ color: '#d9dbd8', roughness: 0.6 }),
     lamp: () => new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff4dc', emissiveIntensity: 0.8 }),
   }[key];
   return (MATS[key] = m());
@@ -506,35 +520,74 @@ function buildEnci(I, k, group, b) {
     const r = [S.P(T.s0, 0), S.P(T.s0, T.out), S.P(T.s1, T.out), S.P(T.s1, 0)];
     for (let i = 0; i < 3; i++) I.addWall(r[i][0], r[i][1], r[i + 1][0], r[i + 1][1], -2, 40);
   }
-  // --- north entrance: wide steps, recessed double-height porch, canopy, 「恩慈樓」 ---
+  // --- north entrance (Google 街景 2017-09 高解析, from the north path): a double-height colonnade of four big square
+  // piers under the projecting middle block, the 1F lobby doors and the 2F windows behind, 「恩慈樓」 in dark letters on
+  // the ochre band between them, a blue soffit, six wide steps between low concrete cheek walls with steel rails ---
   {
-    const e = EC_ENT, s0 = e.s - e.w / 2, s1 = e.s + e.w / 2, yT = B + 2 * FL;
+    const e = EC_ENT, s0 = e.s - e.w / 2, s1 = e.s + e.w / 2, yT = B + 2 * FL, dep = 0.9;
     // the steps start from the local ground (B is the lowest point of the whole outline, ~0.6 m lower here)
     const G = Math.max(...[s0, e.s, s1].flatMap(s => [0.3, e.d].map(o => H(...N.P(s, o))))), yR = G + e.steps * e.rise;
-    k.ebox('recess', N, s0 + 0.6, s1 - 0.6, 0.0, 0.1, B - 0.3, yT - 0.4);
-    for (const s of [s0 + 0.3, s1 - 0.3]) k.ebox('concLight', N, s - 0.35, s + 0.35, 0.0, 0.5, B - 0.3, yT - 0.3, [1, 1]);
-    for (let s = s0 + 1.6; s < s1 - 1.4; s += 1.4) k.ebox('stainless', N, s, s + 0.06, 0.04, 0.12, yR, yR + 2.7);
-    // canopy slab
-    k.ebox('white', N, s0 - 0.4, s1 + 0.4, 0.0, 2.6, yT - 0.45, yT - 0.15, [2, 2]);
-    for (let s = s0 + 0.6; s < s1; s += 2.2) { const p = N.P(s, 1.3); k.cyl('lamp', p[0], p[1], 0.15, yT - 0.47, yT - 0.45, 8); }
-    // the name on a white fascia over the canopy edge
-    k.ebox('white', N, e.s - 3.2, e.s + 3.2, 2.3, 2.6, yT - 0.15, yT + 1.15);
-    const m = N.P(e.s, 2.62);
-    sign(group, goldText('dmEcName', '恩  慈  樓', 1024, 256, 190), 5.6, 1.4, m[0], yT + 0.5, m[1], N.n, 0.25);
-    // steps (walkable): from the porch out, each 0.4 m deep, rise e.rise
-    const d0 = e.d - e.steps * 0.45;
+    k.ebox('recess', N, s0 + 0.4, s1 - 0.4, 0.0, 0.1, B - 0.3, yT - 0.4);
+    // lobby doors (1F) and the 2F windows: stainless mullions and transoms
+    for (let s = s0 + 1.4; s < s1 - 1.2; s += 1.5) k.ebox('stainless', N, s, s + 0.06, 0.1, 0.14, yR, yT - 0.5);
+    for (const y of [yR + 2.6, yR + 3.7]) k.ebox('stainless', N, s0 + 1.0, s1 - 1.0, 0.1, 0.14, y, y + 0.08);
+    // the ochre band with the name between the doors and the 2F windows
+    k.ebox('ochre', N, s0 + 0.9, s1 - 0.9, 0.1, 0.16, yR + 2.68, yR + 3.62);
+    const m = N.P(e.s, 0.18);
+    sign(group, nameBand(), 4.2, 0.82, m[0], yR + 3.15, m[1], N.n, 0.05);
+    // the blue soffit under the projecting middle block, the four piers
+    k.ebox('soffitBlue', N, s0, s1, 0.0, dep, yT - 0.55, yT - 0.3);
+    for (const s of [s0 + 0.5, e.s - 1.9, e.s + 1.9, s1 - 0.5]) {
+      const w = s === s0 + 0.5 || s === s1 - 0.5 ? 0.5 : 0.42;
+      k.ebox('concLight', N, s - w, s + w, 0.0, dep, B - 0.3, yT - 0.3, [1, 1]);
+      // three outer faces (the face against the building wall is left out)
+      const c = [N.P(s - w, 0), N.P(s - w, dep), N.P(s + w, dep), N.P(s + w, 0)];
+      for (let i = 0; i < 3; i++) I.addWall(c[i][0], c[i][1], c[i + 1][0], c[i + 1][1], -1, 7);
+    }
+    for (let s = s0 + 1.2; s < s1 - 1; s += 2.4) { const p = N.P(s, dep / 2); k.cyl('lamp', p[0], p[1], 0.14, yT - 0.57, yT - 0.55, 8); }
+    // landing and steps (walkable): the landing under the colonnade, then e.steps steps of 0.35 m out to e.d
+    const d0 = e.d - e.steps * 0.35;
     I.addSurface([N.P(s0, 0.05), N.P(s1, 0.05), N.P(s1, d0), N.P(s0, d0)], (x, z) => Math.max(0.02, yR - H(x, z)));
     k.ebox('stone', N, s0, s1, 0.05, d0, B - 0.5, yR);
     for (let i = 0; i < e.steps; i++) {
-      const oa = d0 + i * 0.45, ob = oa + 0.45, h = G + e.rise * (e.steps - 1 - i);
+      const oa = d0 + i * 0.35, ob = oa + 0.35, h = G + e.rise * (e.steps - 1 - i);
       if (i < e.steps - 1) I.addSurface([N.P(s0, oa), N.P(s1, oa), N.P(s1, ob), N.P(s0, ob)], (x, z) => Math.max(0.02, h - H(x, z)));
       k.ebox('stone', N, s0, s1, oa, ob, B - 0.5, h);
     }
-    // handrails at the step sides
-    for (const s of [s0 + 0.15, s1 - 0.15]) {
-      const a = N.P(s, 0.3), c = N.P(s, e.d);
-      k.beam('stainless', [a[0], yR + 0.9, a[1]], [c[0], G + 0.9, c[1]], 0.05, 0.05);
-      for (const o of [0.3, e.d]) { const p = N.P(s, o); k.beam('stainless', [p[0], o < 1 ? yR : G, p[1]], [p[0], (o < 1 ? yR : G) + 0.92, p[1]], 0.05, 0.05); }
+    // low concrete cheek walls at both ends of the steps, a level stainless rail on each (the walls are flat-topped)
+    // and one down the middle along the steps
+    for (const [a, b2] of [[s0 - 0.35, s0], [s1, s1 + 0.35]]) {
+      k.ebox('concLight', N, a, b2, 0.05, e.d, G - 0.4, yR + 0.25, [1, 1]);
+      const c = [N.P(a, 0.05), N.P(a, e.d), N.P(b2, e.d), N.P(b2, 0.05)];
+      // up to the rail tops (like the ramp rails): someone on the landing (0.9 m up) must not walk through
+      for (let i = 0; i < 3; i++) I.addWall(c[i][0], c[i][1], c[i + 1][0], c[i + 1][1], -1, 2.2);
+    }
+    for (const s of [s0 - 0.17, e.s, s1 + 0.17]) {
+      const a = N.P(s, 0.3), c = N.P(s, e.d - 0.1), lo = s === e.s ? G : yR + 0.25, hi = s === e.s ? yR : yR + 0.25;
+      k.beam('stainless', [a[0], hi + 0.9, a[1]], [c[0], lo + 0.9, c[1]], 0.05, 0.05);
+      for (const [o, y] of [[0.3, hi], [e.d - 0.1, lo]]) { const p = N.P(s, o); k.beam('stainless', [p[0], y, p[1]], [p[0], y + 0.92, p[1]], 0.05, 0.05); }
+    }
+  }
+  // --- roof (NLSC 2024 正射): the north wing (8F) carries a box with a pale green top near its east end; the
+  // connecting block / south wing roof (10F) a block of round cooling towers by the connecting block and a white plant
+  // room at the west end. Only drawn where the whole item sits on the right roof ---
+  {
+    const parts = b.parts || [{ pts, h: EC_TOP }, { pts, h: EC_TOP }];
+    const onRoof = (P, cs) => cs.every(([x, z]) => pointInPoly(x, z, P.pts) && [[0.6, 0], [-0.6, 0], [0, 0.6], [0, -0.6]].every(([dx, dz]) => pointInPoly(x + dx, z + dz, P.pts)));
+    const north = parts.find(p => p.floors === 8) || parts[0], south = parts.find(p => p.floors !== 8) || parts[1];
+    const yN = B + north.h, yS = B + south.h;
+    {
+      const sC = 47, oC = -4.2, cs = [N.P(sC - 2, oC - 2), N.P(sC + 2, oC - 2), N.P(sC + 2, oC + 2), N.P(sC - 2, oC + 2)];
+      if (onRoof(north, cs)) { k.ebox('concLight', N, sC - 2, sC + 2, oC - 2, oC + 2, yN - 0.1, yN + 2.4, [2, 2]); k.ebox('greenTop', N, sC - 1.9, sC + 1.9, oC - 1.9, oC + 1.9, yN + 2.4, yN + 2.5); }
+    }
+    for (let s = 19; s <= 28.1; s += 3) for (const o of [-10.5, -13.5]) {
+      const [x, z] = S.P(s, o);
+      if (!onRoof(south, [[x - 1.1, z - 1.1], [x + 1.1, z + 1.1], [x - 1.1, z + 1.1], [x + 1.1, z - 1.1]])) continue;
+      k.cyl('coolTower', x, z, 1.05, yS - 0.1, yS + 1.7, 14); k.cyl('black', x, z, 0.85, yS + 1.7, yS + 1.85, 14);
+    }
+    {
+      const cs = [S.P(36, -5), S.P(42, -5), S.P(42, -9), S.P(36, -9)];
+      if (onRoof(south, cs)) k.ebox('white', S, 36, 42, -9, -5, yS - 0.1, yS + 2.6, [2, 2]);
     }
   }
 }

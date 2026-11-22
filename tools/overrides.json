@@ -172,8 +172,14 @@
       "name": "恩慈樓",
       "osm": "w392023418",
       "floors": 10,
+      "split": {
+        "cuts": [[[-21.9, 273.7], [73.3, 314.3]]],
+        "floors": [8, 10],
+        "labels": ["北翼", "連接棟與南翼"],
+        "ac": true
+      },
       "source": ["Google 街景目視判斷（影像 2024-08，觀看點 24.95517,121.24232（大仁街 80 號前），朝北 10~40 度）", "Google 衛星圖目視（中心 24.955288,121.242706，約 208 m 寬）"],
-      "note": "Street view (medium): a slab dorm along 大仁街 with 9+ rows of windows counted from the street, and a long shadow on the satellite view; OSM levels=5 (17.1 m) is clearly too low, so 10F (33.6 m). The lower wing at its south end (satellite) is not split off: its extent and floors are not known. Size only; the facade is not changed here."
+      "note": "Street view (medium): a slab dorm along 大仁街 with 9+ rows of windows counted from the street, and a long shadow on the satellite view; OSM levels=5 (17.1 m) is clearly too low, so 10F (33.6 m). The lower wing at its south end (satellite) is not split off: its extent and floors are not known. Size only; the facade is not changed here. Split (2026-11-22, Google 街景 2017-09 pano DJi8z4TIZ4DLKl4C6HHrGQ from the north path, heading 195-200, high-res): the north wing is 8 storeys along its whole north face (a two-storey colonnade at the entrance plus 6 window rows, one roof line from end to end); its east gable seen from 大仁二街 (2025-03 user 360) shows 6 windows over the boundary wall, about 7-8 storeys. The connecting block and the south wing stay 10F (9-10 window rows from 大仁街 2024-08; the 2024 ortho shows the connecting block's roof standing above the north wing with the longest shadow). Cut along the north wing's south edge (K-D extended); ac keeps the unsplit roof's AC draws."
     },
     {
       "name": "力行大樓",

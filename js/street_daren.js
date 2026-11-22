@@ -437,7 +437,7 @@ export const DAREN_ST = {
     [208, 213, 1, { nf: 4, wall: 'tile', sign: null, ground: 'gate', bal: 'grille', tin: true }],
     [213, 218.5, 1, { nf: 4, wall: 'tile', sign: ['漢堡邦', '#f2c230', '#8a1414'], ground: 'shop', bal: 'grille', tin: true }],
     [218.5, 224, 1, { nf: 4, wall: 'grey', sign: null, ground: 'shutter', bal: 'grille', tin: true }],
-    [224, 230.5, 1, { nf: 4, wall: 'beige', sign: ['宜珍快餐', '#d0202a', '#ffffff'], ground: 'shop', bal: 'cage', tin: true }],
+    [224, 229, 1, { nf: 4, wall: 'beige', sign: ['宜珍快餐', '#d0202a', '#ffffff'], ground: 'shop', bal: 'cage', tin: true }],
     [235.5, 240.5, 1, { nf: 4, wall: 'tile', sign: ['艾修通訊', '#1f6fd0', '#ffffff'], ground: 'shop', bal: 'grille' }],
     [240.5, 246, 1, { nf: 4, wall: 'beige', sign: ['中福鍋燒麵', '#f6e7c4', '#8a1414'], ground: 'shop', bal: 'grille', tin: true }],
     [246, 251, 1, { nf: 3, wall: 'tile', sign: null, ground: 'shutter', bal: 'grille', tin: true, frame: '#c62026' }],

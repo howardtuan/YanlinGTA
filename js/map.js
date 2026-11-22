@@ -1234,17 +1234,36 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       // pair / pair-other: one of the two one-way ways OSM splits a two-way street into (no median, just
       // 雙黃線 between them): 'pair' paints the 雙黃線 along its edge that faces the other way, 'pair-other'
       // nothing there; neither gets a white edge line on that side
-      const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair ? pairSide(r) : 0;
-      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D); }
+      // inner: false on a 'median' one-way: no white edge line along the median side either (where the
+      // orthophoto shows none there). ev [vPos, vNeg]: the white edge lines at these offsets from the centreline
+      // (+ = (-uz, ux)) where they are painted well inside the kerbs, instead of 0.35 m in
+      const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair || M.inner === false ? pairSide(r) : 0;
+      const eP = M.ev ? M.ev[0] : e, eN = M.ev ? -M.ev[1] : e;
+      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, eP, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -eN, 0.15, WHITE, G[-1], D); }
       if (M.centre === 'pair' && inner) { const o = inner * (r.w / 2 - 0.15); lineGaps(r, yAt, o, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, o - inner * 0.3, 0.12, YELLOW, G[0], D); }
       // cv: the centre line off the middle of the carriageway (+ = (-uz, ux)), where one side is wider (kerbside parking)
       const cv = M.cv || 0;
-      if (M.centre === 'double-yellow') { lineGaps(r, yAt, cv + 0.15, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, cv - 0.15, 0.12, YELLOW, G[0], D); }
-      else if (M.centre === 'yellow') lineGaps(r, yAt, cv, 0.15, YELLOW, G[0], D);
-      else if (M.centre === 'yellow-dash') lineGaps(r, yAt, cv, 0.15, YELLOW, G[0], D, Infinity, true);
-      else if (M.centre === 'white-dash') lineGaps(r, yAt, cv, 0.12, WHITE, G[0], D, Infinity, true);
-      if (two) for (const sd of [1, -1]) { const lw = (e - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, cv + sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
-      else { const lw = 2 * e / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -e + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      const centre = (style, gaps) => {
+        if (style === 'double-yellow') { lineGaps(r, yAt, cv + 0.15, 0.12, YELLOW, gaps, D); lineGaps(r, yAt, cv - 0.15, 0.12, YELLOW, gaps, D); }
+        else if (style === 'yellow') lineGaps(r, yAt, cv, 0.15, YELLOW, gaps, D);
+        else if (style === 'yellow-dash') lineGaps(r, yAt, cv, 0.15, YELLOW, gaps, D, Infinity, true);
+        else if (style === 'white-dash') lineGaps(r, yAt, cv, 0.12, WHITE, gaps, D, Infinity, true);
+      };
+      // segs [{from: [x, z], to: [x, z], centre}]: stretches of the way painted with another centre line
+      // (the ends projected onto the way as it is now, shifted or not); the rest keeps M.centre
+      const along = (x, z) => {
+        let best = Infinity, s = 0;
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const a = r.pts[i], b = r.pts[i + 1], c = closestOnSeg(x, z, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - x, c[1] - z);
+          if (d < best) { best = d; s = D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]); }
+        }
+        return s;
+      };
+      const segs = (M.segs || []).map(g => { const a = along(...g.from), b = along(...g.to); return [Math.min(a, b), Math.max(a, b), g.centre]; });
+      centre(M.centre, G[0].concat(segs.map(([a, b]) => [a, b])));
+      for (const [a, b, st] of segs) centre(st, G[0].concat([[-Infinity, a], [b, Infinity]]));
+      if (two) for (const sd of [1, -1]) { const lw = ((sd > 0 ? eP : eN) - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, cv + sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      else { const lw = (eP + eN) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -eN + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
       return;
     }
     line(r, yAt, e, 0.15, WHITE, false); line(r, yAt, -e, 0.15, WHITE, false);

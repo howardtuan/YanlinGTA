@@ -1233,6 +1233,18 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const lanes = Math.max(1, r.lanes || (two ? 2 : r.type === 'primary' ? 3 : 2));
     if (r.marks) { // surveyed: as painted, every line running through and broken only where it must
       const M = r.marks, { G, D } = streetGaps(r), n = Math.max(1, M.lanes || 1);
+      // distance along r (as drawn, shifted or not) of the point nearest (x, z)
+      const along = (x, z) => {
+        let best = Infinity, s = 0;
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const a = r.pts[i], b = r.pts[i + 1], c = closestOnSeg(x, z, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - x, c[1] - z);
+          if (d < best) { best = d; s = D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]); }
+        }
+        return s;
+      };
+      // span {from, to}: only this stretch of the way is surveyed as painted (the orthophoto cannot show the rest):
+      // no centre, edge or lane line outside it
+      if (M.span) { const a = along(...M.span.from), b = along(...M.span.to), lo = Math.min(a, b), hi = Math.max(a, b); for (const k of [0, 1, -1]) G[k].push([-Infinity, lo], [hi, Infinity]); }
       // pair / pair-other: one of the two one-way ways OSM splits a two-way street into (no median, just
       // 雙黃線 between them): 'pair' paints the 雙黃線 along its edge that faces the other way, 'pair-other'
       // nothing there; neither gets a white edge line on that side
@@ -1253,14 +1265,6 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       };
       // segs [{from: [x, z], to: [x, z], centre}]: stretches of the way painted with another centre line
       // (the ends projected onto the way as it is now, shifted or not); the rest keeps M.centre
-      const along = (x, z) => {
-        let best = Infinity, s = 0;
-        for (let i = 0; i < r.pts.length - 1; i++) {
-          const a = r.pts[i], b = r.pts[i + 1], c = closestOnSeg(x, z, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - x, c[1] - z);
-          if (d < best) { best = d; s = D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]); }
-        }
-        return s;
-      };
       const segs = (M.segs || []).map(g => { const a = along(...g.from), b = along(...g.to); return [Math.min(a, b), Math.max(a, b), g.centre]; });
       centre(M.centre, G[0].concat(segs.map(([a, b]) => [a, b])));
       for (const [a, b, st] of segs) centre(st, G[0].concat([[-Infinity, a], [b, Infinity]]));

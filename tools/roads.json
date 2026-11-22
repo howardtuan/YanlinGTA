@@ -1,5 +1,5 @@
 {
- "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there. Optional cv in a marks entry puts the centre line cv metres off the middle of the carriageway (+ = (-uz, ux) of the way's direction), where one side is wider (kerbside parking). 'shift' moves OSM ways sideways onto the carriageway the orthophoto shows: at = anchors [x, z, v], v the offset in metres along (-uz, ux) of the way's direction (+ = the top of an _survey/xsec.py cut) of the middle between the kerbs from the OSM line; tools/build_map.py shift_roads() interpolates between anchors, holds 40 m past the end ones and eases out over 40 m more, and moves shared nodes in every way; the old line stays in r.osm (trees, lamps and shop fronts are laid out on it, then the spots the moved road covers move past its new kerb). 'pave' lays asphalt (an unnamed service strip with no nodes, so it stays out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams) where the orthophoto shows a median opening or a paved gap between two one-way carriageways that the build leaves as grass: pts (game metres), w; js/map.js leaves out the median kerb over it. 'features' t 'nozebra' (x, z, way): js/furniture.js lays no generic signal-junction zebra / stop line and no OSM-crossing zebra within 6 m of it, where the orthophoto shows plain asphalt. Optional in a marks entry: ev [vPos, vNeg] puts the two white edge lines at these offsets from the way's centreline (+ = (-uz, ux)) where they are painted well inside the kerbs; inner false on a 'median' one-way leaves out the white edge line along the median side; segs [{from: [x, z], to: [x, z], centre}] paints another centre line style between the two points (projected onto the way as drawn).",
+ "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there. Optional cv in a marks entry puts the centre line cv metres off the middle of the carriageway (+ = (-uz, ux) of the way's direction), where one side is wider (kerbside parking). 'shift' moves OSM ways sideways onto the carriageway the orthophoto shows: at = anchors [x, z, v], v the offset in metres along (-uz, ux) of the way's direction (+ = the top of an _survey/xsec.py cut) of the middle between the kerbs from the OSM line; tools/build_map.py shift_roads() interpolates between anchors, holds 40 m past the end ones and eases out over 40 m more, and moves shared nodes in every way; the old line stays in r.osm (trees, lamps and shop fronts are laid out on it, then the spots the moved road covers move past its new kerb). 'pave' lays asphalt (an unnamed service strip with no nodes, so it stays out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams) where the orthophoto shows a median opening or a paved gap between two one-way carriageways that the build leaves as grass: pts (game metres), w; js/map.js leaves out the median kerb over it. 'features' t 'nozebra' (x, z, way): js/furniture.js lays no generic signal-junction zebra / stop line and no OSM-crossing zebra within 6 m of it, where the orthophoto shows plain asphalt. Optional in a marks entry: ev [vPos, vNeg] puts the two white edge lines at these offsets from the way's centreline (+ = (-uz, ux)) where they are painted well inside the kerbs; inner false on a 'median' one-way leaves out the white edge line along the median side; segs [{from: [x, z], to: [x, z], centre}] paints another centre line style between the two points (projected onto the way as drawn). span {from: [x, z], to: [x, z]}: only the stretch between the two points (projected onto the way as drawn) is painted; no centre, edge or lane line outside it, where the orthophoto cannot show them.",
  "ways": [
   {
    "way": 13944868,
@@ -2347,6 +2347,30 @@
    "lanes": 1,
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20 px/m 橫斷面複核（路口對照圖第二輪）：(-465.2,688.2) ang -125：路中黃實線，西南側白色路邊線（線外停機車）"
+  },
+  {
+   "way": 41603232,
+   "name": "弘揚路",
+   "centre": "double-yellow",
+   "edge": true,
+   "lanes": 1,
+   "cv": 0.15,
+   "ev": [
+    3.7,
+    -2.95
+   ],
+   "span": {
+    "from": [
+     -160.7,
+     506.3
+    ],
+    "to": [
+     -34.7,
+     409.8
+    ]
+   },
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）第三輪複核（_survey/rv3/hongyang-marks），沿 OSM 線拉直長條（20～40 px/m，+v 東南）。只畫大智街口（s156，節點 3642326489）到東北端實踐路口。貼地證據：s205～312 中線 v -0.79～-1.22、-v 白邊線 -3.88～-4.34 連續弱峰，量測、屋頂、盲測三方各自量到（屋頂排除 s255 -0.41、s270～275 +0.8～+0.9 兩處屋頂邊）；s150～155、s169～186 陽光下 -v 白邊線 -3.55～-3.94 清楚（L 137～163，背景 120～130）。雙黃實線：上一輪 s220～250 Google 街景（2025-05）確認，本輪 s248 往西南街景看得到雙黃與兩側白邊線延伸到約 s200～215。s156～205 的中線沒有直接證據：陽光照到的 s152～160（路口）與 s169 都看不到 -0.8～-1.0 的線，只有陰影裡 -0.3～-0.65 的弱凸起；畫出的中線在 -0.47，與此吻合，屬『有邊線一般就有中線』的推論。cv 0.15、ev 負側 -2.95：實測減遊戲中線 s215～295 中線 +0.19～+0.37／-0.15～-0.19、-v 邊線 -2.80～-3.06。ev 正側 3.7：+v 白邊線正射全段被屋頂蓋住，只靠上一輪 s230 街景同列像素比（+v 車道 1.11～1.12 倍 -v 車道 3.2 m），誤差約 ±0.4。西南段 s0～156 沒畫的原因：s40～150 整條路含人行道都在東南側大樓陰影裡，峰值只有 +3～+5，和對照組一樣；s11～38 有中線候選 +0.45～+0.85（+6～+8）但 ±v 邊線候選都疊在陰影邊或屋簷亮帶上；s25～170 各點都沒有街景。量不到不代表沒有（10 m 雙向路一般整條都畫），之後有街景或新正射再補。"
   }
  ],
  "features": [
@@ -2778,14 +2802,47 @@
   },
   {
    "t": "zebra",
-   "x": -332.9,
-   "z": 138.9,
-   "ang": 90,
-   "len": 3.5,
+   "x": -332.95,
+   "z": 139.3,
+   "ang": 66,
+   "len": 3.1,
+   "w": 10.4,
+   "way": 817032495,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）第三輪複核（_survey/rv3/zebra-zb）：中北路×實踐路口南側、橫越實踐路往東南那一支的斑馬線。條紋方向三方獨立量 65～67°（PCA 主軸、投影變異數掃描），取 66；斑馬線是斜的，和實踐路此段 46° 差 20°。條紋中心沿橫越軸 t -4.88、-3.65、-2.5、-1.3、-0.05、+1.1、+2.35、+3.55、+4.75，間距約 1.2；外緣 t -5.32～+5.1 → 寬 10.4。西南端 -5.32 是樹影邊界，樹影裡 t -6～-7.4 還有半對比弱亮條，可能再多 1～3 條但無法確認，而且遊戲路面在那裡已出界，所以不往西南延伸。東北端 t +3.55、+4.75 是中性白色油漆（+3.9、u +1.2～1.9 一塊偏暖的亮物是停放車輛，不是油漆）。完整條紋沿路 u -1.5～+1.6 → 長 3.1（量測 3.3、盲測 2.85）。附近四個點都沒有 Google 街景。取代原本照號誌節點畫的通用斑馬線（中心約 (-334.8,137.2)、方向差 50°、偏 2.6 m）。"
+  },
+  {
+   "t": "zebra",
+   "x": -335.25,
+   "z": 138.65,
+   "ang": 45,
+   "len": 9.6,
    "w": 8,
    "way": 817032495,
    "osm": true,
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：實踐路／中北路口南側，距號誌點 8.6 m"
+   "confidence": "medium",
+   "source": "只用來斷線，不畫：上一筆斜斑馬線跨在實踐路 OSM 折角節點 (-335.4,138.5) 上，js/map.js streetGaps 只用 ±len/2 開缺口，黃中線和 -v 白邊線會畫進條紋區（第 0 段 s 5～9、第 1 段 s 13.3～13.8）。這筆綁在實踐路第 1 段 s≈9.2，缺口 [4.1,14.3] 接上路口端修剪 [0,4.49]，三條線在斑馬線內都不再出現（_survey/rv3/zebra-zb/judge 驗算）。osm:true 讓 map.js 不畫它；furniture.js osmZebra() 在實踐路南支與中北路西支變 true，但兩支都已被 surveyedOnArm 抑制，不會多畫通用斑馬線。"
+  },
+  {
+   "t": "stop",
+   "x": -324.39,
+   "z": 146.72,
+   "ang": 46,
+   "w": 3.6,
+   "way": 817032495,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿實踐路 46° 拉直切（_survey/rv3/zebra-zb/judge/prof.py，30 px/m，原點 (-326,148)）：東南進口車道（往路口、-v 半邊）停止線在機車停等區後緣 s 0.0～+0.45（亮 144～159，柏油 101～110），橫向 v -0.25～-3.9 每列最大值 151～207，-4.25 以外掉到 86；從黃中線畫到路緣。盲測獨立量到同一位置 (-324.5,146.7)。斑馬線改成實測條目後 furniture.js 不再畫這一支的通用停止線，用這筆補上。"
+  },
+  {
+   "t": "bikebox",
+   "x": -326.82,
+   "z": 144.2,
+   "ang": 46,
+   "len": 6.6,
+   "w": 3.6,
+   "way": 817032495,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）同一切面：停止線前方白框機車停等區，前緣 s -6.6～-5.5（亮 160～199）、後緣接停止線 s 0.0，橫向 v -0.25～-3.9，框內有圖案（s -3.8～-1.8 亮 120～134）；深 6.6、寬 3.6。屋頂複核說的斑馬線南側『菱形白框』就是這個框（相對斑馬線方向是斜的），斑馬線與框之間 u +2.75～+3.6 是空檔，沒有其他停止線。"
   },
   {
    "t": "box",
@@ -7574,6 +7631,24 @@
    ],
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20 px/m 橫斷面複核（路口對照圖第三輪）：中華路二段東口斑馬線連續橫過分隔島頭，正射上那裡沒有島；遊戲島頭有約 3 條斑紋畫在草地上"
+  },
+  {
+   "pts": [
+    [
+     -329.55,
+     136.58
+    ],
+    [
+     -328.85,
+     138.18
+    ]
+   ],
+   "w": 2.8,
+   "ways": [
+    817032495
+   ],
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）第三輪複核：中北路×實踐路口東南角（實踐路東側、中北路南側）實際柏油喇叭口比遊戲寬，實測斑馬線東北端 t +3.55、+4.75 兩條條紋落在遊戲路面外 0.2～1.7 m。這條補上 t 約 2.8～5.6、沿路 u 約 -2.5～+2.0；屋頂複核指出 u ≥ +2.3、t ≥ +3.2 是人行道色鋪面（RGB 128/115/112），兩端點已往 -u 收 0.13 m；柏油實際在 u 0～1 延伸到 t +6.3～+6.7。加上後 11 條條紋全部在路面內（最緊 0.15 m），不壓建物、7-ELEVEN 騎樓（2.1 m 外）與號誌桿位。"
   }
  ]
 }

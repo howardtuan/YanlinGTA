@@ -10,7 +10,7 @@ import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { mulberry32, makeLabel } from '../../world/MapBuilder.js';
 import { dressCrew } from './McUniform.js';
 import { McKitchen } from './McKitchen.js';
-import { dual } from '../../ui/Prompts.js';
+import { dual } from '../../core/KeyHints.js';
 
 // same six items as the menu board above the counter
 export const MENU = [

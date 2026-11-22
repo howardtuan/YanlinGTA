@@ -13,7 +13,7 @@ import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeLabel, mulberry32 } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { pointInPoly } from '../../physics/Collision.js';
-import { dual } from '../../ui/Prompts.js';
+import { dual } from '../../core/KeyHints.js';
 
 const _ax = new THREE.Vector3();
 const LAPS = 2, PLAYER_SLOT = 5; // 0-based grid slot -> you start 6th of 8

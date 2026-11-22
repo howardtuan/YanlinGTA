@@ -23,7 +23,7 @@ import { CF_DROP, campusFix, campusAdd } from '../CampusFix.js';
 import { teaFootprint, teaRowFootprints, buildTeaShop, buildTeaRow } from '../buildings/StreetTea.js';
 import { darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, buildDarenCorner, buildDarenStreet, buildDarenGd } from '../buildings/StreetDaren.js';
 import { ZB_ST, zbFootprints, buildZhongbeiStreet } from '../buildings/StreetZhongbei.js';
-import { gordonFootprint, buildGordon } from '../../entities/npcs/GordonShop.js';
+import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints, buildWeiche } from '../../systems/minigames/Weiche.js';

@@ -33,7 +33,7 @@ import {
   zoneVegHide,
   zoneTreeHide,
 } from '../world/zones/Zones.js';
-import { GD_SPEC, gordonOutline } from '../entities/npcs/GordonShop.js';
+import { GD_SPEC, gordonOutline } from '../world/buildings/GordonShop.js';
 import { HUD } from '../ui/HUD.js';
 import { Missions, SPEECH } from '../systems/MissionSystem.js';
 import { createCharacter, randomStudent } from '../entities/Character.js';

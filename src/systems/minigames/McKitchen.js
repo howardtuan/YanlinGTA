@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../../world/MapBuilder.js';
 import { dressCrew } from './McUniform.js';
-import { dual } from '../../ui/Prompts.js';
+import { dual } from '../../core/KeyHints.js';
 
 // station key as shown to the player: 1 / 2 / 3 on keyboard, D-pad on a gamepad (src/core/Input.js job layout)
 const KEY = (g, def) => g.hud.keyLabel(String(def.key), ['Up', 'Right', 'Down', 'Left', 'X', 'Y'][def.key - 1]);

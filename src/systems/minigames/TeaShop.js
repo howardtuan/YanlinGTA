@@ -3,7 +3,7 @@
 // 可以在點單畫面跟他聊天（還沒加好友的話，聊完一樣可以選要不要加）。店面建模在 src/world/Interiors.js buildTeaShop。
 import { createCharacter } from '../../entities/Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
-import { FRIENDS } from '../../ui/phone/Friends.js';
+import { ZZ_LOOK } from '../../entities/npcs/FriendLooks.js';
 import { TEA_BOARD } from '../../world/buildings/StreetTea.js';
 
 const EMOJI = { 珍珠奶茶: '🧋', 茉莉綠茶: '🍵', 四季春青茶: '🍵', 冬瓜檸檬: '🍋', 蜂蜜檸檬綠: '🍯', 鮮奶紅茶: '🥛' };
@@ -35,7 +35,7 @@ export class TeaShop {
     this.on = false; this.voted = false; this.t = 0;
     const put = (ch, p) => { ch.root.position.set(p.at[0], s.base, p.at[1]); ch.root.rotation.y = p.h; ch.home = p.h; game.scene.add(ch.root); return ch; };
     this.clerk = put(createCharacter(CLERK_LOOK), s.clerk);
-    const zz = this.zz = put(createCharacter(FRIENDS.zz.look), s.zz);
+    const zz = this.zz = put(createCharacter(ZZ_LOOK), s.zz);
     const tag = makeLabel('吱吱（打工中）', { height: 0.26, color: '#ffd23f' }); tag.position.set(0, 2.1, 0); zz.root.add(tag);
     this.mark = makeLabel('!', { height: 0.45, color: '#111', bg: '#ffd23f' }); this.mark.position.set(0, 2.7, 0); zz.root.add(this.mark);
     zz.root.visible = false;

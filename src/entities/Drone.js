@@ -9,7 +9,7 @@
 //  - 彥霖本人在原地戴著 VR 眼鏡、雙手拿遙控器，飛回來就看得到他。
 import * as THREE from 'three';
 import { surfaceAt, H } from '../world/Terrain.js';
-import { dual } from '../ui/Prompts.js';
+import { dual } from '../core/KeyHints.js';
 
 const MAX_V = 100 / 3.6;  // 100 km/h
 const UP_V = 8;           // m/s climbing / sinking

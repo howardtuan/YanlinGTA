@@ -1,7 +1,7 @@
 // 戈登肉鋪 Gordon Meat Shop（校史館西南側草坪上，可以進去）。從 src/world/Interiors.js 原封不動搬出來；src/world/zones/Zones.js 決定建造順序。
 import * as THREE from 'three';
-import { H } from '../../world/Terrain.js';
-import { ctex, MATS, M, Kit, lcg, YHT } from '../../world/Kit.js';
+import { H } from '../Terrain.js';
+import { ctex, MATS, M, Kit, lcg, YHT } from '../Kit.js';
 import { pointInPoly } from '../../physics/Collision.js';
 
 // =====================================================================

@@ -7,6 +7,9 @@
 // - Hints that read differently on a pad use dual(kbHTML, padHTML); padHTML may contain {A}, {RT},
 //   {L} (left stick) ... tokens which become button glyphs.
 import { PAD_MAPS } from '../core/Input.js';
+import { dual } from '../core/KeyHints.js';
+
+export { dual };
 
 // standard-mapping button index -> logical (Xbox) name
 const NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS', 'Up', 'Down', 'Left', 'Right'];
@@ -36,9 +39,6 @@ function toCode(t) {
     '↑': 'ArrowUp', '↓': 'ArrowDown', '←': 'ArrowLeft', '→': 'ArrowRight' })[t] || null;
 }
 
-export function dual(kb, pad) {
-  return `<span class="kb-only">${kb}</span><span class="pad-only">${pad.replace(/\{(\w+)\}/g, (_, n) => `<kbd data-pb="${n}"></kbd>`)}</span>`;
-}
 
 export class Prompts {
   constructor(input, ctxFn) {

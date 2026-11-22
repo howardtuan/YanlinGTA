@@ -20,10 +20,10 @@
 <div id="hint">拖曳旋轉 · 滾輪縮放 · 開發用預覽頁（不影響遊戲）</div>
 <script type="module">
 import * as THREE from 'three';
-import { buildJetSL } from '../js/vehicles.js';
-import { SkySystem } from '../js/sky.js';
-import { createCharacter } from '../js/character.js';
-import { YANLIN_LOOK } from '../js/player.js';
+import { buildJetSL } from '../src/entities/Vehicles.js';
+import { SkySystem } from '../src/graphics/SkySystem.js';
+import { createCharacter } from '../src/entities/Character.js';
+import { YANLIN_LOOK } from '../src/entities/Player.js';
 
 const r = new THREE.WebGLRenderer({ antialias: true });
 r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(innerWidth, innerHeight);

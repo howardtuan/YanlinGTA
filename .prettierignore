@@ -1,0 +1,15 @@
+dist/
+vendor/
+data/
+assets/
+wasm/
+promo/
+tools/
+docs/
+package-lock.json
+src/
+js/
+task/
+*.md
+css/
+index.html

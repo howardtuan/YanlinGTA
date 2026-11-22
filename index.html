@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" href="assets/icon/icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="assets/icon/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="css/style.css" id="mainCss">
+<link rel="stylesheet" href="/src/styles/style.css" id="mainCss">
 </head>
 <body>
 <div id="app">
@@ -153,29 +153,6 @@
   </div>
   <div id="rotateHint" class="hidden">橫放手機體驗更佳 ↻</div>
 </div>
-<script>
-// GitHub Pages lets browsers keep every file for 10 minutes and we can't change that. Right after an
-// update a browser could then run an old js/*.js next to a new one and fail to load. So: ask for the
-// deploy time with the cache bypassed, and load every script (through the import map) and the CSS
-// with it as ?v=… — each deploy gets fresh URLs and one consistent set of files.
-// New files in js/ belong in MODS (a missing one still loads, just without the stamp).
-(async () => {
-  const MODS = ['airdrop', 'arena', 'audio', 'bodymesh', 'campus_fix', 'character', 'chats', 'clubroom', 'collision', 'concert', 'controls', 'customnpcs', 'detective', 'dorms', 'drone', 'feeds', 'firstperson', 'freeze', 'friends', 'furniture', 'garry', 'garryhome', 'gate_extras', 'gateduty', 'gordon', 'hank', 'hud', 'input', 'interiors', 'jersey', 'jianyu', 'learn', 'learn_courses', 'library', 'locate', 'main', 'map', 'mckitchen', 'mcshift', 'mcuniform', 'mingshan', 'missions', 'modeling', 'nano', 'nav', 'news', 'newsui', 'npc', 'pc', 'phone', 'physics', 'physworld', 'pilot', 'player', 'post', 'prompts', 'race', 'ragdoll', 'save', 'scooters', 'shadowfix', 'sky', 'stocks', 'stockui', 'street_zhongbei', 'sunday', 'teashop', 'terrain', 'textures', 'vegetation', 'vehicles', 'vehphys', 'walker', 'wardrobe', 'weiche', 'yeeming', 'zone_a', 'zone_b', 'zone_c', 'zone_d', 'zone_h', 'wasm/kernels'];
-  let v = '';
-  try {
-    const r = await fetch('js/main.js', { method: 'HEAD', cache: 'no-store' });
-    v = (r.headers.get('last-modified') || r.headers.get('etag') || '').replace(/[^0-9A-Za-z]+/g, '');
-  } catch (e) { /* offline or blocked: load without a stamp */ }
-  const q = v ? '?v=' + v : '';
-  window.__q = q;
-  const imports = { three: './vendor/three.module.js' };
-  for (const m of MODS) imports['./js/' + m + '.js'] = './js/' + m + '.js' + q;
-  const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({ imports });
-  document.head.appendChild(map);
-  if (q) document.getElementById('mainCss').href = 'css/style.css' + q;
-  const main = document.createElement('script'); main.type = 'module'; main.src = 'js/main.js' + q;
-  document.body.appendChild(main);
-})();
-</script>
+<script type="module" src="/src/core/Game.js"></script>
 </body>
 </html>

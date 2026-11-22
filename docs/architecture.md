@@ -1,0 +1,245 @@
+# YanlinGTA 系統架構手冊 (System Architecture Guide)
+
+本手冊為「中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)」專案的架構設計核心文檔，詳述專案的分層結構、時序調度、雙 WASM 運算子系統、依賴拓撲規範與資料流設計。
+
+---
+
+## 一、 架構願景與核心心智模型 (Mental Model)
+
+YanlinGTA 是一款運行於瀏覽器端的 3D 開放世界校園冒險網頁遊戲。整體系統設計遵循**「高內聚、低耦合、單向無環（DAG）」**的模組化原則，將原本扁平龐雜的單一腳本庫解耦為清楚自治的 7 大領域分層。
+
+### 核心設計哲學
+1. **單向依賴約束**：底層邏輯（如物理、數學、資料）絕對不得反向依賴上層邏輯（如場景組裝、UI、音效）。
+2. **時脈與渲染解耦**：嚴格區分物理離散時間步長（Fixed Timestep）與螢幕刷新幀率（Variable RAF），確保不同螢幕更新率（60Hz、120Hz、144Hz）下的運動與物理表現一致。
+3. **雙軌高效能運算 (Dual-track WASM)**：對運算密集型模組（剛體碰撞、程序化噪聲紋理）導入 WebAssembly 加速，並維持純 JavaScript Fallback 作為安全性雙保險。
+4. **狀態集中與無痛序列化**：遊戲進度、角色外觀、購置資產、股市持股與任務狀態統一經由 `SaveSystem` 管理，並提供防篡改與結構校驗。
+
+---
+
+## 二、 7 大領域分層與職責定義 (7-Layer Architecture)
+
+```mermaid
+flowchart TD
+    subgraph Layer7["第 7 層：UI 與人機互動 (src/ui/)"]
+        HUD["HUD 儀表板 & 迷你地圖"]
+        Phone["手機系統 (Phone, Nano, Peachgram)"]
+        PC["電腦桌面系統 (PC, Browser, Terminal)"]
+        Dialog["對話框與互動提示 (Prompts, Jersey)"]
+    end
+
+    subgraph Layer6["第 6 層：遊戲業務系統 (src/systems/)"]
+        Mission["任務狀態機 (MissionSystem)"]
+        Save["存讀檔系統 (SaveSystem)"]
+        Audio["音效與配樂系統 (Audio)"]
+        Stock["虛擬股市模擬 (StockMarket)"]
+        Nav["A* 路網尋路 (Navigation)"]
+        MiniGames["校園打工與小遊戲 (minigames/)"]
+    end
+
+    subgraph Layer5["第 5 層：實體與角色控制器 (src/entities/)"]
+        Player["玩家控制器 (Player, FirstPerson)"]
+        Vehicles["載具控制器 (Vehicles, Scooters, Drone)"]
+        Pedestrians["校園路人與車流 AI (Traffic)"]
+        NPCs["特殊劇情 NPC 腳本 (npcs/)"]
+    end
+
+    subgraph Layer4["第 4 層：世界生成與建築場景 (src/world/)"]
+        Map["校園地圖組裝 (MapBuilder)"]
+        Zones["分區詳細場景 (zones/ ZoneA ~ ZoneH)"]
+        Buildings["重要校園建築 (Lixing, Sac, Arena...)"]
+        Interiors["建築室內裝潢 (Interiors, Furniture)"]
+        Veg["植被與環境裝飾 (Vegetation)"]
+    end
+
+    subgraph Layer3["第 3 層：渲染與圖形視覺 (src/graphics/)"]
+        Renderer["Three.js WebGLRenderer 封裝"]
+        Sky["天空與日夜循環 (SkySystem)"]
+        Tex["程序化貼圖生成器 (Textures)"]
+        WasmKernels["Rust WASM 噪聲/法線核心 (wasm/)"]
+    end
+
+    subgraph Layer2["第 2 層：物理與碰撞檢測 (src/physics/)"]
+        RapierWasm["Rapier 3D 物理引擎 (WASM)"]
+        VehPhys["機車/汽車底盤懸吊動力學 (VehPhysics)"]
+        Coll["2D 多邊形射線與障礙碰撞 (Collision)"]
+    end
+
+    subgraph Layer1["第 1 層：引擎核心與時鐘循環 (src/core/)"]
+        Game["遊戲全域中樞 (Game.js)"]
+        GameLoop["主循環調度器 (GameLoop.js)"]
+        Menu["選單與設定管理器 (MenuManager.js)"]
+        VehSpawner["載具調度與撞擊物理 (VehicleSpawner.js)"]
+        Input["鍵盤/手把/觸控輸入 (Input.js, Controls.js)"]
+    end
+
+    Layer1 --> Layer2
+    Layer1 --> Layer3
+    Layer2 --> Layer4
+    Layer3 --> Layer4
+    Layer4 --> Layer5
+    Layer5 --> Layer6
+    Layer6 --> Layer7
+```
+
+### 分層職責清單
+
+| 分層名稱 | 目錄路徑 | 核心職責 | 關鍵模組 |
+| :--- | :--- | :--- | :--- |
+| **1. 引擎核心層** | `src/core/` | 遊戲生命週期、RAF 循環調度、固定步長推進、全域事件中樞、輸入狀態映射。 | `Game.js`, `GameLoop.js`, `MenuManager.js`, `VehicleSpawner.js`, `Input.js` |
+| **2. 物理碰撞層** | `src/physics/` | Rapier 3D 物理世界封裝、機車與四輪車底盤懸吊計算、地面投影射線檢測、邊界牆碰撞。 | `VehPhysics.js`, `Collision.js` |
+| **3. 視覺圖形層** | `src/graphics/` | Three.js 場景與燈光管理、日夜循環動態天空、程序化瀝青/草地貼圖生成（Rust WASM 雙軌）。 | `SkySystem.js`, `Textures.js`, `kernels.wasm` |
+| **4. 世界生成層** | `src/world/` | OpenStreetMap 座標轉換、校園建築幾何拼裝、分區（Zone A~H）、室內空間與植被生成。 | `MapBuilder.js`, `Interiors.js`, `zones/*`, `buildings/*` |
+| **5. 遊戲實體層** | `src/entities/` | 玩家第三人稱/第一人稱控制、骨骼姿勢網格、機車與汽車操控實體、校園巡邏路人與劇情 NPC。 | `Player.js`, `Character.js`, `Vehicles.js`, `Traffic.js`, `npcs/*` |
+| **6. 業務系統層** | `src/systems/` | 競選任務推進狀態機、本機 LocalStorage 存讀檔、A* 路線規劃、Web Audio 音效、校園打工迷你遊戲。 | `MissionSystem.js`, `SaveSystem.js`, `Navigation.js`, `minigames/*` |
+| **7. 介面互動層** | `src/ui/` | 速度表與得票 HUD、手機作業系統（Peachgram、新聞、動態）、電腦桌面系統（終端機、瀏覽器）、對話介面。 | `HUD.js`, `PC.js`, `phone/Phone.js`, `Prompts.js` |
+
+---
+
+## 三、 依賴原則與拓撲約束 (Dependency Rules)
+
+為了杜絕循環引用與保持架構可測試性，專案強制執行以下**依賴單向無環原則**：
+
+### 1. 允許的依賴方向
+- **由上而下單向調用**：高層業務邏輯（如 `src/ui`、`src/systems`）可以引用底層工具（如 `src/physics`、`src/graphics`）。
+- **同層模組間橫向引用**：同一分層內部之模組允許互相引用（例如 `src/world/zones/ZoneA.js` 可以引用 `src/world/Interiors.js`）。
+- **中樞依賴注入**：`src/core/Game.js` 作為頂層裝配者（Orchestrator），負責將各子系統實例化並注入給需要的實體，各子模組不應手動直接 import 單例 `Game`。
+
+### 2. 明確禁止的反模式 (Anti-Patterns)
+```mermaid
+flowchart LR
+    Physics["src/physics/ (物理層)"]
+    UI["src/ui/ (介面層)"]
+    World["src/world/ (世界層)"]
+    Entities["src/entities/ (實體層)"]
+    
+    UI -.->|❌ 嚴格禁止反向調用| Physics
+    World -.->|❌ 建築生成不應依賴動態實體| Entities
+    
+    classDef bad stroke:#f00,stroke-width:2px,stroke-dasharray: 5 5;
+    class UI,World bad;
+```
+- **禁止底層向高層反向 import**：
+  - ❌ `src/physics/` 嚴禁 import `src/ui/`、`src/entities/` 或 `src/systems/`。
+  - ❌ `src/world/` 嚴禁 import `src/entities/Player.js`。世界生成應純粹產出場景幾何，角色透過註冊點由實體層裝配。
+- **禁止全域狀態隱性耦合**：
+  - 各模組不得隨意在 `window` 物件掛載可變遊戲狀態；所有跨系統數據交換必須透過 `Game` 中樞傳遞或自 `GameState` 讀取。
+
+---
+
+## 四、 核心循環與時鐘調度 (GameLoop Lifecycle)
+
+遊戲運行時的核心心智模型由 `src/core/GameLoop.js` 驅動，採用經典的 **累積時間步長（Accumulator Fixed Timestep）** 模型：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Browser as 瀏覽器 (requestAnimationFrame)
+    participant Loop as GameLoop.js
+    participant Physics as Rapier 3D (Fixed 60Hz)
+    participant Systems as 實體與業務系統 (Entities & Systems)
+    participant Three as Three.js WebGLRenderer
+
+    Browser->>Loop: 每幀觸發 RAF (delta時間)
+    Loop->>Loop: 累加 delta 到時間累積池 (accumulator)
+    
+    loop 當 accumulator >= fixedDt (1/60s)
+        Loop->>Physics: 物理步進 physicsWorld.step(fixedDt)
+        Loop->>Physics: 車輛懸吊更新 vehPhysics.update(fixedDt)
+        Loop->>Loop: 扣除 fixedDt
+    end
+
+    Loop->>Systems: 依據渲染幀推進邏輯 (玩家控制器、相機平滑、NPC動畫)
+    Loop->>Loop: 自動動態調頻 (_autoQuality: 監測 FPS 並調整 PixelRatio)
+    Loop->>Three: 畫面繪製 renderer.render(scene, camera)
+    Three-->>Browser: 呈現畫面
+```
+
+### 1. 固定時間步長 (Fixed Timestep)
+- **物理步長設定**：固定為 `1 / 60` 秒（約 16.67ms），不受螢幕高刷新率（如 144Hz 或 240Hz）影響。
+- **防止卡頓螺旋 (Spiral of Death)**：若累積延遲超過上限（如 100ms），強制捨棄累積量，避免物理引擎連續補算造成畫面永久凍結。
+
+### 2. 動態畫質調頻 (Dynamic Quality Scaling)
+- `GameLoop` 內部維持移動平均 FPS 監控：
+  - 當幀率持續低於 35 FPS 時，自動縮減 `renderer.setPixelRatio`（最低降至 0.75x），並停用非關鍵後製輝光。
+  - 當幀率穩定維持 58 FPS 以上時，平滑調升畫質至裝置原生解析度。
+
+---
+
+## 五、 雙 WebAssembly 運算子系統 (Dual WASM Architecture)
+
+YanlinGTA 在追求流暢度與真實度的同時，策略性地導入雙 WebAssembly 引擎：
+
+```mermaid
+graph TD
+    subgraph Host["瀏覽器主執行緒 (JavaScript ES2024)"]
+        GameLogic["遊戲核心邏輯"]
+        ThreeScene["Three.js 渲染管線"]
+    end
+
+    subgraph WASM1["物理子系統：Rapier 3D WASM"]
+        RigidBody["剛體動力學 (Rigid Bodies)"]
+        Raycast["地表高程射線查詢 (Raycasting)"]
+        Suspension["車輛四輪/雙輪懸吊模擬"]
+    end
+
+    subgraph WASM2["圖形計算子系統：Rust WASM Kernels"]
+        FBM["FBM 分形噪聲生成 (18.1x 加速)"]
+        Normal["高度圖轉法線貼圖 (2.3x 加速)"]
+        Fallback["純 JS Fallback (精度雙向校驗)"]
+    end
+
+    GameLogic <-->|共享記憶體 / C-ABI| WASM1
+    ThreeScene <-->|Direct Buffer 傳遞| WASM2
+```
+
+### 1. Rapier 3D 物理引擎 (Physics Subsystem)
+- **架構優勢**：採用 Rust 編譯的 `@dimforge/rapier3d-compat` WASM 模組，提供極致穩定的連續碰撞檢測（CCD）與剛體計算。
+- **機車懸吊物理 (`src/physics/VehPhysics.js`)**：
+  - 模擬 SYM JET SL 的車重、轉向幾何（Caster Angle）、傾角回正力矩與輪胎抓地力曲線。
+
+### 2. Rust WASM 圖形計算核心 (`tools/wasm-kernels/`)
+- **應用場景**：遊戲啟動時需程序化生成校園柏油路面、人行道花崗岩、操場 PU 跑道等數十張高解析度貼圖。
+- **效能比對基準**（由 `npm run test:wasm` 自動驗收）：
+  - **FBM 噪聲生成**：Rust WASM 耗時 256 ms vs 純 JS 耗時 4,628 ms（**18.1 倍效能躍升**）。
+  - **法線貼圖計算**：Rust WASM 耗時 6,955 ms vs 純 JS 耗時 15,998 ms（**2.3 倍效能躍升**）。
+- **零誤差雙保險 (Bit-for-bit Equivalence)**：
+  - 在無法載入 WASM 的極端環境下，`src/graphics/Textures.js` 提供 100% 相同演算法的純 JavaScript 實作，數值誤差嚴格限制為 0。
+
+---
+
+## 六、 資料儲存與世界持久化 (Data & State Persistence)
+
+```mermaid
+flowchart LR
+    subgraph RuntimeState["遊戲運行時狀態"]
+        PlayerPos["玩家位置與坐騎"]
+        Votes["得票數與任務階段"]
+        Wallet["Peach Pay 餘額與庫存"]
+        Stocks["股市持股與交易紀錄"]
+        NPCsState["NPC 好感度與解鎖狀態"]
+    end
+
+    subgraph SaveSystem["SaveSystem.js (版本 v1)"]
+        Validator["結構與範圍校驗器"]
+        Serializer["JSON 序列化與字串壓制"]
+    end
+
+    subgraph Storage["瀏覽器持久層"]
+        LS["localStorage: 'yanlinGTA.save.v1'"]
+        LearnStorage["localStorage: 'yanlinGTA.learn.v1'"]
+    end
+
+    RuntimeState --> SaveSystem
+    SaveSystem --> LS
+    SaveSystem -.->|資管學堂進度獨立存儲| LearnStorage
+```
+
+1. **版本化存檔結構**：存檔金鑰帶有版本後綴（`v1`），載入時若發現舊版資料自動執行結構遷移（Migration），防止改版破壞玩家進度。
+2. **容錯與重設**：若 LocalStorage 損壞或被手動竄改，`SaveSystem` 會優雅回退至預設初始狀態（Default State）並通知 HUD 彈窗，避免遊戲啟動崩潰。
+3. **分區存儲隔離**：迷你遊戲「資管學堂（iCode）」的練習進度與主遊戲解耦，獨立存放於專屬金鑰中。
+
+---
+
+## 七、 總結
+
+YanlinGTA 的現代架構藉由清楚的 7 層邊界劃分、單向無環依賴、固定時脈物理循環與高效能雙 WASM 運算，兼顧了校園開放世界的探索樂趣與軟體工程的高標準。後續所有新功能與劇情擴充，均應嚴格遵守本架構規範。

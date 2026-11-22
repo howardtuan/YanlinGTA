@@ -62,7 +62,7 @@ const cfg = {
 const KNOWN_NOISE = [
   { re: /Unsupported LanguageModel API languages/, why: 'js/nano.js probes Gemini Nano with languages:["zh"] first and falls back to "en" on purpose; Chrome logs the rejected probe as an error' },
 ];
-const STORY = ['序章 · 投票前一天（走到系館）', '任務一 · 傳單大作戰（5 個公布欄 + 回報）', '任務二 · 早餐補給（夜市那條街來回）', '任務三 · 掃街拉票（15 張傳單票）', '任務四 · 布條保衛戰（6 站依序）', '終章 · 政見發表會', '結局'];
+const STORY = ['序章 · 投票前一天（走到系館）', '任務一 · 傳單大作戰（5 個公布欄 + 回報）', '任務二 · 早餐補給（夜市那條街來回）', '任務三 · 掃街拉票（15 張傳單票）', '任務四 · 布條保衛戰（6 站依序）', '任務五 · 布條失竊案（舊家電腦 SQL 破案）', '終章 · 政見發表會', '結局'];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const t0 = Date.now();
@@ -146,6 +146,12 @@ async function main() {
         else if (e.type === 'unreachable') say(`!! objective ${e.name} (${e.x}, ${e.z}) cannot be entered: nearest reachable point ${e.closestDist} m away > radius ${e.radius} m${e.insideCollision ? ', target is inside building collision' : ''}`);
         else if (e.type === 'webgl-context-lost') { report.webglContextLost = true; say('!! WebGL context lost' + (e.atInstall ? ' (already at start)' : '') + ' - nothing is drawn; game logic keeps running'); }
         else if (e.type === 'cp-order') say(`   order: ${e.plan.join(' → ')} (${e.pathM} m)`);
+        else if (e.type === 'terminal') say(`   terminal> ${e.cmd}  (clues ${e.clues})`);
+        else if (e.type === 'yh-walk') say(`   walking ${e.dir > 0 ? 'in to the desk' : 'out to the street'} from waypoint ${e.from}`);
+        else if (e.type === 'yh-garry') say('!! wandered into 黃蓋瑞\'s flat next door, walking back to the landing');
+        else if (e.type === 'use-pc') say('   E: use the computer');
+        else if (e.type === 'pc-off') say(`   computer switched off (case ${e.solved ? 'solved' : 'not solved'})`);
+        else if (e.type === 'case-unsolved' || e.type === 'case-no-console') say(`!! ${e.type}`, JSON.stringify(e.clues || ''));
         else if (e.type === 'ending') say(`ENDING reached: ${e.votes} votes, play time ${e.playTime.toFixed(1)}s`);
         else if (cfg.debug && ['reverse', 'replan', 'sidestep', 'mount', 'dismount', 'flyer', 'paused', 'close-phone'].includes(e.type)) say('   .', JSON.stringify(e));
       }

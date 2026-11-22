@@ -4,12 +4,15 @@
 
 - `lixing-1f.svg`：力行宿舍一樓
 - `lixing-2f.svg`：力行宿舍二樓
-- `sac-1f.svg`～`sac-4f.svg`：學生活動中心一到四樓（配置大多是推測，待確認；B1 沒有出圖）
+- `sac-b1.svg`：學生活動中心 B1（樓梯廳、學習區、學餐攤販、麥當勞；麥當勞店內格局待確認）
+- `sac-1f.svg`～`sac-4f.svg`：學生活動中心一到四樓（配置大多是推測，待確認）
 - `README.md`：這份說明
 
 ![力行宿舍一樓](lixing-1f.svg)
 
 ![力行宿舍二樓](lixing-2f.svg)
+
+![學生活動中心 B1](sac-b1.svg)
 
 ![學生活動中心一樓](sac-1f.svg)
 
@@ -115,8 +118,10 @@ node tools/floorplan/make.mjs sac all
 
 - `build()` 照遊戲的順序先呼叫 `zoneGTerrain`（挖下沉廣場的坑）、`buildSacB1`（旋轉梯在這裡）再呼叫 `buildSac`，一樓和二樓才看得到旋轉梯。
 - `plan()` 回傳 `autoLabels: true`，門牌和招牌照自動標示；教室裡的海報、指示牌這類不該當房間名稱的字，在 `plan()` 開頭從 `sl.texts` 濾掉。
-- 沒有出 B1：學餐攤販和麥當勞的牆走世界碰撞（不是 `Interiors.addWall`），麥當勞又蓋在 `src/world/Interiors.js` 裡，這個工具切不出完整的一層。
-- 這四張的配置大多是推測（找不到平面圖，空間名稱取自課指組的場地借用說明），圖上的「待確認」要等使用者看過才能拿掉。
+- B1 西半（樓梯廳、學習區、學餐攤販）在 `SacB1.js`，東半是麥當勞。麥當勞的 `buildMcD` 寫在 `src/world/Interiors.js` 裡沒有匯出，用 `env.gamePrivate('src/world/Interiors.js', ['buildMcD'])` 取（工具在載入時替這份副本補上匯出，遊戲的檔案不用改）。
+- 學餐攤販在廣場底下，牆是用世界高度登記在世界碰撞（`collision.addSegment`），不是 `Interiors.addWall`；把 `env.worldWalls` 當成 `collision` 傳給 `buildSacB1`，這些牆就會一起進平面圖。
+- 樓層可以各自帶 `scale`、`cut`、`note`、`source`：B1 比較小，用 `scale: 18`；`cut: 0.6` 讓 0.76 公尺高的書桌也畫得出來。
+- 一到四樓的配置大多是推測（找不到平面圖，空間名稱取自課指組的場地借用說明），圖上的「待確認」要等使用者看過才能拿掉。
 
 ## 常見問題
 

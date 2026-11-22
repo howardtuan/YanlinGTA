@@ -63,6 +63,8 @@ function textIn(cv, x0, y0, x1, y1) {
 export async function makeEnv() {
   installDom();
   const game = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
+  // a second copy of a game module that also exports the named private functions (see hooks.mjs); what it imports is shared
+  const gamePrivate = (rel, names) => import(`${pathToFileURL(path.join(ROOT, rel)).href}?fp-export=${names.join(',')}`);
   const THREE = await import('three');
   const terrain = await game('src/world/Terrain.js');
   const kit = await game('src/world/Kit.js');
@@ -95,6 +97,9 @@ export async function makeEnv() {
   }
   // a stand-in for js/collision.js's world: the building outlines, so builders that swap an outline for wall lines find theirs
   const collision = { polys: [], segs: [], reserved: [], extra: null };
+  // walls a builder puts in the world collision with a world-height band (rooms under a deck, where the ground is not the floor):
+  // settings files that pass this to a builder get them as Interiors walls (heights above the local ground, like the others)
+  const worldWalls = { addSegment(ax, az, bx, bz, y0, y1) { const h = terrain.H((ax + bx) / 2, (az + bz) / 2); I.walls.push([ax, az, bx, bz, y0 - h, y1 - h]); } };
   for (const b of data.buildings || []) { if (!Array.isArray(b.pts)) continue; collision.polys.push({ pts: b.pts, s0: collision.segs.length, top: b.h || 0 }); for (let i = 0; i < b.pts.length; i++) collision.segs.push([0, 0, 0, 0, 0, 0]); }
-  return { ROOT, THREE, game, data, terrain, H: terrain.H, I, scene, collision, Kit: RecKit, RealKit: kit.Kit, regMat: kit.regMat, kits, texts };
+  return { ROOT, THREE, game, gamePrivate, worldWalls, data, terrain, H: terrain.H, I, scene, collision, Kit: RecKit, RealKit: kit.Kit, regMat: kit.regMat, kits, texts };
 }

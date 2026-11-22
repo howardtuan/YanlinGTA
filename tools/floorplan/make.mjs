@@ -72,8 +72,8 @@ for (const floor of list) {
       put.push({ text: t.text.replace(/ /g, '\n'), x, z, size: 6.5 }); labels.push(put[put.length - 1]);
     }
   }
-  const scale = Number(opt.scale) || cfg.scale || 8;
-  const meta = { title: opt.title || `${cfg.name} ${floor.name}平面圖`, note: opt.note ?? cfg.note ?? '', date: opt.date || today, source: cfg.source, cut: floor.cut ?? 1, level: floor.y };
+  const scale = Number(opt.scale) || floor.scale || cfg.scale || 8;
+  const meta = { title: opt.title || `${cfg.name} ${floor.name}平面圖`, note: opt.note ?? floor.note ?? cfg.note ?? '', date: opt.date || today, source: floor.source || cfg.source, cut: floor.cut ?? 1, level: floor.y };
   const svg = renderSvg({ sl, cells, zones: plan.zones || [], labels, frame, meta, opts: { scale, debug: opt.debug, legend: plan.legend, zoneNames: plan.zoneNames, bounds: plan.bounds, turn: cfg.turn, pad: cfg.pad, tick: cfg.tick } });
   let out = opt.out ? path.resolve(opt.out) : path.join(ROOT, 'docs/floorplans', `${cfg.id}-${floor.id}.svg`);
   if (opt.out && (list.length > 1 || !out.endsWith('.svg'))) out = path.join(out, `${cfg.id}-${floor.id}.svg`);

@@ -11,3 +11,12 @@ export async function resolve(specifier, context, nextResolve) {
   }
   return nextResolve(specifier, context);
 }
+
+// Builders that the game keeps private to a big module (e.g. buildMcD in src/world/Interiors.js) are exported for the
+// plan tool here, so the game's files stay untouched: a settings file asks for them with env.gamePrivate().
+export async function load(url, context, nextLoad) {
+  const r = await nextLoad(url, context);
+  const m = /[?&]fp-export=([\w,]+)/.exec(url);
+  if (m && r.source != null) return { ...r, source: `${r.source}\nexport { ${m[1].split(',').join(', ')} };\n` };
+  return r;
+}

@@ -25,8 +25,9 @@ import { groundY } from '../Terrain.js';
 export const ARCH_ID = 'w392023416', YUS_ID = 'w392023417', DES_ID = 'w587171779';
 export const WANG_ID = 'w587175198', LAND_ID = 'w587175193', AI_ID = 'w587175196';   // 望樓、景觀系館（信樓）、室設館（愛樓）
 const AI_S = [[277.5, 220.3], [238.3, 207.9]];     // 愛樓南面（東→西），入口在西段、對著庭院
-const AI_ENT = 28.8;                               // 入口中心（從東端算）
-const AI_FL = 3.3;                                 // 4F／13.8 m：(13.8 − 0.6) / 4
+const AI_STAIR = 4.8;                              // 西端深灰洗石子樓梯間的寬度
+const AI_BOX = { w: 9.8, d: 1.4 };                 // 入口白色方框量體：緊貼樓梯間東邊，往外凸 1.4 m
+const AI_H = 10.5;                                 // 相片量出來是 3 層（OSM 寫 levels 3、overrides 原本改成 4F／13.8 m）
 const WANG_W = [[256.8, 265.7], [269.9, 220.4]];   // 望樓西面（南→北），入口在正中
 const LAND_N = [[219.6, 258.1], [259.1, 269.8]];   // 信樓北面（西→東），玄關在西段、對著榕樹和設計學院廣場
 const FL3 = 3.3;                                   // 3F／10.5 m 在 map.js lookWalls 的層高：(10.5 − 0.6) / 3
@@ -102,7 +103,7 @@ export function applyZoneE(b) {
       wall: { base: 'tile', colour: '#d9d6dc' },
       windows: { type: 'pair', bay: 3.4, accent: '#6d5a40', glass: '#4f5a62' },
       parapet: { h: 0.35, colour: '#9fc8d4' },
-      roof: { colour: '#5f7a55' },
+      roof: { colour: '#5f7a55', ac: false },   // 屋頂是天窗箱（自建），冷氣照抽亂數但不畫
     };
   } else if (b.id === LAND_ID) {
     // 一樓灰色清水混凝土、二樓以上白小方磚；混凝土柱、樓板帶外露；青綠玻璃條窗；屋頂青綠防水層
@@ -116,14 +117,15 @@ export function applyZoneE(b) {
       roof: { colour: '#4f8f7c' },
     };
   } else if (b.id === AI_ID) {
-    // 灰白清水混凝土／粉光（沒有磁磚縫，不是米黃）、深灰鋁框窗；南面一樓整排深灰鋁框落地窗帶＋氣窗，
-    // 上面一條 0.65 m 水泥門楣橫帶（掛「愛樓」）。樓層數維持 4F。屋頂淺灰綠
+    // 3 層（室設系官網 2026 整棟南立面照：一樓入口層＋兩層樓；系網「愛樓三樓圖學工作室」）。灰色清水混凝土粉光、
+    // 深灰近黑窗框；兩個長面二、三樓的窗（每層上下兩排＋淺藍窗下板）自建，MapBuilder 那兩層不畫窗；西端是深灰
+    // 洗石子樓梯間。屋頂淺灰綠
+    b.h = AI_H; b.floors = 3;
     b.look = {
-      wall: { base: 'smooth', colour: '#cfd2d1' },
-      windows: { type: 'punched', bay: 3.6, accent: '#4b4f52', glass: '#4a565c' },
-      faces: [{ on: 's', windows: { ground: 'curtain' }, accent: '#4b4f52', glass: '#7d8a8e' }],
-      bands: [{ on: 's', colour: '#c9ccca', at: 0, h: 0.65, depth: 0.22, from: 1, to: 1 }],
-      parapet: { h: 0.5, colour: '#c6c9c7' },
+      wall: { base: 'smooth', colour: '#b9bcbb' },
+      windows: { type: 'punched', bay: 3.6, accent: '#34383b', glass: '#4a565c' },
+      faces: [{ on: 'long', windows: { type: 'none', ground: 'punched' } }, { on: 'w', colour: '#5c5c57', windows: { type: 'slit' } }],
+      parapet: { h: 0.3, colour: '#b4b7b6' },
       roof: { colour: '#b8bfae' },
     };
   }
@@ -342,18 +344,53 @@ const landNameTex = () => ctex('zeLandName', 1024, 96, (g, W, Hh) => {
   g.fillStyle = '#f2efe6'; g.fillText('Department of Landscape Architecture', 4, Hh / 2);
 }, false);
 
-// 「愛樓」深灰字（照片由左往右讀），兩字分得很開
-const aiSignTex = () => ctex('zeAiSign', 1024, 128, (g, W, Hh) => {
-  g.font = '900 104px "Kaiti TC","BiauKai","STKaiti","Noto Serif TC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (const [ch, x] of [['愛', W * 0.2], ['樓', W * 0.8]]) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText(ch, x + 2, Hh / 2 + 3); g.fillStyle = '#3a3a38'; g.fillText(ch, x, Hh / 2); }
+// 「愛樓」深灰金屬字（由左往右讀）
+const aiSignTex = () => ctex('zeAiSign', 512, 128, (g, W, Hh) => {
+  g.font = '900 100px "Kaiti TC","BiauKai","STKaiti","Noto Serif TC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (const [ch, x] of [['愛', W * 0.27], ['樓', W * 0.73]]) { g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillText(ch, x + 3, Hh / 2 + 4); g.fillStyle = '#4a4a48'; g.fillText(ch, x, Hh / 2); }
 }, false);
-// 愛樓退縮入口：深灰鋁框對開玻璃門、裡面暖光、上面一排氣窗
-const aiDoorTex = () => ctex('zeAiDoor', 384, 320, (g, W, Hh) => {
-  const gr = g.createLinearGradient(0, 0, 0, Hh); gr.addColorStop(0, '#6b6253'); gr.addColorStop(1, '#2c2a26'); g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
-  g.fillStyle = 'rgba(255,214,140,0.55)'; g.fillRect(0, 60, W, 18);                               // 天花板燈帶
-  g.fillStyle = '#5d8a6a'; g.fillRect(W * 0.55, 120, 70, 50);                                      // 裡面的綠色海報
-  g.fillStyle = '#3d4144'; g.fillRect(0, 0, W, 10); g.fillRect(0, 86, W, 8); g.fillRect(0, Hh - 8, W, 8);
-  for (const x of [0, W / 4, W / 2 - 4, (3 * W) / 4, W - 10]) g.fillRect(x, 0, 10, Hh);
+// 愛樓入口方框裡的整面霧面玻璃：深灰鋁框、上面一排氣窗、中間對開門
+const aiFrontTex = () => ctex('zeAiFront', 1024, 320, (g, W, Hh) => {
+  const gr = g.createLinearGradient(0, 0, 0, Hh); gr.addColorStop(0, '#d3d7d6'); gr.addColorStop(1, '#b3b8b8'); g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
+  const r = lcg(71); for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${r() * 0.12})`; g.fillRect(r() * W, r() * Hh, 40 + r() * 80, Hh); }
+  g.fillStyle = '#3d4144'; g.fillRect(0, 0, W, 8); g.fillRect(0, Hh - 10, W, 10); g.fillRect(0, 62, W, 7);
+  for (let i = 0; i <= 10; i++) g.fillRect(Math.min(W - 8, i * W / 10 - (i ? 4 : 0)), 0, 8, 66);                         // 氣窗直料
+  for (const x of [0, 0.115, 0.19, 0.265, 0.34, 0.415, 0.585, 0.66, 0.735, 0.81, 0.885, 1]) g.fillRect(Math.min(W - 8, Math.max(0, x * W - 4)), 62, 8, Hh);
+  g.fillRect(W * 0.415, 62, W * 0.17, 5); g.fillRect(W * 0.5 - 4, 62, 8, Hh);                                           // 門
+  g.fillStyle = '#9aa0a0'; g.fillRect(W * 0.5 - 22, 190, 6, 44); g.fillRect(W * 0.5 + 16, 190, 6, 44);
+  for (const x of [0.02, 0.9]) { g.fillStyle = '#3d4144'; g.fillRect(x * W, 150, 0.08 * W, 6); g.fillRect(x * W, 215, 0.08 * W, 6); }   // 兩側的推射窗
+}, false);
+// 愛樓二、三樓一個開間（約 4.5 × 3.3 m）：灰色清水混凝土、兩樘窗各分上下兩排、窗下淺藍板、開間邊一根白色排水管
+const aiBayTex = () => ctex('zeAiBay', 384, 256, (g, W, Hh) => {
+  const r = lcg(73); g.fillStyle = '#b9bcbb'; g.fillRect(0, 0, W, Hh);
+  for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '70,72,72' : '235,238,238'},${r() * 0.1})`; g.fillRect(r() * W, r() * Hh, 2 + r() * 6, 1 + r() * 3); }
+  g.fillStyle = 'rgba(70,72,72,0.28)'; g.fillRect(0, Hh - 2, W, 2); g.fillRect(W / 2, 0, 1, 20); g.fillRect(W / 2, 208, 1, 48);   // 模板分割線
+  for (const cx of [0.3, 0.7]) {
+    const x0 = (cx - 0.15) * W, w = 0.3 * W;
+    g.fillStyle = '#bfdfe0'; g.fillRect(x0, 150, w, 56);                                                                  // 淺藍窗下板
+    for (const [y0, h] of [[22, 48], [82, 68]]) {
+      g.fillStyle = '#2e3134'; g.fillRect(x0, y0, w, h);
+      const gr = g.createLinearGradient(0, y0, 0, y0 + h); gr.addColorStop(0, '#7d8a8e'); gr.addColorStop(1, '#4a565c'); g.fillStyle = gr;
+      g.fillRect(x0 + 4, y0 + 4, w / 2 - 6, h - 8); g.fillRect(x0 + w / 2 + 2, y0 + 4, w / 2 - 6, h - 8);
+      if (r() < 0.7) { g.fillStyle = 'rgba(214,196,160,0.75)'; g.fillRect(x0 + (r() < 0.5 ? 4 : w / 2 + 2), y0 + 4, w / 2 - 6, h - 8); }  // 窗簾
+    }
+  }
+  g.fillStyle = '#e4e6e4'; g.fillRect(2, 0, 7, Hh); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(9, 0, 2, Hh);              // 排水管
+}, false);
+// 愛樓西端的深灰洗石子樓梯間（4.8 × 10.5 m）：窗的高度和主體錯開，一樓有百葉門和金色樓層指示牌
+const aiStairTex = () => ctex('zeAiStair', 256, 512, (g, W, Hh) => {
+  const r = lcg(79); g.fillStyle = '#4c4c48'; g.fillRect(0, 0, W, Hh);
+  for (let i = 0; i < 6000; i++) { const v = 40 + r() * 110; g.fillStyle = `rgba(${v},${v},${v - 4},0.5)`; g.fillRect(r() * W, r() * Hh, 1.5, 1.5); }
+  g.fillStyle = 'rgba(20,20,20,0.5)'; for (let y = 0; y < Hh; y += 64) g.fillRect(0, y, W, 2);
+  for (const y0 of [70, 215, 330]) {
+    g.fillStyle = '#26282a'; g.fillRect(36, y0, 190, 62);
+    const gr = g.createLinearGradient(0, y0, 0, y0 + 62); gr.addColorStop(0, '#6f7c80'); gr.addColorStop(1, '#3d484d'); g.fillStyle = gr;
+    for (let i = 0; i < 3; i++) g.fillRect(40 + i * 62, y0 + 4, 58, 54);
+    g.fillStyle = 'rgba(214,196,160,0.6)'; g.fillRect(40 + Math.floor(r() * 3) * 62, y0 + 4, 58, 54);
+  }
+  g.fillStyle = '#2c2d2c'; g.fillRect(36, 410, 190, 22);                                                                  // 一樓橫窗
+  g.fillStyle = '#6a6359'; g.fillRect(30, 446, 56, 66); g.fillStyle = 'rgba(20,20,20,0.6)'; for (let y = 450; y < 510; y += 6) g.fillRect(33, y, 50, 2);   // 百葉門
+  g.fillStyle = '#c9b06a'; g.fillRect(118, 440, 100, 56); g.fillStyle = '#efe9d8'; for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) g.fillRect(124 + i * 31, 446 + j * 12, 26, 8);   // 樓層指示牌
 }, false);
 
 const MATS = {};
@@ -397,19 +434,27 @@ function mat(key) {
     // 望樓、信樓
     wangBlue: () => std({ color: '#9fc8d4', roughness: 0.75 }),
     wangWall: () => std({ map: wangTileTex(), roughness: 0.8 }),
+    wangPanel: () => std({ color: '#7a7480', roughness: 0.7 }),                 // 窗下深灰褐板
+    wangPipe: () => std({ color: '#b4b1b8', roughness: 0.6 }),                  // 開間柱上的排水管
+    wangRoofGrey: () => std({ color: '#8d9296', roughness: 0.7, side: THREE.DoubleSide }),
+    wangRoofTile: () => std({ color: '#b5694a', roughness: 0.85, side: THREE.DoubleSide }),
+    wangGable: () => std({ color: '#d9d6dc', roughness: 0.8, side: THREE.DoubleSide }),
     wangGrid: () => glow({ map: wangGridTex(), roughness: 0.2, metalness: 0.35, emissiveMap: wangGridTex() }),
     wangDoor: () => glow({ map: wangDoorTex(), roughness: 0.2, metalness: 0.35, emissiveMap: wangDoorTex() }),
     deckWood: () => std({ map: plankTex(), color: '#8e887e', roughness: 0.9 }),        // 曬舊的灰褐木板
     boardWall: () => std({ map: boardTex(), roughness: 0.85 }),
     pebble: () => std({ map: pebbleTex(), roughness: 0.95 }),
-    landOrange: () => std({ color: '#e2702e', roughness: 0.6 }),
+    landOrange: () => std({ color: '#d5612c', roughness: 0.6 }),
     lime: () => std({ color: '#7ba23a', metalness: 0.35, roughness: 0.45 }),
     landPorch: () => glow({ map: landPorchTex(), roughness: 0.3, metalness: 0.2, emissiveMap: landPorchTex() }, 0.6),
     bark: () => std({ map: washTex(), color: '#8a7f6c', roughness: 0.95 }),
     canopy: () => std({ color: '#3f6d2d', roughness: 0.95 }),
     canopy2: () => std({ color: '#53823a', roughness: 0.95 }),
     canopy3: () => std({ color: '#2f5a24', roughness: 0.95 }),
-    aiDoor: () => glow({ map: aiDoorTex(), roughness: 0.25, metalness: 0.3, emissiveMap: aiDoorTex() }, 0.8),
+    aiFront: () => glow({ map: aiFrontTex(), roughness: 0.35, metalness: 0.1, emissiveMap: aiFrontTex() }, 0.5),
+    aiBay: () => glow({ map: aiBayTex(), roughness: 0.7, emissiveMap: aiBayTex() }, 0.25),
+    aiStair: () => glow({ map: aiStairTex(), roughness: 0.9, emissiveMap: aiStairTex() }, 0.2),
+    aiWhite: () => std({ color: '#e9e9e5', roughness: 0.7 }),
     aiAlu: () => std({ color: '#43474a', metalness: 0.5, roughness: 0.45 }),
     aiCon: () => std({ map: washTex(), color: '#d2d4d2', roughness: 0.9 }),
     acUnit: () => std({ color: '#e6e6e2', roughness: 0.6 }),
@@ -478,7 +523,8 @@ class Acc {
     }
   }
 }
-// 擋人的矩形（沿邊 e）
+// 擋人的矩形（沿邊 e）。Interiors 的牆高、地面高都是「相對地面」（src/physics/PhysWorld.js 會加牆中點的地面高；
+// Kit.js resolve 用玩家離地高度比），所以 y0、y1 給離地高度，不要給世界座標
 function blockOn(I, e, s0, s1, o0, o1, y0, y1) {
   const c = rectOn(e, s0, s1, o0, o1); for (let i = 0; i < 4; i++) { const a = c[i], b = c[(i + 1) % 4]; I.addWall(a[0], a[1], b[0], b[1], y0, y1); }
 }
@@ -513,12 +559,12 @@ function buildArch(k, I, b, group) {
   for (const s of [L * 0.25, L * 0.5, L * 0.75]) k.onEdge('white', ent, s - 0.15, s + 0.15, 1.2, 1.5, Y(Y0 - 0.03), Y(Y0 - 0.01));
   // 前院：靠高牆那側的長方形矮花台（修剪灌木）、沿爬藤方塊的粗洗石子矮牆＋門牌「15」
   const yg = (s, o) => { const p = ent.at(s, o); return groundY(p[0], p[1]); };
-  { const s = 1.0, gy0 = yg(s + 2.5, 4) - 0.1; k.onEdge('conc', ent, s, s + 5, 3.4, 4.6, gy0, gy0 + 0.55, 2); k.onEdge('shrub', ent, s + 0.15, s + 4.85, 3.55, 4.45, gy0 + 0.55, gy0 + 0.95); blockOn(I, ent, s, s + 5, 3.4, 4.6, gy0, gy0 + 0.95); }
+  { const s = 1.0, gy0 = yg(s + 2.5, 4) - 0.1; k.onEdge('conc', ent, s, s + 5, 3.4, 4.6, gy0, gy0 + 0.55, 2); k.onEdge('shrub', ent, s + 0.15, s + 4.85, 3.55, 4.45, gy0 + 0.55, gy0 + 0.95); blockOn(I, ent, s, s + 5, 3.4, 4.6, -0.5, 0.95); }
   const ivyR = edge([88.8, 249.3], [81.1, 246.3]);                         // 爬藤方塊朝南的側牆（前院北邊）
   {
     // 方塊側牆前一條草地，外緣是粗洗石子矮牆，西端掛門牌「15」（2025 相片左下）。方塊西面緊貼校內路，那邊不放
     const gy0 = Math.min(groundY(...ivyR.at(0, 2.2)), groundY(...ivyR.at(ivyR.l, 2.2))) - 0.1;
-    k.onEdge('conc', ivyR, 0, ivyR.l + 0.2, 2.0, 2.4, gy0, gy0 + 0.85, 2); blockOn(I, ivyR, 0, ivyR.l + 0.2, 2.0, 2.4, gy0, gy0 + 0.85);
+    k.onEdge('conc', ivyR, 0, ivyR.l + 0.2, 2.0, 2.4, gy0, gy0 + 0.85, 2); blockOn(I, ivyR, 0, ivyR.l + 0.2, 2.0, 2.4, -0.5, 0.85);
     k.onEdge('conc', ivyR, ivyR.l - 0.2, ivyR.l + 0.2, 0, 2.0, gy0, gy0 + 0.85, 2);
     k.onEdge('leaf', ivyR, 0.1, ivyR.l - 0.2, 0.15, 2.0, gy0 + 0.55, gy0 + 0.65);
     const w = edge([81.1, 246.3], [84.2, 238.5]), p = ivyR.at(ivyR.l + 0.22, 1.5), pl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), textMat(plateTex('15')));
@@ -557,7 +603,7 @@ function buildArch(k, I, b, group) {
       const A = e.at(sa, oa), B = e.at(sb, ob), f = edge(A, B);
       k.face('fence', f, 0, f.l, 0, gy0 + 0.1, gy0 + 3.1, 1.6);
       k.onEdge('steel', f, 0, f.l, -0.03, 0.03, gy0 + 3.1, gy0 + 3.16);
-      I.addWall(A[0], A[1], B[0], B[1], gy0, gy0 + 3.2);
+      I.addWall(A[0], A[1], B[0], B[1], -0.5, 3.2);
     }
     // 紅白警示柱（圍籬朝路那面兩根）和紅牌
     for (const ds of [-0.9, 0.9]) { const p = e.at(s + ds, o + w / 2 + 0.25); k.cyl('stripe', p[0], p[1], 0.07, gy0, gy0 + 1.2, 10); }
@@ -583,7 +629,7 @@ function buildYusheng(k, I, b, group) {
     piers.forEach((s, i) => {
       const w = i === 0 || i === piers.length - 1 ? 1.0 : 0.8, s0 = Math.max(0, s - w / 2), s1 = Math.min(e.l, s + w / 2);
       k.onEdge('washY', e, i === 0 ? -D : s0, i === piers.length - 1 ? e.l : s1, -0.05, D, Y(-0.4), Y(top + 0.3), 4);
-      if (i > 0 && i < piers.length - 1) blockOn(I, e, s0, s1, 0, D, Y(-0.5), Y(4));
+      if (i > 0 && i < piers.length - 1) blockOn(I, e, s0, s1, 0, D, -0.5, 4);
     });
     // 樓板梁和頂上的牆帶
     for (let f = 1; f < 4; f++) {
@@ -629,7 +675,7 @@ function buildYusheng(k, I, b, group) {
       const g0 = Math.min(groundY(...e.at(0, o1)), groundY(...e.at(s1, o1)));
       const yt = Math.max(Y(h), g0 + 0.12);
       k.onEdge('granite', e, 0, s1, o0, o1, g0 - 0.3, yt, 2);
-      I.addSurface(rectOn(e, 0, s1, o0, o1), yt);
+      I.addSurface(rectOn(e, 0, s1, o0, o1), (x, z) => yt - groundY(x, z));
     }
     // 門牌 16（西端台階旁的灰色矮柱）
     const p = e.at(-0.9, 1.6), gy = groundY(p[0], p[1]); k.obox('concDark', p[0], p[1], e.ang, 0.8, 0.5, gy, gy + 1.0);
@@ -693,7 +739,7 @@ function buildDesign(k, I, b, group) {
   for (let i = 1; i < N; i++) {
     const s = eE.l * i / N, p = outE(s, E - 0.25), gy = groundY(p[0], p[1]) - 0.1;
     k.obox('black', p[0], p[1], eE.ang, 0.16, 0.16, gy, h, null);
-    I.addWall(p[0] - 0.1, p[1] - 0.1, p[0] + 0.1, p[1] + 0.1, gy, h);
+    I.addWall(p[0] - 0.1, p[1] - 0.1, p[0] + 0.1, p[1] + 0.1, -0.5, h - gy);
   }
   k.onEdge('black', eE, 0, eE.l, -(E - 0.17), -(E - 0.33), h - 0.35, h - 0.12);        // 簷下橫梁
   // 入口（北起第 3 個山牆）：外凸的黑框玻璃門廳、白底「設計學院」招牌
@@ -709,7 +755,7 @@ function buildDesign(k, I, b, group) {
     const p = fr.at(fr.l / 2, 0.12), m = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.75), textMat(desSignTex(), 0.08));
     m.position.set(p[0], yTop + 0.55, p[1]); m.rotation.y = Math.atan2(fr.nx, fr.nz); group.add(m);
     const bk = fr.at(fr.l / 2, 0.06); k.obox('black', bk[0], bk[1], fr.ang, 2.7, 0.06, yTop + 0.15, yTop + 0.95);
-    blockOn(I, eE, sA, sB, -dep, 0, gy, yTop);
+    blockOn(I, eE, sA, sB, -dep, 0, -0.5, yTop - gy);
   }
   // 東側廣場：紅磚與灰磚相間的鋪面、粗石座椅、造型松盆栽
   {
@@ -719,7 +765,7 @@ function buildDesign(k, I, b, group) {
     const rnd = lcg(18);
     for (const [s, o, sc] of [[eE.l * 0.55, 6.5, 1], [eE.l * 0.8, 7.5, 0.9]]) {
       const p = outE(s, o), gy = groundY(p[0], p[1]); k.blob('granite', p[0], gy + 0.3, p[1], 1.0 * sc, 0.42, 0.45 * sc);
-      I.addWall(p[0] - 0.8, p[1], p[0] + 0.8, p[1], gy, gy + 0.5);
+      I.addWall(p[0] - 0.8, p[1], p[0] + 0.8, p[1], -0.5, 0.5);
     }
     for (const s of [eE.l * 0.62, eE.l * 0.9]) {
       const p = outE(s, 2.4), gy = groundY(p[0], p[1]);
@@ -732,7 +778,7 @@ function buildDesign(k, I, b, group) {
   for (let i = 1; i < N; i += 2) {
     const s = eW.l * i / N, p = eW.at(s, E - 0.25), gy = groundY(p[0], p[1]) - 0.1;
     k.obox('black', p[0], p[1], eW.ang, 0.16, 0.16, gy, h, null);
-    I.addWall(p[0] - 0.1, p[1] - 0.1, p[0] + 0.1, p[1] + 0.1, gy, h);
+    I.addWall(p[0] - 0.1, p[1] - 0.1, p[0] + 0.1, p[1] + 0.1, -0.5, h - gy);
   }
 }
 
@@ -746,6 +792,9 @@ function buildDesign(k, I, b, group) {
 //    掛英文系名和紅字「信樓」（由右往左讀）；門前木條地板、大榕樹、弧形混凝土座椅。左段（東）二樓窗下有幾塊
 //    橘紅板。南、東、西面沒照片，照北面的外牆做法推（MapBuilder.js 的 look），不加東西。
 // 這幾棟的碰撞都在 Interiors：高度相對地面（src/physics/PhysWorld.js 會加上牆中點的地面高）。
+// 愛樓入口方框沿南面的範圍 [s0, s1]（從東端算）與前廣場
+const aiBox = () => { const l = edge(...AI_S).l; return [l - AI_STAIR - AI_BOX.w, l - AI_STAIR]; };
+const aiPlaza = () => { const e = edge(...AI_S), [s0, s1] = aiBox(); return rectOn(e, s0 - 3, Math.min(e.l + 0.5, s1 + 3), 0, 9.5); };
 const WANG_DECK = { s0: -11, s1: 11, d: 2.8 }, WANG_PATH = 19;
 const oct = (p, r) => Array.from({ length: 8 }, (_, i) => [p[0] + Math.cos(i * Math.PI / 4) * r, p[1] + Math.sin(i * Math.PI / 4) * r]);
 // 樹和灌木只隱藏、不重抽（Zones.js treeHide；不放進 reserved，免得全圖共用亂數錯位）
@@ -757,7 +806,7 @@ export function zoneETreeHide() {
     rectOn(w, c - 1.5, c + 1.5, WANG_DECK.d, WANG_PATH + 0.6),                                    // 卵石步道
     rectOn(n, LAND_BOARD[0] - 0.5, LAND_PORCH[1] + 0.6, 0, 3.0),                                   // 信樓木板牆＋玄關木地板
     oct(T, 6.2),                                                                                   // 榕樹與弧形座椅
-    rectOn(edge(...AI_S), AI_ENT - 5.5, AI_ENT + 5.5, 0, 2.4),                                     // 愛樓入口台階
+    aiPlaza(),                                                                                     // 愛樓前廣場
   ];
 }
 // 兩個 3D 點之間的圓柱（樹枝、斜扶手）
@@ -776,6 +825,23 @@ function buildWang(k, I, b, group) {
   const base = b.base, Y = y => base + y, top = b.h, w = edge(...WANG_W), c = w.l / 2;
   // 屋簷：四邊淺藍出挑簷板（蓋住女兒牆外側）
   for (let i = 0; i < b.pts.length; i++) { const e = edge(b.pts[i], b.pts[(i + 1) % b.pts.length]); if (e.l > 1) k.onEdge('wangBlue', e, -0.4, e.l + 0.4, -0.02, 0.4, Y(top - 0.22), Y(top + 0.4)); }
+  // 窗下深灰褐板（二、三樓，每個開間一塊，對著 MapBuilder 的成對窗）和開間柱上的排水管：東、西兩個長面
+  // （相片只有西面，東面照同一套做法推）
+  for (const [A, B] of [WANG_W, [b.pts[1], b.pts[2]]]) {
+    const e = edge(A, B); if (e.l < 30) continue;
+    const nb = Math.max(1, Math.round(e.l / 3.4)), bw = e.l / nb;
+    for (let i = 0; i < nb; i++) for (const f of [1, 2]) k.onEdge('wangPanel', e, (i + 0.08) * bw, (i + 0.92) * bw, 0, 0.03, Y(f * FL3 + 0.12), Y(f * FL3 + 0.98));
+    for (let i = 1; i < nb; i += 2) { if (A === WANG_W[0] && Math.abs(i * bw - c) < 4) continue; const p = e.at(i * bw, 0.09); k.cyl('wangPipe', p[0], p[1], 0.05, Y(0), Y(top), 6); }
+  }
+  // 屋頂兩個坡頂天窗箱（NLSC 2024 正射：各約 7 × 12 m，西半灰色、東半橘紅瓦，南北相距約 13 m）
+  for (const sc of [20.2, 33.0]) {
+    const s0 = sc - 6, s1 = sc + 6, oW = -3.25, oR = -7.25, oE = -10.25, y0 = Y(top), ye = y0 + 0.7, yr = y0 + 1.9;
+    const P = (ss, o, y) => { const q = w.at(ss, o); return [q[0], y, q[1]]; };
+    k.poly('wangRoofGrey', [P(s0, oW, ye), P(s1, oW, ye), P(s1, oR, yr), P(s0, oR, yr)], 2);
+    k.poly('wangRoofTile', [P(s0, oR, yr), P(s1, oR, yr), P(s1, oE, ye), P(s0, oE, ye)], 2);
+    for (const o of [oW, oE]) k.poly('wangGable', [P(s0, o, y0), P(s1, o, y0), P(s1, o, ye), P(s0, o, ye)], 2);
+    for (const ss of [s0, s1]) { k.poly('wangGable', [P(ss, oW, y0), P(ss, oE, y0), P(ss, oE, ye), P(ss, oW, ye)], 2); k.poly('wangGable', [P(ss, oW, ye), P(ss, oE, ye), P(ss, oR, yr)], 2); }
+  }
   // 淺藍陽台：樓板＋1 m 實心欄牆（相片量：二樓那條偏北、兼入口雨庇；三樓中央一段、北邊一小段）
   const balc = (s0, s1, yf, d = 1.1) => {
     k.onEdge('wangBlue', w, s0, s1, 0, d, Y(yf - 0.18), Y(yf + 0.05));
@@ -786,6 +852,7 @@ function buildWang(k, I, b, group) {
   balc(c - 1.9, c + 3.6, 2 * FL3);
   balc(c + 6.1, c + 7.8, 2 * FL3);
   textPlane(group, wangSignTex(), w, c, 1.11, Y(FL3 + 0.4), 1.5, 0.56, 0.12);        // 金字「望樓」在入口正上方
+  textPlane(group, plateTex('20'), w, c + 1.75, 0.04, Y(1.75), 0.36, 0.36);         // 入口北側門牌「20」（室設系官網 2026）
   // 二樓中央大格子窗＋百葉口（在陽台欄牆上方）
   k.face('wangGrid', w, c - 1.45, c + 1.45, 0.04, Y(FL3 + 0.78), Y(2 * FL3 - 0.2), 'stretch');
   k.onEdge('bronze', w, c - 1.52, c + 1.52, 0, 0.12, Y(2 * FL3 - 0.24), Y(2 * FL3 - 0.14));
@@ -843,8 +910,8 @@ function buildWang(k, I, b, group) {
 
 function buildLand(k, I, b, group) {
   const base = b.base, Y = y => base + y, n = edge(...LAND_N);
-  // 左段（東）二樓窗下的橘紅板，避開外露的混凝土柱
-  for (const [s0, s1] of [[26.3, 28.7], [29.0, 30.2], [33.8, 36.2], [38.25, 40.4]]) k.onEdge('landOrange', n, s0, s1, 0, 0.05, Y(FL3 + 0.3), Y(FL3 + 1.18));
+  // 左段（東）二、三樓窗下的橘紅板（2016 相片只看得到二樓，室設系官網 2026 照兩層都有），避開外露的混凝土柱
+  for (const [s0, s1] of [[26.3, 28.7], [29.0, 30.2], [33.8, 36.2], [38.25, 40.4]]) { k.onEdge('landOrange', n, s0, s1, 0, 0.05, Y(FL3 + 0.3), Y(FL3 + 1.18)); k.onEdge('landOrange', n, s0, s1, 0, 0.05, Y(2 * FL3 + 0.3), Y(2 * FL3 + 1.18)); }
   // 凹入式玄關：兩根外露混凝土柱之間，萊姆綠鋼框、裡面偏暗
   const [p0, p1] = LAND_PORCH, PH = 3.0;
   k.face('landPorch', n, p0 + 0.3, p1 - 0.3, 0.03, Y(-0.3), Y(PH), 'stretch');
@@ -907,25 +974,35 @@ function buildLand(k, I, b, group) {
 }
 
 // ---------------- 室設館（愛樓） ----------------
-// 依據：室設系官網 SEIDF 2023 合照（正面入口）；甄選注意事項「室設館（愛樓）1 樓 100 教室」確認是同一棟。
-// 入口朝向：北側是柏油停車場（正射有車），相片門前是碎石地和石砌台階；望樓、信樓的入口都朝中間的草坪庭院，
-// 愛樓在庭院北邊，所以放南面；正射上南面西段有一塊鋪面廣場，入口放在西段。其他三面沒照片，只換牆色和窗。
+// 依據：室設系官網 2026 整棟南立面照、入口西側與樓梯間、南面東段、門楣近照（campus-survey/zone-E/web/round4）；
+// 甄選注意事項「室設館（愛樓）1 樓 100 教室」確認是同一棟。入口朝南（大合照正前方隔著草坪就是信樓的萊姆綠門框；
+// 評圖流程表寫「愛樓前廣場」），在南面最西段：西端是深灰洗石子樓梯間，緊貼它東邊是往外凸的白色方框入口。
+// 北面（停車場側）沒照片：二、三樓照南面的開間做法推，一樓用一般窗；東、西端只換牆色。
 function buildAi(k, I, b, group) {
-  const base = b.base, Y = y => base + y, e = edge(...AI_S), c = AI_ENT, FL = AI_FL;
-  // 退縮入口：兩根深灰鋁框柱之間，對開玻璃門
-  k.face('aiDoor', e, c - 1.7, c + 1.7, 0.03, Y(-0.2), Y(FL - 0.33), 'stretch');
-  for (const s of [c - 1.75, c + 1.65]) k.onEdge('aiAlu', e, s, s + 0.1, 0, 0.12, Y(-0.2), Y(FL - 0.33));
-  // 門楣上的「愛樓」（兩字分開，入口兩側上方）
-  textPlane(group, aiSignTex(), e, c, 0.235, Y(FL), 4.4, 0.55, 0.02);
-  // 二樓窗下掛的分離式冷氣室外機
-  for (const s of [c - 5.6, c - 1.2, c + 1.3, c + 4.6]) { k.onEdge('acUnit', e, s - 0.42, s + 0.42, 0.22, 0.55, Y(FL + 0.45), Y(FL + 1.05)); k.onEdge('aiAlu', e, s - 0.3, s + 0.3, 0.555, 0.565, Y(FL + 0.55), Y(FL + 0.95)); }
-  // 門前兩階水泥台階（頂面比那段最高的地面高 0.3 m）
-  const ring1 = rectOn(e, c - 5, c + 5, 0, 1.3), ring2 = rectOn(e, c - 5, c + 5, 1.3, 2.0);
-  const gs = [...ring1, ...ring2].map(p => groundY(p[0], p[1])), gmin = Math.min(...gs), y1 = Math.max(Math.max(...gs) + 0.3, Y(0.05)), y2 = (y1 + Math.max(...gs)) / 2;
-  k.onEdge('aiCon', e, c - 5, c + 5, 0, 1.3, gmin - 0.3, y1, 2);
-  k.onEdge('aiCon', e, c - 5, c + 5, 1.3, 2.0, gmin - 0.3, y2, 2);
-  I.addSurface(ring1, (x, z) => y1 - groundY(x, z));
-  I.addSurface(ring2, (x, z) => y2 - groundY(x, z));
+  const base = b.base, Y = y => base + y, e = edge(...AI_S), FL = FL3, top = b.h, [bx0, bx1] = aiBox(), c = (bx0 + bx1) / 2, D = AI_BOX.d, BH = FL + 0.2;
+  // 二、三樓：每個開間一片（兩樘窗各上下兩排、淺藍窗下板、白色排水管）；南面到樓梯間為止，北面整面
+  const north = edge(b.pts[3], b.pts[0]);
+  for (const [f, len] of [[e, e.l - AI_STAIR], [north, north.l]]) {
+    if (f.l < 30) continue;
+    const nb = Math.max(1, Math.round(len / 4.5)), bw = len / nb;
+    for (let i = 0; i < nb; i++) for (const fl of [1, 2]) k.face('aiBay', f, i * bw, (i + 1) * bw, 0.03, Y(fl * FL), Y((fl + 1) * FL), 'stretch');
+    for (let i = 0; i < nb; i++) { if (f === e && i * bw > bx0 - 0.2) continue; const p = f.at(i * bw + 0.1, 0.07); k.cyl('aiWhite', p[0], p[1], 0.05, Y(0), Y(FL), 6); }   // 排水管接到一樓
+  }
+  // 西端樓梯間：深灰洗石子，窗高錯開
+  k.face('aiStair', e, e.l - AI_STAIR, e.l, 0.04, Y(-0.2), Y(top + 0.3), 'stretch');
+  // 入口：往外凸的白色方框（兩側牆、上緣 0.75 m 橫帶掛「愛樓」），框內整面深灰鋁框霧面玻璃
+  for (const [a, z] of [[bx0, bx0 + 0.35], [bx1 - 0.35, bx1]]) k.onEdge('aiWhite', e, a, z, 0, D, Y(-0.3), Y(BH));
+  k.onEdge('aiWhite', e, bx0, bx1, 0, D, Y(BH - 0.75), Y(BH));
+  k.face('aiFront', e, bx0 + 0.35, bx1 - 0.35, D - 0.2, Y(-0.05), Y(BH - 0.75), 'stretch');
+  textPlane(group, aiSignTex(), e, c, D + 0.012, Y(BH - 0.38), 1.9, 0.46, 0.02);
+  blockOn(I, e, bx0, bx1, 0, D, -0.5, BH);
+  // 方框頂上的 4 台冷氣室外機
+  for (const s of [c - 3.4, c - 2.1, c + 1.3, c + 2.6]) { k.onEdge('acUnit', e, s - 0.42, s + 0.42, 0.3, 0.65, Y(BH), Y(BH + 0.62)); k.onEdge('aiAlu', e, s - 0.3, s + 0.3, 0.655, 0.665, Y(BH + 0.1), Y(BH + 0.52)); }
+  // 愛樓前廣場：磚色與灰色交錯的鋪面；門前一階水泥平台
+  k.ground('pave', aiPlaza(), (x, z) => groundY(x, z) + 0.045, 4, 1.0);
+  const ring = rectOn(e, c - 2.3, c + 2.3, D, D + 1.3), gs = ring.map(p => groundY(p[0], p[1])), yt = Math.max(...gs) + 0.16;
+  k.onEdge('aiCon', e, c - 2.3, c + 2.3, D, D + 1.3, Math.min(...gs) - 0.3, yt, 2);
+  I.addSurface(ring, (x, z) => yt - groundY(x, z));
 }
 
 // src/world/Interiors.js 呼叫：自建部分

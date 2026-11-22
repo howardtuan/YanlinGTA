@@ -74,7 +74,8 @@ export class Player {
     else if (surf > surf0 + 0.5 && this.y > 0.5) this.y = Math.max(0, this.y - (surf - surf0));
     // jump
     const ground = interiors ? interiors.groundAt(this.pos.x, this.pos.z, this.y) : 0;
-    const onGround = this.y <= ground + 0.02;
+    // (was on the ground a frame ago and the floor fell away by less than a step: still on it, so steep stairs are walked down, not hopped)
+    const onGround = this.y <= ground + 0.02 || (this._onGround && this.vy <= 0 && this.y - ground < 0.45);
     if (!this.frozen && input.hit('Space') && onGround) { this.vy = 5.6; this.sfx = 'jump'; }
     this.vy -= 16 * dt; this.y += this.vy * dt;
     // stick to stairs/slopes when walking down, land on floors
@@ -82,6 +83,7 @@ export class Player {
       if (this.vy < -3.5) { this.sfx = 'land'; this.landImpact = -this.vy / 6; }
       this.y = ground; this.vy = 0;
     }
+    this._onGround = this.y <= ground + 0.02;
 
     this.ground = ground;
     this.pos.y = this.y + surf;

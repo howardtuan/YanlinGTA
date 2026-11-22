@@ -73,6 +73,10 @@ export class HUD {
       if (Math.abs(dx) > W || Math.abs(dz) > H) continue;
       g.fillRect(dx - 3, dz - 3, 6, 6);
     }
+    for (const mk of markers) if (mk.area) { // a search area (missions.js): a translucent circle on the map itself
+      g.fillStyle = mk.color || 'rgba(255,210,63,.2)'; g.strokeStyle = mk.stroke || '#ffd23f'; g.lineWidth = 2; g.setLineDash([6, 5]);
+      g.beginPath(); g.arc((mk.x - px) * pxPerM, (mk.z - pz) * pxPerM, mk.area * pxPerM, 0, Math.PI * 2); g.fill(); g.stroke(); g.setLineDash([]);
+    }
     if (this.route) { // race course (race.js)
       g.strokeStyle = '#ff4fa3'; g.lineWidth = 4; g.lineJoin = 'round'; g.globalAlpha = 0.85; g.beginPath();
       this.route.forEach(([x, z], i) => { const dx = (x - px) * pxPerM, dz = (z - pz) * pxPerM; i ? g.lineTo(dx, dz) : g.moveTo(dx, dz); });
@@ -174,6 +178,7 @@ export class HUD {
       g.fillStyle = '#fff'; g.beginPath(); g.arc(X, Z - 17, 3.5, 0, 7); g.fill();
     }
     for (const mk of markers) {
+      if (mk.area) { g.fillStyle = mk.color || 'rgba(255,210,63,.2)'; g.strokeStyle = mk.stroke || '#ffd23f'; g.lineWidth = 2.5; g.setLineDash([8, 6]); g.beginPath(); g.arc(tx(mk.x), tz(mk.z), mk.area * k, 0, 7); g.fill(); g.stroke(); g.setLineDash([]); }
       g.fillStyle = mk.color || '#ffd23f'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.arc(tx(mk.x), tz(mk.z), 9, 0, 7); g.fill(); g.stroke();
       if (mk.icon) { g.fillStyle = '#000'; g.font = '900 11px system-ui'; g.fillText(mk.icon, tx(mk.x), tz(mk.z) + 1); }
       if (mk.label) { g.font = `800 ${fs}px "Noto Sans TC","Microsoft JhengHei",sans-serif`; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.8)'; g.fillStyle = mk.color || '#fff'; g.strokeText(mk.label, tx(mk.x), tz(mk.z) + 20); g.fillText(mk.label, tx(mk.x), tz(mk.z) + 20); }

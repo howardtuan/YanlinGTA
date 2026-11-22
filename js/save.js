@@ -17,7 +17,9 @@ export function writeSave(g) {
     votes: g.votes, money: g.money, ledger: g.ledger.slice(-80), clock: g.clock, playTime: g.playTime, flyerVotes: g.flyerVotes || 0,
     ballots: g.ballotList.map((b, i) => (b.got ? i : -1)).filter(i => i >= 0),
     // where you are inside the current mission (talk heard, objective, checkpoints): missions.resumeAt()
-    mission: { idx: M.idx, rewarded: [...M.rewarded], done: M.done, free: M.free, prog: M.progress() },
+    // mv 2: mission 5 (布條失竊案) was added before the speech, so older saves past it are one step behind
+    mission: { mv: 2, idx: M.idx, rewarded: [...M.rewarded], done: M.done, free: M.free, prog: M.progress() },
+    detective: g.detective?.toJSON() || null,
     eggs: g.eggs.filter(e => e.found).map(e => e.title),
     pos: g.concerts?.savePos() || { x: wp.x, z: wp.z, h: pl.worldHeading(), y: pl.vehicle || pl.seat ? 0 : pl.y }, // at the concert: where you took the shuttle
     look: pl.look || null,
@@ -66,7 +68,10 @@ export function applySave(g, d) {
     g.player.place(d.pos.x, d.pos.z, d.pos.h || 0); g.player.y = d.pos.y || 0; g.rig.yaw = d.pos.h || 0;
     g.bringMyScooter(d.pos.x, d.pos.z);
   }
+  g.detective?.load(d.detective);
   const M = g.missions;
   M.rewarded = new Set(d.mission?.rewarded || []);
-  return d.mission || { idx: -1 };
+  const m = d.mission || { idx: -1 };
+  if (!m.mv && m.idx >= 5) m.idx++; // saved at the speech (5) or the ending (6) before mission 5 existed
+  return m;
 }

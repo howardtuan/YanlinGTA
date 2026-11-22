@@ -72,7 +72,7 @@ function pyErr(e) {
   return i >= 0 ? 'Traceback（錯誤位置）:\n  ' + e.slice(i) : e;
 }
 let SQL = null;
-function sqlEngine() {
+export function sqlEngine() {
   if (SQL) return SQL;
   SQL = new Promise((ok, bad) => {
     const s = document.createElement('script'); s.src = SQL_URL + 'sql-wasm.js';

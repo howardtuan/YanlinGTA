@@ -3,6 +3,8 @@
 // new tab instead), 記事本 (kept in the save), 小畫家 (save the drawing to the phone's photos),
 // 小算盤, 踩地雷, 競選後台 (live campaign numbers), 資管學堂 (Python / MySQL lessons you run and get graded) and 終端機. Esc or the power button leaves the desk.
 // The easter-egg video is hidden in the terminal: typing PYL plays it. It is deliberately not listed anywhere.
+// The terminal's `case` command is the detective console (js/detective.js, SQL); 🕵️ 案件檔案 lists the cases and your clues.
+// The desktop fills the whole screen; windows can be maximized (▢ or double-click the title bar).
 // The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
 import { stockUI } from './stockui.js';
 import { newsUI } from './newsui.js';
@@ -19,8 +21,11 @@ const BOOKMARKS = [
 ];
 const APPS = [
   ['browser', '🌐', '瀏覽器'], ['notes', '📝', '記事本'], ['paint', '🎨', '小畫家'],
-  ['calc', '🧮', '小算盤'], ['mines', '💣', '踩地雷'], ['stats', '📊', '競選後台'], ['stock', '📈', '靈感股'], ['news', '📰', 'PYtoday'], ['learn', '🎓', '資管學堂'], ['term', '💻', '終端機'],
+  ['calc', '🧮', '小算盤'], ['mines', '💣', '踩地雷'], ['stats', '📊', '競選後台'], ['stock', '📈', '靈感股'], ['news', '📰', 'PYtoday'], ['learn', '🎓', '資管學堂'], ['case', '🕵️', '案件檔案'], ['term', '💻', '終端機'],
 ];
+// where some windows open on the (full-screen) desktop: [left, top, width, height]; others cascade
+const LAYOUT = { term: ['0px', '0px', '60%', 'calc(100% - 42px)'], case: ['60%', '0px', '40%', 'calc(100% - 42px)'] };
+const MAXED = new Set(['learn']); // opened maximized
 const DEFAULT_NOTES = '競選待辦：\n- 掃街拉票，發完傳單\n- 去麥當勞打工賺零用錢\n- 新中北路障礙賽要拿第一\n- 記得月底前繳房租！\n';
 
 export class PC {
@@ -67,11 +72,15 @@ export class PC {
     const n = Object.keys(this.wins).length;
     const w = document.createElement('div'); w.className = 'pc-win pc-' + id;
     w.style.left = (196 + n * 26) + 'px'; w.style.top = (16 + n * 22) + 'px';
-    w.innerHTML = `<div class="pc-bar"><span>${app[1]} ${app[2]}</span><button class="pc-close" title="關閉">✕</button></div><div class="pc-body"></div>`;
+    w.innerHTML = `<div class="pc-bar"><span>${app[1]} ${app[2]}</span><span class="pc-btns"><button class="pc-max" title="放到最大 / 還原（也可以雙擊標題列）">▢</button><button class="pc-close" title="關閉">✕</button></span></div><div class="pc-body"></div>`;
+    const lay = LAYOUT[id]; if (lay) Object.assign(w.style, { left: lay[0], top: lay[1], width: lay[2], height: lay[3] }); // terminal on the left, case files on the right
+    if (MAXED.has(id)) w.classList.add('max');
     $('pcWins').appendChild(w);
     const tab = document.createElement('button'); tab.textContent = `${app[1]} ${app[2]}`; tab.onclick = () => this._focus(id); $('pcTabs').appendChild(tab);
     this.wins[id] = { w, tab };
     w.querySelector('.pc-close').onclick = () => this._closeWin(id);
+    const max = () => w.classList.toggle('max');
+    w.querySelector('.pc-max').onclick = max; w.querySelector('.pc-bar').addEventListener('dblclick', (e) => { if (!e.target.closest('button')) max(); });
     w.addEventListener('mousedown', () => this._focus(id));
     this._drag(w, w.querySelector('.pc-bar'));
     this['_' + id](w.querySelector('.pc-body'));
@@ -246,19 +255,38 @@ export class PC {
   }
   _term(body) {
     const PROMPT = 'C:\\Users\\yanlin>';
-    body.innerHTML = `<div class="tm-out"></div><label class="tm-line"><span>${PROMPT}</span><input class="tm-in" spellcheck="false" autocomplete="off"></label>`;
-    const out = body.querySelector('.tm-out'), inp = body.querySelector('.tm-in');
-    const print = (t = '') => { const d = document.createElement('div'); d.textContent = t; out.appendChild(d); body.scrollTop = body.scrollHeight; };
+    body.innerHTML = `<div class="tm-out"></div><label class="tm-line"><span class="tm-ps"></span><input class="tm-in" spellcheck="false" autocomplete="off"></label>`;
+    const out = body.querySelector('.tm-out'), inp = body.querySelector('.tm-in'), ps = body.querySelector('.tm-ps');
+    const scroll = () => { body.scrollTop = body.scrollHeight; };
+    const print = (t = '', cls) => { const d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; out.appendChild(d); scroll(); };
+    const html = (h) => { const d = document.createElement('div'); d.innerHTML = h; out.appendChild(d); scroll(); };
+    let mode = null; // 'case' while the detective console (js/detective.js) is on
+    const prompt = (p) => { ps.textContent = p; };
+    const io = { print, html, prompt, clear: () => { out.innerHTML = ''; } };
+    prompt(PROMPT);
     print('YanlinOS [版本 34.0.2026]'); print('(c) 中原大學資訊管理學系。著作權所有，並保留一切權利。'); print('');
     const hist = []; let hi = 0;
     const g = this.g, hhmm = () => { const c = Math.floor(g.clock) % 1440; return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`; };
-    const run = (raw) => {
+    const enterCase = async (id) => {
+      if (await g.detective?.enter(io, id)) mode = 'case';
+      inp.focus();
+    };
+    const run = async (raw) => {
+      if (mode === 'case') {
+        print(ps.textContent + raw, 'tm-echo');
+        const c0 = raw.trim().toLowerCase();
+        if (c0 === 'exit' || c0 === 'quit') { mode = null; prompt(PROMPT); print('已離開偵探模式。', 'tm-dim'); print(''); return; }
+        if (c0 === 'cls' || c0 === 'clear') { out.innerHTML = ''; return; }
+        await g.detective.run(raw, io);
+        return;
+      }
       const cmd = raw.trim(), [c0, ...args] = cmd.split(/\s+/), c = (c0 || '').toLowerCase();
       print(PROMPT + raw);
       if (!cmd) return;
       if (cmd.toUpperCase() === 'PYL') { this.close(); g.openVideo(); return; }
-      if (c === 'help' || c === '?') ['可用的命令：', '  help      顯示這份說明', '  dir / ls  列出檔案', '  cls       清除畫面', '  date      顯示日期', '  time      顯示時間', '  whoami    目前使用者', '  echo      顯示文字', '  ver       系統版本', '  ipconfig  網路設定', '  exit      關閉終端機'].forEach(l => print(l));
-      else if (c === 'dir' || c === 'ls') [' C:\\Users\\yanlin 的目錄', '', '2026/11/18  23:41    <DIR>          Desktop', '2026/11/19  02:13         1,204,551 競選政見_final.docx', '2026/11/19  02:47        48,220,113 傳單_final_v3_真的最後.psd', '2026/11/12  21:05           388,002 資料庫系統作業.sql', '2026/11/02  16:30         2,931,887 期中報告.pdf', '               4 個檔案      52,744,553 位元組'].forEach(l => print(l));
+      if (c === 'case' || c === 'cases' || c === '查案') { await enterCase(args[0]); return; }
+      if (c === 'help' || c === '?') ['可用的命令：', '  case      偵探模式：用 SQL 查案', '  help      顯示這份說明', '  dir / ls  列出檔案', '  cls       清除畫面', '  date      顯示日期', '  time      顯示時間', '  whoami    目前使用者', '  echo      顯示文字', '  ver       系統版本', '  ipconfig  網路設定', '  exit      關閉終端機'].forEach(l => print(l));
+      else if (c === 'dir' || c === 'ls') [' C:\\Users\\yanlin 的目錄', '', '2026/11/18  23:41    <DIR>          Desktop', '2026/11/19  02:13         1,204,551 競選政見_final.docx', '2026/11/19  02:47        48,220,113 傳單_final_v3_真的最後.psd', '2026/11/12  21:05           388,002 資料庫系統作業.sql', '2026/11/02  16:30         2,931,887 期中報告.pdf', '2026/11/21  09:12         6,481,920 校園紀錄_備份.db', '               5 個檔案      59,226,473 位元組', '', '（輸入 case 用 SQL 打開「校園紀錄_備份.db」查案）'].forEach(l => print(l));
       else if (c === 'cls' || c === 'clear') out.innerHTML = '';
       else if (c === 'date') print('目前的日期: ' + new Date().toLocaleDateString('zh-TW'));
       else if (c === 'time') print('目前的時間: ' + hhmm());
@@ -267,7 +295,7 @@ export class PC {
       else if (c === 'ver') print('YanlinOS [版本 34.0.2026]');
       else if (c === 'ipconfig') ['乙太網路卡 乙太網路:', '   IPv4 位址 . . . . . . . . . : 192.168.34.34', '   子網路遮罩 . . . . . . . . . : 255.255.255.0', '   預設閘道 . . . . . . . . . . : 192.168.34.1'].forEach(l => print(l));
       else if (c === 'exit') this._closeWin('term');
-      else print(`'${c0}' 不是內部或外部命令、可執行的程式或批次檔。`);
+      else print(`'${c0}' 不是內部或外部命令、可執行的程式或批次檔。（輸入 help 看指令，輸入 case 開始查案）`);
       print('');
     };
     inp.addEventListener('keydown', (e) => {
@@ -277,6 +305,39 @@ export class PC {
     });
     body.addEventListener('mouseup', () => { if (!getSelection().toString()) inp.focus(); });
     setTimeout(() => inp.focus(), 30);
+    this.wins.term.enterCase = enterCase;
+    if (this._pendingCase !== undefined) { const id = this._pendingCase; this._pendingCase = undefined; enterCase(id); }
+  }
+
+  // ---------------- 案件檔案: the cases you can investigate, their briefs and your clue notes (js/detective.js) ----------------
+  _case(body) {
+    const g = this.g, D = g.detective;
+    let key = '', sel = null;
+    const render = () => {
+      const list = D ? D.available() : [];
+      const k = JSON.stringify([list.map(c => c.id), sel, D?.state]); if (k === key) return; key = k;
+      if (!list.length) { body.innerHTML = '<div class="cf-empty">🕵️ 目前沒有需要調查的案件。<br><small>跟著主線任務走，案件就會出現在這裡。</small></div>'; return; }
+      const c = list.find(x => x.id === sel) || list.find(x => !D.solved(x.id)) || list[0]; sel = c.id;
+      const st = D.st(c.id), got = c.clues.filter(x => st.clues.includes(x.id));
+      body.innerHTML = `<div class="cf"><div class="cf-list">${list.map(x => `<button data-c="${x.id}" class="${x === c ? 'on' : ''}"><span>${x.icon}</span><b>${x.title}</b><small>${D.solved(x.id) ? '✅ 已破案' : x.main ? '主線' : '支線'}</small></button>`).join('')}</div>
+        <div class="cf-main"><h3>${c.icon} ${c.title}</h3><p class="cf-brief">${c.brief.replace(/\n/g, '<br>')}</p>
+        <h4>📋 資料表</h4><div class="cf-tables">${Object.entries(c.tables).map(([t, d]) => `<div><code>${t}</code><small>${d}</small></div>`).join('')}</div>
+        <h4>📝 線索筆記（${got.length} / ${c.clues.length}）</h4><div class="cf-notes">${got.length ? got.map(x => `<div>・${x.text}</div>`).join('') : '<div class="cf-dim">還沒有線索：到終端機用 SQL 查查看，查到的重點會自動記在這裡。</div>'}</div>
+        ${D.solved(c.id) ? `<div class="cf-win">✅ 已破案：${c.solved}</div>` : ''}
+        <button class="cf-go">💻 在終端機${D.solved(c.id) ? '重看' : '開始調查'}這個案件</button>
+        <p class="cf-dim">在終端機輸入 <code>help</code> 看指令；卡住了輸入 <code>hint</code>；找到犯人後輸入 <code>accuse 名字</code>。不熟 SQL 的話，可以先到 🎓 資管學堂上「MySQL 入門」。</p></div></div>`;
+      body.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { sel = b.dataset.c; render(); });
+      body.querySelector('.cf-go').onclick = () => this.investigate(c.id);
+    };
+    render();
+    const t = setInterval(render, 1000);
+    this.wins.case.cleanup = () => clearInterval(t);
+  }
+  // open the terminal (next to the case files) in detective mode on case id
+  investigate(id) {
+    const t = this.wins.term;
+    if (t?.enterCase) { this._focus('term'); t.enterCase(id); return; }
+    this._pendingCase = id; this.launch('term');
   }
 
   // ---------------- 競選後台 ----------------

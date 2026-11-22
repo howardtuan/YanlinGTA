@@ -1,6 +1,7 @@
 // 🛸 無人機（手機桌面的「無人機」App）：打開就連線到彥霖的無人機。
 // 先播幾秒鐘 21:9 的轉場：彥霖拿出遙控器、戴上 VR 眼鏡，無人機從他頭上起飛，鏡頭鑽進無人機；
-// 之後是自由的第一人稱飛行（W A S D 前後左右、滑鼠轉向、Space 上升、Shift／C 下降、F 結束飛行）。
+// 之後是自由的第一人稱飛行（W A S D 前後左右、滑鼠轉向、Space 上升、Shift／C 下降、F 結束飛行；
+// 手把：左搖桿移動、右搖桿轉向、RB 上升、LB 或 L3 下降、B 結束飛行）。
 //  - 最高時速 100 km/h（跟騎機車差不多），沒有距離限制（地圖邊界為止）；高度上限是起飛點上方 450 m，夠俯瞰整個校園。
 //  - 會撞到地面、樓板、牆、樹和建築物；飛到屋頂以上就能越過建築物，也可以從開著的門飛進室內。
 //  - 門照常自己開關：飛行時門把無人機當成「人」（interiors 的 updater 看到的 g.player 換成無人機的位置）。
@@ -8,6 +9,7 @@
 //  - 彥霖本人在原地戴著 VR 眼鏡、雙手拿遙控器，飛回來就看得到他。
 import * as THREE from 'three';
 import { surfaceAt, H } from './terrain.js';
+import { dual } from './prompts.js';
 
 const MAX_V = 100 / 3.6;  // 100 km/h
 const UP_V = 8;           // m/s climbing / sinking
@@ -85,7 +87,8 @@ export class Drone {
     hud.innerHTML = `<div class="dh-frame"><i></i><i></i><i></i><i></i></div>
       <div class="dh-top"><span class="dh-rec">● LIVE</span><b>🛸 彥霖的無人機</b><span class="dh-sig">▂▄▆█ 5.8G</span></div>
       <div class="dh-stats"><span>高度 <b class="dh-alt">0</b> m</span><span>時速 <b class="dh-spd">0</b> km/h</span><span>距離彥霖 <b class="dh-dist">0</b> m</span></div>
-      <div class="dh-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動　滑鼠 轉向　<kbd>Space</kbd> 上升　<kbd>Shift</kbd>／<kbd>C</kbd> 下降　<kbd>F</kbd> 結束飛行</div>`;
+      <div class="dh-keys">${dual('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移動　滑鼠 轉向　<kbd>Space</kbd> 上升　<kbd>Shift</kbd>／<kbd>C</kbd> 下降　<kbd>F</kbd> 結束飛行',
+        '{L} 移動　{R} 轉向　{RB} 上升　{LB}／{LS} 下降　{B} 結束飛行')}</div>`;
     document.getElementById('hud').appendChild(hud);
     const fade = this.fade = document.createElement('div'); fade.id = 'droneFade'; document.body.appendChild(fade);
   }
@@ -205,7 +208,7 @@ export class Drone {
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw); // forward on the ground plane (camera looks along +sin/cos, like the rig)
     const rx = -fz, rz = fx;                                 // right
     const wantX = (fx * a.y + rx * a.x) * MAX_V, wantZ = (fz * a.y + rz * a.x) * MAX_V;
-    const up = !g.hud.bigOpen && inp.down('Space') ? 1 : 0, dn = !g.hud.bigOpen && inp.down('ShiftLeft', 'ShiftRight', 'KeyC', 'ControlLeft') ? 1 : 0;
+    const up = !g.hud.bigOpen && inp.down('Space') ? 1 : 0, dn = !g.hud.bigOpen && inp.down('ShiftLeft', 'ShiftRight', 'KeyC', 'ControlLeft', 'KeyH') ? 1 : 0; // (KeyH = the pad's LB, L3 = Shift)
     const k = Math.min(1, dt * 1.6), kv = Math.min(1, dt * 3);
     this.vel.x += (wantX - this.vel.x) * k; this.vel.z += (wantZ - this.vel.z) * k;
     const sp = Math.hypot(this.vel.x, this.vel.z); if (sp > MAX_V) { this.vel.x *= MAX_V / sp; this.vel.z *= MAX_V / sp; }

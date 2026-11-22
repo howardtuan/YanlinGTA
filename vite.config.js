@@ -169,6 +169,15 @@ export default defineConfig({
     outDir: 'dist',
     target: 'esnext',
     assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        // three 自己一個檔：遊戲程式更新時它的內容雜湊不變，玩家不用重新下載
+        manualChunks(id) {
+          if (id.includes('node_modules/three')) return 'three';
+          return undefined;
+        },
+      },
+    },
   },
   test: {
     globals: true,

@@ -84,7 +84,8 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   const rep = (t, x = 1, y = 1) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(x, y); return t; };
   let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296; // own generator: nothing shared is drawn here
   const terrazzo = rep(canvasTex(256, 256, (g) => { g.fillStyle = '#b9bcbb'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 1200; i++) { const v = 150 + rnd() * 70 | 0; g.fillStyle = `rgb(${v},${v},${v - 4})`; g.fillRect(rnd() * 256, rnd() * 256, 2 + rnd() * 2, 2 + rnd() * 2); } g.fillStyle = 'rgba(70,70,70,.35)'; g.fillRect(0, 0, 256, 2); g.fillRect(0, 0, 2, 256); }));
-  const woodG = rep(canvasTex(128, 128, (g) => { g.fillStyle = '#b3aea5'; g.fillRect(0, 0, 128, 128); for (let y = 0; y < 128; y += 2) { g.fillStyle = `rgba(90,84,76,${0.03 + rnd() * 0.08})`; g.fillRect(0, y, 128, 1); } }));
+  // 淺灰米色木紋美耐板（相片 2026-06）：細直紋，深淺很接近
+  const woodG = rep(canvasTex(256, 256, (g) => { g.fillStyle = '#c4bcae'; g.fillRect(0, 0, 256, 256); for (let x = 0; x < 256; x++) { const v = rnd(); g.fillStyle = v > 0.5 ? `rgba(255,250,240,${(v - 0.5) * 0.22})` : `rgba(96,86,72,${(0.5 - v) * 0.26})`; g.fillRect(x, 0, 1, 256); } for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(110,98,84,0.10)'; g.fillRect(rnd() * 256, rnd() * 256, 1, 20 + rnd() * 60); } }));
   const mosaic = rep(canvasTex(64, 64, (g) => { for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) { const v = [222, 160, 96][(rnd() * 3) | 0]; g.fillStyle = `rgb(${v},${v + 4},${v + 8})`; g.fillRect(x * 8, y * 8, 7, 7); } }));
   const tileW = rep(canvasTex(64, 64, (g) => { g.fillStyle = '#f2f2ee'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#c9cbc8'; g.fillRect(0, 0, 64, 1); g.fillRect(0, 0, 1, 64); g.fillRect(0, 32, 64, 1); g.fillRect(32, 0, 1, 64); }));
   const tileD = rep(canvasTex(64, 64, (g) => { g.fillStyle = '#3d4044'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#2a2c2f'; g.fillRect(0, 0, 64, 2); g.fillRect(0, 0, 2, 64); }));
@@ -98,7 +99,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     white: mat('white', std({ color: '#efede6' }, 0.3)), blue: mat('blue', std({ color: '#2f7fc6' }, 0.28)), band: mat('band', std({ color: '#b7cf3a' }, 0.3)),
     teal: mat('teal', std({ color: '#27b3b0' }, 0.25)), green: mat('green', std({ color: '#79bd45' }, 0.25)), sky: mat('sky', std({ color: '#3d8fd8' }, 0.25)),
     stair: mat('stair', std({ color: '#a9a6a0', roughness: 0.7 }, 0.2)), rail: mat('rail', std({ color: '#2b2d30', metalness: 0.5, roughness: 0.45 })),
-    wood: mat('wood', std({ map: woodG, roughness: 0.6 }, 0.22)), mattress: mat('mattress', std({ color: '#d9dde2' }, 0.2)), ladder: mat('ladder', std({ color: '#f1f1ee', roughness: 0.4 }, 0.25)),
+    wood: mat('wood', std({ map: woodG, roughness: 0.6 }, 0.2)), desk: mat('desk', std({ color: '#e4dfd4', roughness: 0.5 }, 0.22)), frame: mat('frame', std({ color: '#9a9b9c', metalness: 0.3, roughness: 0.5 }, 0.12)), vinyl: mat('vinyl', std({ color: '#cfd1cf', roughness: 0.45 }, 0.22)), mattress: mat('mattress', std({ color: '#d9dde2' }, 0.2)), ladder: mat('ladder', std({ color: '#f1f1ee', roughness: 0.4 }, 0.25)),
     chair: mat('chair', std({ color: '#e0622f', roughness: 0.6 }, 0.2)), steel: mat('steel', std({ color: '#b4b8bc', metalness: 0.7, roughness: 0.3 }, 0.08)),
     mosaic: mat('mosaic', std({ map: mosaic, roughness: 0.4 }, 0.25)), tileW: mat('tileW', std({ map: tileW, roughness: 0.35 }, 0.3)), tileD: mat('tileD', std({ map: tileD, roughness: 0.5 }, 0.15)),
     part: mat('part', std({ color: '#c9a678', roughness: 0.6 }, 0.2)), mirror: mat('mirror', std({ color: '#cfe0e6', metalness: 0.9, roughness: 0.08 })),
@@ -426,7 +427,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     const f = 1, y = FL[f], c = y + CH[f], w = (ROWC_W.x1 - ROWC_W.x0) / 11, z0 = RC, z1 = ROWC_W.z1;
     OPEN_ROOMS.forEach((no) => {
       const i = no - 273, x0 = ROWC_W.x0 + i * w, x1 = x0 + w, cx = (x0 + x1) / 2, ix0 = x0 + T / 2, ix1 = x1 - T / 2;
-      room(f, x0, x1, z0, z1 + 0.1, { lights: false });
+      room(f, x0, x1, z0, z1 + 0.1, { lights: false, floor: MT.vinyl });
       bx(cx - 0.6, cx + 0.6, c - 0.06, c - 0.03, z0 + 2.2, z0 + 2.4, MT.light); bx(cx - 0.6, cx + 0.6, c - 0.06, c - 0.03, z0 + 5.0, z0 + 5.2, MT.light);
       // partitions (one per shared wall), south wall with the window, transom over the door, open door leaf with the number
       if (no === OPEN_ROOMS[0]) wall(x0, z0 + T, x0, z1, y, c, MT.white);
@@ -434,32 +435,45 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       wall(x0, z1, x1, z1, y, c, MT.white, 1); plane(winT, 2.2, 1.35, cx, y + 1.75, z1 - 0.01, 'n', { emissive: 0.75 });
       plane(winT, 0.9, 0.34, cx, y + 2.5, z0 + T + 0.01, 's', { emissive: 0.6 });
       door(cx + 0.45 - 0.02, y, z0 + T + 0.45, 'w', String(no));
-      // three loft units a side: bed on top, desk + shelves + wardrobe below
-      const UL = 2.0, zA = z0 + 0.95, DW = 0.95, bedY = y + 1.72;
+      // 每面牆：一端上下舖，接著 桌／衣櫥 三組，另一端的桌與衣櫥上面再架一張高架床（使用者給的配置；兩面牆對角對稱，影片 0:32、0:35）
+      const zA = z0 + 0.95, LEN = z1 - 0.12 - zA, DW = 0.95, bedY = y + 1.72, BED = 2.0, DK = (LEN - BED) / 3 - 0.5, WD = 0.5;
       for (const side of [-1, 1]) {
         const wx = side < 0 ? ix0 : ix1, s = -side;                      // s: from the wall towards the aisle
         const X = (a, b2) => [Math.min(wx + s * a, wx + s * b2), Math.max(wx + s * a, wx + s * b2)];
+        const Z = (t0, t1) => side < 0 ? [zA + LEN - t1, zA + LEN - t0] : [zA + t0, zA + t1]; // t: distance from the bunk end (west wall: bunk by the window, east wall: by the door)
+        const B3 = (a, b2, ya, yb, t0, t1, m) => { const [xa, xb] = X(a, b2), [za, zb] = Z(t0, t1); bx(xa, xb, ya, yb, za, zb, m); };
+        const face = s > 0 ? 'e' : 'w', nos = side < 0 ? [1, 2, 3] : [4, 5, 6];
+        const plate = (n, yy, t) => { const nt = signs.get('bed' + n) || signs.set('bed' + n, signTex(String(n), '#2e8f86', '#ffffff', 64, 64, 46)).get('bed' + n); plane(nt, 0.13, 0.13, wx + s * (DW + 0.006), yy, (Z(t, t)[0]), face, { emissive: 0.4 }); };
+        const bed = (t0, t1, yy, n) => {                                  // deck + mattress + side board (with the number) + head / foot boards
+          B3(0, DW, yy - 0.05, yy, t0, t1, MT.frame); B3(0.03, DW - 0.03, yy, yy + 0.12, t0 + 0.05, t1 - 0.05, MT.mattress);
+          B3(DW - 0.025, DW, yy - 0.12, yy + 0.3, t0, t1 - 0.5, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t0, t0 + 0.03, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t1 - 0.03, t1, MT.wood);
+          plate(n, yy + 0.12, t0 + 0.35);
+        };
+        const ladder = (t, top) => { for (const dt of [0, 0.36]) B3(DW, DW + 0.03, y, top, t + dt - 0.015, t + dt + 0.015, MT.ladder); for (let r = 0; r < 5; r++) B3(DW, DW + 0.03, y + 0.3 + r * 0.3, y + 0.33 + r * 0.3, t, t + 0.36, MT.ladder); };
+        // 上下舖
+        for (const t of [0.02, BED - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
+        B3(0, DW, y, y + 0.3, 0.02, BED - 0.02, MT.wood); B3(0.03, DW - 0.03, y + 0.3, y + 0.42, 0.07, BED - 0.07, MT.mattress); plate(nos[0], y + 0.2, 0.4);
+        bed(0, BED, bedY, nos[1]); ladder(BED - 0.48, bedY + 0.55);
+        // 桌／衣櫥 三組；最後一組上面是高架床，那一組的衣櫥做矮的
         for (let u = 0; u < 3; u++) {
-          const za = zA + u * UL, zb = za + UL, bedNo = side < 0 ? u + 1 : 6 - u;
-          const [bx0, bx1] = X(0, DW);
-          bx(bx0, bx1, bedY, bedY + 0.08, za + 0.02, zb - 0.02, MT.wood);                       // bed deck
-          bx(bx0 + 0.04, bx1 - 0.04, bedY + 0.08, bedY + 0.2, za + 0.08, zb - 0.08, MT.mattress);
-          { const [a, b2] = X(DW - 0.03, DW); bx(a, b2, bedY + 0.08, bedY + 0.4, za + 0.02, zb - 0.55, MT.wood); } // guard rail (gap at the ladder)
-          for (const z of [za + 0.02, zb - 0.05]) { const [a, b2] = X(0, DW); bx(a, b2, bedY - 0.12, bedY + 0.45, z, z + 0.03, MT.wood); } // head / foot boards
-          for (const z of [za + 0.02, zb - 0.05]) { const [a, b2] = X(DW - 0.05, DW); bx(a, b2, y, bedY, z, z + 0.03, MT.steel); } // legs on the aisle side
-          { const [a, b2] = X(0, 0.58); bx(a, b2, y, bedY, za + 0.05, za + 0.75, MT.wood); }    // wardrobe
-          { const [a, b2] = X(0, 0.6); bx(a, b2, y + 0.72, y + 0.76, za + 0.75, zb - 0.05, MT.wood); } // desk top
-          { const [a, b2] = X(0, 0.3); bx(a, b2, y + 1.12, y + 1.15, za + 0.75, zb - 0.05, MT.wood); bx(a, b2, y + 1.42, y + 1.45, za + 0.75, zb - 0.05, MT.wood); } // shelves
-          { const [a, b2] = X(0, 0.03); bx(a, b2, y + 0.76, bedY, za + 0.75, zb - 0.05, MT.wood); } // back panel
-          { const [a, b2] = X(0.02, 0.5); bx(a, b2, y + 0.05, y + 0.3, za + 0.8, zb - 0.1, MT.wood); } // low shelf
-          { const [a, b2] = X(0.66, 0.98); bx(a, b2, y + 0.44, y + 0.47, za + 1.1, za + 1.5, MT.chair); const [a2, b3] = X(0.95, 0.98); bx(a2, b3, y + 0.47, y + 0.85, za + 1.1, za + 1.5, MT.chair); const [a3, b4] = X(0.8, 0.84); bx(a3, b4, y, y + 0.44, za + 1.28, za + 1.32, MT.steel); } // chair
-          // white ladder at the foot end, bed number plate
-          for (const z of [zb - 0.5, zb - 0.14]) { const [a, b2] = X(DW, DW + 0.03); bx(a, b2, y, bedY + 0.55, z - 0.015, z + 0.015, MT.ladder); }
-          for (let r = 0; r < 5; r++) { const [a, b2] = X(DW, DW + 0.03); bx(a, b2, y + 0.3 + r * 0.3, y + 0.33 + r * 0.3, zb - 0.5, zb - 0.14, MT.ladder); }
-          const nt = signs.get('bed' + bedNo) || signs.set('bed' + bedNo, signTex(String(bedNo), '#2e8f86', '#ffffff', 64, 64, 46)).get('bed' + bedNo);
-          plane(nt, 0.12, 0.12, wx + s * (DW + 0.005), bedY + 0.24, za + 0.4, s > 0 ? 'e' : 'w', { emissive: 0.4 });
+          const t0 = BED + u * (DK + WD), t1 = t0 + DK, t2 = t1 + WD, under = t1 > LEN - BED, wh = under ? bedY - 0.06 - y : 2.2;
+          B3(0, 0.6, y + 0.72, y + 0.76, t0, t1, MT.desk);                                              // 桌面
+          B3(0, 0.025, y, y + 1.62, t0, t1, MT.wood);                                                   // 背板
+          for (const yy of [1.12, 1.4, 1.62]) B3(0, 0.28, y + yy - 0.025, y + yy, t0, t1, MT.wood);     // 上方層板
+          B3(0.27, 0.28 - 0.0, y + 1.12, y + 1.62, (t0 + t1) / 2 - 0.012, (t0 + t1) / 2 + 0.012, MT.wood); B3(0, 0.28, y + 1.12, y + 1.62, (t0 + t1) / 2 - 0.012, (t0 + t1) / 2 + 0.012, MT.wood);
+          B3(0, 0.55, y + 0.04, y + 0.07, t0, t1, MT.wood); B3(0, 0.55, y + 0.3, y + 0.33, t0, t1, MT.wood); // 桌下開放層架
+          B3(0.3, 0.58, y + 0.56, y + 0.72, t0 + 0.04, t0 + 0.4, MT.wood);                              // 抽屜
+          for (const yy of [0.95, 0.95]) B3(0.026, 0.03, y + yy, y + yy + 0.07, t0 + 0.2, t0 + 0.55, MT.ladder); // 插座面板
+          B3(0, 0.6, y, y + wh, t1, t2, MT.wood);                                                       // 衣櫥
+          B3(0.6, 0.604, y + 0.04, y + wh - 0.04, t1 + WD / 2 - 0.004, t1 + WD / 2 + 0.004, MT.frame);  // 門縫
+          if (!under) B3(0.6, 0.604, y + 1.72, y + 1.728, t1 + 0.02, t2 - 0.02, MT.frame);
+          for (const dt of [-0.06, 0.06]) B3(0.6, 0.625, y + 0.95, y + 1.13, t1 + WD / 2 + dt - 0.008, t1 + WD / 2 + dt + 0.008, MT.steel); // 把手
+          B3(0.66, 0.98, y + 0.44, y + 0.47, t0 + 0.25, t0 + 0.65, MT.chair); B3(0.95, 0.98, y + 0.47, y + 0.85, t0 + 0.25, t0 + 0.65, MT.chair); B3(0.8, 0.84, y, y + 0.44, t0 + 0.43, t0 + 0.47, MT.steel); // 橘色椅子
         }
-        const [a, b2] = X(0, DW + 0.03); wlRect(a, b2, zA, zA + 3 * UL, y, y + 2.2);
+        // 另一端的高架床
+        for (const t of [LEN - BED, LEN - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
+        bed(LEN - BED, LEN, bedY, nos[2]); ladder(LEN - BED + 0.1, bedY + 0.55);
+        const [a, b2] = X(0, DW + 0.03); wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
       }
       sign(`${no} 寢`, cx, y + 2.52, z0 - 0.02, 'n', '#59833a', 0.7);
     });

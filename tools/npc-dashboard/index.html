@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NPC 儀表板（開發用）</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "../../vendor/three.module.js" } }</script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">🧑‍🤝‍🧑</span><div><b>NPC 儀表板</b><small>中原順起來 · 開發用（只在本機開發伺服器上開得起來）</small></div></div>
+    <input id="search" type="search" placeholder="搜尋名字、個性、地點…">
+    <button id="btnNew" class="primary">＋ 新增 NPC</button>
+  </header>
+  <div id="devWarn" class="warn hidden">⚠️ 這個頁面要從開發伺服器打開才能存檔：<code>python -I tools/devserver.py 5173</code>，再到 <code>http://localhost:5173/tools/npc-dashboard/</code>。</div>
+  <main>
+    <section class="filters"><button data-f="all" class="on">全部</button><button data-f="builtin">遊戲內建</button><button data-f="custom">自訂（儀表板匯入）</button><button data-f="friend">可加好友</button><span id="count"></span></section>
+    <section id="grid" class="grid"></section>
+  </main>
+
+  <!-- detail -->
+  <div id="detail" class="drawer hidden">
+    <div class="drawer-in">
+      <button class="close" data-close>✕</button>
+      <div class="detail-cols">
+        <div class="viewer-wrap"><div class="viewer" id="detailViewer"></div><small class="hint">拖曳可以轉動 · 滾輪縮放</small></div>
+        <div class="profile" id="profile"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- editor -->
+  <div id="editor" class="drawer hidden">
+    <div class="drawer-in wide">
+      <button class="close" data-close>✕</button>
+      <h2 id="edTitle">新增 NPC</h2>
+      <div class="ed-cols">
+        <div class="viewer-wrap"><div class="viewer" id="edViewer"></div><small class="hint">即時預覽 · 拖曳轉動</small></div>
+        <div class="ed-form">
+          <nav class="tabs"><button data-t="basic" class="on">① 基本資料</button><button data-t="look">② 外觀</button><button data-t="mind">③ 個性與台詞</button><button data-t="place">④ 出沒地點</button></nav>
+
+          <div class="tab" data-tab="basic">
+            <label>名字<input id="f_name" placeholder="例如：小明"></label>
+            <label>稱號 / 身分<input id="f_title" placeholder="例如：熱音社主唱"></label>
+            <div class="row2"><label>性別<select id="f_gender"><option>男</option><option>女</option><option>不指定</option></select></label>
+            <label>系級 / 身分<input id="f_dept" placeholder="例如：資管系二年級"></label></div>
+            <p class="note">名字請用「小明、小華」這種名字，不要用像真人的全名。</p>
+          </div>
+
+          <div class="tab hidden" data-tab="look">
+            <div class="subtabs"><button data-s="text" class="on">✍️ 文字描述</button><button data-s="photo">📷 照片</button><button data-s="fine">🎛 細部調整</button><button data-s="json">{ } JSON</button></div>
+            <div class="sub" data-sub="text">
+              <textarea id="f_desc" rows="5" placeholder="例如：皮膚黝黑的高瘦男生，捲髮，戴黑框眼鏡，穿深藍色 polo 衫、卡其色長褲、白色球鞋，背黑色後背包"></textarea>
+              <div class="btns"><button id="btnParse" class="primary">依描述產生外觀</button><span class="note">會讀：膚色、髮型髮色、眼鏡、上衣／外套／褲子／鞋子的顏色、長褲短褲、體型高矮、鬍子、粗眉…</span></div>
+              <div id="parseLog" class="log"></div>
+            </div>
+            <div class="sub hidden" data-sub="photo">
+              <div class="btns"><label class="file">選擇照片<input id="f_photo" type="file" accept="image/jpeg,image/png,image/webp"></label><button id="btnAuto">自動取色（全身正面照）</button></div>
+              <div class="pick">取色目標：<button data-pick="hair" class="on">頭髮</button><button data-pick="skin">皮膚</button><button data-pick="shirt">上衣</button><button data-pick="jacket">外套</button><button data-pick="shorts">褲子</button><button data-pick="shoes">鞋子</button><button data-pick="bag">包包</button></div>
+              <div class="photo-box"><canvas id="photoCv"></canvas><div id="photoEmpty" class="empty">選一張照片（最好是全身、正面），按「自動取色」，再點照片上的位置修正顏色。<br>髮型、眼鏡這些形狀請在「文字描述」或「細部調整」設定。</div></div>
+              <p class="note">照片只會存在你電腦的 tools/npc-dashboard/photos/（不會上傳 git）。</p>
+            </div>
+            <div class="sub hidden" data-sub="fine"><div id="fine" class="fine"></div></div>
+            <div class="sub hidden" data-sub="json">
+              <textarea id="f_json" rows="10" spellcheck="false"></textarea>
+              <div class="btns"><button id="btnJson">套用 JSON</button><span class="note">character.js createCharacter() 的參數，也可以請 Claude 看照片幫你填。</span></div>
+            </div>
+          </div>
+
+          <div class="tab hidden" data-tab="mind">
+            <label>個性<textarea id="f_personality" rows="2" placeholder="例如：外冷內熱，講話很直，其實很照顧學弟妹"></textarea></label>
+            <div class="row2"><label>興趣（用頓號隔開）<input id="f_interests" placeholder="吉他、拍照、宵夜"></label>
+            <label>喜歡<input id="f_likes" placeholder="珍珠奶茶"></label></div>
+            <label>口頭禪<input id="f_catch" placeholder="走啦！"></label>
+            <label>背景故事<textarea id="f_background" rows="2"></textarea></label>
+            <label>人際關係<input id="f_relations" placeholder="彥霖的直屬學弟"></label>
+            <label>對話（按 E 聊天時輪流說）<textarea id="f_talks" rows="7" placeholder="每段對話之間空一行。&#10;每行一句；開頭寫「彥霖：」就是彥霖說的，沒寫名字就是這個 NPC 說的。&#10;&#10;欸你是彥霖吧！&#10;彥霖：對啊，明天記得投票喔&#10;沒問題，我一定投你！&#10;&#10;今天社團練得好累…"></textarea></label>
+          </div>
+
+          <div class="tab hidden" data-tab="place">
+            <label>出沒地點<select id="f_place"></select></label>
+            <label class="chk"><input id="f_enabled" type="checkbox" checked> 放進遊戲（存檔後重新整理遊戲就會出現，按 E 可以聊天）</label>
+            <label>作息 / 備註（給開發者看）<input id="f_schedule" placeholder="例如：晚上才會出現（要做的話請 Claude 加程式）"></label>
+            <p class="note">需要特別的行為（固定作息、店鋪、加好友、手機聊天…）時，按下面的「複製需求單給 Claude」，貼給 Claude 請他寫程式。</p>
+          </div>
+
+          <div class="ed-foot"><button id="btnBrief">📋 複製需求單給 Claude</button><span class="flex"></span><span id="edMsg" class="msg"></span><button id="btnSave" class="primary">💾 存檔</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

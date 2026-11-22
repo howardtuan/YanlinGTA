@@ -24,6 +24,9 @@ import { Prompts, dual } from './prompts.js';
 import { controlsHTML, bindControls } from './controls.js';
 import { readSave, writeSave, applySave, clearSave } from './save.js';
 import { PC } from './pc.js';
+import { Detective } from './detective.js';
+import { Sunday } from './sunday.js';
+import { CustomNpcs } from './customnpcs.js';
 import { Wardrobe } from './wardrobe.js';
 import { Nav } from './nav.js';
 import { Airdrop } from './airdrop.js';
@@ -217,6 +220,7 @@ class Game {
     this.gate = new GateDuty(this); // 新中北路側門門禁任務
     this.race = new Race(this); // 新中北路障礙賽 (sign up at 力行大樓)
     this.pc = new PC(this);             // 彥霖's old computer (2F of 孫師傅牛肉拉麵)
+    this.detective = new Detective(this); // SQL cases in its terminal (`case`) and 🕵️ 案件檔案
     this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
     this.nav = new Nav(this);           // map waypoint + route
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
@@ -225,6 +229,7 @@ class Game {
     this.library = new LibraryLink(this); // glowing circle at the library door: opens 中原大學電子書 HyRead
     this.gordon = new Gordon(this);     // 戈登肉鋪 (lawn in front of 校史館): freezers, basket, checkout
     this.friends = new Friends(this);
+    this.customNpcs = new CustomNpcs(this); // NPCs added in the dev NPC dashboard (data/npcs.json, tools/npc-dashboard)
     this.hank = new Hank(this);         // 漢克: McDonald's nights, rides his ZMAX, strolls with a guitar   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
     this.concerts = new Concerts(this); // 搶票 App + 林口體育館演唱會 (ITZV / aespo)
     this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts
@@ -282,6 +287,7 @@ class Game {
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
     setLoad(0.95, '準備出發');
     this.missions = new Missions(this);
+    this.sunday = new Sunday(this);   // the hint helper in the bottom-right corner during the story (J)
     this.garry = new Garry(this);       // 黃蓋瑞: runs on the track, 古箏社 at 活動中心, lives next door to 彥霖 (js/garry.js)
     // warm up a frame so shaders compile behind the loading screen; compileAsync lets the driver
     // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
@@ -1037,6 +1043,7 @@ class Game {
       }
     }
     if (!this.race.active) this.missions.update(dt); // story timers wait while you race
+    this.sunday.update(inp); // Sunday's hints for the current mission stage (J)
     this.nav.update(dt);
     this.airdrop.update(dt);
     this.market.update(); // 靈感股: new trading days, 定期定額 at the open
@@ -1056,7 +1063,8 @@ class Game {
     if (this.airdrop.cinema) this.airdrop.camera(this.camera, dt); // 呼叫載具 film
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];
-    if (this.interiors.yh) { const d = this.interiors.yh.door; markers.push({ x: d[0], z: d[1], icon: '🏠', color: '#ff8fb1', label: '彥霖的家', near: 120 }); }
+    // 🏠 is hidden while mission 5 has you find the place yourself
+    if (this.interiors.yh && !this.missions.hideHome) { const d = this.interiors.yh.door; markers.push({ x: d[0], z: d[1], icon: '🏠', color: '#ff8fb1', label: '彥霖的家', near: 120 }); }
     if (this.interiors.gordon) { const d = this.interiors.gordon.door; markers.push({ x: d[0], z: d[1], icon: '🥩', color: '#c9a24e', label: '戈登肉鋪', near: 120 }); }
     // side quest: 新中北路側門門禁 (always on the map)
     if (!this.gate.active) for (const gq of Object.values(this.interiors.gates || {})) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }

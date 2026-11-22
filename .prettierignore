@@ -13,3 +13,5 @@ task/
 *.md
 css/
 index.html
+.claude/
+.codegraph/

@@ -55,6 +55,16 @@ export default [
     },
   },
   {
-    ignores: ['dist/**', 'vendor/**', 'tools/**', 'docs/**', 'assets/**', 'data/**', '.vite/**'],
+    ignores: [
+      'dist/**',
+      'vendor/**',
+      'tools/**',
+      'docs/**',
+      'assets/**',
+      'data/**',
+      '.vite/**',
+      '.claude/**',
+      '.codegraph/**',
+    ],
   },
 ];

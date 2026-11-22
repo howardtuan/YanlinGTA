@@ -18,7 +18,7 @@
 
 ### macOS
 
-先 `cd` 到 repo 目錄後執行：
+先 `cd` 到 repo 目錄、裝好相依套件（`npm ci`）後執行。機器人會先跑 `npm run build`，再把建置出來的 `dist/` 當網站送給 Chrome（改用 Vite 之後，原始碼沒打包就不能直接在瀏覽器裡跑）；已經建置過、想省時間可以加 `--no-build`。
 
 ```bash
 # 預設（SwiftShader 軟體算圖）
@@ -56,7 +56,8 @@ Chrome 會以 `--headless=new`、暫時的 `--user-data-dir` 與 `--remote-debug
 
 | 選項 | 說明 |
 | --- | --- |
-| `--root=<dir>` | 要測的 repo，預設是目前的 repo，可指到其他 worktree。 |
+| `--root=<dir>` | 要測的 repo，預設是目前的 repo，可指到其他 worktree（那個資料夾要先 `npm ci`）。有 `vite.config.js` 就先建置再送 `dist/`，沒有（改用 Vite 之前的版本）就直接送整個資料夾。 |
+| `--no-build` | 不重新建置，直接送現有的 `dist/`。 |
 | `--chrome=<path>` | Chrome 執行檔路徑，也可用環境變數 `CHROME` 指定。預設 macOS 為 `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`；Windows 為 `C:\Program Files\Google\Chrome\Application\chrome.exe`。 |
 | `--gpu` / `--swiftshader` | 切換算圖模式。預設 macOS 用 `swiftshader`（`--use-angle=swiftshader --enable-unsafe-swiftshader`）；Windows 用 GPU（`--use-angle=d3d11 --ignore-gpu-blocklist`），GPU 不能用時自動重試一次再退回 SwiftShader（見上方說明）。macOS 加 `--gpu` 會用 Metal（`--use-angle=metal`），速度快很多，適合開發時反覆跑。 |
 | `--width=960` `--height=540` | 瀏覽器視窗寬度與高度。 |

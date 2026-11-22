@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 import { startServer } from './serve.mjs';
 import { launchChrome, connectPage, defaultChromePath } from './cdp.mjs';
 
@@ -14,7 +15,8 @@ const flag = k => argv.includes(`--${k}`);
 const arg = (k, d) => { const a = argv.find(s => s.startsWith(`--${k}=`)); return a ? a.slice(k.length + 3) : d; };
 if (flag('help') || flag('h')) {
   console.log(`node tools/e2e/story-bot.mjs [options]
-  --root=<dir>            repo checkout to serve (default: this repo)
+  --root=<dir>            repo checkout to test (default: this repo); a Vite checkout is built first and its dist/ is served
+  --no-build              serve the existing dist/ as it is (skip npm run build)
   --chrome=<path>         Chrome binary (default: env CHROME or the standard install path)
   --gpu | --swiftshader   renderer (default: macOS swiftshader, Windows gpu)
   --width=960 --height=540
@@ -96,9 +98,24 @@ function gitInfo(root) {
 }
 
 let srv, chrome, page, curIdx = -1, finished = false;
+// Since the Vite refactor the sources no longer run unbundled in a browser (bare 'three' imports, .wasm
+// imports), so a checkout with a vite.config.js is built and its dist/ is served. Older checkouts (plain
+// ES modules + import map) are still served as they are.
+function webRoot() {
+  if (!fs.existsSync(path.join(cfg.root, 'vite.config.js'))) return cfg.root;
+  const dist = path.join(cfg.root, 'dist');
+  if (!flag('no-build')) {
+    if (!fs.existsSync(path.join(cfg.root, 'node_modules'))) throw new Error(`${cfg.root} has no node_modules: run npm ci there first (or build it yourself and pass --no-build)`);
+    say(`building ${cfg.root} (npm run build)`);
+    execSync('npm run build', { cwd: cfg.root, stdio: ['ignore', 'ignore', 'inherit'] });
+  }
+  if (!fs.existsSync(path.join(dist, 'index.html'))) throw new Error(`${dist}/index.html not found: run npm run build in ${cfg.root}`);
+  return dist;
+}
 async function main() {
-  srv = await startServer({ root: cfg.root, port: 0 });
-  say(`serving ${cfg.root} at ${srv.url}`);
+  const web = webRoot();
+  srv = await startServer({ root: web, port: 0 });
+  say(`serving ${web} at ${srv.url}`);
   report.gpuAttempts = [];
   for (let ai = 0; ai < MODES.length; ai++) {
     gpu = MODES[ai]; Object.assign(cfg, modeCfg(gpu));

@@ -157,9 +157,15 @@ export class Player {
     this.ch.update(0.2, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
     this.ch.root.visible = v.kind === 'scooter'; // in a car the driver is hidden (a low roof would cut through the head)
     Vehicle.onRide?.(v, true); // physics body for the ridden vehicle (main.js, js/vehphys.js)
+    v.up = 0; // (the body starts where the mesh is; an interior floor it was parked on is the physics' business now)
   }
-  exit(scene, collision) {
+  exit(scene, collision, interiors) {
     const v = this.vehicle; if (!v) return;
+    // ridden onto an interior floor above the ground (力行宿舍 2F, up the stairs): the parked vehicle stays on that floor
+    // (v.up = the floor's height above the terrain's surface, js/vehicles.js sync) and you step off onto it, not onto the ground under it
+    const vy = v.mesh.position.y, y0 = surfaceAt(v.pos.x, v.pos.z, vy), rise = vy - y0;
+    const fv = interiors && rise > 0.5 ? interiors.groundAt(v.pos.x, v.pos.z, rise + 0.4) : 0, up = fv > 0.3 && Math.abs(fv - rise) < 0.6;
+    v.up = up ? fv : 0;
     Vehicle.onRide?.(v, false); // back to a parked vehicle on the level it stands on
     v.mesh.remove(this.ch.root); scene.add(this.ch.root); this.ch.root.visible = true;
     this.pos = this.ch.root.position;
@@ -167,17 +173,21 @@ export class Player {
     const [fx, fz] = v.forward();
     const cands = [[fz, -fx], [-fz, fx], [-fx, -fz], [fx, fz]];
     let placed = false;
-    const y0 = surfaceAt(v.pos.x, v.pos.z, v.mesh.position.y);
+    const floor = (x, z, y) => up ? interiors.groundAt(x, z, Math.max(0, y0 + fv - y + 0.4)) : 0; // (this.y: height above the terrain's surface)
+    let h = 0;
+    const nr = collision.noReserved; if (up) collision.noReserved = true; // (a building with an interior is "reserved" against spawns: not against you)
     for (const [cx, cz] of cands) {
       const x = v.pos.x + cx * v.exitSide, z = v.pos.z + cz * v.exitSide;
       // on the vehicle's own level (deck / cut / ground, terrain.js grade separations),
       // and not over a retaining wall (terrain.js height levels)
-      const y = surfaceAt(x, z, y0);
-      if (!collision.blocked(x, z, 0.4, 0, y0) && Math.abs(y - y0) < 0.5) { this.pos.set(x, y, z); placed = true; break; }
+      const y = surfaceAt(x, z, y0), f = floor(x, z, y);
+      if (!collision.blocked(x, z, 0.4, f, y0) && Math.abs(y + f - (y0 + (up ? fv : 0))) < 0.5) { this.pos.set(x, y + f, z); h = f; placed = true; break; }
     }
-    if (!placed) this.pos.set(v.pos.x + fz * 2.5, surfaceAt(v.pos.x + fz * 2.5, v.pos.z - fx * 2.5, y0), v.pos.z - fx * 2.5);
+    collision.noReserved = nr;
+    if (!placed && up) { h = fv; this.pos.set(v.pos.x, y0 + h, v.pos.z); } // no room beside it up there: where the vehicle stands
+    else if (!placed) this.pos.set(v.pos.x + fz * 2.5, surfaceAt(v.pos.x + fz * 2.5, v.pos.z - fx * 2.5, y0), v.pos.z - fx * 2.5);
     this.heading = v.heading; this.ch.root.rotation.set(0, v.heading, 0);
-    v.driver = null; v.speed = 0; this.vehicle = null; this.y = 0; this.seat = null; this.vy = 0; this.vel.set(0, 0);
+    v.driver = null; v.speed = 0; this.vehicle = null; this.y = this.ground = h; this.seat = null; this.vy = 0; this.vel.set(0, 0);
   }
   // change clothes (wardrobe at 彥霖's old room): rebuild the figure with the new colours, keep where it stands
   setLook(look) {

@@ -3,6 +3,16 @@
 // 騎 ZMAX 兜風（離你太遠時只知道在附近道路）／睡覺（離線），勞大在校園散步、在體育園區籃球場打球或開直升機。可以一鍵導航過去。
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
+// navigate to a friend and keep the route on them as they move (nav.track re-routes when they have moved a few
+// metres; once their position is unknown — gone home, out of range — the pin stays where they were last seen)
+export function trackFriend(g, id) {
+  const f0 = friendLocations(g).find(x => x.id === id); if (!f0 || f0.x == null || !g.nav) return false;
+  return g.nav.track({
+    navPos: () => { const f = friendLocations(g).find(x => x.id === id); return f && f.x != null ? { x: f.x, z: f.z } : null; },
+    navArrive: `📍 找到${f0.name}了！`,
+  });
+}
+
 // [{ id, name, av (html), color, x, z (or null), status }]
 export function friendLocations(g) {
   const out = [], F = g.friends, has = (id) => F?.added.has(id);
@@ -62,8 +72,8 @@ export function locateUI(root, g) {
     drawMap(root.querySelector('.lc-map'), g, L, p);
     root.querySelectorAll('.lc-go').forEach(b => b.onclick = () => {
       const f = friendLocations(g).find(x => x.id === b.dataset.id); if (!f || f.x == null) return;
-      g.nav?.set(f.x, f.z); g.audio.tap?.();
-      g.hud.toast(`📍 已導航到 ${f.name}（${f.status}）`, 'good', 2200);
+      trackFriend(g, f.id); g.audio.tap?.();
+      g.hud.toast(`📍 已導航到 ${f.name}（${f.status}）・路線會跟著移動`, 'good', 2400);
     });
   }
   return { render, refresh: render };

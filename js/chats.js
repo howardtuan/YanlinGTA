@@ -3,6 +3,7 @@
 // script: 依序進行的回合，每回合兩個選項 { t: 我傳的訊息, r: 對方的回覆（字串，或群組用 [名字, 內容]）, v: 得票 }
 // 每個聯絡人的回合用完就沒有新話題了（對方已讀）。
 import { pilotBall } from './pilot.js';
+import { trackFriend } from './locate.js';
 
 export const CONTACTS = [
   {
@@ -462,7 +463,7 @@ export const FRIEND_CONTACTS = {
           const Y = g.yeeming; if (!Y?.mode) return { r: ['等我一下'] };
           if (Y.mode === 'off') return { r: ['收假回營了 🪖', '晚上沒辦法看手機，明天早上 9 點後回學校'] };
           const r = Y.mode === 'walk' ? ['跟明衫在校園散步 💑', '定位傳你'] : ['在體育館旁邊的排球場 🏐', '要來一起打嗎'];
-          return { r, then: () => { if (Y.pos && (Y.mode !== 'walk' || Y.walkOn)) { g.nav.set(Y.pos.x, Y.pos.z); g.hud.toast('🧭 已設定導航到 YeeMing 那邊', 'good', 2400); } } };
+          return { r, then: () => { if (trackFriend(g, 'yeeming')) g.hud.toast('🧭 已設定導航到 YeeMing 那邊（路線會跟著他走）', 'good', 2400); } };
         },
       },
       { t: '要不要打麻將？', match: /麻將|打牌|三缺一/, ask: () => ({ r: ['又是麻將 😂', '休假那天晚上，三缺一揪我 🀄'] }) },
@@ -505,7 +506,7 @@ export const FRIEND_CONTACTS = {
           if (S.mode === 'library' || S.mode === 'study') return { r: [S.mode === 'library' ? '在圖書館讀書 📚' : '在宿舍讀書 📖', '明天早上 9 點我會在系館前面練舞～'] };
           const at = S.mode === 'dance' || S.mode === 'walk' ? S.pos : S.worker?.root.position;
           const r = S.mode === 'walk' ? ['跟 YeeMing 在校園散步 💑', '定位傳你～'] : S.mode === 'dance' ? ['在資管系館前面練舞 💃', '橘貓也在喔，定位傳你'] : ['在活動中心麥當勞值班 🍟', '來的話我幫你點餐～'];
-          return { r, then: () => { if (at) { g.nav.set(at.x, at.z); g.hud.toast('🧭 已設定導航到羊明衫那邊', 'good', 2400); } } };
+          return { r, then: () => { if (at && trackFriend(g, 'mingshan')) g.hud.toast('🧭 已設定導航到羊明衫那邊（路線會跟著她走）', 'good', 2400); } };
         },
       },
     ],
@@ -545,7 +546,7 @@ export const FRIEND_CONTACTS = {
           const J = g.jianyu; if (!J?.mode) return { r: ['等我一下'] };
           if (J.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 劍玉在 278 寢的上舖睡覺，下午 5 點以後會醒來打積分', 'good', 2800) };
           const r = J.cruising ? ['開藍寶堅尼出來兜風 🏎️', '就在附近，綠色那台就是我'] : J.mode === 'car' ? ['在系館停車場顧車 🏎️', '定位傳你了'] : ['在 278 打積分 🎧', '定位傳你了，進門右手邊第一個就是我'];
-          return { r, then: () => { if (g.nav.track(J)) g.hud.toast('🧭 已設定導航到劍玉身邊', 'good', 2400); } };
+          return { r, then: () => { if (trackFriend(g, 'jianyu')) g.hud.toast('🧭 已設定導航到劍玉身邊（路線會跟著他走）', 'good', 2400); } };
         },
       },
       {

@@ -41,8 +41,8 @@ const BIO = { xT: -206.5, zW: -101.0, hMain: 30.3, hTower: 31.9, hWing: 26.9 };
 // 空橋：生科館東側塔 → 學活西面，寬 3.3 m，約三樓
 export const BRIDGE = { x0: -200.5, x1: -195.0, z0: -103.6, z1: -100.3, y0: 7.0, y1: 10.3 };
 // 學活外牆上真的能走過去的門（js/sac.js 的室內用同一組數字挖門洞、留碰撞缺口）：
-// s1 一樓南面入口、s2 二樓門廊、n1 一樓北面出口、nb 二樓北面接新中北路天橋（x 範圍）；wb 三樓西面接往生科館的空橋（z 範圍）
-export const SAC_DOORS = { s1: [-152.17, -150.19], s2: [-153.0, -150.8], n1: [-148.8, -147.2], nb: [-164.4, -162.0], wb: [-103.2, -100.7] };
+// s1 一樓南面入口、s2 二樓南面（沒有門，大階梯頂的平台和門廊整段敞開，直接走進中庭）、n1 一樓北面出口、nb 二樓北面接新中北路天橋（x 範圍）；wb 三樓西面接往生科館的空橋（z 範圍）
+export const SAC_DOORS = { s1: [-152.17, -150.19], s2: [-162.5, -148.15], n1: [-148.8, -147.2], nb: [-164.4, -162.0], wb: [-103.2, -100.7] };
 
 // ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
 // 只改 look、分段（parts＋splitAc 讓屋頂冷氣的 rnd2 抽取照舊）、高度；輪廓 pts、kind 都不動
@@ -178,7 +178,7 @@ export function zoneGTerrain(data) {
   L.stairs.push({ id: 'sac_2f_stair', site: '學生活動中心南面大階梯', a: [S2.x, S2.zFoot], b: [S2.x, S2.zTop], w: S2.w, y0: foreY, y1: landY, steps: S2.steps, rail: 'none', wall: 'granite' }); // 兩側實心矮牆在 buildZoneG
   const [lx0, lz0, lx1, lz1] = S2.landing;
   // 東邊（邊 1）接入口上方的二樓門廊甲板（buildZoneG），不封；西緣的實心矮牆在 buildZoneG
-  L.pads.push({ id: 'sac_2f_landing', site: '學生活動中心二樓門廊', y: landY, top: '#cdbfae', wall: 'granite', open: [1], pts: [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]] });
+  L.pads.push({ id: 'sac_2f_landing', site: '學生活動中心二樓門廊', y: landY, top: '#cdbfae', wall: 'granite', open: [0, 1], pts: [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]] }); // 北邊（邊 0）直接進學活二樓中庭
   return { pitY, landY, foreY };
 }
 
@@ -678,9 +678,7 @@ export function buildZoneG(I, scene, data, collision = null) {
       k.box('sacPlain', px0, px1, ySl, landY - 0.02, wz, pz1);
       for (const x of [dx0 + 1.2, (dx0 + dx1) / 2, dx1 - 1.2]) k.box('lamp', x - 0.2, x + 0.2, ySl - 0.02, ySl - 0.005, -93.4, -93.0);
       k.flat('foreGranite', [[lx0, lz0], [px1, wz], [px1, pz1], [px0, pz1], [px0, S2.zTop], [lx0, S2.zTop]], landY + 0.012, false, 2.4);
-      k.box('door', dx0 - 0.9, o2a, landY, landY + 2.4, wz + 0.02, wz + 0.1); k.box('door', o2b, dx1 - 0.5, landY, landY + 2.4, wz + 0.02, wz + 0.1);
-      for (const x of [o2a, o2b]) { k.box('black', x - 0.04, x + 0.04, landY, landY + 2.4, wz + 0.02, wz + 0.16); k.box('door', x - 0.03, x + 0.03, landY, landY + 2.3, wz + 0.16, wz + 1.2); }
-      k.box('black', dx0 - 0.9, dx1 - 0.5, landY + 2.4, landY + 2.52, wz + 0.02, wz + 0.14);
+      // （二樓南面沒有門：整段敞開，直接走進中庭，js/sac.js）
       // 頂端平台東緣底下（門廊西端、一樓入口的西牆）：平台底下封起來的花崗石牆
       k.box('granite', lx1 - 0.15, lx1, fy - 0.1, landY - 0.02, lz0, S2.zTop);
       // 門廊前緣的實心女兒牆（第一根圓柱穿過它）與金字；東端（入口東側圓柱旁）細欄杆
@@ -982,7 +980,7 @@ export function buildZoneG(I, scene, data, collision = null) {
       // （東邊不封：接入口上方的二樓門廊甲板，門廊自己的邊在前庭那段加）
       const S2 = STAIR2F, [lx0, lz0, lx1, lz1] = S2.landing, g = landY - S2.rise, band = (ya, yb) => [Math.max(ya - 0.3, g + 2.6), yb + 1.2];
       const seg = (ax, az, bx2, bz, [ya, yb]) => collision.addSegment(ax, az, bx2, bz, ya, yb);
-      seg(lx0, lz0, lx0, lz1, band(landY, landY)); seg(lx0, lz0, lx1, lz0, band(landY, landY));
+      seg(lx0, lz0, lx0, lz1, band(landY, landY));
       const y0 = foreY ?? g, xa = S2.x - S2.w / 2, xb = S2.x + S2.w / 2, zf = S2.zFoot, zt = S2.zTop, yAt = z => y0 + (landY - y0) * (z - zf) / (zt - zf);
       const z2 = zf + (zt - zf) * 0.6; // 樓梯下段離地不到 2.3 m，原本的封邊牆擋得住
       for (const x of [xa, xb]) seg(x, z2, x, zt, band(yAt(z2), landY));

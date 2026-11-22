@@ -44,6 +44,7 @@ import { Garry } from './garry.js';
 import { Gordon } from './gordon.js';
 import { LibraryLink } from './library.js';
 import { Hank } from './hank.js';
+import { FirstPerson } from './firstperson.js';
 import { NewsDesk } from './newsui.js';
 import { initKernels, kernelsReady } from './wasm/kernels.js';
 import { Physics, G } from './physics.js';
@@ -218,6 +219,7 @@ class Game {
     this.hud = new HUD(this.world);
     this.player = new Player(this.scene);
     this.rig = new CameraRig(this.camera);
+    this.fpv = new FirstPerson(this); this.rig.fpv = this.fpv; // first-person view (V / R3), js/firstperson.js
     this.traffic = new Traffic(this.scene, this.world, this.xlowQ ? 8 : this.lowQ ? 14 : 26);
     this.peds = new Peds(this.scene, this.world, this.xlowQ ? 10 : this.lowQ ? 18 : 32);
     this.traffic.viewK = this.peds.viewK = this.viewK; // draw range for the quality level
@@ -853,6 +855,7 @@ class Game {
     if (!yieldGpu) {
       this._drawnAt = now;
       this.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
+      this.fpv?.renderMirrors(this.renderer); // rear view for the cockpit mirrors
       this.post.render(dt, { night: this.night, sunset: this.skySys.sunset });
     }
     if (this._perf) this._perf.end(now);
@@ -1061,7 +1064,9 @@ class Game {
       e.found = true; hud.bigToast(e.title, e.text, 4200); this.audio.pickup();
     }
     // ---- camera & hud ----
+    if (inp.hit('KeyV') && !this.phone.open && !hud.inDialog && !hud.bigOpen && !this._modalOpen) this.fpv.toggle(); // first person on / off
     this.rig.update(dt, hud.bigOpen ? { mdx: 0, mdy: 0 } : inp, pl, w.collision, this.settings.sens, this.interiors);
+    this.fpv.update(dt); // cockpit / handlebar, hides your own figure and vehicle while in first person
     if (this.job.active) this.job.camera(this.camera, dt); // over-the-shoulder shot of the counter
     else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
     if (this.airdrop.cinema) this.airdrop.camera(this.camera, dt); // 呼叫載具 film
@@ -1078,7 +1083,7 @@ class Game {
       this._locT = 0.5;
       const zn = !pl.vehicle && this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
       hud.setLocation(zn ? (zn.floorOf ? `${zn.name} ${zn.floorOf(pl.y)}F` : zn.name) : hud.locationName(wp.x, wp.z));
-      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160 * (this.viewK ?? 1);
+      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle ? v !== this.fpv.hidden : Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160 * (this.viewK ?? 1);
     }
     // tip box fades after a while on foot
     if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', dual('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定',

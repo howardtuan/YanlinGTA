@@ -1,7 +1,7 @@
 // Keyboard / mouse / touch / gamepad input
 // Standard mapping: 0 A, 1 B, 2 X, 3 Y, 4 LB, 5 RB, 6 LT, 7 RT, 8 Back/View, 9 Start/Menu, 10 L3, 11 R3, 12-15 D-pad U/D/L/R
 export const PAD_MAPS = {
-  play: [[0, 'KeyE'], [1, 'KeyF'], [2, 'Mouse0'], [3, 'KeyG'], [4, 'KeyH'], [5, 'Space'], [8, 'KeyM'], [9, 'Escape'], [10, 'ShiftLeft'],
+  play: [[0, 'KeyE'], [1, 'KeyF'], [2, 'Mouse0'], [3, 'KeyG'], [4, 'KeyH'], [5, 'Space'], [8, 'KeyM'], [9, 'Escape'], [10, 'ShiftLeft'], [11, 'KeyV'],
     [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],
   // i-Piyan: A open / send, B back, X send, Y or Start put the phone away
   phone: [[0, 'Enter'], [1, 'Escape'], [2, 'Tab'], [3, 'KeyE'], [9, 'KeyE'], [12, 'ArrowUp'], [13, 'ArrowDown'], [14, 'ArrowLeft'], [15, 'ArrowRight']],

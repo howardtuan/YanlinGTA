@@ -202,18 +202,38 @@ export class CameraRig {
   update(dt, input, player, collision, sens = 1, interiors = null) {
     const mx = input.mdx, my = input.mdy;
     this.yaw -= mx * 0.0026 * sens;
-    this.pitch = Math.max(this.fp ? -1.1 : -0.25, Math.min(1.2, this.pitch + my * 0.0022 * sens));
+    const fpOn = this.fp || !!this.fpv?.active; // concert venue (fp) or the player's own first-person toggle (js/firstperson.js)
+    this.pitch = Math.max(fpOn ? -1.1 : -0.25, Math.min(1.2, this.pitch + my * 0.0022 * sens));
     if (Math.abs(mx) + Math.abs(my) > 0) this.idle = 0; else this.idle += dt;
     const v = player.vehicle;
     const wp = player.worldPos();
     // first person (演唱會場內, js/concert.js): eyes at head height, look where the mouse points
-    if (this.fp && !v) {
+    if (fpOn && !v) {
       const eye = this.cur.set(wp.x, player.pos.y + 1.62, wp.z), cp = Math.cos(this.pitch);
       this.cam.position.copy(eye);
       this.cam.lookAt(eye.x + Math.sin(this.yaw) * cp, eye.y - Math.sin(this.pitch), eye.z + Math.cos(this.yaw) * cp);
       this.first = true; // back in third person: start from the new spot instead of sliding over
       return;
     }
+    // first person in a vehicle: eyes in the driver's seat, looking where the vehicle points; the mouse looks around
+    // (up to ~120° each way) and the view drifts back to straight ahead when you let go; on two wheels it leans too
+    if (fpOn && v && this.fpv) {
+      this.fpLook = Math.max(-2.1, Math.min(2.1, (this.fpLook || 0) - mx * 0.0026 * sens));
+      const rest = v.kind === 'scooter' ? 0.3 : 0.06; // on the scooter look down a little so the meter and mirrors are in view
+      if (this._fpVeh !== v) { this._fpVeh = v; this.fpPitch = rest; this.fpLook = 0; }
+      this.fpPitch = Math.max(-0.7, Math.min(0.9, this.fpPitch + my * 0.0022 * sens));
+      if (this.idle > 1.2) { this.fpLook *= Math.max(0, 1 - dt * 2.5); this.fpPitch += (rest - this.fpPitch) * Math.min(1, dt * 2); }
+      const fov = v.kind === 'scooter' ? 72 : 75; // a wider view from the seat, so the mirrors fit
+      if (this.cam.fov !== fov) { this.cam.fov = fov; this.cam.updateProjectionMatrix(); }
+      v.mesh.updateMatrixWorld(true);
+      const eye = this.fpv.eyeLocal(v).applyMatrix4(v.mesh.matrixWorld), yaw = v.heading + this.fpLook, cp = Math.cos(this.fpPitch);
+      this.cam.position.copy(eye);
+      this.cam.lookAt(eye.x + Math.sin(yaw) * cp, eye.y - Math.sin(this.fpPitch), eye.z + Math.cos(yaw) * cp);
+      if (v.kind === 'scooter') this.cam.rotateZ(-(v.lean || 0) * 0.7);
+      this.yaw = v.heading; this.first = true; // back in third person: behind the vehicle
+      return;
+    }
+    if (this.cam.fov !== 62) { this.cam.fov = 62; this.cam.updateProjectionMatrix(); } // back from the seat view
     let dist, h;
     if (v) {
       dist = v.kind === 'scooter' ? 5.2 : 7.2; h = v.kind === 'scooter' ? 1.5 : 1.7;

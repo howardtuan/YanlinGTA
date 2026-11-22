@@ -1,6 +1,6 @@
 // 學生活動中心室內（OSM w392023427）：一樓到四樓走得進去，二樓從南面門廊穿過中庭走上新中北路天橋，三樓走進往生科館的空橋。
 // 外觀仍由 js/map.js 照輪廓畫、js/zone_g.js 補構件；麥當勞（js/interiors.js buildMcD）、古箏社教室（js/clubroom.js）、
-// B1 學習區與學餐（js/sac_b1.js）照舊，這裡蓋它們以外的部分（輪廓 = sacTrimmedPts：東南角麥當勞那塊、西北角 js/clubroom.js 那塊不算）。
+// B1 用餐區與學餐（js/sac_b1.js）照舊，這裡蓋它們以外的部分（輪廓 = sacTrimmedPts：東南角麥當勞那塊、西北角 js/clubroom.js 那塊不算）。
 //
 // 依據：
 //  - 課外活動指導組《學生社團活動空間場地借用說明》（110 學年，有各場地的照片與房號）、活動中心管理細則、總務處場地收費表、學校新聞：
@@ -334,7 +334,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     rail(wx0, wz0, gx0, wz0); rail(gx1, wz0, wx1, wz0); rail(wx1, wz0, wx1, wz1); rail(wx0, wz1, wx1, wz1); rail(wx0, wz0, wx0, wz1);
     for (const [x, z] of [[wx0, wz0], [gx0, wz0], [gx1, wz0], [wx1, wz0], [wx1, wz1], [wx0, wz1]]) bx(x - 0.03, x + 0.03, y, y + 1.06, z - 0.03, z + 0.03, MT.rail);
     bx(gx0, gx1, y - SL, y, wz0, wz0 + 0.32, MT.floor);
-    sign('2F ↑ · B1 學習區 · 麥當勞 ↓', (gx0 + gx1) / 2, y + 2.5, wz0 - 0.4, 'n', '#2b5fae', 2.6); bx((gx0 + gx1) / 2 - 1.32, (gx0 + gx1) / 2 + 1.32, y + 2.15, c, wz0 - 0.36, wz0 - 0.3, MT.dark);
+    sign('2F ↑ · B1 用餐區 · 麥當勞 ↓', (gx0 + gx1) / 2, y + 2.5, wz0 - 0.4, 'n', '#2b5fae', 2.6); bx((gx0 + gx1) / 2 - 1.32, (gx0 + gx1) / 2 + 1.32, y + 2.15, c, wz0 - 0.36, wz0 - 0.3, MT.dark);
     // 服務台、公布欄、長椅
     cbx(-160.5, -157, y, y + 1.05, -101.2, -100.5, MT.wood); bx(-160.6, -156.9, y + 1.05, y + 1.1, -101.3, -100.4, MT.tableW);
     sign('服務台', -158.75, y + 2.5, -100.85, 's', '#1f5f8b', 1.1); bx(-159.4, -158.1, y + 2.1, c, -100.9, -100.82, MT.dark);
@@ -583,7 +583,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   // =====================================================================
   {
     const P = b.pts, cutsAll = [...sacDoors(),
-      // over the B1 rooms (the 學習區 opens south to the stalls and the B1 entrance, east to 麥當勞): the wall starts at their ceiling
+      // over the B1 rooms (the 用餐區 opens south to the stalls and the B1 entrance, east to 麥當勞): the wall starts at their ceiling
       { p: [PIT.west[0], zSouth(PIT.west[0])], q: [-144.4, -94.4], y0: -1e3, y1: LV.pit + 2.6 }, { p: [-144.4, -94.4], q: [-136, -94.4], y0: -1e3, y1: LV.pit + 2.6 }, { p: [-136, -94.4], q: [-136, -114], y0: -1e3, y1: LV.pit + 2.6 }];
     for (let i = 0; i < P.length; i++) {
       const a = P[i], e = P[(i + 1) % P.length], dx = e[0] - a[0], dz = e[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.05) continue;

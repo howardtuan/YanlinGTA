@@ -1,5 +1,5 @@
-// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，往上走到一樓、再到二樓為止，樓上的室內在 js/sac.js）、南邊學習區，
-// 學習區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，js/zone_g.js 放了一塊甲板），
+// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，往上走到一樓、再到二樓為止，樓上的室內在 js/sac.js）、南邊用餐區（學餐的座位），
+// 用餐區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，js/zone_g.js 放了一塊甲板），
 // 入口在攤販東邊、麥當勞玻璃房西邊（從下沉區的西段樓梯下來），往東直接通到麥當勞的點餐大廳（js/interiors.js buildMcD）。
 // 地板是 js/zone_g.js 的坑（PIT.west / PIT.stall），天花在坑底上 2.8 m（= 學活外牆的牆腳），把學活空心的內部擋住。
 // 學活的碰撞輪廓在 js/zone_g.js 換成挖掉這塊的版本（蓋完地圖之後才換，共用亂數不變）。
@@ -21,12 +21,11 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   const terrazzo = tex(256, 256, (g) => { let s = 11; const r = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; g.fillStyle = '#c9c4ba'; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 900; i++) { const v = 150 + r() * 80 | 0; g.fillStyle = `rgb(${v},${v - 6},${v - 14})`; g.fillRect(r() * 256, r() * 256, 2 + r() * 3, 2 + r() * 3); } g.fillStyle = 'rgba(90,85,80,.35)'; g.fillRect(0, 0, 256, 2); g.fillRect(0, 0, 2, 256); });
   terrazzo.wrapS = terrazzo.wrapT = THREE.RepeatWrapping;
   const wood = tex(128, 128, (g) => { g.fillStyle = '#b48a5a'; g.fillRect(0, 0, 128, 128); for (let y = 0; y < 128; y += 4) { g.fillStyle = `rgba(90,60,30,${0.08 + (y % 12) / 80})`; g.fillRect(0, y, 128, 1); } });
-  const books = tex(256, 128, (g) => { let s = 3; const r = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; g.fillStyle = '#3a2c20'; g.fillRect(0, 0, 256, 128); for (const y0 of [4, 68]) for (let x = 2; x < 254;) { const w = 5 + r() * 9 | 0, h = 40 + r() * 18 | 0; g.fillStyle = `hsl(${r() * 360 | 0},${35 + r() * 30 | 0}%,${30 + r() * 30 | 0}%)`; g.fillRect(x, y0 + 58 - h, w - 1, h); x += w; } });
   const MO = {
     floor: std({ map: terrazzo, roughness: 0.55 }, 0.22), wall: std({ color: '#efece4' }, 0.32), ceil: std({ color: '#f4f3ef' }, 0.42),
     light: new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff6e2', emissiveIntensity: 1.1 }),
     desk: std({ map: wood, roughness: 0.5 }, 0.15), steel: std({ color: '#9aa0a6', metalness: 0.6, roughness: 0.35 }, 0.1),
-    chair: std({ color: '#2f5d8a', roughness: 0.6 }, 0.12), shelf: std({ map: books, roughness: 0.7 }, 0.15), shelfWood: std({ color: '#6b4a2e', roughness: 0.6 }, 0.1),
+    chair: std({ color: '#2f5d8a', roughness: 0.6 }, 0.12), table: std({ color: '#f1efe9', roughness: 0.4 }, 0.22), bin: std({ color: '#3f7d4e', roughness: 0.6 }, 0.12),
     stair: std({ color: '#d8d3c8', roughness: 0.6 }, 0.2), rail: std({ color: '#3a3d40', metalness: 0.6, roughness: 0.4 }),
     counter: std({ color: '#d9d6cf', roughness: 0.4 }, 0.2), stallBack: std({ color: '#d7cbb5' }, 0.25), stove: std({ color: '#b6bbc0', metalness: 0.5, roughness: 0.35 }, 0.1),
     dark: std({ color: '#2a2b2d', roughness: 0.6 }), shaft: new THREE.MeshStandardMaterial({ color: '#e9e6de', emissive: '#e9e6de', emissiveIntensity: 0.3, roughness: 1, side: THREE.BackSide }),
@@ -44,7 +43,7 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   // floor at the pit floor + 0.1, level with the 麥當勞 (its edges lie on the pit's edge, where H() is the plaza)
   const surf = (x0, x1, z0, z1) => I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => k.base + 0.1 - H(x, z));
   surf(0, W, 0, D + 0.05);
-  k.box(0, 0.3, 0, Hc, 0, D, MT.wall);             // west wall (study area)
+  k.box(0, 0.3, 0, Hc, 0, D, MT.wall);             // west wall (dining area)
   cbox(0, 0.3, 0, Hc, D, SD, MT.wall);              // west wall (stalls)
   k.box(0, W, 0, Hc, 0, 0.3, MT.wall);             // north wall (stair hall)
   cbox(0.3, SW, 0, Hc, SD - 0.3, SD, MT.wall);     // the stalls' back wall (under the plaza)
@@ -113,22 +112,26 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   }
   k.plane(signTex('樓梯 往 1F ↑', '#2d3b4a', '#ffffff', 512, 96, 52), 1.6, 0.3, SX + 1.6, 2.45, SZ + SR + 0.25, 0, { emissive: 0.5 });
 
-  // ---------------- study area: long desks with lamps, chairs, bookshelves on the west wall ----------------
+  // ---------------- 用餐區（學餐的座位）: four-seat tables in rows, tray return / water / recycling along the west wall ----------------
   // (the walk from the entrance to the 麥當勞 opening, x 11.5..16, stays clear: the 值班 customers come in there)
   const chair = (x, z, face) => {
     k.box(x - 0.22, x + 0.22, 0.44, 0.48, z - 0.21, z + 0.21, MT.chair, nc);
     const bz = z + face * 0.2; k.box(x - 0.22, x + 0.22, 0.48, 0.9, bz - 0.02, bz + 0.02, MT.chair, nc);
     for (const [dx, dz] of [[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]]) k._part(MT.steel, new THREE.CylinderGeometry(0.012, 0.012, 0.44, 5).translate(x + dx, 0.22, z + dz));
   };
-  for (const z of [10.6, 14.2, 17.6]) for (const [x0, x1] of [[1.6, 5.2], [6.2, 9.8]]) {
-    k.box(x0, x1, 0.72, 0.76, z - 0.45, z + 0.45, MT.desk, nc); k.wallRect(x0, x1, z - 0.45, z + 0.45, 0, 0.76);
-    for (const x of [x0 + 0.1, x1 - 0.1]) k.box(x - 0.03, x + 0.03, 0, 0.72, z - 0.4, z + 0.4, MT.steel, nc);
-    k.box(x0 + 0.1, x1 - 0.1, 0.76, 1.06, z - 0.03, z + 0.03, MT.steel, nc); // low divider with a lamp bar
-    k.box(x0 + 0.3, x1 - 0.3, 1.04, 1.07, z - 0.12, z + 0.12, MT.light, nc);
-    for (let x = x0 + 0.6; x < x1 - 0.3; x += 1.2) { chair(x, z - 0.78, -1); chair(x, z + 0.78, 1); }
+  for (const z of [10.2, 12.6, 15.0, 17.4]) for (const x of [2.6, 4.8, 7.0, 9.2]) {
+    k.box(x - 0.6, x + 0.6, 0.71, 0.75, z - 0.36, z + 0.36, MT.table, nc); k.wallRect(x - 0.6, x + 0.6, z - 0.36, z + 0.36, 0, 0.75);
+    k._part(MT.steel, new THREE.CylinderGeometry(0.04, 0.04, 0.71, 8).translate(x, 0.355, z)); k.box(x - 0.25, x + 0.25, 0, 0.03, z - 0.2, z + 0.2, MT.steel, nc); // pedestal
+    for (const dx of [-0.3, 0.3]) { chair(x + dx, z - 0.62, -1); chair(x + dx, z + 0.62, 1); }
   }
-  for (const z0 of [8.6, 12.2, 15.8]) { k.box(0.3, 0.75, 0, 2.1, z0, z0 + 3.2, MT.shelfWood); k.plane(books, 3.0, 1.9, 0.76, 1.05, z0 + 1.6, Math.PI / 2); }
-  k.plane(signTex('學 習 區', '#1f5f8b', '#ffffff', 512, 128, 72), 1.8, 0.45, 6.0, 2.45, 8.2, 0, { emissive: 0.45 });
+  // west wall: 餐具回收台 (steel counter with a shelf over it), two water dispensers, recycling bins
+  k.box(0.3, 0.95, 0, 0.9, 8.8, 11.6, MT.stove); k.box(0.3, 0.7, 1.35, 1.39, 8.8, 11.6, MT.steel, nc);
+  k.plane(signTex('餐具回收', '#3a3d40', '#ffffff', 512, 128, 72), 1.6, 0.4, 0.31, 1.85, 10.2, Math.PI / 2, { emissive: 0.45 });
+  for (const z0 of [12.6, 13.3]) { k.box(0.3, 0.75, 0, 1.25, z0, z0 + 0.5, MT.counter); k.box(0.75, 0.78, 0.85, 1.05, z0 + 0.1, z0 + 0.4, MT.dark, nc); }
+  k.plane(signTex('飲水機', '#1f5f8b', '#ffffff', 512, 128, 72), 1.2, 0.3, 0.31, 1.7, 13.2, Math.PI / 2, { emissive: 0.45 });
+  for (const [z0, m] of [[15.4, MT.bin], [16.1, MT.chair], [16.8, MT.dark]]) k.box(0.3, 0.8, 0, 0.85, z0, z0 + 0.55, m);
+  k.plane(signTex('資源回收', '#3f7d4e', '#ffffff', 512, 128, 72), 1.6, 0.36, 0.31, 1.45, 16.4, Math.PI / 2, { emissive: 0.45 });
+  k.plane(signTex('用 餐 區', '#c8641e', '#ffffff', 512, 128, 72), 1.8, 0.45, 6.0, 2.45, 8.2, 0, { emissive: 0.45 });
   k.box(5.0, 7.0, 2.2, 2.7, 8.14, 8.17, MT.dark, nc);
 
   // ---------------- 學餐 stalls under the plaza: three counters facing north, menu boards above ----------------
@@ -148,7 +151,7 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   cbox(SW - 0.12, SW, 0, Hc, D, SD - 0.3, MT.stallBack); // east wall, along the 下沉區's west retaining wall
 
   k.finish(scene);
-  I.zones.push({ name: '學生活動中心 B1 學習區', pts: k.rect(0, W, 0, D), y0: 0, y1: Hc, ceil: () => Hc - 0.3 });
+  I.zones.push({ name: '學生活動中心 B1 用餐區', pts: k.rect(0, W, 0, D), y0: 0, y1: Hc, ceil: () => Hc - 0.3 });
   I.zones.push({ name: '學生活動中心 B1 學餐', pts: k.rect(0, SW, D, SD), y0: 0, y1: Hc, ceil: () => Hc - 0.3 });
   return { k };
 }

@@ -183,7 +183,7 @@ function buildIM(I, scene) {
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14 };
 // the store is turned 180° (Kit origin at the SE corner, js/zone_g.js B1 plan): its lobby opens westwards (shop-local
-// x = W, z MCD_OPEN) onto the B1 study area under the 活動中心 (js/sac_b1.js), the rest of that side is a wall to the stair hall
+// x = W, z MCD_OPEN) onto the B1 學餐用餐區 under the 活動中心 (js/sac_b1.js), the rest of that side is a wall to the stair hall
 export const MCD_OPEN = [3.9, 9.6];
 export function sacTrimmedPts() {
   // SE corner: 麥當勞 (buildMcD); NW corner: js/clubroom.js (CLUB 14 x 10.4 m: closed, 古箏社教室 on 3F)
@@ -545,7 +545,7 @@ function buildMcD(I, scene) {
   // the store is in the 活動中心's B1 (js/zone_g.js digs the pit: the shop and the sunken stage in front of it,
   // js/terrain.js addPit), so the render base is the pit floor inside the shop, not the street at its corner;
   // every height below stays relative to it (walls, floors, zones and actions follow H() there)
-  const street = Hgrid(S.x0, S.z0); // (the corner is in the B1 study area's pit since that was dug)
+  const street = Hgrid(S.x0, S.z0); // (the corner is in the B1 用餐區's pit since that was dug)
   k.base = Hterrain(S.x0 + 2, S.z0 + 2); k.group.position.y = k.base;
   const up = street - k.base; // street level above the shop floor (0 if there is no pit)
   const W = S.x1 - S.x0, D = S.z1 - S.z0, H = S.H;
@@ -556,7 +556,7 @@ function buildMcD(I, scene) {
   // dining room opens on the counter's LEFT. The numbers below are written in a "design frame" whose z
   // is mirrored into the shop (mz): design z 0..10.25 = dining = the north part of the shop.
   // (the shop frame is turned 180°, so shop x W is the world west side and shop z D the world north side)
-  //   lobby   x 16.2..W   design z 10.4..D = shop z 0..9.6 (SW of the store): open westwards onto the B1 study area
+  //   lobby   x 16.2..W   design z 10.4..D = shop z 0..9.6 (SW of the store): open westwards onto the B1 學餐用餐區
   //           at shop z MCD_OPEN (queue rails), the rest of that side is a wall to the stair hall
   //   counter x 15.2..16.2 design z 11.4..18.6 (customers on the lobby side), kitchen x 9.5..15.2 behind it
   //   dining  x 0.3..W    design z 0.3..10.25 = shop z 9.75..20, the north half (mural + banquette on the outer wall)
@@ -582,7 +582,7 @@ function buildMcD(I, scene) {
   km.box(KX - 0.2, KX, 2.25, H, DZ + 0.15, 11.55, MT.wall, { col: false }); // …with the doorway to the back corridor
   km.box(KX, CX1, 0, H - 0.1, D - 0.34, D - 0.3, MT.wall, { col: false }); // kitchen side of the north wall
   km.box(CX1, W - 0.15, 2.7, H, DZ, DZ + 0.15, MT.wall, { col: false }); // header over the dining opening
-  // west side: the lobby opens onto the B1 study area (shop z OZ0..OZ1, queue rails along it south of the walk-in
+  // west side: the lobby opens onto the B1 學餐用餐區 (shop z OZ0..OZ1, queue rails along it south of the walk-in
   // gap), the dining room's end is a wall to the stair hall; a header hides the 活動中心's outer wall above
   k.box(W - 0.3, W, 0, H, OZ1, D, 'white');
   k.box(W - 0.3, W, OH, H, 0.3, OZ1, MT.wall, { col: false });
@@ -820,7 +820,7 @@ function buildMcD(I, scene) {
     label: () => '麥當勞已打烊（營業時間 05:00–23:00）', fn: (g) => g.hud.toast('🍟 麥當勞已打烊，早上 5 點再來吧', 'good', 2000) });
   // 漢克 (js/hank.js) works the register at the dining end, 18:00–22:00
   const hankSpot = { at: k.w(14.6, mz(12.6)), y: k.base, h: k.heading(Math.PI / 2), talk: k.w(17.0, mz(12.6)) };
-  // entry: shop-local spot in the study area where the 值班's customers come in from / go back to (js/mcshift.js)
+  // entry: shop-local spot in the 學餐用餐區 where the 值班's customers come in from / go back to (js/mcshift.js)
   const out = { entrance: k.w(W + 3, OZM), door: MCD_OPEN, entry: [W + 2.5, 7.8], k, W, D, staff, crew, kitchen, busy: false, hankSpot };
   Object.defineProperty(out, 'closed', { get: () => mcdState.closed });
   return out;

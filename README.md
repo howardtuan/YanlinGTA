@@ -194,6 +194,9 @@ GitHub Pages：Repo → Settings → Pages → Source 選 `main` 分支根目錄
 | `js/main.js` | 遊戲主程式（迴圈、選單、設定、互動） |
 | `js/missions.js` | **所有劇情台詞與政見文字（要改文案改這裡）** |
 | `js/interiors.js` | 可進入的建築：資管系館、麥當勞、警衛室（樓層、樓梯、電梯、互動） |
+| `js/zones.js` | **分區註冊表**：校內各區與周邊街道自建的部分一區一列（要拿掉的填充樓、外觀、保留範圍、建造）。新增一區＝開新檔＋在這裡加一列，順序就是建造順序 |
+| `js/kit.js` | 自建建築共用工具：程序貼圖、材質、`Interiors`（牆、可走地面、E 鍵動作）、`Kit`、`finishRow`、街屋招牌與立面工具 |
+| `js/street_tea.js` / `js/street_daren.js` / `js/gordon_shop.js` | 周邊自建：中北路南側茶學苑那排 / 大仁街轉角與兩側店面 / 戈登肉鋪 |
 | `js/player.js` | 主角彥霖的造型 `YANLIN_LOOK`、操作、鏡頭 |
 | `js/firstperson.js` | 第一人稱視角：`V` 切換、車內座艙／機車龍頭模型、儀表繪製、後視鏡即時畫面 |
 | `js/character.js` | 3D 角色模型與動作（走、跑、騎車、坐、✌），每個路人臉型略有不同，會眨眼 |

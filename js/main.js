@@ -6,15 +6,9 @@ import { Traffic, Peds } from './npc.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
-import { ZB_ST, zbFootprints } from './street_zhongbei.js';
-import { CF_DROP, campusFix, campusAdd } from './campus_fix.js';
-import { gateExtrasFootprints, gateTrees } from './gate_extras.js';
-import { WEICHE_ID, weicheLook, weicheFootprints } from './weiche.js';
-import { applyZoneE, zoneEFootprints } from './zone_e.js';
-import { zoneGLook, zoneGFootprints, zoneGTerrain } from './zone_g.js';
-import { zoneHLook, zoneHAdd } from './zone_h.js';
-import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints } from './dorms.js';
-import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline, teaFootprint, teaRowFootprints, darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, GD_SPEC, gordonOutline, gordonFootprint } from './interiors.js';
+import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
+import { zoneDrops, zoneOwnSigns, zonesFix, zonesAdd, zonesLook, zoneFootprints, zonesTerrain, zoneTrees, zoneVegHide } from './zones.js';
+import { GD_SPEC, gordonOutline } from './gordon_shop.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
 import { createCharacter, randomStudent } from './character.js';
@@ -121,27 +115,17 @@ class Game {
     const fillOn = this.settings.fill !== 'off';
     const keepSyn = o => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
     for (const k of ['buildings', 'areas', 'barriers']) data[k] = data[k].filter(keepSyn);
-    // the shop row at the 中北路 / 大仁街 corner (interiors.js buildDarenCorner) replaces this filler house
-    const DROP = new Set(['f1558', ...DAREN_ST.drop]); // …and the 大仁街 street rows (buildDarenStreet) these filler houses
-    for (const id of ZB_ST.drop) DROP.add(id); // 中北路街屋蓋掉的填充樓（js/street_zhongbei.js）
-    for (const id of CF_DROP) DROP.add(id); // 校內第 0 批刪掉的假建物（js/campus_fix.js）
+    // 校內各區與周邊街道自建的部分（js/zones.js）：先拿掉被自建房子取代的填充樓，再修正資料、新增建物、換外觀
+    const DROP = new Set(zoneDrops());
     data.buildings = data.buildings.filter(b => !DROP.has(b.id));
+    zonesFix(data.buildings);
+    zonesAdd(data.buildings);
     // custom-built enterable buildings replace these OSM footprints
-    for (const b of data.buildings) campusFix(b); // 校內第 0 批資料修正（js/campus_fix.js）
-    campusAdd(data.buildings); // 校內第 0 批新增的建物（拆開 w492471475 後的新中二街公寓等）
-    zoneHAdd(data.buildings); // H 區新增：知行領航館、4館南北兩段、忍耐樓北盒（js/zone_h.js）
     for (const b of data.buildings) {
       if (b.name === '資訊管理學系') { b.skip = true; b.labelH = 13.5; }
       if (b.name === '警衛室') b.skip = true;
-      applyZoneE(b); // E 區：建築館、祐生、設計學院只換外觀／執行時切塊（js/zone_e.js）
-      if (b.id === WEICHE_ID) b.look = weicheLook(); // 維澈樓: facade look only (js/weiche.js adds the timber box, stair, columns)
-      // 良善樓 / 恩慈樓: facade looks only (js/dorms.js adds the roof disc, balconies, entrances, stair tower); the white
-      // roof_drum gives way to the blue glass disc drawn there
-      if (b.id === LIANGSHAN_ID) { b.look = liangshanLook(b.look); if (b.feature) b.feature = b.feature.filter(f => f !== 'roof_drum'); }
-      if (b.id === ENCI_ID) b.look = enciLook(b.look);
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
-      zoneGLook(b); // G 區校內建築：只換外觀 look／分段高度（js/zone_g.js 自建柱廊、弧形玻璃、斜裙、樓梯塔等）
-      zoneHLook(b); // H 區（信實、熱誠、薄膜中心、實英樓、忍耐樓）：只換外觀 look／分段高度（js/zone_h.js 自建空橋、鋼格架、大階梯等）
+      zonesLook(b); // 各區只換外觀 look／分段高度，自建構件在各區的 build 裡（js/zones.js）
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
       if (GARRY_IDS.includes(b.id)) { b.skip = true; if (b.id === GARRY_IDS[0]) b.pts = garryOutline(YH_SPEC); } // 黃蓋瑞家 (js/garryhome.js) replaces both
       else if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
@@ -149,22 +133,20 @@ class Game {
         b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
       }
     }
-    // 戈登肉鋪 (interiors.js) stands on the lawn in front of 校史館: listed as a building so the maps draw it and it
-    // gets a name label; skip = interiors.js models it (no walls, roof or rnd draws from the town-house builder)
+    // 戈登肉鋪 (js/gordon_shop.js) stands on the lawn in front of 校史館: listed as a building so the maps draw it and it
+    // gets a name label; skip = js/gordon_shop.js models it (no walls, roof or rnd draws from the town-house builder)
     // the OSM wall along 大仁街 / 大仁二街 keeps its collision (js/furniture.js) but js/dorms.js draws it as the
     // brick boundary wall with razor wire and graffiti
     for (const w of data.barriers) if (w.type === 'wall' && w.pts.length < 8 && w.pts.some(([x, z]) => Math.abs(x + 62) < 1.5 && Math.abs(z - 271) < 1.5)) w.skin = 'cycu-brick';
     data.buildings.push({ id: 'gordon', name: '戈登肉鋪', kind: 'commercial', pts: gordonOutline(), h: GD_SPEC.FH + 1.9, floors: 1, skip: true });
     // that building carries its own shop sign
-    const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美', '陽光煎匙', '吉野烤肉飯', '原泰阿杜 音樂餐酒館', '餡實餃色', '桃園中壢大三元麻將會館', "丸冰 maru's ice", '薰衣草-韓式海苔飯捲', '瑞麟美而美', '沐樂食堂', '墨爾漢堡', '晨食司控', '8 Code鬆餅', '功夫温泉', '桌弄', 'Carousel旋轉木馬兒童服飾', '川督極品麻辣臭豆腐', '享玩桌遊', 'AS艾拾金耳采耳專門店', '州味涼麵', '福祿壽囍鯛魚燒', '德式披薩', '六季鮮魚湯', '熊樂火鍋', '一起開丼&Ms.mo 奶酪小姐', '漢堡邦', '宜珍快餐', '艾修通訊', '中福鍋燒麵', 'Master Of Tea 花茶大師', '艾尚豆花', '食麪', '找個地方cafe', '咖喱就好啦', '全家便利商店', '星巴克']); // shop rows on 中北路 / 大仁街 (js/interiors.js buildTeaRow, buildDarenCorner)
-    for (const n of ZB_ST.ownSign) OWN_SIGN.add(n); // 中北路街屋自己掛的店名（js/street_zhongbei.js）
+    const OWN_SIGN = new Set(['孫師傅牛肉拉麵', '茶學苑 Tea Arts', '早啊早餐店', '新時代眼鏡', '得正', 'mymyfood麥麥屋 24H無人拉麵', '天一打字行', '經典數位印刷', '麻友趣', '藍色美而美', '陽光煎匙', '吉野烤肉飯', '原泰阿杜 音樂餐酒館', '餡實餃色', '桃園中壢大三元麻將會館', "丸冰 maru's ice", '薰衣草-韓式海苔飯捲', '瑞麟美而美', '沐樂食堂', '墨爾漢堡', '晨食司控', '8 Code鬆餅', '功夫温泉', '桌弄', 'Carousel旋轉木馬兒童服飾', '川督極品麻辣臭豆腐', '享玩桌遊', 'AS艾拾金耳采耳專門店', '州味涼麵', '福祿壽囍鯛魚燒', '德式披薩', '六季鮮魚湯', '熊樂火鍋', '一起開丼&Ms.mo 奶酪小姐', '漢堡邦', '宜珍快餐', '艾修通訊', '中福鍋燒麵', 'Master Of Tea 花茶大師', '艾尚豆花', '食麪', '找個地方cafe', '咖喱就好啦', '全家便利商店', '星巴克']); // shop rows on 中北路 / 大仁街 (js/street_tea.js buildTeaRow, js/street_daren.js buildDarenCorner)
+    for (const n of zoneOwnSigns()) OWN_SIGN.add(n); // 各區自己掛的店名（js/zones.js，例如中北路街屋）
     for (const p of data.pois) if (OWN_SIGN.has(p.name)) p.noSign = true;
     const M = MCD_SPEC;
-    const reserved = [imFootprint(), yhFootprint(), garryOutline(YH_SPEC), clubFootprint(), teaFootprint(), ...teaRowFootprints(), ...darenFootprints(), ...darenStreetFootprints(), gordonFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt, ...gateExtrasFootprints(), ...weicheFootprints(), ...darenGdFootprints()];
-    reserved.push(...zbFootprints()); // 中北路街屋的保留範圍（js/street_zhongbei.js）
-    reserved.push(...zoneEFootprints()); // E 區自建部分的保留範圍（js/zone_e.js）
-    reserved.push(...zoneGFootprints()); // G 區自建構件伸出輪廓的保留範圍（js/zone_g.js）
-    zoneGTerrain(data); // 學活南面下沉舞台與 B1 麥當勞（地形坑）、往二樓門廊的大階梯（js/zone_g.js）
+    const reserved = [imFootprint(), yhFootprint(), garryOutline(YH_SPEC), clubFootprint(), [[M.x0, M.z0], [M.x1 + 5, M.z0], [M.x1 + 5, M.z1 + 2], [M.x0, M.z1 + 2]], ...GUARD_SPECS(data).map(guardFootprint), mainGateLawn(), MAIN_GATE.forecourt];
+    reserved.push(...zoneFootprints(data)); // 各區自建部分的保留範圍（js/zones.js）
+    zonesTerrain(data); // 各區的執行期地形修改，例如學活南面下沉舞台（js/zones.js）
     // street furniture keeps clear of the guardhouse boom barriers and the spawn
     const keep = [];
     for (const s of GUARD_SPECS(data)) {
@@ -201,8 +183,8 @@ class Game {
       return [[5, D + 13, 'rain', 0.85], [41, D + 14, 'rain', 0.8], [15, D + 7.5, 'palm', 0.9], [31, D + 7.5, 'palm', 0.95], [-3, D + 9, 'pine', 0.8]]
         .map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
-    featureTrees.push(...gateTrees()); // 正門: street trees along 大仁街 by the P totem (js/gate_extras.js)
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: dormsFootprints(data) });
+    featureTrees.push(...zoneTrees()); // 各區指定位置的樹，例如正門 P 字塔旁的大仁街行道樹（js/zones.js）
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: zoneVegHide(data) });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality(); // view distance / fog / shadows / skyline size for the chosen quality
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');

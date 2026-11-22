@@ -1,27 +1,29 @@
 // 黃蓋瑞家：孫師傅牛肉拉麵（彥霖以前住的地方）隔壁那戶的 2 樓，同一層、不同戶。
-// 原本 f900、f901 兩間窄街屋（f900 已經讓 1.5 m 給彥霖那棟）合成一戶 8 m 寬、4 層的透天重蓋。
-// 從彥霖那棟 2 樓樓梯口右側牆的門（interiors.js buildYanlinHome 的 GZ0..GZ1）進來是一條走廊，房門在房間右側牆的下方。
-// 房間照使用者畫的格局（圖上方 = 臨中北路那面牆）：
+// 臨中北路那一排是 js/street_zhongbei.js 照街景蓋的店面（隔壁是「五折天」、再過去「扑藝 salon」，只做外觀），
+// 所以蓋瑞家是它們後面的一棟 3 層樓後棟：x 跟原本的 f900／f901 一樣（從彥霖那棟的牆到 13.8 m），z 從 10.4 m 到 19.1 m，
+// 跟五折天的後牆之間留一道採光井。從彥霖那棟 2 樓樓梯口右側牆的門（interiors.js buildYanlinHome 的 GZ0..GZ1）
+// 進來是一條走廊，房門在房間右側牆的下方。
+// 房間照使用者畫的格局（圖上方 = 採光井那面牆，有小窗；左邊牆的小窗朝向扑藝後面的空地）：
 //   左上 床（床頭靠左牆）· 上方 對外窗下的桌子（筆電、文具、wifi 機、延長線、充電中的手機、吐司小夜燈）＋椅子
 //   右上 衣櫃 · 右邊 電視櫃 · 右下 門 · 左邊 小對外窗下的 IKEA 沙發
 //   靠浴室的桌子放 K-pop 專輯和手燈（＋椅子）· 左下 浴室
-// 座標：彥霖那棟的框架（YH_SPEC 的原點與方向），單位公尺；x 沿中北路，z 往街區裡面。2F 樓板高 4.617 m（跟彥霖那棟一樣）。
+// 座標：彥霖那棟的方向，原點沿 z 往裡移 DZ（Kit 的 local z 0 = 世界上離中北路立面 10.4 m），單位公尺。
+// 2F 樓板跟彥霖那棟同高（彥霖那棟地面 + 4.617 m）。
 import * as THREE from 'three';
 import { H } from './terrain.js';
 import { makeLightstick, CONCERTS } from './concert.js';
 
-export const GARRY = { X0: 5.82, X1: 13.8, D: 19.1, F2: 4.617, FH: 3.3, NF: 4 };
+export const GARRY = { X0: 5.82, X1: 13.8, DZ: 10.4, D: 8.7, F2: 4.617, FH: 3.3, NF: 3 };
 const RX0 = 7.1, RX1 = 13.6, RZ0 = 0.2, RZ1 = 7.4; // the room
-const CW0 = 6.0, CZ0 = 5.6, CZ1 = 14.2;           // corridor x CW0..RX0, z CZ0..CZ1
+const CW0 = 6.0, CZ0 = 2.15, CZ1 = 7.6;           // corridor x CW0..RX0, z CZ0..CZ1
 const DZ0 = 5.9, DZ1 = 6.8;                       // room door (on the room's right wall, x = RX0)
-const LDZ0 = 12.72, LDZ1 = 13.88;                 // doorway from 彥霖's landing (YH local 9.42..10.28 x 1.35)
+const LDZ0 = 12.72 - 10.4, LDZ1 = 13.88 - 10.4;   // doorway from 彥霖's landing (YH local 9.42..10.28 x 1.35, minus DZ)
 const BX0 = 10.0, BZ0 = 5.25;                     // bathroom: x BX0..RX1, z BZ0..RZ1
 
-// the two town houses this replaces (js/main.js skips them) and the footprint trees / furniture keep off
-export const GARRY_IDS = ['f900', 'f901'];
+// the back building's outline (trees and street furniture keep off it)
 export function garryOutline(YH) {
-  const c = Math.cos(YH.ang), s = Math.sin(YH.ang), w = (x, z) => [YH.ox + x * c - z * s, YH.oz + x * s + z * c];
-  return [w(GARRY.X0, 0), w(GARRY.X1, 0), w(GARRY.X1, GARRY.D), w(GARRY.X0, GARRY.D)];
+  const c = Math.cos(YH.ang), s = Math.sin(YH.ang), w = (x, z) => [YH.ox + x * c - z * s, YH.oz + x * s + z * c], z0 = GARRY.DZ, z1 = GARRY.DZ + GARRY.D;
+  return [w(GARRY.X0, z0 - 0.4), w(GARRY.X1, z0 - 0.4), w(GARRY.X1, z1), w(GARRY.X0, z1)];
 }
 
 function tex(w, h, draw, rep) {
@@ -33,8 +35,9 @@ function tex(w, h, draw, rep) {
 const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 
 export function buildGarryHome(I, scene, Kit, regMat, YH) {
-  const G = GARRY, F = G.F2, CH = F + 2.85, top = F + (G.NF - 1) * G.FH;
-  const k = new Kit(I, YH.ox, YH.oz, YH.ang, 1), base = k.base;
+  const G = GARRY, c0 = Math.cos(YH.ang), s0 = Math.sin(YH.ang);
+  const k = new Kit(I, YH.ox - G.DZ * s0, YH.oz + G.DZ * c0, YH.ang, 1), base = k.base;
+  const F = H(YH.ox, YH.oz) + G.F2 - base, CH = F + 2.85, top = F + (G.NF - 1) * G.FH; // 2F level with 彥霖's landing
   const std = (o, lift = 0) => { const m = new THREE.MeshStandardMaterial({ roughness: 0.8, envMapIntensity: 0.5, ...o }); if (lift) { m.emissive.set(o.color || '#ffffff'); if (o.map) m.emissiveMap = o.map; m.emissiveIntensity = lift; } return m; };
   const T = {
     facade: tex(128, 128, (g) => { g.fillStyle = '#c7c3bb'; g.fillRect(0, 0, 128, 128); const r = lcg(9); for (let y = 0; y < 128; y += 8) for (let x = 0; x < 128; x += 16) { const v = 200 + (r() * 22 | 0); g.fillStyle = `rgb(${v},${v - 3},${v - 9})`; g.fillRect(x + 1, y + 1, 15, 7); } }, true),
@@ -57,25 +60,25 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     door: def('grDoor', std({ color: '#7b5a3e', roughness: 0.55 }, 0.1)), porcelain: def('grPorc', std({ color: '#f7f7f4', roughness: 0.2 }, 0.15)),
     glass: 'glass', light: def('grLight', new THREE.MeshStandardMaterial({ color: '#fff8ea', emissive: '#fff4dc', emissiveIntensity: 1.1 })),
   };
+  const at = (x, z) => { const q = k.w(x, z); return { x: q[0], z: q[1], y: F + base - H(q[0], q[1]) }; };
   const surf = (x0, x1, z0, z1, h) => I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => base + h - H(x, z));
   const box = (x0, x1, y0, y1, z0, z1, m, o) => k.box(x0, x1, y0, y1, z0, z1, m, o);
   const nc = { col: false };
 
   // ---------------- shell: 4-storey 透天, tiled facade, 1F shutter, windows with grilles, roof extension ----------------
   const X0 = G.X0, X1 = G.X1;
-  box(X0, X0 + 0.18, -0.6, top, 0, G.D, MT.facade, { tile: [0.6, 0.6] });
+  // shared side wall with 彥霖's house: a doorway at the 2F landing (the way in, LDZ0..LDZ1), solid everywhere else
+  box(X0, X0 + 0.18, -0.6, top, 0, LDZ0, MT.facade, { tile: [0.6, 0.6] }); box(X0, X0 + 0.18, -0.6, top, LDZ1, G.D, MT.facade, { tile: [0.6, 0.6] });
+  box(X0, X0 + 0.18, -0.6, F, LDZ0, LDZ1, MT.facade); box(X0, X0 + 0.18, F + 2.18, top, LDZ0, LDZ1, MT.facade);
   box(X1 - 0.2, X1, -0.6, top, 0, G.D, MT.facade, { tile: [0.6, 0.6] });
   box(X0, X1, -0.6, top, G.D - 0.2, G.D, MT.facade, { tile: [0.6, 0.6] });
   box(X0, X1, top - 0.2, top, 0, G.D, 'gray', nc);
   box(X0, X1, top, top + 0.9, -0.05, 0.15, MT.facade, nc);
-  box(X0 + 0.4, X1 - 0.4, top, top + 2.4, 8, G.D - 0.4, '#8a959d', nc);         // 頂樓加蓋
+  box(X0 + 0.4, X1 - 0.4, top, top + 2.4, 4, G.D - 0.4, '#8a959d', nc);         // 頂樓加蓋
   box(X0 + 0.6, X0 + 1.8, top, top + 1.1, 2.5, 3.7, 'steel', nc);                // water tank
-  // 1F: rolled-down shutter, the street door on the right
-  box(X0 + 0.18, X1 - 1.5, -0.6, 3.6, 0, 0.12, MT.shutter, { tile: [1, 1] });
-  box(X1 - 1.5, X1 - 0.2, 0, 2.3, 0.02, 0.1, MT.door); box(X1 - 1.5, X1 - 0.2, 2.3, 3.6, 0, 0.12, MT.facade);
-  box(X0 + 0.18, X1 - 0.2, 3.6, F, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
-  box(X0, X1, 3.55, 3.65, -1.1, 0, '#5d666d', nc);                                // awning
-  // 2F front: the room's street window over the desk (the rest is wall)
+  // 1F front (on the light well): plain wall
+  box(X0 + 0.18, X1 - 0.2, -0.6, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
+  // 2F front (on the light well between this and 五折天): the small window over the desk (the rest is wall)
   const WX0 = 8.75, WX1 = 9.85, WY0 = F + 1.0, WY1 = F + 2.15;
   box(X0 + 0.18, WX0, F, F + 3.3, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
   box(WX1, X1 - 0.2, F, F + 3.3, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
@@ -84,15 +87,15 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   box(WX0 - 0.05, WX1 + 0.05, WY0 - 0.05, WY0, -0.06, 0.2, MT.metal, nc);
   for (let x = WX0 + 0.1; x < WX1; x += 0.16) box(x - 0.012, x + 0.012, WY0, WY1, -0.1, -0.08, MT.black, nc); // iron grille
   box(WX0 - 0.05, WX1 + 0.05, WY1, WY1 + 0.03, -0.12, 0, MT.black, nc);
-  box(11.2, 12.0, F + 0.4, F + 0.95, -0.42, -0.02, '#e6e2d6', nc);                 // outdoor AC unit
-  // 3F-4F
+  // 3F
   for (let f = 1; f < G.NF - 1; f++) {
     const y = F + f * G.FH;
     box(X0 + 0.18, X1 - 0.2, y, y + G.FH, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
     k.plane(T.win, 2.6, 1.4, (X0 + X1) / 2 - 1, y + 1.55, -0.01, Math.PI); k.plane(T.win, 1.4, 1.1, X1 - 1.4, y + 1.6, -0.01, Math.PI);
     box(X0 + 1.2, X0 + 2.0, y + 0.35, y + 0.9, -0.4, -0.02, '#e6e2d6', nc);
   }
-  { const g = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.5), new THREE.MeshStandardMaterial({ map: tex(256, 76, (c) => { c.fillStyle = '#21486e'; c.fillRect(0, 0, 256, 76); c.fillStyle = '#fff'; c.font = '900 40px "Noto Sans TC",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('黃宅', 128, 40); }), emissive: '#ffffff', emissiveIntensity: 0.25 })); g.position.set(X1 - 0.85, 2.6, -0.01); g.rotation.y = Math.PI; k.group.add(g); }
+  // back wall: windows on every floor (the back alley)
+  for (let f = 0; f < G.NF; f++) { const y = f ? F + (f - 1) * G.FH : 0.4; if (f === 1) continue; k.plane(T.win, 2.2, 1.3, (X0 + X1) / 2, y + 1.6, G.D + 0.01, 0); }
 
   // ---------------- 2F: floor, ceiling, corridor ----------------
   box(X0 + 0.18, X1 - 0.2, F - 0.25, F, 0.2, CZ1 + 0.2, MT.floor, { col: false, tile: [1.2, 1.2] });
@@ -110,9 +113,9 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   k.wallLine(CW0, CZ0, CW0, LDZ0, F - 0.2, CH); k.wallLine(CW0, LDZ1, CW0, CZ1, F - 0.2, CH);
   surf(X0 - 0.05, CW0 + 0.02, LDZ0, LDZ1, F);
   // corridor light, shoe rack by the room door, a little calendar
-  box(6.3, 6.8, CH - 0.05, CH, 9.5, 10.1, MT.light, nc);
-  box(CW0 + 0.02, CW0 + 0.4, F, F + 0.9, 6.0, 7.0, MT.oak);
-  for (let i = 0; i < 3; i++) box(CW0 + 0.08, CW0 + 0.36, F + 0.95, F + 1.03, 6.1 + i * 0.3, 6.35 + i * 0.3, ['#f2f2f2', '#1c1c20', '#d33'][i], nc);
+  box(6.3, 6.8, CH - 0.05, CH, 4.0, 4.6, MT.light, nc);
+  box(CW0 + 0.02, RX0 - 0.05, F, F + 0.9, CZ1 - 0.42, CZ1 - 0.02, MT.oak);      // shoe rack at the far end of the corridor (past the room door)
+  for (let i = 0; i < 3; i++) box(CW0 + 0.1 + i * 0.32, CW0 + 0.35 + i * 0.32, F + 0.9, F + 0.98, CZ1 - 0.38, CZ1 - 0.08, ['#f2f2f2', '#1c1c20', '#d33'][i], nc);
   // room door (hinged on the room side, opens in when you come near)
   const rdoor = new THREE.Group(); rdoor.position.set(RX0 + 0.06, F, DZ1); k.group.add(rdoor);
   const dm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.06, DZ1 - DZ0 - 0.02), new THREE.MeshStandardMaterial({ color: '#7b5a3e', roughness: 0.55, emissive: '#7b5a3e', emissiveIntensity: 0.12 }));
@@ -143,7 +146,35 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   const BX = 11.35, BZ = 0.45, BZ2 = 2.15;
   box(BX, RX1 - 0.05, F, F + 0.4, BZ, BZ2, MT.oak, nc); box(RX1 - 0.12, RX1 - 0.04, F, F + 1.0, BZ, BZ2, MT.oak, nc); dk(BX, RX1 - 0.05, BZ, BZ2, 0.9);
   box(BX + 0.04, RX1 - 0.13, F + 0.4, F + 0.6, BZ + 0.04, BZ2 - 0.04, MT.white, nc);
-  { const g = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.06, BZ2 - BZ - 0.02), new THREE.MeshStandardMaterial({ map: T.duvet, roughness: 0.95, emissive: '#7d97b5', emissiveIntensity: 0.12 })); g.position.set(BX + 0.78, F + 0.63, (BZ + BZ2) / 2); g.rotation.z = 0.01; k.group.add(g); }
+  // the made bed: a flat duvet. Asleep: the same duvet drawn up over him to the chest, draped over the bed's sides and foot
+  const flatDuvet = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.06, BZ2 - BZ - 0.02), new THREE.MeshStandardMaterial({ map: T.duvet, roughness: 0.95, emissive: '#7d97b5', emissiveIntensity: 0.12 }));
+  flatDuvet.position.set(BX + 0.78, F + 0.63, (BZ + BZ2) / 2); flatDuvet.rotation.z = 0.01; k.group.add(flatDuvet);
+  const SLZ = 0.92, QX0 = 11.31, QX1 = 12.74; // he lies along z = SLZ; the duvet reaches from the foot (QX0) to his chest (QX1)
+  const lerpPts = (pts, x) => { for (let i = 0; i + 1 < pts.length; i++) if (x <= pts[i + 1][0]) { const t = Math.max(0, (x - pts[i][0]) / (pts[i + 1][0] - pts[i][0])), e = t * t * (3 - 2 * t); return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * e; } return pts[pts.length - 1][1]; };
+  // height of the cloth above the floor over him (measured off the lying figure: toes up, shins low, chest high) and how wide he is there
+  const ridge = [[11.31, 0.8], [11.4, 0.885], [11.56, 0.88], [11.72, 0.8], [11.92, 0.82], [12.1, 0.865], [12.3, 0.905], [12.6, 0.935], [12.74, 0.935]], width = [[11.31, 0.2], [11.95, 0.21], [12.28, 0.35], [12.74, 0.36]];
+  const quiltHeight = (x, z) => {
+    if (x < QX0 || x > QX1 || z < BZ || z > BZ2) return null;
+    const d = Math.max(0, (Math.abs(z - SLZ) - lerpPts(width, x)) / 0.3), f = d >= 1 ? 0 : 1 - d * d * (3 - 2 * d);
+    return 0.645 + (lerpPts(ridge, x) - 0.645) * f + 0.005 * Math.sin(x * 19 + z * 7) * Math.sin(z * 23 - x * 5);
+  };
+  const quilt = (() => {
+    const xs = [QX0 - 0.03], zs = [BZ - 0.05]; for (let i = 0; i <= 44; i++) xs.push(QX0 + (QX1 - QX0) * i / 44); xs.push(QX1 + 0.025, QX1 + 0.01); // last two: the turned edge
+    for (let j = 0; j <= 52; j++) zs.push(BZ + (BZ2 - BZ) * j / 52); zs.push(BZ2 + 0.05);
+    const pos = [], uv = [], idx = [], nz = zs.length;
+    xs.forEach((x, i) => zs.forEach((z, j) => {
+      const side = j === 0 || j === nz - 1, foot = i === 0, cx = Math.min(QX1, Math.max(QX0, x)), cz = Math.min(BZ2, Math.max(BZ, z));
+      let y = quiltHeight(cx, cz);
+      if (side || foot) y = 0.37 + 0.02 * Math.sin(x * 9 + z * 8); // hangs over the edge of the mattress
+      else if (i === xs.length - 2) y -= 0.02; else if (i === xs.length - 1) y -= 0.055;
+      pos.push(x, F + y, z); uv.push((x - QX0) / (QX1 - QX0), (z - BZ) / (BZ2 - BZ));
+    }));
+    for (let i = 0; i + 1 < xs.length; i++) for (let j = 0; j + 1 < nz; j++) { const q = i * nz + j; idx.push(q, q + 1, q + nz, q + 1, q + nz + 1, q + nz); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const map = tex(512, 512, (c) => { c.fillStyle = '#7d97b5'; c.fillRect(0, 0, 512, 512); c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 5; for (let q = 0; q <= 512; q += 64) { c.beginPath(); c.moveTo(q, 0); c.lineTo(q, 512); c.moveTo(0, q); c.lineTo(512, q); c.stroke(); } c.fillStyle = '#f1f0ea'; c.fillRect(462, 0, 50, 512); c.fillStyle = 'rgba(60,80,110,.25)'; c.fillRect(459, 0, 4, 512); }); // turned-down white sheet at the chest
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, roughness: 0.95, side: THREE.DoubleSide, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: 0.1 }));
+    m.visible = false; k.group.add(m); return m;
+  })();
   for (const z of [BZ + 0.45, BZ2 - 0.45]) box(RX1 - 0.62, RX1 - 0.15, F + 0.6, F + 0.75, z - 0.32, z + 0.32, MT.white, nc);
   // desk under the street window, chair
   const D1X0 = 8.5, D1X1 = 10.1, D1Z0 = 0.24, D1Z1 = 0.9, DH = 0.75;
@@ -158,8 +189,9 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.07, 0.44), seat); s.position.y = 0.47; g.add(s);
     const b = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.52, 0.06), seat); b.position.set(0, 0.8, -0.22); b.rotation.x = -0.08; g.add(b);
     dk(x - 0.25, x + 0.25, z - 0.25, z + 0.25, 0.5);
+    return g;
   };
-  chair(9.3, 1.45, Math.PI);
+  const deskChair = chair(9.3, 1.25, Math.PI); // swivels with 蓋瑞 (js/garry.js)
   // desk 1 things: open laptop, pen cup, notebook, wifi router, power strip, the charging phone (alarm), toast night light
   const Y = F + DH;
   box(9.05, 9.43, Y, Y + 0.018, 0.36, 0.62, '#b9bdc2', nc);
@@ -231,12 +263,13 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     rdoor.rotation.y += ((near(roomDoorAt, 1.8) ? -Math.PI / 2 : 0) - rdoor.rotation.y) * Math.min(1, dt * 5);
     ldoor.rotation.y += ((near(landAt, 2.0) ? -Math.PI / 2 : 0) - ldoor.rotation.y) * Math.min(1, dt * 5);
   });
-  const at = (x, z) => { const q = k.w(x, z); return { x: q[0], z: q[1], y: F + base - H(q[0], q[1]) }; };
   return {
     k, base, F, at, phoneScr,
     phone: at(9.54, 1.15),                         // stand here to reach the phone on the desk
-    seat: { ...at(9.3, 1.45), h: k.heading(0) },    // 蓋瑞 at the street-window desk (facing the window)
-    bed: { ...at(12.4, 1.3), h: k.heading(-Math.PI / 2) },
+    seat: { ...at(9.3, 1.25), h: k.heading(Math.PI) }, // 蓋瑞 at the window desk: the desk is on the local -z side of the chair
+    chairTo: (h) => { deskChair.rotation.y = h - k.heading(0); }, // turn the chair to a world heading
+    bed: { ...at(12.2, SLZ), h: k.heading(-Math.PI / 2) }, // hips here; lying back, the head points away from the heading (+x, the pillows)
+    tuckIn: (on) => { quilt.visible = on; flatDuvet.visible = !on; }, quiltHeight,
     room: k.rect(RX0, RX1, RZ0, RZ1), albums: at(11.0, 3.9), tv: at(8.5, 3.95),
   };
 }

@@ -3,8 +3,8 @@
 // 膝上黑色緊身運動短褲；跑步時換素色深灰運動 T。同一時間只會出現在一個地方（跟勞大、吱吱一樣）：
 //   SCHEDULE 依日期輪：早上／傍晚跑步（有幾天沒跑）、中午或晚上在古箏社教室（每小時前 15 分鐘整理琴盒，之後坐在老師位練琴，有撥弦聲）、
 //   其他時間在房間（書桌前，深夜睡覺）。跑步的時候跑道上還有幾個一起慢跑的同學。
-// 起床鬧鐘彩蛋：他桌上的手機按 E（或早上 07:00 你人在他房間）會響起鬧鐘，只播 assets/private/garry_alarm.mp4 的聲音（不顯示影像）——
-// 這支影片只放在本機、不進 repo（.gitignore）；沒有檔案時改成一般的鬧鐘畫面和鈴聲。
+// 起床鬧鐘彩蛋：他桌上的手機按 E（或早上 07:00 你人在他房間）會響起鬧鐘（assets/sfx/garry/alarm.m4a，只有聲音）；
+// 檔案載入失敗時改成一般的鬧鈴聲。
 import * as THREE from 'three';
 import { createCharacter, randomStudent } from './character.js';
 import { torsoProfile } from './bodymesh.js';
@@ -19,7 +19,7 @@ export const GARRY_LOOK = {
   glasses: false, shoes: '#f2f2f0', sock: '#f4f4f4', face: true, build: BUILD,
 };
 const RUN_TEE = '#353b46';
-export const ALARM_SRC = 'assets/private/garry_alarm.mp4';
+export const ALARM_SRC = 'assets/sfx/garry/alarm.m4a';
 
 // ---------------------------------------------------------------- the aloha shirt
 // 照照片的花色：白底上大片的熱帶葉（橘、杏、赭橘為主，配藍綠、深藍、灰藍），扣好扣子正常穿：小領口、印花短袖（套在上臂外的寬袖），
@@ -101,6 +101,7 @@ function dressAloha(ch, skin) {
 export function createGarry() {
   const ch = createCharacter(GARRY_LOOK);
   ch.root.scale.set(1.0, 1.07, 1.0); // tall and slim
+  ch.root.rotation.order = 'YXZ'; // turn first, then lie down (with XYZ the body would always fall toward the same world direction)
   ch.aloha = dressAloha(ch, GARRY_LOOK.skin);
   ch.setOutfit = (run) => {
     for (const p of ch.aloha || []) p.visible = !run;
@@ -143,7 +144,6 @@ export class Garry {
     game.interiors.actions.push({ x: home.phone.x, z: home.phone.z, y: home.phone.y, r: 0.75, label: () => '按 <kbd>E</kbd> 看蓋瑞桌上的手機（起床鬧鐘）', fn: () => this.alarm() });
     game.interiors.actions.push({ x: home.albums.x, z: home.albums.z, y: home.albums.y, r: 0.7, label: () => '按 <kbd>E</kbd> 看桌上的專輯和手燈', fn: (g) => { g.hud.toast('💿 一整排 K-pop 專輯，旁邊立著兩支手燈——原來蓋瑞也是演唱會派的', 'good', 3200); g.audio.blip?.(); } });
     game.interiors.actions.push({ x: home.tv.x, z: home.tv.z, y: home.tv.y, r: 0.8, label: () => '按 <kbd>E</kbd> 看電視', fn: (g) => { g.hud.toast('📺 電視停在 K-pop 舞台精選，音量開到 3', 'good', 2600); g.audio.blip?.(); } });
-    this._hasSound = null; fetch(ALARM_SRC, { method: 'HEAD' }).then(r => { this._hasSound = r.ok; }).catch(() => { this._hasSound = false; });
     this.alarmDay = -1;
     game.interiors.updaters.push((dt) => this.update(dt));
   }
@@ -197,14 +197,16 @@ export class Garry {
     } else if (this.mode === 'club') {
       const sp = this.clubSpotNow = (g.clock % 60) < 15 ? this.clubTidy : this.clubPlay; this.pos.set(sp.x, surfaceAt(sp.x, sp.z) + 0.1, sp.z);
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }
-      else { this.heading += angDiff(sp.h, this.heading) * Math.min(1, dt * 4); if (sp.play) mode = 'sit'; }
+      else this.heading += angDiff(sp.h, this.heading) * Math.min(1, dt * 4);
+      if (sp.play) { mode = 'sit'; this.heading = sp.h; } // stays on the stool behind the guzheng, also while you talk
       if (sp.play && this.pause <= 0) this._pluck(dt, near(this.pos.x, this.pos.z, 28));
     } else if (this.mode === 'desk') {
       const s = this.home.seat; this.pos.set(s.x, this.home.base + this.home.F, s.z);
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }
-      else { this.heading += angDiff(s.h, this.heading) * Math.min(1, dt * 4); mode = 'sit'; }
+      else this.heading += angDiff(s.h, this.heading) * Math.min(1, dt * 4);
+      mode = 'sit'; this.home.chairTo(this.heading); // talking to you he swivels round on the office chair
     } else if (this.mode === 'sleep') {
-      const b = this.home.bed; this.pos.set(b.x, this.home.base + this.home.F + 0.62, b.z); this.heading = b.h; mode = 'down';
+      const b = this.home.bed; this.pos.set(b.x, this.home.base + this.home.F + 0.72, b.z); this.heading = b.h; mode = 'down';
     }
     r.position.copy(this.pos); r.rotation.y = this.heading;
     const vis = near(this.pos.x, this.pos.z, 160); r.visible = vis;
@@ -231,6 +233,8 @@ export class Garry {
     this.ch.setOutfit(plan === 'run');
     
     if (plan === 'run' && prev !== 'run') this.tk = Math.random();
+    this.home.tuckIn(plan === 'sleep'); this.home.chairTo(this.home.seat.h);
+    if (plan === 'desk') this.heading = this.home.seat.h;
   }
   // the guzheng: a pentatonic run of plucks (WebAudio) while he practises and you are near
   _pluck(dt, audible) {
@@ -264,17 +268,16 @@ export class Garry {
     document.exitPointerLock?.(); g.audio.duck?.(true);
     const scr = this.home.phoneScr.material; scr.color.set('#ff4fa3');
     const el = this._alarmEl = document.createElement('div'); el.id = 'garryAlarm';
-    const close = () => { removeEventListener('keydown', key, true); this._alarmAudio?.pause(); this._alarmAudio = null; el.remove(); this._alarmEl = null; scr.color.set('#0d1020'); clearInterval(this._beep); g.audio.duck?.(false); if (g.state === 'play') g.lockPointer?.(); };
+    const close = () => { removeEventListener('keydown', key, true); this._alarmAudio?.pause(); this._alarmAudio = null; el.remove(); this._alarmEl = null; scr.color.set('#0d1020'); clearInterval(this._beep); this._beep = null; g.audio.duck?.(false); if (g.state === 'play') g.lockPointer?.(); };
     const key = (e) => { if (['Escape', 'KeyE', 'Enter', 'Space'].includes(e.code)) { e.preventDefault(); e.stopPropagation(); close(); } };
     addEventListener('keydown', key, true);
     const head = `<div class="ga-head"><b>⏰ 07:00</b><span>蓋瑞的起床鬧鐘${auto ? '響了！' : ''}</span></div>`;
     el.innerHTML = `<div class="ga-phone">${head}<div class="ga-ring">⏰<small>鬧鐘</small><b>起床啦！早上要去操場跑步！</b></div><button class="ga-x">關掉鬧鐘（Esc）</button></div>`;
-    if (this._hasSound) { // only the sound of the recording (no picture): an <audio> element plays the mp4's audio track
-      const au = this._alarmAudio = new Audio(ALARM_SRC); au.volume = 0.9; au.addEventListener('ended', close); au.play().catch(() => {});
-    } else {
-      let n = 0; const beep = () => { const ctx = g.audio.ctx; if (!ctx || !g.audio.sfx) return; const t = ctx.currentTime; for (let i = 0; i < 3; i++) { const o = ctx.createOscillator(), gn = ctx.createGain(); o.type = 'square'; o.frequency.value = 1320; gn.gain.setValueAtTime(0.06, t + i * 0.14); gn.gain.setValueAtTime(0, t + i * 0.14 + 0.08); o.connect(gn); gn.connect(g.audio.sfx); o.start(t + i * 0.14); o.stop(t + i * 0.14 + 0.1); } if (++n > 12) close(); };
-      beep(); this._beep = setInterval(beep, 900);
-    }
+    let n = 0; const beep = () => { const ctx = g.audio.ctx; if (!ctx || !g.audio.sfx) return; const t = ctx.currentTime; for (let i = 0; i < 3; i++) { const o = ctx.createOscillator(), gn = ctx.createGain(); o.type = 'square'; o.frequency.value = 1320; gn.gain.setValueAtTime(0.06, t + i * 0.14); gn.gain.setValueAtTime(0, t + i * 0.14 + 0.08); o.connect(gn); gn.connect(g.audio.sfx); o.start(t + i * 0.14); o.stop(t + i * 0.14 + 0.1); } if (++n > 12) close(); };
+    const au = this._alarmAudio = new Audio(ALARM_SRC); au.volume = Math.min(1, g.settings.sfxVol ?? 0.8); // follows the sound-effects volume
+    au.addEventListener('ended', close);
+    au.addEventListener('error', () => { if (this._alarmEl === el && !this._beep) { beep(); this._beep = setInterval(beep, 900); } }); // file missing: a plain alarm beep
+    au.play().catch(() => {});
     el.querySelector('.ga-x').onclick = close;
     document.body.appendChild(el);
   }

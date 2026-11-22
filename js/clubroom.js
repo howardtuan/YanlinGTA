@@ -1,12 +1,12 @@
-// 古箏社教室：學生活動中心一樓西南角（像麥當勞佔東北角一樣，sacTrimmedPts 在這裡挖掉一塊，這裡自己蓋）。
-// 門在南面人行道上，門上掛「中原大學 古箏社」。教室裡：前面（北牆）白板和社旗、老師位的古箏，
-// 下面三排學生的古箏架和琴凳、譜架，西牆的琴盒櫃和成發海報，日光燈。外牆和樓上照活動中心的窗戶樣式蓋回去。
+// 古箏社教室：學生活動中心一樓西北角（像麥當勞佔東南角一樣，sacTrimmedPts 在這裡挖掉一塊，這裡自己蓋）。
+// 門在北面、新中北路那側的人行道上，門上掛「中原大學 古箏社」。教室裡：前面（南牆）白板和社旗、老師位的古箏，
+// 對面三排學生的古箏架和琴凳、譜架，西牆的琴盒櫃和成發海報，日光燈。外牆和樓上照活動中心的窗戶樣式蓋回去。
 // 黃蓋瑞（js/garry.js）社團時間在這裡：坐在老師位練琴（有撥弦聲），或在琴盒櫃前整理。
-// Local frame: origin at the SW corner of 活動中心 (-195, -128.6), x east, z north.
+// Local frame: origin at the NW corner of 活動中心 (-195, -128.6), x east, z SOUTH (as everywhere in the game).
 import * as THREE from 'three';
 
 export const CLUB = { ox: -195, oz: -128.6, W: 14, D: 10.4, H: 4.6, top: 13.8 };
-const DX0 = 9.2, DX1 = 10.8; // the door in the south wall
+const DX0 = 9.2, DX1 = 10.8; // the door in the north wall
 
 function tex(w, h, draw) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
 
@@ -27,7 +27,7 @@ export function buildClubRoom(I, scene, Kit, regMat) {
   k.box(0, W, -0.5, 0.1, 0, D, MT.floor, { col: false, tile: [1.2, 1.2] });
   I.addSurface(k.rect(0.2, W - 0.2, 0.2, D - 0.2), 0.1);
   k.box(0, 0.3, 0, H, 0, D, 'winWall', { tile: [3.0, H] });                       // west (outside)
-  k.box(0, DX0, 0, H, 0, 0.3, 'winWall', { tile: [3.0, H] }); k.box(DX1, W, 0, H, 0, 0.3, 'winWall', { tile: [3.0, H] }); // south (outside)
+  k.box(0, DX0, 0, H, 0, 0.3, 'winWall', { tile: [3.0, H] }); k.box(DX1, W, 0, H, 0, 0.3, 'winWall', { tile: [3.0, H] }); // north (outside)
   k.box(DX0, DX1, 2.5, H, 0, 0.3, 'sac');
   k.box(W - 0.3, W, 0, H, 0, D, MT.wall); k.box(0, W, 0, H, D - 0.3, D, MT.wall);   // inside walls to the rest of the building
   k.box(0, W, H, S.top, 0, D, 'winWall', { col: false, tile: [3.0, 3.07] });       // upper floors
@@ -41,7 +41,7 @@ export function buildClubRoom(I, scene, Kit, regMat) {
   const door = new THREE.Group(); door.position.set(DX0 + 0.02, 0.1, 0.15); k.group.add(door);
   const leaf = new THREE.Mesh(new THREE.BoxGeometry(DX1 - DX0 - 0.04, 2.3, 0.04), new THREE.MeshStandardMaterial({ color: '#9fd3e6', transparent: true, opacity: 0.35, roughness: 0.05 })); leaf.position.set((DX1 - DX0) / 2, 1.15, 0); door.add(leaf);
   k.plane(tex(512, 128, (g) => { g.fillStyle = '#5a1620'; g.fillRect(0, 0, 512, 128); g.strokeStyle = '#d8b46a'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 112); g.fillStyle = '#f4e6c4'; g.font = '900 56px "Noto Serif TC","Noto Sans TC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('中原大學 古箏社', 256, 66); }), 2.4, 0.6, (DX0 + DX1) / 2, 3.0, -0.02, Math.PI, { emissive: 0.4 });
-  // ---------------- front (north wall): whiteboard, club banner, the teacher's guzheng ----------------
+  // ---------------- front (south wall): whiteboard, club banner, the teacher's guzheng ----------------
   k.box(4.5, 9.5, 1.0, 2.2, D - 0.33, D - 0.3, MT.white, nc); k.box(4.5, 9.5, 0.95, 1.0, D - 0.42, D - 0.3, MT.metal, nc);
   k.plane(tex(512, 128, (g) => { g.fillStyle = '#fbfbf8'; g.fillRect(0, 0, 512, 128); g.fillStyle = '#1f3b8a'; g.font = '700 30px "Noto Sans TC",sans-serif'; g.fillText('期末成發曲目：〈高山流水〉〈漁舟唱晚〉', 16, 44); g.fillStyle = '#b3121f'; g.fillText('週三 19:00 全員練團 ✔', 16, 92); }), 4.9, 1.15, 7, 1.6, D - 0.335, Math.PI);
   k.plane(tex(256, 512, (g) => { g.fillStyle = '#8b1e2b'; g.fillRect(0, 0, 256, 512); g.strokeStyle = '#d8b46a'; g.lineWidth = 8; g.strokeRect(10, 10, 236, 492); g.fillStyle = '#f4e6c4'; g.font = '900 64px "Noto Serif TC","Noto Sans TC",serif'; g.textAlign = 'center'; ['古', '箏', '社'].forEach((t, i) => g.fillText(t, 128, 120 + i * 100)); g.font = '700 28px "Noto Sans TC",sans-serif'; g.fillText('CYCU GUZHENG', 128, 460); }), 1.0, 2.0, 11.2, 2.4, D - 0.335, Math.PI, { emissive: 0.2 });

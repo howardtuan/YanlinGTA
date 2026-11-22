@@ -187,7 +187,7 @@ export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14
 // x = W, z MCD_OPEN) onto the B1 study area under the 活動中心 (js/sac_b1.js), the rest of that side is a wall to the stair hall
 export const MCD_OPEN = [3.9, 9.6];
 export function sacTrimmedPts() {
-  // NE corner: 麥當勞 (buildMcD); SW corner: 古箏社教室 (js/clubroom.js, CLUB 14 x 10.4 m)
+  // SE corner: 麥當勞 (buildMcD); NW corner: 古箏社教室 (js/clubroom.js, CLUB 14 x 10.4 m)
   return [[-181, -128.55], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5], [-195.05, -118.2], [-181, -118.2]];
 }
 // Look of the real store (photos of 中原大學麥當勞): dark grey 60 cm floor tiles, white grid ceiling with
@@ -1657,8 +1657,8 @@ export function buildInteriors(scene, data, collision) {
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene);
   I.yh = buildYanlinHome(I, scene);
-  I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC);
-  I.club = buildClubRoom(I, scene, Kit, regMat); // 古箏社教室 in the SW corner of 活動中心 (js/clubroom.js) // 黃蓋瑞家: next door to 彥霖's, same floor (js/garryhome.js)
+  I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC); // 黃蓋瑞家: next door to 彥霖's, same floor (js/garryhome.js)
+  I.club = buildClubRoom(I, scene, Kit, regMat); // 古箏社教室 in the NW corner of 活動中心 (js/clubroom.js)
   buildZones(I, scene, data, collision); // 周邊街道與校內各區自建的部分，順序見 js/zones.js
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;

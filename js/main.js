@@ -31,7 +31,7 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
-import { GARRY_IDS, garryOutline } from './garryhome.js';
+import { garryOutline } from './garryhome.js';
 import { clubFootprint } from './clubroom.js';
 import { Concerts } from './concert.js';
 import { Garry } from './garry.js';
@@ -127,8 +127,7 @@ class Game {
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       zonesLook(b); // 各區只換外觀 look／分段高度，自建構件在各區的 build 裡（js/zones.js）
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
-      if (GARRY_IDS.includes(b.id)) { b.skip = true; if (b.id === GARRY_IDS[0]) b.pts = garryOutline(YH_SPEC); } // 黃蓋瑞家 (js/garryhome.js) replaces both
-      else if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
+      if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
         const c = Math.cos(YH_SPEC.ang), s = Math.sin(YH_SPEC.ang), ext = YH_SPEC.W * (YH_SPEC.k - 1);
         b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
       }

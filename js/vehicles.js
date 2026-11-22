@@ -806,7 +806,7 @@ export class Vehicle {
   }
   get lodFar() { return !!this._lod?.isFar; }
   place(x, z, h) {
-    this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined;
+    this.pos.set(x, 0, z); this.heading = this.moveAng = h; this.speed = 0; this.hf = this.hb = undefined; this.up = 0;
     if (this.body) this.body.teleport(x, z, h); else this.sync();
   }
   forward() { return [Math.sin(this.heading), Math.cos(this.heading)]; }
@@ -817,7 +817,8 @@ export class Vehicle {
     const fx = Math.sin(this.heading) * this.wb / 2, fz = Math.cos(this.heading) * this.wb / 2;
     // each wheel stays on the level it was on (viaduct deck / street below it, js/terrain.js)
     const hf = this.hf = surfaceAt(this.pos.x + fx, this.pos.z + fz, this.hf), hb = this.hb = surfaceAt(this.pos.x - fx, this.pos.z - fz, this.hb);
-    this._pose(dt, hf, hb, (hf + hb) / 2);
+    const up = this.up || 0; // parked on an interior floor above the ground (js/player.js exit)
+    this._pose(dt, hf + up, hb + up, (hf + hb) / 2 + up);
   }
   // the mesh from pos / heading / steer / speed and the ground under the front and back wheel (y: height of
   // the mesh origin, normally (hf + hb) / 2): pitch with the ground, scooter lean, wheels

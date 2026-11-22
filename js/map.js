@@ -4,6 +4,7 @@ import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from './collision.
 import { H, Hgrid, Hmin, terrainGrid, addBridge, clearBridges, DS, addPad, addStair, levelY, levelTop, groundY, STEP_UP, addCut, LV_DECK, pitAt, pitRects } from './terrain.js';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
 import { buildFurniture } from './furniture.js';
+import { isCourt, paintCourts } from './court.js';
 import { groundTex, facadeTex, facadeParam, FACP_TYPES, shopTex, roofTex, corrugatedTex, concreteTex } from './textures.js';
 import { plantVegetation } from './vegetation.js';
 
@@ -987,7 +988,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
       if (a.kind === 'parking') parkingPolys.push(ring);
       // pitch markings on roughly rectangular pitches
-      if (a.kind === 'pitch' && !a.holes) {
+      if (a.kind === 'pitch' && !a.holes && !isCourt(a)) {
         const f = obb(a.pts), L = f.u1 - f.u0, W = f.v1 - f.v0;
         if (L > 14 && W > 10 && polyArea(a.pts) / (L * W) > 0.8) {
           const P = f.P, u0 = f.u0 + 1, u1 = f.u1 - 1, v0 = f.v0 + 1, v1 = f.v1 - 1, um = (u0 + u1) / 2, vm = (v0 + v1) / 2;
@@ -1010,6 +1011,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     addFlat(gDirt, gmat(T.dirt(), { macroAmt: 0.3 }), 'areas');
     addFlat(gGreen, gmat(T.grass(), { macroAmt: 0.3, macroScale: 0.015, env: 0.4 }), 'areas');
     addFlat(gTrack, gmat(T.track(), { macroAmt: 0.1 }), 'areas');
+    { const ct = data.areas.filter(isCourt); if (ct.length) { const g = new Geo(true); paintCourts(ct, g); addFlat(g, null, 'areas'); } } // 體育園區籃球場 (js/court.js)
     addFlat(gLines, null, 'areas');
     // water: dark, glossy, reflects the sky; ripples scroll
     const wn = T.waterNormal();

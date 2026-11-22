@@ -37,7 +37,8 @@ import { zoneBLook, zoneBTerrain, zoneBTreeHide, buildZoneB } from './zone_b.js'
 import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
 import { sacLook, buildSac } from './sac.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
-import { zoneCLook, buildZoneC } from './zone_c.js';
+import { zoneCLook, zoneCVegHide, buildZoneC } from './zone_c.js';
+import { courtTerrain, courtTreeHide, buildCourts } from './court.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -88,7 +89,7 @@ export const ZONES = [
     name: 'D 區', look: zoneDLook, treeHide: zoneDTreeHide, build: buildZoneD,
   },
   { // 管理大樓穿堂與柱廊、5F 框架層、紅瓦；自強ㄇ字中庭（parts）與東南入口；資管欄板紅邊、礫石庭園；商業設計館（原「商設館」）改輪廓；工學館拆 8F／4F／3F、懸挑樓梯平台、樓梯塔
-    name: 'C 區', look: zoneCLook, build: buildZoneC,
+    name: 'C 區', look: zoneCLook, vegHide: zoneCVegHide, build: buildZoneC,
   },
   { // 理學大樓屋頂設備與南面大階梯入口（data.levels）、化學館白框架＋土黃牆與立管、恩惠堂門廊方塔與尖頂、副堂雙坡、林森館花磚、A6 步道與招牌
     name: 'B 區', look: zoneBLook, terrain: zoneBTerrain, treeHide: zoneBTreeHide, build: buildZoneB,
@@ -100,6 +101,9 @@ export const ZONES = [
   { // 學生活動中心室內：一～四樓、培英廳、二樓中庭接新中北路天橋、三樓接往生科館的空橋、B1 旋轉梯上一樓（外觀在 G 區，B1 在「G 區：學活 B1」）
     name: '學活室內', look: sacLook,
     build: (I, scene, data, collision) => buildSac(I, scene, data, collision, Kit, regMat),
+  },
+  { // 東側光電頂棚籃排球場、西側室外球場：籃架、球網、頂棚（鋪面與線在 js/map.js 的 areas 圖層）
+    name: '體育園區籃排球場', terrain: courtTerrain, treeHide: courtTreeHide, build: (I, scene) => buildCourts(I, scene, Kit, regMat),
   },
 ];
 

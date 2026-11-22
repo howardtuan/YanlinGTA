@@ -1,6 +1,6 @@
 // 「定位」App：在地圖上看好友現在在哪裡。勞大一開始就在名單上；吱吱、女拳大帝、漢克要先認識並加好友才會出現。
 // 每個人的位置是即時的：吱吱在體育館門口或茶學苑上班、女拳大帝在戈登肉鋪櫃台、漢克在麥當勞值班／背吉他散步／
-// 騎 ZMAX 兜風（離你太遠時只知道在附近道路）／睡覺（離線），勞大在校園散步或開直升機。可以一鍵導航過去。
+// 騎 ZMAX 兜風（離你太遠時只知道在附近道路）／睡覺（離線），勞大在校園散步、在體育園區籃球場打球或開直升機。可以一鍵導航過去。
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 // [{ id, name, av (html), color, x, z (or null), status }]
@@ -10,7 +10,7 @@ export function friendLocations(g) {
   // 勞大: always (the pilot of 彥霖航空)
   const A = g.airdrop, w = A?.walker;
   if (A?.busy && A.H?.g) add('laoda', '勞大', '🚁', '#552583', A.H.g.position, '開直升機中（空運機車）');
-  else if (w?.on) add('laoda', '勞大', '🚁', '#552583', w.pos, '在校園散步');
+  else if (w?.on) add('laoda', '勞大', w.mode === 'court' ? '🏀' : '🚁', '#552583', w.pos, w.mode === 'court' ? '在體育園區籃球場打球' : '在校園散步');
   else add('laoda', '勞大', '🚁', '#552583', null, '不在校園（可能在停機坪）');
   if (has('zz')) {
     const shop = g.tea?.on && g.tea.zz?.root;

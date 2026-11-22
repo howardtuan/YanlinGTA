@@ -2,6 +2,7 @@
 // history: 已經發生過的對話；{ day } 是日期分隔線，[who, text, time?]：who = 'me' 或聯絡人（群組用名字）
 // script: 依序進行的回合，每回合兩個選項 { t: 我傳的訊息, r: 對方的回覆（字串，或群組用 [名字, 內容]）, v: 得票 }
 // 每個聯絡人的回合用完就沒有新話題了（對方已讀）。
+import { pilotBall } from './pilot.js';
 
 export const CONTACTS = [
   {
@@ -309,7 +310,7 @@ export const CONTACTS = [
   },
   {
     // 勞大（彥霖航空的直升機駕駛員，js/pilot.js）：一開始就是好友。「你在哪？」每一輪都能問，
-    // 他會回現在在哪；在校園散步的話會設定導航，路線跟著他走（nav.track）。
+    // 他會回現在在哪；在校園散步或在籃球場打球的話會設定導航，路線跟著他走（nav.track）。
     // newer: 舊存檔（沒有記聊天室 id）照順序對回聊天室時跳過這個
     id: 'laoda', name: '勞大', sub: '彥霖航空・直升機駕駛員', avatar: '<img class="ph-avimg" src="assets/gram/laoda_av.jpg" alt="">', color: '#552583', unread: 1, newer: true,
     laugh: '孩子們，這並不好笑', // 你傳的訊息有「哈哈」之類的笑，他的回覆最後一定補這句（js/phone.js）
@@ -332,6 +333,11 @@ export const CONTACTS = [
         const A = g.airdrop, w = A?.walker;
         if (!w) return { r: ['Man 我在忙，等等再說'] };
         if (A.busy) return { r: ['Man 我在天上開直升機啦 🚁', '等我降落再說'] };
+        if (!w.on && pilotBall(g.clock)) w.playBall();
+        if (w.mode === 'court') return {
+          r: ['Man 我在體育園區籃球場投籃 🏀', '操場東邊、聖火台後面有屋頂那座，定位傳給你，過來看我投'],
+          then: () => { if (g.nav.track(w)) g.hud.toast('🧭 已設定導航到籃球場的勞大', 'good', 2400); },
+        };
         if (!w.on && !w.appear()) return { r: ['我在學校散步啊', '你先回校園再問我，我傳定位給你'] }; // you are off campus
         return {
           r: ['Man 我在校園散步', '定位傳給你了，沿著路線走過來找我 📍'],

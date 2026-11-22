@@ -561,7 +561,7 @@ class Game {
     const rnd = mulberry32(19);
     const crowd = [];
     const p = this.player.worldPos();
-    if (this.player.vehicle) this.player.exit(this.scene, this.world.collision);
+    if (this.player.vehicle) this.player.exit(this.scene, this.world.collision, this.interiors);
     this.audio.setEngine(false, 0);
     this.player.frozen = true;
     const face = Math.atan2(at.x - p.x, at.z - p.z);
@@ -957,9 +957,10 @@ class Game {
     else if (!act && !pl.seat && !inDialog && !pl.frozen && inp.hit('KeyE')) { this.openPhone(); inp.pressed.delete('KeyE'); }
 
     // ---- vehicle enter / exit ----
-    if (!pl.frozen && !pl.seat && !pl.tumble && pl.y < 1 && inp.hit('KeyF')) {
+    // (on the ground or a floor: pl.y is the height above the terrain's surface, pl.ground the floor's)
+    if (!pl.frozen && !pl.seat && !pl.tumble && (pl.vehicle || pl.y - (pl.ground || 0) < 1) && inp.hit('KeyF')) {
       if (pl.vehicle) {
-        if (Math.abs(pl.vehicle.speed) < 6) { this.audio.engineStop(pl.vehicle.kind); pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); this.audio.mount(); }
+        if (Math.abs(pl.vehicle.speed) < 6) { this.audio.engineStop(pl.vehicle.kind); pl.exit(this.scene, w.collision, this.interiors); this.audio.setEngine(false, 0); this.audio.mount(); }
         else hud.toast('先減速才能下車！', 'bad');
       } else {
         const v = this._nearestVehicle(3.2), locked = v?.lock?.();
@@ -1030,7 +1031,7 @@ class Game {
 
     // ---- prompts ----
     if (!pl.vehicle && !pl.frozen && !pl.tumble) {
-      const v = pl.y < 1 && !pl.seat ? this._nearestVehicle(3.2) : null;
+      const v = pl.y - (pl.ground || 0) < 1 && !pl.seat ? this._nearestVehicle(3.2) : null;
       const p = this._nearestPed(3.5);
       if (act) hud.setPrompt(act.label(this));
       else if (v) hud.setPrompt(v.lock?.() ? `🔒 ${v.label}` : `按 <kbd>F</kbd> ${v.ai ? '借用' : v.kind === 'scooter' ? '騎上' : '開'}${v.label}`);
@@ -1198,6 +1199,7 @@ class Game {
     const p = this.player.pos; let best = null, bd = r;
     for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
       const d = Math.hypot(v.pos.x - p.x, v.pos.z - p.z) - (v.kind === 'scooter' ? 0 : 1);
+      if (Math.abs(v.mesh.position.y - p.y) > 2.5) continue; // on another floor (力行宿舍 2F and the forecourt under it)
       if (d < bd && !v.knocked && (!v.ai || Math.abs(v.speed) < 8)) { bd = d; best = v; }
     }
     return best;
@@ -1207,7 +1209,7 @@ class Game {
   _throwOff(v) {
     const pl = this.player, c = v.crash, s = c.speed, [fx, fz] = v.forward();
     this.audio.engineStop(v.kind); this.audio.setEngine(false, 0); this.audio.skid(0); this.audio.bump(2.5);
-    pl.exit(this.scene, this.world.collision);
+    pl.exit(this.scene, this.world.collision, this.interiors);
     const y = v.mesh.position.y;
     pl.pos.set(v.pos.x + fx * 0.3, y, v.pos.z + fz * 0.3); pl.heading = v.heading;
     v.speed = 0; v.fallen = true; v.sync();

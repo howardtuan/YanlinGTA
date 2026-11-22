@@ -21,6 +21,10 @@
 //  - A6 步道：自強商學大樓西北牆外的灰色木棧道，外側一道水泥花台；A6 校門招牌：自強西北角牆上灰色長板
 //    「中原大學 Chung Yuan Christian University」白色立體字＋藍底校徽，旁邊橘色「A6 Gate」牌（2023-01 pano A6）。
 //    自強商學大樓本身屬 C 區，這裡只在它的牆外掛招牌、鋪步道，不動它的資料。
+//  - 第二批補做：理學大樓東牆南段無障礙坡道（data.levels sci_east_ramp＋平台，頂端側門；正射 2024、空拍 drone_sci_z1）；
+//    南側東段凸出塊空拍上和主體同高，不做低一層。林森館東側 1F 露台退縮（parts＋splitAc，2F 主體到 u 8.6，正射橘褐面＋
+//    pano A6）。教會舊紅鐵皮平房（A6 步道西側，自建＋圓形碰撞，原地兩棵樹用 treeHide 拿掉；空拍、pano A6）。
+//    恩惠堂方塔紅磚面紅框白十字（2021 地點相片）。
 // 北面、西面玩家幾乎看不到，照南面推；入口、招牌等特殊構件只放在有影像的那一面。
 //
 // 共用亂數（js/map.js）：
@@ -57,6 +61,21 @@ function edgeOut(a, c, cen) {
   return { a, c, l, tx: dx / l, tz: dz / l, nx, nz };
 }
 const along = (e, s, o) => [e.a[0] + e.tx * s + e.nx * o, e.a[1] + e.tz * s + e.nz * o];
+// 半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 js/zone_h.js）
+function clipPoly(pts, keep) {
+  let P = pts.map(p => [p[0], p[1]]);
+  const n = keep(P[0]).length;
+  for (let k = 0; k < n; k++) {
+    const out = [];
+    for (let i = 0; i < P.length; i++) {
+      const a = P[i], c = P[(i + 1) % P.length], da = keep(a)[k], dc = keep(c)[k];
+      if (da >= 0) out.push(a);
+      if ((da >= 0) !== (dc >= 0)) { const t = da / (da - dc); out.push([a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t]); }
+    }
+    P = out; if (P.length < 3) return [];
+  }
+  return P;
+}
 const centroid = P => [P.reduce((s, p) => s + p[0], 0) / P.length, P.reduce((s, p) => s + p[1], 0) / P.length];
 function pip(x, z, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; }
 
@@ -64,13 +83,14 @@ function pip(x, z, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.l
 // 理學大樓：局部座標原點在西北角 P0，u 沿北牆往東（約 108°），v 往南。西段南牆在 v 38.0（u -0.1..22.8），
 // 東段往南凸出到 v 44.6（u 23.3..37.1）；東牆在 u 約 37.3。
 const SCI = {
-  h: 17.1, floors: 5,
+  h: 17.1, floors: 5, // 南側東段凸出塊和主體同高（空拍 drone_sci_z1）
+  ramp: { s0: 32.6, s1: 34.4, s2: 43.4, w: 1.4, rise: 0.7 }, // 東牆南段的無障礙坡道（沿東牆、由南往北上）
   sky: [15.5, 15.5, 28.5, 27.5],      // 玻璃天窗（正射 2024 約 13×12 m）
   screen: { u: 29.6, v0: 9.5, v1: 34.5, vS: 34.5, u0: 19.0 }, // 木格柵圍屏：天窗東側一道、南側一道
   deckN: [4.8, 13.6, 10.2, 25.8],     // 西側淺橘平台（北）
   deckS: [0.6, 29.6, 5.6, 37.2],      // 西側淺橘平台（南）
   room: [8.6, 31.0, 14.4, 36.2],      // 紅磚機房（深綠屋頂）
-  tank: [32.4, 39.5],                 // 綠色水塔（東南）
+  tank: [33.0, 29.0],                 // 綠色水塔（主屋頂東南、天窗東側設備區）
   // 南面大階梯入口：在西段南牆（v 38.0）中段偏東（官方 2017 往北 0～45° 看到）
   // 立面磚墩在 u 11.35、19.0（js/map.js fins：西段南牆 22.9 m 分 3 格），玻璃門牆放在兩根磚墩之間
   door: { u0: 10.9, u1: 19.5, g0: 11.98, g1: 18.37, wall: 38.0, deep: 2.6, rise: 0.9, steps: 6, run: 2.4, w: 7.6 },
@@ -78,7 +98,9 @@ const SCI = {
 const CHEM = { h: 10.5, floors: 3 };
 const GRACE = { h: 5.0, floors: 1 };
 const ANNEX = { h: 6.0, floors: 2, rise: 3.2 }; // 牆 6 m＋屋脊 3.2 m = 9.2 m（OSM height）；h 不低於 6，冷氣抽取照舊
-const LINSEN = { h: 7.0, floors: 2 };
+const LINSEN = { h: 7.0, floors: 2, uEast: 8.6, h1: 3.8 };
+// 教會舊平房（紅磚牆、紅窗框、紅鐵皮屋頂）：A6 步道西側，沿自強西北牆方向，離牆 6.3～10.7 m、牆上 s 15～27 m
+const BUNG = { s0: 15, s1: 27, o0: 6.3, o1: 10.7, h: 2.9, rise: 1.1 };
 // 化學館東側小屋（w588979511 的新輪廓）：沿原本長條方向擺，約 5×7 m，中心 (55, 54)
 const HUT = (() => {
   const c = [55.0, 54.0], d = [-0.2455, 0.9694], p = [0.9694, 0.2455], hw = 2.5, hl = 3.5;
@@ -101,6 +123,7 @@ export function zoneBLook(b) {
       parapet: { h: 1.0, colour: '#7f4d3f' },
       roof: { colour: '#6e625a', ac: false }, // 天窗、圍屏、平台、機房、設備由 buildZoneB 照正射位置蓋
     };
+    // 南側東段凸出塊不切低一層：2021-02 空拍 drone_sci_z1 女兒牆與主體齊平（代理複核）
   } else if (id === B_IDS.chem) {
     b.h = CHEM.h; b.floors = CHEM.floors;
     b.look = {
@@ -145,6 +168,13 @@ export function zoneBLook(b) {
       parapet: { h: 0.12, colour: '#eceae4' }, // 屋頂平板與花磚女兒牆由 buildZoneB 蓋
       roof: { colour: '#a3a19b', ac: false },
     };
+    // 東側（含東邊凸出那塊）只有一層，屋頂是花磚圍起來的露台（2023-01 pano A6：右邊 1F 上面是露台，左邊才是 2F）
+    const F = frame(b.pts[1], b.pts[2], centroid(b.pts)), uOf = ([x, z]) => (x - F.O[0]) * F.U[0] + (z - F.O[1]) * F.U[1];
+    const main = clipPoly(b.pts, q => [LINSEN.uEast - uOf(q)]), east = clipPoly(b.pts, q => [uOf(q) - LINSEN.uEast]);
+    if (main.length > 2 && east.length > 2) {
+      b.parts = [{ pts: main, h: LINSEN.h, floors: LINSEN.floors, label: '2F 主體' }, { pts: east, h: LINSEN.h1, floors: 1, label: '1F＋露台' }];
+      b.splitAc = 1;
+    }
   } else if (id === B_IDS.hut) {
     b.pts = HUT.map(p => p.slice()); b.h = 2.9; b.floors = 1; b.noShop = true;
     b.look = {
@@ -175,8 +205,18 @@ export const zoneBTreeHide = (data) => {
   const out = sciDoor ? [sciDoor.pad, sciDoor.stair] : [];
   const chem = data.buildings.find(b => b.id === B_IDS.chem);
   if (chem) { const { e, s0, s1, D } = chemCanopy(chem.pts); out.push([along(e, s0 - 0.5, 0.05), along(e, s1 + 0.5, 0.05), along(e, s1 + 0.5, D + 1), along(e, s0 - 0.5, D + 1)]); } // 入口門前別長灌木
+  const zq = data.buildings.find(b => b.id === B_IDS.ziqiang), nw = zq && a6Edge(zq.pts);
+  if (nw) out.push([along(nw, BUNG.s0 - 0.8, BUNG.o0 - 0.8), along(nw, BUNG.s1 + 0.8, BUNG.o0 - 0.8), along(nw, BUNG.s1 + 0.8, BUNG.o1 + 0.8), along(nw, BUNG.s0 - 0.8, BUNG.o1 + 0.8)]); // 舊平房
+  if (sciRamp) out.push(sciRamp.hide);
   return out;
 };
+// 自強商學大樓西北牆：(93.0,40.4)→(127.1,1.6) 那條邊（朝西北、30 m 以上）
+function a6Edge(P) {
+  const cen = centroid(P);
+  let nw = null; for (let i = 0; i < P.length; i++) { const e = edgeOut(P[i], P[(i + 1) % P.length], cen); if (e.l > 30 && (!nw || -e.nx - e.nz > -nw.nx - nw.nz)) nw = e; }
+  return nw;
+}
+let sciRamp = null;
 const sciFrame = (pts) => frame(pts[0], pts[1], pts[4]);
 export function zoneBTerrain(data) {
   const b = data.buildings.find(q => q.id === B_IDS.sci);
@@ -192,6 +232,13 @@ export function zoneBTerrain(data) {
   L.stairs.push({ id: 'sci_south_stair', site, a: bot.map(v => +v.toFixed(2)), b: top.map(v => +v.toFixed(2)), w: D.w, y0: 'ground', y1: y, steps: D.steps, wall: 'concrete', rail: 'sides', railColour: '#c4c8cc' });
   const hw = D.w / 2 + 0.2, sv = D.wall + D.deep;
   sciDoor = { y, pad, F, stair: F.rect(uc - hw, sv - 0.1, uc + hw, sv + D.run + 0.3) };
+  // 東牆南段的無障礙坡道（官方 2017-09 往 320° 看到）：坡道＋北端小平台，可以走上去
+  const e = edgeOut(b.pts[1], b.pts[2], centroid(b.pts)), Rm = SCI.ramp;
+  const rp = [along(e, Rm.s0, 0.05), along(e, Rm.s1, 0.05), along(e, Rm.s1, 0.1 + Rm.w), along(e, Rm.s0, 0.1 + Rm.w)];
+  const ry = +(Math.max(...rp.map(([x, z]) => Hgrid(x, z))) + Rm.rise).toFixed(2);
+  L.pads.push({ id: 'sci_east_ramp_landing', y: ry, top: '#bdb9b0', wall: 'concrete', site: '理學大樓東側坡道', pts: rp.map(q => q.map(v => +v.toFixed(2))) });
+  L.stairs.push({ id: 'sci_east_ramp', site: '理學大樓東側坡道', a: along(e, Rm.s2, 0.075 + Rm.w / 2).map(v => +v.toFixed(2)), b: along(e, Rm.s1, 0.075 + Rm.w / 2).map(v => +v.toFixed(2)), w: Rm.w, y0: 'ground', y1: ry, steps: 0, wall: 'concrete', rail: 'sides', railColour: '#c4c8cc' });
+  sciRamp = { y: ry, e, hide: [along(e, Rm.s0 - 0.3, 0), along(e, Rm.s2 + 0.5, 0), along(e, Rm.s2 + 0.5, Rm.w + 0.6), along(e, Rm.s0 - 0.3, Rm.w + 0.6)] };
 }
 
 // ---------------- 貼圖 ----------------
@@ -237,6 +284,12 @@ const boardTex = () => ctex('bBoard', 128, 128, (g, W, H0) => {
   const r = lcg(23);
   for (let x = 0; x < W; x += 8) { g.fillStyle = `rgba(${r() < 0.5 ? '255,245,230' : '40,30,20'},${r() * 0.1})`; g.fillRect(x, 0, 8, H0); for (let k = 0; k < 4; k++) { g.fillStyle = 'rgba(50,40,30,0.12)'; g.fillRect(x + 1 + r() * 6, 0, 0.8, H0); } }
   g.fillStyle = 'rgba(25,20,15,0.6)'; for (let x = 0; x < W; x += 8) g.fillRect(x, 0, 1.2, H0); // 橫跨步道的木板縫
+});
+// 紅鐵皮浪板
+const tinTex = () => ctex('bTin', 128, 64, (g, W, H0) => {
+  g.fillStyle = '#a3362e'; g.fillRect(0, 0, W, H0);
+  for (let x = 0; x < W; x += 8) { g.fillStyle = 'rgba(255,220,210,0.16)'; g.fillRect(x, 0, 3, H0); g.fillStyle = 'rgba(40,10,8,0.25)'; g.fillRect(x + 5, 0, 2, H0); }
+  const r = lcg(41); for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(60,25,15,${r() * 0.18})`; g.fillRect(r() * W, r() * H0, 6 + r() * 14, 2 + r() * 5); }
 });
 const gravelTex = () => ctex('bGravel', 128, 128, (g, W, H0) => { noise(g, W, H0, '#b8b2a6', 1600, 27, 0.18, 2); });
 // 白色花磚（鏤空水泥磚）：每塊 0.3 m，中間捲草紋鏤空（透明）
@@ -312,6 +365,9 @@ function mat(key) {
     white: () => std({ color: '#efeee9', roughness: 0.7 }),
     spire: () => std({ color: '#ffffff', roughness: 0.45, emissive: '#ffffff', emissiveIntensity: 0.08 }),
     trim: () => std({ color: '#3e352d', roughness: 0.8 }),
+    tin: () => std({ map: tinTex(), roughness: 0.6, metalness: 0.25, side: THREE.DoubleSide }),
+    redFrame: () => std({ color: '#8e2a26', roughness: 0.7, side: THREE.DoubleSide }),
+    redDoor: () => std({ color: '#7a2622', roughness: 0.75, side: THREE.DoubleSide }),
     terrazzo: () => std({ color: '#85817b', roughness: 0.9 }), // 和 js/zone_c.js 自強外牆深灰洗石子同色
     stone: () => std({ color: '#1e1f21', roughness: 0.35, metalness: 0.2 }),
     arch: () => std({ color: '#d9d8d3', roughness: 0.85, side: THREE.DoubleSide }),
@@ -324,7 +380,7 @@ function mat(key) {
     darkRoof: () => std({ color: '#4f5254', roughness: 0.8, side: THREE.DoubleSide }),
     green: () => std({ color: '#3f5a45', roughness: 0.8 }),
     tank: () => std({ color: '#4f8a55', roughness: 0.55, metalness: 0.2 }),
-    steel: () => std({ color: '#c4c8cc', roughness: 0.35, metalness: 0.7 }),
+    steel: () => std({ color: '#c4c8cc', roughness: 0.35, metalness: 0.7, side: THREE.DoubleSide }),
     slat: () => std({ map: slatTex(), roughness: 0.85, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide }),
     deck: () => std({ map: deckTex(), roughness: 0.9 }),
     timber: () => std({ color: '#bfa27a', roughness: 0.8 }),
@@ -333,7 +389,7 @@ function mat(key) {
     skyGlass: () => glow({ color: '#5a8fa0', roughness: 0.12, metalness: 0.55, side: THREE.DoubleSide }, 0.45),
     door: () => glow({ map: doorTex(), roughness: 0.3, metalness: 0.2, emissiveMap: doorTex(), side: THREE.DoubleSide }, 1.8),
     woodDoor: () => std({ map: woodDoorTex(), roughness: 0.8 }),
-    winDark: () => glow({ color: '#2f3a40', roughness: 0.2, metalness: 0.4 }, 0.5),
+    winDark: () => glow({ color: '#2f3a40', roughness: 0.2, metalness: 0.4, side: THREE.DoubleSide }, 0.5),
     board: () => std({ map: boardTex(), roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     gravel: () => std({ map: gravelTex(), roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     conc: () => std({ color: '#a9a69e', roughness: 0.95 }),
@@ -461,6 +517,7 @@ export function buildZoneB(I, scene, data, collision) {
     }
     // 綠色水塔、北緣一排白色設備
     { const c = F.P(...SCI.tank); k.cyl('tank', c[0], c[1], 1.25, R + 0.4, R + 2.6, 16); k.cyl('steel', c[0], c[1], 0.15, R, R + 0.4, 6); }
+    if (sciRamp) { const e = sciRamp.e, Rm = SCI.ramp, a = along(e, Rm.s0 + 0.35, 0.04), c = along(e, Rm.s0 + 1.35, 0.04); k.face('steel', a, c, sciRamp.y, sciRamp.y + 2.1, e.nx, e.nz); } // 坡道頂的側門
     for (let u = 5.5; u < 33; u += 2.4) fbox(F, 'box', u, 1.6, u + 1.4, 2.6, R, R + 1.1);
     for (let u = 6.5; u < 30; u += 7.5) fbox(F, 'duct', u, 3.4, u + 0.6, 7.5, R + 0.4, R + 1.0);
 
@@ -562,7 +619,9 @@ export function buildZoneB(I, scene, data, collision) {
     // 方塔：2.6 m 見方，一半嵌在山牆裡，從門廊屋頂後方升到屋脊上 2 m；正面紅磚加白框
     const tw = 2.6, tc = along(e, mid, 0.2), ty0 = ph - 0.3, ty1 = ridge + 2.0;
     k.obox('white', tc[0], tc[1], ang, tw, tw, ty0, ty1);
-    { const f0 = along(e, mid - tw / 2 + 0.3, 0.2 + tw / 2 + 0.01), f1 = along(e, mid + tw / 2 - 0.3, 0.2 + tw / 2 + 0.01); k.face('redBrick', f0, f1, ty0 + 0.6, ty1 - 0.5, e.nx, e.nz, 1.5, 1.5); }
+    { const f0 = along(e, mid - tw / 2 + 0.3, 0.2 + tw / 2 + 0.01), f1 = along(e, mid + tw / 2 - 0.3, 0.2 + tw / 2 + 0.01); k.face('redBrick', f0, f1, ty0 + 0.6, ty1 - 0.5, e.nx, e.nz, 1.5, 1.5);
+      // 紅磚面上的白十字（2021-02 空拍：山牆紅底白十字）
+      const cc = along(e, mid, 0.2 + tw / 2 + 0.04), cy = Math.max(ridge + 0.2, (ty0 + ty1) / 2 + 1.2); k.obox('spire', cc[0], cc[1], ang, 0.2, 0.06, cy - 0.9, cy + 0.7); k.obox('spire', cc[0], cc[1], ang, 0.95, 0.06, cy + 0.1, cy + 0.3); }
     k.obox('white', tc[0], tc[1], ang, tw + 0.3, tw + 0.3, ty1 - 0.05, ty1 + 0.25); // 塔頂飾帶
     // 白色四角錐尖頂（6.5 m）與十字架（1.8 m）
     { const yb = ty1 + 0.25, yt = yb + 6.5, h2 = tw / 2;
@@ -631,17 +690,24 @@ export function buildZoneB(I, scene, data, collision) {
   const lin = find(B_IDS.linsen);
   if (lin) {
     const P = lin.pts, cen = centroid(P), B = baseOf(lin), top = B + lin.h;
-    for (let i = 0; i < P.length; i++) {
-      const e = edgeOut(P[i], P[(i + 1) % P.length], cen), ang = Math.atan2(e.tz, e.tx);
-      const c = along(e, e.l / 2, 0.3);
-      k.obox('white', c[0], c[1], ang, e.l + 1.4, 1.3, top - 0.32, top); // 屋頂平板懸挑 0.65 m
-      const p = along(e, -0.55, 0.5), q = along(e, e.l + 0.55, 0.5);
-      k.panel('breeze', p, q, top, top + 0.9, 1.2, 1.2);
-      k.obox('white', ...along(e, e.l / 2, 0.5), ang, e.l + 1.1, 0.2, top + 0.9, top + 1.0);
+    // 每一塊（2F 主體、1F 露台）各自一圈屋頂平板＋花磚女兒牆；矮的那塊貼著高牆的那條邊不做
+    for (const V of lin.parts || [{ pts: P, h: lin.h }]) {
+      const Q = V.pts, vc = centroid(Q), vt = B + V.h, lower = V.h < lin.h;
+      for (let i = 0; i < Q.length; i++) {
+        const e = edgeOut(Q[i], Q[(i + 1) % Q.length], vc), ang = Math.atan2(e.tz, e.tx);
+        if (e.l < 0.3) continue;
+        if (lower && pip(...along(e, e.l / 2, 0.4), P)) continue;
+        const c = along(e, e.l / 2, 0.3);
+        k.obox('white', c[0], c[1], ang, e.l + 1.4, 1.3, vt - 0.32, vt); // 屋頂平板懸挑 0.65 m
+        const p = along(e, -0.55, 0.5), q = along(e, e.l + 0.55, 0.5);
+        k.panel('breeze', p, q, vt, vt + 0.9, 1.2, 1.2);
+        k.obox('white', ...along(e, e.l / 2, 0.5), ang, e.l + 1.1, 0.2, vt + 0.9, vt + 1.0);
+      }
+      if (lower) fbox(frame(P[1], P[2], cen), 'deck', LINSEN.uEast + 0.1, 0.3, LINSEN.uEast + 1.6, 9.5, vt + 0.01, vt + 0.05, 2); // 露台靠牆一條橘褐地磚（正射）
     }
     // 屋頂間：東南端 4×4 m（正射的橘褐小屋面），自己的小平板＋花磚
     const Fl = frame(P[1], P[2], cen);
-    let rc = null; for (const [u, v] of [[7.6, 8.0], [7.0, 7.5], [6.5, 6.5]]) { const q = Fl.rect(u - 2, v - 2, u + 2, v + 2); if (q.every(([x, z]) => pip(x, z, P))) { rc = [u, v]; break; } }
+    let rc = null; for (const [u, v] of [[5.8, 8.0], [5.5, 7.5], [5.0, 6.5]]) { const q = Fl.rect(u - 2, v - 2, u + 2, v + 2); if (q.every(([x, z]) => pip(x, z, P))) { rc = [u, v]; break; } }
     if (rc) {
       const [u, v] = rc;
       fbox(Fl, 'white', u - 2, v - 2, u + 2, v + 2, top, top + 2.8);
@@ -652,7 +718,7 @@ export function buildZoneB(I, scene, data, collision) {
     }
     // 東面 1F 屋簷下的黑底白字看板（2023-01）
     let east = null; for (let i = 0; i < P.length; i++) { const e = edgeOut(P[i], P[(i + 1) % P.length], cen); if (e.l > 3.6 && (!east || e.nx > east.nx)) east = e; }
-    if (east) { const fl = (lin.h - 0.6) / lin.floors, p = along(east, east.l / 2, 0.1); sign(group, sundayTex(), Math.min(3.6, east.l - 0.4), 0.5, p[0], B + fl - 0.55, p[1], east.nx, east.nz, 0.15, 0.1); }
+    if (east) { const p = along(east, east.l / 2, 0.1); sign(group, sundayTex(), Math.min(3.6, east.l - 0.4), 0.5, p[0], B + LINSEN.h1 - 0.75, p[1], east.nx, east.nz, 0.15, 0.1); }
   }
 
   // ===== 化學館東側小屋（w588979511）：深色門、碎石地 =====
@@ -677,7 +743,7 @@ export function buildZoneB(I, scene, data, collision) {
   if (zq) {
     const P = zq.pts, cen = centroid(P);
     // 西北牆：(93.0,40.4)→(127.1,1.6) 那條邊（朝西北、最長的那幾條裡最靠 A6 的）
-    let nw = null; for (let i = 0; i < P.length; i++) { const e = edgeOut(P[i], P[(i + 1) % P.length], cen); if (e.l > 30 && (!nw || -e.nx - e.nz > -nw.nx - nw.nz)) nw = e; }
+    const nw = a6Edge(P);
     if (nw) {
       const W = 4.2, yOf = (x, z) => groundY(x, z) + 0.1, ang = Math.atan2(nw.tz, nw.tx);
       // 木棧道：從牆腳鋪到離牆 4.2 m（OSM footway 中線約離牆 3.5 m）；北端越過牆角再往 A6 校門延伸 3.5 m。
@@ -695,6 +761,25 @@ export function buildZoneB(I, scene, data, collision) {
         const ring = [along(nw, r0, W), along(nw, r1, W), along(nw, r1, W + PW), along(nw, r0, W + PW)];
         ringColl(ring, g - 0.5, yT + 0.4);
         shapes.push({ name: 'a6_planter', pts: ring, y0: g, y1: yT });
+      }
+      // 教會舊平房（官方 2017-09 b85s… 往 235°～280°、2023-01 a6_h270_z）：紅磚牆、紅窗框、紅鐵皮雙坡，長邊順著步道
+      {
+        const Bg = BUNG, c4 = [along(nw, Bg.s0, Bg.o0), along(nw, Bg.s1, Bg.o0), along(nw, Bg.s1, Bg.o1), along(nw, Bg.s0, Bg.o1)];
+        const hs = c4.map(([x, z]) => H(x, z)), g = Math.min(...hs), yE = Math.max(...hs) + Bg.h, yR = yE + Bg.rise, om = (Bg.o0 + Bg.o1) / 2, ov = 0.45;
+        const mid = along(nw, (Bg.s0 + Bg.s1) / 2, om);
+        k.obox('redBrick', mid[0], mid[1], ang, Bg.s1 - Bg.s0, Bg.o1 - Bg.o0, g - 0.3, yE, 2);
+        const q3 = (sv, o, y) => { const q = along(nw, sv, o); return [q[0], y, q[1]]; };
+        k.quad('tin', q3(Bg.s0 - ov, Bg.o0 - ov, yE - 0.15), q3(Bg.s1 + ov, Bg.o0 - ov, yE - 0.15), q3(Bg.s1 + ov, om, yR), q3(Bg.s0 - ov, om, yR), [[0, 0], [6, 0], [6, 1], [0, 1]]);
+        k.quad('tin', q3(Bg.s1 + ov, Bg.o1 + ov, yE - 0.15), q3(Bg.s0 - ov, Bg.o1 + ov, yE - 0.15), q3(Bg.s0 - ov, om, yR), q3(Bg.s1 + ov, om, yR), [[0, 0], [6, 0], [6, 1], [0, 1]]);
+        for (const sv of [Bg.s0, Bg.s1]) k.tri('redBrick', q3(sv, Bg.o0, yE), q3(sv, Bg.o1, yE), q3(sv, om, yR - 0.05));
+        // 面向步道那側（o0）：紅框窗 4 扇、紅門 2 扇
+        for (let i = 0; i < 6; i++) {
+          const sc = Bg.s0 + (i + 0.5) * (Bg.s1 - Bg.s0) / 6, door = i === 1 || i === 4, w = door ? 0.95 : 1.3, y0 = door ? g + 0.05 : g + 1.0, y1 = g + 2.2;
+          const a = along(nw, sc - w / 2 - 0.08, Bg.o0 - 0.03), b2 = along(nw, sc + w / 2 + 0.08, Bg.o0 - 0.03); k.face('redFrame', a, b2, y0 - 0.08, y1 + 0.08, -nw.nx, -nw.nz);
+          const a2 = along(nw, sc - w / 2, Bg.o0 - 0.05), b3 = along(nw, sc + w / 2, Bg.o0 - 0.05); k.face(door ? 'redDoor' : 'winDark', a2, b3, y0, y1, -nw.nx, -nw.nz);
+        }
+        ringColl(c4, g - 0.5, yE);
+        shapes.push({ name: 'bungalow', pts: c4, y0: g, y1: yR });
       }
       // A6 校門招牌：西北牆北端（牆角往西南 1.2～6.2 m），灰色長板＋藍底校徽＋白字；旁邊橘色「A6 Gate」
       const gB = groundY(...along(nw, nw.l - 3.7, 0.3));

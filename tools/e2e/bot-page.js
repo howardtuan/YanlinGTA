@@ -500,7 +500,7 @@
     const m = Math.max(Math.abs(ax), Math.abs(ay)) || 1;
     const slow = aimOverride && aimOverride.slow;
     stick(ax / m * (slow ? 0.5 : 1), ay / m * (slow ? 0.5 : 1));
-    setHeld(slow ? [] : ['ShiftLeft']);
+    setHeld(slow || (aimOverride && aimOverride.walk) ? [] : ['ShiftLeft']);
     // turn the camera toward where we walk (mouse look), for readable screenshots
     const want = Math.atan2(dx, dz), d = angDiff(want, yaw);
     if (Math.abs(d) > 0.05) game.input.mdx += clamp(-d * 0.12 / 0.0026 / (game.settings.sens || 1), -40, 40);
@@ -610,7 +610,115 @@
       return { kind: 'cp', target: B._order.first, next: B._order.second, r: s.radius, ordered: false };
     }
     if (s.type === 'votes') return { kind: 'votes', need: s.need, base: s.base };
+    // mission 5 (布條失竊案): both `until` steps are solved at 彥霖's old desk (walk in, use the computer)
+    if (s.type === 'until' && m.idx === 5 && game.interiors.yh) return { kind: 'yh' };
     return null;
+  }
+
+  // ------------------------------------------------------------------ mission 5: 彥霖's old home + the detective terminal
+  // The house (js/interiors.js buildYanlinHome) is entered on foot through a fixed chain of waypoints in the
+  // building's local frame: side door -> 1F hallway -> stair -> 2F landing -> corridor -> lobby -> room door -> desk.
+  const YH_WP = [[3.52, -1.0], [3.52, 0.7], [3.52, 5.2], [3.3, 9.85], [2.33, 9.85], [2.33, 5.05], [3.62, 5.05], [3.62, 3.7], [2.05, 3.0], [1.99, 1.42]];
+  const YH_UP = 3; // waypoints from this index on are on 2F
+  function yhWps() { const k = game.interiors.yh.k; return YH_WP.map(([lx, lz], i) => { const [x, z] = k.w(lx, lz); return { x, z, up: i >= YH_UP, i }; }); }
+  function inYanlinHouse() {
+    const pl = game.player; if (pl.vehicle || !game.interiors.yh) return false;
+    const zn = game.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
+    return !!zn && (zn.name === '彥霖以前住的地方' || zn.name.startsWith('孫師傅牛肉拉麵') || zn.name.startsWith('黃蓋瑞'));
+  }
+  // 黃蓋瑞's flat next door opens off the 2F landing (js/garryhome.js): if we ever wander in, go back to the landing
+  function inGarryFlat() { const pl = game.player, zn = game.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y); return !!zn && zn.name.startsWith('黃蓋瑞'); }
+  // walk along the waypoint chain toward its end (dir +1, the desk) or its start (dir -1, the street)
+  function yhWalk(dt, dir) {
+    const pl = game.player, W = yhWps(), up = pl.y > 2.3;
+    let y = B._yh;
+    if (!y || y.dir !== dir) {
+      // nearest waypoint on the same floor (the stair waypoints count for both)
+      let bi = 0, bd = Infinity;
+      for (const w of W) { if (w.i !== 2 && w.i !== 3 && w.up !== up) continue; const d = hyp(w.x - pl.pos.x, w.z - pl.pos.z); if (d < bd) { bd = d; bi = w.i; } }
+      y = B._yh = { dir, i: bi, t: B.t };
+      startNav({ x: W[bi].x, z: W[bi].z, name: dir > 0 ? 'desk' : 'street door' }, 0.3); nav.purpose = 'yh';
+      ev('yh-walk', { dir, from: bi });
+    }
+    const end = dir > 0 ? W.length - 1 : 0;
+    if (inGarryFlat()) { y.i = YH_UP; if (!y.garry) { y.garry = true; ev('yh-garry'); } }
+    let w = W[y.i];
+    const d = hyp(w.x - pl.pos.x, w.z - pl.pos.z);
+    if (d < (y.i === end ? 0.15 : 0.35)) {
+      if (y.i === end) { neutral(); return true; }
+      y.i += dir; y.t = B.t; w = W[y.i];
+      nav.target = { x: w.x, z: w.z }; nav.bestRemain = Infinity; nav.lastProgT = B.t;
+    }
+    if (!nav || nav.purpose !== 'yh') { startNav({ x: w.x, z: w.z, name: 'yh' }, 0.3); nav.purpose = 'yh'; }
+    const rem = hyp(w.x - pl.pos.x, w.z - pl.pos.z);
+    if (rem < nav.bestRemain - 0.3) { nav.bestRemain = rem; nav.lastProgT = B.t; }
+    if (B.t - nav.lastProgT > B.opts.fallbackStallSec) fallback(`stuck in 彥霖's old home on the way to waypoint ${y.i}`, w);
+    footTick(dt, { x: w.x, z: w.z, slow: y.i === end && rem < 1, walk: true }); // no sprinting indoors: it overshoots the narrow turns
+    return false;
+  }
+  function yhTick(dt) {
+    const pl = game.player, W = yhWps(), P0 = W[0];
+    // park on 中北路 itself, a few metres out from the side door, heading along the road: a scooter that
+    // stops nose-first at the door turns into the 1F hallway when it sets off again
+    const rp = game.world.nearestRoadPoint(P0.x, P0.z), curb = { x: rp.x, z: rp.z, name: '彥霖以前住的地方' };
+    const wp = pl.worldPos();
+    if (inYanlinHouse()) { yhWalk(dt, 1); usePc(); return; }
+    if (pl.vehicle) {
+      if (hyp(curb.x - wp.x, curb.z - wp.z) <= 2.5) { dismountTick(); return; }
+    } else if (hyp(P0.x - wp.x, P0.z - wp.z) <= 8) { if (yhWalk(dt, 1)) usePc(); return; }
+    // get to the kerb in front of the house first (scooter if far), like any other objective
+    B._yh = null;
+    if (!pl.vehicle && hyp(curb.x - pl.pos.x, curb.z - pl.pos.z) >= 60 && mountTick(dt)) { watchdogMount(); return; }
+    if (!nav || nav.purpose !== 'yh-door' || nav.mode !== (pl.vehicle ? 'vehicle' : 'foot')) {
+      startNav(curb, 2, { slowAtEnd: true }); nav.purpose = 'yh-door';
+      const leg = { name: curb.name, kind: 'yh', startT: +game.playTime.toFixed(2), mode: nav.mode, route: nav.route, pathLen: Math.round(nav.path.sCp), noPath: nav.noPath };
+      B.curStep && B.curStep.legs.push(leg); ev('leg', leg);
+    }
+    watchdog();
+    if (pl.vehicle) driveTick(dt); else footTick(dt);
+  }
+  // at the desk: E uses the computer
+  function usePc() {
+    const W = yhWps(), d = W[W.length - 1], p = game.player.pos;
+    if (hyp(d.x - p.x, d.z - p.z) > 0.2) return;
+    if (!B._eCool || B.t > B._eCool) { press('KeyE'); B._eCool = B.t + 0.6; ev('use-pc'); }
+  }
+  // the terminal: open it, type `case`, crack the case with SQL, accuse, then switch the computer off.
+  // Commands are typed into the terminal's input line and sent with Enter, exactly like a player.
+  const CASE_CMDS = [
+    'case',
+    'SELECT * FROM banners;',
+    "SELECT * FROM cctv WHERE time BETWEEN '13:00' AND '13:45';",
+    "SELECT name, plate FROM students WHERE plate LIKE 'MKZ-8_3';",
+    "SELECT * FROM purchases WHERE item = '美工刀';",
+    "SELECT * FROM access_log WHERE place = '圖書館';",
+    "SELECT * FROM posts WHERE content LIKE '%任務完成%';",
+    'accuse 小明',
+  ];
+  function pcTick() {
+    const g = game, pc = g.pc, D = g.detective;
+    const rt = realNow();
+    if (g.missions.idx !== 5 || D.solved('banner')) {
+      // nothing (more) to do on the computer: power it off
+      if (!B._pcOff || rt > B._pcOff) { B._pcOff = rt + 1000; ev('pc-off', { solved: D.solved('banner') }); document.getElementById('pcPower').click(); }
+      return;
+    }
+    let t = B._term;
+    if (!t) { t = B._term = { i: 0, next: rt }; ev('pc-open'); }
+    if (!pc.wins.term) { if (rt > t.next) { pc.launch('term'); t.next = rt + 500; ev('pc-launch', { app: 'term' }); } return; }
+    const body = pc.wins.term.w, inp = body.querySelector('.tm-in'), ps = body.querySelector('.tm-ps');
+    if (!inp || rt < t.next) return;
+    if (t.i >= CASE_CMDS.length) {
+      if (rt > t.next + 3000) { ev('case-unsolved', { clues: D.st('banner').clues }); t.i = 1; } // run the queries again
+      return;
+    }
+    // after `case`, wait until the detective console is up (it loads sql.js first)
+    if (t.i > 0 && (!ps || ps.textContent !== 'sql> ')) { if (rt - t.next > 60000) { ev('case-no-console'); t.i = 0; t.next = rt; } return; }
+    const cmd = CASE_CMDS[t.i++];
+    inp.focus(); inp.value = cmd;
+    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+    ev('terminal', { cmd, clues: D.st('banner').clues.length });
+    t.next = rt + 400;
   }
 
   // ------------------------------------------------------------------ canvassing (flyers)
@@ -745,6 +853,8 @@
       fallback('return from the unreachable objective to the nearest reachable ground', r);
     }
     if (g.phone && g.phone.open) { neutral(); if (!B._eCool || B.t > B._eCool) { press('KeyE'); B._eCool = B.t + 0.3; ev('close-phone'); } return; }
+    if (g.pc && g.pc.isOpen) { neutral(); pcTick(); return; }
+    if (B._term && g.missions.idx !== 5) B._term = null;
     if (g.hud.bigOpen) { neutral(); press('KeyM'); return; }
     if ((g.gate && g.gate.active) || (g.job && g.job.active)) { neutral(); if (!B._eCool || B.t > B._eCool) { press('KeyE'); B._eCool = B.t + 0.5; ev('leave-side-job'); } return; }
     if (g.videoOpen) { neutral(); press('Escape'); return; }
@@ -768,6 +878,10 @@
     }
     // leg budget: a leg that takes far too long gets a teleport hop
     if (obj.kind === 'votes') { canvassTick(dt, obj); return; }
+    if (obj.kind === 'yh') { yhTick(dt); return; }
+    // still inside 彥霖's old home (after mission 5): walk back out to the street first
+    if (inYanlinHouse()) { yhWalk(dt, -1); return; }
+    if (B._yh) { B._yh = null; nav = null; }
     const tgt = obj.target;
     if (!pl.vehicle) {
       const pp = pl.pos, dT = hyp(tgt.x - pp.x, tgt.z - pp.z);
@@ -827,6 +941,9 @@
   // debugging helper: refined path length between two points in a mode
   B._len = (a, b, mode, off) => { if (!G) buildGraph(); if (off) { const o = planOffroad(a, b, mode); return o ? Math.round(finalizePath(o).len) : null; } const r = astar(a.x, a.z, b.x, b.z, mode); return r ? Math.round(finalizePath(refine(r, mode)).len) : null; };
   B._detour = (a, b, r, C = 0.7) => { const d = gridDetour(a, b, r, 14, C); return d ? Math.round(finalizePath(dedupe([a, ...d])).len) : null; };
+  // debugging helper: the refined path (points) between two points in a mode
+  B._path = (a, b, mode) => { if (!G) buildGraph(); const r = astar(a.x, a.z, b.x, b.z, mode); return r ? refine(r, mode).map(p => [+p.x.toFixed(1), +p.z.toFixed(1)]) : null; };
+  B._yhWps = () => yhWps().map(w => [+w.x.toFixed(1), +w.z.toFixed(1)]);
   B.requestRender = (n = 1) => { E.renderReq = (E.renderReq || 0) + n; return E.renders; };
   B.renderer = () => { const gl = game.renderer.getContext(); if (gl.isContextLost()) return { renderer: null, vendor: null, version: null, contextLost: true }; const ext = gl.getExtension('WEBGL_debug_renderer_info'); return { renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), vendor: ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR), version: gl.getParameter(gl.VERSION) }; };
 })();

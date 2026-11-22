@@ -971,7 +971,7 @@ export function buildZoneG(I, scene, data, collision = null) {
 
   // ===== 南面大階梯 → 二樓門廊 → 學活二樓（js/sac.js）→ 新中北路天橋 → 力行男宿 =====
   // 大階梯與門廊平台是 data.levels（zoneGTerrain）；天橋是 tools/overrides.json 的 xinzhongbei_footbridge（LV_DECK）。
-  // 門廊進門、穿過二樓中庭、從北面走上天橋都是用走的（學活室內 js/sac.js）；天橋北端直接走進力行宿舍二樓（js/lixing.js）。
+  // 門廊進門、穿過二樓中庭、從北面走上天橋都是用走的（學活室內 js/sac.js）；天橋北端是力行宿舍牆外的樓梯，往下走到二樓門口（js/lixing.js）。
   // 天橋兩側加有高度帶的欄杆碰撞。
   if (collision && landY !== null) {
     // 門廊平台三邊與大階梯兩側上段：map.js 的封邊線沒有高度帶，物理牆只到地面上 4 m，站在 3.8 m 的平台上
@@ -988,7 +988,7 @@ export function buildZoneG(I, scene, data, collision = null) {
     const deckY = surfaceAt(-163.0, -141.6, 60), g0 = Hgrid(-163.0, -141.6);
     if (deckY > g0 + 3) {
       const bx = z => -162.7 + (-163.2 + 162.7) * (z + 165.0) / 36.6; // 天橋中心線（北端 z -165 → 南端 -128.4）
-      // 兩側欄杆一路到力行端（z -165，接進力行南牆）
+      // 兩側欄杆一路到力行端（z -165，接進力行南牆；最北 5.7 m 是力行牆外的樓梯，那段的欄杆碰撞在 js/lixing.js，這條只擋橋面高度）
       for (const o of [-1.42, 1.42]) collision.addSegment(bx(-165.0) + o, -165.0, bx(-128.6) + o, -128.6, deckY - 0.3, deckY + 0.6);
     }
   }

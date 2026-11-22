@@ -932,6 +932,8 @@ def build_grade(out, items, stats):
         g = dict(id=it['id'], kind=it['kind'], name=it['name'], path=path, w=it['w'], prof=prof)
         if it.get('clearance'):
             g['clearance'] = it['clearance']
+        if it.get('cut0'):   # the path's first metres are not built (a building's stair is there): js/map.js gradeDeck
+            g['cut0'] = it['cut0']
         tun = [path_proj(path, *p)[0] for r in mine if r.get('tunnel') for p in r['pts']]
         if tun:
             g['roof'] = [round(min(tun), 1), round(max(tun), 1)]

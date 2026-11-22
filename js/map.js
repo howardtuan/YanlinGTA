@@ -1365,7 +1365,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const gradeDeck = (r, gi) => {
     const s0 = gi.proj(r.pts[0][0], r.pts[0][1]), dir = gi.proj(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]) >= s0 ? 1 : -1;
     r.deck = 1; // npc.js: traffic / walkers on this way use the deck
-    return addBridge(r.pts, r.w, { yAt: d => gi.y(s0 + dir * d), lv: LV_DECK });
+    // gi.cut0: the first metres of the item's path are not built (a building's own stair up to the deck is there, js/lixing.js).
+    // A level's station also counts 1 m past its end (js/terrain.js surfaceAt), so the deck's centreline starts 1 m later.
+    let pts = r.pts, off = 0;
+    if (gi.cut0 > 0) {
+      const keep = gi.cut0 + 1, c = gi.at(keep), in0 = (p) => gi.proj(p[0], p[1]) > keep + 0.01;
+      if (dir > 0) { pts = [[c.x, c.z], ...r.pts.filter(in0)]; off = keep - s0; } else pts = [...r.pts.filter(in0), [c.x, c.z]];
+    }
+    return addBridge(pts, r.w, { yAt: d => gi.y(s0 + dir * (d + off)), lv: LV_DECK });
   };
   for (const r of data.roads) {
     if (r.under) {
@@ -1493,8 +1500,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
       } else if (gi.kind === 'footbridge') {
         // orange Warren truss with a white roof, deck slab at its foot, red banner; height-limit
-        // plates on both faces over the street. The ends run into the two buildings.
-        const A = gi.at(0), L = gi.len, ux = A.ux, uz = A.uz, nx = -uz, nz = ux, y = gi.y(0);
+        // plates on both faces over the street. The ends run into the two buildings (力行: up to its outside stair).
+        const c0 = gi.cut0 || 0, A = gi.at(c0), L = gi.len - c0, ux = A.ux, uz = A.uz, nx = -uz, nz = ux, y = gi.y(c0); // (cut0: see gradeDeck)
         const P3 = (s, o, yy) => [A.x + ux * s + nx * o, yy, A.z + uz * s + nz * o];
         const yb = y - 0.4, yt = yb + 2.6, o = 1.5, n = Math.max(2, Math.round(L / 3));
         deckSides.box(A.x + ux * L / 2, A.z + uz * L / 2, Math.atan2(uz, ux), L, 3.0, yb, y, col('#9c968c'));
@@ -1512,7 +1519,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         for (let k = 0; k <= n; k++) beam(gradeMetal, P3(k * L / n, -o, yt - 0.15), P3(k * L / n, o, yt - 0.15), 0.14, TRUSS);
         deckSides.box(A.x + ux * L / 2, A.z + uz * L / 2, Math.atan2(uz, ux), L + 0.4, 3.8, yt, yt + 0.1, col('#f2f2ee'));
         // the street's middle under the span
-        const sr = gi.prof[0][0], tex = plate('淨高4.7公尺', 0.9, 0.6), ban = canvasTex(512, 64, (g2, W, Hh) => { g2.fillStyle = '#c41e24'; g2.fillRect(0, 0, W, Hh); }, false);
+        const sr = gi.prof[0][0] - c0, tex = plate('淨高4.7公尺', 0.9, 0.6), ban = canvasTex(512, 64, (g2, W, Hh) => { g2.fillStyle = '#c41e24'; g2.fillRect(0, 0, W, Hh); }, false);
         for (const sd of [1, -1]) {
           const c = P3(sr, (o + 0.2) * sd, yb + 0.3);
           sign(tex, c[0], c[1], c[2], nx * sd, nz * sd, 0.9, 0.6);

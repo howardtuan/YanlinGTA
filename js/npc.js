@@ -634,6 +634,8 @@ export class Peds {
       }
       // walkers on a footbridge / viaduct way use its deck, others keep their level
       p.y = surfaceAt(p.pos.x, p.pos.z, p.state === 'walk' && p.edge.road.deck ? Infinity : p.y);
+      // (a deck's end that is a building's outside stair instead: js/lixing.js)
+      if (p.state === 'walk' && p.edge.road.deckY) { const sy = p.edge.road.deckY(p.pos.x, p.pos.z); if (sy !== undefined) p.y = sy; }
       p.ch.root.position.set(p.pos.x, p.y + (p.state === 'fly' ? p.air : 0), p.pos.z);
       p.ch.root.rotation.y = p.heading;
       p.ch.root.rotation.x = p.state === 'fly' ? p.spin : 0; // tumbling through the air

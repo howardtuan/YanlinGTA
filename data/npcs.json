@@ -1,0 +1,318 @@
+{
+  "_doc": [
+    "NPC 名冊：tools/npc-dashboard（開發時的本機儀表板，http://localhost:5173/tools/npc-dashboard/）讀寫這個檔案。",
+    "kind builtin：程式裡寫好的 NPC（外觀、行為在 sources 列的 js 檔），這裡只放人物設定給儀表板看；ref 是儀表板用來畫出他全身的代號。",
+    "kind custom：在儀表板「新增 NPC」建立的 NPC，不用改程式：enabled 為 true 時 js/customnpcs.js 會把他放在 place 那個地點，按 E 可以聊天（talks 輪流說）。",
+    "places：自訂 NPC 可以選的出沒地點（遊戲座標 x、z，h 是面向）。",
+    "照片不會存在這裡（只留在本機 tools/npc-dashboard/photos/，不會上傳 git）。"
+  ],
+  "places": {
+    "舊正門（遊戲起點）": {
+      "x": -224.2,
+      "z": 46,
+      "h": 1.37
+    },
+    "資訊管理學系館": {
+      "x": 91.8,
+      "z": 131.7,
+      "h": -0.4
+    },
+    "張靜愚紀念圖書館": {
+      "x": -151.9,
+      "z": -42.3,
+      "h": 1.57
+    },
+    "學生活動中心": {
+      "x": -161.4,
+      "z": -124.8,
+      "h": -2.67
+    },
+    "全人教育村": {
+      "x": -29.5,
+      "z": -54.3,
+      "h": 0.5
+    },
+    "電學大樓": {
+      "x": -10.1,
+      "z": 251.8,
+      "h": -0.36
+    },
+    "良善樓": {
+      "x": -19.3,
+      "z": 256.8,
+      "h": 2.78
+    },
+    "二一鐘塔": {
+      "x": -13.8,
+      "z": 96.4,
+      "h": 2.78
+    },
+    "校史館": {
+      "x": -67.1,
+      "z": 101.6,
+      "h": 0
+    },
+    "中原大學體育館": {
+      "x": -45.7,
+      "z": -252.5,
+      "h": -2.45
+    },
+    "管理大樓": {
+      "x": 87.9,
+      "z": 47.6,
+      "h": -2.26
+    },
+    "科學館": {
+      "x": -59.6,
+      "z": 70.6,
+      "h": -0.33
+    },
+    "中原夜市": {
+      "x": -190.8,
+      "z": 348.7,
+      "h": 0
+    },
+    "孫師傅牛肉拉麵（中北路）": {
+      "x": -560.3,
+      "z": 218.3,
+      "h": 0
+    }
+  },
+  "npcs": [
+    {
+      "id": "yanlin",
+      "kind": "builtin",
+      "ref": "yanlin",
+      "name": "彥霖",
+      "title": "主角・第34屆資管系會長候選人",
+      "gender": "男",
+      "dept": "資管系三年級",
+      "personality": "認真、熱血、很照顧身邊的人；答應的事一定做到，遇到問題第一個騎車衝過去。",
+      "interests": [
+        "騎 SYM JET SL",
+        "寫程式",
+        "幫系上辦活動"
+      ],
+      "likes": "牛肉拉麵、麥當勞",
+      "catchphrase": "資管要贏，票投彥霖！✌",
+      "background": "在活動中心 B1 的麥當勞打工，以前住在中北路孫師傅牛肉拉麵的樓上。明天就是投票日。",
+      "relations": "小安是競選總幹事；阿哲是系上學長；女朋友是遠距離的 Winter；鄰居是黃蓋瑞。",
+      "where": "玩家操作的主角",
+      "schedule": "跟著主線任務走",
+      "sources": [
+        "js/player.js",
+        "js/missions.js"
+      ]
+    },
+    {
+      "id": "xiaoan",
+      "kind": "builtin",
+      "ref": "xiaoan",
+      "name": "小安",
+      "title": "競選總幹事",
+      "gender": "女",
+      "dept": "資管系三年級",
+      "personality": "細心又愛操心，行程排得滿滿的；嘴上催人，其實比誰都挺彥霖。",
+      "interests": [
+        "排行程",
+        "做筆記",
+        "幫大家買早餐"
+      ],
+      "likes": "蛋餅配豆漿",
+      "catchphrase": "跟著地圖上的黃色★走！",
+      "background": "主線的任務幾乎都是她交代的：發傳單、買早餐、掛布條、查布條失竊案。",
+      "relations": "彥霖的競選總幹事，和阿哲一起帶競選團隊。",
+      "where": "舊正門（遊戲起點）",
+      "schedule": "整天站在舊正門附近等彥霖回報",
+      "sources": [
+        "js/missions.js"
+      ]
+    },
+    {
+      "id": "azhe",
+      "kind": "builtin",
+      "ref": "azhe",
+      "name": "阿哲",
+      "title": "資管系學長",
+      "gender": "男",
+      "dept": "資管系四年級",
+      "personality": "熱心、愛開玩笑，講話很有梗；做事很快，傳單一早就印好。",
+      "interests": [
+        "印傳單",
+        "系上活動",
+        "宵夜"
+      ],
+      "likes": "熱騰騰的蛋餅",
+      "catchphrase": "主角終於來了！",
+      "background": "主線任務一開始在資管系館前交代傳單任務，也是他想起舊電腦裡有校園紀錄備份。",
+      "relations": "彥霖的學長、競選團隊成員。",
+      "where": "資訊管理學系館前",
+      "schedule": "從任務一開始一直待在系館前",
+      "sources": [
+        "js/missions.js"
+      ]
+    },
+    {
+      "id": "zz",
+      "kind": "builtin",
+      "ref": "zz",
+      "name": "吱吱",
+      "title": "排球少年",
+      "gender": "男",
+      "dept": "資管系（體保生）",
+      "personality": "直爽熱血、超有活力；講話很大聲，認定的朋友會一直挺到底。",
+      "interests": [
+        "排球（攻擊手，跳發是強項）",
+        "健身（愛練腿）",
+        "晚上 10 點固定打排位"
+      ],
+      "likes": "運動完的手搖飲",
+      "catchphrase": "欸！彥霖！",
+      "background": "體育館門口常看到他；有時候在正門外的茶學苑打工。聊完可以加好友，手機社群每天會發限時動態。",
+      "relations": "跟彥霖同屆；系排都挺彥霖選會長。",
+      "where": "中原大學體育館門口（體育館與游泳池之間的走道）／茶學苑",
+      "schedule": "打工時段在茶學苑，其他時間在體育館",
+      "friend": true,
+      "sources": [
+        "js/friends.js",
+        "js/teashop.js",
+        "js/feeds.js",
+        "js/chats.js"
+      ]
+    },
+    {
+      "id": "gd",
+      "kind": "builtin",
+      "ref": "gd",
+      "name": "女拳大帝",
+      "title": "戈登肉鋪店長",
+      "gender": "男",
+      "dept": "",
+      "personality": "火爆、好勝心超強，非常在意輸贏；嘴巴很兇，其實很講義氣。",
+      "interests": [
+        "健身",
+        "打 LOL（鑽石）"
+      ],
+      "likes": "麥當勞",
+      "catchphrase": "輸了不准怪我，掛機我就封鎖你 😤",
+      "background": "顧校史館前草坪上的高級肉鋪「戈登肉鋪」，結帳後可以加好友。",
+      "relations": "跟漢克是室友。",
+      "where": "戈登肉鋪櫃台（校史館前草坪）",
+      "schedule": "營業時間都在櫃台",
+      "friend": true,
+      "sources": [
+        "js/friends.js",
+        "js/gordon.js",
+        "js/interiors.js"
+      ]
+    },
+    {
+      "id": "hank",
+      "kind": "builtin",
+      "ref": "hank",
+      "name": "漢克",
+      "title": "麥當勞晚班店員",
+      "gender": "男",
+      "dept": "資管系三年級",
+      "personality": "隨和、有點文青，話不多但很好聊；寫程式很強卻很謙虛。",
+      "interests": [
+        "聽團（獨立樂團）",
+        "寫程式（資管系校內專題競賽第一名）",
+        "騎 ZMAX 跑山看夜景",
+        "偶爾打 LOL"
+      ],
+      "likes": "live house、夜景",
+      "catchphrase": "運氣好啦哈哈",
+      "background": "皮膚偏黑的捲長髮男生，騎 155cc 的 ZMAX；散步時背著吉他，跟他說話他會彈一段給你聽。",
+      "relations": "彥霖的同系同學；女拳大帝的室友。",
+      "where": "活動中心 B1 麥當勞／校園散步／騎 ZMAX 兜風",
+      "schedule": "18:00–22:00 麥當勞值班，02:00–07:00 睡覺，其他時間騎車或背吉他散步",
+      "friend": true,
+      "sources": [
+        "js/hank.js",
+        "js/friends.js",
+        "js/vehicles.js"
+      ]
+    },
+    {
+      "id": "garry",
+      "kind": "builtin",
+      "ref": "garry",
+      "name": "黃蓋瑞",
+      "title": "古箏社幹部",
+      "gender": "男",
+      "dept": "",
+      "personality": "開朗、有點迷糊，追星很認真；練琴和跑步都很自律。",
+      "interests": [
+        "古箏",
+        "跑步",
+        "K-pop"
+      ],
+      "likes": "K-pop 舞台、專輯和手燈",
+      "catchphrase": "哈哈那是我在練期末成發的曲子啦",
+      "background": "高瘦、黑色短髮有瀏海，穿白底熱帶葉印花襯衫；起床鬧鐘是一個彩蛋。",
+      "relations": "住彥霖隔壁（孫師傅牛肉拉麵樓上的鄰居）。",
+      "where": "體育園區跑道／學生活動中心古箏社教室／家裡",
+      "schedule": "早上或傍晚跑步，中午或晚上在古箏社，其他時間在房間",
+      "friend": true,
+      "sources": [
+        "js/garry.js",
+        "js/garryhome.js",
+        "js/clubroom.js",
+        "js/friends.js"
+      ]
+    },
+    {
+      "id": "laoda",
+      "kind": "builtin",
+      "ref": "laoda",
+      "name": "勞大",
+      "title": "彥霖航空直升機駕駛",
+      "gender": "男",
+      "dept": "",
+      "personality": "愛玩網路梗、愛講冷笑話和諧音梗；開口常說「Man」，偶爾中英夾雜。",
+      "interests": [
+        "開直升機",
+        "籃球",
+        "冷笑話"
+      ],
+      "likes": "紫金色的球衣",
+      "catchphrase": "Man～",
+      "background": "高大壯碩的光頭大叔，留山羊鬍、戴航空耳機，穿紫金 24 號球衣；手機「呼叫載具」就是他開直升機把機車空運過來。",
+      "relations": "彥霖航空的機長。",
+      "where": "直升機上／校園隨機散步",
+      "schedule": "沒在飛的時候不定時在校園散步",
+      "friend": false,
+      "sources": [
+        "js/pilot.js",
+        "js/airdrop.js",
+        "js/jersey.js"
+      ]
+    },
+    {
+      "id": "xiaoyun",
+      "kind": "builtin",
+      "ref": "xiaoyun",
+      "name": "小芸",
+      "title": "麥當勞櫃台店員",
+      "gender": "女",
+      "dept": "",
+      "personality": "親切、手腳很快，忙的時候也會笑著招呼客人。",
+      "interests": [
+        "排班",
+        "出餐速度"
+      ],
+      "likes": "",
+      "catchphrase": "歡迎光臨！",
+      "background": "活動中心 B1 麥當勞的櫃台，彥霖值班時的同事。",
+      "relations": "彥霖、漢克的打工同事。",
+      "where": "活動中心 B1 麥當勞櫃台",
+      "schedule": "營業時間（05:00–23:00）",
+      "friend": false,
+      "sources": [
+        "js/interiors.js",
+        "js/mcuniform.js"
+      ]
+    }
+  ]
+}

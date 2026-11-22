@@ -10,8 +10,9 @@ export const SPEECH = [
   ['彥霖', '資管要贏，票投彥霖！✌'],
 ];
 
-const MANAGER = { skin: '#f0d2b8', shirt: '#ffd23f', shorts: '#1d3557', pants: true, hair: '#1a1410', hairStyle: 'pony', glasses: false, shoes: '#222', face: true };
-const SENIOR = { skin: '#e2b994', shirt: '#2f6bff', shorts: '#333', pants: true, hair: '#111', hairStyle: 'short', glasses: true, shoes: '#f5f5f2', face: true, bag: '#222' };
+// 小安 (MANAGER) and 阿哲 (SENIOR) are exported for tools/npc-dashboard
+export const MANAGER = { skin: '#f0d2b8', shirt: '#ffd23f', shorts: '#1d3557', pants: true, hair: '#1a1410', hairStyle: 'pony', glasses: false, shoes: '#222', face: true };
+export const SENIOR = { skin: '#e2b994', shirt: '#2f6bff', shorts: '#333', pants: true, hair: '#111', hairStyle: 'short', glasses: true, shoes: '#f5f5f2', face: true, bag: '#222' };
 
 export class Missions {
   constructor(game) {

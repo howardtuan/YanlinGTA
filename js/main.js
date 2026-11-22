@@ -26,6 +26,7 @@ import { readSave, writeSave, applySave, clearSave } from './save.js';
 import { PC } from './pc.js';
 import { Detective } from './detective.js';
 import { Sunday } from './sunday.js';
+import { CustomNpcs } from './customnpcs.js';
 import { Wardrobe } from './wardrobe.js';
 import { Nav } from './nav.js';
 import { Airdrop } from './airdrop.js';
@@ -228,6 +229,7 @@ class Game {
     this.library = new LibraryLink(this); // glowing circle at the library door: opens 中原大學電子書 HyRead
     this.gordon = new Gordon(this);     // 戈登肉鋪 (lawn in front of 校史館): freezers, basket, checkout
     this.friends = new Friends(this);
+    this.customNpcs = new CustomNpcs(this); // NPCs added in the dev NPC dashboard (data/npcs.json, tools/npc-dashboard)
     this.hank = new Hank(this);         // 漢克: McDonald's nights, rides his ZMAX, strolls with a guitar   // people you can befriend (排球少年 吱吱 at the 體育館, 女拳大帝 at 戈登肉鋪)
     this.concerts = new Concerts(this); // 搶票 App + 林口體育館演唱會 (ITZV / aespo)
     this.tea = new TeaShop(this);       // 茶學苑 (中北路, outside the 正門): order drinks; 吱吱 works there on some shifts

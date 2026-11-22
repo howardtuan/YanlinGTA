@@ -1,7 +1,13 @@
+import * as THREE from 'three';
+import { createCharacter } from './character.js';
+import { makeLabel } from './map.js';
+import { GD_LOOK } from './friends.js';
 // 戈登肉鋪：校史館前草坪上的高級肉鋪，建築在 js/interiors.js（buildGordon）。
 // 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
 // 結完帳如果還不是好友，他會問要不要互加（js/friends.js，訊息＋Peachgram）。
 // 購物籃與買過的東西會存檔（save.js 的 gordon）。
+// 營業時間 08:00–23:00（js/gordon_shop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢 6 號床下的書桌打 LOL。
+// 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
 
 export const GD_ZONES = {
   hotpot: { name: '火鍋區', items: [
@@ -57,9 +63,12 @@ export class Gordon {
     const S = game.interiors.gordon; if (!S) return;
     this.S = S;
     const A = game.interiors.actions;
-    for (const f of S.freezers) A.push({ x: f.x, z: f.z, r: f.r, y: 0, anyY: true,
+    for (const f of S.freezers) A.push({ x: f.x, z: f.z, r: f.r, y: 0, anyY: true, cond: () => !S.closed,
       label: () => `按 <kbd>E</kbd> 看${GD_ZONES[f.zone].name}的冷凍櫃`, fn: () => this.browse(f.zone) });
-    A.push({ x: S.counter.x, z: S.counter.z, r: 1.7, y: 0, anyY: true,
+    if (S.front) A.push({ x: S.front.x, z: S.front.z, r: 2.2, y: 0, cond: () => S.closed, label: () => '戈登肉鋪已打烊（營業時間 08:00–23:00）',
+      fn: (g) => g.hud.toast('🥩 戈登肉鋪已打烊，店長回宿舍打 LOL 了，早上 8 點再來吧', 'good', 2400) });
+    this._dorm(game);
+    A.push({ x: S.counter.x, z: S.counter.z, r: 1.7, y: 0, anyY: true, cond: () => !S.closed,
       label: () => this.count ? `按 <kbd>E</kbd> 跟${KEEPER}結帳（${this.count} 件・NT$ ${this.total}）` : `按 <kbd>E</kbd> 和店長${KEEPER}說話`,
       fn: () => (this.count ? this.checkout() : this.g.dialog(IDLE[Math.floor(Math.random() * IDLE.length)])) });
   }
@@ -130,6 +139,51 @@ export class Gordon {
     g.hud.toast(`🥩 戈登肉鋪 付款成功 −NT$ ${total}`, 'good', 2200);
     // thanks, then (if you're not friends yet) the add-friend question
     g.dialog(PAID[Math.floor(Math.random() * PAID.length)], () => g.friends?.offer('gd'));
+  }
+  // ---- 23:00–08:00: 女拳大帝 in 力行 279 at the desk under bed 6, playing LOL ----
+  get night() { return !!this.S?.closed; }
+  get boughtAny() { return Object.values(this.bought).some(n => n > 0); }
+  _dorm(game) {
+    const L = game.interiors.lixing, R = L?.rooms?.[279]; if (!R) return;
+    const { k, B, W } = L, bed = R.beds[6];
+    const desk = R.desks.filter(d => d.bed === 6).sort((a, b) => Math.hypot(a.x - bed.x, a.z - bed.z) - Math.hypot(b.x - bed.x, b.z - bed.z))[0];
+    if (!desk) return;
+    const world = (lx, lz, ly) => { const [x, z] = W(lx, lz); return { x, z, y: B + ly }; };
+    const seat = { ...world(desk.chair.x, desk.chair.z, R.y), h: k.heading(desk.face) }, D = world(desk.x, desk.z, R.y + 0.76);
+    const ch = this.dormCh = createCharacter(GD_LOOK);
+    const tag = makeLabel('🎮 女拳大帝', { height: 0.24, size: 40, color: '#ff6b6b' }); tag.position.set(0, 1.75, 0); ch.root.add(tag);
+    ch.root.position.set(seat.x, seat.y, seat.z); ch.root.rotation.y = seat.h; ch.root.visible = false; game.scene.add(ch.root);
+    // his gaming laptop, the screen glowing blue and gold
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 160; const x = cv.getContext('2d');
+    const gr = x.createLinearGradient(0, 0, 256, 160); gr.addColorStop(0, '#0a1a2f'); gr.addColorStop(1, '#0d3b4f'); x.fillStyle = gr; x.fillRect(0, 0, 256, 160);
+    x.fillStyle = '#c8aa6e'; x.font = '900 28px sans-serif'; x.textAlign = 'center'; x.fillText('積分對戰', 128, 66); x.fillStyle = '#e8f1ff'; x.font = '700 18px sans-serif'; x.fillText('鑽石 I ◆ 連敗中 😤', 128, 100);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.25), new THREE.MeshStandardMaterial({ color: '#1b1c20', roughness: 0.4, metalness: 0.4 }));
+    const hinge = new THREE.Group(), lid = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.23, 0.012), base.material), scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.21), new THREE.MeshBasicMaterial({ map: tex }));
+    lid.position.y = 0.115; scr.position.set(0, 0.115, 0.007); hinge.add(lid, scr); hinge.rotation.x = -0.25;
+    const lap = new THREE.Group(); lap.add(base); hinge.position.set(0, 0.01, -0.11); lap.add(hinge);
+    lap.position.set(D.x, D.y + 0.01, D.z); lap.rotation.y = k.heading(desk.face + Math.PI); game.scene.add(lap);
+    this.dorm = { seat, ch, lap };
+    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - 0.2, r: 1.6, cond: () => this.night,
+      label: () => '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話', fn: () => this.dormTalk() });
+    game.interiors.updaters.push((dt, gm) => {
+      const on = this.night, p = gm.player.pos, near = Math.hypot(p.x - seat.x, p.z - seat.z) < 60;
+      ch.root.visible = on && near;
+      if (ch.root.visible) ch.update(dt, { speed: 0, mode: 'sit', pose: Math.sin(gm.time * 0.6) > 0.85 ? 'talk' : null });
+    });
+  }
+  // not a customer and not a friend: he won't even look up
+  dormTalk() {
+    const g = this.g;
+    if (!g.friends?.added.has('gd') && !this.boughtAny) { g.dialog([[KEEPER, '在打遊戲，別吵 😤']]); return; }
+    if (!g.friends?.added.has('gd')) { g.friends?.offer('gd'); return; }
+    const L = [
+      [[KEEPER, '（耳機大吼）中路不要再送了啦！！'], [KEEPER, '……彥霖？你怎麼在這。等我這場打完 🎮']],
+      [[KEEPER, '鑽石 I 卡三天了，今晚一定要上大師 🔥']],
+      [[KEEPER, '漢克又在對面彈吉他，我耳機開到最大了'], [KEEPER, '要排嗎？輸了你請麥當勞。']],
+      [[KEEPER, '店早上 8 點才開，肉要買明天來。現在別跟我講話，我在團戰 😤']],
+    ];
+    g.dialog(L[Math.floor(Math.random() * L.length)]);
   }
   toJSON() { return { basket: this.basket, bought: this.bought, spent: this.spent }; }
   load(d) { if (!d) return; this.basket = d.basket || {}; this.bought = d.bought || {}; this.spent = d.spent || 0; }

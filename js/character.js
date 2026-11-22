@@ -588,6 +588,11 @@ function animate(ch, dt, st) {
     t.shR = [-0.55, 0.35, -0.25]; t.elR = -1.75; t.shL = [-0.35, -0.3, 0.2]; t.elL = -1.3;
     t.headX = 0.42 + Math.sin(ch.poseT * 1.3) * 0.03;
     ch.setHandPose('grip');
+  } else if (st.pose === 'call') {
+    // on the phone: right hand up at the ear, head tilted into it, the other hand gesturing a little now and then
+    t.shR = [0, Math.PI / 2, -1.2]; t.elR = 2.3; t.headZ = -0.12; t.headX = 0.08 + Math.sin(ch.poseT * 0.9) * 0.05;
+    t.shL = [-0.35 - Math.max(0, Math.sin(ch.poseT * 1.3)) * 0.3, -0.2, 0.15]; t.elL = -0.9;
+    ch.setHandPose('grip');
   } else if (st.pose === 'handR' || st.pose === 'handL') {
     // walking hand in hand (js/yeeming.js): that arm hangs a little out to the side towards the partner, no swing
     if (st.pose === 'handR') { t.shR = [-0.12, 0, -0.42]; t.elR = -0.12; } else { t.shL = [-0.12, 0, 0.42]; t.elL = -0.12; }

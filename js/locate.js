@@ -28,13 +28,13 @@ export function friendLocations(g) {
     if (shop) add('zz', '吱吱', '🏐', '#7a1f2c', shop.position, '在正門外的茶學苑打工');
     else if (gym) add('zz', '吱吱', '🏐', '#7a1f2c', gym.position, '在體育館門口');
   }
-  if (has('gd')) { const k = F.npcs.gd?.ch.root; add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）'); }
+  if (has('gd')) { const k = F.npcs.gd?.ch.root, Gd = g.gordon; if (Gd?.night) add('gd', '女拳大帝', '🎮', '#1d1d1f', Gd.dorm?.seat, '在力行宿舍 279 寢打 LOL（戈登肉鋪 08:00 才開）'); else add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）'); }
   if (has('hank')) {
     const H = g.hank;
     if (H) {
       const m = H.mode;
       if (m === 'work') add('hank', '漢克', '🎸', '#2b2f3a', H.worker?.root.position, '在活動中心麥當勞內場炸薯條（到 22:00）');
-      else if (m === 'sleep') add('hank', '漢克', '🎸', '#2b2f3a', null, '睡覺中（離線）');
+      else if (m === 'dorm') add('hank', '漢克', '🎸', '#2b2f3a', H.dorm?.seat, H.call ? '在力行宿舍 279 寢跟女朋友講電話' : '在力行宿舍 279 寢彈吉他');
       else if (m === 'walk' && H.walkOn) add('hank', '漢克', '🎸', '#2b2f3a', H.pos, '背著吉他在校園散步');
       else if (m === 'ride' && H.zmax && !H.zmax.ai?.dormant) add('hank', '漢克', '🎸', '#2b2f3a', H.zmax.pos, '騎 ZMAX 兜風中');
       else add('hank', '漢克', '🎸', '#2b2f3a', null, m === 'walk' ? '在校園另一頭散步' : '騎 ZMAX 在外面兜風（距離太遠）');

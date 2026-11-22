@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { H } from './terrain.js';
 import { ctex, MATS, M, Kit, lcg, YHT } from './kit.js';
+import { pointInPoly } from './collision.js';
 
 // =====================================================================
 // 戈登肉鋪 Gordon Meat Shop: 一層樓的獨棟店面，蓋在校史館西南側、緊鄰校史館的那片椰子樹草坪上（不是鐘塔那片大草坪），
@@ -308,10 +309,40 @@ export function buildGordon(I, scene) {
     // each leaf slides outward over its side's glass (sgn -1: toward x 0)
     for (const l of leaves) { const tx = l.x0 + (near ? l.sgn * 0.95 : 0); l.m.position.x += (tx - l.m.position.x) * Math.min(1, dt * 6); }
   });
+  // ---- opening hours 08:00–23:00 (店長女拳大帝 is in 力行 279 playing LOL the rest of the night, js/gordon.js): outside
+  //      them a roller shutter comes down over the glass front, a 已打烊 sign hangs on it, the lights go down and the
+  //      店長 at the counter is gone; buying is off (js/gordon.js). If you are inside when it shuts, the shutter lets you out.
+  const OPEN0 = 8 * 60, OPEN1 = 23 * 60;
+  const shc = document.createElement('canvas'); shc.width = 64; shc.height = 128; { const s2 = shc.getContext('2d'); s2.fillStyle = '#8f949a'; s2.fillRect(0, 0, 64, 128); for (let y = 0; y < 128; y += 8) { s2.fillStyle = '#767b81'; s2.fillRect(0, y, 64, 2); s2.fillStyle = '#a9aeb4'; s2.fillRect(0, y + 2, 64, 1); } }
+  const shTex = new THREE.CanvasTexture(shc); shTex.colorSpace = THREE.SRGBColorSpace; shTex.wrapS = shTex.wrapT = THREE.RepeatWrapping; shTex.repeat.set(4, 3);
+  const shutter = new THREE.Mesh(new THREE.BoxGeometry(W - 1.1, CH, 0.05), new THREE.MeshStandardMaterial({ map: shTex, roughness: 0.6, metalness: 0.4 }));
+  shutter.position.set(W / 2, CH / 2, -0.12); shutter.visible = false; k.group.add(shutter);
+  const sgc = document.createElement('canvas'); sgc.width = 1024; sgc.height = 256; { const s2 = sgc.getContext('2d'); s2.fillStyle = '#1b1b1b'; s2.fillRect(0, 0, 1024, 256); s2.fillStyle = '#c9a24e'; s2.font = '700 54px "Noto Sans TC","Microsoft JhengHei",sans-serif'; s2.textAlign = 'center'; s2.textBaseline = 'middle'; s2.fillText('本店已打烊・營業時間 08:00–23:00', 512, 128, 980); }
+  const sgTex = new THREE.CanvasTexture(sgc); sgTex.colorSpace = THREE.SRGBColorSpace;
+  const closedSign = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), new THREE.MeshBasicMaterial({ map: sgTex }));
+  closedSign.position.set(X((DU0 + DU1) / 2), 1.6, -0.16); closedSign.rotation.y = Math.PI; closedSign.visible = false; k.group.add(closedSign);
+  const wi = I.walls.length; k.wallLine(0.2, -0.1, W - 0.2, -0.1, 0, CH); const shutWall = I.walls[wi], wallY = [shutWall[4], shutWall[5]];
+  shutWall[4] = shutWall[5] = -100;
+  const lit = new Map();
+  k.group.traverse(o => { if (!o.isMesh || !o.material || Array.isArray(o.material) || o === shutter || o === closedSign) return; const m = o.material; if (!(m.emissiveIntensity > 0) || !m.emissive || m.emissive.getHex() === 0) return; if (!lit.has(m)) lit.set(m, m.emissiveIntensity); });
+  const inShop = k.rect(0, W, 0, D);
+  const gdState = { closed: false };
+  const setClosed = (on) => {
+    gdState.closed = on; shutter.visible = closedSign.visible = on;
+    for (const [m, b] of lit) m.emissiveIntensity = on ? b * 0.06 : b;
+  };
+  I.updaters.push((dt, game) => {
+    const m = ((game.clock % 1440) + 1440) % 1440, closed = m < OPEN0 || m >= OPEN1;
+    if (closed !== gdState.closed) setClosed(closed);
+    const keeperNpc = game.friends?.npcs?.gd; if (keeperNpc) keeperNpc.ch.root.visible = !closed; // at the counter only while open
+    const p = game.player.pos, inside = pointInPoly(p.x, p.z, inShop);
+    shutWall[4] = closed && !inside ? wallY[0] : -100; shutWall[5] = closed && !inside ? wallY[1] : -99;
+  });
   const at = (u, z) => { const p = k.w(X(u), z); return { x: p[0], z: p[1] }; };
   const keeper = { ...at((CU0 + CU1) / 2, 11.15), y: base + 0.06, h: k.heading(Math.PI) };
   return {
-    k, door: doorAt, keeper, base,
+    k, door: doorAt, keeper, base, get closed() { return gdState.closed; },
+    front: at((DU0 + DU1) / 2, -1.2),
     counter: { ...at((CU0 + CU1) / 2, CZ0 - 0.7) },
     freezers: [
       { zone: 'hotpot', ...at(0.9, 2.4), r: 1.5 }, { zone: 'bbq', ...at(0.9, 5.0), r: 1.5 },

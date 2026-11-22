@@ -2,7 +2,7 @@
 // 興趣：聽團、寫程式（資管系校內專題競賽第一名）、騎車跑山看夜景、偶爾打 LOL。
 // 一天的行程（遊戲時鐘）：
 //   18:00–22:00 在活動中心麥當勞內場打工、顧薯條爐（穿店員制服、戴髮網；外場櫃台是值班經理羊明衫，js/mingshan.js）；
-//   02:00–07:00 睡覺（哪裡都找不到他）；
+//   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他，或跟女朋友講電話（室友是 6 號床的女拳大帝）；
 //   其他時間以 90 分鐘為一段，大多騎他的 ZMAX（155cc 白牌大速克達）在校園外圍和附近道路兜風（跟著車流跑），
 //   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前彈一段給你聽。
 // 他同一時間只會出現在一個地方。說完話可以選擇要不要加好友（js/friends.js 的 hank）。
@@ -93,6 +93,43 @@ export class Hank {
     this.zmax = game.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'zmax' }), rider);
     if (this.zmax) { this.zmax.runBack = true; this.zmax.label = '漢克的 ZMAX'; } // knocked off, he runs back to it (js/npc.js _runBack)
     this.lent = false; this.lentIdle = 0;
+    this._dorm(game);
+  }
+  // ---- 23:00–10:00 in 力行 279: the middle desk on bed 2's side, playing guitar or on the phone with his girlfriend ----
+  _dorm(game) {
+    const L = game.interiors.lixing, R = L?.rooms?.[279]; if (!R) return;
+    const { k, B, W } = L, bed = R.beds[2];
+    const side = R.desks.filter(d => Math.sign(d.x - R.center[0]) === Math.sign(bed.x - R.center[0]));
+    const desk = side.find(d => d.u === 1) || side[0]; if (!desk) return;
+    const [sx, sz] = W(desk.chair.x, desk.chair.z);
+    const seat = { x: sx, z: sz, y: B + R.y, h: k.heading(desk.face) };
+    const ch = createCharacter(HANK_LOOK), tag = makeLabel('🎸 漢克', { height: 0.26, size: 40 }); tag.position.set(0, 1.78, 0); ch.root.add(tag);
+    const gt = buildGuitar(); ch.torso.add(gt); gt.position.set(0.06, 0.24, 0.2); gt.rotation.set(0.15, 0.1, 1.15);
+    const phone = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.075, 0.008), new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.3 }));
+    phone.position.set(0, -0.27, 0.03); ch.arms[0].el.add(phone);
+    // he sits facing into the room (his back to the desk) while he plays, so the guitar shows
+    ch.root.position.set(seat.x, seat.y, seat.z); ch.root.rotation.y = seat.h + Math.PI; ch.root.visible = false; game.scene.add(ch.root);
+    this.dorm = { seat, ch, gt, phone };
+    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - 0.2, r: 1.6, cond: () => this.mode === 'dorm',
+      label: () => this.call ? '按 <kbd>E</kbd> 跟講電話的漢克說話' : '按 <kbd>E</kbd> 和彈吉他的漢克聊天', fn: () => this.dormTalk() });
+  }
+  dormTalk() {
+    const g = this.g;
+    if (this.call) { g.dialog([['漢克', '（摀住手機）欸彥霖，我在跟女朋友講電話，等等找你 🤫'], ['漢克', '（小聲）……沒有啦，是同學。嗯，我也想你。']]); return; }
+    if (g.friends?.added.has('hank')) {
+      const L = [[['漢克', '新歌的副歌寫好了，彈給你聽 🎸'], ['漢克', '♪ ～（輕輕刷著和弦）']], [['漢克', '女拳大帝在對面打 LOL 一直吼，我只好彈大聲一點 😂']], [['漢克', '剛跟女朋友講完電話，她說下次 live house 要一起去']]];
+      g.dialog(L[Math.floor(Math.random() * L.length)]); return;
+    }
+    g.friends?.talk('hank', null);
+  }
+  _dormTick(dt) {
+    const D = this.dorm; if (!D) return;
+    const on = this.mode === 'dorm', p = this.g.player.pos, near = Math.hypot(p.x - D.seat.x, p.z - D.seat.z) < 60;
+    D.ch.root.visible = on && near; if (!D.ch.root.visible) return;
+    // switches between the guitar and a call every few game-minutes
+    this.call = Math.floor(this.g.clock / 25) % 3 === 2;
+    D.gt.visible = !this.call; D.phone.visible = this.call;
+    D.ch.update(dt, { speed: 0, mode: 'sit', pose: this.call ? 'call' : 'guitar' });
   }
   _guitarBack() { const gt = this.guitar; gt.position.set(0.02, 0.3, -0.17); gt.rotation.set(0, Math.PI, 0.35); }
   _guitarFront() { const gt = this.guitar; gt.position.set(0.06, 0.24, 0.2); gt.rotation.set(0.15, 0.1, 1.15); }
@@ -116,7 +153,7 @@ export class Hank {
   _modeAt(clock) {
     const m = ((clock % 1440) + 1440) % 1440;
     if (m >= 18 * 60 && m < 22 * 60) return 'work';
-    if (m >= 2 * 60 && m < 7 * 60) return 'sleep';
+    if (m >= 23 * 60 || m < 10 * 60) return 'dorm';
     return H32(Math.floor(clock / 90) + 77) < 0.35 ? 'walk' : 'ride';
   }
   // E on him while he strolls: he swings the guitar round, plays a few bars, then you talk (and maybe add him)
@@ -158,6 +195,7 @@ export class Hank {
     if (z) { z.hold = mode !== 'ride'; if (z.hold && !z.dormant && !g.traffic.inView(this.zmax.pos) && !g.player.vehicle?.ai) { z.dormant = true; this.zmax.mesh.visible = false; } }
     if (this.zmax && g.player.vehicle === this.zmax && z) z.hold = true; // you borrowed it: it stays out of the traffic
     this._lend(dt);
+    this._dormTick(dt);
     // on foot
     if (mode !== 'walk' && !this.playing) return;
     const p = g.player.worldPos();

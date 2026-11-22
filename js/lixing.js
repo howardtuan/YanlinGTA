@@ -562,7 +562,9 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
           B3(0.6, 0.604, y + 0.04, y + wh - 0.04, t1 + WD / 2 - 0.004, t1 + WD / 2 + 0.004, MT.frame);  // 門縫
           if (!under) B3(0.6, 0.604, y + 1.72, y + 1.728, t1 + 0.02, t2 - 0.02, MT.frame);
           for (const dt of [-0.06, 0.06]) B3(0.6, 0.625, y + 0.95, y + 1.13, t1 + WD / 2 + dt - 0.008, t1 + WD / 2 + dt + 0.008, MT.steel); // 把手
-          B3(0.66, 0.98, y + 0.44, y + 0.47, t0 + 0.25, t0 + 0.65, MT.chair); B3(0.95, 0.98, y + 0.47, y + 0.85, t0 + 0.25, t0 + 0.65, MT.chair); B3(0.8, 0.84, y, y + 0.44, t0 + 0.43, t0 + 0.47, MT.steel); // 橘色椅子
+          // 橘色椅子（279 寢 2 號床那張中間的書桌：漢克把椅子轉過來、背靠書桌，面向對面坐著彈吉他，js/hank.js）
+          const turned = no === 279 && side < 0 && u === 1, bk = turned ? [0.66, 0.69] : [0.95, 0.98];
+          B3(0.66, 0.98, y + 0.44, y + 0.47, t0 + 0.25, t0 + 0.65, MT.chair); B3(bk[0], bk[1], y + 0.47, y + 0.85, t0 + 0.25, t0 + 0.65, MT.chair); B3(0.8, 0.84, y, y + 0.44, t0 + 0.43, t0 + 0.47, MT.steel);
         }
         // 另一端的高架床
         for (const t of [LEN - BED, LEN - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);

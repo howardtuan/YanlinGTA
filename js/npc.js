@@ -380,8 +380,33 @@ export class Traffic {
     const r = v.rider, a = v.ai;
     if (r.rag && !r.rag.resting && !a.dormant) return;
     if (!a.dormant && (r.lieT -= dt) > 0) return;
+    if (v.runBack && !a.dormant && !v.knocked && this._runBack(v, dt)) return; // (漢克) gets up and runs back to his scooter
     this._riderHome(v);
     r.root.visible = !a.dormant && !(a.wreck > 0) && !v.knocked;
+  }
+  // v.runBack (漢克's ZMAX, js/hank.js): the thrown rider gets up where he landed and runs back to the vehicle;
+  // it waits for him (a fallen one is picked up and put back on its lane). True while he is still running.
+  _runBack(v, dt) {
+    const r = v.rider, a = v.ai;
+    if (!r.running) {
+      r.rag?.end(); r.rag = null; Ragdoll.standUp(r); r.running = true; r.runT = 0;
+      if (r.root.parent !== this.scene) { const p = r.root.getWorldPosition(new THREE.Vector3()); r.root.parent?.remove(r.root); this.scene.add(r.root); r.root.position.copy(p); }
+      r.root.quaternion.identity(); r.root.visible = true;
+    }
+    const rp = r.root.position, dx = v.pos.x - rp.x, dz = v.pos.z - rp.z, d = Math.hypot(dx, dz);
+    r.runT += dt;
+    a.stunned = Math.max(a.stunned, 0.3); if (a.wreck > 0) a.wreck = Math.max(a.wreck, 1.5); // the scooter waits for him
+    if (d > 1.0 && r.runT < 25) {
+      const s = Math.min(d - 0.9, 5.2 * dt); rp.x += dx / d * s; rp.z += dz / d * s;
+      rp.y = surfaceAt(rp.x, rp.z, rp.y + 0.5); r.root.rotation.y = Math.atan2(dx, dz);
+      r.update(dt, { speed: 5.2, mode: 'foot' });
+      return true;
+    }
+    // there: pick it up and ride on
+    r.running = false;
+    if (a.wreck > 0 || v.fallen) { v.fallen = false; a.wreck = 0; a.ox = a.oz = 0; a.qx = undefined; v.lean = 0; }
+    a.stunned = 1.0;
+    return false;
   }
   // the rider back on its seat (after being thrown)
   _riderHome(v) {

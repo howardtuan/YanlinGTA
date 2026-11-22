@@ -564,6 +564,25 @@ function animate(ch, dt, st) {
     t.shR = [-0.55, 0.35, -0.25]; t.elR = -1.75; t.shL = [-0.35, -0.3, 0.2]; t.elL = -1.3;
     t.headX = 0.42 + Math.sin(ch.poseT * 1.3) * 0.03;
     ch.setHandPose('grip');
+  } else if (st.pose === 'dance') {
+    // K-pop practice (羊明衫, js/mingshan.js): an 8-count at 120 bpm — arm waves left / right, a double arm push, both
+    // arms up; knees bounce on every beat, hips and shoulders sway, the head tilts with the moves
+    const bt = ch.poseT * 2, n = Math.floor(bt) % 8, f = bt - Math.floor(bt), bounce = Math.abs(Math.sin(bt * Math.PI));
+    t.hipsY = 0.93 - bounce * 0.07; t.knR = t.knL = 0.12 + bounce * 0.35; t.hpR = t.hpL = -bounce * 0.18;
+    t.hpR += Math.sin(bt * Math.PI) * 0.12; t.hpL -= Math.sin(bt * Math.PI) * 0.12;
+    t.torsoY = Math.sin(ch.poseT * Math.PI) * 0.3; t.bob = bounce * 0.03; t.headZ = Math.sin(ch.poseT * Math.PI) * 0.12;
+    if (n < 2) { t.shR = [-2.5 + Math.sin(f * Math.PI) * 0.4, 0, -0.35]; t.elR = -0.35; t.shL = [0.15, 0, 0.55]; t.elL = -1.7; }
+    else if (n < 4) { t.shL = [-2.5 + Math.sin(f * Math.PI) * 0.4, 0, 0.35]; t.elL = -0.35; t.shR = [0.15, 0, -0.55]; t.elR = -1.7; }
+    else if (n < 6) { const push = Math.sin(f * Math.PI); t.shR = [-1.35, 0.35, -0.1]; t.shL = [-1.35, -0.35, 0.1]; t.elR = t.elL = -1.2 + push * 1.0; t.lean = 0.08; }
+    else { t.shR = [-2.8, 0, -0.5 - Math.sin(f * Math.PI) * 0.2]; t.shL = [-2.8, 0, 0.5 + Math.sin(f * Math.PI) * 0.2]; t.elR = t.elL = -0.2; t.headX = -0.15; }
+    ch.setHandPose('relaxed');
+  } else if (st.pose === 'pet' || st.pose === 'feed') {
+    // squatting by a cat (mode 'sit' with no chair, js/mingshan.js): lean in, right hand down to its head — stroking, or holding out the meat
+    t.lean = 0.55; t.headX = 0.5;
+    if (st.pose === 'pet') { const s = Math.sin(ch.poseT * 4.5); t.shR = [-0.75 + s * 0.14, 0.12, -0.12]; t.elR = -0.35 - s * 0.12; }
+    else { t.shR = [-0.95, 0.08, -0.1]; t.elR = -0.2; }
+    t.shL = [-0.55, -0.2, 0.25]; t.elL = -1.2;
+    ch.setHandPose(st.pose === 'feed' ? 'grip' : 'relaxed');
   } else if (st.pose === 'drone') {
     // flying the drone (js/drone.js): both hands on the remote in front of the chest, thumbs on the sticks, VR goggles on
     const tw = Math.sin(ch.poseT * 3.1) * 0.04;

@@ -19,6 +19,7 @@ const BUILTIN = {
   garry: async () => (await import('../../js/garry.js')).createGarry(),
   laoda: async () => (await import('../../js/pilot.js')).createPilot(),
   jianyu: async () => createCharacter((await import('../../js/jianyu.js')).JIANYU_LOOK),
+  mingshan: async () => createCharacter((await import('../../js/mingshan.js')).MINGSHAN_LOOK),
   xiaoyun: async () => {
     const { dressCrew, CREW_SHIRT } = await import('../../js/mcuniform.js');
     const ch = createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });

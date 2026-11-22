@@ -98,6 +98,7 @@ export class Sunday {
   // the hints for where the story is right now (empty when Sunday has nothing to say)
   hints() {
     const M = this.g.missions; if (!M || M.done || M.free || M.idx < 0) return [];
+    if (M.exited) return ['任務先暫停了，這一小節的進度沒有保存。', '準備好了按 <kbd>Esc</kbd>，選「▶ 繼續任務」，會從這一小節重新開始（計時也重來）。'];
     const f = HINTS[M.idx]; return f ? f(M, this.g) : [];
   }
   // on the PC: the open case's hints (SQL detective mode), else the story's, else a nudge to the unsolved cases
@@ -114,8 +115,8 @@ export class Sunday {
     return [];
   }
   get stage() {
-    const M = this.g.missions, pc = this.g.pc?.isOpen, c = pc && this.g.pc.wins?.term?.caseMode?.() ? this.g.detective?.cur : null;
-    return `${M.idx}:${M.sub}:${M.talked ? 1 : 0}:${this.g.detective?.solved('banner') ? 1 : 0}:${pc ? 'pc' : ''}:${c ? c.id + (this.g.detective.solved(c.id) ? '!' : '') : ''}`;
+    const M = this.g.missions, ex = M.exited ? 'x' : '', pc = this.g.pc?.isOpen, c = pc && this.g.pc.wins?.term?.caseMode?.() ? this.g.detective?.cur : null;
+    return `${ex}${M.idx}:${M.sub}:${M.talked ? 1 : 0}:${this.g.detective?.solved('banner') ? 1 : 0}:${pc ? 'pc' : ''}:${c ? c.id + (this.g.detective.solved(c.id) ? '!' : '') : ''}`;
   }
   // J / the avatar: one button opens and closes the bubble
   list() { return this.g.pc?.isOpen ? this.pcHints() : this.hints(); }
@@ -157,7 +158,7 @@ export class Sunday {
       this._n = list.length;
       return; // (no J here: it would be typed into the terminal; click her instead)
     }
-    const busy = g.state !== 'play' || g.hud.inDialog || g.hud.bigOpen || g.phone?.open || g.videoOpen || g.job?.active || g.gate?.active || g.race?.active || g.wardrobe?.isOpen || g.airdrop?.cinema || g.drone?.active || g.speechOn || g._sleeping;
+    const busy = g.state !== 'play' || g.hud.inDialog || g.hud.bigOpen || g.phone?.open || g.videoOpen || g.job?.active || g.gate?.active || g.race?.active || g.wardrobe?.isOpen || g.airdrop?.cinema || g.drone?.active || g.mingshan?.cinema || g.speechOn || g._sleeping;
     const list = busy ? [] : this.hints();
     const show = list.length > 0;
     this.el.classList.toggle('hidden', !show);

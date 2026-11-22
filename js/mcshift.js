@@ -88,7 +88,9 @@ export class McShift {
     pl.pos.x = rx; pl.pos.z = rz; pl.heading = this.k.heading(Math.PI / 2); pl.vel.set(0, 0); pl.ch.root.rotation.y = pl.heading;
     this._uniform(true);
     const s = this.mcd.staff;
-    s.root.position.copy(this.wpos(...this.mcd.kitchen.fryStaff)); s.root.rotation.y = this.k.heading(-Math.PI / 2); // at the fryers
+    const K = this.mcd.kitchen, hankOn = g.hank?.mode === 'work', chick = K.fryers?.chick;
+    const fryAt = hankOn && chick ? [K.fryStaff[0], (chick[0][1] + chick[1][1]) / 2] : K.fryStaff; // 漢克 has the fries fryer: she takes the chicken one
+    s.root.position.copy(this.wpos(...fryAt)); s.root.rotation.y = this.k.heading(-Math.PI / 2); // at the fryers
     // camera eases from wherever it is to the over-the-shoulder shot
     this._camT = 0; this._camFrom.copy(g.camera.position);
     g.camera.getWorldDirection(this._lookFrom).multiplyScalar(5).add(g.camera.position);

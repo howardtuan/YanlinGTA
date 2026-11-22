@@ -1,7 +1,7 @@
 // 漢克：皮膚偏黑的亞洲男生、捲捲的長髮，資管系、跟彥霖同系同學，跟戈登肉鋪的女拳大帝是室友。
 // 興趣：聽團、寫程式（資管系校內專題競賽第一名）、騎車跑山看夜景、偶爾打 LOL。
 // 一天的行程（遊戲時鐘）：
-//   18:00–22:00 在活動中心麥當勞櫃台打工（穿店員制服）；
+//   18:00–22:00 在活動中心麥當勞內場打工、顧薯條爐（穿店員制服、戴髮網；外場櫃台是值班經理羊明衫，js/mingshan.js）；
 //   02:00–07:00 睡覺（哪裡都找不到他）；
 //   其他時間以 90 分鐘為一段，大多騎他的 ZMAX（155cc 白牌大速克達）在校園外圍和附近道路兜風（跟著車流跑），
 //   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前彈一段給你聽。
@@ -61,6 +61,8 @@ function playGuitar(audio) {
   return t - ctx.currentTime;
 }
 
+const g_kitchenBusy = (g) => !!g.job?.kitchen?.active; // you are on the kitchen shift yourself
+
 export class Hank {
   constructor(game) {
     this.g = game; this.mode = null; this.walkOn = false; this.wait = 10;
@@ -75,21 +77,41 @@ export class Hank {
       get x() { return pos.x; }, get z() { return pos.z; }, r: 2.4, y: 0, anyY: true,
       cond: () => this.walkOn && !this.playing, label: () => '按 <kbd>E</kbd> 和漢克聊天（他會彈吉他給你聽）', fn: () => this.serenade(),
     });
-    // at work: McDonald's crew uniform at the register next to 小芸
-    const mcd = game.interiors.mcd;
-    if (mcd?.hankSpot) {
-      const w = this.worker = createCharacter(HANK_LOOK); dressCrew(w, { name: '漢克' });
-      const s = mcd.hankSpot; w.root.position.set(s.at[0], s.y, s.at[1]); w.root.rotation.y = s.h; w.root.visible = false; game.scene.add(w.root);
-      game.interiors.actions.push({ x: s.talk[0], z: s.talk[1], r: 1.4, y: 0,
-        cond: () => this.mode === 'work' && !mcd.busy && !mcd.closed, label: () => '按 <kbd>E</kbd> 和櫃台的漢克聊天',
+    // at work: McDonald's crew uniform and a hairnet, in the kitchen at the fries fryer (the front register is 羊明衫's)
+    const mcd = game.interiors.mcd, K = mcd?.kitchen;
+    if (K?.fryStaff) {
+      const w = this.worker = createCharacter(HANK_LOOK); dressCrew(w, { name: '漢克', hairnet: true });
+      const [fx, fz] = K.fryStaff, at = mcd.k.w(fx, fz), talk = mcd.k.w(fx + 0.9, fz);
+      w.root.position.set(at[0], mcd.k.base, at[1]); w.root.rotation.y = mcd.k.heading(-Math.PI / 2); w.root.visible = false; game.scene.add(w.root);
+      this.fryT = 0;
+      game.interiors.actions.push({ x: talk[0], z: talk[1], r: 1.3, y: 0,
+        cond: () => this.mode === 'work' && !mcd.busy && !mcd.closed && !g_kitchenBusy(game), label: () => '按 <kbd>E</kbd> 和炸薯條的漢克聊天',
         fn: () => game.friends?.talk('hank', 'work') });
     }
     // riding: his ZMAX joins the traffic with him on it (held back while he walks, works or sleeps)
-    const rider = createCharacter(HANK_LOOK), rtag = makeLabel('🏍️ 漢克', { height: 0.26, size: 40 }); rtag.position.set(0, 2.1, 0); rider.root.add(rtag);
+    const rider = this.rider = createCharacter(HANK_LOOK), rtag = makeLabel('🏍️ 漢克', { height: 0.26, size: 40 }); rtag.position.set(0, 2.1, 0); rider.root.add(rtag);
     this.zmax = game.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'zmax' }), rider);
+    if (this.zmax) { this.zmax.runBack = true; this.zmax.label = '漢克的 ZMAX'; } // knocked off, he runs back to it (js/npc.js _runBack)
+    this.lent = false; this.lentIdle = 0;
   }
   _guitarBack() { const gt = this.guitar; gt.position.set(0.02, 0.3, -0.17); gt.rotation.set(0, Math.PI, 0.35); }
   _guitarFront() { const gt = this.guitar; gt.position.set(0.06, 0.24, 0.2); gt.rotation.set(0.15, 0.1, 1.15); }
+  // you took his ZMAX (按 F 借用): left alone for 2 minutes, or once you are 150 m away from it, it goes back to him
+  // (back into the traffic with him on it, as before)
+  _lend(dt) {
+    const g = this.g, Z = this.zmax; if (!Z) return;
+    if (g.player.vehicle === Z) { this.lent = true; this.lentIdle = 0; return; }
+    if (!this.lent || Z.ai) return;
+    this.lentIdle += dt;
+    const p = g.player.worldPos(), far = Math.hypot(Z.pos.x - p.x, Z.pos.z - p.z) > 150;
+    if (this.lentIdle < 120 && !far) return;
+    const i = g.vehicles.indexOf(Z); if (i >= 0) g.vehicles.splice(i, 1);
+    g.scene.remove(Z.mesh);
+    this.rider.root.parent?.remove(this.rider.root); this.rider.root.visible = true;
+    g.traffic.adopt(Z, this.rider); Z.ai.hold = this.mode !== 'ride';
+    this.lent = false; this.lentIdle = 0;
+    g.hud.toast('🏍️ 漢克的 ZMAX 已經還給他了', 'good', 2600);
+  }
   // where he is supposed to be at this game time
   _modeAt(clock) {
     const m = ((clock % 1440) + 1440) % 1440;
@@ -130,11 +152,12 @@ export class Hank {
       if (mode !== 'walk' && !this.playing) this._hideWalker();
       if (mode === 'walk') this.wait = 3;
     }
-    if (this.worker) { this.worker.root.visible = mode === 'work' && !g.interiors.mcd?.closed; if (this.worker.root.visible && g.player.pos.distanceToSquared(this.worker.root.position) < 4900) this.worker.update(dt, { speed: 0 }); }
+    if (this.worker) { this.worker.root.visible = mode === 'work' && !g.interiors.mcd?.closed; if (this.worker.root.visible && g.player.pos.distanceToSquared(this.worker.root.position) < 4900) this.worker.update(dt, { speed: 0, pose: Math.sin(g.time * 0.9) > 0.3 ? 'give' : null }); } // shaking the fry basket now and then
     // the ZMAX: out in the traffic only while he rides; otherwise it stops coming and leaves once you can't see it
     const z = this.zmax?.ai;
     if (z) { z.hold = mode !== 'ride'; if (z.hold && !z.dormant && !g.traffic.inView(this.zmax.pos) && !g.player.vehicle?.ai) { z.dormant = true; this.zmax.mesh.visible = false; } }
     if (this.zmax && g.player.vehicle === this.zmax && z) z.hold = true; // you borrowed it: it stays out of the traffic
+    this._lend(dt);
     // on foot
     if (mode !== 'walk' && !this.playing) return;
     const p = g.player.worldPos();

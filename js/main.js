@@ -40,6 +40,7 @@ import { clubFootprint } from './clubroom.js';
 import { Concerts } from './concert.js';
 import { Garry } from './garry.js';
 import { Jianyu } from './jianyu.js';
+import { Mingshan } from './mingshan.js';
 import { Gordon } from './gordon.js';
 import { LibraryLink } from './library.js';
 import { Hank } from './hank.js';
@@ -293,6 +294,7 @@ class Game {
     this.sunday = new Sunday(this);   // the hint helper in the bottom-right corner during the story (J)
     this.garry = new Garry(this);       // 黃蓋瑞: runs on the track, 古箏社 at 活動中心, lives next door to 彥霖 (js/garry.js)
     this.jianyu = new Jianyu(this);     // 劍玉: 力行 278, his supercars at the 資管系館, the 班費 case (js/jianyu.js)
+    this.mingshan = new Mingshan(this); // 羊明衫: dances in front of the 資管系館 with her orange cat, McDonald's duty manager at night (js/mingshan.js)
     // warm up a frame so shaders compile behind the loading screen; compileAsync lets the driver
     // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
     try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }
@@ -621,7 +623,12 @@ class Game {
         const m = applySave(this, d);
         this.missions.spawnNpcs(m.done ? 99 : (m.idx ?? 0));
         if (m.done) { this.missions.done = true; this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！'); }
-        else this.missions.resumeAt(Math.max(0, m.idx ?? 0), m.prog); // right where you left off
+        else {
+          // back at the start of the section you were on (progress inside it isn't saved); a timed one waits
+          // paused, so its clock only starts when you pick ▶ 繼續任務 in the pause menu
+          this.missions.resumeAt(Math.max(0, m.idx ?? 0), m.prog ? { ...m.prog, hits: null, base: null } : m.prog);
+          if (this.missions.step && this.missions.timer !== null) this.missions.exit();
+        }
         this.hud.toast('💾 已讀取上次的進度', 'good', 2600);
       } else { this.clock = 6 * 60; this.ledger[0].at = this.clock; this.missions.start(); } // a new game starts at 06:00
       this._checkRotate();
@@ -685,6 +692,8 @@ class Game {
     this.modal(racing ? '暫停 · 新中北路障礙賽' : '暫停 · 設定', (racing ? '' : this._settingsHTML()) + `<div class="modal-btns" style="margin-top:14px">
       ${racing ? '<button class="menu-btn primary" id="mQuitRace"><span>🏳 退出比賽</span><small>QUIT RACE</small></button>' : ''}
       <button class="menu-btn ${racing ? '' : 'primary'}" id="mResume"><span>▶ ${racing ? '繼續比賽' : '繼續遊戲'}</span><small>RESUME</small></button>
+      ${!racing && this.missions?.exited ? `<button class="menu-btn primary" id="mMisGo"><span>▶ 繼續任務</span><small>${this.missions.exited.title}・從這一小節重新開始</small></button>` : ''}
+      ${!racing && this.missions?.canExit ? '<button class="menu-btn" id="mMisQuit"><span>⏹ 退出目前任務</span><small>這一小節的進度不會保存</small></button>' : ''}
       ${racing ? '' : `<button class="menu-btn" id="mGate" ${this._gateBlock() ? 'disabled' : ''}><span>🏫 回到校門口</span><small>${this._gateBlock() || 'BACK TO THE GATE'}</small></button>`}
       <button class="menu-btn" id="mCtrl"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
       <button class="menu-btn" id="mTitle"><span>🏠 儲存並回到主畫面</span><small>SAVE &amp; QUIT</small></button>
@@ -693,6 +702,8 @@ class Game {
     if (racing) $('mQuitRace').onclick = () => { this.race.abandon('你退出了比賽'); this.closeModal(); };
     $('mResume').onclick = () => this.closeModal();
     if (!racing && $('mGate')) $('mGate').onclick = () => this.toGate();
+    if ($('mMisGo')) $('mMisGo').onclick = () => { this.closeModal(); this.missions.resumeSection(); };
+    if ($('mMisQuit')) $('mMisQuit').onclick = () => { this.missions.exit(); this.closeModal(); this.hud.toast('⏹ 已退出任務，按 Esc 選「▶ 繼續任務」可以重新開始這一小節', 'good', 3200); };
     $('mCtrl').onclick = () => this.showControls(true);
     $('mTitle').onclick = () => { if (racing) this.race.abandon('你退出了比賽'); writeSave(this); this._noSave = true; location.reload(); };
     $('mRestart').onclick = () => this._confirmClear(1);
@@ -768,7 +779,7 @@ class Game {
     const el = this._aimEl || (this._aimEl = $('aim')); if (!el) return;
     const fp = this.fpv.active, dr = !!this.drone?.flying, pl = this.player;
     const show = this.settings.aim !== 'off' && this.state === 'play' && !this.hud.inDialog && !this.hud.bigOpen && !this._modalOpen && !this._overlay
-      && !this.phone?.open && !this.pc?.isOpen && !this.videoOpen && !this.airdrop.cinema && !this.drone?.cinema && !this.job.active && !this.gate.active && !this._sleeping
+      && !this.phone?.open && !this.pc?.isOpen && !this.videoOpen && !this.airdrop.cinema && !this.drone?.cinema && !this.mingshan?.cinema && !this.job.active && !this.gate.active && !this._sleeping
       && (dr || fp || !pl.vehicle);
     el.classList.toggle('hidden', !show);
     el.classList.toggle('tp', show && !fp && !dr);
@@ -882,7 +893,10 @@ class Game {
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
     const yieldGpu = Nano.active > 0 && this.phone?.open && !this.player.vehicle && !this._shot && now - (this._drawnAt || 0) < 160;
-    if (!yieldGpu) {
+    // the computer (js/pc.js) and the PYL video cover the whole screen: don't draw the 3D scene behind them at all, so typing
+    // in the terminal / notes stays smooth (drawing the campus took ~20 ms a frame and made the keys lag)
+    const covered = (this.pc?.isOpen || this.videoOpen) && !this._shot;
+    if (!yieldGpu && !covered) {
       this._drawnAt = now;
       this.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
       this.fpv?.renderMirrors(this.renderer); // rear view for the cockpit mirrors
@@ -946,6 +960,7 @@ class Game {
     this.news.tick();  // PYtoday: a notice when an article comes out
     this.hank.update(dt);
     this.jianyu?.update(dt);
+    this.mingshan?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) { if (hud.advanceDialog()) this.audio.talk(); inp.pressed.clear(); }
@@ -967,7 +982,7 @@ class Game {
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
     // the phone doesn't stop a vehicle: you can keep driving with it open (W A S D; the arrows, Enter and Space go to the phone)
-    const busy = inDialog || this._sleeping || this.airdrop.cinema || this.drone.active || this.speechOn || hud.bigOpen || this.videoOpen || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
+    const busy = inDialog || this._sleeping || this.airdrop.cinema || this.drone.active || this.mingshan?.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
     pl.frozen = busy || this.phone.open;
     const phoneDrive = this.phone.open && !busy && !!pl.vehicle && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || ''); // not while typing a message
     this.drone.doors(dt); // interiors.update; while the drone flies, the doors open for it instead of for 彥霖
@@ -1109,6 +1124,7 @@ class Game {
     else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
     if (this.airdrop.cinema) this.airdrop.camera(this.camera, dt); // 呼叫載具 film
     this.drone.update(dt, inp); this.drone.camera(this.camera, dt); // 🛸 the take-off film / flying
+    this.mingshan?.camera(this.camera, dt); // 🐱 petting / feeding 羊明衫's cat (21:9 close-up)
     this._aim();
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];

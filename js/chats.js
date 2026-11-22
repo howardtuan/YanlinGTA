@@ -434,6 +434,48 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
+  // 羊明衫（js/mingshan.js）：「你在哪？」說她在系館練舞、在麥當勞值班或在讀書，並導航過去
+  mingshan: {
+    id: 'mingshan', name: '羊明衫', sub: '資管系・舞蹈・麥當勞值班經理', avatar: '<img class="ph-avimg" src="assets/gram/mingshan_av.jpg" alt="">', color: '#c2414b', unread: 2,
+    history: [
+      { day: '今天' },
+      ['mingshan', '加到了～我是羊明衫 💃'],
+      ['mingshan', '這是期末的重點筆記，資料庫跟統計都有，彥霖選舉加油！'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '你的筆記救了我一命', r: ['哈哈不客氣', '有不懂的隨時問我 📚'], v: 1 },
+          { t: '宿營的舞練得怎樣？', r: ['還差最後一段 8 拍', '練好拍給你看 💃'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '你真的想進韓國女團？', r: ['真的！', '畢業前想去韓國參加練習生甄選 ✨'] },
+          { t: '橘貓叫什麼名字？', r: ['就叫橘貓啊 😂', '牠只吃戈登肉鋪的肉，超難養'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['票投彥霖！', '我幫你拍一支拉票舞蹈影片 🎬'], v: 1 },
+          { t: '值班經理很累吧', r: ['還好啦～', '漢克在內場炸薯條比較累 🍟'] },
+        ],
+      },
+    ],
+    always: [
+      {
+        t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) => {
+          const S = g.mingshan; if (!S?.mode) return { r: ['等我一下～'] };
+          if (S.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 羊明衫在睡覺，早上 9 點以後會在系館前面練舞', 'good', 2800) };
+          if (S.mode === 'library' || S.mode === 'study') return { r: [S.mode === 'library' ? '在圖書館讀書 📚' : '在宿舍讀書 📖', '明天早上 9 點我會在系館前面練舞～'] };
+          const at = S.mode === 'dance' ? S.pos : S.worker?.root.position;
+          const r = S.mode === 'dance' ? ['在資管系館前面練舞 💃', '橘貓也在喔，定位傳你'] : ['在活動中心麥當勞值班 🍟', '來的話我幫你點餐～'];
+          return { r, then: () => { if (at) { g.nav.set(at.x, at.z); g.hud.toast('🧭 已設定導航到羊明衫那邊', 'good', 2400); } } };
+        },
+      },
+    ],
+  },
   // 劍玉（js/jianyu.js）：基隆航海王、資管三甲班代。「你在哪？」會說在系館停車場還是 278，並導航過去；「借車」會告訴你車停在哪
   jianyu: {
     id: 'jianyu', name: '基隆航海王 劍玉', sub: '資管三甲班代・特戰英豪鑽石', avatar: '<img class="ph-avimg" src="assets/gram/jianyu_av.jpg" alt="">', color: '#5d6b8a', unread: 2,
@@ -468,7 +510,7 @@ export const FRIEND_CONTACTS = {
         ask: (g) => {
           const J = g.jianyu; if (!J?.mode) return { r: ['等我一下'] };
           if (J.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 劍玉在 278 寢的上舖睡覺，下午 5 點以後會醒來打積分', 'good', 2800) };
-          const r = J.mode === 'car' ? ['在系館停車場顧車 🏎️', '定位傳你了'] : ['在 278 打積分 🎧', '定位傳你了，進門右手邊第一個就是我'];
+          const r = J.cruising ? ['開藍寶堅尼出來兜風 🏎️', '就在附近，綠色那台就是我'] : J.mode === 'car' ? ['在系館停車場顧車 🏎️', '定位傳你了'] : ['在 278 打積分 🎧', '定位傳你了，進門右手邊第一個就是我'];
           return { r, then: () => { if (g.nav.track(J)) g.hud.toast('🧭 已設定導航到劍玉身邊', 'good', 2400); } };
         },
       },

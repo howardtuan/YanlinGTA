@@ -211,7 +211,7 @@
       "kind": "builtin",
       "ref": "hank",
       "name": "漢克",
-      "title": "麥當勞晚班店員",
+      "title": "麥當勞晚班內場（炸薯條）",
       "gender": "男",
       "dept": "資管系三年級",
       "personality": "隨和、有點文青，話不多但很好聊；寫程式很強卻很謙虛。",
@@ -225,8 +225,8 @@
       "catchphrase": "運氣好啦哈哈",
       "background": "皮膚偏黑的捲長髮男生，騎 155cc 的 ZMAX；散步時背著吉他，跟他說話他會彈一段給你聽。",
       "relations": "彥霖的同系同學；女拳大帝的室友。",
-      "where": "活動中心 B1 麥當勞／校園散步／騎 ZMAX 兜風",
-      "schedule": "18:00–22:00 麥當勞值班，02:00–07:00 睡覺，其他時間騎車或背吉他散步",
+      "where": "活動中心 B1 麥當勞內場／校園散步／騎 ZMAX 兜風",
+      "schedule": "18:00–22:00 麥當勞內場顧薯條爐，02:00–07:00 睡覺，其他時間騎車或背吉他散步",
       "friend": true,
       "sources": [
         "js/hank.js",
@@ -343,6 +343,35 @@
         "js/feeds.js",
         "js/detective.js",
         "js/lixing.js"
+      ]
+    },
+    {
+      "id": "mingshan",
+      "kind": "builtin",
+      "ref": "mingshan",
+      "name": "羊明衫",
+      "title": "舞蹈專家・麥當勞值班經理",
+      "gender": "女",
+      "dept": "資管系（彥霖的同班同學）",
+      "personality": "溫和友善，很會照顧人；班上的內捲王，成績非常好、基本上什麼都會。",
+      "interests": [
+        "跳舞（宿營舞、K-POP）",
+        "讀書、整理筆記",
+        "她的橘貓"
+      ],
+      "likes": "K-POP 女團、橘貓、整理好的筆記",
+      "catchphrase": "五、六、七、八！",
+      "background": "從小學舞，夢想是去韓國當練習生、加入 K-POP 女團。養了一隻橘貓，練舞時跟在旁邊；牠只吃戈登肉鋪的肉，不然只能摸摸頭（摸頭與餵食是 21:9 特寫）。",
+      "relations": "彥霖的同班同學；晚上和漢克同一班（她是外場兼值班經理，漢克在內場炸薯條）。",
+      "where": "資管系館正面（布條前的走廊）／活動中心 B1 麥當勞櫃台",
+      "schedule": "09:00–17:00 在資管系館前面練舞，18:00–22:00 麥當勞外場值班經理，其他時間讀書或睡覺",
+      "friend": true,
+      "sources": [
+        "js/mingshan.js",
+        "js/friends.js",
+        "js/chats.js",
+        "js/feeds.js",
+        "js/hank.js"
       ]
     }
   ]

@@ -89,7 +89,7 @@ export class Player {
     this.pos.y = this.y + surf;
     this.ch.root.rotation.y = this.heading;
     this.poseT -= dt; if (this.poseT <= 0) this.pose = null;
-    this.ch.update(dt, { speed: this.speed, air: this.y > (this.ground || 0) + 0.05, mode: 'foot', pose: this.speed > 1 && this.pose !== 'give' ? null : this.pose });
+    this.ch.update(dt, { speed: this.speed, air: this.y > (this.ground || 0) + 0.05, mode: this.forceMode || 'foot', pose: this.speed > 1 && this.pose !== 'give' ? null : this.pose });
     // footsteps in time with the walk cycle: each half turn of the leg phase is one foot landing
     const foot = Math.floor(this.ch.phase / Math.PI);
     if (this.speed > 0.6 && this.y <= this.ground + 0.02 && foot !== this.lastFoot && !this.sfx) this.sfx = 'step';

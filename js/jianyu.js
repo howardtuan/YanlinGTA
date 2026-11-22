@@ -6,10 +6,13 @@
 // 支線「班費失竊案」：第一次跟他說話，他會說放在桌上的 2000 元班費不見了 —— 到 278 寢按 E 看他的書桌（空信封、刷卡門），
 // 用他的電競筆電查宿舍紀錄（偵探模式 js/detective.js 的 jianyu 案件）；破案後再找他，全班挺你 +10 票，還會把他最寶貝的藍寶堅尼借你。
 // 加了好友（js/friends.js 的 jianyu）就能開他停在系館的超跑；沒加好友時車是鎖著的。
+// 白天（顧車的時段）有些整點他會開藍寶堅尼出去兜風：停車場那台開走、校園附近的車流裡會出現他開的藍寶堅尼，
+// 那台只有他自己能開（搶不了車）；兜完風開回來停好。
 import * as THREE from 'three';
 import { createCharacter } from './character.js';
 import { makeLabel } from './map.js';
 import { surfaceAt } from './terrain.js';
+import { Vehicle } from './vehicles.js';
 
 export const JIANYU_LOOK = {
   skin: '#e9c2a0', hair: '#1d1612', hairStyle: 'bowl', glasses: true, glassesStyle: 'thick', glassesColor: '#141414',
@@ -85,6 +88,14 @@ export class Jianyu {
     this.pos = ch.root.position; this.heading = 0;
     this._room();
     this._cars();
+    // the Lamborghini he takes out for a drive now and then (a traffic car only he drives, js/npc.js adopt)
+    const cr = this.cruiser = game.traffic?.adopt(new Vehicle('car', Math.random, { model: 'lambo', color: '#7cd400' }), null);
+    if (cr) {
+      cr.ai.hold = true; cr.label = '劍玉的藍寶堅尼（兜風中）'; cr.owner = 'jianyu';
+      cr.lock = () => '🔒 這是劍玉正在開的藍寶堅尼，只有他自己能開 😅';
+      const t = makeLabel('🏎️ 劍玉（兜風中）', { height: 0.3, size: 40, color: '#7cd400' }); t.position.set(0, 1.8, 0); cr.mesh.add(t);
+    }
+    this.cruising = false;
     // talk (wherever he is): the action follows him
     game.interiors.actions.push({
       get x() { return game.jianyu.pos.x; }, get z() { return game.jianyu.pos.z; }, r: 2.2, y: 0, anyY: true,
@@ -190,6 +201,7 @@ export class Jianyu {
   _carsHome(dt) {
     const g = this.g, pl = g.player, p = pl.worldPos();
     for (const v of this.cars || []) {
+      if (v.away) continue; // out for a drive with him (the cruiser)
       if (pl.vehicle === v) { v.idle = 0; continue; }
       const away = Math.hypot(v.pos.x - v.home.x, v.pos.z - v.home.z) > 1.5 || Math.abs(((v.heading - v.home.h) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > 0.3;
       if (!away) { v.idle = 0; continue; }
@@ -207,6 +219,7 @@ export class Jianyu {
   // ---------------- every frame ----------------
   update(dt) {
     this._carsHome(dt);
+    this._cruise();
     const g = this.g, ch = this.ch, plan = jianyuPlan(g.clock);
     if (plan !== this.mode) this._enter(plan);
     const p = g.player.worldPos(), near = (x, z, r) => Math.hypot(x - p.x, z - p.z) < r;
@@ -224,6 +237,7 @@ export class Jianyu {
       else this.heading += angDiff(this.idleH ?? 0, this.heading) * Math.min(1, dt * 2);
     }
     ch.root.position.copy(this.pos); ch.root.rotation.y = this.heading;
+    if (this.cruising) { const c = this.cruiser; if (c && !c.ai.dormant) this.pos.set(c.pos.x, c.mesh.position.y, c.pos.z); ch.root.visible = false; return; }
     const vis = near(this.pos.x, this.pos.z, 160); ch.root.visible = vis;
     if (vis) { ch.setDetail?.(near(this.pos.x, this.pos.z, 35)); ch.update(dt, { speed: 0, mode }); }
   }
@@ -231,8 +245,29 @@ export class Jianyu {
     this.mode = plan; this.pause = 0; this.face = null;
     if (plan === 'car') this.idleH = Math.PI; // faces -z, his back to the cars, towards the lot's aisle
   }
+  // out for a drive: some whole hours of his car time (10:00–17:00), if his Lamborghini is parked in the lot
+  // (not while you are driving it). The parked one leaves the lot; the cruiser joins the traffic around you; when
+  // the hour is over it drives off (once out of sight) and the Lamborghini is back on its spot.
+  _cruise() {
+    const g = this.g, cr = this.cruiser, lam = this.cars?.find(v => v.fav); if (!cr || !lam) return;
+    const hr = Math.floor(g.clock / 60), h = ((hr * 2654435761) >>> 0) % 100;
+    const home = Math.hypot(lam.pos.x - lam.home.x, lam.pos.z - lam.home.z) < 1.5 && g.player.vehicle !== lam;
+    const want = this.mode === 'car' && h < 35 && (this.cruising || home);
+    if (want && !this.cruising) {
+      this.cruising = true; cr.ai.hold = false;
+      const i = g.vehicles.indexOf(lam); if (i >= 0) g.vehicles.splice(i, 1);
+      g.scene.remove(lam.mesh); lam.away = true;
+    } else if (!want && this.cruising) {
+      cr.ai.hold = true;
+      if (cr.ai.dormant || !g.traffic.inView(cr.pos)) {
+        cr.ai.dormant = true; cr.mesh.visible = false; this.cruising = false;
+        lam.place(lam.home.x, lam.home.z, lam.home.h); g.scene.add(lam.mesh); if (!g.vehicles.includes(lam)) g.vehicles.push(lam); lam.away = false; lam.mesh.visible = true;
+      }
+    }
+  }
   // where he is, for the phone (定位 / 你在哪)
   where() {
+    if (this.cruising) return '開著藍寶堅尼在附近兜風 🏎️';
     return { sleep: '在力行宿舍 278 寢睡覺', car: '在資管系館停車場顧他的超跑', game: '在力行宿舍 278 寢打特戰英豪' }[this.mode] || '';
   }
 

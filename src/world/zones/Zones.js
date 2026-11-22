@@ -27,7 +27,7 @@ import { gordonFootprint, buildGordon } from '../../entities/npcs/GordonShop.js'
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
 import { WEICHE_ID, weicheLook, weicheFootprints, buildWeiche } from '../../systems/minigames/Weiche.js';
-import { applyZoneE, zoneEFootprints, buildZoneE } from './ZoneE.js';
+import { applyZoneE, zoneEFootprints, zoneETreeHide, buildZoneE } from './ZoneE.js';
 import { zoneGLook, zoneGFootprints, zoneGTerrain, buildZoneG } from './ZoneG.js';
 import { buildSacB1 } from '../buildings/SacB1.js';
 import { zoneHLook, zoneHAdd, buildZoneH } from './ZoneH.js';
@@ -65,7 +65,9 @@ export const ZONES = [
   { // 維澈樓：木盒、樓梯、柱子
     name: '維澈樓', look: b => { if (b.id === WEICHE_ID) b.look = weicheLook(); }, footprints: weicheFootprints, build: buildWeiche,
   },
-  { name: 'E 區：建築館、祐生、設計學院', look: applyZoneE, footprints: zoneEFootprints, build: buildZoneE },
+  { // 望樓、信樓（景觀系館）、愛樓的平台、步道、榕樹範圍只藏植栽（treeHide），不放進 footprints
+    name: 'E 區：建築館、祐生、設計學院、望樓、信樓、愛樓', look: applyZoneE, footprints: zoneEFootprints, treeHide: zoneETreeHide, build: buildZoneE,
+  },
   { // 學活南面下沉舞台與 B1 麥當勞（地形坑）、往二樓門廊的大階梯、柱廊、弧形玻璃、斜裙、樓梯塔等
     name: 'G 區', look: zoneGLook, footprints: zoneGFootprints, terrain: zoneGTerrain, build: buildZoneG,
   },

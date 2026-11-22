@@ -144,13 +144,13 @@ export class Jianyu {
     grp.add(poster); this.poster = poster;
     this.g.scene.add(grp);
     this.g.interiors.actions.push({
-      x: pp.x, z: pp.z, y: R.y + B - 0.2, r: 1.0, label: () => '按 <kbd>E</kbd> 看劍玉的班代海報',
+      x: pp.x, z: pp.z, y: R.y + B - surfaceAt(pp.x, pp.z), r: 1.0, label: () => '按 <kbd>E</kbd> 看劍玉的班代海報',
       fn: () => this.g.modal('劍玉的班代競選海報', `<img src="${this._posterUrl || ''}" alt="" style="display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:6px">`, '資管四甲'),
     });
     // his desk: the envelope, the card-locked door and his laptop (the 班費 case)
     const D = this.home.desk;
     this.g.interiors.actions.push({
-      x: D.x, z: D.z, y: R.y + B - 0.2, r: 1.05, label: () => '按 <kbd>E</kbd> 看劍玉的書桌（電競筆電）',
+      x: D.x, z: D.z, y: R.y + B - surfaceAt(D.x, D.z), r: 1.05, label: () => '按 <kbd>E</kbd> 看劍玉的書桌（電競筆電）',
       cond: () => this._atLaptop(), fn: () => this.desk(),
     });
   }

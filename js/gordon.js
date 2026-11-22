@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { createCharacter } from './character.js';
 import { makeLabel } from './map.js';
+import { surfaceAt } from './terrain.js';
 import { GD_LOOK } from './friends.js';
 // 戈登肉鋪：校史館前草坪上的高級肉鋪，建築在 js/interiors.js（buildGordon）。
 // 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
 // 結完帳如果還不是好友，他會問要不要互加（js/friends.js，訊息＋Peachgram）。
 // 購物籃與買過的東西會存檔（save.js 的 gordon）。
-// 營業時間 08:00–23:00（js/gordon_shop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢 6 號床下的書桌打 LOL。
+// 營業時間 08:00–23:00（js/gordon_shop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 6 號床（高架床），
+// 其他時間在 6 號床下的書桌打 LOL。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
 
 export const GD_ZONES = {
@@ -142,6 +144,7 @@ export class Gordon {
   }
   // ---- 23:00–08:00: 女拳大帝 in 力行 279 at the desk under bed 6, playing LOL ----
   get night() { return !!this.S?.closed; }
+  get asleep() { const m = ((this.g.clock % 1440) + 1440) % 1440; return this.night && m < 6 * 60; } // 00:00–06:00 on his bed
   get boughtAny() { return Object.values(this.bought).some(n => n > 0); }
   _dorm(game) {
     const L = game.interiors.lixing, R = L?.rooms?.[279]; if (!R) return;
@@ -150,6 +153,7 @@ export class Gordon {
     if (!desk) return;
     const world = (lx, lz, ly) => { const [x, z] = W(lx, lz); return { x, z, y: B + ly }; };
     const seat = { ...world(desk.chair.x, desk.chair.z, R.y), h: k.heading(desk.face) }, D = world(desk.x, desk.z, R.y + 0.76);
+    const bedAt = { ...world(bed.x, bed.z, bed.y + 0.12), h: k.heading(0) };
     const ch = this.dormCh = createCharacter(GD_LOOK);
     const tag = makeLabel('🎮 女拳大帝', { height: 0.24, size: 40, color: '#ff6b6b' }); tag.position.set(0, 1.75, 0); ch.root.add(tag);
     ch.root.position.set(seat.x, seat.y, seat.z); ch.root.rotation.y = seat.h; ch.root.visible = false; game.scene.add(ch.root);
@@ -163,18 +167,21 @@ export class Gordon {
     lid.position.y = 0.115; scr.position.set(0, 0.115, 0.007); hinge.add(lid, scr); hinge.rotation.x = -0.25;
     const lap = new THREE.Group(); lap.add(base); hinge.position.set(0, 0.01, -0.11); lap.add(hinge);
     lap.position.set(D.x, D.y + 0.01, D.z); lap.rotation.y = k.heading(desk.face + Math.PI); game.scene.add(lap);
-    this.dorm = { seat, ch, lap };
-    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - 0.2, r: 1.6, cond: () => this.night,
-      label: () => '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話', fn: () => this.dormTalk() });
+    this.dorm = { seat, ch, lap, bed: bedAt };
+    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - surfaceAt(seat.x, seat.z), r: 1.6, cond: () => this.night,
+      label: () => this.asleep ? '按 <kbd>E</kbd> 看看 6 號床上的女拳大帝（睡著了）' : '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話', fn: () => this.dormTalk() });
     game.interiors.updaters.push((dt, gm) => {
       const on = this.night, p = gm.player.pos, near = Math.hypot(p.x - seat.x, p.z - seat.z) < 60;
       ch.root.visible = on && near;
-      if (ch.root.visible) ch.update(dt, { speed: 0, mode: 'sit', pose: Math.sin(gm.time * 0.6) > 0.85 ? 'talk' : null });
+      const sl = this.asleep, at = sl ? bedAt : seat;
+      ch.root.position.set(at.x, at.y, at.z); ch.root.rotation.y = at.h;
+      if (ch.root.visible) ch.update(dt, { speed: 0, mode: sl ? 'down' : 'sit', pose: !sl && Math.sin(gm.time * 0.6) > 0.85 ? 'talk' : null });
     });
   }
   // not a customer and not a friend: he won't even look up
   dormTalk() {
     const g = this.g;
+    if (this.asleep) { g.dialog([[KEEPER, '（呼……呼……）'], ['彥霖', '（女拳大帝在 6 號床上睡得很熟，手還握著滑鼠的姿勢……）']]); return; }
     if (!g.friends?.added.has('gd') && !this.boughtAny) { g.dialog([[KEEPER, '在打遊戲，別吵 😤']]); return; }
     if (!g.friends?.added.has('gd')) { g.friends?.offer('gd'); return; }
     const L = [

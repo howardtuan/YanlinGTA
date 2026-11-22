@@ -2,7 +2,8 @@
 // 興趣：聽團、寫程式（資管系校內專題競賽第一名）、騎車跑山看夜景、偶爾打 LOL。
 // 一天的行程（遊戲時鐘）：
 //   18:00–22:00 在活動中心麥當勞內場打工、顧薯條爐（穿店員制服、戴髮網；外場櫃台是值班經理羊明衫，js/mingshan.js）；
-//   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他，或跟女朋友講電話（室友是 6 號床的女拳大帝）；
+//   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他（走近聽得到，一直輪播），或跟女朋友講電話；
+//     00:00–06:00 睡在 2 號床（上舖）。室友是 6 號床的女拳大帝；
 //   其他時間以 90 分鐘為一段，大多騎他的 ZMAX（155cc 白牌大速克達）在校園外圍和附近道路兜風（跟著車流跑），
 //   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前彈一段給你聽。
 // 他同一時間只會出現在一個地方。說完話可以選擇要不要加好友（js/friends.js 的 hank）。
@@ -103,18 +104,21 @@ export class Hank {
     const desk = side.find(d => d.u === 1) || side[0]; if (!desk) return;
     const [sx, sz] = W(desk.chair.x, desk.chair.z);
     const seat = { x: sx, z: sz, y: B + R.y, h: k.heading(desk.face) };
+    const [bx, bz] = W(bed.x, bed.z), bedAt = { x: bx, z: bz, y: B + bed.y + 0.12, h: k.heading(0) };
     const ch = createCharacter(HANK_LOOK), tag = makeLabel('🎸 漢克', { height: 0.26, size: 40 }); tag.position.set(0, 1.78, 0); ch.root.add(tag);
     const gt = buildGuitar(); ch.torso.add(gt); gt.position.set(0.06, 0.24, 0.2); gt.rotation.set(0.15, 0.1, 1.15);
     const phone = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.075, 0.008), new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.3 }));
     phone.position.set(0, -0.27, 0.03); ch.arms[0].el.add(phone);
     // he sits facing into the room (his back to the desk) while he plays, so the guitar shows
     ch.root.position.set(seat.x, seat.y, seat.z); ch.root.rotation.y = seat.h + Math.PI; ch.root.visible = false; game.scene.add(ch.root);
-    this.dorm = { seat, ch, gt, phone };
-    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - 0.2, r: 1.6, cond: () => this.mode === 'dorm',
-      label: () => this.call ? '按 <kbd>E</kbd> 跟講電話的漢克說話' : '按 <kbd>E</kbd> 和彈吉他的漢克聊天', fn: () => this.dormTalk() });
+    this.dorm = { seat, ch, gt, phone, bed: bedAt };
+    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - surfaceAt(seat.x, seat.z), r: 1.6, cond: () => this.mode === 'dorm',
+      label: () => this.asleep ? '按 <kbd>E</kbd> 看看 2 號床上的漢克（睡著了）' : this.call ? '按 <kbd>E</kbd> 跟講電話的漢克說話' : '按 <kbd>E</kbd> 和彈吉他的漢克聊天', fn: () => this.dormTalk() });
   }
+  get asleep() { const m = ((this.g.clock % 1440) + 1440) % 1440; return this.mode === 'dorm' && m < 6 * 60; } // 00:00–06:00 on his bunk
   dormTalk() {
     const g = this.g;
+    if (this.asleep) { g.dialog([['漢克', '（呼……呼……）'], ['彥霖', '（漢克在 2 號床的上舖睡著了，吉他靠在床邊）']]); return; }
     if (this.call) { g.dialog([['漢克', '（摀住手機）欸彥霖，我在跟女朋友講電話，等等找你 🤫'], ['漢克', '（小聲）……沒有啦，是同學。嗯，我也想你。']]); return; }
     if (g.friends?.added.has('hank')) {
       const L = [[['漢克', '新歌的副歌寫好了，彈給你聽 🎸'], ['漢克', '♪ ～（輕輕刷著和弦）']], [['漢克', '女拳大帝在對面打 LOL 一直吼，我只好彈大聲一點 😂']], [['漢克', '剛跟女朋友講完電話，她說下次 live house 要一起去']]];
@@ -125,11 +129,18 @@ export class Hank {
   _dormTick(dt) {
     const D = this.dorm; if (!D) return;
     const on = this.mode === 'dorm', p = this.g.player.pos, near = Math.hypot(p.x - D.seat.x, p.z - D.seat.z) < 60;
-    D.ch.root.visible = on && near; if (!D.ch.root.visible) return;
-    // switches between the guitar and a call every few game-minutes
-    this.call = Math.floor(this.g.clock / 25) % 3 === 2;
-    D.gt.visible = !this.call; D.phone.visible = this.call;
-    D.ch.update(dt, { speed: 0, mode: 'sit', pose: this.call ? 'call' : 'guitar' });
+    D.ch.root.visible = on && near; if (!D.ch.root.visible) { this._gtT = 0; return; }
+    const sl = this.asleep;
+    // switches between the guitar and a call every few game-minutes (asleep on his bunk 00:00–06:00)
+    this.call = !sl && Math.floor(this.g.clock / 25) % 3 === 2;
+    const at = sl ? D.bed : D.seat; D.ch.root.position.set(at.x, at.y, at.z); D.ch.root.rotation.y = sl ? at.h : at.h + Math.PI;
+    D.gt.visible = !sl && !this.call; D.phone.visible = this.call;
+    D.ch.update(dt, { speed: 0, mode: sl ? 'down' : 'sit', pose: sl ? null : this.call ? 'call' : 'guitar' });
+    // the guitar keeps playing (one progression after another) while he plays and you are in or by the room
+    const g = this.g, dPl = Math.hypot(g.player.pos.x - D.seat.x, g.player.pos.z - D.seat.z), level = Math.abs(g.player.pos.y - D.seat.y) < 2;
+    if (!sl && !this.call && dPl < 14 && level && !g.hud.inDialog && g.state === 'play') {
+      if ((this._gtT = (this._gtT || 0) - dt) <= 0) this._gtT = (playGuitar(g.audio) || 6) + 0.6;
+    } else this._gtT = Math.min(this._gtT || 0, 0.5);
   }
   _guitarBack() { const gt = this.guitar; gt.position.set(0.02, 0.3, -0.17); gt.rotation.set(0, Math.PI, 0.35); }
   _guitarFront() { const gt = this.guitar; gt.position.set(0.06, 0.24, 0.2); gt.rotation.set(0.15, 0.1, 1.15); }

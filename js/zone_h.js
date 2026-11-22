@@ -163,8 +163,9 @@ export function zoneHLook(b) {
       ...L,
       wall: { base: 'smooth', colour: '#d3d5d6' },
       windows: { types: ['punched', 'pair'], bay: 3.0, accent: '#4a5458', glass: '#4d5a60' },
+      faces: [{ on: 's', windows: { type: 'none' } }], // 南面的窗、百葉、門照 2025-03 相片逐一自建（buildZoneH）
       parapet: { h: 0.6, colour: '#b8babb' },
-      canopy: (L.canopy || []).map(c => ({ ...c, colour: '#3f7a4a', at: 0.45, w: 4.4, h: 4.2, d: 2.2, t: 0.3 })), // 門頂上方的綠色鐵皮雨遮
+      canopy: (L.canopy || []).map(c => ({ ...c, colour: '#3f7a4a', at: 0.868, w: 4.2, h: 3.3, d: 1.6, t: 0.25 })), // 東端綠門上方的綠色鐵皮雨遮
     };
   } else if (id === H_IDS.bmM) {
     b.h = BM.hN; b.floors = 4;
@@ -242,6 +243,24 @@ const ribbonTex = () => ctex('hRibbon', 256, 256, (g, W, Hh) => {
   g.fillStyle = '#3c7a46'; for (let x = 0; x < W; x += W / 2) g.fillRect(x, y0 - 6, 12, y1 - y0 + 12); g.fillRect(0, y0 - 6, W, 6); g.fillRect(0, y1, W, 6);
 });
 // 鐵捲門
+// 薄膜南棟南面：鋁框窗（田字）、單扇小窗、鋁百葉通風口、綠色鐵皮浪板
+const winTex = (key, cross) => ctex(key, 128, 128, (g, W, Hh) => {
+  g.fillStyle = '#9aa3a8'; g.fillRect(0, 0, W, Hh);
+  const gr = g.createLinearGradient(0, 0, W, Hh); gr.addColorStop(0, '#5f7078'); gr.addColorStop(1, '#2f3a40');
+  g.fillStyle = gr; g.fillRect(8, 8, W - 16, Hh - 16);
+  g.fillStyle = 'rgba(255,255,255,0.14)'; g.fillRect(8, 8, (W - 16) * 0.4, Hh - 16);
+  g.fillStyle = '#4a5458'; g.fillRect(0, 0, W, 8); g.fillRect(0, Hh - 8, W, 8); g.fillRect(0, 0, 8, Hh); g.fillRect(W - 8, 0, 8, Hh);
+  if (cross) { g.fillRect(W / 2 - 4, 0, 8, Hh); g.fillRect(0, Hh / 2 - 4, W, 8); } else g.fillRect(0, Hh * 0.38, W, 6);
+}, false);
+const louverTex = () => ctex('hLouver', 128, 128, (g, W, Hh) => {
+  g.fillStyle = '#2b3034'; g.fillRect(0, 0, W, Hh);
+  for (let y = 10; y < Hh - 8; y += 12) { g.fillStyle = '#b9bec2'; g.fillRect(8, y, W - 16, 6); g.fillStyle = '#7e8589'; g.fillRect(8, y + 6, W - 16, 2); }
+  g.fillStyle = '#8c9396'; g.fillRect(0, 0, W, 8); g.fillRect(0, Hh - 8, W, 8); g.fillRect(0, 0, 8, Hh); g.fillRect(W - 8, 0, 8, Hh);
+}, false);
+const greenSheetTex = () => ctex('hGreenSheet', 128, 128, (g, W, Hh) => {
+  g.fillStyle = '#4f8a5a'; g.fillRect(0, 0, W, Hh);
+  for (let x = 0; x < W; x += 8) { g.fillStyle = 'rgba(255,255,255,0.12)'; g.fillRect(x, 0, 3, Hh); g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(x + 5, 0, 2, Hh); }
+});
 const shutterTex = () => ctex('hShutter', 128, 128, (g, W, Hh) => {
   g.fillStyle = '#c4c4c2'; g.fillRect(0, 0, W, Hh);
   for (let y = 0; y < Hh; y += 6) { g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, y, W, 2); g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(0, y + 2, W, 1); }
@@ -298,6 +317,10 @@ function mat(key) {
     zxGlass: () => std({ map: glassTex('hZxGlass', ['#56697a', '#36444f'], '#2c3236'), roughness: 0.15, metalness: 0.45 }),
     ribbon: () => std({ map: ribbonTex(), roughness: 0.8 }),
     shutter: () => std({ map: shutterTex(), roughness: 0.6, metalness: 0.4 }),
+    bmWin4: () => std({ map: winTex('hWin4', true), roughness: 0.2, metalness: 0.4 }),
+    bmWin1: () => std({ map: winTex('hWin1', false), roughness: 0.2, metalness: 0.4 }),
+    louver: () => std({ map: louverTex(), roughness: 0.45, metalness: 0.6 }),
+    greenSheet: () => std({ map: greenSheetTex(), roughness: 0.6, metalness: 0.4, side: THREE.DoubleSide }),
     perf: () => std({ map: perfTex(), roughness: 0.5, metalness: 0.55, side: THREE.DoubleSide }),
     lightBlue: () => std({ color: '#c9d6ea', roughness: 0.6 }),
     royal: () => std({ color: '#2348c8', roughness: 0.55 }),
@@ -513,9 +536,23 @@ export function buildZoneH(I, scene, data, collision) {
     k.wall('stairGlass', a[0], a[1], a0[0], a0[1], B - 0.2, yT, 1.5, 1.6); k.wall('stairGlass', b0[0], b0[1], b[0], b[1], B - 0.2, yT, 1.5, 1.6);
     k.flat('steel', [a0, b0, b, a], yT);
     wallC(a[0], a[1], b[0], b[1], B - 0.2, yT); wallC(a0[0], a0[1], a[0], a[1], B - 0.2, yT); wallC(b[0], b[1], b0[0], b0[1], B - 0.2, yT);
-    const d0 = e.atM(7.6, 0.05), d1 = e.atM(11.6, 0.05);
-    k.wall('shutter', d1[0], d1[1], d0[0], d0[1], B - 0.1, B + 4.2, 4, 4.3);
-    k.slab('steel', ...e.atM(7.4, 0.1), ...e.atM(11.8, 0.1), 0.15, B + 4.2, B + 4.6);
+    // 南面立面（2025-03 相片，從西端玻璃樓梯間往東量，w = 離西端公尺數、y = 離地公尺數）：
+    // 1F 樓梯間旁大鐵捲門、中段兩排各兩扇小窗、東端綠色鐵皮門板＋上方綠色百葉帶；
+    // 夾層兩扇小窗；2F 田字窗、鋁百葉、窗＋百葉交錯
+    const el = (m, w0, w1, y0, y1, off = 0.05) => {
+      const p = e.atM(e.l - w1, off), q = e.atM(e.l - w0, off), ru = m === 'shutter' || m === 'greenSheet' ? (w1 - w0) / 2 : 1, rv = m === 'shutter' ? (y1 - y0) / 1.2 : 1;
+      k.quad(m, [q[0], B + y0, q[1]], [p[0], B + y0, p[1]], [p[0], B + y1, p[1]], [q[0], B + y1, q[1]], [[0, 0], [ru, 0], [ru, rv], [0, rv]]); // 西→東走，朝南
+    };
+    el('shutter', 5.1, 8.3, -0.1, 3.9); k.slab('steel', ...e.atM(e.l - 8.45, 0.1), ...e.atM(e.l - 4.95, 0.1), 0.15, B + 3.9, B + 4.2);
+    for (const [w0, w1] of [[10.2, 11.0], [11.6, 12.4]]) for (const [y0, y1] of [[1.2, 2.3], [2.9, 3.9]]) el('bmWin1', w0, w1, y0, y1);
+    for (const [w0, w1] of [[10.0, 10.7], [11.3, 12.1]]) el('bmWin1', w0, w1, 5.8, 6.7);
+    el('bmWin4', 5.4, 6.8, 6.9, 8.3);
+    for (const [w0, w1] of [[7.5, 8.3], [8.7, 9.4], [9.9, 10.6], [12.4, 13.2], [15.5, 16.2]]) el('louver', w0, w1, 7.2, 8.1);
+    for (const [w0, w1] of [[11.3, 12.4], [14.95, 15.5]]) el('bmWin1', w0, w1, 7.1, 8.2);
+    el('bmWin1', 13.8, 14.4, 7.2, 8.0);
+    el('dark', 14.6, 15.2, -0.1, 3.0); // 綠門中間的開口
+    for (const [w0, w1] of [[13.6, 14.6], [15.2, 17.2]]) el('greenSheet', w0, w1, -0.1, 3.0, 0.12);
+    el('louver', 15.4, 17.2, 3.0, 3.9, 0.08);
     // 招牌柱：灰綠、約 8 m，柱頂校徽、直書「薄膜中心」
     const pc = e.atM(e.l + 1.8, 2.2), hw = 0.7, hd = 0.35, y0 = groundY(pc[0], pc[1]) - 0.2;
     k.box('dark', pc[0] - hw, pc[0] + hw, y0, y0 + 0.4, pc[1] - hd - 0.1, pc[1] + hd + 0.1);

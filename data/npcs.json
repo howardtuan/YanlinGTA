@@ -280,12 +280,13 @@
       "catchphrase": "Man～",
       "background": "高大壯碩的光頭大叔，留山羊鬍、戴航空耳機，穿紫金 24 號球衣；手機「呼叫載具」就是他開直升機把機車空運過來。",
       "relations": "彥霖航空的機長。",
-      "where": "直升機上／校園隨機散步",
-      "schedule": "沒在飛的時候不定時在校園散步",
+      "where": "直升機上／校園隨機散步／體育園區籃球場",
+      "schedule": "沒在飛的時候不定時在校園散步；有幾天早上 07:00–08:30 或下午 15:30–18:00 到體育園區籃球場打球",
       "friend": false,
       "sources": [
         "js/pilot.js",
         "js/airdrop.js",
+        "js/court.js",
         "js/jersey.js"
       ]
     },

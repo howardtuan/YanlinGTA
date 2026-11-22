@@ -38,6 +38,7 @@ import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
 import { sacLook, buildSac } from './sac.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
 import { zoneCLook, zoneCVegHide, buildZoneC } from './zone_c.js';
+import { courtTerrain, courtTreeHide, buildCourts } from './court.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -100,6 +101,9 @@ export const ZONES = [
   { // 學生活動中心室內：一～四樓、培英廳、二樓中庭接新中北路天橋、三樓接往生科館的空橋、B1 旋轉梯上一樓（外觀在 G 區，B1 在「G 區：學活 B1」）
     name: '學活室內', look: sacLook,
     build: (I, scene, data, collision) => buildSac(I, scene, data, collision, Kit, regMat),
+  },
+  { // 東側光電頂棚籃排球場、西側室外球場：籃架、球網、頂棚（鋪面與線在 js/map.js 的 areas 圖層）
+    name: '體育園區籃排球場', terrain: courtTerrain, treeHide: courtTreeHide, build: (I, scene) => buildCourts(I, scene, Kit, regMat),
   },
 ];
 

@@ -1,5 +1,5 @@
 {
- "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there. Optional cv in a marks entry puts the centre line cv metres off the middle of the carriageway (+ = (-uz, ux) of the way's direction), where one side is wider (kerbside parking). 'shift' moves OSM ways sideways onto the carriageway the orthophoto shows: at = anchors [x, z, v], v the offset in metres along (-uz, ux) of the way's direction (+ = the top of an _survey/xsec.py cut) of the middle between the kerbs from the OSM line; tools/build_map.py shift_roads() interpolates between anchors, holds 40 m past the end ones and eases out over 40 m more, and moves shared nodes in every way; the old line stays in r.osm (trees, lamps and shop fronts are laid out on it, then the spots the moved road covers move past its new kerb). 'pave' lays asphalt (an unnamed service strip with no nodes, so it stays out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams) where the orthophoto shows a median opening or a paved gap between two one-way carriageways that the build leaves as grass: pts (game metres), w; js/map.js leaves out the median kerb over it. 'features' t 'nozebra' (x, z, way): js/furniture.js lays no generic signal-junction zebra / stop line and no OSM-crossing zebra within 6 m of it, where the orthophoto shows plain asphalt.",
+ "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there. Optional cv in a marks entry puts the centre line cv metres off the middle of the carriageway (+ = (-uz, ux) of the way's direction), where one side is wider (kerbside parking). 'shift' moves OSM ways sideways onto the carriageway the orthophoto shows: at = anchors [x, z, v], v the offset in metres along (-uz, ux) of the way's direction (+ = the top of an _survey/xsec.py cut) of the middle between the kerbs from the OSM line; tools/build_map.py shift_roads() interpolates between anchors, holds 40 m past the end ones and eases out over 40 m more, and moves shared nodes in every way; the old line stays in r.osm (trees, lamps and shop fronts are laid out on it, then the spots the moved road covers move past its new kerb). 'pave' lays asphalt (an unnamed service strip with no nodes, so it stays out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams) where the orthophoto shows a median opening or a paved gap between two one-way carriageways that the build leaves as grass: pts (game metres), w; js/map.js leaves out the median kerb over it. 'features' t 'nozebra' (x, z, way): js/furniture.js lays no generic signal-junction zebra / stop line and no OSM-crossing zebra within 6 m of it, where the orthophoto shows plain asphalt. Optional in a marks entry: ev [vPos, vNeg] puts the two white edge lines at these offsets from the way's centreline (+ = (-uz, ux)) where they are painted well inside the kerbs; inner false on a 'median' one-way leaves out the white edge line along the median side; segs [{from: [x, z], to: [x, z], centre}] paints another centre line style between the two points (projected onto the way as drawn).",
  "ways": [
   {
    "way": 13944868,
@@ -325,15 +325,6 @@
    "was": 5,
    "confidence": "low",
    "source": "NLSC 2024 正射：同類道路實測 11 條的典型寬度（A2 實踐路、大仁街一帶的窄巷（多數 OSM 線畫在屋頂上））"
-  },
-  {
-   "way": 237549338,
-   "name": "實踐路70巷",
-   "type": "service",
-   "w": 3.0,
-   "was": 5,
-   "confidence": "low",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
   },
   {
    "way": 237549339,
@@ -736,10 +727,10 @@
    "way": 492480429,
    "name": "新中二街",
    "type": "service",
-   "w": 6.0,
+   "w": 6,
    "was": 5,
-   "confidence": "low",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面 1 處實測路緣到路緣"
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）在 J14 南方停車場西側開闊段（x≈54～61、z≈-65～-82）切多處橫斷面（含 PXM=40），量路緣到路緣：東側（-v）以 -3.0 的停車場邊亮線為路緣，過了這條線飽和度、R-B 明顯下降，外面是停車場灰色鋪面和停車格車頭，不算車道；西側（+v）以 +3.3～+3.6 灰色路面接紅褐人行道帶為路緣。-1～-3 的機車停放帶算在路面內。實測路寬 6.3～6.6 m，跟 6.0 相差不到 0.8 m，所以維持 6.0。路面中心在 OSM 線西側 0.15～0.3 m，不平移。量測提案的 7.5 m 被複核駁回：東側路緣取到車頭偏外，而且西段南側 OSM 建物離線只有 2.9～3.7 m，路寬 7.5 會壓進建物。中段（x≈36～50）和西段（-168°）在高樓陰影和斜倒屋頂下，沒有貼地證據，寬度是沿用、沒有實測"
   },
   {
    "way": 492480431,
@@ -1731,6 +1722,15 @@
    "was": 16,
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20 px/m 橫斷面：中華路二段西行右轉中園路北行的弧形專用道（OSM primary_link），上面有自己的斑馬線，路面至少 6～7 m（樹影干擾）；之前 build 沒有收 primary_link"
+  },
+  {
+   "way": 315253252,
+   "name": "嘉善街",
+   "type": "service",
+   "w": 6,
+   "was": 5,
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）。嘉興街口路面黃框，沿嘉善街方向的兩條邊相距 6.1～6.3 m，三位量測者各自量到。杭州路口往內 5 m 量到約 5.6 m，但南緣有爭議。中段暗帶 4～5 m 是被屋頂遮住後的下限。嘉興街以西的 x≈-885 斷面，暗帶寬約 6 m。整條取 6；西段只有暗帶可看。"
   }
  ],
  "marks": [
@@ -1810,11 +1810,35 @@
   {
    "way": 817032495,
    "name": "實踐路",
-   "centre": "yellow-dash",
+   "centre": "yellow",
    "edge": true,
    "lanes": 1,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：中心黃虛線，兩側白邊線，沿線網狀線很多（多數在巷口，長 6～17 m）。x≈-2 有路面速限字「40」。(-36,408) 路口兩側有斑馬線和網狀線，北側巷口也有斑馬線（不是號誌路口，遊戲沒有）。東端（59,495）號誌路口前有斑馬線。起點南側路口斑馬線在 (-333,139)。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿 OSM 線拉直的長條圖逐公尺判讀，加上 9 個 xsec 斷面，另有屋頂傾斜、幾何、盲測三位複核獨立重做，裁決者再親自看過 strip_70_140、strip_280_350。中線大部分是黃實線（約 215 m），J29 前後、J34（實踐路70巷口）前後、J42（弘揚路口）前後和東端號誌路口前都是實線。只有兩段是黃虛線，約 10 m 一個週期、每段亮約 4 m：(-284,187)～(-216,248)，里程 s 80～171；(3,444)～(36,474)，s 466～510，其中 483～496 是網狀線。北側沒有樹冠的 s 145～170 也一樣是虛線，可見空檔不是樹蔭遮擋造成的。程式目前不支援同一條 way 分段設定中線，所以暫時整條設成實線，這兩段虛線會被畫成實線。單黃或雙黃從影像無法判定：線的半高寬 0.5～0.6 m，只比白邊線寬約 0.1 m，略偏雙黃。兩側白邊線距中線約 3.3～4.6 m，各段不同；J34 一帶北側被屋頂傾倒遮住，量不準，不要當寬度依據。其他沿用前次判讀：x≈-2 有路面速限字「40」；(-36,408) 路口兩側有斑馬線和網狀線，北側巷口也有斑馬線（不是號誌路口，遊戲沒有）；東端 (59,495) 號誌路口前有斑馬線；起點南側路口斑馬線在 (-333,139)。；分段（segs）：s 80～171 (-284.3,186.8)～(-216.4,247.6) 與 s 466～510 (3.3,444.2)～(36.2,473.5) 是黃虛線（10 m 一週期的短虛線，後者中間 s 483～496 是網狀線），其餘都是黃實線，三人複核一致",
+   "segs": [
+    {
+     "from": [
+      -284.3,
+      186.8
+     ],
+     "to": [
+      -216.4,
+      247.6
+     ],
+     "centre": "yellow-dash"
+    },
+    {
+     "from": [
+      3.3,
+      444.2
+     ],
+     "to": [
+      36.2,
+      473.5
+     ],
+     "centre": "yellow-dash"
+    }
+   ]
   },
   {
    "way": 307857192,
@@ -1823,7 +1847,8 @@
    "edge": true,
    "lanes": 2,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：遊戲範圍內 x 1000→-215 全段長條圖掃過（18 張）。中央是植樹分隔島（約 1～2.5 m），在路口與 x≈904,z≈-160 的巷口斷開。靠路緣有白色實線邊線。路口前多處有機車停等區＋停止線，兩處網狀黃線（x≈360,z≈273、x≈0,z≈555）。x≈720～650 一段被高樓倒影遮住，較難判讀。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：遊戲範圍內 x 1000→-215 全段長條圖掃過（18 張）。中央是植樹分隔島（約 1～2.5 m），在路口與 x≈904,z≈-160 的巷口斷開。靠路緣有白色實線邊線。路口前多處有機車停等區＋停止線，兩處網狀黃線（x≈360,z≈273、x≈0,z≈555）。x≈720～650 一段被高樓倒影遮住，較難判讀。；inner false：振興街口 J83 前後約 ±60 m，分隔島側 1 m 內正射上沒有白邊線（開口內也沒有縱向線），三人複核；只畫外側路邊線",
+   "inner": false
   },
   {
    "way": 307857194,
@@ -1832,7 +1857,8 @@
    "edge": true,
    "lanes": 2,
    "confidence": "low",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：南側路緣常被建築倒影與陰影蓋住（x≈700～650、x≈0～-150 尤其嚴重），寬度只能用車道虛線位置推估。在 x≈550,z≈127 與 x≈298,z≈328 有機車停等區＋停止線，路口前有直行/轉彎箭頭。"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：南側路緣常被建築倒影與陰影蓋住（x≈700～650、x≈0～-150 尤其嚴重），寬度只能用車道虛線位置推估。在 x≈550,z≈127 與 x≈298,z≈328 有機車停等區＋停止線，路口前有直行/轉彎箭頭。；inner false：振興街口 J83 前後約 ±60 m，分隔島側 1 m 內正射上沒有白邊線（開口內也沒有縱向線），三人複核；只畫外側路邊線",
+   "inner": false
   },
   {
    "way": 13944868,
@@ -2272,7 +2298,11 @@
    "edge": true,
    "lanes": 1,
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面：x≈-560～-580 路中黃實線清楚（在 OSM 線 -0.1～-0.4 m，與路面中心差不到 0.3 m，不設 cv），兩側白色路邊線相距約 6.5～6.9 m；-610 以西屋簷遮住看不清"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面：x≈-560～-580 路中黃實線清楚（在 OSM 線 -0.1～-0.4 m，不設 cv），兩側白色路邊線約 +2.75～+3.5／-3.0～-4.0。J77 往東 (-619.7,700)～(-593,687.3)（ang 154.6）：北側白線 +3.05～+3.3，在 d≈13～36 m 看得到，d 36～40 沒有峰值；南側白線只有短段 -3.6～-3.9，黃線 -0.15～-0.5。複核：裁決者在 (-603.2,692.2) 切斷面，得到白線 +3.10、黃線 -0.2～-0.45、白線 -3.7～-3.85，三位反駁者量到的一致。北側 +5 以外是機車或亮色物體，可能是建物立面倒影，不當路緣證據；南側被屋頂傾倒與陰影遮住，量不到路緣。x≈-507～-547 整段在陰影裡，看不到標線，那一段是外推。現行 js/map.js 畫在 ±(w/2-0.35)=±3.9，北側偏外約 0.8 m，南側差不到 0.1 m，要內縮得改程式（ev [3.1,-3.8]）；ev：白色路邊線實測在中線 +3.1／-3.8（不是畫在路緣內 0.35 m），(-646.2,711.9) 與 (-603.2,692.2) 斷面三人複核",
+   "ev": [
+    3.1,
+    -3.8
+   ]
   },
   {
    "way": 700658342,
@@ -2281,7 +2311,11 @@
    "edge": true,
    "lanes": 1,
    "confidence": "medium",
-   "source": "NLSC 2024 正射橫斷面 (-648.9,713.1)、(-652,714.5)：路中黃（橘）實線，兩側白色路邊線相距約 6.5 m，路邊線外到路緣各約 2 m"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）xsec 20～25 px/m 橫斷面（ang 156.8），在 (-643.4,710.7)、(-646.2,711.9)、(-648.9,713.1)、(-650,713.6) 量到：白色路邊線 +3.05～+3.2 與 -3.55～-3.85，路中黃（橘）實線 -0.15～-0.4（平均約 -0.3，不設 cv）。北側 +5.8～+5.9 是一條黃色窄線（可能是禁停黃線），南側路緣約 -5.5～-6.0；白線外各有約 2 m 路肩。複核：裁決者在 (-646.19,711.91) 切斷面取峰值，得到白線 +3.10、黃線 -0.35、白線 -3.80，三位反駁者（屋頂傾斜、幾何、盲測）也都量到相同位置，確定是貼地標線。白線只在路口往西 d≈10～19 m 實測到，d 20～44 被樹冠遮住，延伸到西端斑馬線前 (-676.5,724.9) 是推論。現行 js/map.js 把路邊線畫在 ±(w/2-0.35)=±4.9，北側偏外約 1.8 m、南側約 1.1 m，要內縮得改程式（ev [3.1,-3.8]）；ev：白色路邊線實測在中線 +3.1／-3.8（不是畫在路緣內 0.35 m），(-646.2,711.9) 與 (-603.2,692.2) 斷面三人複核",
+   "ev": [
+    3.1,
+    -3.8
+   ]
   },
   {
    "way": 26186365,
@@ -4441,14 +4475,6 @@
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）xsec 20 px/m 沿力行北街切面判讀：路口西北側沿路約 8.9 m（條紋帶 u ≈ -10.5～-7.0，長約 3.5 m），橫跨力行北街全寬約 6 m"
   },
   {
-   "t": "box",
-   "x": -192.4,
-   "z": 269.7,
-   "len": 10,
-   "way": 817032495,
-   "source": "NLSC 2024 正射 xsec 量測：實踐路×日新路×大仁四街路口內網狀黃線，沿實踐路約 10 m（兩個方向的切面量到 9.8～10.5 m），中心約在路口節點西北 1.9 m；橫跨實踐路路緣到路緣"
-  },
-  {
    "t": "zebra",
    "x": -319.1,
    "z": 361.2,
@@ -4761,6 +4787,58 @@
    "z": -682,
    "way": 1225850977,
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20 px/m 橫斷面複核：忠信路口 OSM 標的行人穿越點 (19.3,-682) 在正射上是素面柏油，實際斑馬線是西邊 (2.8,-675.3) 那條實測的"
+  },
+  {
+   "t": "box",
+   "x": -75.7,
+   "z": 258.3,
+   "len": 5.3,
+   "way": 173310381,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）大仁街×實踐路70巷東北口：(R+G)/2-B 量到黃色網狀線，沿大仁街長約 5.25 m、橫跨約 4.7 m，中心 (-75.64,258.20)，裁決者複核與提案差不到 0.15 m"
+  },
+  {
+   "t": "zebra",
+   "x": -461.7,
+   "z": 178.1,
+   "ang": 159.9,
+   "len": 3,
+   "w": 8.5,
+   "way": 26186381,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）30～40 px/m 沿路斷面判讀：J25 中北路×力行北街東臂。條紋沿中北路方向（-20°），每條長約 3 m，間距約 1.17 m。亮處清楚的條紋在 OSM 線北側 +4.1～南側 -1.75，帶中心在 OSM 線上，離節點約 9.5 m（比自動位置往東約 2 m）。南半邊在樹影裡，只有弱峰，南緣是靠東南臂轉角和東側網狀線推定的。實測約 10～11 m 寬，遊戲路寬 8.5 m，所以 w 取 8.5。三位複核者（屋頂傾斜、幾何、盲測）的位置都在 0.4 m 內，裁決時自己切 judge/east.png 確認"
+  },
+  {
+   "t": "stop",
+   "x": -458.35,
+   "z": 174.6,
+   "ang": 159.9,
+   "w": 3.8,
+   "way": 26186381,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）50 px/m 斷面像素剖面（judge/stopz.png）：J25 東臂西行車道停止線，在節點以東約 14.0 m（斑馬線東端外約 2.7 m），白線粗約 0.5 m，OSM 線北側 v +1.5～+5.0 清楚，再往南在樹影裡。遊戲中北路 w 8.5 沒有平移，北路緣在 v +4.25，所以比照自動停止線，取 v +0.2～+4.0（中心 v +2.1、w 3.8），不畫到人行道上"
+  },
+  {
+   "t": "zebra",
+   "x": -464.9,
+   "z": 188.1,
+   "ang": -110,
+   "len": 3,
+   "w": 6,
+   "way": 202592410,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）30 px/m 北向放大與傾角掃描判讀：J25 力行北街東南臂斜交斑馬線。5 條清楚、1 條淡，間距約 1.2 m，條紋方向約 70°（-110°）。OSM 最後一段是 -131°（49°），斜約 21°。帶寬約 5.6～6 m，條紋長約 3 m。中心在 OSM 原始線上（v≈0），比既有 shift 後的路面偏約 +0.5 m。三位複核者量的中心都在 0.1 m 內，裁決時切 judge/se.png 確認。沒有看到停止線；西邊 (-469.7,189.4) 的亮塊是西南角白屋頂邊，不是條紋"
+  },
+  {
+   "t": "nozebra",
+   "x": -474.1,
+   "z": 174.6,
+   "way": 1022460430,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）30 px/m 判讀：J25 信陽街27巷北臂。furniture.js 自動斑馬線的位置 (-474.07,174.59) 附近 ±3 m 是素柏油，只有一塊約 3×2 m、內部均勻的白色物體，沒有週期條紋，所以不放自動斑馬線和停止線。這裡離東臂、西臂的自動位置約 10 m，不會誤殺。三位複核者一致，裁決時切 judge/n.png 確認"
+  },
+  {
+   "t": "box",
+   "x": -191.5,
+   "z": 269.9,
+   "len": 9.2,
+   "way": 817032495,
+   "source": "NLSC 2024 正射（PHOTO2 z20）沿實踐路 41° 的旋轉斷面（40 px/m），加上局部對比強化與高通紋理分析：實踐路×日新路×大仁四街路口的網狀黃線，斜線網格沿實踐路從路口節點西北 u≈-5.7 延伸到東南 u≈+3.5（西北邊是順著日新路的斜邊，在遊戲 7 m 路面內大約落在 u -6.0～-5.0，取中段）。u +4.3 那段白線是東南進口車道的停止線，接在 v≈-1.6 的中心線上，不算框邊。長約 9.2 m，中心在節點西北 1.1 m。複核：三位反駁者都認為原提案把停止線當成框邊；寬度方面，東北邊大約在 v -5.2～-5.5，西南邊大半在陰影和屋頂傾倒範圍裡，看不清楚，而且遊戲實踐路還是 7 m，所以不給 w，暫時維持路緣到路緣"
   }
  ],
  "shift": [
@@ -6898,6 +6976,71 @@
    "name": "幸福街",
    "at": [
     [
+     -635.01,
+     910,
+     -2.2
+    ],
+    [
+     -646.8,
+     875,
+     -2.3
+    ],
+    [
+     -650.91,
+     863.53,
+     -2.5
+    ],
+    [
+     -649.71,
+     850,
+     -2.6
+    ],
+    [
+     -647.95,
+     830,
+     -2.4
+    ],
+    [
+     -646.18,
+     810,
+     -2.2
+    ],
+    [
+     -644.42,
+     790,
+     -2.8
+    ],
+    [
+     -643.09,
+     775,
+     -2.9
+    ],
+    [
+     -641.77,
+     760,
+     -3
+    ],
+    [
+     -640.45,
+     745,
+     -3
+    ],
+    [
+     -638.78,
+     730,
+     -3
+    ],
+    [
+     -637.44,
+     722.03,
+     -2.8
+    ],
+    [
+     -633.93,
+     711,
+     -2.5
+    ],
+    [
      -632.4,
      706,
      0
@@ -6939,7 +7082,7 @@
     ]
    ],
    "confidence": "medium",
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面（ANG -99.75，+v 為東）：莒光路彎道往北 z 691～676 段，東側低矮屋頂邊在 OSM 線西側約 0.5～1.5 m，柏油加路邊停車在 -1～-5，路面中心約 -3（691 -3、685 -3、680 -2.8～-3.4）；676 約 -2.3；665、655 柏油 +3～-3 加停車到 -4.5，中心約 -1～-0.5；645 建築邊 +3、停車到 -4，回到 OSM 線上；路口節點（與莒光路共用）v=0 固定"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面，沿 OSM 線切，+v 大致朝東。【莒光路口以南】z 800～910：西側路邊停車連成一排，在 v -2.5～-5，車外側緊貼約 2.5 m 寬的公園淺色人行帶（-5～-7.5，再往外是紅土球場和樹）；東側低矮房屋頂邊和柏油起點約 0。路緣到路緣約 0～-5，中心 810 -2.2、830 -2.4、850 -2.6、863 彎點 -2.5、875 -2.3、910 -2.2，往南逐漸收斂（930、948 的車分別在 -2～-4.5、-1.5～-4）。量測者和三位複核者（屋頂傾斜、幾何、盲測）各自量到的值相差都在 0.3 m 內。【z 711～790】這段 OSM 線穿過一排 4～5 層樓的屋頂，屋頂西緣在 -1.5～-2.8，西側暗帶延伸到 -6～-7 才接樹冠，缺少貼地證據，信心低。z790 斷面上，高樓屋頂伸到 -4.0，但南邊不到 10 m 的貼地機車和人行帶就在 -0.7～-4.7，證明這一帶屋頂往路面（西）傾倒好幾公尺，屋頂邊不能當路緣。建物之間的空隙一路暗到 +10，表示暗帶主要是陰影。z729 四臂燈頂在 -4.7～-6.7，燈腳約 -4.5～-5，比較像立在西側路緣。綜合判斷這段路面約 0～-5，中心取 -2.8～-3.0，跟南段和路口以北的 -3 接得上（原提案取暗帶中心 -4～-4.5，經複核駁回）。(-633.93,711) 加錨點 -2.5，讓路面不會壓進 z 709～722 的白頂建物（屋頂邊 -2.75，路口開口處柏油延伸到 -9）。【莒光路口以北】z 691～676：東側低矮屋頂邊在 OSM 線西側約 0.5～1.5 m，柏油加路邊停車在 -1～-5，中心約 -3（691 -3、685 -3、680 -2.8～-3.4）；676 約 -2.3；665、655 柏油 +3～-3 加停車到 -4.5，中心約 -1～-0.5；645 建物邊 +3、停車到 -4，回到 OSM 線上。路口節點（與莒光路共用）v=0 固定"
   },
   {
    "way": 1023169629,
@@ -6968,6 +7111,237 @@
    ],
    "confidence": "medium",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20 px/m 橫斷面複核（路口對照圖第二輪）：(-754.8,511.5)、(-752.5,502) ang 106 切：實際巷道在 OSM 線西側 4.5～6.5 m，遊戲線畫在房子上；廣州路口節點固定"
+  },
+  {
+   "way": 1039910317,
+   "name": "實踐路",
+   "at": [
+    [
+     -358.1,
+     -82.5,
+     0
+    ],
+    [
+     -353.3,
+     -74.9,
+     2.4
+    ],
+    [
+     -350.1,
+     -69.8,
+     2.3
+    ],
+    [
+     -346.9,
+     -64.7,
+     2.7
+    ],
+    [
+     -343.7,
+     -59.7,
+     2.9
+    ],
+    [
+     -340.5,
+     -54.6,
+     3.1
+    ]
+   ],
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿線橫斷面（ANG 57.7，+v = 西南西），另有三人複核（屋頂、幾何、盲測）。OSM 線貼著東側綠色大屋頂邊，實際柏油帶和西側一排順著路停的機車都在 +v 側。北端路口斑馬線條紋約 -0.3～+5.1（盲測 -0.3～+4.9，中心約 +2.3～+2.4）。各點柏油帶：s15 +0.1～+2.4，s21 +0.75～+2.9，s27 +1～+3，s33 +1.5～+3.75，三方量到的中心 2.3～3.5。東側路緣只能靠屋頂邊，所以取保守值。(-337.8,-50.4) 會被無名巷 759481463 的巷口污染，不採用。南端不收回 0：北朝上圖與 ANG 67.8 斷面顯示，柏油帶到南端共用節點（與 實踐路 31127700、中北路165巷共用）仍在 OSM 線西側約 3～4 m，跟 31127700 的實測一致，所以讓最後一個錨點保持到節點。北端新中北路口節點固定為 0；路寬 5.3 不改，現有路口斑馬線不動"
+  },
+  {
+   "way": 26186381,
+   "name": "中北路",
+   "at": [
+    [
+     -470.8,
+     181.4,
+     0
+    ],
+    [
+     -484.9,
+     186.1,
+     1.5
+    ],
+    [
+     -498.9,
+     190.7,
+     1.5
+    ],
+    [
+     -510.7,
+     194.6,
+     1.5
+    ]
+   ],
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20），沿 OSM 方向切橫斷面（ANG 159.9／161.7，+v 為北）。\nx -380～-440 位置正確：黃中線在 +0～+0.6，x -440 網狀黃線 +4.75～-3.75。\n力行北街口 J25 東側（x -462，40 px/m）斑馬線條紋週期約 1.15 m，清楚的峰在 +4.25～-1.5，陰影裡延伸到約 -4，中心約 0，所以 J25 與以東不動。原提案在這裡給 +1.8，複核後駁回。\nJ25 以西到幸福街口 J24（x -476～-511）：北緣有貼地證據，J25 西側斑馬線條紋北端約 +5.75，北側停車在 +6～+6.5；南側是一層樓矮屋頂邊，約 -1.0～-1.5，沒有貼地證據。取中心 +1.5（可能範圍 +1.25～+2.25），信心低。\nJ24 會跟著往北約 1.5 m，和中北橋東口原本就偏北 1.4～1.6 m 一致。\n日後可用街景確認南側路緣。"
+  },
+  {
+   "way": 237549338,
+   "name": "實踐路70巷",
+   "at": [
+    [
+     -129.65,
+     313.79,
+     1.5
+    ],
+    [
+     -80.11,
+     264.33,
+     1.5
+    ]
+   ],
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）橫斷面（xsec.py，ANG 135，+v = 西北）：OSM 線從大仁街 (-75.6,259.8) 直線接到實踐路 J34 (-135.3,319.4)。唯一確定的貼地證據是大仁街路面上正對巷口的黃色網狀線，(R+G)/2-B 剖面半高 v -1.45～+3.8，中心 +1.18（三人量的分別是 +1.15、+1.1、+1.4）。西南端實踐路口，靠人行道那段在 -0.5～+5 有一個較暗的開口，中心約 +2.1，但巷口建築線被白色屋頂蓋住，這個證據比較弱。中段 t≈10～75 被屋頂和陰影遮住，暗帶在 +1.5～+6（東北半段）、+3～+7（t≈60 附近），沒有車輛、標線或人孔；暗帶中心比網狀線偏北約 2.5 m，可以用屋頂往北傾倒來解釋，但傾倒量量不出來。整條取保守的 +1.5，介於兩端證據之間。西南段 t≈50～84 完全沒有證據，平移量是從東北端延伸過去的。三票複核：幾何、盲測兩票接受；屋頂票主張 +2.5～+3，因為只有暗帶、沒有貼地證據，所以不採用"
+  },
+  {
+   "way": 492485773,
+   "name": "協同二街",
+   "at": [
+    [
+     -454.1,
+     378.2,
+     0
+    ],
+    [
+     -437.8,
+     392.9,
+     -0.8
+    ],
+    [
+     -427.4,
+     402.3,
+     -1
+    ],
+    [
+     -417,
+     411.7,
+     -1.2
+    ],
+    [
+     -409.5,
+     418.4,
+     -1.2
+    ],
+    [
+     -395.2,
+     431.3,
+     0
+    ]
+   ],
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20 px/m 橫斷面，量測代理 9 處、三位複核者共約 14 處，裁決者另切 2 處；ANG 42°，+v 朝西南。前段 (-485.6,349.7)→(-454.1,378.2) 的路面中心約 0～-0.5，不平移；第一個 0 錨點放在中間節點，讓跟巷道 1153472273 共用的節點不動。後段每個斷面的受光柏油（貼地）東北邊緣都在 -3.25～-3.5，以外是東北側矮屋簷；西南側 +1.5～0 是一條暗帶，判讀有分歧（陰影裡的路面或西南側房子的立面），西南屋頂邊在 +1.5～+2。尾段 (-409,418)～(-405,422) 有機車橫停在 +0.75～-2.25，車頭靠西南側牆腳。暗帶算進路面時中心約 -0.75～-1.35，暗帶算立面時約 -1.3～-1.9；後段取 -1.0～-1.2。裁決者複核：(-417.0,411.7) 路面 +1.5～-3.3，中心約 -0.9；(-437.8,392.9) 路面 +1.75～-3.25，中心約 -0.75。尾端節點跟日新路 113468849 共用，錨點設 0，交給日新路的 -5.5 平移處理，不把它平均掉。路寬實測 5～5.5 m，維持預設 5 m"
+  },
+  {
+   "way": 229990579,
+   "name": "協同街",
+   "at": [
+    [
+     -233.2,
+     550.6,
+     -1.3
+    ],
+    [
+     -253.1,
+     530.8,
+     -1.2
+    ],
+    [
+     -272.9,
+     511.1,
+     -1.4
+    ],
+    [
+     -282.9,
+     501.2,
+     -1.6
+    ],
+    [
+     -292.8,
+     491.4,
+     -1.6
+    ],
+    [
+     -322.6,
+     462.8,
+     -1.4
+    ],
+    [
+     -348.1,
+     438.8,
+     -1.2
+    ],
+    [
+     -363.9,
+     423.9,
+     -1
+    ],
+    [
+     -375.3,
+     413.2,
+     0
+    ]
+   ],
+   "confidence": "medium",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿線 20 px/m 橫斷面（部分 40 px/m），切點在 OSM 線上，ANG 為節點順序方向（弘揚路→J46 -135.2°，J46→日新路 -136.8°）。弘揚路端東北側 +0.6～+1.0 是水溝暗帶，柏油到 -2.6～-3.3，中心約 -1.2～-1.3，弘揚路口網狀線橫向 +2.75～-5.25，中心約 -1.25。t≈64～78 m 東北側是露天停車場，沒有屋頂遮擋：場邊路緣 +0.8～+1.0，柏油 +0.3～-3.6，西南側暗帶到 -4.8 才接屋頂，中心 -1.4～-1.6。J46 大勇一街口前一站 (-292.8,491.4) 廟簷下暗帶約 +0.5、柏油到 -3.25～-3.5，路口口部往西南張開，錨點取路段的 -1.6；J46 內插約 -1.5，跟現有網狀線 box（節點 v≈-1.29）差 0.2 m。J46 西北 18～60 m 有白色邊線在 +0.5～+0.6 和 -3.4～-3.5，中心 -1.2～-1.5。日新路口前 (-355.8,431.6)、(-363.9,423.9) 白邊線 +1.0～+1.25、柏油到 -3.25，菱形標線中心約 -1.0。日新路口節點 2126479882 錨點設 0，讓它只由日新路的 shift 決定，避免保持段把日新路的平移平均掉。三位複核者（屋頂傾斜、幾何、盲測）都確認整段在 OSM 線西南側；採用幾何複核的日新路口修正，-292.8 站依屋頂與盲測複核從 -1.8 降為 -1.6，並由裁決者另切 s92／s178／s190 斷面驗證。路寬 6 m 不變"
+  },
+  {
+   "way": 315253252,
+   "name": "嘉善街",
+   "at": [
+    [
+     -690.6,
+     625.8,
+     0
+    ],
+    [
+     -701.5,
+     630.8,
+     -1
+    ],
+    [
+     -717.9,
+     638.2,
+     -1.3
+    ],
+    [
+     -781.7,
+     667.1,
+     -1.8
+    ],
+    [
+     -836.4,
+     691.8,
+     -0.8
+    ],
+    [
+     -852.7,
+     699.2,
+     0
+    ]
+   ],
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px），20～30 px/m 橫斷面（ANG -24.4，+v 朝南南東）。這一帶屋頂往西倒，J69 南側中高樓看得到東立面。往西倒投到 -v 約 0.41 倍，所以兩排屋頂之間的暗帶兩緣都會被拉向 -v，中段暗帶中心（約 -2.2～-4.1）只能當下限。貼地證據：(1) 嘉興街口路面黃框，沿嘉善街方向的兩條邊在 v≈-3.3～-3.6 和 +2.4～+2.8，中心約 -0.35～-0.4，三位量測者一致。(2) 杭州路口往內約 5 m 處 (-702,631)，北側是轉角磚砌路緣，中心約 -1.0；南緣那塊深色長方形是車還是雨遮有爭議，若當雨遮，中心約 -1.8。中段取比較保守的 -1.3～-1.8，三位量測者估的合理範圍是 -1～-2.5。(-836.4,691.8) 是內插點，取 -0.8，讓北緣不壓到北側 OSM 建物。兩端路口節點（杭州路、嘉興街共用）v=0 固定，J70 節點交給杭州路的 shift 移動。複核：幾何、盲測兩票不推翻，屋頂傾斜一票認為中段應該再往 -v 0.5 m 左右，但沒有貼地證據，所以不採用。"
+  },
+  {
+   "way": 41603232,
+   "name": "弘揚路",
+   "at": [
+    [
+     -227.5,
+     556.2,
+     0
+    ],
+    [
+     -42.5,
+     415.8,
+     -1.5
+    ]
+   ],
+   "confidence": "low",
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）20～40 px/m 橫斷面（OSM 方向西南→東北，ang 約 -31～-38°，+v 朝東南），只用貼地標線定中心。西南端：協同街口網狀黃框跨弘揚路 v +4.0～+4.5 到 -4.5，三方量測中心 -0.25～0，取 0；框外 -v 側店面前柏油延伸到約 -7.5，未計入。東北端（J42）：弘揚路口斑馬線條紋 -5.1～+2.0（沿路 +5～+6 m 處屋頂邊退到 +3.0，看得到 +2.0 條紋），實踐路網狀黃框在弘揚路側跨 v 約 -6.6～-7.2 到 +3.7～+4.2（裁決複核 z305 像素分析，中心約 -1.4），取 -1.5；既有斑馬線條目 (-40.1,411.7) 換算 v≈-1.8，在誤差內。中段兩側屋頂往 -v 傾倒，暗帶不可靠，沒有貼地標線，所以只放兩端錨點、中間線性內插。J42 節點跟著移 -1.5，大仁二街口的斑馬線和網狀框也支持路口往西北偏。路寬 9.0 m 不改。複核：幾何、盲測兩票不推翻，屋頂傾斜那票對西南 0 有疑慮（-v 貼地邊約 -7.5），判斷那段是框外店前鋪面，不採用"
   }
  ],
  "pave": [

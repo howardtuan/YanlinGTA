@@ -16,7 +16,8 @@
 //  - 薄膜中心中棟 w492487885：南段 3F＋第 4 層退縮窗帶、綠色直條窗框；北段米黃高牆量體約 16 m（2014 環景、2017 官方）。
 //  - 薄膜中心 4館 w492487889：2F／8.5 m 淺灰金屬浪板廠房，東面外掛鋼梯（官方 2017）；正射量長約 41 m（OSM 只有 34.5 m）。
 //  - 實英樓 w492487886：1F 咖啡灰磁磚、2F 淺灰藍牆、頂上一圈淺灰沖孔鋼板外框，總高約 11 m，招牌「實英樓」（官方 2026-05）。
-//  - 知行領航館（OSM 沒有，正射量約 63×26 m）：3F＋B1 基座，灰牆嵌寶藍／淺藍盒狀窗框，西端藍框玻璃盒，屋頂太陽能板（2019 使用者環景）。
+//  - 知行領航館（OSM 沒有，正射量約 63×26 m）：3F＋B1 基座，灰牆嵌寶藍／淺藍盒狀窗框，西北角藍框玻璃盒，屋頂太陽能板（2019 使用者環景）；
+//    中間偏東的方形天井、西南角 1F 附屬棟照正射 2024。
 //  - 忍耐樓（f694 改）：兩個白色平頂小盒（正射 2024，G 區調查第 8 節）。
 // 沒有影像的面照同棟看得到的面推，入口、招牌等特殊構件不編。
 import * as THREE from 'three';
@@ -58,14 +59,25 @@ const bcU = ([x, z]) => (x - RBC.O[0]) * RBC.U[0] + (z - RBC.O[1]) * RBC.U[1];
 // 薄膜中棟：z -13.8 以北是米黃高牆量體
 const BM = { zSplit: -13.8, hS: 11.2, hN: 16.0 };
 // 知行領航館、4館南北兩段、忍耐樓（synthetic 新增）
-const ZX = { pts: rect(351.3, -85.9, 414.0, -59.9), h: 13.5 };
+// 正射 2024（ortho_zhixing.png，10.75 px/m）：主體中間偏東有一個約 5.6×10 m 的方形天井；西北角藍框盒約 6×12.6 m；
+// 西南角貼著西牆一棟深灰平頂低矮附屬棟約 8.4×4.2 m（影子很短，1F）
+const ZX = { pts: rect(351.3, -85.9, 414.0, -59.9), h: 13.5, court: [391.0, -78.0, 396.6, -68.0], gbox: [345.2, -84.1, -71.5] };
+// 天井（內環要和外環反向）
+const zxCourt = () => { const [x0, z0, x1, z1] = ZX.court; return [[x0, z0], [x0, z1], [x1, z1], [x1, z0]]; };
 const ADD = [
-  { id: 'zh-zhixing', name: '知行領航館', kind: 'campus', h: ZX.h, floors: 3, pts: ZX.pts, look: {
+  { id: 'zh-zhixing', name: '知行領航館', kind: 'campus', h: ZX.h, floors: 3, pts: ZX.pts, holes: [zxCourt()], look: {
     wall: { base: 'smooth', colour: '#8a8783' },
     windows: { types: ['ribbon'], bay: 4.2, accent: '#3a3d40', glass: '#4b5961' },
     plinth: { h: 2.2, colour: '#6f6d69' },
     parapet: { h: 0.9, colour: '#7a7874' },
     roof: { colour: '#9a9894', solar: { u: [0.04, 0.96], v: [0.12, 0.9], colour: '#2b3852' } },
+  } },
+  // 知行領航館西南角的低矮附屬棟
+  { id: 'zh-zhixing-annex', kind: 'campus', h: 4.5, floors: 1, pts: rect(342.9, -68.7, 351.3, -64.5), look: {
+    wall: { base: 'smooth', colour: '#7a7874' },
+    windows: { types: ['ribbon'], bay: 4.2, accent: '#3a3d40', glass: '#4b5961' },
+    parapet: { h: 0.5, colour: '#6a6864' },
+    roof: { colour: '#5f5f5c', ac: false },
   } },
   // 4館北、南兩段（正射：整棟約 41 m，OSM 只畫了中間 34.5 m）
   { id: 'zh-bm4-n', kind: 'campus', h: 8.5, floors: 2, pts: rect(287.7, -73.0, 296.4, -70.5), look: null },
@@ -189,7 +201,7 @@ export function zoneHLook(b) {
 export function zoneHAdd(buildings) {
   for (const a of ADD) {
     const look = a.look || (a.id.startsWith('zh-bm4') ? BM4_LOOK() : RENNAI_LOOK());
-    buildings.push({ id: a.id, ...(a.name ? { name: a.name } : {}), kind: a.kind, h: a.h, floors: a.floors, pts: a.pts.map(p => [...p]), synthetic: true, src: 'f', look });
+    buildings.push({ id: a.id, ...(a.name ? { name: a.name } : {}), kind: a.kind, h: a.h, floors: a.floors, pts: a.pts.map(p => [...p]), ...(a.holes ? { holes: a.holes.map(r => r.map(p => [...p])) } : {}), synthetic: true, src: 'f', look });
   }
 }
 
@@ -568,12 +580,15 @@ export function buildZoneH(I, scene, data, collision) {
     };
     for (const b of boxesS) frame(1, b);
     for (const b of boxesN) frame(-1, b);
-    // 西端藍框玻璃盒（從地面到頂）
-    const gx0 = xa - 2.2, gz0 = za + 6, gz1 = za + 15, yT = B + ZX.h + 0.4, y0 = groundY(gx0, (gz0 + gz1) / 2) - 0.2;
+    // 西北角藍框玻璃盒（從地面到頂，正射量約 6×12.6 m）
+    const [gx0, gz0, gz1] = ZX.gbox, yT = B + ZX.h + 0.4, y0 = groundY(gx0, (gz0 + gz1) / 2) - 0.2;
     k.wall('zxGlass', gx0, gz0, gx0, gz1, y0, yT, 2, 2.2); k.wall('zxGlass', xa, gz0, gx0, gz0, y0, yT, 2, 2.2); k.wall('zxGlass', gx0, gz1, xa, gz1, y0, yT, 2, 2.2);
     for (const [x, z] of [[gx0, gz0], [gx0, gz1]]) k.box('royal', x - 0.2, x + 0.2, y0, yT + 0.3, z - 0.2, z + 0.2);
     k.box('royal', gx0 - 0.25, xa, yT, yT + 0.45, gz0 - 0.25, gz1 + 0.25);
-    for (let y = y0 + 4.5; y < yT; y += 4.5) k.box('royal', gx0 - 0.15, gx0 + 0.15, y - 0.15, y + 0.15, gz0, gz1);
+    for (let y = y0 + 4.5; y < yT; y += 4.5) {
+      k.box('royal', gx0 - 0.15, gx0 + 0.15, y - 0.15, y + 0.15, gz0, gz1);
+      for (const z of [gz0, gz1]) k.box('royal', gx0, xa, y - 0.15, y + 0.15, z - 0.15, z + 0.15);
+    }
     boxColl([[gx0, gz0], [xa, gz0], [xa, gz1], [gx0, gz1]], y0, yT);
     shapes.push({ name: 'zxGlassBox', pts: rect(gx0, gz0, xa, gz1), y0, y1: yT });
   }

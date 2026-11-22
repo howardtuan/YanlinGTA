@@ -89,8 +89,19 @@ export class MenuManager {
     onClick('btnControls', () => this.showControls());
     onClick('btnSettings', () => this.openSettings());
     onClick('btnAbout', () => this.modal('關於彥霖', ABOUT_HTML, 'ABOUT'));
-    onClick('mClose', () => this.closeModal());
-    onClick('btnVideoClose', () => this.closeVideo());
+    onClick('modalClose', () => this.closeModal());
+    onClick('videoClose', () => this.closeVideo());
+    // the pause menu (and the settings / controls / delete-save pages opened from it) also closes with Esc or a click on
+    // the dark backdrop around it
+    addEventListener('keydown', e => {
+      if (e.code !== 'Escape' || e.repeat || game.state !== 'paused' || !game._modalOpen) return;
+      e.preventDefault();
+      game.input.pressed.delete('Escape'); // or the next frame would pause again
+      this.closeModal();
+    });
+    $('modal').addEventListener('click', e => {
+      if (e.target === e.currentTarget && game.state === 'paused' && game._modalOpen) this.closeModal();
+    });
     onClick('btnEndingCredits', () => this.modal('製作群名單', `<p><b>中原順起來 · 資管要贏 票投彥霖</b></p><p>企劃・程式・地圖：彥霖競選團隊</p><p>致敬：中原大學、OpenStreetMap、Rapier 物理引擎、Three.js</p><p style="color:#a9adbf">感謝所有在中原相遇的師長、同學與朋友！</p>`, 'CREDITS'));
     onClick('btnKeepPlaying', () => {
       $('ending').classList.add('hidden');

@@ -13,6 +13,7 @@
 //  - Google 地圖相片（培英廳 2023-09）、既有的街景與正射（屋頂北側的長弧頂採光罩、西面約三樓的空橋）。
 // 找不到平面圖：每一層「有什麼」照上面的資料，「在該層的哪裡」是照建築外形排的（推測）：
 // 東西向主走廊在採光罩下方，北排房間靠新中北路，中庭對著南面大門廊，培英廳在一樓西半挑高兩層。
+// B1 的圓形旋轉梯（js/sac_b1.js）往上到一樓大廳、再到二樓中庭東牆邊為止（使用者指正）。
 // 沒有來源的房間只寫社團辦公室、儲藏室、廁所。能進去的房間：培英廳、101 交誼廳、雅文 A 廳、301 活動教室、312 韻律教室、
 // 412 琴房、419 武術練習室；其他是關著的門。麥當勞上面的各樓層（弧形玻璃那塊）沒有做。
 //
@@ -328,7 +329,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     rail(wx0, wz0, gx0, wz0); rail(gx1, wz0, wx1, wz0); rail(wx1, wz0, wx1, wz1); rail(wx0, wz1, wx1, wz1); rail(wx0, wz0, wx0, wz1);
     for (const [x, z] of [[wx0, wz0], [gx0, wz0], [gx1, wz0], [wx1, wz0], [wx1, wz1], [wx0, wz1]]) bx(x - 0.03, x + 0.03, y, y + 1.06, z - 0.03, z + 0.03, MT.rail);
     bx(gx0, gx1, y - SL, y, wz0, wz0 + 0.32, MT.floor);
-    sign('B1 學習區 · 學生餐廳 · 麥當勞 ↓', (gx0 + gx1) / 2, y + 2.5, wz0 - 0.4, 'n', '#2b5fae', 2.6); bx((gx0 + gx1) / 2 - 1.32, (gx0 + gx1) / 2 + 1.32, y + 2.15, c, wz0 - 0.36, wz0 - 0.3, MT.dark);
+    sign('2F ↑ · B1 學習區 · 麥當勞 ↓', (gx0 + gx1) / 2, y + 2.5, wz0 - 0.4, 'n', '#2b5fae', 2.6); bx((gx0 + gx1) / 2 - 1.32, (gx0 + gx1) / 2 + 1.32, y + 2.15, c, wz0 - 0.36, wz0 - 0.3, MT.dark);
     // 服務台、公布欄、長椅
     cbx(-160.5, -157, y, y + 1.05, -101.2, -100.5, MT.wood); bx(-160.6, -156.9, y + 1.05, y + 1.1, -101.3, -100.4, MT.tableW);
     sign('服務台', -158.75, y + 2.5, -100.85, 's', '#1f5f8b', 1.1); bx(-159.4, -158.1, y + 2.1, c, -100.9, -100.82, MT.dark);
@@ -404,11 +405,22 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   // =====================================================================
   {
     const f = 1, y = F2, c = y + CH[1], [d0, d1] = SAC_DOORS.s2;
-    room(f, AX0, AX1, CS, ZS, { floor: MT.red, ceil: false });
+    // (the spiral stair from B1 / 1F comes up through the floor at the east wall and ends here: a hole, a rail, an alcove behind the wall line)
+    const [wx0, wx1, wz0, wz1] = WELL, ez0 = -110.1, ez1 = -107.9;
+    for (const [x0, x1, z0, z1] of ring([AX0, AX1, CS, ZS], [wx0, AX1, wz0, wz1])) room(f, x0, x1, z0, z1, { floor: MT.red, ceil: false });
+    bx(wx0, wx0 + 0.3, y - SL, y, ez0, ez1, MT.red);
+    for (const [x0, z0, x1, z1] of [[wx0, wz0, AX1, wz0], [wx0, wz1, AX1, wz1], [wx0, wz0, wx0, ez0], [wx0, ez1, wx0, wz1]]) {
+      const ax = Math.abs(x1 - x0) > 0.01; wl(x0, z0, x1, z1, y - 0.2, y + 1.1);
+      for (const h of [0.52, 1.03]) bx(ax ? x0 : x0 - 0.025, ax ? x1 : x0 + 0.025, y + h, y + h + 0.05, ax ? z0 - 0.025 : z0, ax ? z0 + 0.025 : z1, MT.rail);
+    }
+    for (const [x, z] of [[wx0, wz0], [wx0, ez0], [wx0, ez1], [wx0, wz1]]) bx(x - 0.03, x + 0.03, y, y + 1.08, z - 0.03, z + 0.03, MT.rail);
+    wall(AX1, wz0, wx1, wz0, F1 + CH[0], c, MT.tileW, 1, { tile: [0.6, 0.6] }); wall(AX1, wz1, wx1, wz1, F1 + CH[0], c, MT.tileW, -1, { tile: [0.6, 0.6] }); wall(wx1, wz0, wx1, wz1, F1 + CH[0], c, MT.tileW, -1, { tile: [0.6, 0.6] });
+    bx(wx0, wx1, c - 0.03, c + 0.05, wz0, wz1, MT.ceil);
+    sign('樓梯 ↓ 1F · B1', wx0 + 0.4, y + 2.5, -109, 'w', '#2d3b4a', 1.6); bx(wx0 + 0.36, wx0 + 0.44, y + 2.2, c, -109.9, -108.1, MT.dark);
     for (const [x0, x1, z0, z1] of ring([AX0, AX1, CS, ZS], [V.x0, V.x1, V.z0, V.z1])) { bx(x0, x1, c - 0.03, c + 0.05, z0, z1, MT.ceil); lights(x0, x1, z0, z1, c); }
     sf(d0, d1, ZS - 0.02, -94.4, y); bx(d0, d1, y - SL, y, ZS, -94.42, MT.red, { tile: [2.4, 2.4] });
     front(f, 'z', AX0, 'e', [[ST.z1, EL.z0, '', 'solid']]);
-    front(f, 'z', AX1, 'w', [[CS, -108, '儲藏室', 'svc'], [-108, -101, '', 'solid'], [-101, ZS, '倉儲室', 'svc']]);
+    front(f, 'z', AX1, 'w', [[CS, WELL[2], '儲藏室', 'svc']]); front(f, 'z', AX1, 'w', [[WELL[3], -101, '', 'solid'], [-101, ZS, '倉儲室', 'svc']]);
     // 布告欄（北牆，貼滿海報）
     // （西端，面向東：一道獨立的牆，兩側留通道往後面走；正上方是三樓西牆的圓窗。使用者確認「2樓前平台」的相片是面向西拍的）
     cbx(-164.35, -164.15, y, y + 2.6, -109.2, -99.8, MT.dark); quad(MT.posters, 9.0, 1.6, -164.14, y + 1.5, -104.5, 'e');

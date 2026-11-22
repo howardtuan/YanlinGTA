@@ -1,4 +1,4 @@
-// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，走得上一樓，樓上的室內在 js/sac.js）、南邊學習區，
+// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，往上走到一樓、再到二樓為止，樓上的室內在 js/sac.js）、南邊學習區，
 // 學習區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，js/zone_g.js 放了一塊甲板），
 // 入口在攤販東邊、麥當勞玻璃房西邊（從下沉區的西段樓梯下來），往東直接通到麥當勞的點餐大廳（js/interiors.js buildMcD）。
 // 地板是 js/zone_g.js 的坑（PIT.west / PIT.stall），天花在坑底上 2.8 m（= 學活外牆的牆腳），把學活空心的內部擋住。
@@ -6,7 +6,7 @@
 // Local frame: origin at (-152, -114), x east, z south (Kit angle 0).
 import * as THREE from 'three';
 import { H, Hgrid } from './terrain.js';
-import { FORE } from './zone_g.js';
+import { FORE, STAIR2F } from './zone_g.js';
 
 export const SAC_B1 = { ox: -152, oz: -114, W: 16, D: 19.58, stallW: 9.3, stallD: 24.5, H: 2.8 }; // stallD stays 5 cm inside PIT.stall: a wall on the pit edge would count from the plaza (H() there)
 
@@ -71,8 +71,9 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   // (under the flight at the bottom, past the last step at the top) are collision lines with height bands.
   const TOP1F = SAC_B1.f1 = Hgrid(-153, -86) + FORE.rise - k.base, NS = 18, A0 = Math.PI / 2, DA = Math.PI / 6, rise = (TOP1F - 0.1) / NS;
   const pol = (a, r) => [SX + Math.cos(a) * r, SZ + Math.sin(a) * r];
-  k.cyl(SX, SZ, 0.12, 0, TOP1F + 1.0, MT.rail, { seg: 12 });
-  k.wallRect(SX - 0.2, SX + 0.2, SZ - 0.2, SZ + 0.2, 0, TOP1F + 1.2);
+  const TOP2F = Hgrid(STAIR2F.x, STAIR2F.zTop - 1) + STAIR2F.rise - k.base; // the stair goes on up to 2F and ends there (js/sac.js builds the floor round it)
+  k.cyl(SX, SZ, 0.12, 0, TOP2F + 1.0, MT.rail, { seg: 12 });
+  k.wallRect(SX - 0.2, SX + 0.2, SZ - 0.2, SZ + 0.2, 0, TOP2F + 1.2);
   for (let i = 0; i < NS; i++) {
     const a1 = A0 + i * DA, a2 = a1 + DA, y = 0.1 + (i + 1) * rise, ro = i === NS - 1 ? 2.3 : SR;
     const g = new THREE.CylinderGeometry(SR, SR, 0.07, 5, 1, false, Math.PI / 2 - a2, DA); g.translate(SX, y - 0.035, SZ); k._part(MT.stair, g);
@@ -85,15 +86,30 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   // the drum: 12 chords; open at the bottom where you walk in (30..90 degrees) and at the top where you walk out (240..300)
   for (let j = 0; j < 12; j++) {
     const a1 = j * DA, [x0, z0] = pol(a1, SR), [x1, z1] = pol(a1 + DA, SR);
-    if (j === 1 || j === 2) k.wallLine(x0, z0, x1, z1, 2.3, TOP1F - 0.3);
-    else if (j === 8 || j === 9) k.wallLine(x0, z0, x1, z1, 0, TOP1F - 0.5);
-    else k.wallLine(x0, z0, x1, z1, 0, TOP1F + 1.1);
+    if (j === 1 || j === 2) k.wallLine(x0, z0, x1, z1, 2.3, TOP2F + 1.1);
+    else if (j === 8 || j === 9) { k.wallLine(x0, z0, x1, z1, 0, TOP1F - 0.5); k.wallLine(x0, z0, x1, z1, TOP1F + 2.3, TOP2F + 1.1); }
+    else if (j === 5 || j === 6) k.wallLine(x0, z0, x1, z1, 0, TOP2F - 0.5); // 2F: out to the west, into the 中庭
+    else k.wallLine(x0, z0, x1, z1, 0, TOP2F + 1.1);
   }
   { const [x0, z0] = pol(Math.PI / 6, 0.15), [x1, z1] = pol(Math.PI / 6, SR); k.wallLine(x0, z0, x1, z1, 0, 2.2); }             // no way under the flight
   { // the top landing is two wedges wide (240..300 degrees); no way past it
     const a1 = Math.PI * 1.5, a2 = a1 + DA, g = new THREE.CylinderGeometry(SR, SR, 0.07, 5, 1, false, Math.PI / 2 - a2, DA); g.translate(SX, TOP1F - 0.035, SZ); k._part(MT.stair, g);
     I.addSurface([pol(a1, 0.15), pol(a1, 2.3), pol((a1 + a2) / 2, 2.3 / Math.cos(DA / 2)), pol(a2, 2.3), pol(a2, 0.15)].map(([x, z]) => k.w(x, z)), TOP1F);
-    const [x0, z0] = pol(a2, 0.15), [x1, z1] = pol(a2, 2.3); k.wallLine(x0, z0, x1, z1, TOP1F - 0.5, TOP1F + 1.1);
+  }
+  { // 1F -> 2F: 16 narrower wedges (15 degrees) from 300 degrees on round to 180, the top landing 150..210 degrees faces west
+    const N2 = 16, D2 = Math.PI / 12, B0 = Math.PI * 5 / 3, r2 = (TOP2F - TOP1F) / N2;
+    const wedge = (a1, a2, y, ro) => {
+      const g = new THREE.CylinderGeometry(SR, SR, 0.07, 4, 1, false, Math.PI / 2 - a2, a2 - a1); g.translate(SX, y - 0.035, SZ); k._part(MT.stair, g);
+      I.addSurface([pol(a1, 0.15), pol(a1, ro), pol((a1 + a2) / 2, ro / Math.cos((a2 - a1) / 2)), pol(a2, ro), pol(a2, 0.15)].map(([x, z]) => k.w(x, z)), y);
+    };
+    for (let j = 0; j < N2; j++) {
+      const a1 = B0 + j * D2, y = TOP1F + (j + 1) * r2; wedge(a1, a1 + D2, y, j === N2 - 1 ? 2.3 : SR);
+      const [px, pz] = pol(a1, SR - 0.05), [qx, qz] = pol(a1 + D2, SR - 0.05);
+      k._part(MT.rail, new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6).translate(px, y + 0.47, pz));
+      const hr = new THREE.BoxGeometry(Math.hypot(qx - px, qz - pz) + 0.04, 0.05, 0.05); hr.rotateZ(Math.atan2(r2, Math.hypot(qx - px, qz - pz))); hr.rotateY(-Math.atan2(qz - pz, qx - px)); hr.translate((px + qx) / 2, y + 0.95 + r2 / 2, (pz + qz) / 2); k._part(MT.rail, hr);
+    }
+    wedge(Math.PI, Math.PI * 7 / 6, TOP2F, 2.3);
+    const [x0, z0] = pol(Math.PI * 7 / 6, 0.15), [x1, z1] = pol(Math.PI * 7 / 6, 2.3); k.wallLine(x0, z0, x1, z1, TOP2F - 0.5, TOP2F + 1.1); // the stair ends at 2F
   }
   k.plane(signTex('樓梯 往 1F ↑', '#2d3b4a', '#ffffff', 512, 96, 52), 1.6, 0.3, SX + 1.6, 2.45, SZ + SR + 0.25, 0, { emissive: 0.5 });
 

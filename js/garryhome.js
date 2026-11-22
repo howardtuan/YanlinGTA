@@ -118,7 +118,9 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   box(X0 + 0.18, CW0, F, CH, CZ0, LDZ0, MT.plaster, nc); box(X0 + 0.18, CW0, F, CH, LDZ1, CZ1, MT.plaster, nc);
   box(X0 + 0.18, CW0, F + 2.18, CH, LDZ0, LDZ1, MT.plaster, nc);
   k.wallLine(CW0, CZ0, CW0, LDZ0, F - 0.2, CH); k.wallLine(CW0, LDZ1, CW0, CZ1, F - 0.2, CH);
-  surf(X0 - 0.05, CW0 + 0.02, LDZ0, LDZ1, F);
+  // floor through the doorway: 彥霖's landing ends at x 5.53, inside the shared wall, so this one reaches back over it (no gap to fall
+  // through), and the whole storey has a floor: nobody can end up in the dark shell underneath
+  surf(5.2, CW0 + 0.1, LDZ0 - 0.2, LDZ1 + 0.2, F); surf(X0, X1, 0, G.D, F);
   // corridor light, shoe rack by the room door, a little calendar
   box(6.3, 6.8, CH - 0.05, CH, 2.9, 3.5, MT.light, nc);
   box(CW0 + 0.02, RX0 - 0.05, F, F + 0.9, CZ1 - 0.42, CZ1 - 0.02, MT.oak);      // shoe rack at the far end of the corridor (past the room door)
@@ -262,6 +264,13 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     toastMat.emissiveIntensity = 0.2 + (g.night || 0) * 1.6;
     const p = g.player.worldPos(), up = !g.player.vehicle && g.player.y > F - 1;
     const near = (q, r) => up && Math.hypot(p.x - q[0], p.z - q[1]) < r;
+    // under the flat there is only the closed shell (1F): anyone in there (an old save, a long hitch) is put back in the corridor
+    if (!g.player.vehicle && !g.player.seat) {
+      const l = k.l(p.x, p.z);
+      if (l[0] > X0 + 0.25 && l[0] < X1 - 0.25 && l[1] > 0.25 && l[1] < G.D - 0.25 && g.player.pos.y < base + F - 1.2) {
+        const a = at(6.6, 2.9); g.player.place(a.x, a.z, g.player.heading); g.player.y = a.y; g.player.pos.y += a.y; g.player.vy = 0; g.player.ground = a.y; g.hud.toast('🪜 回到 2 樓走廊', 'good', 1800);
+      }
+    }
     rdoor.rotation.y += ((near(roomDoorAt, 1.8) ? -Math.PI / 2 : 0) - rdoor.rotation.y) * Math.min(1, dt * 5);
     ldoor.rotation.y += ((near(landAt, 2.0) ? -Math.PI / 2 : 0) - ldoor.rotation.y) * Math.min(1, dt * 5);
   });

@@ -33,7 +33,7 @@ export function friendLocations(g) {
   if (has('garry')) { // 黃蓋瑞 (js/garry.js)
     const G = g.garry, m = G?.mode;
     if (m === 'run') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在體育園區跑道慢跑');
-    else if (m === 'club') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在活動中心的古箏社教室');
+    else if (m === 'club') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在活動中心 3 樓的古箏社教室');
     else if (m === 'sleep') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間睡覺（彥霖隔壁）');
     else if (G) add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間（彥霖隔壁）');
   }

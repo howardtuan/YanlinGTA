@@ -1,10 +1,11 @@
-// 黃蓋瑞：古箏社幹部，住彥霖隔壁（js/garryhome.js）。很常去體育園區的跑道跑步，偶爾在學生活動中心的古箏社教室（js/clubroom.js）。
+// 黃蓋瑞：古箏社幹部，住彥霖隔壁（js/garryhome.js）。很常去體育園區的跑道跑步，偶爾在學生活動中心 3 樓的古箏社教室（js/clubroom.js）。
 // 外型照使用者給的照片：高瘦、黑色短髮有瀏海，白底熱帶葉印花短袖襯衫（橘、藍綠、深藍的葉子，扣好正常穿），
 // 膝上黑色緊身運動短褲；跑步時換素色深灰運動 T。同一時間只會出現在一個地方（跟勞大、吱吱一樣）：
 //   SCHEDULE 依日期輪：早上／傍晚跑步（有幾天沒跑）、中午或晚上在古箏社教室（每小時前 15 分鐘整理琴盒，之後坐在老師位練琴，有撥弦聲）、
 //   其他時間在房間（書桌前，深夜睡覺）。跑步的時候跑道上還有幾個一起慢跑的同學。
 // 起床鬧鐘彩蛋：他桌上的手機按 E（或早上 07:00 你人在他房間）會響起鬧鐘（assets/sfx/garry/alarm.m4a，只有聲音）；
 // 檔案載入失敗時改成一般的鬧鈴聲。
+import { playPose } from './clubmembers.js';
 import * as THREE from 'three';
 import { createCharacter, randomStudent } from './character.js';
 import { torsoProfile } from './bodymesh.js';
@@ -123,7 +124,7 @@ export function garryPlan(clock) {
   if (m >= M(23, 30) || m < M(6)) return 'sleep';
   return 'desk';
 }
-const PLACE = { run: '體育園區跑道', club: '活動中心的古箏社教室', desk: '房間', sleep: '房間' };
+const PLACE = { run: '體育園區跑道', club: '活動中心 3 樓的古箏社教室', desk: '房間', sleep: '房間' };
 
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 export class Garry {
@@ -136,7 +137,7 @@ export class Garry {
     this._trackPath(); this._clubSpot(); this._joggers();
     const pos = this.pos;
     game.interiors.actions.push({
-      get x() { return pos.x; }, get z() { return pos.z; }, r: 2.2, y: 0, anyY: true, cond: () => !!this.mode && this.ch.root.visible,
+      get x() { return pos.x; }, get z() { return pos.z; }, r: 2.2, y: 0, anyY: true, cond: () => !!this.mode && this.ch.root.visible && Math.abs(game.player.pos.y - pos.y) < 2.2,
       label: () => this.mode === 'sleep' ? '按 <kbd>E</kbd> 看看黃蓋瑞（他在睡覺）' : '按 <kbd>E</kbd> 和黃蓋瑞聊天',
       fn: () => this.talk(),
     });
@@ -185,7 +186,7 @@ export class Garry {
     if (plan !== this.mode) this._enter(plan);
     const ch = this.ch, r = ch.root, near = (x, z, d) => (x - wp.x) ** 2 + (z - wp.z) ** 2 < d * d;
     this.mark.visible = !g.friends?.added.has('garry'); if (this.mark.visible) this.mark.position.y = 2.6 + Math.sin(g.time * 3) * 0.08;
-    let speed = 0, mode = 'foot';
+    let speed = 0, mode = 'foot', playing = false;
     if (this.talking) this.pause = Math.max(this.pause, 0.4);
     if (this.mode === 'run') {
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }
@@ -195,11 +196,11 @@ export class Garry {
       }
       this.pos.y = surfaceAt(this.pos.x, this.pos.z);
     } else if (this.mode === 'club') {
-      const sp = this.clubSpotNow = (g.clock % 60) < 15 ? this.clubTidy : this.clubPlay; this.pos.set(sp.x, surfaceAt(sp.x, sp.z) + 0.1, sp.z);
+      const sp = this.clubSpotNow = (g.clock % 60) < 15 ? this.clubTidy : this.clubPlay; this.pos.set(sp.x, this.g.interiors.club.F3 + (sp.play ? 0.14 : 0), sp.z);
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }
       else this.heading += angDiff(sp.h, this.heading) * Math.min(1, dt * 4);
       if (sp.play) { mode = 'sit'; this.heading = sp.h; } // stays on the stool behind the guzheng, also while you talk
-      if (sp.play && this.pause <= 0) this._pluck(dt, near(this.pos.x, this.pos.z, 28));
+      playing = !!sp.play; // (the sound: js/clubmembers.js)
     } else if (this.mode === 'desk') {
       const s = this.home.seat; this.pos.set(s.x, this.home.base + this.home.F, s.z);
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }
@@ -208,9 +209,10 @@ export class Garry {
     } else if (this.mode === 'sleep') {
       const b = this.home.bed; this.pos.set(b.x, this.home.base + this.home.F + 0.72, b.z); this.heading = b.h; mode = 'down';
     }
+    this.playing = playing && this.pause <= 0;
     r.position.copy(this.pos); r.rotation.y = this.heading;
     const vis = near(this.pos.x, this.pos.z, 160); r.visible = vis;
-    if (vis) { ch.setDetail?.(near(this.pos.x, this.pos.z, 35)); ch.update(dt, { speed, mode }); }
+    if (vis) { ch.setDetail?.(near(this.pos.x, this.pos.z, 35)); ch.update(dt, { speed, mode }); if (playing) playPose(ch, g.time, this.playing); }
     // joggers
     const on = this.mode === 'run' || (g.clock % 1440 >= M(6) && g.clock % 1440 < M(7, 30)) || (g.clock % 1440 >= M(17, 30) && g.clock % 1440 < M(19));
     for (const j of this.runners) {
@@ -235,20 +237,6 @@ export class Garry {
     if (plan === 'run' && prev !== 'run') this.tk = Math.random();
     this.home.tuckIn(plan === 'sleep'); this.home.chairTo(this.home.seat.h);
     if (plan === 'desk') this.heading = this.home.seat.h;
-  }
-  // the guzheng: a pentatonic run of plucks (WebAudio) while he practises and you are near
-  _pluck(dt, audible) {
-    if ((this._pt = (this._pt || 0) - dt) > 0) return;
-    this._pt = 0.22 + Math.random() * 0.35;
-    const A = this.g.audio, ctx = A.ctx; if (!audible || !ctx || ctx.state !== 'running' || !A.sfx) return;
-    const scale = [293.66, 329.63, 369.99, 440, 493.88, 587.33, 659.25, 739.99, 880];
-    this._ni = ((this._ni ?? 3) + (Math.random() < 0.5 ? 1 : -1) + scale.length) % scale.length;
-    const f = scale[this._ni], t = ctx.currentTime, o = ctx.createOscillator(), o2 = ctx.createOscillator(), gn = ctx.createGain(), flt = ctx.createBiquadFilter();
-    o.type = 'triangle'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = f * 2.01;
-    flt.type = 'lowpass'; flt.frequency.setValueAtTime(4200, t); flt.frequency.exponentialRampToValueAtTime(900, t + 0.8);
-    const d = Math.hypot(this.pos.x - this.g.player.worldPos().x, this.pos.z - this.g.player.worldPos().z), vol = 0.22 * Math.max(0, 1 - d / 28);
-    gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol + 0.0001, t + 0.008); gn.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
-    o.connect(flt); o2.connect(flt); flt.connect(gn); gn.connect(A.sfx); o.start(t); o2.start(t); o.stop(t + 1.5); o2.stop(t + 1.5);
   }
   // ---- talking ----
   talk() {

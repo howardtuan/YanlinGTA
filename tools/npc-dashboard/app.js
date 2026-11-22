@@ -16,6 +16,7 @@ const BUILTIN = {
   zz: async () => createCharacter((await import('../../js/friends.js')).ZZ_LOOK),
   gd: async () => createCharacter((await import('../../js/friends.js')).GD_LOOK),
   hank: async () => createCharacter((await import('../../js/hank.js')).HANK_LOOK),
+  ...Object.fromEntries(['qi', 'xuan', 'yu'].map(id => ['club_' + id, async () => (await import('../../js/clubmembers.js')).createMember(id)])), // 古箏社社員
   garry: async () => (await import('../../js/garry.js')).createGarry(),
   laoda: async () => (await import('../../js/pilot.js')).createPilot(),
   jianyu: async () => createCharacter((await import('../../js/jianyu.js')).JIANYU_LOOK),

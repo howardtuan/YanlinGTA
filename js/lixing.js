@@ -510,7 +510,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       label: () => '按 <kbd>E</kbd> 搭電梯（1F → 2F → 3F → 4F）',
       fn: (g) => {
         const p = g.player; let cur = 0; for (let f = 0; f < 4; f++) if (p.y > rel(f, p.pos.x, p.pos.z) - 0.8) cur = f;
-        const next = (cur + 1) % 4; p.y = rel(next, p.pos.x, p.pos.z) + 0.05; p.vy = 0;
+        const next = (cur + 1) % 4; const dy = rel(next, p.pos.x, p.pos.z) + 0.05 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; // the feet go along (js/player.js compares the two)
         g.audio?.lift?.(); g.hud?.toast(`電梯 → ${next + 1}F`, 'good', 1200);
       },
     });

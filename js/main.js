@@ -37,6 +37,7 @@ import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
 import { garryOutline } from './garryhome.js';
 import { clubFootprint } from './clubroom.js';
+import { ClubMembers } from './clubmembers.js';
 import { Concerts } from './concert.js';
 import { Garry } from './garry.js';
 import { Jianyu } from './jianyu.js';
@@ -292,6 +293,7 @@ class Game {
     setLoad(0.95, '準備出發');
     this.missions = new Missions(this);
     this.sunday = new Sunday(this);   // the hint helper in the bottom-right corner during the story (J)
+    this.clubMembers = new ClubMembers(this); // 古箏社社員 (js/clubmembers.js)
     this.garry = new Garry(this);       // 黃蓋瑞: runs on the track, 古箏社 at 活動中心, lives next door to 彥霖 (js/garry.js)
     this.jianyu = new Jianyu(this);     // 劍玉: 力行 278, his supercars at the 資管系館, the 班費 case (js/jianyu.js)
     this.mingshan = new Mingshan(this); // 羊明衫: dances in front of the 資管系館 with her orange cat, McDonald's duty manager at night (js/mingshan.js)

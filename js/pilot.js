@@ -7,6 +7,7 @@ import { createCharacter } from './character.js';
 import { dressLakers, LAKERS } from './jersey.js';
 import { makeLabel } from './map.js';
 import { surfaceAt } from './terrain.js';
+import { reachArm } from './armik.js';
 import { COURTS, COLUMNS, courtP, courtRims, RIM_R } from './court.js';
 
 export const PILOT_LOOK = {
@@ -98,7 +99,7 @@ class BallGame {
   constructor(p) { // p: the CampusPilot (its pos, heading, ch, g)
     this.p = p; this.C = COURTS[0]; this.rims = courtRims(this.C); this.end = 1;
     this.pos = V(); this.vel = V(); this.hold = new THREE.Vector3(0, 1.06, 0.34); this.from = V();
-    this.a = V(); this.b = V(); this.c = V(); this.d = V(); this.m = new THREE.Matrix4(); this.m2 = new THREE.Matrix4();
+    this.a = V(); this.b = V();
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128; const c = cv.getContext('2d');
     c.fillStyle = '#d2692a'; c.fillRect(0, 0, 256, 128); c.strokeStyle = '#231a14'; c.lineWidth = 4;
     c.beginPath(); c.moveTo(0, 64); c.lineTo(256, 64); for (const x of [2, 128]) { c.moveTo(x, 0); c.lineTo(x, 128); } c.stroke();
@@ -181,18 +182,7 @@ class BallGame {
     if (this.good) { v.set(v.x * 0.06, -2.2, v.z * 0.06); this.made++; this.sound(r.x, r.z, 3200, 0.35, 'highpass', 0.22); } // through the net
     else { const s = 1.2 + Math.random() * 1.2, h = Math.hypot(this.mx, this.mz); v.set(this.mx / h * s - v.x * 0.25, 1.6 + Math.random() * 1.4, this.mz / h * s - v.z * 0.25); this.sound(r.x, r.z, 700, 0.5); } // off the iron
   }
-  // bend the arm so the palm reaches (x, y, z) in his own frame; the elbow points toward (px, py, pz)
-  reach(arm, x, y, z, px, py, pz) {
-    const ch = this.p.ch, A = 0.26, B = 0.25, t = ch.torso.worldToLocal(ch.root.localToWorld(this.a.set(x, y, z))).sub(arm.sh.position);
-    const d = Math.min(A + B - 0.004, Math.max(0.12, t.length())), q = (A * A + B * B - d * d) / (2 * A * B), el = -(Math.PI - Math.acos(Math.max(-1, Math.min(1, q))));
-    t.normalize();
-    // frame of the straight-down arm bent by el: along its reach, toward its elbow
-    const h0 = this.b.set(0, -A - B * Math.cos(el), -B * Math.sin(el)).normalize(), e0 = this.c.set(0, -A, 0); e0.addScaledVector(h0, -e0.dot(h0)); if (e0.lengthSq() < 1e-6) e0.set(0, 0, -1); e0.normalize();
-    this.m.makeBasis(h0, e0, this.d.crossVectors(h0, e0)).transpose();
-    const e1 = this.c.set(px, py, pz); e1.addScaledVector(t, -e1.dot(t)).normalize();
-    this.m2.makeBasis(t, e1, this.d.crossVectors(t, e1)).multiply(this.m);
-    arm.sh.quaternion.setFromRotationMatrix(this.m2); arm.el.rotation.set(el, 0, 0);
-  }
+  reach(arm, ...q) { reachArm(this.p.ch, arm, ...q); }
   legs(bend, toes, lean) { // both knees the same: the feet stay under him
     const ch = this.p.ch;
     for (const l of ch.legs) { l.kn.rotation.x = bend; l.hp.rotation.x = -bend / 2 + 0.03 * l.s; l.ft.rotation.x = toes ? toes : -bend / 2; }

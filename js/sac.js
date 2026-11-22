@@ -1,6 +1,6 @@
 // 學生活動中心室內（OSM w392023427）：一樓到四樓走得進去，二樓從南面門廊穿過中庭走上新中北路天橋，三樓走進往生科館的空橋。
 // 外觀仍由 js/map.js 照輪廓畫、js/zone_g.js 補構件；麥當勞（js/interiors.js buildMcD）、古箏社教室（js/clubroom.js）、
-// B1 學習區與學餐（js/sac_b1.js）照舊，這裡蓋它們以外的部分（輪廓 = sacTrimmedPts：東南角麥當勞那塊、西北角古箏社那塊不算）。
+// B1 學習區與學餐（js/sac_b1.js）照舊，這裡蓋它們以外的部分（輪廓 = sacTrimmedPts：東南角麥當勞那塊、西北角 js/clubroom.js 那塊不算）。
 //
 // 依據：
 //  - 課外活動指導組《學生社團活動空間場地借用說明》（110 學年，有各場地的照片與房號）、活動中心管理細則、總務處場地收費表、學校新聞：
@@ -10,12 +10,13 @@
 //       雅文多功能展演廳 A／B 廳、社團多功能交誼廳；
 //    3F 課外活動指導組 313、學生會 308、活動教室 301／302／317／318、韻律教室 312、招待所、幾個紅磚平台（有鏡子）；
 //    4F 大音樂練習室 411、琴房 412～414／418、小音樂練習室 417、武術練習室 419、社團辦公室、倉儲室、樂器室。
+//    3F 西北角（主走廊西端）：古箏社教室（js/clubroom.js buildClub3F；使用者指正在 3 樓，哪一角是推測）。
 //  - Google 地圖相片（培英廳 2023-09）、既有的街景與正射（屋頂北側的長弧頂採光罩、西面約三樓的空橋）。
 // 找不到平面圖：每一層「有什麼」照上面的資料，「在該層的哪裡」是照建築外形排的（推測）：
 // 東西向主走廊在採光罩下方，北排房間靠新中北路，中庭對著南面大門廊，培英廳在一樓西半挑高兩層。
 // B1 的圓形旋轉梯（js/sac_b1.js）往上到一樓大廳、再到二樓中庭東牆邊為止（使用者指正）。
-// 沒有來源的房間只寫社團辦公室、儲藏室、廁所。能進去的房間：培英廳、101 交誼廳、雅文 A 廳、301 活動教室、312 韻律教室、
-// 412 琴房、419 武術練習室；其他是關著的門。麥當勞上面的各樓層（弧形玻璃那塊）沒有做。
+// 沒有來源的房間只寫社團辦公室、儲藏室、廁所。能進去的房間：培英廳、101 交誼廳、雅文 A 廳、301／302／317／318 活動教室、312 韻律教室、
+// 303／401／403／405 社團辦公室、3F 古箏社教室、412 琴房、419 武術練習室；其他是關著的門。麥當勞上面的各樓層（弧形玻璃那塊）沒有做。
 //
 // 高度（世界高度）：一樓 = 入口前庭、二樓 = 南面門廊（大階梯頂）、三樓 = 往生科館空橋的地板、四樓再上 3.4 m。
 // 新中北路天橋的橋面比二樓高約 1.1 m：二樓北面進門後是橋面高度的平台，往下走 7 階到二樓（不改天橋）。
@@ -23,6 +24,7 @@
 // 座標：這個檔直接用世界座標（Kit 原點 0,0、不旋轉），y 是世界高度。
 import * as THREE from 'three';
 import { H, Hgrid, surfaceAt } from './terrain.js';
+import { CLUB_DOOR, buildClub3F } from './clubroom.js';
 import { G_IDS, FORE, STAIR2F, PIT, BRIDGE, SAC_DOORS } from './zone_g.js';
 
 // ---------------- plan (world metres) ----------------
@@ -58,6 +60,7 @@ function sacDoors() {
   return [
     S(...D.s1, L.F[0] - 0.05, L.F[0] + 2.7), S(...D.s2, L.F[1] - 0.02, L.F[1] + 2.5),
     N(...D.n1, L.gN - 0.2, L.gN + 2.6), N(...D.nb, L.deck - 0.05, L.deck + 2.05),
+    { p: [CLUB_DOOR[0], -118.2], q: [CLUB_DOOR[1], -118.2], y0: L.F[2] - 0.02, y1: L.F[2] + 2.4 }, // 古箏社教室 (js/clubroom.js)
     { p: [xWest(D.wb[0]), D.wb[0]], q: [xWest(D.wb[1]), D.wb[1]], y0: L.F[2] - 0.02, y1: L.F[2] + 2.3 },
   ];
 }
@@ -266,9 +269,9 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
       [NH.x1, -131, '101 邱林信貞全球交誼廳', 'gap'], [-131, -124, '機房', 'svc'], [-124, STE.x0, '郵局 請由戶外進出', 'svc'], [STE.x0, XR, '', 'open']],
     [[XCL, BH.x0, '雅文多功能展演廳 A 廳', 'gap'], [BH.x0, BH.x1, '', 'open'], [BH.x1, -150, '', 'solid'], [-150, -138, '雅文多功能展演廳 B廳', 'room'],
       [-138, -134.5, '男廁', 'svc'], [-134.5, -131, '女廁', 'svc'], [-131, STE.x0, '社團 多功能交誼廳', 'office'], [STE.x0, XR, '', 'open']],
-    [[XCL, -174, '301 活動教室', 'gap'], [-174, -167.2, '302 活動教室', 'room'], [-167.2, -162, '303 社團辦公室', 'room'], [-162, -158, '308 學生會', 'office'], [-158, -150, '', 'solid'],
-      [-150, -147.5, '男廁', 'svc'], [-147.5, -145, '女廁', 'svc'], [-145, -131, '312 韻律教室', 'gap'], [-131, -123.5, '317 活動教室', 'room'], [-123.5, STE.x0, '318 活動教室', 'room'], [STE.x0, XR, '', 'open']],
-    [[XCL, -175, '401 社團辦公室', 'room'], [-175, -169.5, '403 社團辦公室', 'room'], [-169.5, -164, '405 社團辦公室', 'room'], [-164, -161, '男廁', 'svc'], [-161, -158.5, '女廁', 'svc'],
+    [[XCL, -174, '301 活動教室', 'gap'], [-174, -167.2, '302 活動教室', 'gap'], [-167.2, -162, '303 社團辦公室', 'gap'], [-162, -158, '308 學生會', 'office'], [-158, -150, '', 'solid'],
+      [-150, -147.5, '男廁', 'svc'], [-147.5, -145, '女廁', 'svc'], [-145, -131, '312 韻律教室', 'gap'], [-131, -123.5, '317 活動教室', 'gap'], [-123.5, STE.x0, '318 活動教室', 'gap'], [STE.x0, XR, '', 'open']],
+    [[XCL, -175, '401 社團辦公室', 'gap'], [-175, -169.5, '403 社團辦公室', 'gap'], [-169.5, -164, '405 社團辦公室', 'gap'], [-164, -161, '男廁', 'svc'], [-161, -158.5, '女廁', 'svc'],
       [-158.5, -146, '411 大音樂練習室', 'room'], [-146, -142.5, '412 琴房', 'gap'], [-142.5, -139, '413 琴房', 'room'], [-139, -135.5, '414 琴房', 'room'], [-135.5, -129, '417 小音樂練習室', 'room'],
       [-129, -125.5, '418 琴房', 'room'], [-125.5, STE.x0, '419 武術練習室', 'gap'], [STE.x0, XR, '', 'open']],
   ];
@@ -282,7 +285,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     const y = FL[f], c = y + CH[f], cw = f === 1 ? XCL : XL; // 2F: the corridor stops at 培英廳's upper half
     // --- main corridor (under the roof's long skylight)
     room(f, cw, XR, CN, CS, { floor: f ? MT.red : MT.floor });
-    if (cw < XCL) front(f, 'x', CN, 's', [[cw, XCL, '', 'solid']]);
+    if (cw < XCL) front(f, 'x', CN, 's', f === 2 ? [[cw, CLUB_DOOR[0], '', 'solid'], [...CLUB_DOOR, '', 'open'], [CLUB_DOOR[1], XCL, '', 'solid']] : [[cw, XCL, '', 'solid']]); // 3F: 古箏社教室
     front(f, 'x', CN, 's', NROW[f]);
     front(f, 'x', CS, 'n', SROW[f][0]); front(f, 'x', CS, 'n', SROW[f][1]);
     wall(cw, CN, cw, CS, y, c, MT.tileW, f === 1 ? -1 : 1); wall(XR, CN, XR, CS, y, c, MT.tileW, -1);
@@ -302,13 +305,15 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   // round columns of the 中庭, from the 1F lobby up to the skylight
   for (const x of [V.x0, V.x1]) for (const z of [V.z0, V.z1]) column(x, z, F1, CT);
 
+  sign('古箏社 → 3F 走廊西端', ST.x1 + 0.02, F1 + 2.0, -111.2, 'e', '#5a1620', 1.9); sign('← 古箏社教室', -184.2, F3 + 2.55, CN + 0.02, 's', '#5a1620', 1.6);
+
   // ---------------- lift ----------------
   I.actions.push({
     poly: k.rect(AX0 + 0.05, AX0 + 1.6, EL.z0 + 0.2, EL.z1 - 0.2), y: 0, anyY: true,
     label: () => '按 <kbd>E</kbd> 搭電梯（1F → 2F → 3F → 4F）',
     fn: (g) => {
       const p = g.player, gh = H(p.pos.x, p.pos.z); let cur = 0; for (let f = 0; f < 4; f++) if (p.y > FL[f] - gh - 0.8) cur = f;
-      const next = (cur + 1) % 4; p.y = FL[next] - gh + 0.05; p.vy = 0;
+      const next = (cur + 1) % 4; const dy = FL[next] - gh + 0.05 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; // the feet go along (js/player.js compares the two)
       g.audio?.lift?.(); g.hud?.toast(`電梯 → ${next + 1}F`, 'good', 1200);
     },
   });
@@ -531,13 +536,22 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     if (o.win !== false) for (let x = x0 + 1.6; x < x1 - 1.0; x += 2.8) win(2.0, 1.4, x, y + 1.7, zb + T + 0.01, 's');
     return [y, c];
   };
-  { // 301：ㄇ字形排的木紋桌、橘紅白三色椅、白板
-    const [y] = shell(2, XCL, -174), cx = (XCL - 174) / 2;
-    table(y, cx - 2.2, cx + 2.2, -125.8, -125.1); table(y, cx - 2.2, cx - 1.5, -125.1, -120.6); table(y, cx + 1.5, cx + 2.2, -125.1, -120.6);
-    const cols = [MT.cO, MT.cR, MT.cW];
-    for (let i = 0; i < 6; i++) chair(cx - 1.9 + i * 0.75, -126.35, cols[i % 3], 's')(y);
-    for (let i = 0; i < 6; i++) { chair(cx - 2.75, -124.8 + i * 0.75, cols[(i + 1) % 3], 'e')(y); chair(cx + 2.75, -124.8 + i * 0.75, cols[(i + 2) % 3], 'w')(y); }
-    bx(cx - 1.2, cx + 1.2, y + 0.95, y + 2.05, CN - T - 0.05, CN - T - 0.02, MT.screen);
+  // 301／302／317／318：木紋長桌圍成方框、橘紅白三色椅、白板（場地借用說明的照片，四間一樣）
+  for (const [x0, x1] of [[XCL, -174], [-174, -167.2], [-131, -123.5], [-123.5, STE.x0]]) {
+    const [y] = shell(2, x0, x1), cx = (x0 + x1) / 2, cols = [MT.cO, MT.cR, MT.cW];
+    table(y, cx - 2.0, cx + 2.0, -125.9, -125.2); table(y, cx - 2.0, cx - 1.3, -125.2, -121.4); table(y, cx + 1.3, cx + 2.0, -125.2, -121.4); table(y, cx - 2.0, cx + 2.0, -121.4, -120.7);
+    for (let i = 0; i < 5; i++) { chair(cx - 1.6 + i * 0.8, -126.4, cols[i % 3], 's')(y); chair(cx - 1.6 + i * 0.8, -120.2, cols[(i + 1) % 3], 'n')(y); }
+    for (let i = 0; i < 5; i++) { chair(cx - 2.5, -124.9 + i * 0.8, cols[(i + 1) % 3], 'e')(y); chair(cx + 2.5, -124.9 + i * 0.8, cols[(i + 2) % 3], 'w')(y); }
+    bx(x0 + T, x0 + T + 0.03, y + 0.95, y + 2.05, -120.6, -118.4, MT.screen);
+  }
+  // 社團辦公室：幾張桌子、椅子、靠牆的鐵櫃和布告欄（沒有照片，簡單擺）
+  for (const [f, x0, x1] of [[2, -167.2, -162], [3, XCL, -175], [3, -175, -169.5], [3, -169.5, -164]]) {
+    const [y] = shell(f, x0, x1), cx = (x0 + x1) / 2, cols = [MT.cO, MT.cR, MT.cW];
+    for (const z of [-125.2, -122.2]) {
+      table(y, cx - 1.0, cx + 1.0, z - 0.4, z + 0.4);
+      for (const dx of [-0.5, 0.5]) { chair(cx + dx, z - 0.75, cols[(f + (dx > 0 ? 1 : 0)) % 3], 's')(y); chair(cx + dx, z + 0.75, MT.cW, 'n')(y); }
+    }
+    cbx(x1 - T - 0.45, x1 - T, y, y + 1.85, -127.6, -125.2, MT.steel); quad(MT.posters, 2.6, 0.9, x0 + T + 0.015, y + 1.6, -122.6, 'e');
   }
   { // 312：木地板、黑色格子梁天花、整面鏡子與把桿（禁止穿鞋）
     const [y, c] = shell(2, -145, -131, CN, { ceilM: MT.black });
@@ -616,6 +630,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
 
   doorA.tex.needsUpdate = true; signA.tex.needsUpdate = true;
   k.finish(scene);
+  I.club = buildClub3F(I, scene, Kit, regMat, { F3, c: F3 + CH[2], sf });
   I.sac = { k, FL, DK, B, setFeet: (v) => { feet = v; } };
   return I.sac;
 }

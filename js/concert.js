@@ -278,7 +278,7 @@ export class Concerts {
       g.clock = Math.max(g.clock, A.start - 6); g.hud.setClock?.(g.clock);
       this._showPeople(false); this.ar.fx.visible = true;
       const s = this.ar.zoneSpot(A.zone), st = this.ar.stage, h = Math.atan2(st.x - s.x, st.z - s.z);
-      g.player.place(s.x, s.z, h); g.player.y = s.y; g.rig.yaw = h; g.rig.pitch = -0.12;
+      g.player.place(s.x, s.z, h); g.player.y = s.y; g.player.pos.y += s.y; g.rig.yaw = h; g.rig.pitch = -0.12;
       this._makeRoom(s.x, s.z, s.y);
       if (this.state !== 'live') this._sticks(() => '#e8e8e8');
       this._fp(true); this._myStick(true);

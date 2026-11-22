@@ -252,14 +252,87 @@
       "catchphrase": "哈哈那是我在練期末成發的曲子啦",
       "background": "高瘦、黑色短髮有瀏海，穿白底熱帶葉印花襯衫；起床鬧鐘是一個彩蛋。",
       "relations": "住彥霖隔壁（孫師傅牛肉拉麵樓上的鄰居）。",
-      "where": "體育園區跑道／學生活動中心古箏社教室／家裡",
+      "where": "體育園區跑道／學生活動中心 3 樓古箏社教室／家裡",
       "schedule": "早上或傍晚跑步，中午或晚上在古箏社，其他時間在房間",
       "friend": true,
       "sources": [
         "js/garry.js",
         "js/garryhome.js",
         "js/clubroom.js",
-        "js/friends.js"
+        "js/friends.js",
+        "js/clubmembers.js"
+      ]
+    },
+    {
+      "id": "club_qi",
+      "kind": "builtin",
+      "ref": "club_qi",
+      "name": "小琪",
+      "title": "古箏社社長",
+      "gender": "女",
+      "dept": "",
+      "personality": "溫柔但練團很嚴格。",
+      "interests": [
+        "古箏"
+      ],
+      "likes": "",
+      "catchphrase": "零基礎也可以來喔",
+      "background": "古箏社的社員，社團時間在 3 樓教室練琴。",
+      "relations": "黃蓋瑞的社團夥伴。",
+      "where": "學生活動中心 3 樓古箏社教室",
+      "schedule": "黃蓋瑞有社團的中午 12:00–13:30 或晚上 19:00–21:30",
+      "friend": false,
+      "sources": [
+        "js/clubmembers.js",
+        "js/clubroom.js"
+      ]
+    },
+    {
+      "id": "club_xuan",
+      "kind": "builtin",
+      "ref": "club_xuan",
+      "name": "小萱",
+      "title": "古箏社社員",
+      "gender": "女",
+      "dept": "",
+      "personality": "認真的新手，容易緊張。",
+      "interests": [
+        "古箏"
+      ],
+      "likes": "",
+      "catchphrase": "左手壓弦還會抖",
+      "background": "古箏社的社員，社團時間在 3 樓教室練琴。",
+      "relations": "黃蓋瑞的社團夥伴。",
+      "where": "學生活動中心 3 樓古箏社教室",
+      "schedule": "黃蓋瑞有社團的中午 12:00–13:30 或晚上 19:00–21:30，平日 17:00–18:30 自主練習",
+      "friend": false,
+      "sources": [
+        "js/clubmembers.js",
+        "js/clubroom.js"
+      ]
+    },
+    {
+      "id": "club_yu",
+      "kind": "builtin",
+      "ref": "club_yu",
+      "name": "阿宇",
+      "title": "古箏社器材",
+      "gender": "男",
+      "dept": "",
+      "personality": "沉穩，什麼琴都會修。",
+      "interests": [
+        "古箏"
+      ],
+      "likes": "",
+      "catchphrase": "琴碼不要碰到喔",
+      "background": "古箏社的社員，社團時間在 3 樓教室練琴。",
+      "relations": "黃蓋瑞的社團夥伴。",
+      "where": "學生活動中心 3 樓古箏社教室",
+      "schedule": "黃蓋瑞有社團的中午 12:00–13:30 或晚上 19:00–21:30，平日 17:00–18:30 自主練習",
+      "friend": false,
+      "sources": [
+        "js/clubmembers.js",
+        "js/clubroom.js"
       ]
     },
     {

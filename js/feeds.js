@@ -55,7 +55,7 @@ export const FRIEND_POSTS = {
     { who: '劍玉', img: G('jianyu_game'), cap: '鑽石 II 達成 ◆ 下一個目標超凡 🎯 278 寢今晚雙排缺一 #特戰英豪', likes: 187, ago: 900 },
   ],
   garry: [ // garry / garry_run / garry_club 是用遊戲裡的 3D 角色算繪的，不是真人照片
-    { who: '黃蓋瑞', img: G('garry_club'), cap: '古箏社教室練團中！零基礎也可以來學，活動中心一樓 🎶 #古箏社 #中原', likes: 176, ago: 240 },
+    { who: '黃蓋瑞', img: G('garry_club'), cap: '古箏社教室練團中！零基礎也可以來學，活動中心三樓 🎶 #古箏社 #中原', likes: 176, ago: 240 },
     { who: '黃蓋瑞', img: G('garry_run'), cap: '晨跑 5 公里打卡 🏃 體育園區的日出很漂亮', likes: 92, ago: 1500 },
   ],
   zz: [

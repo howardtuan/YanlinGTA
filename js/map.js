@@ -2499,7 +2499,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
     // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
     // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
-    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts: b.acPts || pts, top, /* acPts：改過輪廓的建物用原本輪廓抽冷氣亂數（js/zone_a.js） */ town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts: b.acPts || pts, top, /* acPts：改過輪廓的建物用原本輪廓抽冷氣亂數（js/zone_a.js） */ town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h, V.holes]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
@@ -2548,7 +2548,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const x = x0 + 1.5 + rnd2() * (x1 - x0 - 3), z = z0 + 1.5 + rnd2() * (z1 - z0 - 3);
         if (!pointInPoly(x, z, pts) || !pointInPoly(x + 1.2, z + 1.2, pts) || !pointInPoly(x - 1.2, z - 1.2, pts)) continue;
         // split roof: the block under the unit; a unit across a block edge is dropped (its draws stay)
-        const blk = parts && [[x, z], [x + 1.2, z + 1.2], [x - 1.2, z - 1.2]].map(([qx, qz]) => parts.find(([p]) => pointInPoly(qx, qz, p)));
+        const blk = parts && [[x, z], [x + 1.2, z + 1.2], [x - 1.2, z - 1.2]].map(([qx, qz]) => parts.find(([p, , hs]) => pointInPoly(qx, qz, p) && !(hs && hs.some(q => pointInPoly(qx, qz, q))))); // 天井（V.holes）上不放
         const top = !parts ? top0 : blk[0] && blk.every(q => q === blk[0]) ? blk[0][1] : null;
         if (rnd2() < 0.25) { const a = rnd2() * 3; if (top !== null && !skip) acGeo.box(x, z, a, 0.5, 0.5, top, top + 1.1, col('#8f9497')); }
         else if (top !== null && !skip) { acGeo.box(x, z, 0, 1.0, 0.7, top, top + 0.75, col('#e4e3de')); acGeo.box(x + 1.15, z, 0, 1.0, 0.7, top, top + 0.75, col('#dedcd6')); }

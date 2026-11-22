@@ -67,13 +67,24 @@ const DXS = {
   h: 29.7, floors: 9,             // 長條 9F
   connH: 10.8, connFloors: 3,     // 白色連接量體
   podH: 1.2,                      // 圓筒外圈咖啡色磁磚環狀台基（正射 v2；輪廓裡圓筒以外的角落）
-  drum: { u: 7.7, v: 14.0, r: 7.5, h: 17.4, floors: 5 }, // 圓筒（外徑約 15 m）；圓心局部座標
+  drum: { u: 7.7, v: 14.0, r: 7.5, h: 17.0, floors: 5 }, // 圓筒（外徑約 15 m）；圓心局部座標。5F（2017-09 官方街景）
   vConn: 6.5,                     // v < 6.5 是連接量體
 };
 const dxsF = frame([7.9, 232.0], [-14.7, -4.7]);
 // v 軸要朝南（u 往西時 frame 給的 v 朝北），這裡把 v 反號
 const dxsP = (u, v) => dxsF.P(u, -v), dxsV = p => -dxsF.v(p), dxsU = p => dxsF.u(p);
 const DRUM_C = dxsP(DXS.drum.u, DXS.drum.v);
+// 圓筒東側白色馬賽克磁磚方形樓梯塔（2017-09 官方街景，接到 4F 陽台高度）：局部 u、v 範圍
+const DXS_STAIR = { u0: -2.8, u1: 0.9, v0: 12.0, v1: 16.2, h: 14.6 };
+// 長條中段的 9 層露天天井（評論相片 2023-05；正射屋頂凹口約 x -9..4、z 215..224）：沿長條方向 12×8 m
+const DXS_ATRIUM = { c: [-2.5, 219.5], U: [0.949, 0.316], hu: 6.0, hv: 4.0 };
+// 篤信↔電學連接量體（使用者確認兩棟連在一起；2021-02 空拍 P5：篤信屋頂後緣直接接到電學長條北牆，右段是略低的淺灰屋頂帶；
+// 正射兩棟之間是有屋頂的深色天窗帶，不是露天中庭）。局部座標沿篤信南面：O＝篤信西南角，u 往東、v 往南（篤信南牆 v=0）。
+// 往南伸進電學長條約 1 m（藏在長條牆裡），西端沿篤信西牆延長線剛好碰到長條西北角，東端照篤信東牆延長；兩端各內縮 0.5 m，讓開篤信外凸的框格。
+const DX_LINK = { O: [-21.8, 194.4], U: [56.8, 18.4], h: 13.6, uv: [[0.5, -0.3], [59.2, -0.3], [59.2, 13.4], [56.2, 13.4], [56.2, 11.4], [52.4, 11.4], [52.4, 9.0], [9.3, 9.0], [9.3, 10.4], [5.0, 10.4], [5.0, 12.4], [0.5, 12.4]] };
+const dxLinkF = frame(DX_LINK.O, DX_LINK.U);
+const dxLink = () => DX_LINK.uv.map(([u, v]) => dxLinkF.P(u, v)); // frame 的 v 朝南；u 東 v 南的順序＝俯視順時針（同 OSM）
+const dxsAtrium = () => { const F = frame(DXS_ATRIUM.c, DXS_ATRIUM.U), { hu, hv } = DXS_ATRIUM; return [F.P(-hu, -hv), F.P(-hu, hv), F.P(hu, hv), F.P(hu, -hv)]; }; // 和外圈反向（內環）
 
 // 莊敬：沿主長條建局部座標（O 在西北角，u 往東南長向，v 往西南）
 const zjF = frame([138.4, 159.2], [54.4, 24.7]);
@@ -107,7 +118,7 @@ const lhPool = (r, n = 18) => { const { s, o, a0, a1 } = LH_PLAZA.pool, c = LH_N
 const lhPoolRing = () => [...lhPool(LH_PLAZA.pool.r1 + 0.5), ...lhPool(LH_PLAZA.pool.r0 - 0.5).reverse()];
 
 // 平坦平台範圍內的樹、棕櫚、灌木種完後藏起來（js/map.js opts.treeHide）：陸華樓東端樓梯間、北面大階梯、水池
-export const zoneDTreeHide = () => [LH_BOX(), quadAt(LH_N, LH.stairS - 3.8, LH.stairS + 3.8, 0, LH.stairOff + 0.6), lhPoolRing()];
+export const zoneDTreeHide = () => [dxLink(), LH_BOX(),quadAt(LH_N, LH.stairS - 3.8, LH.stairS + 3.8, 0, LH.stairOff + 0.6), lhPoolRing()];
 
 // ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
 export function zoneDLook(b) {
@@ -120,7 +131,7 @@ export function zoneDLook(b) {
       wall: { base: 'tile', colour: '#86706c' },
       windows: { type: 'pair', bay: 3.0, accent: '#d6cfc8', glass: '#4c5862' },
       plinth: { floors: 1, colour: '#d6d3cd' },
-      bands: [{ colour: '#9a8580', h: 0.18, depth: 0.12, on: ['n', 'e'] }, { colour: '#8e7a75', h: 0.22, depth: 0.9, on: ['s', 'w'] }], // 南、西面每層外凸陽台板（2022-03 相片）
+      bands: [{ colour: '#9a8580', h: 0.18, depth: 0.12, on: ['n', 'e'] }, { colour: '#cdbfae', h: 0.22, depth: 1.0, on: ['s', 'w'] }, { colour: '#26282a', h: 0.07, depth: 1.0, at: 0.33, on: ['s', 'w'] }], // 南、西面每層一整排淺米色陽台板＋黑鐵欄杆頂（2022-03 相片、大仁街 2026 官方街景）
       parapet: { h: 1.0, colour: '#7c6864' },
       roof: { colour: '#8a8884' },
     };
@@ -156,7 +167,7 @@ export function zoneDLook(b) {
       const white = { wall: { base: 'smooth', colour: '#e4e1da' }, faces: [{ colour: '#e4e1da' }], windows: { types: ['ribbon'], bay: 3.0, accent: '#cfcac2', glass: '#56646c' }, parapet: { h: 0.8, colour: '#d8d4cc' }, roof: { colour: '#dcdad4' } };
       if (conn.length > 2 && pod.length > 2) {
         b.parts = [
-          { pts: bar, floors: DXS.floors, h: DXS.h, label: '長條（9F，內有天井）' },
+          { pts: bar, holes: [dxsAtrium()], floors: DXS.floors, h: DXS.h, label: '長條（9F，中段露天天井）' },
           { pts: conn, floors: DXS.connFloors, h: DXS.connH, label: '白色連接量體', look: white },
           { pts: pod, floors: 1, h: DXS.podH, label: '圓筒台基（圓筒自建）', look: { ...white, faces: [{ colour: '#7a5f56' }], windows: { type: 'none' }, parapet: { h: 0.4, colour: '#6e5650' } } },
         ];
@@ -169,6 +180,7 @@ export function zoneDLook(b) {
       windows: { type: 'ribbon', ground: 'none', bay: 6, accent: '#5d6064', glass: '#4a5a62' },
       fins: [{ spacing: 6, depth: 0.7, t: 0.6, colour: '#c6c1b9', from: 0, ends: true }],
       corner: { w: 1.6, colour: '#c9c4bc' },
+      faces: [{ on: 'e', windows: { types: ['none', 'ribbon', 'ribbon', 'none'] } }], // 東面整片實牆＋壁柱，只有中段兩排帶窗（2017-09 官方街景）
       bands: [{ colour: '#d4cfc7', h: 0.9, depth: 0.55, at: 0.05, from: 1 }], // 帶窗之間的厚混凝土帶
       parapet: { h: 1.2, colour: '#cbc6be' },
       roof: { colour: '#e4e2de' },
@@ -223,17 +235,17 @@ const speckle = (g, W, H, base, n, seed, a = 0.06, sz = 3) => {
   const r = lcg(seed); g.fillStyle = base; g.fillRect(0, 0, W, H);
   for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${r() * a})`; g.fillRect(r() * W, r() * H, 1 + r() * sz, 1 + r() * sz); }
 };
-// 電學圓筒：咖啡色磁磚、每層一排兩扇一組的白框窗（貼圖一格＝3 m 寬 × 1 層）
-const drumTex = () => ctex('dDrum', 128, 128, (g, W, H) => {
+// 電學圓筒 1～2F：咖啡色磁磚實牆（一格＝3 m 寬 × 3 m 高）
+const drumSolidTex = () => ctex('dDrumSolid', 128, 128, (g, W, H) => {
   speckle(g, W, H, '#7a5f56', 500, 11, 0.07, 2);
-  g.fillStyle = 'rgba(0,0,0,0.12)'; for (let y = 0; y < H; y += 8) g.fillRect(0, y, W, 1);
-  const y0 = H * 0.3, y1 = H * 0.78;
-  for (const x0 of [W * 0.12, W * 0.52]) {
-    g.fillStyle = '#ece8e2'; g.fillRect(x0 - 3, y0 - 3, W * 0.36 + 6, y1 - y0 + 6);
-    const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, '#6d7c84'); gr.addColorStop(1, '#3b474e'); g.fillStyle = gr; g.fillRect(x0, y0, W * 0.36, y1 - y0);
-    g.fillStyle = '#ece8e2'; g.fillRect(x0 + W * 0.18 - 1, y0, 2, y1 - y0);
-  }
-  g.fillStyle = '#d9d6d0'; g.fillRect(W * 0.1, y1 + 3, W * 0.8, 5); // 窗台
+  g.fillStyle = 'rgba(0,0,0,0.14)'; for (let y = 0; y < H; y += 8) g.fillRect(0, y, W, 1); for (let x = 0; x < W; x += 16) g.fillRect(x, 0, 1, H);
+});
+// 電學圓筒 3～5F：灰色混凝土＋一整圈橫向帶窗（一格＝3 m 寬 × 1 層）
+const drumRibTex = () => ctex('dDrumRib', 128, 128, (g, W, H) => {
+  speckle(g, W, H, '#b9b5ae', 400, 13, 0.06, 2);
+  const y0 = H * 0.3, y1 = H * 0.86, gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, '#76858c'); gr.addColorStop(1, '#3f4a50');
+  g.fillStyle = gr; g.fillRect(0, y0, W, y1 - y0);
+  g.fillStyle = '#d8d6d0'; g.fillRect(0, y0 - 3, W, 3); g.fillRect(W / 2 - 2, y0, 4, y1 - y0); g.fillRect(0, y1, W, 3);
 });
 // 真知屋頂 D 形地標：白牆、中間一排深色小方窗（偶爾紅色），一格＝3 m
 const dLandTex = () => ctex('dLand', 128, 128, (g, W, H) => {
@@ -292,6 +304,14 @@ const lhBoxTex = () => ctex('dLhBox', 128, 128, (g, W, H) => {
   speckle(g, W, H, '#eceeec', 200, 51, 0.04, 2);
   g.fillStyle = '#4f9a9e'; g.fillRect(W * 0.4, 0, W * 0.2, H);
   g.fillStyle = '#e4e8e6'; g.fillRect(W * 0.4, H * 0.48, W * 0.2, 3);
+});
+// 篤信↔電學連接量體兩端外牆：篤信的咖啡黃洗石子＋灰窗台板＋藍綠玻璃（一格＝2.8 m 寬 × 一層 3.4 m）
+const dxLinkTex = () => ctex('dDxLink', 128, 128, (g, W, H) => {
+  speckle(g, W, H, '#8a7458', 400, 81, 0.07, 2);
+  g.fillStyle = '#5c8f90'; g.fillRect(W * 0.12, H * 0.2, W * 0.76, H * 0.52);
+  g.fillStyle = '#7d6a52'; g.fillRect(W * 0.48, H * 0.2, W * 0.04, H * 0.52);
+  g.fillStyle = '#b8b8b4'; g.fillRect(0, H * 0.72, W, H * 0.1);
+  g.fillStyle = '#7d6a52'; g.fillRect(0, 0, W, H * 0.08);
 });
 // 莊敬舷窗牆板：白色小方磁磚
 const tileWTex = () => ctex('dTileW', 128, 128, (g, W, H) => {
@@ -359,7 +379,8 @@ function mat(key) {
     graniteW: () => std({ map: graniteWTex(), roughness: 0.7 }),
     graniteL: () => std({ color: '#a7a49e', roughness: 0.75 }),
     stairStone: () => std({ color: '#55585b', roughness: 0.8 }),
-    drum: () => std({ map: rep(drumTex(), 16, 5), roughness: 0.85 }),
+    drumSolid: () => std({ map: rep(drumSolidTex(), 16, 2.4), roughness: 0.85 }),
+    drumRib: () => std({ map: rep(drumRibTex(), 15, 1), roughness: 0.8 }),
     drumRoof: () => std({ color: '#ecebe6', roughness: 0.8 }),
     land: () => std({ map: dLandTex(), roughness: 0.8 }),
     landRed: () => std({ map: dLandRedTex(), roughness: 0.8 }),
@@ -374,6 +395,7 @@ function mat(key) {
     darkGlass: () => std({ map: darkGlassTex(), roughness: 0.15, metalness: 0.45 }),
     lhBox: () => std({ map: lhBoxTex(), roughness: 0.75 }),
     tileW: () => std({ map: tileWTex(), roughness: 0.7 }),
+    dxLink: () => std({ map: dxLinkTex(), roughness: 0.85 }),
     porthole: () => std({ color: '#62b4d6', roughness: 0.15, metalness: 0.4, side: THREE.DoubleSide }),
     tmDrum: () => std({ map: rep(tmDrumTex(), 6, 7), roughness: 0.85 }),
     tank: () => std({ color: '#cfd3d6', metalness: 0.7, roughness: 0.3 }),
@@ -613,18 +635,46 @@ export function buildZoneD(I, scene, data, collision) {
     for (const [u, w2] of [[9, 4], [44, 5]]) { const c = F.P(u, 5.5), Q = [F.P(u - w2 / 2, 3.5), F.P(u + w2 / 2, 3.5), F.P(u + w2 / 2, 7.5), F.P(u - w2 / 2, 7.5)]; k.ringWalls('white', Q, top, top + 2.6, 3, 2.6); k.flat('offWhite', Q, top + 2.6); void c; }
   }
 
+  // ===== 篤信↔電學連接量體：填滿兩棟之間約 8 m 的縫，比篤信屋頂略低；屋頂中段深色天窗帶、白色壓頂 =====
+  if (dx && find(D_IDS.dxs)) {
+    const P = dxLink(), B = dx.base ?? H(10, 198), y0 = Math.min(...P.map(p => H(...p))) - 0.4, y1 = B + DX_LINK.h;
+    k.ringWalls('dxLink', P, y0, y1, 2.8, 3.4);
+    k.flat('concDark', P, y1);
+    k.ringWalls('offWhite', P, y1, y1 + 0.5, 3, 0.5);
+    const F = dxLinkF, sky = [F.P(7, 2.0), F.P(50, 2.0), F.P(50, 6.4), F.P(7, 6.4)];
+    k.flat('darkGlass', sky, y1 + 0.2); k.ringWalls('offWhite', sky, y1, y1 + 0.2, 3, 0.2);
+    ringColl(P, y0, y1);
+    shapes.push({ name: 'duxinDianxueLink', pts: P, y0, y1: y1 + 0.5 });
+  }
+
   // ===== 電學大樓：圓筒（咖啡色磁磚環＋白色圓形屋頂，5F）、長條屋頂天線與機房 =====
   const dxs = find(D_IDS.dxs);
   if (dxs) {
-    const B = dxs.base ?? H(0, 230), [cx, cz] = DRUM_C, r = DXS.drum.r, yb = H(cx, cz) - 0.6, yt = B + DXS.drum.h;
-    k.cyl('drum', cx, cz, r, yb, yt, 40, true);
-    k.cyl('drumRoof', cx, cz, r - 0.6, yt - 0.2, yt + 0.25, 40);                     // 白色圓形屋頂
-    k.cyl('concLight', cx, cz, r + 0.15, yt, yt + 0.9, 40, true);                     // 外圈女兒牆環
-    k.cyl('concLight', cx, cz, r - 0.15, yt, yt + 0.9, 40, true);
-    { const g = new THREE.RingGeometry(r - 0.15, r + 0.15, 40); g.rotateX(-Math.PI / 2); g.translate(cx, yt + 0.9, cz); k.add('concLight', g); }
-    for (let i = 0; i < 5; i++) { const y = B + 0.6 + (DXS.drum.h - 0.6) * (i + 1) / 5 - 0.1; k.cyl('concLight', cx, cz, r + 0.12, y, y + 0.22, 40, true); } // 每層樓板線
+    // 圓筒照 2017-09 官方街景（良善北翼步道 pano _sDi0…往北看）：1～2F 咖啡色磁磚弧形實牆（一道直條窗、一扇小窗）；
+    // 3F 內縮灰色混凝土帶窗；4F 外挑弧形陽台板＋實心欄牆；5F 帶窗；頂上內收的灰色圓頂、頂面白色（正射）
+    const B = dxs.base ?? H(0, 230), [cx, cz] = DRUM_C, r = DXS.drum.r, yb = H(cx, cz) - 0.6, fl = 3.4;
+    const y2 = B + 7.2, y3 = y2 + fl, y4 = y3 + fl, yt = B + DXS.drum.h;
+    k.cyl('drumSolid', cx, cz, r, yb, y2, 40, true);
+    k.cyl('drumRib', cx, cz, r - 0.4, y2, y3, 40, true);
+    k.cyl('drumRib', cx, cz, r - 0.2, y3, y4, 40, true);
+    k.cyl('drumRib', cx, cz, r - 0.2, y4, yt, 40, true);
+    const ring = (m, r0, r1, y, down = false) => { const g = new THREE.RingGeometry(r0, r1, 40); g.rotateX(down ? Math.PI / 2 : -Math.PI / 2); g.translate(cx, y, cz); k.add(m, g); };
+    k.cyl('concLight', cx, cz, r + 0.1, y2 - 0.1, y2 + 0.25, 40, true); ring('concLight', r - 0.4, r + 0.1, y2 + 0.25);
+    k.cyl('concLight', cx, cz, r + 0.9, y3 - 0.05, y3 + 1.25, 40, true); k.cyl('concLight', cx, cz, r + 0.75, y3 + 0.3, y3 + 1.25, 40, true);
+    ring('concLight', r - 0.2, r + 0.75, y3 + 0.3); ring('concLight', r - 0.2, r + 0.9, y3 - 0.05, true); ring('concLight', r + 0.75, r + 0.9, y3 + 1.25);
+    k.cyl('concLight', cx, cz, r + 0.25, y4 - 0.1, y4 + 0.25, 40, true); ring('concLight', r - 0.2, r + 0.25, y4 + 0.25);
+    { const g = new THREE.CylinderGeometry(r * 0.86, r + 0.05, 1.3, 40, 1, true); g.translate(cx, yt + 0.65, cz); k.add('concDark', g);
+      const g2 = new THREE.CylinderGeometry(r * 0.62, r * 0.86, 0.9, 40, 1, true); g2.translate(cx, yt + 1.75, cz); k.add('concDark', g2);
+      k.cyl('drumRoof', cx, cz, r * 0.62, yt + 2.15, yt + 2.25, 40); }
+    { const l = Math.hypot(-0.29, 0.96), nx = -0.29 / l, nz = 0.96 / l, p = [cx + nx * (r + 0.03), cz + nz * (r + 0.03)];
+      sign(group, textTex('dSlit', 32, 128, (g) => { g.fillStyle = '#b9b5ae'; g.fillRect(0, 0, 32, 128); g.fillStyle = '#3a4146'; g.fillRect(5, 5, 22, 118); }), 0.7, 3.6, p[0], B + 4.6, p[1], nx, nz, 0.02);
+      sign(group, textTex('dSmallWin', 64, 32, (g) => { g.fillStyle = '#b9b5ae'; g.fillRect(0, 0, 64, 32); g.fillStyle = '#3a4146'; g.fillRect(4, 4, 56, 24); }), 1.3, 0.7, p[0], B + 1.9, p[1], nx, nz, 0.02); }
     ringColl(circle(cx, cz, r, 24), yb, yt);
-    shapes.push({ name: 'dianxueDrum', pts: circle(cx, cz, r, 24), y0: yb, y1: yt + 0.9 });
+    shapes.push({ name: 'dianxueDrum', pts: circle(cx, cz, r, 24), y0: yb, y1: yt + 2.25 });
+    { const T = DXS_STAIR, P = [dxsP(T.u1, T.v0), dxsP(T.u0, T.v0), dxsP(T.u0, T.v1), dxsP(T.u1, T.v1)], y0 = Math.min(...P.map(p => H(...p))) - 0.4, y1 = B + T.h;
+      k.ringWalls('tileW', P.slice().reverse(), y0, y1, 2, 2); k.flat('concLight', P, y1); ringColl(P, y0, y1);
+      shapes.push({ name: 'dianxueStairTower', pts: P, y0, y1 }); }
+    k.flat('concLight', dxsAtrium(), B + 0.08); // 天井底石板地坪
     // 長條屋頂：兩支天線、小機房
     const top = B + DXS.h;
     for (const [x, z, h] of [[12, 217, 7], [-8, 211, 5.5]]) { k.box('steelDark', x - 0.08, x + 0.08, top, top + h, z - 0.08, z + 0.08); k.box('steelDark', x - 0.6, x + 0.6, top + h * 0.7, top + h * 0.7 + 0.08, z - 0.04, z + 0.04); }

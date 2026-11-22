@@ -15,9 +15,9 @@ const HELP = `用法：node tools/floorplan/make.mjs <建築> <樓層|all> [選�
        node tools/floorplan/make.mjs <建築> --list      列出樓層、地板高度分布、讀到的門牌和招牌文字
   <建築>        tools/floorplan/buildings/<建築>.mjs 的檔名（也可以給設定檔的路徑）
   <樓層>        設定檔 floors 裡的 id（例如 1f、2f），或 all
-  --out <路徑>  輸出檔（一層）或資料夾（all）；預設 docs/floorplans/<建築>-<樓層>.svg
+  --out <路徑>  輸出檔（一層）或資料夾（all）；預設 docs/floorplans/<建築>/<建築>-<樓層>.svg（每棟建築一個資料夾）
   --title <字>  標題；預設「<建築名稱> <樓層名稱>平面圖」
-  --note <字>   標題下的註記；預設用設定檔的 note
+  --note <字>   標題下的註記；預設用該樓層的 note，沒有就用設定檔的 note
   --date <字>   產生日期；預設今天（本機時間）
   --scale <數>  一公尺幾個像素；預設用設定檔的 scale，再沒有就是 8
   （設定檔的 plan() 回傳 autoLabels: true，或設定檔沒有 plan()，會自動把門牌、招牌文字寫在牆後）
@@ -75,7 +75,7 @@ for (const floor of list) {
   const scale = Number(opt.scale) || floor.scale || cfg.scale || 8;
   const meta = { title: opt.title || `${cfg.name} ${floor.name}平面圖`, note: opt.note ?? floor.note ?? cfg.note ?? '', date: opt.date || today, source: floor.source || cfg.source, cut: floor.cut ?? 1, level: floor.y };
   const svg = renderSvg({ sl, cells, zones: plan.zones || [], labels, frame, meta, opts: { scale, debug: opt.debug, legend: plan.legend, zoneNames: plan.zoneNames, bounds: plan.bounds, turn: cfg.turn, pad: cfg.pad, tick: cfg.tick } });
-  let out = opt.out ? path.resolve(opt.out) : path.join(ROOT, 'docs/floorplans', `${cfg.id}-${floor.id}.svg`);
+  let out = opt.out ? path.resolve(opt.out) : path.join(ROOT, 'docs/floorplans', cfg.id, `${cfg.id}-${floor.id}.svg`);
   if (opt.out && (list.length > 1 || !out.endsWith('.svg'))) out = path.join(out, `${cfg.id}-${floor.id}.svg`);
   mkdirSync(path.dirname(out), { recursive: true }); writeFileSync(out, svg);
   if (opt.json) { const j = list.length > 1 ? path.join(path.resolve(opt.json), `${cfg.id}-${floor.id}.json`) : path.resolve(opt.json); mkdirSync(path.dirname(j), { recursive: true }); writeFileSync(j, JSON.stringify({ floor, walls: sl.walls, floors: sl.floors, landings: sl.landings, stairs: sl.stairs, texts: sl.texts, cells }, null, 1)); }

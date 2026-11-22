@@ -21,7 +21,9 @@ export default {
   floors(ctx) {
     const FL = ctx.built.FL, st = FL[1] - FL[0], names = ['一樓', '二樓', '三樓', '四樓'];
     // 一樓：門房、大門台階站在比一樓地板低的地面上，文字往下多收一點
-    return FL.map((y, i) => ({ id: `${i + 1}f`, name: names[i] || `${i + 1} 樓`, y, top: FL[i + 1] ?? y + st, ...(i === 0 ? { lo: y - 3 } : {}) }));
+    return FL.map((y, i) => ({ id: `${i + 1}f`, name: names[i] || `${i + 1} 樓`, y, top: FL[i + 1] ?? y + st, ...(i === 0 ? { lo: y - 3 } : {}),
+      // 使用者只看過一、二樓的圖；三、四樓是同一套格局往上疊，還沒確認
+      ...(i >= 2 ? { note: '依目前模型產生；三、四樓照二樓的格局往上疊，待使用者確認' } : {}) }));
   },
 
   plan({ sl, floor, find }) {
@@ -92,7 +94,7 @@ export default {
       labels.push({ text: '牆外平台與露天樓梯\n（往上到新中北路天橋）', x: doorX + 4, z: zS + 4, leader: [doorX + 1.2, zS + 3], anchor: 'start', size: 8.5 });
     }
     const legend = [f1 ? '寢室號碼取自模型門上的字；一樓只有公共空間和走廊能走，寢室都是關著的門。' : f2 ? '寢室號碼取自模型門上的字；二樓只有 276～281 能走進去，其他寢室都是關著的門。' : '寢室號碼取自模型門上的字。'];
-    legend.push('紅色虛線框：兩翼剪刀梯北端接回主走廊的走道（使用者看過平面圖確認）。');
+    legend.push(f1 || f2 ? '紅色虛線框：兩翼剪刀梯北端接回主走廊的走道（使用者看過平面圖確認）。' : '紅色虛線框：兩翼剪刀梯北端接回主走廊的走道（一、二樓經使用者確認，這一層照同樣做法）。');
     return { closedRows, zones, labels, legend, zoneNames: { open: '可以走進去的寢室' } };
   },
 };

@@ -1,26 +1,35 @@
 # 建築平面圖
 
-`docs/floorplans/` 放建築室內的平面圖（SVG）。圖不含外部字型和腳本，GitHub 上可以直接看：
+`docs/floorplans/` 放建築室內的平面圖（SVG），依建築物分資料夾。圖不含外部字型和腳本，GitHub 上可以直接看：
 
-- `lixing-1f.svg`：力行宿舍一樓
-- `lixing-2f.svg`：力行宿舍二樓
-- `sac-b1.svg`：學生活動中心 B1（樓梯廳、學習區、學餐攤販、麥當勞；麥當勞店內格局待確認）
-- `sac-1f.svg`～`sac-4f.svg`：學生活動中心一到四樓（配置大多是推測，待確認）
-- `README.md`：這份說明
+| 資料夾 | 建築 | 圖 | 狀態 |
+| --- | --- | --- | --- |
+| [`lixing/`](lixing/) | 力行宿舍（力行大樓） | [一樓](lixing/lixing-1f.svg)、[二樓](lixing/lixing-2f.svg)、[三樓](lixing/lixing-3f.svg)、[四樓](lixing/lixing-4f.svg) | 一、二樓經使用者確認；三、四樓照二樓的格局往上疊，待確認 |
+| [`sac/`](sac/) | 學生活動中心 | [B1](sac/sac-b1.svg)、[一樓](sac/sac-1f.svg)、[二樓](sac/sac-2f.svg)、[三樓](sac/sac-3f.svg)、[四樓](sac/sac-4f.svg) | 一到四樓配置大多是推測，待確認；B1 的麥當勞店內格局待確認 |
 
-![力行宿舍一樓](lixing-1f.svg)
+每棟建築一個資料夾，資料夾名稱就是設定檔的 `id`，檔名是 `<建築>-<樓層>.svg`。`README.md`（這份說明）留在最上層。
 
-![力行宿舍二樓](lixing-2f.svg)
+### 力行宿舍（力行大樓）
 
-![學生活動中心 B1](sac-b1.svg)
+![力行宿舍一樓](lixing/lixing-1f.svg)
 
-![學生活動中心一樓](sac-1f.svg)
+![力行宿舍二樓](lixing/lixing-2f.svg)
 
-![學生活動中心二樓](sac-2f.svg)
+![力行宿舍三樓](lixing/lixing-3f.svg)
 
-![學生活動中心三樓](sac-3f.svg)
+![力行宿舍四樓](lixing/lixing-4f.svg)
 
-![學生活動中心四樓](sac-4f.svg)
+### 學生活動中心
+
+![學生活動中心 B1](sac/sac-b1.svg)
+
+![學生活動中心一樓](sac/sac-1f.svg)
+
+![學生活動中心二樓](sac/sac-2f.svg)
+
+![學生活動中心三樓](sac/sac-3f.svg)
+
+![學生活動中心四樓](sac/sac-4f.svg)
 
 ## 圖是怎麼來的
 
@@ -32,7 +41,7 @@
 - 高度等於該層地板的可走面畫成地板；斜的可走面畫成樓梯（很緩的畫成斜坡），箭頭指向高的那一頭。
 - 模型裡門板和招牌貼圖上的字會被讀出來（門牌號碼、「浴廁」「洗衣間」這類），所以房間號碼也是取自模型。
 - 進不去的房間在模型裡只有走廊牆上一扇關著的門，沒有隔間牆。工具假設每扇門在它那間的正中間，從門的位置一間一間推出隔間，畫成虛線；推不出來時改用相鄰兩扇門的中點，並印出警告。
-- 圖上有標題、註記（力行的預設是「依目前模型產生；一、二樓配置經使用者確認（2026-11-22）」）、產生日期、來源檔、指北針（北在上，標出偏幾度）、上緣和左緣的本地座標刻度（每 10 公尺）、圖例、比例尺。
+- 圖上有標題、註記（設定檔的 `note`；個別樓層可以在 `floors()` 回傳的那一層另外給 `note`，例如力行三、四樓標「待使用者確認」）、產生日期、來源檔、指北針（北在上，標出偏幾度）、上緣和左緣的本地座標刻度（每 10 公尺）、圖例、比例尺。
 
 每棟建築一個設定檔 `tools/floorplan/buildings/<名稱>.mjs`，只負責「哪一塊叫什麼」：
 
@@ -57,7 +66,7 @@
 在 repo 根目錄執行（在 node 22 測過）。遊戲程式的 `three` 來自 `node_modules`，第一次要先跑 `npm ci`：
 
 ```bash
-# 重產力行一、二樓到 docs/floorplans/
+# 重產力行某一層到 docs/floorplans/lixing/
 node tools/floorplan/make.mjs lixing 1f
 node tools/floorplan/make.mjs lixing 2f
 
@@ -74,7 +83,7 @@ node tools/floorplan/make.mjs lixing --list
 
 ```bash
 # Quick Look 的縮圖是正方形，寬的圖直接丟進去只會看到左半邊；先做一份把畫布補成正方形的暫存副本
-sed -E '1s/width="([0-9.]+)" height="[0-9.]+" viewBox="0 0 [0-9.]+ [0-9.]+"/width="\1" height="\1" viewBox="0 0 \1 \1"/' docs/floorplans/lixing-1f.svg > /tmp/lixing-1f-full.svg
+sed -E '1s/width="([0-9.]+)" height="[0-9.]+" viewBox="0 0 [0-9.]+ [0-9.]+"/width="\1" height="\1" viewBox="0 0 \1 \1"/' docs/floorplans/lixing/lixing-1f.svg > /tmp/lixing-1f-full.svg
 qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
 ```
 
@@ -108,7 +117,7 @@ qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
    - `zoneNames`：`{ open: '可以走進去的寢室' }` 這樣改圖例上各種 `style` 的名稱（預設名稱在 `tools/floorplan/lib/svg.mjs` 的 `ZONE_STYLES`）。`bounds`：`{ x0, x1, z0, z1 }`，指定圖要畫的範圍；不給就自動包住所有牆、地板和標籤。
    - `plan()` 的參數裡有 `sl.texts`（這一層讀到的門牌和招牌，含位置）和 `find()`，可以拿來定位。
 6. 核對：加 `--debug` 看紅字和自己標的名稱有沒有對上；挑十個以上的位置（牆的位置、門口缺口、樓梯起點、房間隔間），拿 `--json` 存下來的數字和 js 檔的常數比；再開開發伺服器 `python -I tools/devserver.py 5173`，瀏覽器開 `http://localhost:5173/` 進遊戲走一趟那一層確認。
-7. 確認沒問題再把 SVG 產到 `docs/floorplans/`（不給 `--out` 就是這裡），並在這份文件最上面的清單補一行。
+7. 確認沒問題再把 SVG 產出來（不給 `--out` 就是 `docs/floorplans/<名稱>/<名稱>-<樓層>.svg`，每棟建築自己一個資料夾），並在這份文件最上面的表格補一列、下面補上各層的圖。
 
 第二棟是學生活動中心（`src/world/buildings/Sac.js`，`Kit` 原點 0,0、不旋轉），設定檔 `tools/floorplan/buildings/sac.mjs` 可以當另一個範例：
 

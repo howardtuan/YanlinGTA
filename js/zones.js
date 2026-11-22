@@ -37,7 +37,7 @@ import { zoneBLook, zoneBTerrain, zoneBTreeHide, buildZoneB } from './zone_b.js'
 import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
 import { sacLook, buildSac } from './sac.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
-import { zoneCLook, buildZoneC } from './zone_c.js';
+import { zoneCLook, zoneCVegHide, buildZoneC } from './zone_c.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -88,7 +88,7 @@ export const ZONES = [
     name: 'D 區', look: zoneDLook, treeHide: zoneDTreeHide, build: buildZoneD,
   },
   { // 管理大樓穿堂與柱廊、5F 框架層、紅瓦；自強ㄇ字中庭（parts）與東南入口；資管欄板紅邊、礫石庭園；商業設計館（原「商設館」）改輪廓；工學館拆 8F／4F／3F、懸挑樓梯平台、樓梯塔
-    name: 'C 區', look: zoneCLook, build: buildZoneC,
+    name: 'C 區', look: zoneCLook, vegHide: zoneCVegHide, build: buildZoneC,
   },
   { // 理學大樓屋頂設備與南面大階梯入口（data.levels）、化學館白框架＋土黃牆與立管、恩惠堂門廊方塔與尖頂、副堂雙坡、林森館花磚、A6 步道與招牌
     name: 'B 區', look: zoneBLook, terrain: zoneBTerrain, treeHide: zoneBTreeHide, build: buildZoneB,

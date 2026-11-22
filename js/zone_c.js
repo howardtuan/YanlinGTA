@@ -4,15 +4,19 @@
 //
 // 依據（campus-survey/PLAN.md 第 1 節 C 區、批次 2，zone-C.md 與補充調查、正射 NLSC 2024）：
 //  - 管理大樓 w392023399：5 層灰米色洗石子、每層淺膚色樓板帶；西南面正中偏西是兩層高的穿堂入口（4 根方柱、
-//    紅底金字「商學院」匾（右至左）、酒紅色「College of Business」帶、黑色鐵柵門），右側藍色大圖半圓筒
+//    紅底金字「商學院」匾（右至左）、二樓過道酒紅欄牆「College of Business」），穿堂走得過去，通到東北側夾在兩座
+//    樓梯間之間的紅磚中庭，正對自強的斜柱穿堂，右側藍色大圖半圓筒
 //    （2025-10 相片；2017 是紅磁磚）、AACSB 藍色橫布條；一樓方柱柱廊；5F 是開放框架層（方框＋斜撐），
 //    頂上花崗石女兒牆一排小菱形孔；屋頂兩段紅瓦斜屋頂夾一段深灰平頂（正射）。東北面對自強的 3～4 m 窄巷
 //    是整面深灰素混凝土、只有高處窄條窗（官方街景）。輪廓、名稱不動（js/missions.js 任務四的檢查點用它的中心）。
 //  - 自強商學大樓 w392023401：正射是ㄇ／口字形，中庭滿是大樹；西南翼、東北翼、東南翼 4F，西北端是低一層的連接段
 //    加紅磚屋頂露台；紅瓦斜屋頂在東南翼北段（正射紅瓦條帶的位置，PLAN 寫的「東北翼」就是這一段）；外牆深灰洗石子、
 //    每層窗上一條白色小方磚帶、女兒牆菱形孔（與管理大樓同一套）；西北面一二樓橫向百葉；入口在東南面中段，淺台階
-//    兩側坡道、暗色門（官方街景，面向停車場）；屋頂白色防水層（正射）。傾斜花崗石柱、紅匾的位置沒有證據，不做。輪廓不改（中庭用 parts 留空，
-//    整個輪廓照舊擋人；改成ㄇ字開口會讓樹和亂數重抽）。
+//    兩側坡道、暗色門（官方街景，面向停車場）；屋頂白色防水層（正射）。輪廓不改（中庭用 parts 留空）。
+//    斜柱穿堂（2024-04 相片：四根下寬上窄的洗石子大柱、紅底金字「自強商學大樓」匾、橘紅磚地、穿過去看得到中庭）
+//    在西南翼、正對管理大樓穿堂：相片地上的橘紅磚格就是正射上兩棟之間那塊紅磚格鋪面，兩側是管理大樓接過來的兩座
+//    樓梯間。穿堂與中庭走得進去：植栽種完後才把 js/map.js 加的整棟碰撞縮掉（collapse），共用亂數不變。
+//    西北端不是開口：官方街景那面是一二樓橫向百葉的實牆，維持兩層高的連接段＋屋頂紅磚露台（正射）。
 //  - 資訊管理學系 w252996584：自建館照 2020～2022 相片補：欄板灰洗石子＋白灰菱形嵌片（js/kit.js T.diamond）、
 //    欄板上下兩條酒紅邊線、東端樓梯塔旁深灰直條百葉、門前礫石庭園加大石頭。
 //  - 商業設計館 w392023403（OSM 名「商設館」）：正射量到實際屋頂比 OSM 往南 4～6 m、往西 4 m，約 27.4×18.8 m，
@@ -44,11 +48,11 @@ const like = (P, ref) => (Math.sign(area2(P)) === Math.sign(area2(ref)) ? P : P.
 // 管理大樓：u 沿西南面由西北往東南，v 往東北（窄巷那側）
 const MG_O = [80.8, 57.3], MG_U = unit(MG_O, [120.8, 91.2]), MG_V = [MG_U[1], -MG_U[0]];
 const mgW = affine(MG_O, MG_U, MG_V);
-const MG = { L: 52.4, ent: [11, 21], drum: 24.6, red: [[0.6, 33], [43, 57.5]], rv: [4.5, 15.4] };
+const MG = { L: 52.4, ent: [11, 21], vN: 15.66, drum: 24.6, red: [[0.6, 33], [43, 57.5]], rv: [4.5, 15.4] }; // ent：穿堂；vN：東北牆面
 // 自強：仿射框架，u 沿西南面（A→D），v 沿西北面（A→B）；A(0,0) D(48.26,0) B(0,51.66) C(48.7,51.6)
 const ZQ_A = [93, 40.4];
 const zqW = affine(ZQ_A, unit(ZQ_A, [130.4, 70.9]), unit(ZQ_A, [127.1, 1.6]));
-const ZQ = { court: [5.5, 35, 14.5, 40], link: 5.5, red: [35.3, 48.5, 26, 51.5], door: 25.3 };
+const ZQ = { court: [10, 35, 14.5, 40], link: 10, red: [35.3, 48.5, 26, 51.5], door: 25.3, pass: [12, 23] }; // pass：正對管理大樓穿堂的斜柱穿堂（西南翼）
 // 工學館：u 沿東北面，v 往內（西南）
 const GX_O = [181, 37.6], GX_U = unit(GX_O, [218.8, 68.8]);
 const gxW = affine(GX_O, GX_U, [-GX_U[1], GX_U[0]]);
@@ -65,24 +69,42 @@ const SS_PTS = [[0, 0], [SS.L, 0], [SS.L, SS.D], [0, SS.D], [0, SS.box[1]], [-SS
 // 資管系館（js/interiors.js IM_SPEC 的同一組數字；不 import 避免循環載入）
 const IM = { ox: 79.9, oz: 92.6, ang: Math.atan2(16.9, 49.3), L: 46, D: 12.5, FH: 3.8, NF: 3 };
 
+// 穿堂口與兩棟之間的紅磚中庭：牆邊灌木種完後才藏（js/map.js opts.vegHide，不重抽）
+export const zoneCVegHide = () => [
+  [mgW(MG.ent[0] - 1.5, -3.5), mgW(MG.ent[1] + 1.5, -3.5), mgW(MG.ent[1] + 1.5, 0.5), mgW(MG.ent[0] - 1.5, 0.5)],
+  [mgW(5.5, MG.vN - 0.5), mgW(35.5, MG.vN - 0.5), mgW(35.5, 21.5), mgW(5.5, 21.5)],
+];
+
 // ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
 const GX_BASE = { wall: { base: 'tile', colour: '#8c8680' }, windows: { type: 'punched', bay: 3.0, accent: '#5a5550', glass: '#4a5560' }, roof: { colour: '#7d7b77' }, parapet: { h: 0.8, colour: '#857f79' } };
 export function zoneCLook(b) {
   if (b.id === C_IDS.mg) {
-    b.look = {
+    const base = {
       wall: { base: 'stone', colour: '#a9a49c' },
       windows: { type: 'punched', bay: 3.6, accent: '#e2ddd2', glass: '#6f8a8c', types: ['punched', 'punched', 'punched', 'punched', 'gallery'] },
       bands: [{ colour: '#e2c4a8', h: 0.32, depth: 0.12, from: 1, to: 4 }],
-      // 東北面窄巷：整面深灰素混凝土，只有高處窄條窗（官方街景）
-      faces: [{ on: 'ne', colour: '#77736d', windows: { type: 'slit', types: null, accent: '#6a6762' } }],
+      // 東北面（對自強的紅磚中庭）：整面深灰素混凝土，只有高處窄條窗（官方街景）；兩端山牆與穿堂兩側是素牆
+      faces: [{ on: 'ne', colour: '#77736d', windows: { type: 'slit', types: null, accent: '#6a6762' } }, { on: ['nw', 'se'], windows: { type: 'none', types: null } }],
       parapet: { h: 0.9, colour: '#a8a196' },
       roof: { colour: '#5e5d5a', ac: false }, // 兩段紅瓦斜屋頂由 buildZoneC 蓋
     };
+    // 穿堂（u 11～21）切成一塊「只畫屋頂」的量體：一二樓挑空走得過去，三樓以上的牆由 buildZoneC 蓋
+    const [e0, e1] = MG.ent, vN = MG.vN, O = b.pts, cut = (u) => [mgW(u, vN), mgW(u, 0)];
+    const [w1, w0] = cut(e0), [x1, x0] = cut(e1);
+    b.parts = [
+      { pts: like([O[0], O[1], O[2], O[3], O[4], w1, w0, O[13]], O), h: b.h, floors: b.floors, label: '西北段' },
+      { pts: like([w1, x1, x0, w0], O), h: b.h, floors: b.floors, label: '穿堂上方', look: { open: { bare: true } } },
+      { pts: like([x1, O[5], O[6], O[7], O[8], O[9], O[10], O[11], O[12], x0], O), h: b.h, floors: b.floors, label: '東南段' },
+    ];
+    b.splitAc = 1;
+    b.look = base;
   } else if (b.id === C_IDS.zq) {
     const P = (Q) => like(Q.map(([u, v]) => zqW(u, v)), b.pts);
     const c = ZQ.court;
     b.parts = [
-      { pts: P([[0, 0], [0, c[2]], [48.38, c[2]], [48.26, 0]]), h: 13.8, floors: 4, label: '西南翼' },
+      { pts: P([[0, 0], [0, c[2]], [ZQ.pass[0], c[2]], [ZQ.pass[0], 0]]), h: 13.8, floors: 4, label: '西南翼西段' },
+      { pts: P([[ZQ.pass[0], 0], [ZQ.pass[0], c[2]], [ZQ.pass[1], c[2]], [ZQ.pass[1], 0]]), h: 13.8, floors: 4, label: '斜柱穿堂上方', look: { open: { bare: true } } },
+      { pts: P([[ZQ.pass[1], 0], [ZQ.pass[1], c[2]], [48.38, c[2]], [48.26, 0]]), h: 13.8, floors: 4, label: '西南翼東段' },
       { pts: P([[0, c[2]], [0, c[3]], [ZQ.link, c[3]], [ZQ.link, c[2]]]), h: 7.2, floors: 2, label: '西北連接段' },
       { pts: P([[0, c[3]], [0, 51.66], [c[1], 51.62], [c[1], c[3]]]), h: 13.8, floors: 4, label: '東北翼' },
       { pts: P([[c[1], c[2]], [c[1], 51.62], [48.7, 51.6], [48.38, c[2]]]), h: 13.8, floors: 4, label: '東南翼' },
@@ -91,7 +113,7 @@ export function zoneCLook(b) {
     b.look = {
       wall: { base: 'stone', colour: '#7b7772' },
       windows: { type: 'punched', bay: 2.5, accent: '#d9d6cf', glass: '#4f5a62' },
-      bands: [{ colour: '#e9e7e2', h: 0.3, depth: 0.08, at: 0.8, from: 0, to: 3 }], // 窗上白色小方磚帶
+      bands: [{ colour: '#dfba90', h: 0.3, depth: 0.08, at: 0.8, from: 0, to: 3 }], // 窗上米膚色磁磚帶（2024-04 相片）
       faces: [
         { on: 'nw', windows: { types: ['louver', 'louver', 'punched', 'punched'] } }, // 西牆一二樓橫向百葉
         { on: 'se', colour: '#8a8076', windows: { type: 'ribbon' } }, // 東南面灰褐帶狀立面、橫向帶窗
@@ -171,17 +193,9 @@ const stairGlassTex = () => ctex('cStairGlass', 64, 128, (g, W, H) => {
   const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#5f7d98'); gr.addColorStop(1, '#3a536a');
   g.fillStyle = gr; g.fillRect(0, 0, W, H); g.fillStyle = '#c8ccd0'; g.fillRect(0, 0, 3, H); g.fillRect(W - 3, 0, 3, H); g.fillRect(0, H / 2 - 1, W, 3);
 });
-// 管理大樓穿堂：深色通道、盡頭亮處、酒紅色二樓欄牆、黑色鐵柵門（貼圖對應寬 10 m、高 6.6 m）
-const passageTex = () => ctex('cPassage', 512, 338, (g, W, H) => {
-  const m = W / 10;
-  g.fillStyle = '#2c2826'; g.fillRect(0, 0, W, H);
-  const gr = g.createLinearGradient(0, H * 0.4, 0, H); gr.addColorStop(0, '#3b3532'); gr.addColorStop(1, '#4a4440'); g.fillStyle = gr; g.fillRect(0, H * 0.45, W, H * 0.55);
-  g.fillStyle = '#d8d2c4'; g.fillRect(W * 0.43, H - 2.4 * m, W * 0.14, 2.3 * m); // 穿堂盡頭的亮處
-  g.fillStyle = '#7f2430'; g.fillRect(0, H - 3.9 * m, W, 0.95 * m); // 二樓走廊酒紅欄牆
-  g.fillStyle = 'rgba(240,215,190,0.85)'; g.font = `600 ${0.3 * m}px "Times New Roman",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('College of Business', W / 2, H - 3.42 * m);
-  g.strokeStyle = '#141414'; g.lineWidth = 3; // 鐵柵門
-  for (const [x0, x1] of [[0.2, 3.1], [6.9, 9.8]]) { for (let x = x0 * m; x <= x1 * m; x += 9) { g.beginPath(); g.moveTo(x, H - 2.3 * m); g.lineTo(x, H); g.stroke(); } g.fillStyle = '#141414'; g.fillRect(x0 * m, H - 2.3 * m, (x1 - x0) * m, 5); g.fillRect(x0 * m, H - 1.2 * m, (x1 - x0) * m, 4); }
-});
+// 自強外牆深灰洗石子、斜柱的褐灰粗洗石子（中段一條膚色帶；貼圖對應整根柱高）
+const zqWallTex = () => ctex('cZqWall', 128, 128, (g, W, H) => { noise(g, W, H, '#77736e', 1800, 63, 0.2, 2); });
+const zqPierTex = () => ctex('cZqPier', 128, 256, (g, W, H) => { noise(g, W, H, '#7d7065', 3200, 67, 0.22, 2); g.fillStyle = '#e3bfa4'; g.fillRect(0, H * 0.53, W, H * 0.07); }, false);
 // 5F 退縮露台：深色陰影牆、靠牆一排冷氣與盆栽（每格 3.6 m）
 const terraceTex = () => ctex('cTerrace', 128, 64, (g, W, H) => {
   const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#2e2c2a'); gr.addColorStop(1, '#55514c'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
@@ -226,6 +240,13 @@ const hText = (key, text, colour, font, w = 1024, h = 160, bg = null) => ctex(ke
   g.font = `900 ${px}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle';
   chars.forEach((c, i) => { if (c === ' ') return; g.fillStyle = 'rgba(30,20,10,0.4)'; g.fillText(c, step * (i + 0.5) + 2, H / 2 + 3); g.fillStyle = colour; g.fillText(c, step * (i + 0.5), H / 2); });
 }, false);
+// 一整串橫書（英文）：量字寬置中一次畫完，字級盡量接近畫布高度
+const lText = (key, text, colour, font, w = 1024, h = 256) => ctex(key, w, h, (g, W, H) => {
+  let px = H * 0.78; g.font = `bold ${px}px ${font}`;
+  const tw = g.measureText(text).width; if (tw > W * 0.96) { px *= W * 0.96 / tw; g.font = `bold ${px}px ${font}`; }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(30,20,10,0.45)'; g.fillText(text, W / 2 + 3, H / 2 + 4); g.fillStyle = colour; g.fillText(text, W / 2, H / 2);
+}, false);
 const vText = (key, text, colour, font, w = 160, h = 1024) => ctex(key, w, h, (g, W, H) => {
   const chars = [...text], step = H / chars.length, px = Math.min(W * 0.8, step * 0.82);
   g.font = `900 ${px}px ${font}`; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -255,8 +276,15 @@ function mat(key) {
     zqDiamond: () => std({ map: diamondTex('#9a958d'), roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     tileRoof: () => std({ map: tileRoofTex(), roughness: 0.8, side: THREE.DoubleSide }),
     gable: () => std({ color: '#a49d93', roughness: 0.9, side: THREE.DoubleSide }),
-    passage: () => glow({ map: passageTex(), emissiveMap: passageTex(), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 0.5),
     maroon: () => std({ color: '#7f2430', roughness: 0.7 }),
+    soffit: () => std({ color: '#e6e3dc', roughness: 0.9, side: THREE.DoubleSide }),
+    winGlass: () => glow({ color: '#51656c', roughness: 0.15, metalness: 0.4, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 0.6),
+    mgBand: () => std({ color: '#e2c4a8', roughness: 0.85 }),
+    mgGlass: () => glow({ color: '#1f3540', roughness: 0.15, metalness: 0.4, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }, 0.6),
+    mgDark: () => std({ color: '#77736d', roughness: 0.95, side: THREE.DoubleSide }),
+    zqWall: () => std({ map: zqWallTex(), roughness: 0.95, side: THREE.DoubleSide }),
+    zqPier: () => std({ map: zqPierTex(), roughness: 0.9, side: THREE.DoubleSide }),
+    zqBand: () => std({ color: '#dfba90', roughness: 0.85, emissive: '#dfba90', emissiveIntensity: 0.12 }),
     terrace: () => std({ map: terraceTex(), roughness: 0.95, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     plaza: () => std({ map: plazaTex(), roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     drum: () => std({ map: drumTex(), roughness: 0.5, side: THREE.DoubleSide }),
@@ -342,7 +370,7 @@ class Acc {
   finish(group) {
     for (const [m, list] of this.parts) {
       const mesh = new THREE.Mesh(mergeGeometries(list, false), mat(m));
-      mesh.castShadow = !['brickPave', 'gravel', 'grass', 'passage', 'mgDiamond', 'zqDiamond', 'redTile', 'stairGlass'].includes(m); mesh.receiveShadow = true;
+      mesh.castShadow = !['brickPave', 'gravel', 'grass', 'plaza', 'soffit', 'winGlass', 'mgGlass', 'mgDiamond', 'zqDiamond', 'redTile', 'stairGlass'].includes(m); mesh.receiveShadow = true;
       group.add(mesh);
     }
   }
@@ -359,12 +387,14 @@ const onRing = (p, R) => R.some((a, i) => segDist(p, a, R[(i + 1) % R.length]) <
 function pip(x, z, P) { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) c = !c; } return c; }
 
 // ---------------- 蓋 ----------------
-export function buildZoneC(I, scene, data) {
+export function buildZoneC(I, scene, data, collision) {
   const group = new THREE.Group(); group.name = 'zoneC';
   const k = new Acc();
   const find = id => data.buildings.find(b => b.id === id);
   const baseOf = (b, x, z) => (b && Number.isFinite(b.base) ? b.base : groundY(x, z));
-  const boxColl = (P, y0, y1) => { for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; I.addWall(a[0], a[1], c[0], c[1], y0, y1); } };
+  // I.addWall 的高度帶是相對牆中點地面的（js/physworld.js 會再加 H）：這裡傳世界高度，先換算（同 js/zone_g.js）
+  const wallC = (ax, az, bx, bz, y0, y1) => { const g = H((ax + bx) / 2, (az + bz) / 2); I.addWall(ax, az, bx, bz, y0 - g, y1 - g); };
+  const boxColl = (P, y0, y1) => { for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; wallC(a[0], a[1], c[0], c[1], y0, y1); } };
   // 貼在輪廓邊外側 off 的面（朝外），貼圖每 tu × tv 公尺重複
   const face = (m, a, c, y0, y1, off = 0.04, tu = 1.8, tv = 1.8) => { const e = edge(a, c), A = along(a, e, 0, off), C = along(a, e, e.l, off); k.wall(m, C[0], C[1], A[0], A[1], y0, y1, tu, tv); };
   // 同上，但貼圖垂直方向剛好鋪滿 y0..y1 一次（女兒牆菱形孔帶）；rev：邊是 +u 方向（不是 OSM 繞向）時反過來
@@ -382,8 +412,16 @@ export function buildZoneC(I, scene, data) {
     k.tri('gable', P3(p1, y), P3(p2, y), P3([(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2], Y - 0.15));
     k.beam('gable', P3(r0, Y + 0.06), P3(r1, Y + 0.06), 0.18, 0.3); // 屋脊
   };
-  // 一棵簡單的樹（中庭用，不進 js/map.js 的植栽，也不抽共用亂數）
-  const tree = (x, z, s, r) => { const y = H(x, z); k.cyl('trunk', x, z, 0.22 * s, y - 0.2, y + 3.2 * s, 8, false, 0.16 * s); k.blob(r() < 0.5 ? 'leaf' : 'leaf2', x, y + 4.2 * s, z, 2.4 * s, 0.75); k.blob('leaf', x + 1.1 * s, y + 3.8 * s, z + 0.6 * s, 1.6 * s, 0.7); k.blob('leaf2', x - 0.9 * s, y + 4.0 * s, z - 0.7 * s, 1.7 * s, 0.7); };
+  // 朝 nrm 那一面的直立牆（p、q 往 nrm 外推 off）
+  const wallOut = (m, p, q, nrm, y0, y1, off = 0, tu = 4, tv = 4) => {
+    const l = Math.hypot(nrm[0], nrm[1]), A = [p[0] + nrm[0] / l * off, p[1] + nrm[1] / l * off], C = [q[0] + nrm[0] / l * off, q[1] + nrm[1] / l * off];
+    if (-(C[1] - A[1]) * nrm[0] + (C[0] - A[0]) * nrm[1] > 0) k.wall(m, A[0], A[1], C[0], C[1], y0, y1, tu, tv); else k.wall(m, C[0], C[1], A[0], A[1], y0, y1, tu, tv);
+  };
+  // js/map.js 幫整棟加的碰撞多邊形（植栽照它種完了，共用亂數不變）縮成 at 那裡的一小點：之後只剩各分段擋人，
+  // 穿堂和中庭就走得進去（做法同 js/zone_h.js 的空橋）
+  const collapse = (ref, at) => { const pi = collision ? collision.polys.findIndex(q => q.pts === ref) : -1; if (pi < 0) return; const n = ref.length; collision.insetPolygon(pi, Array.from({ length: n }, (_, i) => [at[0] + Math.cos(i / n * 6.2832) * 0.05, at[1] + Math.sin(i / n * 6.2832) * 0.05])); };
+  // 一棵簡單的樹（中庭用，不進 js/map.js 的植栽，也不抽共用亂數；樹幹有碰撞）
+  const tree = (x, z, s, r) => { const y = H(x, z); collision?.addCircle(x, z, 0.35); k.cyl('trunk', x, z, 0.22 * s, y - 0.2, y + 3.2 * s, 8, false, 0.16 * s); k.blob(r() < 0.5 ? 'leaf' : 'leaf2', x, y + 4.2 * s, z, 2.4 * s, 0.75); k.blob('leaf', x + 1.1 * s, y + 3.8 * s, z + 0.6 * s, 1.6 * s, 0.7); k.blob('leaf2', x - 0.9 * s, y + 4.0 * s, z - 0.7 * s, 1.7 * s, 0.7); };
 
   // ===== 管理大樓 =====
   const mg = find(C_IDS.mg);
@@ -407,9 +445,30 @@ export function buildZoneC(I, scene, data) {
       ub('granite', u - 0.5, u + 0.5, -1.0, 0.05, g0, B + 2 * fl);
       colBox(u - 0.5, u + 0.5, -1.0, 0, g0, B + 2 * fl);
     }
-    // 穿堂：深色通道、二樓酒紅欄牆與「College of Business」、鐵柵門（貼在牆面外 3 cm）
-    { const a = mgW(e0, -0.03), c = mgW(e1, -0.03), y0 = Math.min(groundY(...a), groundY(...c)) - 0.05;
-      k.quad('passage', [a[0], y0, a[1]], [c[0], y0, c[1]], [c[0], B + 2 * fl, c[1]], [a[0], B + 2 * fl, a[1]], [[0, (y0 - B) / (2 * fl)], [1, (y0 - B) / (2 * fl)], [1, 1], [0, 1]]); }
+    // 穿堂（兩層高，走得過去，通到東北側對著自強的紅磚中庭）：地面鋪面、白色天花與梁、三四樓外牆與窗、
+    // 靠正面的二樓過道（酒紅欄牆「College of Business」）
+    if (mg.parts) {
+      const vN = MG.vN, yC = B + 2 * fl, nN = MG_V, Q = [mgW(e0, -1.3), mgW(e1, -1.3), mgW(e1, vN + 0.1), mgW(e0, vN + 0.1)];
+      k.flat('plaza', Q, (x, z) => H(x, z) + 0.035, 6);
+      k.flat('soffit', [mgW(e0, 0), mgW(e1, 0), mgW(e1, vN), mgW(e0, vN)], yC, 4);
+      for (let v = 3.9; v < vN - 1; v += 3.9) ub('soffit', e0, e1, v - 0.2, v + 0.2, yC - 0.5, yC);
+      // 西南面三、四樓：花崗石牆、每格一扇橫拉窗、樓板膚色帶
+      wallOut('granite', mgW(e0, 0), mgW(e1, 0), n, yC, B + 4 * fl, 0, 1.8, 1.8);
+      for (const f of [2, 3]) for (let i = 0; i < 3; i++) { const u0 = e0 + (e1 - e0) * (i + 0.5) / 3 - 0.8, y = B + f * fl + 1.0;
+        wallOut('mgGlass', mgW(u0, 0), mgW(u0 + 1.6, 0), n, y, y + 1.45, 0.03);
+        ub('white', u0 - 0.1, u0 + 1.7, -0.12, 0, y - 0.1, y); ub('white', u0 + 0.77, u0 + 0.83, -0.06, 0, y, y + 1.45); }
+      for (const f of [2, 3, 4]) ub('mgBand', e0, e1, -0.12, 0, B + f * fl - 0.16, B + f * fl + 0.16);
+      // 東北面：深灰素混凝土
+      wallOut('mgDark', mgW(e0, vN), mgW(e1, vN), nN, yC, top, 0, 3, 3);
+      // 二樓過道：橫跨穿堂，前後酒紅欄牆
+      ub('slab', e0, e1, 0.4, 2.6, B + fl - 0.25, B + fl);
+      ub('maroon', e0, e1, 0.4, 0.55, B + fl, B + fl + 1.1); ub('maroon', e0, e1, 2.45, 2.6, B + fl, B + fl + 1.1);
+      { const c = mgW((e0 + e1) / 2, 0.38); sign(group, lText('cMgCob', 'College of Business', '#f0d7be', '"Times New Roman",serif', 1024, 224), 2.2, 0.48, c[0], B + fl + 0.55, c[1], n[0], n[1], 0.1, 0.1); }
+      // 碰撞：整棟的多邊形與穿堂上方那塊縮掉，只剩西北段、東南段擋人
+      const cW = mgW(5, 7); collapse(mg.pts, cW); collapse(mg.parts[1].pts, cW);
+      // 東北側夾在兩座樓梯間之間的紅磚中庭（正射：紅磚格子鋪面）
+      k.flat('brickPave', [mgW(6.3, vN + 0.05), mgW(34.5, vN + 0.05), mgW(34.5, 20.4), mgW(6.3, 19.7)], (x, z) => H(x, z) + 0.04, 1.6);
+    }
     // 紅底金字「商學院」匾（右至左），掛在中間兩根柱之間
     { const c = mgW((ecols[1] + ecols[2]) / 2, -0.6); sign(group, hText('cMgName', '院學商', '#e8c46a', SERIF, 768, 256, '#b3202a'), 2.25, 0.75, c[0], B + 2 * fl - 0.95, c[1], n[0], n[1], 0.12, 0.2); }
     // AACSB 藍色橫布條：掛在三樓樓板邊
@@ -420,7 +479,7 @@ export function buildZoneC(I, scene, data) {
       g.rotateY(Math.atan2(-n[1], n[0])); g.translate(C[0], (y0 + y1) / 2, C[1]); k.add('drum', g);
       const ring = []; for (let i = 0; i <= 12; i++) { const t = Math.PI * i / 12, du = Math.cos(t) * r, dv = -Math.sin(t) * r; ring.push(mgW(MG.drum + du, dv)); }
       k.flat('drumTop', ring, y1, 4);
-      for (let i = 0; i < ring.length - 1; i++) I.addWall(ring[i][0], ring[i][1], ring[i + 1][0], ring[i + 1][1], y0, y1);
+      for (let i = 0; i < ring.length - 1; i++) wallC(ring[i][0], ring[i][1], ring[i + 1][0], ring[i + 1][1], y0, y1);
       // 頂上一圈白欄杆（樓梯平台）
       for (let i = 0; i < ring.length - 1; i++) k.beam('rail', [ring[i][0], y1 + 1.0, ring[i][1]], [ring[i + 1][0], y1 + 1.0, ring[i + 1][1]], 0.05, 0.05, [0, 1]); }
     // 5F 開放框架層（西南面）：方框柱、上梁、矮欄牆、每格一根斜撐
@@ -456,12 +515,48 @@ export function buildZoneC(I, scene, data) {
     { const top = B + 7.2, Q = [zqW(0.4, c[2] + 0.3), zqW(0.4, c[3] - 0.3), zqW(ZQ.link - 0.3, c[3] - 0.3), zqW(ZQ.link - 0.3, c[2] + 0.3)];
       k.flat('brickPave', Q, top + 0.04, 1.2);
       for (let i = 0; i < 4; i++) { const a = Q[i], d = Q[(i + 1) % 4]; k.beam('rail', [a[0], top + 1.0, a[1]], [d[0], top + 1.0, d[1]], 0.05, 0.05, [0, 1]); } }
-    // 中庭：草地、碎石步道、大樹（js/map.js 的樹長不進被輪廓擋住的中庭）
+    // 中庭：草地、碎石步道、大樹（js/map.js 種樹時整個輪廓還擋著，中庭的樹自己種）
     { const Q = [zqW(c[0] + 0.3, c[2] + 0.3), zqW(c[0] + 0.3, c[3] - 0.3), zqW(c[1] - 0.3, c[3] - 0.3), zqW(c[1] - 0.3, c[2] + 0.3)];
       k.flat('grass', Q, (x, z) => H(x, z) + 0.04, 4);
       k.flat('gravel', [zqW(c[0] + 0.3, 26), zqW(c[0] + 0.3, 28), zqW(c[1] - 0.3, 28), zqW(c[1] - 0.3, 26)], (x, z) => H(x, z) + 0.06, 2);
       const r = lcg(97);
-      for (const [u, v, s] of [[10, 19, 1.15], [17, 34, 1.25], [23, 20, 1.1], [29, 33, 1.2], [12, 31, 0.95], [31, 19, 1.0], [20, 26.5, 1.35]]) { const p = zqW(u, v); tree(p[0], p[1], s, r); } }
+      for (const [u, v, s] of [[13.5, 21, 1.15], [17, 34, 1.25], [24, 21, 1.1], [29, 33, 1.2], [13.5, 31, 0.95], [31, 19, 1.0], [25.5, 31, 1.35], [21, 36.5, 1.2], [30.5, 24.5, 1.1], [13.5, 36, 1.0]]) { const p = zqW(u, v); tree(p[0], p[1], s, r); }
+      // 穿堂出口到碎石步道的紅磚小徑
+      k.flat('brickPave', [zqW(15.5, c[2] - 0.1), zqW(19.5, c[2] - 0.1), zqW(19.5, 26), zqW(15.5, 26)], (x, z) => H(x, z) + 0.07, 1.6); }
+    // 斜柱穿堂（西南翼，正對管理大樓穿堂；2024-04 相片）：兩層高、走得過去通到中庭。正面四根往下變寬的褐灰洗石子大柱
+    // （外側兩根寬、中間兩根窄）、紅底金字「自強商學大樓」匾、橘紅磚地、白色天花；三四樓牆與橫向帶窗自建
+    { const [u0, u1] = ZQ.pass, vC = c[2], fl = 3.3, yC = B + 2 * fl, top = B + 13.8;
+      const o = zqW(0, 0), vv = zqW(0, 1), uu = zqW(1, 0), nS = [o[0] - vv[0], o[1] - vv[1]], nN = [-nS[0], -nS[1]], U = [uu[0] - o[0], uu[1] - o[1]];
+      k.flat('brickPave', [zqW(u0, -0.3), zqW(u1, -0.3), zqW(u1, vC + 0.1), zqW(u0, vC + 0.1)], (x, z) => H(x, z) + 0.05, 1.6);
+      k.flat('soffit', [zqW(u0, 0), zqW(u1, 0), zqW(u1, vC), zqW(u0, vC)], yC, 4);
+      const zb = (m, a0, a1, b0, b1, y0, y1) => { const p = zqW(a0, (b0 + b1) / 2), q = zqW(a1, (b0 + b1) / 2); k.slab(m, p[0], p[1], q[0], q[1], b1 - b0, y0, y1); };
+      for (let v = 3.6; v < vC - 1; v += 3.6) zb('soffit', u0, u1, v - 0.2, v + 0.2, yC - 0.5, yC);
+      for (const [vf, nrm, off] of [[0, nS, -0.1], [vC, nN, 0.1]]) { // 兩面：對管理大樓那面、對中庭那面
+        wallOut('zqWall', zqW(u0, vf), zqW(u1, vf), nrm, yC, top, 0, 2, 2);
+        for (const f of [2, 3]) { const y = B + f * fl + 1.0;
+          wallOut('winGlass', zqW(u0 + 0.5, vf), zqW(u1 - 0.5, vf), nrm, y, y + 1.4, 0.03);
+          for (let u = u0 + 0.5; u <= u1 - 0.45; u += (u1 - u0 - 1) / 6) zb('white', u - 0.04, u + 0.04, vf + Math.min(0, off), vf + Math.max(0, off), y, y + 1.4);
+          zb('zqBand', u0, u1, vf + Math.min(0, off), vf + Math.max(0, off), y + 1.4, y + 1.75); }
+        zb('zqBand', u0, u1, vf + Math.min(0, off * 1.5), vf + Math.max(0, off * 1.5), yC - 0.05, yC + 0.4);
+      }
+      // 正面四根斜柱：立面上是梯形（下寬上窄），柱深 1.5 m
+      const g0 = (u, v) => H(...zqW(u, v)) - 0.15, P3 = (u, v, y) => { const p = zqW(u, v); return [p[0], y, p[1]]; };
+      for (const [uc, wb, wt] of [[u0 + 1.15, 2.3, 1.6], [u0 + 3.75, 1.15, 0.85], [u1 - 3.75, 1.15, 0.85], [u1 - 1.15, 2.3, 1.6]]) {
+        const va = -0.25, vb = 1.25, y0 = g0(uc, 0), UV = [[0, 0], [1, 0], [1, 1], [0, 1]];
+        const b0 = uc - wb / 2, b1 = uc + wb / 2, t0 = uc - wt / 2, t1 = uc + wt / 2;
+        k.quad('zqPier', P3(b0, va, y0), P3(b1, va, y0), P3(t1, va, yC), P3(t0, va, yC), UV); // 正面
+        k.quad('zqPier', P3(b1, vb, y0), P3(b0, vb, y0), P3(t0, vb, yC), P3(t1, vb, yC), UV); // 背面
+        k.quad('zqPier', P3(b0, vb, y0), P3(b0, va, y0), P3(t0, va, yC), P3(t0, vb, yC), UV);
+        k.quad('zqPier', P3(b1, va, y0), P3(b1, vb, y0), P3(t1, vb, yC), P3(t1, va, yC), UV);
+        boxColl([zqW(b0, va), zqW(b1, va), zqW(b1, vb), zqW(b0, vb)], y0, yC);
+      }
+      // 靠中庭那排細方柱
+      for (const uc of [u0 + 0.3, u0 + 3.8, u1 - 3.8, u1 - 0.3]) { const y0 = g0(uc, vC - 0.6); zb('zqPier', uc - 0.28, uc + 0.28, vC - 0.9, vC - 0.34, y0, yC); boxColl([zqW(uc - 0.28, vC - 0.9), zqW(uc + 0.28, vC - 0.9), zqW(uc + 0.28, vC - 0.34), zqW(uc - 0.28, vC - 0.34)], y0, yC); }
+      // 紅底金字「自強商學大樓」匾，掛在中間兩根斜柱之間
+      { const p = zqW((u0 + u1) / 2, 0.5); sign(group, hText('cZqName', '自強商學大樓', '#f0cc66', SERIF, 1024, 230, '#c8281e'), 2.5, 0.58, p[0], yC - 0.5, p[1], nS[0], nS[1], 0.12, 0.2); }
+      // 碰撞：整棟的多邊形與穿堂上方那塊縮掉，穿堂和中庭走得進去（中庭的樹幹另外有碰撞）
+      const cS = zqW(5, 7); collapse(zq.pts, cS); collapse(zq.parts[1].pts, cS);
+    }
     // 東南面中段入口：暗色門、雨遮、3 階淺台階、兩側坡道（不加碰撞，台階只有 0.45 m）
     { const C = zqW(48.48, ZQ.door), e = edge(zqW(48.7, 51.6), zqW(48.26, 0)); // C→D 方向，法線朝外（東南）
       const s0 = Math.hypot(C[0] - zqW(48.7, 51.6)[0], C[1] - zqW(48.7, 51.6)[1]), O = zqW(48.7, 51.6), y0 = groundY(...along(O, e, s0, 2.6)), yF = y0 + 0.45;
@@ -547,15 +642,19 @@ export function buildZoneC(I, scene, data) {
     }
     // --- 東北角頂層：藍色圓形校徽（東面北端）、東北面金色直書「中原大學工學院」 ---
     { const p = along(NEc, eE, 3.4, 0.08); sign(group, logoTex(), 3.2, 3.2, p[0], top - 1.7, p[1], eE.nx, eE.nz, 0.15, 0.2); }
-    { const eN = edge(gxW(0, 0), NEc), O = gxW(0, 0), p = along(O, eN, 46.3, 0.1), a2 = along(O, eN, 44.6, 0.05), c2 = along(O, eN, 48.4, 0.05);
+    { const eN = edge(gxW(0, 0), NEc), O = gxW(0, 0), p = along(O, eN, 46.3, 0.3), a2 = along(O, eN, 44.6, 0.05), c2 = along(O, eN, 48.4, 0.05);
       k.wall('gxPlain', c2[0], c2[1], a2[0], a2[1], top - 17.5, top - 2.2, 3, 3); // 轉角一道沒開窗的實牆
       sign(group, vText('cGxName', '中原大學工學院', '#e6c066', SERIF), 2.6, 14.0, p[0], top - 2.9 - 7.0, p[1], eN.nx, eN.nz, 0.25, 0.6); }
+    // --- 東北面三道凸出的管道間（比屋頂高一截；依東面的做法推，新中北路側被店面擋住沒有近照） ---
+    { const O = gxW(0, 0), eN = edge(O, NEc);
+      [9, 21.5, 34].forEach((s0, i) => { const p = along(O, eN, s0 - 0.4, 0.22), q = along(O, eN, s0 + 3.0, 0.22); k.slab('gxTower', p[0], p[1], q[0], q[1], 0.45, groundY(...p) - 0.2, top + 1.6 + i * 0.5, 3); }); }
     // --- 外牆零星暗紅小方磚（東北面、東面，約每兩層一顆） ---
     { const r = lcg(23);
       for (const [a, c2] of [[gxW(0, 0), NEc], [NEc, gxW(71, 49)]]) {
         const e = edge(a, c2);
         for (let f = 1; f < 7; f += 2) for (let s = 2.5 + r() * 2; s < e.l - 1; s += 4.2 + r() * 2.5) {
-          if (a === NEc && s > 5 && s < 14) continue; // 鋼梯那段
+          if (a === NEc && s > 5 && s < 14) continue; // 樓梯平台那段
+          if (a !== NEc && [9, 21.5, 34].some(q => s > q - 0.6 && s < q + 2.7)) continue; // 管道間
           const p = along(a, e, s, 0.03), q = along(a, e, s + 0.45, 0.03), y = B + (f + 0.55) * fl + (r() - 0.5) * 0.6;
           k.wall('redTile', q[0], q[1], p[0], p[1], y, y + 0.45, 1, 1);
         }

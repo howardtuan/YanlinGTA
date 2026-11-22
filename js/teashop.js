@@ -4,7 +4,7 @@
 import { createCharacter } from './character.js';
 import { makeLabel } from './map.js';
 import { FRIENDS } from './friends.js';
-import { TEA_BOARD } from './interiors.js';
+import { TEA_BOARD } from './street_tea.js';
 
 const EMOJI = { 珍珠奶茶: '🧋', 茉莉綠茶: '🍵', 四季春青茶: '🍵', 冬瓜檸檬: '🍋', 蜂蜜檸檬綠: '🍯', 鮮奶紅茶: '🥛' };
 export const TEA_MENU = TEA_BOARD.map(([name, price]) => ({ name, price, emoji: EMOJI[name] || '🥤' }));

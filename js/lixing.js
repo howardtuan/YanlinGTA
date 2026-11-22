@@ -38,6 +38,7 @@ const ROOM_SPOTS = {}; // 276～281: beds, desks and chairs in local metres (I.l
 const ST = 3.3;                         // storey height
 // 兩翼靠中段的樓梯（分布圖「樓梯」）：樓梯間在兩翼朝前院的那一面（使用者指正；街景 2026-05 拍到東棟那面是清水混凝土＋藍白格子、
 // 三個凸出的半層平台）。從主走廊進去先走一段通道（z CZ..SW.z0），樓梯 z SW.z0..SW.z1，半層平台在南端、朝前院開口。
+const WD = { z0: 25.3, z1: 26.9 };      // 1F: door from the forecourt into the west wing's room corridor (早餐屋西側的通道，使用者指正)
 const SW = { z0: 17.7, z1: 24.78, ld: 1.6, fW: 37.5, fE: 85.53, sill: 1.1, head: 2.5 }; // fW / fE: the two faces on the forecourt (outline x)
 const FB_ID = 'xinzhongbei_footbridge', FB_CUT = 5.7; // the footbridge's first metres are the outside stair (data.grade cut0)
 const ANNEX = { z0: 29.6, z1: 34.3, x0: 38.3, x1: 84.7, gate0: 56.2, gate1: 61.4, h: 3.3 };
@@ -53,6 +54,7 @@ export function lixingLook(b) {
   // door openings in the south wall of the middle block: 1F 大門, 2F 天橋門 at the 2F floor (world heights)
   const { f1 } = lxLevels(), p = W(MID.door0, 19.4), q = W(MID.door1, 19.4);
   b.wallDoors = [{ p, q, y0: f1 - 0.4, y1: f1 + 2.3 }, { p, q, y0: f1 + ST - 0.05, y1: f1 + ST + 2.3 }];
+  b.wallDoors.push({ p: W(SW.fW, WD.z0), q: W(SW.fW, WD.z1), y0: f1 - 0.4, y1: f1 + 2.3 });
   // the half landings of the two wing stairs are open to the forecourt
   for (const x of [SW.fW, SW.fE]) for (let i = 0; i < 3; i++) { const y = f1 + ST * (i + 0.5); b.wallDoors.push({ p: W(x, SW.z1 - SW.ld + 0.1), q: W(x, SW.z1 - 0.1), y0: y + SW.sill, y1: y + SW.head }); }
 }
@@ -67,7 +69,7 @@ function lxLevels() {
 // 門房、大門台階蓋在前院：原本種在那裡的灌木和樹只隱藏
 export function lixingVegHide() {
   const A = ANNEX;
-  return [rectW(A.x0 - 0.8, A.x1 + 0.8, A.z0 - 0.8, A.z1 + 1.2), rectW(MID.hall0 - 1.5, MID.hall1 + 1.5, 19.3, 22.6)];
+  return [rectW(A.x0 - 0.8, A.x1 + 0.8, A.z0 - 0.8, A.z1 + 1.2), rectW(MID.hall0 - 1.5, MID.hall1 + 1.5, 19.3, 22.6), rectW(SW.fW - 0.3, SW.fW + 3.2, WD.z0 - 1, WD.z1 + 1)];
 }
 
 function canvasTex(w, h, draw) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
@@ -311,7 +313,9 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     for (const [z0, z1] of [[CZ, 15.4], [16.6, BW.zB + 0.3], [BW.z1 - 0.3, RC]]) wall(WW.x0, z0, WW.x0, z1, y, c, MT.blue, -1);
     bx(WW.x0 - T, WW.x0, y + 2.3, c, 15.4, 16.6, MT.band);
     wall(WW.x1, CZ, WW.x1, SG, y, c, MT.blue, 1);               // 樓梯／儲藏室的西牆
-    wall(WW.x1, SG, WW.e, SG, y, c, MT.blue, -1); wall(WW.e, SG, WW.e, RC, y, c, MT.blue, 1);
+    wall(WW.x1, SG, WW.e, SG, y, c, MT.blue, -1);
+    if (f === 0) { wall(WW.e, SG, WW.e, WD.z0, y, c, MT.blue, 1); wall(WW.e, WD.z1, WW.e, RC, y, c, MT.blue, 1); bx(WW.e, WW.e + T, y + 2.3, c, WD.z0, WD.z1, MT.band); } // 1F: the door to the forecourt
+    else wall(WW.e, SG, WW.e, RC, y, c, MT.blue, 1);
     // east wing (mirrored)
     for (const [z0, z1] of [[CZ, 16.4], [17.6, BE.zB + 0.3], [BE.z1 - 0.3, RC]]) wall(EW.x1, z0, EW.x1, z1, y, c, MT.blue, 1);
     bx(EW.x1, EW.x1 + T, y + 2.3, c, 16.4, 17.6, MT.band);
@@ -567,6 +571,19 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     const way = data?.roads?.find(r => r.grade === FB_ID); if (way) way.deckY = stairY;
   }
 
+  // ---------------- 前院 → 一樓西棟寢室走廊的門（早餐屋西側的通道）：門檻、往前院下去的台階 ----------------
+  {
+    const xf = SW.fW, xs = xf + 0.3, xe = xf + 2.0, z0 = WD.z0, z1 = WD.z1;
+    const [gx, gz] = W(xe + 0.3, (z0 + z1) / 2), drop = Math.max(0.15, F1 - (H(gx, gz) - B)), n = Math.max(1, Math.round(drop / 0.16));
+    bx(WW.e, xs, F1 - SL, F1, z0, z1, MT.floor); sf(WW.e - 0.1, xs, z0, z1, F1);
+    sf(xs, xe, z0 - 0.2, z1 + 0.2, (lx) => F1 - drop * clamp01((lx - xs) / (xe - xs)));
+    for (let i = 0; i < n; i++) bx(xs + (xe - xs) * i / n, xs + (xe - xs) * (i + 1) / n, F1 - drop - 0.6, F1 - drop * (i + 1) / n, z0 - 0.2, z1 + 0.2, MT.stone, { tile: [1, 1] });
+    for (const z of [z0 - 0.2, z1 + 0.2]) wl(xs, z, xe - 0.5, z, F1 - drop + 0.5, F1 + 1.0);
+    for (const [a, b2] of [[z0 - 0.2, z0], [z1, z1 + 0.2]]) bx(xf, xf + 0.1, F1 - 0.3, F1 + 2.5, a, b2, MT.band);
+    bx(xf, xf + 0.1, F1 + 2.3, F1 + 2.55, z0 - 0.2, z1 + 0.2, MT.band);
+    sign('西棟寢室 151～183', xf + 0.11, F1 + 2.8, (z0 + z1) / 2, 'e', '#1f5f8b', 1.6);
+  }
+
   // ---------------- 沿新中北路的一層樓門房（街景 2026-05）----------------
   {
     const A = ANNEX, [ax, az] = W((A.gate0 + A.gate1) / 2, (A.z0 + A.z1) / 2), g = H(ax, az) - B, yT = g + A.h;
@@ -576,8 +593,8 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     block(47.6, A.gate0);     // 會客室
     block(A.gate1, 70.5);     // 傳達室
     block(70.5, A.x1);        // 公佈欄那段
-    // 早餐屋與會客室之間的通道：朝街那一側是關著的鐵捲門（街景 2026-05），只從前院（宿舍那一側）走得進去（使用者指正）
-    bx(46.2, 47.6, g - 0.4, yT, A.z1 - 0.5, A.z1 - 0.3, MT.shutter); wl(46.2, A.z1 - 0.3, 47.6, A.z1 - 0.3, g - 0.4, yT);
+    // 早餐屋與會客室之間：鐵捲門（關著，不能通行；使用者說的通道在早餐屋西側，見上面）
+    bx(46.2, 47.6, g - 0.4, yT, A.z0 + 0.4, A.z1 - 0.3, MT.shutter); wl(46.2, A.z1 - 0.3, 47.6, A.z1 - 0.3, g - 0.4, yT); wl(46.2, A.z0 + 0.4, 47.6, A.z0 + 0.4, g - 0.4, yT);
     // 平屋頂與出挑雨遮（往街上挑 1.4 m）、女兒牆
     bx(A.x0 - 0.3, A.x1 + 0.3, yT, yT + 0.22, A.z0 - 0.5, A.z1 + 1.4, MT.canopy);
     bx(A.x0 - 0.3, A.x1 + 0.3, yT + 0.22, yT + 0.6, A.z0 - 0.5, A.z0 - 0.35, MT.canopy);
@@ -604,6 +621,10 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     for (let i = 0; i < P.length; i++) {
       const a = P[i], c = P[(i + 1) % P.length];
       if (isMidS(a, c)) continue;
+      { const la = k.l(a[0], a[1]), lc = k.l(c[0], c[1]); if (Math.abs(la[0] - SW.fW) < 0.3 && Math.abs(lc[0] - SW.fW) < 0.3) { // the west wing's face on the forecourt: gap at the 1F door
+        const lo = Math.min(la[1], lc[1]), hi = Math.max(la[1], lc[1]);
+        wl(SW.fW, lo, SW.fW, WD.z0, -1, TOP + 1); wl(SW.fW, WD.z1, SW.fW, hi, -1, TOP + 1); wl(SW.fW, WD.z0, SW.fW, WD.z1, F1 + 2.3, TOP + 1); continue;
+      } }
       const g = H((a[0] + c[0]) / 2, (a[1] + c[1]) / 2); I.addWall(a[0], a[1], c[0], c[1], B - g - 1, B - g + TOP + 1);
     }
     wl(MID.x0, 19.4, MID.door0, 19.4, -1, TOP + 1); wl(MID.door1, 19.4, MID.x1, 19.4, -1, TOP + 1);

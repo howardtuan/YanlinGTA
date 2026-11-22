@@ -116,7 +116,7 @@ qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
    - `labels`：`{ text, x, z }`，另外可以給 `size`、`bold`、`vertical`（直排）、`anchor`（`'start'`／`'end'`）、`leader: [x, z]`（拉一條引線到那個點）。
    - `zoneNames`：`{ open: '可以走進去的寢室' }` 這樣改圖例上各種 `style` 的名稱（預設名稱在 `tools/floorplan/lib/svg.mjs` 的 `ZONE_STYLES`）。`bounds`：`{ x0, x1, z0, z1 }`，指定圖要畫的範圍；不給就自動包住所有牆、地板和標籤。
    - `plan()` 的參數裡有 `sl.texts`（這一層讀到的門牌和招牌，含位置）和 `find()`，可以拿來定位。
-6. 核對：加 `--debug` 看紅字和自己標的名稱有沒有對上；挑十個以上的位置（牆的位置、門口缺口、樓梯起點、房間隔間），拿 `--json` 存下來的數字和 js 檔的常數比；再開開發伺服器 `python -I tools/devserver.py 5173`，瀏覽器開 `http://localhost:5173/` 進遊戲走一趟那一層確認。
+6. 核對：加 `--debug` 看紅字和自己標的名稱有沒有對上；挑十個以上的位置（牆的位置、門口缺口、樓梯起點、房間隔間），拿 `--json` 存下來的數字和 js 檔的常數比；再開開發伺服器 `npm run dev`，瀏覽器開 `http://localhost:5173/` 進遊戲走一趟那一層確認。
 7. 確認沒問題再把 SVG 產出來（不給 `--out` 就是 `docs/floorplans/<名稱>/<名稱>-<樓層>.svg`，每棟建築自己一個資料夾），並在這份文件最上面的表格補一列、下面補上各層的圖。
 
 第二棟是學生活動中心（`src/world/buildings/Sac.js`，`Kit` 原點 0,0、不旋轉），設定檔 `tools/floorplan/buildings/sac.mjs` 可以當另一個範例：

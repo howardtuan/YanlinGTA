@@ -100,7 +100,7 @@ flowchart TD
 ### 2. 註解與命名慣例
 - **檔案命名**：
   - 核心類別與業務模組採用 **大駝峰 (PascalCase)**：`GameLoop.js`, `MenuManager.js`, `SkySystem.js`。
-  - 工具腳本採用 **小寫加底線 (snake_case)**：`check_wasm.mjs`, `devserver.py`。
+  - 工具腳本採用 **小寫加底線 (snake_case)**：`check_wasm.mjs`, `build_terrain.py`。
 - **程式碼註解**：
   - 底層引擎演算法、數學運算與 API 封裝建議使用英文註解。
   - 涉及到中原大學校園場景、歷史典故、特定任務對白與競選情境邏輯，請保留清晰繁體中文註解。

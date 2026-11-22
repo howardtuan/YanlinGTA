@@ -1,5 +1,5 @@
 // NPC 儀表板（開發用）：看每個 NPC 的全身樣子和人物設定，新增自訂 NPC（外觀用文字描述、照片取色或細部調整）。
-// 讀寫 data/npcs.json（透過 tools/devserver.py 的 /__dev/npcs，只接受本機）；全身模型直接用遊戲的 js/character.js 畫，
+// 讀寫 data/npcs.json（透過 vite.config.js npcDashboardPlugin 的 /__dev/npcs（npm run dev），只接受本機）；全身模型直接用遊戲的 js/character.js 畫，
 // 內建 NPC 的外觀從各自的 js 檔匯入（跟遊戲裡一模一樣）。自訂 NPC 在遊戲裡由 js/customnpcs.js 放到出沒地點。
 import * as THREE from 'three';
 import { createCharacter } from '../../js/character.js';

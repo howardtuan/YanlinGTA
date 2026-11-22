@@ -43,13 +43,6 @@ docker compose up -d --build
 瀏覽器打開 👉 **http://localhost:8080**  
 （停止並移除容器：`docker compose down`）
 
-### 輔助方式：免構建純靜態開發伺服器
-若本機無 Node.js 環境，亦可透過 Python 內建伺服器啟動：
-```bash
-python tools/devserver.py 5173
-```
-瀏覽器打開 👉 **http://localhost:5173**
-
 ---
 
 ## 🎮 操作指南

@@ -13,7 +13,7 @@
     <input id="search" type="search" placeholder="搜尋名字、個性、地點…">
     <button id="btnNew" class="primary">＋ 新增 NPC</button>
   </header>
-  <div id="devWarn" class="warn hidden">⚠️ 這個頁面要從開發伺服器打開才能存檔：<code>python -I tools/devserver.py 5173</code>，再到 <code>http://localhost:5173/tools/npc-dashboard/</code>。</div>
+  <div id="devWarn" class="warn hidden">⚠️ 這個頁面要從開發伺服器打開才能存檔：<code>npm run dev</code>，再到 <code>http://localhost:5173/tools/npc-dashboard/</code>。</div>
   <main>
     <section class="filters"><button data-f="all" class="on">全部</button><button data-f="builtin">遊戲內建</button><button data-f="custom">自訂（儀表板匯入）</button><button data-f="friend">可加好友</button><span id="count"></span></section>
     <section id="grid" class="grid"></section>

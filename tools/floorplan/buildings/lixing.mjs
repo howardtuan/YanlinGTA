@@ -8,7 +8,7 @@ export default {
   id: 'lixing',
   name: '力行宿舍（力行大樓）',
   source: SRC,
-  note: '依目前模型產生、配置待使用者確認',
+  note: '依目前模型產生；一、二樓配置經使用者確認（2026-11-22）',
   scale: 8,
 
   async build(env) {
@@ -59,7 +59,7 @@ export default {
     // 中段北側樓梯（走廊牆上那塊「樓梯」牌子的位置；入口平台在走廊這一頭，長 1.6）
     for (const s of here(/^樓梯/, t => Math.abs(t.z - RA) < 0.3)) labels.push({ text: '樓梯', x: s.x, z: RA - 0.8, size: 8 });
     // 兩翼靠中段朝前院的剪刀梯：名稱寫在北端平台上。北端平台接回主走廊的那段走道（z CZ..SW.z0）使用者確認有通，
-    // 但走道的寬度是推測，用紅色虛線框起來。
+    // 用紅色虛線框起來。
     for (const [x0, x1] of [[WW.x1, WW.e], [EW.w, EW.x0]]) {
       labels.push({ text: '樓梯', x: mid(x0, x1), z: SW.z0 + SW.ld / 2, size: 7.5 });
       zones.push({ x0, x1, z0: CZ, z1: SW.z0, style: 'note' });
@@ -92,7 +92,7 @@ export default {
       labels.push({ text: '牆外平台與露天樓梯\n（往上到新中北路天橋）', x: doorX + 4, z: zS + 4, leader: [doorX + 1.2, zS + 3], anchor: 'start', size: 8.5 });
     }
     const legend = [f1 ? '寢室號碼取自模型門上的字；一樓只有公共空間和走廊能走，寢室都是關著的門。' : f2 ? '寢室號碼取自模型門上的字；二樓只有 276～281 能走進去，其他寢室都是關著的門。' : '寢室號碼取自模型門上的字。'];
-    legend.push('紅色虛線框：兩翼剪刀梯北端接回主走廊的走道（使用者確認有通）。走道的寬度、兩條梯道各往哪個方向上，寢室分布圖看不出來，是模型推測的。');
+    legend.push('紅色虛線框：兩翼剪刀梯北端接回主走廊的走道（使用者看過平面圖確認）。');
     return { closedRows, zones, labels, legend, zoneNames: { open: '可以走進去的寢室' } };
   },
 };

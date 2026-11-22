@@ -34,6 +34,7 @@ import { zoneHLook, zoneHAdd, buildZoneH } from './zone_h.js';
 import { zoneALook, zoneATerrain, zoneATreeHide, buildZoneA } from './zone_a.js';
 import { zoneDLook, zoneDTreeHide, buildZoneD } from './zone_d.js';
 import { zoneBLook, zoneBTerrain, zoneBTreeHide, buildZoneB } from './zone_b.js';
+import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
 import { zoneCLook, buildZoneC } from './zone_c.js';
 
@@ -90,6 +91,10 @@ export const ZONES = [
   },
   { // 理學大樓屋頂設備與南面大階梯入口（data.levels）、化學館白框架＋土黃牆與立管、恩惠堂門廊方塔與尖頂、副堂雙坡、林森館花磚、A6 步道與招牌
     name: 'B 區', look: zoneBLook, terrain: zoneBTerrain, treeHide: zoneBTreeHide, build: buildZoneB,
+  },
+  { // 力行宿舍室內：四層樓、兩個天井、樓梯、浴廁、276～281 六人房、沿新中北路的門房（外觀在 G 區）
+    name: '力行宿舍室內', look: lixingLook, vegHide: lixingVegHide,
+    build: (I, scene, data, collision) => buildLixing(I, scene, data, collision, Kit, regMat),
   },
 ];
 

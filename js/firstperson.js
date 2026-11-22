@@ -28,6 +28,7 @@ export class FirstPerson {
     this.rt.texture.colorSpace = THREE.SRGBColorSpace;
     this.mcam = new THREE.PerspectiveCamera(62, 3, 0.3, 160);
     this.frame = 0; this.kit = null; this.kitFor = null; this.hidden = null;
+    game.renderer.localClippingEnabled = true; // the car's cabin is cut out of its body while you sit in it (_hide)
   }
   toggle() {
     this.on = !this.on;
@@ -43,34 +44,58 @@ export class FirstPerson {
   }
   _car(v) {
     const k = new THREE.Group(), S = v.seat, sx = S.x, low = v.model ? -0.12 : 0; // supercars sit lower
+    const zb = this._cabin(v).zb, len = 0.95 - zb, zc = (0.95 + zb) / 2; // cabin from the firewall back to zb
     const dash = std('#26282d', { roughness: 0.85 }), trim = std('#3a3d44'), soft = std('#55585f', { roughness: 0.95 });
-    const roof = std('#cfc8bb', { roughness: 0.95 }), hoodM = std(v.model ? '#9b1b1b' : '#3b3f46', { roughness: 0.4, metalness: 0.3 });
-    const y = (n) => n + low;
+    const roof = std('#cfc8bb', { roughness: 0.95 });
+    const y = (n) => n + low, d = v.model ? -0.1 : -0.07; // d: the dash sits a bit low so the car's own hood shows over it
     // dashboard, cluster hood, center console, door panels, pillars, roof liner, hood seen through the glass
-    k.add(box(1.8, 0.2, 0.5, dash, 0, y(0.85), 0.8));
-    const top = box(1.8, 0.04, 0.42, trim, 0, y(0.96), 0.72); top.rotation.x = -0.18; k.add(top);
-    k.add(box(0.44, 0.1, 0.2, dash, sx, y(1.04), 0.7)); // cluster hood
+    k.add(box(1.8, 0.2, 0.5, dash, 0, y(0.85) + d, 0.8));
+    const top = box(1.8, 0.04, 0.42, trim, 0, y(0.96) + d, 0.72); top.rotation.x = -0.18; k.add(top);
+    k.add(box(0.44, 0.1, 0.2, dash, sx, y(1.04) + d, 0.7)); // cluster hood
     k.add(box(0.3, 0.32, 0.5, dash, 0, y(0.62), 0.45)); // center console
     for (const s of [-1, 1]) {
-      k.add(box(0.06, 0.45, 1.6, soft, 0.86 * s, y(0.78), -0.1));                // door panel
-      k.add(box(0.07, 0.04, 1.6, trim, 0.84 * s, y(1.01), -0.1));                // window sill
+      k.add(box(0.06, 0.72, len, soft, 0.86 * s, y(0.65), zc));                  // door panel, floor to window
+      k.add(box(0.07, 0.04, len, trim, 0.84 * s, y(1.01), zc));                  // window sill
+      k.add(box(0.03, 0.12, 0.5, trim, 0.83 * s, y(0.8), 0.05));                 // door handle and armrest
       const p = box(0.07, 0.62, 0.07, trim, 0.78 * s, y(1.24), 0.62); p.rotation.x = -0.75; p.rotation.z = -0.12 * s; k.add(p); // A-pillar
       const b = box(0.08, 0.5, 0.1, trim, 0.82 * s, y(1.26), -0.75); k.add(b);  // B-pillar
+      const c = box(0.09, 0.55, 0.22, trim, 0.8 * s, y(1.24), zb + 0.12); c.rotation.x = 0.5; k.add(c); // C-pillar
     }
-    k.add(box(1.7, 0.04, 1.5, roof, 0, y(1.5), -0.35));
+    k.add(box(1.7, 0.04, 0.42 - zb, roof, 0, y(1.5), (0.42 + zb) / 2));
+    k.add(box(1.6, 0.09, 0.1, trim, 0, y(1.45), zb + 0.05)); // rear header
     k.add(box(1.6, 0.09, 0.1, trim, 0, y(1.45), 0.36)); // header over the windscreen
-    const hood = box(1.7, 0.05, 1.3, hoodM, 0, y(0.92), 1.65); hood.rotation.x = 0.1; k.add(hood);
+    // what you see looking down or around: carpet, firewall and pedals, the two front seats, the rear bench
+    const carpet = std('#1c1d21', { roughness: 1 }), seatM = std(v.model ? '#2a1c18' : '#33363d', { roughness: 0.9 });
+    k.add(box(1.72, 0.04, 2.5, carpet, 0, y(0.3), -0.35));
+    k.add(box(1.72, 0.5, 0.08, carpet, 0, y(0.55), 1.02)); // firewall under the dash
+    for (const [px, w] of [[0.1, 0.06], [-0.08, 0.1]]) k.add(box(w, 0.1, 0.02, trim, sx + px * Math.sign(sx || 1), y(0.45), 0.86).rotateX(0.5)); // brake, accelerator
+    for (const s of [-1, 1]) {
+      k.add(box(0.52, 0.14, 0.52, seatM, 0.4 * s, y(0.48), -0.22));                       // cushion
+      const bk = box(0.5, 0.66, 0.12, seatM, 0.4 * s, y(0.86), -0.56); bk.rotation.x = -0.15; k.add(bk); // backrest
+      k.add(box(0.28, 0.2, 0.1, seatM, 0.4 * s, y(1.3), -0.64));                          // headrest
+    }
+    if (v.model) k.add(box(1.72, 0.62, 0.06, carpet, 0, y(0.62), zb + 0.03)); // two-seater: bulkhead to the engine bay
+    else { k.add(box(1.5, 0.16, 0.5, seatM, 0, y(0.5), -1.25)); k.add(box(1.5, 0.6, 0.14, seatM, 0, y(0.85), -1.52)); k.add(box(1.6, 0.04, 0.3, carpet, 0, y(0.97), zb + 0.17)); } // rear bench, parcel shelf
+    // phone in a holder on the dash next to the cluster, toward the middle: a live mini map, the time and unread
+    // messages; open the real phone with E while driving (the car keeps going, see main.js)
+    const ph = new THREE.Group(), px = sx > 0 ? sx - 0.36 : sx + 0.36;
+    ph.rotation.order = 'YXZ'; ph.position.set(px, y(1.07) + d, 0.6); ph.rotation.set(-0.35, Math.atan2(sx - px, (S.z + 0.08) - 0.6), 0);
+    ph.add(box(0.19, 0.1, 0.012, std('#0b0b0d', { roughness: 0.4 }), 0, 0, 0.004));
+    const pg = this._gauge(360, 180), pm = new THREE.Mesh(new THREE.PlaneGeometry(0.175, 0.0875), new THREE.MeshBasicMaterial({ map: pg.tex, toneMapped: false }));
+    pm.position.z = 0.011; ph.add(pm);
+    for (const s of [-1, 1]) ph.add(box(0.012, 0.03, 0.02, trim, 0.1 * s, 0, 0)); // the holder's clamps
+    k.add(box(0.02, 0.07, 0.02, trim, px, y(1.02) + d, 0.62)); k.add(ph);
     // steering wheel (turns with the steering) with three spokes
-    const wheel = new THREE.Group(); wheel.position.set(sx, y(0.86), 0.4); wheel.rotation.x = -0.55;
+    const wheel = new THREE.Group(); wheel.position.set(sx, y(0.86) + d * 0.6, 0.4); wheel.rotation.x = -0.55;
     wheel.add(new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.022, 10, 36), std('#141414', { roughness: 0.6 })));
     for (const a of [0, 2.1, 4.2]) { const sp = box(0.16, 0.025, 0.02, trim, Math.cos(a - Math.PI / 2) * 0.08, Math.sin(a - Math.PI / 2) * 0.08, 0); sp.rotation.z = a - Math.PI / 2; wheel.add(sp); }
     wheel.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 16).rotateX(Math.PI / 2), trim));
     k.add(wheel);
     // instrument cluster and the centre screen (canvas, redrawn when the numbers change)
     const cl = this._gauge(512, 192); const clm = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.15), new THREE.MeshBasicMaterial({ map: cl.tex, toneMapped: false }));
-    clm.position.set(sx, y(1.03), 0.59); clm.rotation.set(-0.3, Math.PI, 0); k.add(clm);
+    clm.position.set(sx, y(1.03) + d, 0.59); clm.rotation.set(-0.3, Math.PI, 0); k.add(clm);
     const scr = this._gauge(256, 160); const scm = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.15), new THREE.MeshBasicMaterial({ map: scr.tex, toneMapped: false }));
-    scm.position.set(0, y(0.93), 0.62); scm.rotation.set(-0.3, Math.PI, 0); k.add(scm);
+    scm.position.set(0, y(0.93) + d, 0.62); scm.rotation.set(-0.3, Math.PI, 0); k.add(scm);
     // mirrors: interior rear-view (middle of the rear view), left and right door mirrors (their side of it)
     const rv = box(0.26, 0.075, 0.03, std('#1a1a1a'), 0.02, y(1.4), 0.5); rv.rotation.y = -0.3; k.add(rv);
     const rvf = mirrorFace(0.24, 0.062, this.rt.texture, 0.3, 0.7); rvf.position.set(0.025, y(1.4), 0.483); rvf.rotation.y = Math.PI - 0.3; k.add(rvf);
@@ -84,7 +109,7 @@ export class FirstPerson {
       const f = mirrorFace(0.22, 0.14, this.rt.texture, s > 0 ? 0.62 : 0, s > 0 ? 1 : 0.38, true);
       f.position.set(mx, y(1.08), mz); f.rotation.y = face; k.add(f);
     }
-    return { group: k, wheel, cl, scr, kind: 'car' };
+    return { group: k, wheel, cl, scr, ph: pg, kind: 'car' };
   }
   _bike(v) {
     const k = new THREE.Group(), S = v.seat, y0 = S.y + 1.05;
@@ -105,6 +130,47 @@ export class FirstPerson {
     }
     return { group: k, mt, kind: 'bike' };
   }
+  // a car is swapped for the cockpit; a scooter keeps its body (you see it looking down) and only loses the
+  // handlebar, headset, meter and mirrors above and in front of the seat, which the kit draws instead
+  _hide(v) {
+    if (v.kind !== 'scooter') return this._clipCar(v);
+    v.mesh.updateMatrixWorld(true);
+    const inv = v.mesh.matrixWorld.clone().invert(), S = v.seat, b = new THREE.Box3(), parts = [], rider = this.g.player.ch.root;
+    v.mesh.traverse(o => {
+      if (!o.isMesh || o.userData.lodFar) return;
+      for (let p = o; p; p = p.parent) if (p === rider) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
+      // moved to a layer no camera draws instead of visible = false, which the far-LOD check (js/vehicles.js) would
+      // take for an unmarked part toggling and drop the vehicle's far copy
+      if (b.min.y > S.y + 0.92 && b.max.z > S.z + 0.15) { o.layers.set(1); parts.push(o); }
+    });
+    this.hidden = v; this.parts = parts;
+  }
+  _unhide() {
+    if (this.parts) for (const o of this.parts) o.layers.set(0);
+    if (this.mats) for (const [o, mt] of this.mats) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(x => x.dispose()); o.material = mt; }
+    this.hidden = null; this.parts = null; this.mats = null; this.clip = null;
+  }
+  // the cabin of car v in its own frame: firewall at z 0.95..1.0, back to zb (behind the rear bench, or right behind
+  // the seats of a two-seater), between the doors, from just above the floor up
+  _cabin(v) { return { zb: v.model ? -0.85 : -1.6, zf: 1.0, hx: 0.86, y0: v.seat.y + 0.42 }; }
+  // a car stays drawn (hood, wings, nose, wheels, its own colour) but the part of its body inside the cabin is cut
+  // away with clipping planes on its own copies of the materials, so the roof, glass and the body's top don't cover
+  // the view; the kit draws the interior there. Planes are in world space, moved with the car every frame (update)
+  _clipCar(v) {
+    const C = this._cabin(v), P = (x, y, z, c) => new THREE.Plane(new THREE.Vector3(x, y, z), c);
+    const local = [P(1, 0, 0, -C.hx), P(-1, 0, 0, -C.hx), P(0, 0, 1, -C.zf), P(0, 0, -1, C.zb), P(0, -1, 0, C.y0)];
+    const world = local.map(p => p.clone()), mats = new Map(), rider = this.g.player.ch.root;
+    v.mesh.traverse(o => {
+      if (!o.isMesh || o.userData.lodFar) return;
+      for (let p = o; p; p = p.parent) if (p === rider) return;
+      mats.set(o, o.material);
+      const cut = (mt) => { const c = mt.clone(); c.clippingPlanes = world; c.clipIntersection = true; c.clipShadows = true; return c; };
+      o.material = Array.isArray(o.material) ? o.material.map(cut) : cut(o.material);
+    });
+    this.hidden = v; this.mats = mats; this.parts = null; this.clip = { local, world };
+  }
   _kitFor(v) {
     if (this.kitFor === v && this.kit) return this.kit;
     this._dropKit();
@@ -121,21 +187,24 @@ export class FirstPerson {
   // eye position in the vehicle's own frame
   eyeLocal(v) {
     const S = v.seat;
-    return v.kind === 'scooter' ? new THREE.Vector3(0, S.y + 1.56, S.z + 0.02) : new THREE.Vector3(S.x, S.y + (v.model ? 1.0 : 1.14), S.z + 0.08);
+    return v.kind === 'scooter' ? new THREE.Vector3(0, S.y + 1.56, S.z + 0.02) : new THREE.Vector3(S.x, S.y + (v.model ? 1.03 : 1.17), S.z + 0.08);
   }
   // ---------------- per frame (after the camera rig) ----------------
   get active() { return this.on && !this.g.airdrop?.cinema && !this.g.job?.active && !this.g.gate?.active; }
   update(dt) {
     const g = this.g, pl = g.player, v = pl.vehicle, act = this.active;
     // the player's own figure: hidden on foot in first person (the concert does the same inside the venue)
-    if (!g.rig.fp) pl.ch.root.visible = !(act && !v);
+    // your own figure: hidden in first person; in a car always (third person too: a low roof cuts through the head)
+    if (!g.rig.fp) pl.ch.root.visible = !act && !(v && v.kind !== 'scooter');
     // the vehicle you are in: hidden in first person (the cockpit stands in for it)
-    if (this.hidden && (this.hidden !== v || !act)) { this.hidden.mesh.visible = true; this.hidden = null; }
-    if (act && v) { v.mesh.visible = false; this.hidden = v; }
+    if (this.hidden && (this.hidden !== v || !act)) this._unhide();
+    if (act && v && this.hidden !== v) this._hide(v);
     if (!(act && v)) { if (this.kit) { this._dropKit(); } return; }
     const kit = this._kitFor(v);
     v.mesh.updateMatrixWorld(true);
     kit.group.matrix.copy(v.mesh.matrixWorld); kit.group.matrixWorldNeedsUpdate = true;
+    if (this.clip) this.clip.local.forEach((p, i) => this.clip.world[i].copy(p).applyMatrix4(v.mesh.matrixWorld));
+    if (kit.ph) this._drawPhone(kit.ph, v);
     const kmh = Math.round(Math.abs(v.speed) * 3.6);
     if (kit.wheel) kit.wheel.rotation.z = -v.steer * 1.6;
     if (kit.cl) this._drawCar(kit, kmh, v);
@@ -170,6 +239,21 @@ export class FirstPerson {
       c.fillStyle = '#fff'; c.font = '700 18px sans-serif'; c.textAlign = 'center'; c.fillText(this.g.hud._loc || '中原大學', 128, 140);
       s.tex.needsUpdate = true;
     }
+  }
+  // the dash phone: mini map around you turned to your heading, the time, unread messages; twice a second
+  _drawPhone(P, v) {
+    const g = this.g, t = g.time || 0; if (t - (P.t ?? -9) < 0.5 && t >= P.t) return; P.t = t;
+    const c = P.g, W = P.cv.width, H = P.cv.height, hud = g.hud, wp = g.player.worldPos(), cy = H * 0.6;
+    c.fillStyle = '#1b1d22'; c.fillRect(0, 0, W, H);
+    if (hud?.mapCanvas && hud.w2m) {
+      const s = hud.scale, [mx, mz] = hud.w2m(wp.x, wp.z), k = W / (140 * s); // 140 m across
+      c.save(); c.translate(W / 2, cy); c.rotate(Math.PI + v.heading); c.scale(k, k); c.drawImage(hud.mapCanvas, -mx, -mz); c.restore();
+    }
+    c.fillStyle = '#2f8cff'; c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.moveTo(W / 2, cy - 14); c.lineTo(W / 2 - 10, cy + 10); c.lineTo(W / 2, cy + 4); c.lineTo(W / 2 + 10, cy + 10); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, 0, W, 34); c.fillStyle = '#fff'; c.font = '700 22px sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText(hhmm(g.clock), 12, 17); c.textAlign = 'right'; c.fillText('📱 按 E 使用', W - 12, 17);
+    c.textAlign = 'center'; c.font = '700 18px sans-serif'; c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(0, H - 28, W, 28); c.fillStyle = '#fff'; c.fillText(hud?._loc || '', W / 2, H - 14);
+    P.tex.needsUpdate = true;
   }
   _drawBike(kit, kmh, v) {
     const key = kmh + '|' + Math.floor(this.g.clock);

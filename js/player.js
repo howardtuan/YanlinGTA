@@ -153,13 +153,13 @@ export class Player {
     this.ch.root.position.copy(v.seat); this.ch.root.rotation.set(0, 0, 0);
     this.pos = this.ch.root.position; // local now
     this.ch.update(0.2, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
-    this.ch.root.visible = v.kind === 'scooter' || true;
+    this.ch.root.visible = v.kind === 'scooter'; // in a car the driver is hidden (a low roof would cut through the head)
     Vehicle.onRide?.(v, true); // physics body for the ridden vehicle (main.js, js/vehphys.js)
   }
   exit(scene, collision) {
     const v = this.vehicle; if (!v) return;
     Vehicle.onRide?.(v, false); // back to a parked vehicle on the level it stands on
-    v.mesh.remove(this.ch.root); scene.add(this.ch.root);
+    v.mesh.remove(this.ch.root); scene.add(this.ch.root); this.ch.root.visible = true;
     this.pos = this.ch.root.position;
     // try left side, right side, behind
     const [fx, fz] = v.forward();

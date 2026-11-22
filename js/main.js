@@ -851,7 +851,7 @@ class Game {
     if (this._perf) this._perf.begin();
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
-    const yieldGpu = Nano.active > 0 && this.phone?.open && !this._shot && now - (this._drawnAt || 0) < 160;
+    const yieldGpu = Nano.active > 0 && this.phone?.open && !this.player.vehicle && !this._shot && now - (this._drawnAt || 0) < 160;
     if (!yieldGpu) {
       this._drawnAt = now;
       this.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
@@ -935,7 +935,10 @@ class Game {
     }
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
-    pl.frozen = inDialog || this._sleeping || this.airdrop.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.phone.open || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
+    // the phone doesn't stop a vehicle: you can keep driving with it open (W A S D; the arrows, Enter and Space go to the phone)
+    const busy = inDialog || this._sleeping || this.airdrop.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
+    pl.frozen = busy || this.phone.open;
+    const phoneDrive = this.phone.open && !busy && !!pl.vehicle && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || ''); // not while typing a message
     this.interiors.update(dt, this);
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -955,7 +958,7 @@ class Game {
           if (v.ai !== null && v.ai !== undefined) { this.traffic.hijack(v); this.vehicles.push(v); hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : '不好意思，借一下車！', 'bad'); }
           pl.enter(v); this.audio.mount(); this.audio.engineStart(v.kind);
           if (v.hint) { v.mesh.remove(v.hint); v.hint = null; }
-          hud.setTip('🛵 駕駛', dual('<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車',
+          hud.setTip(v.kind === 'scooter' ? '🛵 騎車' : '🚗 開車', dual('<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車',
             '{RT} 油門 {LT} 煞車/倒車 {L} 轉向<br>{RB} 甩尾 {LB} 喇叭 {B} 下車'));
         }
       }
@@ -963,7 +966,7 @@ class Game {
     // ---- movement ----
     if (pl.vehicle) {
       const v = pl.vehicle;
-      const a = pl.frozen ? { x: 0, y: 0 } : inp.axis();
+      const a = phoneDrive ? { x: (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0), y: (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0) } : pl.frozen ? { x: 0, y: 0 } : inp.axis();
       const others = [...this.traffic.vehicles(), ...this.race.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
       const vin = { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') };
       // a physics body (js/vehphys.js): step the physics now, so everything below sees this frame's result
@@ -1020,7 +1023,7 @@ class Game {
       const v = pl.y < 1 && !pl.seat ? this._nearestVehicle(3.2) : null;
       const p = this._nearestPed(3.5);
       if (act) hud.setPrompt(act.label(this));
-      else if (v) hud.setPrompt(`按 <kbd>F</kbd> ${v.ai ? '借用' : '騎上'}${v.label}`);
+      else if (v) hud.setPrompt(`按 <kbd>F</kbd> ${v.ai ? '借用' : v.kind === 'scooter' ? '騎上' : '開'}${v.label}`);
       else if (p && !p.voted) hud.setPrompt(`${this.input.touch ? '按 📄' : '<kbd>左鍵</kbd>'} 發傳單給同學`);
       else hud.setPrompt(null);
     } else hud.setPrompt(null);
@@ -1083,7 +1086,7 @@ class Game {
       this._locT = 0.5;
       const zn = !pl.vehicle && this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
       hud.setLocation(zn ? (zn.floorOf ? `${zn.name} ${zn.floorOf(pl.y)}F` : zn.name) : hud.locationName(wp.x, wp.z));
-      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle ? v !== this.fpv.hidden : Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160 * (this.viewK ?? 1);
+      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160 * (this.viewK ?? 1);
     }
     // tip box fades after a while on foot
     if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', dual('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定',

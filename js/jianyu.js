@@ -60,6 +60,8 @@ const M = (h, m = 0) => h * 60 + m;
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // his three cars in the lot west of the 資管系館 (anchor; the free spots are searched round it). The Lamborghini is his
 // favourite: you can drive it only after the 班費 case is solved.
+const RETURN_IDLE = 120;  // a borrowed car left alone this long (s) is driven back to its spot in the lot
+const RETURN_FAR = 150;   // … or as soon as you are this far (m) from it
 const LOT = { x: 66, z: 105 }; // on the asphalt of the lot (the lot's east end, by the building, is lawn under trees)
 const CARS = [
   { model: 'ferrari', color: '#c8102e', name: '法拉利' },
@@ -169,7 +171,7 @@ export class Jianyu {
       }
       if (!spot) continue;
       const v = g._addVehicle('car', spot.x, spot.z, Math.PI / 2, null, { model: c.model, color: c.color });
-      v.label = `劍玉的${c.name}`; v.owner = 'jianyu'; v.fav = !!c.fav;
+      v.label = `劍玉的${c.name}`; v.owner = 'jianyu'; v.fav = !!c.fav; v.home = { x: spot.x, z: spot.z, h: Math.PI / 2 }; v.idle = 0;
       const tag = makeLabel(`🏎️ 劍玉的${c.name}`, { height: 0.3, size: 40, color: c.fav ? '#7cd400' : '#ffd23f' }); tag.position.set(0, 1.75, 0); v.mesh.add(tag); v.tag = tag;
       // why you can't drive it yet (null = you can)
       v.lock = () => {
@@ -183,9 +185,28 @@ export class Jianyu {
     const c0 = this.cars[0]; this.carSpot = c0 ? { x: c0.pos.x + 3, z: c0.pos.z - 2.9 } : { ...LOT }; // in front, between the Ferrari and the Porsche
   }
   _lockCars() { /* lock state is read live by v.lock() */ }
+  // borrowed cars go home by themselves: after RETURN_IDLE s without you in it, or once you are RETURN_FAR m away
+  // (and never while you sit in it). He "drives it back": it is simply put back on its spot with a note.
+  _carsHome(dt) {
+    const g = this.g, pl = g.player, p = pl.worldPos();
+    for (const v of this.cars || []) {
+      if (pl.vehicle === v) { v.idle = 0; continue; }
+      const away = Math.hypot(v.pos.x - v.home.x, v.pos.z - v.home.z) > 1.5 || Math.abs(((v.heading - v.home.h) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) > 0.3;
+      if (!away) { v.idle = 0; continue; }
+      v.idle += dt;
+      const far = Math.hypot(v.pos.x - p.x, v.pos.z - p.z) > RETURN_FAR;
+      if (v.idle < RETURN_IDLE && !far) continue;
+      // the spot must be clear of you and of other vehicles
+      if (Math.hypot(p.x - v.home.x, p.z - v.home.z) < 3.5) continue;
+      if ((g.vehicles || []).some(o => o !== v && Math.hypot(o.pos.x - v.home.x, o.pos.z - v.home.z) < 3)) continue;
+      v.place(v.home.x, v.home.z, v.home.h); v.idle = 0; v.mesh.visible = true;
+      g.hud.toast(`🏎️ ${v.label}已經自動開回資管系館停車場了`, 'good', 2600);
+    }
+  }
 
   // ---------------- every frame ----------------
   update(dt) {
+    this._carsHome(dt);
     const g = this.g, ch = this.ch, plan = jianyuPlan(g.clock);
     if (plan !== this.mode) this._enter(plan);
     const p = g.player.worldPos(), near = (x, z, r) => Math.hypot(x - p.x, z - p.z) < r;

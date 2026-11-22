@@ -1011,6 +1011,9 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
 @keyframes sdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes sdBang{from{transform:scale(1)}to{transform:scale(1.18)}}
 body.touch #sunday{bottom:auto;top:330px;right:12px}
+/* on the computer screen (js/pc.js): bottom right, above the taskbar and the windows */
+#pc #sunday{position:absolute;right:18px;bottom:62px;top:auto;z-index:500}
+#pc #sunday .sd-tag kbd{display:none}#pc #sunday .sd-key{visibility:hidden}
 body.touch #sunday .sd-bubble{width:240px;font-size:13px}
 
 /* 🛸 無人機 (js/drone.js): goggles view — corner brackets, LIVE tag, altitude / speed, the keys */

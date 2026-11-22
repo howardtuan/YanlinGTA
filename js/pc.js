@@ -306,6 +306,7 @@ export class PC {
     body.addEventListener('mouseup', () => { if (!getSelection().toString()) inp.focus(); });
     setTimeout(() => inp.focus(), 30);
     this.wins.term.enterCase = enterCase;
+    this.wins.term.caseMode = () => mode === 'case'; // S.U.N.D.A.Y gives the case's hints while this is on (js/sunday.js)
     if (this._pendingCase !== undefined) { const id = this._pendingCase; this._pendingCase = undefined; enterCase(id); }
   }
 

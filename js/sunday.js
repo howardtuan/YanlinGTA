@@ -1,7 +1,9 @@
 // S.U.N.D.A.Y（名字前面有一個 AI 小圖示）：主線任務進行時，畫面右下角的小助手。按 J（或點她）打開提示，再按一次（或再點她）收起來；
 // 泡泡裡的「‹ 上一則」「下一則 ›」切換提示（打開時也可以按 , 和 . 鍵）。
 // 提示全部是寫好的（不是 AI），依「第幾個任務、任務裡的第幾個目標、對話看完了沒」切換；換到新階段時頭上會冒出「!」。
-// 只在主線進行中出現；自由探索、結局、用電腦／手機／大地圖、打工、站崗、比賽時都會收起來。
+// 只在主線進行中出現；自由探索、結局、用手機／大地圖、打工、站崗、比賽時都會收起來。
+// 用電腦時她搬到電腦畫面的右下角：終端機在偵探模式（SQL 查案）時給那個案件的提示（含支線案件），
+// 沒在查案時給主線提示，或提醒還有案件沒破；電腦裡只能用滑鼠點她（J 會打進終端機）。
 
 // hints for mission idx (js/missions.js), given the mission state; each returns a list shown one by one
 const HINTS = [
@@ -98,19 +100,36 @@ export class Sunday {
     const M = this.g.missions; if (!M || M.done || M.free || M.idx < 0) return [];
     const f = HINTS[M.idx]; return f ? f(M, this.g) : [];
   }
-  get stage() { const M = this.g.missions; return `${M.idx}:${M.sub}:${M.talked ? 1 : 0}:${this.g.detective?.solved('banner') ? 1 : 0}`; }
+  // on the PC: the open case's hints (SQL detective mode), else the story's, else a nudge to the unsolved cases
+  pcHints() {
+    const g = this.g, D = g.detective, t = g.pc?.wins?.term;
+    const c = t?.caseMode?.() ? D?.cur : null;
+    if (c) {
+      if (D.solved(c.id)) return [c.id === 'jianyu' ? '破案了！按 <kbd>Esc</kbd> 關掉電腦，回去 278 跟劍玉說一聲。' : c.id === 'banner' ? '已經破案了！按 <kbd>Esc</kbd> 關掉電腦，回去跟小安說。' : '這個案子破了！輸入 <code>cases</code> 看看還有沒有別的案子。'];
+      return ['不知道從哪開始？輸入 <code>tables</code> 看有哪些資料表、<code>schema 表名</code> 看欄位，<code>notes</code> 看已經找到的線索。', ...(c.hints || []), '證據找齊了再輸入 <code>accuse 名字</code> 指認；卡住了也可以輸入 <code>hint</code>。'];
+    }
+    const story = this.hints(); if (story.length) return story;
+    const open = D?.available?.().filter(x => !D.solved(x.id)) || [];
+    if (open.length) return [`還有案件沒破：${open.map(x => `${x.icon} ${x.title}`).join('、')}。打開 <b>終端機</b> 輸入 <code>case</code> 進入偵探模式。`, '桌面上的 <b>🕵️ 案件檔案</b> 可以先看案情簡報和資料表。'];
+    return [];
+  }
+  get stage() {
+    const M = this.g.missions, pc = this.g.pc?.isOpen, c = pc && this.g.pc.wins?.term?.caseMode?.() ? this.g.detective?.cur : null;
+    return `${M.idx}:${M.sub}:${M.talked ? 1 : 0}:${this.g.detective?.solved('banner') ? 1 : 0}:${pc ? 'pc' : ''}:${c ? c.id + (this.g.detective.solved(c.id) ? '!' : '') : ''}`;
+  }
   // J / the avatar: one button opens and closes the bubble
+  list() { return this.g.pc?.isOpen ? this.pcHints() : this.hints(); }
   toggle() {
-    const list = this.hints(); if (!list.length) return;
+    const list = this.list(); if (!list.length) return;
     this.open = !this.open; this.fresh = false; this.render(list); this.g.audio?.blip?.();
   }
   press() { this.toggle(); }
   // ‹ / › (and the , . keys while open): previous / next hint, wrapping round
   step(d) {
-    const list = this.hints(); if (!list.length || !this.open) return;
+    const list = this.list(); if (!list.length || !this.open) return;
     this.i = ((this.i + d) % list.length + list.length) % list.length; this.render(list); this.g.audio?.blip?.();
   }
-  close() { this.open = false; this.render(this.hints()); }
+  close() { this.open = false; this.render(this.list()); }
   render(list) {
     const el = this.el, b = el.querySelector('.sd-bubble');
     b.classList.toggle('hidden', !this.open || !list.length);
@@ -124,7 +143,21 @@ export class Sunday {
   // every frame (main.js): show / hide, new stage -> back to hint 1 with a "!", J key
   update(inp) {
     const g = this.g;
-    const busy = g.state !== 'play' || g.hud.inDialog || g.hud.bigOpen || g.pc?.isOpen || g.phone?.open || g.videoOpen || g.job?.active || g.gate?.active || g.race?.active || g.wardrobe?.isOpen || g.airdrop?.cinema || g.drone?.active || g.speechOn || g._sleeping;
+    const pc = !!g.pc?.isOpen;
+    // where she sits: on the PC screen while the computer is open, otherwise in the HUD
+    const host = pc ? g.pc.el : document.getElementById('hud');
+    if (host && this.el.parentNode !== host) host.appendChild(this.el);
+    if (pc) {
+      const list = g.state === 'play' ? this.pcHints() : [];
+      this.el.classList.toggle('hidden', !list.length);
+      if (!list.length) return;
+      const k = this.stage;
+      if (k !== this.key) { this.key = k; this.i = 0; this.open = false; this.fresh = true; this.render(list); }
+      else if (this.open && (this._n !== list.length)) this.render(list);
+      this._n = list.length;
+      return; // (no J here: it would be typed into the terminal; click her instead)
+    }
+    const busy = g.state !== 'play' || g.hud.inDialog || g.hud.bigOpen || g.phone?.open || g.videoOpen || g.job?.active || g.gate?.active || g.race?.active || g.wardrobe?.isOpen || g.airdrop?.cinema || g.drone?.active || g.speechOn || g._sleeping;
     const list = busy ? [] : this.hints();
     const show = list.length > 0;
     this.el.classList.toggle('hidden', !show);

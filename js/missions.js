@@ -59,11 +59,20 @@ export class Missions {
     if (this.exited) return { talked: true, sub: this.exited.sub, hits: null, base: null, at: this.exited.at };
     return { talked: !!this.talked, sub: Math.max(0, this.sub - 1), hits: null, base: null, at: this._sectionAt || null };
   }
-  // where the section you are starting began: the player's spot then (or, resuming a save, the spot saved with it) —
-  // a paused section's start ring (▶) waits there
+  // where the section you are starting begins — a paused section's start marker (▶) waits there. A fixed spot per
+  // mission / section (not where you happened to stand, nor a spot from an older save): the campaign HQ at the
+  // 資管系館 for the story missions, the 中原夜市 street for the breakfast run's way back, your old place for the
+  // case's computer part
+  _startOf(idx, sub) {
+    const P = this.P, im = P.im, yh = this.g.interiors.yh?.door;
+    if (idx === 0) { const s = this.g.startPos; return s ? { x: s.x, z: s.z } : im; }
+    if (idx === 2 && sub >= 1) return P.market || im;
+    if (idx === 5 && sub >= 1 && yh) return { x: yh[0], z: yh[1] };
+    return im;
+  }
   _mark() {
-    const a = this.resume?.at, p = this.g.player.worldPos();
-    this._sectionAt = a ? { x: a.x, z: a.z } : { x: p.x, z: p.z };
+    const p = this.g.player.worldPos(), q = this._startOf(this.idx, Math.max(0, this.sub - 1));
+    this._sectionAt = q ? { x: q.x, z: q.z } : { x: p.x, z: p.z };
   }
   // you are standing in the paused section's start ring (the phone's 任務 app can carry on from there)
   get inRing() { const a = this.exited?.at; if (!a) return false; const p = this.g.player.worldPos(); return Math.hypot(p.x - a.x, p.z - a.z) < 6; }
@@ -72,8 +81,8 @@ export class Missions {
   get canExit() { return !!this.step && !this.exited && !this.g.hud.inDialog && this.idx >= 1 && this.idx <= 5; }
   exit(reason = '') {
     if (!this.step) return false;
-    const title = this._title || '任務', p = this.g.player.worldPos(), at = this._sectionAt || { x: p.x, z: p.z };
-    this.exited = { idx: this.idx, sub: Math.max(0, this.sub - 1), title, at };
+    const title = this._title || '任務', sub = Math.max(0, this.sub - 1), at = this._startOf(this.idx, sub) || this._sectionAt;
+    this.exited = { idx: this.idx, sub, title, at };
     this.step = null; this.timer = null; this.g.hud.setTimer(null); this.hideHome = false;
     // the start ring: a light column and a ▶ on the map where the section began; no objective banner while paused
     this.markers = [{ x: at.x, z: at.z, big: true, icon: '▶' }]; this.g.setBeam(at, 5);

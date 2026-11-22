@@ -1,8 +1,8 @@
-// 力行宿舍（力行大樓）平面圖的設定。幾何（牆、地板、樓梯、門牌）全部取自 js/lixing.js 實際蓋出來的東西；
-// 這裡只補「哪一塊叫什麼」：位置用 js/lixing.js 檔頭那組平面常數算（readConsts），或用讀到的門牌／招牌的位置。
+// 力行宿舍（力行大樓）平面圖的設定。幾何（牆、地板、樓梯、門牌）全部取自 src/world/buildings/Lixing.js 實際蓋出來的東西；
+// 這裡只補「哪一塊叫什麼」：位置用 src/world/buildings/Lixing.js 檔頭那組平面常數算（readConsts），或用讀到的門牌／招牌的位置。
 import { readConsts } from '../lib/consts.mjs';
 
-const SRC = 'js/lixing.js';
+const SRC = 'src/world/buildings/Lixing.js';
 
 export default {
   id: 'lixing',

@@ -1,7 +1,13 @@
-// Node module hook: the game imports three.js by its bare name (index.html maps it with an import map).
-// Here the same name is pointed at vendor/three.module.js so js/*.js load in node unchanged.
+// Node module hook: the game imports three.js by its bare name ('three', 'three/addons/...').
+// With node_modules installed (npm ci) node resolves both by itself. Without it, 'three' falls back to the copy in
+// vendor/ so a clear message can say what is missing ('three/addons/*' is not vendored).
 const THREE_URL = new URL('../../../vendor/three.module.js', import.meta.url).href;
 export async function resolve(specifier, context, nextResolve) {
-  if (specifier === 'three') return { url: THREE_URL, shortCircuit: true };
+  if (specifier === 'three' || specifier.startsWith('three/')) {
+    try { return await nextResolve(specifier, context); } catch (e) {
+      if (specifier === 'three') return { url: THREE_URL, shortCircuit: true };
+      throw new Error(`找不到 ${specifier}：請先在 repo 根目錄執行 npm ci（平面圖工具要用 node_modules 裡的 three）`);
+    }
+  }
   return nextResolve(specifier, context);
 }

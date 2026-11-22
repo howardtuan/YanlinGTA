@@ -32,7 +32,7 @@ function splitTop(s) {
   return out;
 }
 
-// readConsts('js/lixing.js') -> { NX: 121.8, RA: 7.4, WW: {...}, ... }; pass `need` to get an error when one of them is missing
+// readConsts('src/world/buildings/Lixing.js') -> { NX: 121.8, RA: 7.4, WW: {...}, ... }; pass `need` to get an error when one of them is missing
 export function readConsts(rel, need = []) {
   const src = readFileSync(path.join(ROOT, rel), 'utf8'), out = {};
   const re = /^(?:export\s+)?const\s/gm; let m;

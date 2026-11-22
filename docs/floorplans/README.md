@@ -4,15 +4,24 @@
 
 - `lixing-1f.svg`：力行宿舍一樓
 - `lixing-2f.svg`：力行宿舍二樓
+- `sac-1f.svg`～`sac-4f.svg`：學生活動中心一到四樓（配置大多是推測，待確認；B1 沒有出圖）
 - `README.md`：這份說明
 
 ![力行宿舍一樓](lixing-1f.svg)
 
 ![力行宿舍二樓](lixing-2f.svg)
 
+![學生活動中心一樓](sac-1f.svg)
+
+![學生活動中心二樓](sac-2f.svg)
+
+![學生活動中心三樓](sac-3f.svg)
+
+![學生活動中心四樓](sac-4f.svg)
+
 ## 圖是怎麼來的
 
-遊戲裡的建築室內用 `js/kit.js` 的 `Kit`（本地座標的建模工具）蓋模型，擋人的牆走 `Interiors.addWall`，可以走的地板和樓梯走 `Interiors.addSurface`。
+遊戲裡的建築室內用 `src/world/Kit.js` 的 `Kit`（本地座標的建模工具）蓋模型，擋人的牆走 `Interiors.addWall`，可以走的地板和樓梯走 `Interiors.addSurface`。
 
 平面圖工具在 `tools/floorplan/`（開發用，`tools/` 不會被部署）。它用 node 直接跑遊戲自己的建模程式，不開瀏覽器、也不用開發伺服器，拿到真正的 `Interiors` 牆線和地板再畫圖。所以圖不會和模型脫節：模型改了，重跑就是新圖。
 
@@ -26,7 +35,7 @@
 
 - `build(env)`：呼叫該棟的建模函式，回傳 `{ kit, base, ... }`。
 - `floors(ctx)`：回傳每層 `{ id, name, y, top }`。`y` 是該層地板在建築基準面以上的高度，`top` 是上一層地板的高度。
-- `plan(...)`：回傳 `closedRows`（一排進不去的房間的範圍，和門在哪一邊）、`zones`（天井、可以走進去的房間、實心區塊等著色範圍）、`labels`（名稱與位置）、`legend`（圖例下方的補充說明）。位置盡量用 `readConsts('js/某棟.js')` 讀該檔最上層的 `const` 常數來算，或用讀到的門牌／招牌位置，不要抄死數字。
+- `plan(...)`：回傳 `closedRows`（一排進不去的房間的範圍，和門在哪一邊）、`zones`（天井、可以走進去的房間、實心區塊等著色範圍）、`labels`（名稱與位置）、`legend`（圖例下方的補充說明）。位置盡量用 `readConsts('src/world/buildings/某棟.js')` 讀該檔最上層的 `const` 常數來算，或用讀到的門牌／招牌位置，不要抄死數字。
 
 工具的檔案：
 
@@ -38,10 +47,11 @@
 | `tools/floorplan/lib/svg.mjs` | 畫成 SVG |
 | `tools/floorplan/lib/consts.mjs` | `readConsts()`：讀 js 檔最上層的常數 |
 | `tools/floorplan/buildings/lixing.mjs` | 力行宿舍的設定檔 |
+| `tools/floorplan/buildings/sac.mjs` | 學生活動中心的設定檔 |
 
 ## 重跑力行宿舍的圖
 
-在 repo 根目錄執行（在 node 22 測過）：
+在 repo 根目錄執行（在 node 22 測過）。遊戲程式的 `three` 來自 `node_modules`，第一次要先跑 `npm ci`：
 
 ```bash
 # 重產力行一、二樓到 docs/floorplans/
@@ -69,11 +79,11 @@ qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
 
 ## 其他建築怎麼照做
 
-1. 找到該棟的 js 檔和建模函式。`js/zones.js` 列了每一區呼叫哪個 build 函式，例如 `buildSac(I, scene, data, collision, Kit, regMat)`。看檔頭註解的本地座標說明（原點在哪、x 和 z 朝哪邊）和各樓層高度的變數。
-2. 複製 `tools/floorplan/buildings/lixing.mjs` 成新檔，先只留 `id`、`name`、`source`、`note`、`build()`、`floors()`，把 `plan()` 整個拿掉。`build()` 裡用 `env.game('js/某棟.js')` 載入模組，呼叫建模函式時傳 `env.I`、`env.scene`、`env.data`、`env.collision`、`env.Kit`、`env.regMat`，回傳它的 `Kit` 和基準面高度。最小的樣子：
+1. 找到該棟的 js 檔和建模函式。`src/world/zones/Zones.js` 列了每一區呼叫哪個 build 函式，例如 `buildSac(I, scene, data, collision, Kit, regMat)`。看檔頭註解的本地座標說明（原點在哪、x 和 z 朝哪邊）和各樓層高度的變數。
+2. 複製 `tools/floorplan/buildings/lixing.mjs` 成新檔，先只留 `id`、`name`、`source`、`note`、`build()`、`floors()`，把 `plan()` 整個拿掉。`build()` 裡用 `env.game('src/world/buildings/某棟.js')` 載入模組，呼叫建模函式時傳 `env.I`、`env.scene`、`env.data`、`env.collision`、`env.Kit`、`env.regMat`，回傳它的 `Kit` 和基準面高度。最小的樣子：
 
    ```js
-   const SRC = 'js/sac.js';
+   const SRC = 'src/world/buildings/Sac.js';
    export default {
      id: 'sac', name: '學生活動中心', source: SRC, note: '依目前模型產生、配置待確認',
      async build(env) {
@@ -97,7 +107,16 @@ qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
 6. 核對：加 `--debug` 看紅字和自己標的名稱有沒有對上；挑十個以上的位置（牆的位置、門口缺口、樓梯起點、房間隔間），拿 `--json` 存下來的數字和 js 檔的常數比；再開開發伺服器 `python -I tools/devserver.py 5173`，瀏覽器開 `http://localhost:5173/` 進遊戲走一趟那一層確認。
 7. 確認沒問題再把 SVG 產到 `docs/floorplans/`（不給 `--out` 就是這裡），並在這份文件最上面的清單補一行。
 
-已經試過的第二棟是學生活動中心（`js/sac.js`，`Kit` 原點 0,0、不旋轉）：用上面那個最小設定檔再加一條 `closedRows`，四層樓的牆、地板、樓梯、門牌都畫得出來。它的圖沒有放進這個資料夾，因為名稱只靠自動標示，還沒整理。
+第二棟是學生活動中心（`src/world/buildings/Sac.js`，`Kit` 原點 0,0、不旋轉），設定檔 `tools/floorplan/buildings/sac.mjs` 可以當另一個範例：
+
+```bash
+node tools/floorplan/make.mjs sac all
+```
+
+- `build()` 照遊戲的順序先呼叫 `zoneGTerrain`（挖下沉廣場的坑）、`buildSacB1`（旋轉梯在這裡）再呼叫 `buildSac`，一樓和二樓才看得到旋轉梯。
+- `plan()` 回傳 `autoLabels: true`，門牌和招牌照自動標示；教室裡的海報、指示牌這類不該當房間名稱的字，在 `plan()` 開頭從 `sl.texts` 濾掉。
+- 沒有出 B1：學餐攤販和麥當勞的牆走世界碰撞（不是 `Interiors.addWall`），麥當勞又蓋在 `src/world/Interiors.js` 裡，這個工具切不出完整的一層。
+- 這四張的配置大多是推測（找不到平面圖，空間名稱取自課指組的場地借用說明），圖上的「待確認」要等使用者看過才能拿掉。
 
 ## 常見問題
 

@@ -63,9 +63,9 @@ function textIn(cv, x0, y0, x1, y1) {
 export async function makeEnv() {
   installDom();
   const game = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
-  const THREE = await game('vendor/three.module.js');
-  const terrain = await game('js/terrain.js');
-  const kit = await game('js/kit.js');
+  const THREE = await import('three');
+  const terrain = await game('src/world/Terrain.js');
+  const kit = await game('src/world/Kit.js');
   const data = JSON.parse(readFileSync(path.join(ROOT, 'data/cycu.json'), 'utf8'));
   try { terrain.loadTerrain(JSON.parse(readFileSync(path.join(ROOT, 'data/terrain.json'), 'utf8'))); } catch { /* flat world */ }
   const I = new kit.Interiors(null), scene = new THREE.Scene(); I.scene = scene;

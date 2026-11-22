@@ -449,7 +449,12 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
           B3(DW - 0.025, DW, yy - 0.12, yy + 0.3, t0, t1 - 0.5, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t0, t0 + 0.03, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t1 - 0.03, t1, MT.wood);
           plate(n, yy + 0.12, t0 + 0.35);
         };
-        const ladder = (t, top) => { for (const dt of [0, 0.36]) B3(DW, DW + 0.03, y, top, t + dt - 0.015, t + dt + 0.015, MT.ladder); for (let r = 0; r < 5; r++) B3(DW, DW + 0.03, y + 0.3 + r * 0.3, y + 0.33 + r * 0.3, t, t + 0.36, MT.ladder); };
+        // 上下舖的爬梯斜靠在上舖床邊（腳往走道伸出 0.36 m）；高架床那張不放爬梯（使用者指正）
+        const ladder = (t, top) => {
+          const dx = s * -0.34, dy = top - y, len = Math.hypot(dx, dy), th = Math.atan2(-dx, dy);
+          for (const dt of [0, 0.36]) { const g = new THREE.BoxGeometry(0.03, len, 0.03); g.rotateZ(th); g.translate(wx + s * (DW + 0.19), y + dy / 2, Z(t + dt, t + dt)[0]); k._part(MT.ladder, g); }
+          for (let r = 1; r <= 5; r++) { const f = r * 0.3 / dy; B3(DW + 0.36 - 0.34 * f - 0.015, DW + 0.36 - 0.34 * f + 0.015, y + r * 0.3 - 0.015, y + r * 0.3 + 0.015, t, t + 0.36, MT.ladder); }
+        };
         // 上下舖
         for (const t of [0.02, BED - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
         B3(0, DW, y, y + 0.3, 0.02, BED - 0.02, MT.wood); B3(0.03, DW - 0.03, y + 0.3, y + 0.42, 0.07, BED - 0.07, MT.mattress); plate(nos[0], y + 0.2, 0.4);
@@ -472,7 +477,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         }
         // 另一端的高架床
         for (const t of [LEN - BED, LEN - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
-        bed(LEN - BED, LEN, bedY, nos[2]); ladder(LEN - BED + 0.1, bedY + 0.55);
+        bed(LEN - BED, LEN, bedY, nos[2]);
         const [a, b2] = X(0, DW + 0.03); wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
       }
       sign(`${no} 寢`, cx, y + 2.52, z0 - 0.02, 'n', '#59833a', 0.7);

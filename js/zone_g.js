@@ -125,8 +125,25 @@ export const PIT = {
 };
 // 練舞室：麥當勞南牆外的黑框弧形玻璃房（弦在 z -94.0，往南凸出 sag m），沒有門
 export const ROOM = { A: [-135.6, -94.0], B: [-115.1, -94.0], sag: 5.5 };
-export const STAIR2F = { x: -159.3, w: 6.4, zFoot: -82.4, zTop: -92.55, rise: 3.8, steps: 22, landing: [-162.5, -94.35, -156.1, -92.55] };
-let pitY = null, landY = null;
+// 大階梯：從入口前庭（不是廣場地面）起步，rise 是廣場地面到二樓門廊的總高度；頂端平台北緣貼學活南牆（-94.42，跟門廊齊）
+export const STAIR2F = { x: -159.3, w: 6.4, zFoot: -82.4, zTop: -92.55, rise: 3.8, steps: 20, landing: [-162.5, -94.42, -156.1, -92.55] };
+// 一樓入口前庭（官方街景 2017-09、正射 2024）：比廣場高 4 階（約 0.6 m），南緣一整排小階梯：
+// 西段東西向，到 x -154 轉成往東北斜，斜到長花台西南角（街景從南面看是由左下往右上斜退、正射的斜邊）。
+// 前庭東到長花台西緣（x -144.9，靠前庭這面是一道比前庭高 0.9 m 的花崗石矮牆），西到大階梯西緣，北到學活南牆；
+// 大階梯就從前庭起步。入口是柱廊最西兩根圓柱之間的寬開間（x -154.75..-147.6，原本中間那根拿掉），
+// 地面是紅磚（大階梯東緣到長花台、牆邊往南約 8 m），其他是淺灰花崗石。
+// 前庭東半在 B1 學餐攤販正上方（PIT.stall：H() 在那裡是 B1 地面），那塊不能用 pad（B1 的人會被抬上來），
+// 改用甲板（buildZoneG）；pad 跟甲板相接的邊用 open 不畫牆、不封。
+export const FORE = {
+  rise: 0.6, steps: 4, depth: 1.5,                            // 小階梯 4 階、深 1.5 m
+  top: [[-162.6, -75.6], [-154.0, -75.6], [-145.6, -80.2]],   // 小階梯頂緣（= 前庭南緣）：西端、轉折、東端
+  xE: -144.9, nook: -143.0, nookZ: -92.7,                     // 東緣（長花台西緣）；花台北邊到柱廊矮牆之間的小角落
+  brick: [-156.1, -94.42, -145.4, -86.6],                     // 紅磚範圍 x0, z0, x1, z1
+  door: [-154.2, -148.15],                                    // 一樓入口（兩根圓柱之間，圓柱在 -154.75、-147.6）
+  colB: -147.6,                                               // 入口東側圓柱
+  porch: [-156.1, -94.42, -148.15, -92.05],                   // 二樓門廊（入口正上方，從大階梯頂往東延伸到入口東側圓柱）
+};
+let pitY = null, landY = null, foreY = null;
 export function zoneGTerrain(data) {
   const g0 = Hgrid(-125, -100);
   pitY = g0 - PIT.depth;
@@ -137,13 +154,29 @@ export function zoneGTerrain(data) {
   const xw = (x0 + PIT.split) / 2, xe = (PIT.split + x1) / 2;
   L.stairs.push({ id: 'sac_b1_west', site, a: [xw, PIT.flatW], b: [xw, z1], w: PIT.split - x0, y0: pitY, y1: top(xw), steps: 20, rail: 'center', railColour: '#e0b52a', wall: 'granite' });
   L.stairs.push({ id: 'sac_b1_stage', site, a: [xe, PIT.flatE], b: [xe, z1], w: x1 - PIT.split, y0: pitY, y1: top(xe), steps: 10, wall: 'granite', top: '#c4beb3' });
-  // 往二樓門廊的大階梯與頂端平台（學活內部沒有模型：在平台按 E 穿過學活到北側天橋，buildZoneG）
-  const S2 = STAIR2F, gl = Hgrid(S2.x, S2.zTop - 1);
+  // 一樓入口前庭與南緣的 4 階小階梯（頂緣折線每一段一座，往前庭裡面爬）。
+  // （map.js 的邊每 0.5 m 取樣一次，階梯兩端和轉折處各約 0.5 m 會被封起來，當作階梯的擋牆）
+  const F = FORE, T = F.top, st = PIT.stall;
+  foreY = Hgrid(-153, -86) + F.rise;
+  T.slice(1).forEach(([bx, bz], i) => {
+    const [ax, az] = T[i], len = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / len, uz = (bz - az) / len;
+    const nx = uz, nz = -ux; // 往北（往前庭裡面）的法線
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+    L.stairs.push({ id: 'sac_1f_steps' + (i ? i + 1 : ''), site: '學生活動中心一樓入口前庭', a: [mx - nx * F.depth, mz - nz * F.depth], b: [mx, mz], w: len, y0: 'ground', y1: foreY, steps: F.steps, wall: 'granite', rail: 'none' });
+  });
+  // pad：攤販上方那塊挖掉（甲板），接甲板的兩條邊（open）；大階梯的東側與起步處接前庭
+  const S2 = STAIR2F, xb = S2.x + S2.w / 2, tE = T[T.length - 1];
+  const pts = [...T, [F.xE, tE[1]], [F.xE, st[3]], [st[0], st[3]], [st[0], -94.42], [xb, -94.42], [xb, S2.zFoot], [T[0][0], S2.zFoot]];
+  const io = T.length + 1; // [F.xE, st[3]] 的序號：它開始的兩條邊接甲板
+  L.pads.push({ id: 'sac_1f_forecourt', site: '學生活動中心一樓入口前庭', y: foreY, top: '#d3d0c9', wall: 'granite', open: [io, io + 1], pts });
+  // 往二樓門廊的大階梯（從前庭起步）與頂端平台（學活內部沒有模型：在平台、門廊按 E 穿過學活到北側天橋，buildZoneG）
+  const gl = Hgrid(S2.x, S2.zTop - 1);
   landY = gl + S2.rise;
-  L.stairs.push({ id: 'sac_2f_stair', site: '學生活動中心南面大階梯', a: [S2.x, S2.zFoot], b: [S2.x, S2.zTop], w: S2.w, y0: 'ground', y1: landY, steps: S2.steps, rail: 'sides', wall: 'granite' });
+  L.stairs.push({ id: 'sac_2f_stair', site: '學生活動中心南面大階梯', a: [S2.x, S2.zFoot], b: [S2.x, S2.zTop], w: S2.w, y0: foreY, y1: landY, steps: S2.steps, rail: 'none', wall: 'granite' }); // 兩側實心矮牆在 buildZoneG
   const [lx0, lz0, lx1, lz1] = S2.landing;
-  L.pads.push({ id: 'sac_2f_landing', site: '學生活動中心二樓門廊', y: landY, top: '#cdbfae', wall: 'granite', edge: 'railing', pts: [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]] });
-  return { pitY, landY };
+  // 東邊（邊 1）接入口上方的二樓門廊甲板（buildZoneG），不封；西緣的實心矮牆在 buildZoneG
+  L.pads.push({ id: 'sac_2f_landing', site: '學生活動中心二樓門廊', y: landY, top: '#cdbfae', wall: 'granite', open: [1], pts: [[lx0, lz0], [lx1, lz0], [lx1, lz1], [lx0, lz1]] });
+  return { pitY, landY, foreY };
 }
 
 // ---------------- 保留範圍（伸出 OSM 輪廓的部分：柱廊、空橋、門廊、塔、雕塑、雨廊亭） ----------------
@@ -289,6 +322,40 @@ const lxBannerTex = () => textTex('gLxBanner', 512, 1024, (g, W, Hh) => {
   g.fillStyle = 'rgba(60,60,90,0.5)'; for (let i = 0; i < 3; i++) g.fillRect(40 + i * 150, 840, 120, 140);
 });
 
+// 學活一樓入口前庭：淺灰花崗石板（60 cm 見方，一張貼圖 2.4 m）、入口前紅磚（20×10 cm 錯縫，一張 1.2 m）
+const foreGraniteTex = () => ctex('gForeGranite', 256, 256, (g, W, Hh) => {
+  const r = lcg(41), s = W / 4;
+  g.fillStyle = '#d5d2cb'; g.fillRect(0, 0, W, Hh);
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${0.02 + r() * 0.05})`; g.fillRect(x * s, y * s, s, s); }
+  for (let i = 0; i < 2400; i++) { const v = 150 + r() * 90 | 0; g.fillStyle = `rgba(${v},${v - 2},${v - 6},0.45)`; g.fillRect(r() * W, r() * Hh, 1.5, 1.5); }
+  g.fillStyle = 'rgba(105,100,92,0.4)'; for (let i = 0; i < 4; i++) { g.fillRect(0, i * s, W, 1.5); g.fillRect(i * s, 0, 1.5, Hh); }
+});
+const foreBrickTex = () => ctex('gForeBrick', 256, 256, (g, W, Hh) => {
+  const r = lcg(43), bw = W / 6, bh = Hh / 12;
+  g.fillStyle = '#9a7468'; g.fillRect(0, 0, W, Hh); // 灰縫
+  for (let row = 0; row < 12; row++) for (let i = -1; i < 7; i++) {
+    const x = i * bw + (row % 2 ? bw / 2 : 0);
+    g.fillStyle = `hsl(${6 + r() * 10},${42 + r() * 14}%,${44 + r() * 10}%)`; g.fillRect(x + 1.5, row * bh + 1.5, bw - 3, bh - 3);
+  }
+});
+// 二樓門廊前緣樑上的金色書法字「活動中心」（由右往左讀，貼圖由左往右畫「心中動活」）
+const sacNameTex = () => textTex('gSacName', 1024, 192, (g, W, Hh) => {
+  g.clearRect(0, 0, W, Hh); g.font = '900 150px "Noto Serif TC","Songti TC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  ['心', '中', '動', '活'].forEach((t, i) => { const x = W * (i + 0.5) / 4; g.fillStyle = 'rgba(50,35,10,0.55)'; g.fillText(t, x + 4, Hh / 2 + 7); g.fillStyle = '#c6a050'; g.fillText(t, x, Hh / 2 + 3); });
+});
+// 入口兩條直布條（內容會換：只畫外框、抬頭字與字塊）
+const sacBannerTex = (key, bg, fg, head) => textTex(key, 128, 512, (g, W, Hh) => {
+  g.fillStyle = bg; g.fillRect(0, 0, W, Hh);
+  g.strokeStyle = fg; g.lineWidth = 4; g.strokeRect(8, 8, W - 16, Hh - 16);
+  let y0 = 34;
+  if (head) {
+    const s = W - 52; g.fillStyle = fg; g.fillRect(26, 24, s, s);
+    g.fillStyle = bg; g.font = '900 60px "Noto Sans TC","PingFang TC",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(head, W / 2, 24 + s / 2 + 3);
+    y0 = 24 + s + 18;
+  }
+  g.fillStyle = fg; for (let i = 0; i < 2; i++) for (let y = y0; y < Hh - 30; y += 24) if ((y * 7 + i * 13) % 6) g.fillRect(30 + i * 40, y, 28, 17);
+});
+
 // ---------------- 材質 ----------------
 const MATS = {};
 function mat(key) {
@@ -340,6 +407,8 @@ function mat(key) {
     conc: () => std({ map: concTex(), roughness: 0.95 }),
     lxEast: () => std({ map: lxEastTex(), roughness: 0.9 }),
     white: () => std({ color: '#e8e7e2', roughness: 0.8 }),
+    foreGranite: () => std({ map: foreGraniteTex(), roughness: 0.8 }),
+    foreBrick: () => std({ map: foreBrickTex(), roughness: 0.9 }),
   }[key];
   return (MATS[key] = m());
 }
@@ -477,15 +546,16 @@ export function buildZoneG(I, scene, data, collision = null) {
     // 天花的嵌燈
     for (let x = S.xS0 + 3; x < S.xE; x += 4) k.box('lamp', x - 0.15, x + 0.15, yO - 0.02, yO - 0.005, S.zS + 1.4, S.zS + 1.7);
     for (let z = zNo + 2; z < S.zS - 1; z += 4) k.box('lamp', S.xE + 1.0, S.xE + 1.3, yO - 0.02, yO - 0.005, z - 0.15, z + 0.15);
-    // 懸挑邊緣的樑（灰框）
-    k.box('sacPlain', S.xS0, xEo, yO - 0.35, yO, zSo - 0.4, zSo);
+    // 懸挑邊緣的樑（灰框）；入口上方的二樓門廊那段不畫（樑底離門廊地面不到 1.7 m，會撞頭）
+    k.box('sacPlain', foreY !== null ? FORE.porch[2] : S.xS0, xEo, yO - 0.35, yO, zSo - 0.4, zSo);
     k.box('sacPlain', xEo - 0.4, xEo, yO - 0.35, yO, zNo, zSo);
     k.box('sacPlain', S.xN0, xEo, yO - 0.35, yO, zNo, zNo + 0.4);
-    // 圓柱：南面柱廊、東面騎樓、北面轉角（奶油色、很粗）；落在練舞室玻璃裡的那幾根不畫
+    // 圓柱：南面柱廊、東面騎樓、北面轉角（奶油色、很粗）；落在練舞室玻璃裡的那幾根不畫。
+    // 一樓入口是寬開間（街景）：原本 -150.1、-145.5 兩根換成一根 FORE.colB
     const cS = zSo - 0.75, cE = xEo - 0.75;
     const RP = arc3(ROOM.A, [(ROOM.A[0] + ROOM.B[0]) / 2, ROOM.A[1] + ROOM.sag], ROOM.B, 24);
     const inRoom = (x, z) => x > ROOM.A[0] - 0.6 && x < ROOM.B[0] + 0.6 && z > ROOM.A[1] && z < arcZ(RP, Math.min(Math.max(x, ROOM.A[0]), ROOM.B[0])) + 0.6;
-    for (const x of [cE, -117.5, -124.5, -131.5, -138.5, -145.5, -150.1, S.xS0 + 0.75]) if (!inRoom(x, cS)) colRound(x, cS, 0.55, yO);
+    for (const x of [cE, -117.5, -124.5, -131.5, -138.5, ...(foreY !== null ? [FORE.colB] : [-145.5, -150.1]), S.xS0 + 0.75]) if (!inRoom(x, cS)) colRound(x, cS, 0.55, yO);
     // 北側緊鄰沿新中北路的服務道路，轉角圓柱放在輪廓內側
     for (const z of [-99.5, -116.5, -123.5, S.zN + 0.5]) colRound(cE, z, 0.55, yO);
     // 練舞室：麥當勞南牆外的黑框弧形玻璃房（B1 平面圖的粉紅半圓），從 B1 地面到廣場面上約 3.3 m，平屋頂；
@@ -553,16 +623,107 @@ export function buildZoneG(I, scene, data, collision = null) {
       k.box('planter', x1, x1 + 0.3, gE, gE + 0.9, -93.9, z1); seg(x1 + 0.15, -93.9, x1 + 0.15, z1, gE - 0.6, gE + 0.9);
       // 西側長花台（攤販屋頂的廣場面上，花崗石框＋灌木），花台北邊到學活牆之間是柱廊下的矮牆
       const px0 = -144.9, px1 = x0 - 0.2, pz0 = -92.7, pz1 = z1 - 0.1;
-      k.box('planter', px0, px1, gW - 0.2, gW + 0.55, pz0, pz1); k.box('shrub', px0 + 0.2, px1 - 0.2, gW + 0.55, gW + 1.05, pz0 + 0.2, pz1 - 0.2);
+      k.box('planter', px0, px1, gW - 0.2, gW + 0.55, pz0, pz1);
+      // 灌木：一叢一叢高低不同（街景從前庭看得到矮牆後面的灌木頂）
+      for (let z = pz0 + 0.2, i = 0; z < pz1 - 0.3; z += 1.6, i++) k.box('shrub', px0 + 0.2, px1 - 0.2, gW + 0.55, gW + 1.25 + (i % 3) * 0.2, z, Math.min(z + 1.5, pz1 - 0.2));
+      // 靠前庭那面：比前庭高 0.9 m 的花崗石矮牆（從花台北端到前庭東南角）
+      if (foreY !== null) k.box('planter', px0, px0 + 0.3, gW - 0.2, foreY + 0.9, pz0, FORE.top[FORE.top.length - 1][1]);
       for (const [a, c] of [[[px0, pz0], [px1, pz0]], [[px1, pz0], [px1, pz1]], [[px1, pz1], [px0, pz1]], [[px0, pz1], [px0, pz0]]]) seg(a[0], a[1], c[0], c[1], gW - 0.6, gW + 0.6);
       shapes.push({ name: 'planter', pts: [[px0, pz0], [px1, pz0], [px1, pz1], [px0, pz1]], y0: gW, y1: gW + 1 });
-      k.box('planter', x0 - 0.3, x0, gW, gW + 0.9, -94.42, pz0); seg(x0 - 0.15, -94.42, x0 - 0.15, pz0, gW - 0.6, gW + 0.9);
-      // 學餐攤販上方的廣場：甲板（地面照畫，js/terrain.js addPit mask: false），B1 的天花在 js/sac_b1.js
-      const st = PIT.stall;
-      addBridge([[(st[0] + st[2]) / 2, st[1] + 0.05], [(st[0] + st[2]) / 2, st[3] + 0.05]], st[2] - st[0], { yAt: () => gW, lv: LV_DECK });
+      // 花台北邊到學活牆之間：一樓入口前庭的東北角（比廣場高 0.6 m），矮牆比前庭高 0.9 m
+      const fy = foreY ?? gW;
+      k.box('planter', x0 - 0.3, x0, gW, fy + 0.9, -94.42, pz0); seg(x0 - 0.15, -94.42, x0 - 0.15, pz0, gW - 0.6, fy + 0.9);
+      // 學餐攤販上方：甲板（地面照畫，js/terrain.js addPit mask: false），B1 的天花在 js/sac_b1.js。
+      // 長花台以西、花台北邊的角落是一樓入口前庭（前庭高度），長花台底下照舊是廣場高度。
+      // 甲板各往外多 5 cm 跟前庭 pad、彼此重疊（坑的邊用嚴格不等式，留縫會掉到 B1）
+      const st = PIT.stall, xE = FORE.xE, nz = FORE.nookZ;
+      addBridge([[(st[0] + xE) / 2, st[1] + 0.05], [(st[0] + xE) / 2, st[3] + 0.05]], xE - st[0] + 0.1, { yAt: () => fy, lv: LV_DECK });
+      addBridge([[xE - 0.05, (st[1] + nz) / 2], [st[2], (st[1] + nz) / 2]], nz - st[1] + 0.1, { yAt: () => fy, lv: LV_DECK });
+      addBridge([[(xE + st[2]) / 2, nz], [(xE + st[2]) / 2, st[3] + 0.05]], st[2] - xE + 0.1, { yAt: () => gW, lv: LV_DECK });
       // 學活南牆線（x -152..入口東緣）：挖空之後學活的碰撞輪廓沒有這段，補一條只擋廣場高度以上的線
       seg(-152.0, -94.43, PIT.west[2], -94.43, yP + 2.6, yO);
       shapes.push({ name: 'pit', pts: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y0: yP, y1: gW });
+    }
+    // ===== 一樓入口前庭、入口、二樓門廊（官方街景 2017-09） =====
+    // 前庭與小階梯是 data.levels（zoneGTerrain），攤販上方那塊是上面的甲板；地面另外鋪（壓在 pad 上 1～2 cm）：
+    // 整片淺灰花崗石、入口前紅磚。入口在柱廊最西兩根圓柱之間的寬開間：一排玻璃門、門楣上方是深色門洞，
+    // 門口兩扇往外打開貼在兩側的不鏽鋼柵門；正上方是二樓門廊（甲板，大階梯頂的平台往東延伸），
+    // 門廊前緣是一道實心的女兒牆，牆面金色書法字「活動中心」；兩條直布條（左深藍、右紅）從女兒牆頂垂到離地約 1 m，
+    // 貼著兩根圓柱的內側、蓋住女兒牆兩端。大階梯兩側與頂端平台西緣是實心花崗石矮牆（不是欄杆）。
+    if (foreY !== null && landY !== null) {
+      const F = FORE, fy = foreY, S2 = STAIR2F, xb = S2.x + S2.w / 2, wz = -94.42;
+      const T = F.top, tE = T[T.length - 1], [bx0, bz0, bx1, bz1] = F.brick, [dx0, dx1] = F.door, [px0, , px1, pz1] = F.porch;
+      const [lx0, lz0, lx1, lz1] = S2.landing;
+      k.flat('foreGranite', [...T, [F.xE, tE[1]], [F.xE, F.nookZ], [F.nook, F.nookZ], [F.nook, wz], [xb, wz], [xb, S2.zFoot], [T[0][0], S2.zFoot]], fy + 0.012, false, 2.4);
+      k.flat('foreBrick', [[bx0, bz0], [bx1, bz0], [bx1, bz1], [bx0, bz1]], fy + 0.022, false, 1.2);
+      // 一樓：一排玻璃門（黑框）、門楣，貼著學活南牆；門楣到門廊樓板之間是深色的內凹門洞
+      const ySl = landY - 0.35, nDoor = 6, dw = (dx1 - dx0 - 0.1) / nDoor;
+      k.box('door', dx0 + 0.05, dx1 - 0.05, fy, fy + 2.7, wz + 0.02, wz + 0.1);
+      for (let i = 0; i <= nDoor; i++) { const x = dx0 + 0.05 + i * dw; k.box('black', x - 0.04, x + 0.04, fy, fy + 2.7, wz + 0.1, wz + 0.16); }
+      k.box('black', dx0, dx1, fy + 2.7, fy + 2.85, wz + 0.02, wz + 0.18);
+      k.box('slit', px0, px1, fy + 2.85, ySl, wz + 0.01, wz + 0.12);
+      // 兩扇打開的不鏽鋼柵門，貼在門口兩側（垂直學活牆）
+      const gz0 = -93.95, gz1 = -92.75;
+      for (const gx of [dx0 + 0.12, dx1 - 0.12]) {
+        for (const z of [gz0 + 0.025, gz1 - 0.025]) k.box('steel', gx - 0.03, gx + 0.03, fy, fy + 1.85, z - 0.025, z + 0.025);
+        for (const y of [fy + 0.1, fy + 1.82]) k.box('steel', gx - 0.03, gx + 0.03, y - 0.03, y + 0.03, gz0, gz1);
+        for (let z = gz0 + 0.12; z < gz1 - 0.06; z += 0.12) k.box('steel', gx - 0.012, gx + 0.012, fy + 0.13, fy + 1.79, z - 0.012, z + 0.012);
+      }
+      // 二樓門廊：樓板（底下是一樓入口的天花，嵌燈）、地面（連同大階梯頂的平台一起鋪）、後面一排玻璃門
+      k.box('sacPlain', px0, px1, ySl, landY - 0.02, wz, pz1);
+      for (const x of [dx0 + 1.2, (dx0 + dx1) / 2, dx1 - 1.2]) k.box('lamp', x - 0.2, x + 0.2, ySl - 0.02, ySl - 0.005, -93.4, -93.0);
+      k.flat('foreGranite', [[lx0, lz0], [px1, wz], [px1, pz1], [px0, pz1], [px0, S2.zTop], [lx0, S2.zTop]], landY + 0.012, false, 2.4);
+      k.box('door', dx0 - 0.9, dx1 - 0.5, landY, landY + 2.4, wz + 0.02, wz + 0.1);
+      k.box('black', dx0 - 0.9, dx1 - 0.5, landY + 2.4, landY + 2.52, wz + 0.02, wz + 0.14);
+      // 頂端平台東緣底下（門廊西端、一樓入口的西牆）：平台底下封起來的花崗石牆
+      k.box('granite', lx1 - 0.15, lx1, fy - 0.1, landY - 0.02, lz0, S2.zTop);
+      // 門廊前緣的實心女兒牆（第一根圓柱穿過它）與金字；東端（入口東側圓柱旁）細欄杆
+      const yPa = landY + 1.0;
+      k.box('sacPlain', px0, px1, landY - 0.35, yPa, pz1 - 0.28, pz1);
+      k.box('granite', px0 - 0.02, px1, yPa, yPa + 0.06, pz1 - 0.3, pz1 + 0.02);
+      sign(group, sacNameTex(), 4.0, 0.75, (dx0 + dx1) / 2, landY + 0.33, pz1 + 0.015, 0, 1, 0.2);
+      const ry = landY, rx = px1 - 0.15;
+      k.box('steel', rx - 0.03, rx + 0.03, ry + 0.95, ry + 1.0, wz, pz1 - 0.28); k.box('steel', rx - 0.025, rx + 0.025, ry, ry + 1.0, (wz + pz1) / 2 - 0.025, (wz + pz1) / 2 + 0.025);
+      // 大階梯兩側、頂端平台西緣：實心花崗石矮牆（順著坡，頂比踏面高約 1 m）
+      {
+        const xa = S2.x - S2.w / 2, t = 0.25, zf = S2.zFoot, zt = S2.zTop, yAt = z => fy + (landY - fy) * (z - zf) / (zt - zf) + (landY - fy) / S2.steps / 2;
+        for (const x of [xa + t / 2, xb - t / 2]) {
+          k.beam('granite', [x, yAt(zf) + 0.45, zf], [x, yAt(zt) + 0.45, zt], t, 1.1);
+          k.beam('granite', [x, yAt(zf) + 1.02, zf], [x, yAt(zt) + 1.02, zt], t + 0.06, 0.06);
+        }
+        k.box('granite', lx0, lx0 + t, landY - 0.02, landY + 1.0, lz0, zt);
+        k.box('granite', lx0 - 0.03, lx0 + t + 0.03, landY + 1.0, landY + 1.06, lz0, zt);
+      }
+      // 直布條：從女兒牆頂垂到離地約 1 m，貼著兩根圓柱內側
+      const bTop = yPa, bH = bTop - fy - 1.0, bW = 0.85;
+      sign(group, sacBannerTex('gSacBanBlue', '#25344c', '#e6edf3', null), bW, bH, dx0 + 0.45, bTop - bH / 2, pz1 + 0.06, 0, 1, 0.08);
+      sign(group, sacBannerTex('gSacBanRed', '#c4262b', '#f7efe2', '賀'), bW, bH, dx1 - 0.45, bTop - bH / 2, pz1 + 0.06, 0, 1, 0.08);
+      // 北面（新中北路側）一樓穿堂的出口：一組玻璃門（轉場點在門外，buildZoneG 最後）
+      {
+        const nz = x => -128.4 + (-129.9 + 128.4) * (x + 163.2) / 51.2 - 0.05, ga = Hgrid(-148, -131), a = -149.6, b = -146.4;
+        k.slab('door', a, nz(a), b, nz(b), 0.08, ga - 0.1, ga + 2.7);
+        k.slab('black', a - 0.1, nz(a - 0.1) - 0.02, b + 0.1, nz(b + 0.1) - 0.02, 0.1, ga + 2.7, ga + 2.85);
+        for (const x of [a, (a + b) / 2, b]) k.slab('black', x - 0.04, nz(x) - 0.03, x + 0.04, nz(x) - 0.03, 0.1, ga - 0.1, ga + 2.7);
+      }
+      // 門廊走得上去：甲板（底下的一樓入口照樣能走；西端多 5 cm 跟大階梯頂的平台重疊）
+      addBridge([[px0 - 0.05, (wz + pz1) / 2], [px1, (wz + pz1) / 2]], pz1 - wz, { yAt: () => landY, lv: LV_DECK });
+      if (collision) {
+        const b2 = [landY - 0.3, landY + 1.2];
+        collision.addSegment(px0, pz1 - 0.28, px1, pz1 - 0.28, ...b2); // 門廊前緣（女兒牆）
+        collision.addSegment(px1, wz, px1, pz1, ...b2);                // 門廊東端（入口東側圓柱）
+        collision.addSegment(px0, S2.zTop, px0, pz1, ...b2);           // 大階梯頂東側到門廊前緣
+        // 頂端平台東緣底下：平台是 pad，前庭的人從這裡鑽進平台底下會被抬上二樓，只擋前庭高度
+        collision.addSegment(lx1, lz0, lx1, S2.zTop, fy - 0.5, landY - 0.6);
+        // 大階梯兩側矮牆（只擋樓梯上的人；廣場上的人由 map.js 的封邊線擋）
+        for (const x of [S2.x - S2.w / 2 + 0.25, xb - 0.25]) collision.addSegment(x, S2.zFoot, x, S2.zTop, fy - 0.2, landY + 1.2);
+        collision.addSegment(F.xE, PIT.stall[3], F.xE, F.nookZ, fy - 0.5, fy + 0.9); // 甲板東緣（長花台西面）
+        collision.addSegment(F.xE, F.nookZ, F.nook, F.nookZ, fy - 0.5, fy + 0.9);    // 長花台北面（前庭東北角）
+        for (const gx of [dx0 + 0.12, dx1 - 0.12]) collision.addSegment(gx, gz0, gx, gz1, fy - 0.3, fy + 1.85); // 柵門
+        // 執行期生成（停車、行人）別生在前庭和小階梯上（小階梯往南多算 1.6 m）
+        if (Array.isArray(collision.reserved)) collision.reserved.push([...T.map(([x, z]) => [x, z + F.depth + 0.1]), [F.xE, tE[1] + F.depth + 0.1], [F.xE, wz], [T[0][0], wz]]);
+      }
+      shapes.push({ name: 'forecourt', pts: [...T.map(([x, z]) => [x, z + F.depth]), [F.xE, tE[1] + F.depth], [F.xE, F.nookZ], [F.nook, F.nookZ], [F.nook, wz], [T[0][0], wz]], y0: fy - F.rise, y1: fy });
+      shapes.push({ name: 'porch', pts: [[px0, wz], [px1, wz], [px1, pz1], [px0, pz1]], y0: ySl, y1: yPa });
     }
     // 學活的碰撞輪廓：B1 西半（學習區、樓梯廳）挖空，跟麥當勞一樣能走進去。蓋完地圖（樹、灌木、冷氣都放完）才換，
     // 共用亂數不變；頂點數一樣、外框不變（新增的兩點在原本南邊的線上），新線段要登記到碰撞格子
@@ -807,29 +968,42 @@ export function buildZoneG(I, scene, data, collision = null) {
     // 門廊平台三邊與大階梯兩側上段：map.js 的封邊線沒有高度帶，物理牆只到地面上 4 m，站在 3.8 m 的平台上
     // 角色控制器（腳上 0.35～1.6 m）會從牆頂上越過去，所以另外加只擋平台／上段樓梯高度的線
     {
+      // （東邊不封：接入口上方的二樓門廊甲板，門廊自己的邊在前庭那段加）
       const S2 = STAIR2F, [lx0, lz0, lx1, lz1] = S2.landing, g = landY - S2.rise, band = (ya, yb) => [Math.max(ya - 0.3, g + 2.6), yb + 1.2];
       const seg = (ax, az, bx2, bz, [ya, yb]) => collision.addSegment(ax, az, bx2, bz, ya, yb);
-      seg(lx0, lz0, lx0, lz1, band(landY, landY)); seg(lx1, lz0, lx1, lz1, band(landY, landY)); seg(lx0, lz0, lx1, lz0, band(landY, landY));
-      const xa = S2.x - S2.w / 2, xb = S2.x + S2.w / 2, zf = S2.zFoot, zt = S2.zTop, yAt = z => g + S2.rise * (z - zf) / (zt - zf);
+      seg(lx0, lz0, lx0, lz1, band(landY, landY)); seg(lx0, lz0, lx1, lz0, band(landY, landY));
+      const y0 = foreY ?? g, xa = S2.x - S2.w / 2, xb = S2.x + S2.w / 2, zf = S2.zFoot, zt = S2.zTop, yAt = z => y0 + (landY - y0) * (z - zf) / (zt - zf);
       const z2 = zf + (zt - zf) * 0.6; // 樓梯下段離地不到 2.3 m，原本的封邊牆擋得住
       for (const x of [xa, xb]) seg(x, z2, x, zt, band(yAt(z2), landY));
+    }
+    // 轉場
+    let feet = 0;
+    I.updaters.push((dt, g) => { feet = g.player?.pos?.y ?? 0; });
+    const tp = (g, x, z, y, h, msg) => {
+      const p = g.player; p.pos.set(x, y, z); p.y = 0; p.vy = 0; if (p.vel) p.vel.set(0, 0);
+      p.heading = h; if (p.ch) p.ch.root.rotation.y = h; g.hud?.toast(msg, 'good', 1800);
+    };
+    const near = (y) => () => Math.abs(feet - y) < 1.0;
+    // 一樓入口（前庭高度）⇄ 學活北側、新中北路邊的空地（一樓室內沒有做，穿過去）
+    if (foreY !== null) {
+      const [dx0, dx1] = FORE.door, ex = -148.0, ez = -132.6, ey = Hgrid(ex, ez);
+      I.actions.push({ x: (dx0 + dx1) / 2, z: -93.3, r: 1.8, y: 0, cond: near(foreY), label: () => '按 <kbd>E</kbd> 從一樓穿過學生活動中心，走到北側新中北路',
+        fn: (g) => tp(g, ex, ez, ey, Math.PI, '🚶 穿過學生活動中心一樓，來到北側新中北路') });
+      I.actions.push({ x: ex, z: -131.2, r: 1.6, y: 0, cond: near(ey), label: () => '按 <kbd>E</kbd> 從一樓穿過學生活動中心，走到南面入口',
+        fn: (g) => tp(g, (dx0 + dx1) / 2, -92.6, foreY, 0, '🚶 穿過學生活動中心一樓，回到南面入口前庭') });
     }
     const deckY = surfaceAt(-163.0, -141.6, 60), g0 = Hgrid(-163.0, -141.6);
     if (deckY > g0 + 3) {
       const bx = z => -162.7 + (-163.2 + 162.7) * (z + 165.0) / 36.6; // 天橋中心線（北端 z -165 → 南端 -128.4）
       // 兩側欄杆一路到力行端（z -165，接進力行南牆）
       for (const o of [-1.42, 1.42]) collision.addSegment(bx(-165.0) + o, -165.0, bx(-128.6) + o, -128.6, deckY - 0.3, deckY + 0.6);
-      // 轉場
-      let feet = 0;
-      I.updaters.push((dt, g) => { feet = g.player?.pos?.y ?? 0; });
-      const tp = (g, x, z, y, h, msg) => {
-        const p = g.player; p.pos.set(x, y, z); p.y = 0; p.vy = 0; if (p.vel) p.vel.set(0, 0);
-        p.heading = h; if (p.ch) p.ch.root.rotation.y = h; g.hud?.toast(msg, 'good', 1800);
-      };
-      const near = (y) => () => Math.abs(feet - y) < 1.0;
       const S2 = STAIR2F, fz = Hgrid(-166.5, -161.0);
-      I.actions.push({ x: S2.x, z: -93.6, r: 2.2, y: 0, cond: near(landY), label: () => '按 <kbd>E</kbd> 穿過學生活動中心，走到往力行宿舍的天橋',
-        fn: (g) => tp(g, bx(-130.6), -130.6, deckY, Math.PI, '🚶 穿過學生活動中心，來到新中北路天橋') });
+      const toBridge = (g) => tp(g, bx(-130.6), -130.6, deckY, Math.PI, '🚶 穿過學生活動中心，來到新中北路天橋');
+      I.actions.push({ x: S2.x, z: -93.6, r: 2.2, y: 0, cond: near(landY), label: () => '按 <kbd>E</kbd> 穿過學生活動中心，走到往力行宿舍的天橋', fn: toBridge });
+      if (foreY !== null) { // 入口正上方的二樓門廊（玻璃門）
+        const [px0, , px1] = FORE.porch;
+        I.actions.push({ x: (px0 + px1) / 2 + 0.6, z: -93.6, r: 1.8, y: 0, cond: near(landY), label: () => '按 <kbd>E</kbd> 穿過學生活動中心，走到往力行宿舍的天橋', fn: toBridge });
+      }
       I.actions.push({ x: bx(-129.9), z: -129.9, r: 1.6, y: 0, cond: near(deckY), label: () => '按 <kbd>E</kbd> 穿過學生活動中心，下到南面大階梯',
         fn: (g) => tp(g, S2.x, -93.3, landY, 0, '🚶 穿過學生活動中心，回到南面二樓門廊') });
       I.actions.push({ x: bx(-163.6), z: -163.6, r: 1.6, y: 0, cond: near(deckY), label: () => '按 <kbd>E</kbd> 走進力行宿舍，從樓梯下到大門前院',

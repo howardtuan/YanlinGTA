@@ -3500,6 +3500,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         for (let i = 0; i < n; i++) { const a = inner[i], b = inner[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], l = Math.hypot(ex, ez) || 1; gHedge.quad([a[0], L.y, a[1]], [b[0], L.y, b[1]], [b[0], L.y + 0.55, b[1]], [a[0], L.y + 0.55, a[1]], HEDGE, [sgn * ez / l, 0, -sgn * ex / l]); }
       } else gTop.flatPoly(pts, L.y, col(d.top || '#e6e2da'));
       for (let i = 0; i < n; i++) {
+        // d.open: edges (pts[i] -> pts[i+1]) that meet a bridge deck at the same height (decks are not levels,
+        // so below() would see the ground under it): no wall, no seal there (js/zone_g.js 學活前庭、二樓門廊)
+        if (d.open && d.open.includes(i)) continue;
         const A = pts[i], Bp = pts[(i + 1) % n], ex = Bp[0] - A[0], ez = Bp[1] - A[1], l = Math.hypot(ex, ez) || 1;
         const nx = sgn * ez / l, nz = -sgn * ex / l;
         const drop = edge(L, A, Bp, nx, nz, () => L.y + 0.06, () => L.y, d.wall);
@@ -3565,8 +3568,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           const sa = s0 + (s1 - s0) * i / nb, sb = s0 + (s1 - s0) * (i + 1) / nb, q = XZ((sa + sb) / 2, sg * (hw - 0.65)), y = walk((sa + sb) / 2);
           gHedge.box(q[0], q[1], Math.atan2(uz, ux), sb - sa, 0.6, y - 0.05, y + 0.6, HEDGE);
         }
-      } else for (const sg of [1, -1]) for (const [k0, k1] of runsOf(sideDrop[sg], 0.45)) {
-        // guard rail where a stair side stands well above the ground
+      } else if (d.rail !== 'none') for (const sg of [1, -1]) for (const [k0, k1] of runsOf(sideDrop[sg], 0.45)) {
+        // guard rail where a stair side stands well above the ground ('none': the parapets are drawn elsewhere)
         const m = sideDrop[sg].length; railing(lineAt(sg * (hw - 0.12), len * k0 / m, len * k1 / m), rc, 0.9);
       }
     }

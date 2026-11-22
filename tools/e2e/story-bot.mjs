@@ -66,7 +66,7 @@ const KNOWN_NOISE = [
 ];
 const STORY = ['序章 · 投票前一天（走到系館）', '任務一 · 傳單大作戰（5 個公布欄 + 回報）', '任務二 · 早餐補給（夜市那條街來回）', '任務三 · 掃街拉票（15 張傳單票）', '任務四 · 布條保衛戰（6 站依序）', '任務五 · 布條失竊案（舊家電腦 SQL 破案）', '終章 · 政見發表會', '結局'];
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = ms => new Promise(r => { setTimeout(r, ms); });
 const t0 = Date.now();
 const stamp = () => `[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s]`;
 const say = (...a) => console.log(stamp(), ...a);
@@ -190,7 +190,8 @@ async function main() {
   report.steps = summarize(lastSteps);
   if (lastStatus) report.renderStats = { framesDrawn: lastStatus.renders, avgRenderMs: lastStatus.renders ? +(lastStatus.renderMs / lastStatus.renders).toFixed(1) : null, renderFps: lastStatus.renderMs ? +(lastStatus.renders / (lastStatus.renderMs / 1000)).toFixed(1) : null, gameFrames: lastStatus.frames };
 }
-let inbox = [], lastSteps = [], lastStatus = null;
+const inbox = [];
+let lastSteps = [], lastStatus = null;
 
 async function closeBrowser() { try { page && page.close(); } catch { } try { chrome && await chrome.kill(); } catch { } page = null; chrome = null; }
 // launch Chrome in the current mode, load the game to its title screen, inject the bot;

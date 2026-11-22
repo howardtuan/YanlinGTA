@@ -100,7 +100,7 @@ export function closedCells(sl, row, warn = () => {}) {
   const edge = row.doors === 'n' ? row.z0 : row.doors === 's' ? row.z1 : row.doors === 'w' ? row.x0 : row.x1;
   const U = (p) => (alongX ? p[0] : p[1]), D = (p) => (alongX ? p[1] : p[0]);
   // what is already floor / stairs inside the rectangle
-  let obs = [];
+  const obs = [];
   for (const poly of [...sl.floors, ...sl.landings.map(l => l.poly), ...sl.stairs.map(s => s.poly)]) {
     const us = poly.map(U), ds = poly.map(D), a = Math.max(u0, Math.min(...us)), b = Math.min(u1, Math.max(...us)), depth = Math.min(d1, Math.max(...ds)) - Math.max(d0, Math.min(...ds));
     if (b - a > 0.2 && depth > Math.max(0.5, 0.1 * (d1 - d0))) obs.push([a, b]);

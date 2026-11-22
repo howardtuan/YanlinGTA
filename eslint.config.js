@@ -55,10 +55,42 @@ export default [
     },
   },
   {
+    // tools/ 底下在 Node 執行的腳本（建置檢查、通關機器人的驅動端、平面圖產生器）
+    files: [
+      'tools/*.mjs',
+      'tools/e2e/serve.mjs',
+      'tools/e2e/story-bot.mjs',
+      'tools/e2e/cdp.mjs',
+      'tools/floorplan/**/*.mjs',
+    ],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  {
+    // 通關機器人注入遊戲頁面的腳本：在瀏覽器裡以一般 script 執行，不是 ES module
+    files: ['tools/e2e/bot-page.js', 'tools/e2e/page-init.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        game: 'readonly', // 遊戲本體掛在 window.game
+        __storyBot: 'writable', // bot-page.js 自己掛的 window.__storyBot
+        __e2e: 'writable', // page-init.js 掛的 window.__e2e
+        __e2eSend: 'readonly', // story-bot.mjs 用 Runtime.addBinding 加的回傳通道
+        __E2E_CFG__: 'readonly', // 佔位字串，story-bot.mjs 注入前換成 JSON 設定
+      },
+    },
+  },
+  {
     ignores: [
       'dist/**',
       'vendor/**',
-      'tools/**',
+      // tools/ 只忽略產出物
+      'tools/npc-dashboard/photos/**',
+      'tools/e2e/out/**',
+      'tools/.cache/**',
+      'tools/wasm-kernels/target/**',
       'docs/**',
       'assets/**',
       'data/**',

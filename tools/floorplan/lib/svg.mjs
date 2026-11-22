@@ -118,7 +118,7 @@ export function renderSvg({ sl, cells = [], zones = [], labels = [], frame, meta
   for (const l of labels) {
     const p = P([l.x, l.z]);
     if (l.leader) { const e = P(l.leader); out.push(`<path d="M${n(p[0])} ${n(p[1])}L${n(e[0])} ${n(e[1])}" stroke="${l.color || '#555b66'}" stroke-width="0.6" fill="none"/><circle cx="${n(e[0])}" cy="${n(e[1])}" r="1.2" fill="${l.color || '#555b66'}"/>`); }
-    let py = p[1], px = p[0]; const size = l.size || 9;
+    let py = p[1]; const px = p[0]; const size = l.size || 9;
     if (l.leader) { const e = P(l.leader), lines = String(l.text).split('\n').length; if (Math.abs(e[1] - p[1]) >= Math.abs(e[0] - p[0])) py += (e[1] > p[1] ? -1 : 1) * (lines * size * 0.6 + 1); }
     out.push(text(px, py, l.text, { size, bold: l.bold, fill: l.color, vertical: l.vertical, rot: l.rot, anchor: l.anchor }));
   }
@@ -152,7 +152,7 @@ export function renderSvg({ sl, cells = [], zones = [], labels = [], frame, meta
   for (const e of legendExtra) items.push(['text', null, null, e]);
   const LY = Y0 + planH + 14, leg = [`<g id="legend" font-family='${FONT}' font-size="9" fill="${C.text}">`];
   let lx = X0, ly = LY;
-  const barM = opts.bar || (S * 20 <= 220 ? 20 : 10), compassW = 60, legendRight = W - 12;
+  const barM = opts.bar || (S * 20 <= 220 ? 20 : 10), legendRight = W - 12;
   for (const [kind, a, b, label] of items) {
     const w = (kind === 'text' ? 0 : 22) + emWidth(label) * 9 + 14;
     if (lx + w > legendRight && lx > X0) { lx = X0; ly += 16; }

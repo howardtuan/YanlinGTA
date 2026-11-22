@@ -6,7 +6,6 @@
 // except by the explicit, reported teleport fallback (fallback()).
 (() => {
   if (window.__storyBot) return;
-  const TAU = Math.PI * 2;
   const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
   const hyp = Math.hypot;
@@ -46,7 +45,7 @@
     const k = mode === 'foot' ? '__okF' : '__okV';
     if (e[k] !== undefined) return e[k];
     const r = mode === 'foot' ? 0.42 : 0.8;
-    let ok = segFree(a, e.to, r) || !!gridDetour(a, e.to, r, 8);
+    const ok = segFree(a, e.to, r) || !!gridDetour(a, e.to, r, 8);
     e[k] = ok;
     const back = e.to.adj.find(x => x.to === a); if (back) back[k] = ok;
     if (!ok) (B.blockedEdges ||= []).push({ mode, road: e.road.name || e.road.type, tunnel: !!e.road.tunnel, a: [+a.x.toFixed(1), +a.z.toFixed(1)], b: [+e.to.x.toFixed(1), +e.to.z.toFixed(1)] });

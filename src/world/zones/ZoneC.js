@@ -1,6 +1,6 @@
-// C 區「商管」校內建築外觀（都不能進去，只做外觀；資管系館本身在 js/interiors.js 自建，這裡只補外觀構件）。
-// 做法同 js/zone_a.js：js/map.js 照舊蓋牆，zoneCLook() 在 js/main.js 蓋樓前換 look／分段量體（parts），
-// buildZoneC() 自建輪廓表達不了的構件（js/zones.js 依序呼叫）。
+// C 區「商管」校內建築外觀（都不能進去，只做外觀；資管系館本身在 src/world/Interiors.js 自建，這裡只補外觀構件）。
+// 做法同 src/world/zones/ZoneA.js：src/world/MapBuilder.js 照舊蓋牆，zoneCLook() 在 src/core/Game.js 蓋樓前換 look／分段量體（parts），
+// buildZoneC() 自建輪廓表達不了的構件（src/world/zones/Zones.js 依序呼叫）。
 //
 // 依據（campus-survey/PLAN.md 第 1 節 C 區、批次 2，zone-C.md 與補充調查、正射 NLSC 2024）：
 //  - 管理大樓 w392023399：5 層灰米色洗石子、每層淺膚色樓板帶；西南面正中偏西是兩層高的穿堂入口（4 根方柱、
@@ -8,21 +8,21 @@
 //    樓梯間之間的紅磚中庭，正對自強的斜柱穿堂，右側藍色大圖半圓筒
 //    （2025-10 相片；2017 是紅磁磚）、AACSB 藍色橫布條；一樓方柱柱廊；5F 是開放框架層（方框＋斜撐），
 //    頂上花崗石女兒牆一排小菱形孔；屋頂兩段紅瓦斜屋頂夾一段深灰平頂（正射）。東北面對自強的 3～4 m 窄巷
-//    是整面深灰素混凝土、只有高處窄條窗（官方街景）。輪廓、名稱不動（js/missions.js 任務四的檢查點用它的中心）。
+//    是整面深灰素混凝土、只有高處窄條窗（官方街景）。輪廓、名稱不動（src/systems/MissionSystem.js 任務四的檢查點用它的中心）。
 //  - 自強商學大樓 w392023401：正射是ㄇ／口字形，中庭滿是大樹；西南翼、東北翼、東南翼 4F，西北端是低一層的連接段
 //    加紅磚屋頂露台；紅瓦斜屋頂在東南翼北段（正射紅瓦條帶的位置，PLAN 寫的「東北翼」就是這一段）；外牆深灰洗石子、
 //    每層窗上一條白色小方磚帶、女兒牆菱形孔（與管理大樓同一套）；西北面一二樓橫向百葉；入口在東南面中段，淺台階
 //    兩側坡道、暗色門（官方街景，面向停車場）；屋頂白色防水層（正射）。輪廓不改（中庭用 parts 留空）。
 //    斜柱穿堂（2024-04 相片：四根下寬上窄的洗石子大柱、紅底金字「自強商學大樓」匾、橘紅磚地、穿過去看得到中庭）
 //    在西南翼、正對管理大樓穿堂：相片地上的橘紅磚格就是正射上兩棟之間那塊紅磚格鋪面，兩側是管理大樓接過來的兩座
-//    樓梯間。穿堂與中庭走得進去：植栽種完後才把 js/map.js 加的整棟碰撞縮掉（collapse），共用亂數不變。
+//    樓梯間。穿堂與中庭走得進去：植栽種完後才把 src/world/MapBuilder.js 加的整棟碰撞縮掉（collapse），共用亂數不變。
 //    西北端不是開口：官方街景那面是一二樓橫向百葉的實牆，維持兩層高的連接段＋屋頂紅磚露台（正射）。
-//  - 資訊管理學系 w252996584：自建館照 2020～2022 相片補：欄板灰洗石子＋白灰菱形嵌片（js/kit.js T.diamond）、
+//  - 資訊管理學系 w252996584：自建館照 2020～2022 相片補：欄板灰洗石子＋白灰菱形嵌片（src/world/Kit.js T.diamond）、
 //    欄板上下兩條酒紅邊線、東端樓梯塔旁深灰直條百葉、門前礫石庭園加大石頭。
 //  - 商業設計館 w392023403（OSM 名「商設館」）：正射量到實際屋頂比 OSM 往南 4～6 m、往西 4 m，約 27.4×18.8 m，
 //    西側一座高一層的白色樓梯間（正射上南緣那條較暗的帶子當成 4F 的一部分，南面 1～4 樓都有窗）。灰色洗石子；南面（入口面）直鰭＋鰭間 2～4 樓窗下板
 //    橘、朱紅、黃大色塊，一二樓灰褐粗洗石子，橘色雨遮、鋁框玻璃雙開門、木平台、橘色「商業設計學系」牌；東面素牆
-//    （兩根白色落水管），北、西面依東面推。名稱改「商業設計館」（js/map.js STYLE_BY_NAME 同為 white）。
+//    （兩根白色落水管），北、西面依東面推。名稱改「商業設計館」（src/world/MapBuilder.js STYLE_BY_NAME 同為 white）。
 //  - 工學館 w328790267：正射是口字形加缺口：東北 8F 長樓與東翼（L 形）、中間約 20×30 m 中庭、西側 4F 低樓
 //    （紅磁磚屋頂露台、桌椅、南端弧形棚架）、南側 3F 方格玻璃帷幕低樓；外牆灰色小口磚（#8c8680）零星嵌暗紅小方磚，
 //    頂層淺藍板＋東北角藍色圓形校徽、東北面轉角實牆上金色直書「中原大學工學院」、東面一層層錯開懸挑的混凝土盒狀樓梯平台（2018～2025
@@ -30,7 +30,7 @@
 //    「生物醫學工程學系」（藍）「機械工程學系」（橘紅）、金屬雨遮「工 學 館 Engineering Building」。輪廓不改。
 //
 // 共用亂數：五棟都維持 kind campus；管理、自強、工學、資管的輪廓 pts 不動，商業設計館換輪廓但 b.acPts 留住原輪廓，
-// 分段的建物都設 splitAc，js/map.js 屋頂冷氣的 rnd2 抽取次數因此不變（落在中庭的冷氣只是不畫）。
+// 分段的建物都設 splitAc，src/world/MapBuilder.js 屋頂冷氣的 rnd2 抽取次數因此不變（落在中庭的冷氣只是不畫）。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { H, groundY } from '../Terrain.js';
@@ -42,7 +42,7 @@ export const SS_NAME = '商業設計館';
 const unit = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); return [dx / l, dz / l]; };
 const affine = (O, U, V) => (u, v) => [+(O[0] + U[0] * u + V[0] * v).toFixed(2), +(O[1] + U[1] * u + V[1] * v).toFixed(2)];
 const area2 = P => { let s = 0; for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; s += a[0] * c[1] - c[0] * a[1]; } return s; };
-// 跟 OSM 輪廓同一個繞向（js/map.js 的牆法線靠繞向決定朝外）
+// 跟 OSM 輪廓同一個繞向（src/world/MapBuilder.js 的牆法線靠繞向決定朝外）
 const like = (P, ref) => (Math.sign(area2(P)) === Math.sign(area2(ref)) ? P : P.slice().reverse());
 
 // 管理大樓：u 沿西南面由西北往東南，v 往東北（窄巷那側）
@@ -66,16 +66,16 @@ const SS_O = [133.3, 117.5], SS_U = unit(SS_O, [159.6, 125.3]);
 const ssW = affine(SS_O, SS_U, [-SS_U[1], SS_U[0]]);
 const SS = { L: 27.4, D: 18.8, box: [6.2, 11.8], boxOut: 2.4 };
 const SS_PTS = [[0, 0], [SS.L, 0], [SS.L, SS.D], [0, SS.D], [0, SS.box[1]], [-SS.boxOut, SS.box[1]], [-SS.boxOut, SS.box[0]], [0, SS.box[0]]];
-// 資管系館（js/interiors.js IM_SPEC 的同一組數字；不 import 避免循環載入）
+// 資管系館（src/world/Interiors.js IM_SPEC 的同一組數字；不 import 避免循環載入）
 const IM = { ox: 79.9, oz: 92.6, ang: Math.atan2(16.9, 49.3), L: 46, D: 12.5, FH: 3.8, NF: 3 };
 
-// 穿堂口與兩棟之間的紅磚中庭：牆邊灌木種完後才藏（js/map.js opts.vegHide，不重抽）
+// 穿堂口與兩棟之間的紅磚中庭：牆邊灌木種完後才藏（src/world/MapBuilder.js opts.vegHide，不重抽）
 export const zoneCVegHide = () => [
   [mgW(MG.ent[0] - 1.5, -3.5), mgW(MG.ent[1] + 1.5, -3.5), mgW(MG.ent[1] + 1.5, 0.5), mgW(MG.ent[0] - 1.5, 0.5)],
   [mgW(5.5, MG.vN - 0.5), mgW(35.5, MG.vN - 0.5), mgW(35.5, 21.5), mgW(5.5, 21.5)],
 ];
 
-// ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
+// ---------------- 外觀 look（src/core/Game.js 在 src/world/MapBuilder.js 蓋樓前套用） ----------------
 const GX_BASE = { wall: { base: 'tile', colour: '#8c8680' }, windows: { type: 'punched', bay: 3.0, accent: '#5a5550', glass: '#4a5560' }, roof: { colour: '#7d7b77' }, parapet: { h: 0.8, colour: '#857f79' } };
 export function zoneCLook(b) {
   if (b.id === C_IDS.mg) {
@@ -392,7 +392,7 @@ export function buildZoneC(I, scene, data, collision) {
   const k = new Acc();
   const find = id => data.buildings.find(b => b.id === id);
   const baseOf = (b, x, z) => (b && Number.isFinite(b.base) ? b.base : groundY(x, z));
-  // I.addWall 的高度帶是相對牆中點地面的（js/physworld.js 會再加 H）：這裡傳世界高度，先換算（同 js/zone_g.js）
+  // I.addWall 的高度帶是相對牆中點地面的（src/physics/PhysWorld.js 會再加 H）：這裡傳世界高度，先換算（同 src/world/zones/ZoneG.js）
   const wallC = (ax, az, bx, bz, y0, y1) => { const g = H((ax + bx) / 2, (az + bz) / 2); I.addWall(ax, az, bx, bz, y0 - g, y1 - g); };
   const boxColl = (P, y0, y1) => { for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; wallC(a[0], a[1], c[0], c[1], y0, y1); } };
   // 貼在輪廓邊外側 off 的面（朝外），貼圖每 tu × tv 公尺重複
@@ -417,10 +417,10 @@ export function buildZoneC(I, scene, data, collision) {
     const l = Math.hypot(nrm[0], nrm[1]), A = [p[0] + nrm[0] / l * off, p[1] + nrm[1] / l * off], C = [q[0] + nrm[0] / l * off, q[1] + nrm[1] / l * off];
     if (-(C[1] - A[1]) * nrm[0] + (C[0] - A[0]) * nrm[1] > 0) k.wall(m, A[0], A[1], C[0], C[1], y0, y1, tu, tv); else k.wall(m, C[0], C[1], A[0], A[1], y0, y1, tu, tv);
   };
-  // js/map.js 幫整棟加的碰撞多邊形（植栽照它種完了，共用亂數不變）縮成 at 那裡的一小點：之後只剩各分段擋人，
-  // 穿堂和中庭就走得進去（做法同 js/zone_h.js 的空橋）
+  // src/world/MapBuilder.js 幫整棟加的碰撞多邊形（植栽照它種完了，共用亂數不變）縮成 at 那裡的一小點：之後只剩各分段擋人，
+  // 穿堂和中庭就走得進去（做法同 src/world/zones/ZoneH.js 的空橋）
   const collapse = (ref, at) => { const pi = collision ? collision.polys.findIndex(q => q.pts === ref) : -1; if (pi < 0) return; const n = ref.length; collision.insetPolygon(pi, Array.from({ length: n }, (_, i) => [at[0] + Math.cos(i / n * 6.2832) * 0.05, at[1] + Math.sin(i / n * 6.2832) * 0.05])); };
-  // 一棵簡單的樹（中庭用，不進 js/map.js 的植栽，也不抽共用亂數；樹幹有碰撞）
+  // 一棵簡單的樹（中庭用，不進 src/world/MapBuilder.js 的植栽，也不抽共用亂數；樹幹有碰撞）
   const tree = (x, z, s, r) => { const y = H(x, z); collision?.addCircle(x, z, 0.35); k.cyl('trunk', x, z, 0.22 * s, y - 0.2, y + 3.2 * s, 8, false, 0.16 * s); k.blob(r() < 0.5 ? 'leaf' : 'leaf2', x, y + 4.2 * s, z, 2.4 * s, 0.75); k.blob('leaf', x + 1.1 * s, y + 3.8 * s, z + 0.6 * s, 1.6 * s, 0.7); k.blob('leaf2', x - 0.9 * s, y + 4.0 * s, z - 0.7 * s, 1.7 * s, 0.7); };
 
   // ===== 管理大樓 =====
@@ -515,7 +515,7 @@ export function buildZoneC(I, scene, data, collision) {
     { const top = B + 7.2, Q = [zqW(0.4, c[2] + 0.3), zqW(0.4, c[3] - 0.3), zqW(ZQ.link - 0.3, c[3] - 0.3), zqW(ZQ.link - 0.3, c[2] + 0.3)];
       k.flat('brickPave', Q, top + 0.04, 1.2);
       for (let i = 0; i < 4; i++) { const a = Q[i], d = Q[(i + 1) % 4]; k.beam('rail', [a[0], top + 1.0, a[1]], [d[0], top + 1.0, d[1]], 0.05, 0.05, [0, 1]); } }
-    // 中庭：草地、碎石步道、大樹（js/map.js 種樹時整個輪廓還擋著，中庭的樹自己種）
+    // 中庭：草地、碎石步道、大樹（src/world/MapBuilder.js 種樹時整個輪廓還擋著，中庭的樹自己種）
     { const Q = [zqW(c[0] + 0.3, c[2] + 0.3), zqW(c[0] + 0.3, c[3] - 0.3), zqW(c[1] - 0.3, c[3] - 0.3), zqW(c[1] - 0.3, c[2] + 0.3)];
       k.flat('grass', Q, (x, z) => H(x, z) + 0.04, 4);
       k.flat('gravel', [zqW(c[0] + 0.3, 26), zqW(c[0] + 0.3, 28), zqW(c[1] - 0.3, 28), zqW(c[1] - 0.3, 26)], (x, z) => H(x, z) + 0.06, 2);
@@ -573,7 +573,7 @@ export function buildZoneC(I, scene, data, collision) {
       } }
   }
 
-  // ===== 資訊管理學系（js/interiors.js 自建館的外觀補件） =====
+  // ===== 資訊管理學系（src/world/Interiors.js 自建館的外觀補件） =====
   {
     const c = Math.cos(IM.ang), s = Math.sin(IM.ang), w = (x, z) => [IM.ox + x * c - z * s, IM.oz + x * s + z * c], B = H(IM.ox, IM.oz), D = IM.D;
     const lb = (m, x0, x1, y0, y1, z0, z1) => { const a = w(x0, (z0 + z1) / 2), b = w(x1, (z0 + z1) / 2); k.slab(m, a[0], a[1], b[0], b[1], z1 - z0, B + y0, B + y1); };
@@ -694,7 +694,7 @@ export function buildZoneC(I, scene, data, collision) {
       // 入口玻璃門
       { const a = along(gxW(53.6, 49.4), eSS, 2.6, 0.03), b2 = along(gxW(53.6, 49.4), eSS, 5.9, 0.03), y0 = groundY(...along(gxW(53.6, 49.4), eSS, 4.2, 1.5));
         k.quad('door', [b2[0], y0, b2[1]], [a[0], y0, a[1]], [a[0], y0 + 2.6, a[1]], [b2[0], y0 + 2.6, b2[1]]); } }
-    // --- 中庭：草地與幾棵樹（js/map.js 的樹長不進被輪廓擋住的中庭） ---
+    // --- 中庭：草地與幾棵樹（src/world/MapBuilder.js 的樹長不進被輪廓擋住的中庭） ---
     { const Q = [[14.6, 22.6], [35.6, 22.6], [47.2, 46.6], [31.4, 49.3]].map(([u, v]) => gxW(u, v)), r = lcg(53);
       k.flat('grass', Q, (x, z) => H(x, z) + 0.04, 4);
       for (const [u, v, sc] of [[22, 28, 1.1], [32, 31, 1.0], [37, 41, 1.15], [27, 42, 0.9]]) { const p = gxW(u, v); tree(p[0], p[1], sc, r); } }

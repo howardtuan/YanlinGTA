@@ -249,7 +249,7 @@ export const STORY_TIMES = {
   品妍: [11 * 60 + 15, 22 * 60 + 50], 阿哲: [13 * 60 + 40, 21 * 60 + 55], 中原大學: [8 * 60, 16 * 60 + 30],
   吱吱: [6 * 60 + 45, 22 * 60 + 20], 女拳大帝: [10 * 60 + 30, 23 * 60 + 35], 漢克: [14 * 60 + 10, 23 * 60 + 50], 黃蓋瑞: [7 * 60 + 35, 22 * 60 + 5], 劍玉: [11 * 60 + 20, 23 * 60 + 55], 羊明衫: [9 * 60 + 40, 22 * 60 + 30], YeeMing: [10 * 60 + 15, 21 * 60 + 40],
 };
-// 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 js/friends.js）
+// 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 src/ui/phone/Friends.js）
 export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd', 漢克: 'hank', 黃蓋瑞: 'garry', 劍玉: 'jianyu', 羊明衫: 'mingshan', YeeMing: 'yeeming' };
 export const FEED_IMAGES = [...new Set([...FEED, ...FEED_POOL, ...Object.values(FRIEND_POSTS).flat()].map(p => p.img))];
 

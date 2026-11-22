@@ -372,7 +372,7 @@ export function buildCar(color, taxi = false) {
 }
 
 // =====================================================================
-// 偶爾出現在車流裡的超跑與重機（js/npc.js Traffic 抽到才會有）。外型參考：
+// 偶爾出現在車流裡的超跑與重機（src/entities/NPC.js Traffic 抽到才會有）。外型參考：
 //   超跑 — ferrari：中置引擎、圓潤的長車頭、短車尾、圓形雙尾燈；lambo：銳利的楔形車身、超低車頭、
 //          側面大進氣口、Y 字尾燈；porsche：911 的圓燈、隆起的前葉子板、斜背車頂、整條橫向尾燈和小鴨尾。
 //   重機 — sport（仿賽，Kawasaki Ninja／Honda CBR 那種全整流罩、低把手、上翹座墊）；naked（街車，
@@ -620,10 +620,10 @@ function segSeg(a, b) {
   return best;
 }
 // crash thresholds (m/s of speed into the obstacle): above STOP the vehicle stops dead,
-// above THROW a scooter rider is thrown off (js/main.js)
+// above THROW a scooter rider is thrown off (src/core/VehicleSpawner.js)
 export const CRASH_STOP = 4, CRASH_THROW = 7.5;
 // a parked vehicle hit faster than this (m/s into it) is knocked loose: Vehicle.knock(o, by, nx, nz, impact)
-// (set by main.js) hands it to physics until it comes to rest and returns the factor the hitter's speed
+// (set by src/core/Game.js) hands it to physics until it comes to rest and returns the factor the hitter's speed
 // keeps (momentum: a car barely slows for a scooter, a scooter into a car still stops), or false
 export const KNOCK_MIN = 3;
 
@@ -714,18 +714,18 @@ const moved = (o, s) => !o.position.equals(s.p) || !o.quaternion.equals(s.q) || 
 
 export class Vehicle {
   static knock = null; // see KNOCK_MIN
-  // Vehicle.onRide(v, on): set by main.js; player.js calls it when the player gets on (true) / off (false).
-  // With physics it gives the ridden vehicle a dynamic body (js/vehphys.js Chassis, this.body) and takes it
+  // Vehicle.onRide(v, on): set by src/core/Game.js; src/entities/Player.js calls it when the player gets on (true) / off (false).
+  // With physics it gives the ridden vehicle a dynamic body (src/physics/VehPhysics.js Chassis, this.body) and takes it
   // away again. While this.body exists the body moves the vehicle: drive() is not called, pos / heading /
   // speed are written back from the body every frame, and code that changes speed or pos (a pedestrian hit,
   // race barriers) keeps working: the body picks those changes up (Chassis.latch).
   static onRide = null;
-  static knockTraffic = null; // (o, by, nx, nz, closing speed): main.js throws a traffic vehicle hit hard (physics)
+  static knockTraffic = null; // (o, by, nx, nz, closing speed): src/core/VehicleSpawner.js throws a traffic vehicle hit hard (physics)
   constructor(kind, rnd = Math.random, opt = {}) {
     this.id = VID++;
     this.kind = kind;
     const pick = a => a[Math.floor(rnd() * a.length)];
-    if (kind === 'scooter' && opt.model === 'zmax') { // 漢克的 ZMAX (js/hank.js): a 155cc maxi-scooter, a bit quicker and longer than a commuter
+    if (kind === 'scooter' && opt.model === 'zmax') { // 漢克的 ZMAX (src/entities/npcs/Hank.js): a 155cc maxi-scooter, a bit quicker and longer than a commuter
       this.mesh = buildZmax(); this.model = 'zmax';
       Object.assign(this, { wb: 1.34, radius: 0.8, hl: 1.05, hw: 0.38, maxSpeed: 25, accel: 11, brake: 18, turn: 2.5, grip: 9, seat: new THREE.Vector3(0, 0.1, -0.3), exitSide: 1.0, label: '漢克的 ZMAX' });
     } else if (kind === 'scooter' && BIKES[opt.model]) { // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
@@ -733,11 +733,11 @@ export class Vehicle {
       this.mesh = buildBike(opt.model, pick(B.colors)); this.model = opt.model;
       Object.assign(this, { wb: 1.46, radius: 0.85, hl: 1.02, hw: 0.4, maxSpeed: 36, accel: 14, brake: 20, turn: 2.3, grip: 9.5, seat: new THREE.Vector3(0, 0.2, -0.32), exitSide: 1.1, label: B.name });
     } else if (kind === 'scooter') {
-      this.mesh = opt.jet ? buildJetSL() : buildCommuter(pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (scooters.js)
+      this.mesh = opt.jet ? buildJetSL() : buildCommuter(pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (src/entities/Scooters.js)
       Object.assign(this, { wb: 1.25, radius: 0.75, hl: 0.92, hw: 0.36, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
     } else if (SUPERCARS[opt.model]) { // 超跑: a car, much quicker, a little wider and lower
       const C = SUPERCARS[opt.model];
-      this.mesh = buildSupercar(opt.model, opt.color || pick(C.colors)); this.model = opt.model; // opt.color: 劍玉's own cars (js/jianyu.js)
+      this.mesh = buildSupercar(opt.model, opt.color || pick(C.colors)); this.model = opt.model; // opt.color: 劍玉's own cars (src/entities/npcs/Jianyu.js)
       Object.assign(this, { wb: 2.66, radius: 1.38, hl: 2.28, hw: 0.98, maxSpeed: 46, accel: 15, brake: 22, turn: 1.8, grip: 7.5, seat: new THREE.Vector3(0.38, 0.0, -0.35), exitSide: 2.0, label: `超跑・${C.name}` });
     } else {
       const taxi = kind === 'taxi';
@@ -753,7 +753,7 @@ export class Vehicle {
     this._lodInit();
     // static parts never move inside the vehicle and the body / wheels only move in sync(), so three.js need
     // not recompose dozens of part matrices per vehicle every frame (100+ parked vehicles): matrices are
-    // refreshed in sync() (and airdrop.js) instead. Dynamic parts, riders and labels added later stay automatic.
+    // refreshed in sync() (and src/systems/minigames/Airdrop.js) instead. Dynamic parts, riders and labels added later stay automatic.
     this.mesh.traverse(o => { if (this._dyn.has(o)) return; o.updateMatrix(); o.matrixAutoUpdate = false; });
   }
   // see the far LOD rules above the class
@@ -781,7 +781,7 @@ export class Vehicle {
     // change detection: every drawn part except the wheel nodes themselves (they turn in sync())
     this._lod = { near, far, isFar: false, snaps: new Map(near.map(o => [o, snap(o)])), skip: wheels };
   }
-  // dist: camera distance (m); called a few times a second for every vehicle (main.js _vehicleLod)
+  // dist: camera distance (m); called a few times a second for every vehicle (src/core/GameLoop.js vehicleLod)
   lod(dist) {
     const L = this._lod; if (!L) return;
     if (!L.isFar) this.lodCheck();
@@ -815,9 +815,9 @@ export class Vehicle {
     // pos stays on the 2D plane (y = 0); the mesh sits on the ground under both
     // wheels and pitches with it (visual only, handling is unchanged)
     const fx = Math.sin(this.heading) * this.wb / 2, fz = Math.cos(this.heading) * this.wb / 2;
-    // each wheel stays on the level it was on (viaduct deck / street below it, js/terrain.js)
+    // each wheel stays on the level it was on (viaduct deck / street below it, src/world/Terrain.js)
     const hf = this.hf = surfaceAt(this.pos.x + fx, this.pos.z + fz, this.hf), hb = this.hb = surfaceAt(this.pos.x - fx, this.pos.z - fz, this.hb);
-    const up = this.up || 0; // parked on an interior floor above the ground (js/player.js exit)
+    const up = this.up || 0; // parked on an interior floor above the ground (src/entities/Player.js exit)
     this._pose(dt, hf + up, hb + up, (hf + hb) / 2 + up);
   }
   // the mesh from pos / heading / steer / speed and the ground under the front and back wheel (y: height of
@@ -898,7 +898,7 @@ export class Vehicle {
     this.sync(dt);
   }
   // speed, steering, heading and drift from the input (the arcade handling; with a physics body the body is
-  // driven toward this, js/vehphys.js)
+  // driven toward this, src/physics/VehPhysics.js)
   _intent(dt, inp) {
     const thr = inp.throttle, hb = inp.handbrake;
     if (thr > 0) this.speed += (this.speed < 0 ? this.brake : this.accel * (1 - Math.max(0, this.speed) / this.maxSpeed * 0.6)) * thr * dt;
@@ -920,7 +920,7 @@ export class Vehicle {
     this.drifting = hb && sp > 6 && Math.abs(d) > 0.2;
   }
   // hit a wall / tree / building at impact m/s into it (n: away from it, v0: speed before): stop dead, slow
-  // down or scrape along; bumps and the scooter crash (rider thrown off, main.js)
+  // down or scrape along; bumps and the scooter crash (rider thrown off, src/core/VehicleSpawner.js)
   hitWall(impact, nx, nz, v0, onBump) {
     if (impact > CRASH_STOP) this.speed = 0; // head into a wall / tree: dead stop
     else if (impact > 2) this.speed *= 0.35;
@@ -928,7 +928,7 @@ export class Vehicle {
     if (impact > 2 && this.bumpCooldown <= 0) { onBump && onBump(impact); this.bumpCooldown = 0.4; }
     if (impact > CRASH_THROW) this.crash = { impact, speed: Math.abs(v0), nx, nz };
   }
-  // hitting vehicle o: a parked one hit hard is thrown by physics (main.js knockVehicle), one already flying
+  // hitting vehicle o: a parked one hit hard is thrown by physics (src/core/VehicleSpawner.js knockVehicle), one already flying
   // only pushes you back. Returns kf (your speed is multiplied by it, momentum) or null (the usual push)
   _knockKf(o, nx, nz, impact) {
     const parked = !o.ai && !o.driver && !o.racer && !o.knocked;
@@ -937,7 +937,7 @@ export class Vehicle {
     return null;
   }
   // your speed, bump and crash after hitting vehicle o (kf from _knockKf); traffic gets stunned, or thrown
-  // when hit hard (Vehicle.knockTraffic, main.js). bs: your speed for the bump, rel: the closing speed of
+  // when hit hard (Vehicle.knockTraffic, src/core/Game.js). bs: your speed for the bump, rel: the closing speed of
   // the two (impact counts your own motion only)
   _hitVehicle(o, kf, impact, nx, nz, v0, onBump, bs, rel) {
     if (bs > 3 && this.bumpCooldown <= 0) { onBump && onBump(bs); this.bumpCooldown = 0.5; }

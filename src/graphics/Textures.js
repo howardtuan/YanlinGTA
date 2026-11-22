@@ -185,7 +185,7 @@ export const groundTex = {
 };
 
 // ---------- facades ----------
-// Each facade texture is an 8x8 grid of window bays (bay x floor), matching the UV layout in map.js.
+// Each facade texture is an 8x8 grid of window bays (bay x floor), matching the UV layout in src/world/MapBuilder.js.
 // Returns { map, emi (lit windows at night), normalMap, rm (roughness in G, metalness in B) }.
 const N = 8;
 // canvas drawn in logical units but stored at k px per unit (low quality: k = 0.5)
@@ -333,7 +333,7 @@ export const facadeTex = (style, px) => facade(style, { tan: 7, red: 13, granite
 
 // ---------- parameterised facades (tools/looks.json) ----------
 // One atlas per wall finish: 8 columns of variants (lit rooms, blinds) x one row per
-// window type, so map.js picks the row per storey. Wall, frames and glass are drawn in
+// window type, so src/world/MapBuilder.js picks the row per storey. Wall, frames and glass are drawn in
 // neutral greys and coloured per vertex (wall colour / aAccent / aGlass); rm carries the
 // masks: R = accent (frames, pilasters, louvers), G = roughness, B = metalness (glass).
 export const FACP_TYPES = ['punched', 'pair', 'ribbon', 'curtain', 'grid', 'slit', 'louver', 'arch', 'gallery', 'none'];

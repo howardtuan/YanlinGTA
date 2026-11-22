@@ -1,8 +1,8 @@
-// 戈登肉鋪：校史館前草坪上的高級肉鋪，建築在 js/interiors.js（buildGordon）。
+// 戈登肉鋪：校史館前草坪上的高級肉鋪，建築在 src/world/Interiors.js（buildGordon）。
 // 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
-// 結完帳如果還不是好友，他會問要不要互加（js/friends.js，訊息＋Peachgram）。
-// 購物籃與買過的東西會存檔（save.js 的 gordon）。
-// 營業時間 08:00–23:00（js/gordon_shop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 6 號床（高架床），
+// 結完帳如果還不是好友，他會問要不要互加（src/ui/phone/Friends.js，訊息＋Peachgram）。
+// 購物籃與買過的東西會存檔（src/systems/SaveSystem.js 的 gordon）。
+// 營業時間 08:00–23:00（src/entities/npcs/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 6 號床（高架床），
 // 其他時間在 6 號床下的書桌打 LOL。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
 import * as THREE from 'three';

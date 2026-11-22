@@ -3,7 +3,7 @@
 // new tab instead), 記事本 (kept in the save), 小畫家 (save the drawing to the phone's photos),
 // 小算盤, 踩地雷, 競選後台 (live campaign numbers), 資管學堂 (Python / MySQL lessons you run and get graded) and 終端機. Esc or the power button leaves the desk.
 // The easter-egg video is hidden in the terminal: typing PYL plays it. It is deliberately not listed anywhere.
-// The terminal's `case` command is the detective console (js/detective.js, SQL); 🕵️ 案件檔案 lists the cases and your clues.
+// The terminal's `case` command is the detective console (src/systems/minigames/Detective.js, SQL); 🕵️ 案件檔案 lists the cases and your clues.
 // The desktop fills the whole screen; windows can be maximized (▢ or double-click the title bar).
 // The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
 import { stockUI } from './phone/StockUI.js';
@@ -245,7 +245,7 @@ export class PC {
     const t = setInterval(() => ui.refresh(), 1000);
     this.wins.news.cleanup = () => clearInterval(t);
   }
-  // ---------------- 資管學堂: online Python / MySQL course (js/learn.js) ----------------
+  // ---------------- 資管學堂: online Python / MySQL course (src/systems/minigames/Learn.js) ----------------
   _learn(body) { learnUI(body, this.g); }
   // ---------------- 靈感股 (wide layout: list on the left, chart and orders on the right) ----------------
   _stock(body) {
@@ -260,7 +260,7 @@ export class PC {
     const scroll = () => { body.scrollTop = body.scrollHeight; };
     const print = (t = '', cls) => { const d = document.createElement('div'); d.textContent = t; if (cls) d.className = cls; out.appendChild(d); scroll(); };
     const html = (h) => { const d = document.createElement('div'); d.innerHTML = h; out.appendChild(d); scroll(); };
-    let mode = null; // 'case' while the detective console (js/detective.js) is on
+    let mode = null; // 'case' while the detective console (src/systems/minigames/Detective.js) is on
     const prompt = (p) => { ps.textContent = p; };
     const io = { print, html, prompt, clear: () => { out.innerHTML = ''; } };
     prompt(PROMPT);
@@ -306,11 +306,11 @@ export class PC {
     body.addEventListener('mouseup', () => { if (!getSelection().toString()) inp.focus(); });
     setTimeout(() => inp.focus(), 30);
     this.wins.term.enterCase = enterCase;
-    this.wins.term.caseMode = () => mode === 'case'; // S.U.N.D.A.Y gives the case's hints while this is on (js/sunday.js)
+    this.wins.term.caseMode = () => mode === 'case'; // S.U.N.D.A.Y gives the case's hints while this is on (src/systems/minigames/Sunday.js)
     if (this._pendingCase !== undefined) { const id = this._pendingCase; this._pendingCase = undefined; enterCase(id); }
   }
 
-  // ---------------- 案件檔案: the cases you can investigate, their briefs and your clue notes (js/detective.js) ----------------
+  // ---------------- 案件檔案: the cases you can investigate, their briefs and your clue notes (src/systems/minigames/Detective.js) ----------------
   _case(body) {
     const g = this.g, D = g.detective;
     let key = '', sel = null;

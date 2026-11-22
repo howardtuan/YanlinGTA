@@ -1,5 +1,5 @@
 // 中北路兩側的街屋（照 Google 街景 2026-05 / 2024-08 與 OSM 店名建模，只做外觀，不能進入）。
-// 寫法比照 interiors.js 的 DAREN_ST：每一格是 [s0, s1, side, spec]
+// 寫法比照 src/world/Interiors.js 的 DAREN_ST：每一格是 [s0, s1, side, spec]
 //   s = 沿 ZB_ROAD 從正門端往西量的公尺數；side +1 = 茶學苑側（往西走的右手邊，遊戲 z 較小），-1 = 大仁街側
 //   spec：nf 樓層、gf 一樓高、fh 樓高、d 深度、wall（WALL 鍵或 #hex）、low 一樓外牆 #hex、sign [字, 底, 字色, 小字, 樣式]、
 //   ground 'shop'|'shutter'|'gate'|'open'|'stall'、sh 鐵捲門顏色、awn 雨棚 #hex 或 [色1, 色2] 條紋、
@@ -9,8 +9,8 @@
 //   big [字, 底, 字色] 樓上整面帆布（bigFrom 從第幾樓、bigW 寬度、bigAt 水平位置）、sign2 二樓橫招、noband 不畫一樓招牌帶、roofCol 鐵皮屋頂色、door 0 沒有樓梯門、tower {nf, back, wall, balc} 裙樓上方的退縮住宅塔、bikes 騎樓機車數、
 //   set 立面離路中心線的距離（預設依路段）
 // 每一格自成一個 Kit，立面對著街道；收尾用 finishRow 一次合併。
-// 這個檔案不 import interiors.js（它要用的 Kit、材質、貼圖工具都由 interiors.js 呼叫 buildZhongbeiStreet 時從 X 傳進來），
-// main.js 直接 import 這裡的 ZB_ST.drop 與 zbFootprints() 來刪填充樓、保留空地。
+// 這個檔案不 import src/world/Interiors.js（它要用的 Kit、材質、貼圖工具都由 src/world/Interiors.js 呼叫 buildZhongbeiStreet 時從 X 傳進來），
+// src/world/zones/Zones.js 直接 import 這裡的 ZB_ST.drop 與 zbFootprints() 來刪填充樓、保留空地。
 
 export const ZB_ROAD = [[-209.2, 85.4], [-225.2, 90.3], [-231.9, 93.3], [-271.0, 108.1], [-287.9, 114.5], [-331.5, 130.4], [-470.8, 181.4], [-517.7, 196.9], [-533.0, 202.4], [-618.3, 236.2], [-624.7, 237.8], [-704.4, 268.5], [-728.6, 276.1], [-930.2, 369.4]];
 // 路寬的一半（tools/roads.json / cycu.json）：中北路 8.5、橋 7、橋西 9、中北路二段 13

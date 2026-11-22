@@ -1,4 +1,4 @@
-// 古箏社社員（js/clubroom.js 的 3F 教室）：社團時間（黃蓋瑞在的中午或晚上）全員練團，其他平日傍晚有兩位自主練習，別的時間沒有人。
+// 古箏社社員（src/world/buildings/ClubRoom.js 的 3F 教室）：社團時間（黃蓋瑞在的中午或晚上）全員練團，其他平日傍晚有兩位自主練習，別的時間沒有人。
 // 琴聲只有在真的有人坐著彈、而且你在同一層樓的教室裡（走廊門邊聽得到一點）才有；沒有人就沒有聲音。
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';

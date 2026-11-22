@@ -1,6 +1,6 @@
 // Continuous skinned body (the taipei-rush.app way): torso + neck, both arms and both legs are swept from
 // cross-sections into ONE SkinnedMesh. Its bones are the character's existing pivots (hips, torso, head,
-// shoulder / elbow, hip / knee / foot), so animate() in character.js drives it unchanged. Skin weights blend
+// shoulder / elbow, hip / knee / foot), so animate() in src/entities/Character.js drives it unchanged. Skin weights blend
 // across the joints — elbows and knees bend like one sleeve, shoulders and hips melt into the torso — so
 // there are no ball joints any more. Clothes are vertex colours (shirt with a sleeve hem, trousers or shorts
 // with socks); the head, hands and shoes stay rigid parts on their pivots. One draw call per body.
@@ -57,7 +57,7 @@ function wAt(keys, y) {
 }
 
 // torso cross-sections in the root frame (bind pose): [y, half width, half depth, z offset]; f = 1 for the female build.
-// Exported so clothes worn over the body (jersey.js) can follow it; widths scale by build, depths by (0.5 + build / 2).
+// Exported so clothes worn over the body (src/ui/Jersey.js) can follow it; widths scale by build, depths by (0.5 + build / 2).
 export const torsoProfile = (f) => [
   [0.83, 0.1, 0.08, 0], [0.88, 0.165 + 0.01 * f, 0.115, 0], [0.925, 0.188 + 0.012 * f, 0.126, -0.004],
   [0.97, 0.19 + 0.012 * f, 0.127, -0.005], [1.06, 0.168 - 0.022 * f, 0.112 - 0.008 * f, 0],
@@ -156,7 +156,7 @@ export function buildSkinnedBody(ch, o) {
   g.setIndex(out.idx);
   g.computeVertexNormals();
   const col = g.attributes.color; // THREE.Color already holds linear values, as vertex colours expect
-  // o.camo (YeeMing's army uniform, js/yeeming.js): the shirt and trousers become woodland camouflage — blotches from
+  // o.camo (YeeMing's army uniform, src/entities/npcs/Yeeming.js): the shirt and trousers become woodland camouflage — blotches from
   // a smooth noise of the bind-pose vertex position, in four colours (the vertex colours blend into soft patches)
   const CAMO = o.camo ? ['#56643a', '#3b4528', '#7d6c47', '#2b2b22'].map(c => new THREE.Color(c)) : null;
   const camoAt = (i) => {

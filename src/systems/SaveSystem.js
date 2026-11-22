@@ -68,7 +68,7 @@ export function applySave(g, d) {
   g.news?.load(d.news);
   if (d.look) g.player.setLook(d.look);
   if (d.pos) {
-    g.player.place(d.pos.x, d.pos.z, d.pos.h || 0); g.player.y = d.pos.y || 0; g.player.pos.y += g.player.y; /* the feet too, or js/player.js takes it for a step onto a deck and drops you to the ground (into the shell under an upstairs flat) */ g.rig.yaw = d.pos.h || 0;
+    g.player.place(d.pos.x, d.pos.z, d.pos.h || 0); g.player.y = d.pos.y || 0; g.player.pos.y += g.player.y; /* the feet too, or src/entities/Player.js takes it for a step onto a deck and drops you to the ground (into the shell under an upstairs flat) */ g.rig.yaw = d.pos.h || 0;
     g.bringMyScooter(d.pos.x, d.pos.z);
   }
   g.detective?.load(d.detective);

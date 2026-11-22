@@ -5,7 +5,7 @@
 // every stock through its beta, plus its own noise. Everything is a pure function of (seed, stock, day),
 // so the same game day always shows the same chart and the save only has to keep holdings and plans.
 // Hours follow the TWSE: 整股 09:00–13:30, 盤中零股 09:10–13:30, closed on Saturday and Sunday.
-// PYtoday news about a listed company (js/news.js, also a pure function of the day) moves its price: news before the
+// PYtoday news about a listed company (src/ui/phone/News.js, also a pure function of the day) moves its price: news before the
 // open (or from the evening / weekend before) gaps the open, news during the session pushes the path from that minute.
 
 import { newsEffects } from '../ui/phone/News.js';

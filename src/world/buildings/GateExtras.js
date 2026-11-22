@@ -1,6 +1,6 @@
 // =====================================================================
-// 正門 (200 中北路) extras: everything around the main gate that the guard kiosk (js/interiors.js
-// buildMainKiosk / MAIN_GATE) and the black name wall (js/map.js) do not draw. Outside only, nothing
+// 正門 (200 中北路) extras: everything around the main gate that the guard kiosk (src/world/Interiors.js
+// buildMainKiosk / MAIN_GATE) and the black name wall (src/world/MapBuilder.js) do not draw. Outside only, nothing
 // here can be entered.
 // Sources: the user's Google 街景 photo (2022-08, 200 中北路, looking east from the 大仁街 mouth), Miller Yu's
 // 360 panorama 「中原大學正門」 (2018-11) and the 2017-09 street view of 維澈樓's west front.
@@ -17,7 +17,7 @@
 // lines instead), the height-limit figure, the LED counters (dim segments only).
 // Where the car ramp runs is not certain: the 2022 photo puts its portal just right of and behind the
 // grey wall; the terrace and accessible ramp in front of 維澈樓 (tools/overrides.json) and the stair core
-// on its south-west side (js/weiche.js) leave room only south of the building's west corner, so the portal
+// on its south-west side (src/systems/minigames/Weiche.js) leave room only south of the building's west corner, so the portal
 // stands there, facing the forecourt, with the ramp running down along the south-west side.
 // =====================================================================
 import * as THREE from 'three';
@@ -38,7 +38,7 @@ const facing = (f) => Math.atan2(f[0], -f[1]);
 // name wall + directory: x from the wall's south end (-1.3) to the base's north end (6.3) along the terrace
 const SIGN = { o: tp(0, -7.25), ang: facing([-TT[0], -TT[1]]) };
 // car park portal: front at 大仁街 s 39.9, 5.0 m wide (n 3.2..8.2), 5.4 m deep; its back keeps clear of the
-// reserved footprint of js/weiche.js (the stair core stands out 2.8 m from the south-west wall, kept 3.3 m)
+// reserved footprint of src/systems/minigames/Weiche.js (the stair core stands out 2.8 m from the south-west wall, kept 3.3 m)
 const RAMP = { o: dp(39.9, 5.7), ang: facing([-DS[0], -DS[1]]), hw: 2.5, d: 5.4 };
 // the way in: over the open setts (no marked lane: 2022 photo from the 中北路 end) from the end of the entry
 // lane (-197.1, 85.2, where the barriers stand) south, then bending east inside the 大仁街 kerb railing into the
@@ -54,7 +54,7 @@ const PT = { o: [-206.5, 96.7], ang: facing([-0.866, -0.5]) };
 const RAIL = { s0: 13.5, s1: 39.8, n: 3.1 };
 
 // slender street trees on the planting strip along 大仁街 between the P totem and the car park (2022 photo); none on the way in to the portal;
-// js/main.js adds them to featureTrees (the footprints above keep the random trees off this strip)
+// src/core/Game.js adds them to featureTrees (the footprints above keep the random trees off this strip)
 export function gateTrees() {
   return [24].map((s, i) => { const [x, z] = dp(s, 4.9); return { x, z, kind: 'round', s: 0.62 }; });
 }

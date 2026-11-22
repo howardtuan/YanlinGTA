@@ -290,7 +290,7 @@ Missions.prototype.steps = [
     });
   },
   // 5 — 布條失竊案: who tore the banners down? Find 彥霖's old room (中北路, above 孫師傅牛肉拉麵) from a clue,
-  // then crack the case with SQL on its computer (terminal `case`, js/detective.js), then the confrontation.
+  // then crack the case with SQL on its computer (terminal `case`, src/systems/minigames/Detective.js), then the confrontation.
   function () {
     const g = this.g, D = g.detective;
     this.talk([

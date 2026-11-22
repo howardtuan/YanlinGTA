@@ -102,7 +102,7 @@ export class CollisionWorld {
     return false;
   }
   // ya (optional): world y of the feet, skips height-banded segments that are not at that height.
-  // this.muted = [i0, i1): segments blocked() skips for now (js/map.js lays the trees out as without them)
+  // this.muted = [i0, i1): segments blocked() skips for now (src/world/MapBuilder.js lays the trees out as without them)
   blocked(x, z, r, y = 0, ya) {
     if (this.extra && this.extra.blocked(x, z, r, y)) return true;
     if (this.reserved && !this.noReserved && this.reserved.some(p => pointInPoly(x, z, p))) return true;

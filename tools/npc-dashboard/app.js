@@ -1,8 +1,8 @@
 // NPC 儀表板（開發用）：看每個 NPC 的全身樣子和人物設定，新增自訂 NPC（外觀用文字描述、照片取色或細部調整）。
-// 讀寫 data/npcs.json（透過 vite.config.js npcDashboardPlugin 的 /__dev/npcs（npm run dev），只接受本機）；全身模型直接用遊戲的 js/character.js 畫，
-// 內建 NPC 的外觀從各自的 js 檔匯入（跟遊戲裡一模一樣）。自訂 NPC 在遊戲裡由 js/customnpcs.js 放到出沒地點。
+// 讀寫 data/npcs.json（透過 vite.config.js npcDashboardPlugin 的 /__dev/npcs（npm run dev），只接受本機）；全身模型直接用遊戲的 src/entities/Character.js 畫，
+// 內建 NPC 的外觀從 src/ 底下各自的模組匯入（跟遊戲裡一模一樣）。自訂 NPC 在遊戲裡由 src/entities/npcs/CustomNPCs.js 放到出沒地點。
 import * as THREE from 'three';
-import { createCharacter } from '../../js/character.js';
+import { createCharacter } from '../../src/entities/Character.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -10,20 +10,20 @@ const toast = (t) => { const e = $('toast'); e.textContent = t; e.classList.remo
 
 // ---------------------------------------------------------------- built-in NPCs: the same figures as in the game
 const BUILTIN = {
-  yanlin: async () => createCharacter({ ...(await import('../../js/player.js')).YANLIN_LOOK }),
-  xiaoan: async () => createCharacter((await import('../../js/missions.js')).MANAGER),
-  azhe: async () => createCharacter((await import('../../js/missions.js')).SENIOR),
-  zz: async () => createCharacter((await import('../../js/friends.js')).ZZ_LOOK),
-  gd: async () => createCharacter((await import('../../js/friends.js')).GD_LOOK),
-  hank: async () => createCharacter((await import('../../js/hank.js')).HANK_LOOK),
-  ...Object.fromEntries(['qi', 'xuan', 'yu'].map(id => ['club_' + id, async () => (await import('../../js/clubmembers.js')).createMember(id)])), // 古箏社社員
-  garry: async () => (await import('../../js/garry.js')).createGarry(),
-  laoda: async () => (await import('../../js/pilot.js')).createPilot(),
-  jianyu: async () => createCharacter((await import('../../js/jianyu.js')).JIANYU_LOOK),
-  mingshan: async () => createCharacter((await import('../../js/mingshan.js')).MINGSHAN_LOOK),
-  yeeming: async () => createCharacter((await import('../../js/yeeming.js')).YEEMING_LOOK),
+  yanlin: async () => createCharacter({ ...(await import('../../src/entities/Player.js')).YANLIN_LOOK }),
+  xiaoan: async () => createCharacter((await import('../../src/systems/MissionSystem.js')).MANAGER),
+  azhe: async () => createCharacter((await import('../../src/systems/MissionSystem.js')).SENIOR),
+  zz: async () => createCharacter((await import('../../src/ui/phone/Friends.js')).ZZ_LOOK),
+  gd: async () => createCharacter((await import('../../src/ui/phone/Friends.js')).GD_LOOK),
+  hank: async () => createCharacter((await import('../../src/entities/npcs/Hank.js')).HANK_LOOK),
+  ...Object.fromEntries(['qi', 'xuan', 'yu'].map(id => ['club_' + id, async () => (await import('../../src/entities/npcs/ClubMembers.js')).createMember(id)])), // 古箏社社員
+  garry: async () => (await import('../../src/entities/npcs/Garry.js')).createGarry(),
+  laoda: async () => (await import('../../src/entities/Pilot.js')).createPilot(),
+  jianyu: async () => createCharacter((await import('../../src/entities/npcs/Jianyu.js')).JIANYU_LOOK),
+  mingshan: async () => createCharacter((await import('../../src/entities/npcs/Mingshan.js')).MINGSHAN_LOOK),
+  yeeming: async () => createCharacter((await import('../../src/entities/npcs/Yeeming.js')).YEEMING_LOOK),
   xiaoyun: async () => {
-    const { dressCrew, CREW_SHIRT } = await import('../../js/mcuniform.js');
+    const { dressCrew, CREW_SHIRT } = await import('../../src/systems/minigames/McUniform.js');
     const ch = createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
     dressCrew(ch, { name: '小芸' }); return ch;
   },
@@ -150,7 +150,7 @@ function brief(n) {
 背景：${n.background || ''}
 人際關係：${n.relations || ''}
 出沒地點：${n.place || ''}；作息：${n.schedule || ''}
-外觀（character.js createCharacter 參數）：${JSON.stringify(n.look)}${n.height && n.height !== 1 ? `，身高比例 ${n.height}` : ''}
+外觀（src/entities/Character.js createCharacter 參數）：${JSON.stringify(n.look)}${n.height && n.height !== 1 ? `，身高比例 ${n.height}` : ''}
 ${n.photo ? `參考照片：${n.photo}\n` : ''}想要的特別行為：（在這裡寫，例如固定作息、店鋪、可以加好友、手機聊天、限時動態…）`;
 }
 

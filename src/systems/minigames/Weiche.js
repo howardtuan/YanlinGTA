@@ -1,5 +1,5 @@
 // 維澈樓 (OSM w392023424): outside only, nothing here can be entered.
-// js/map.js still draws the 9F slab from the OSM outline (so none of its shared random draws change);
+// src/world/MapBuilder.js still draws the 9F slab from the OSM outline (so none of its shared random draws change);
 // weicheLook() only swaps its facade look, and buildWeiche() adds everything the outline cannot say:
 //  - the timber "box" of 維澈聯合行政服務中心 at the north-west end, lifted on round concrete columns over the
 //    plaza, overhanging it by 4.5 m, its front a screen of dense timber fins over dark glass, a solid timber
@@ -21,11 +21,11 @@ import { H, groundY } from '../../world/Terrain.js';
 export const WEICHE_ID = 'w392023424';
 // OSM outline (data/cycu.json): A, B, C, D, E (west corner), F, G (north corner)
 const PTS = [[-95.8, 122.5], [-96.3, 137.1], [-105.9, 133.6], [-109.4, 140.9], [-182.3, 102.8], [-179.9, 97.4], [-172.1, 80]];
-// heights above the building base (js/map.js: 9 storeys of 3.3 m over 30.3 m)
+// heights above the building base (src/world/MapBuilder.js: 9 storeys of 3.3 m over 30.3 m)
 const FL = 3.3, TOP = 30.3;
 const BOX = { front: -4.5, back: 22, y0: 5.5, y1: 13.4, ne: -0.6, sw: 0.25, cham: 5.0, prow: 1.6 };
 
-// tools/looks.json look for the slab, applied in js/main.js (after the random draws in js/map.js)
+// tools/looks.json look for the slab, applied in src/core/Game.js (after the random draws in src/world/MapBuilder.js)
 export function weicheLook() {
   return {
     wall: { base: 'smooth', colour: '#c9cccc' },

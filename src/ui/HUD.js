@@ -8,7 +8,7 @@ export class HUD {
     this.big = $('bigmapCanvas'); this.bigg = this.big.getContext('2d');
     this.scale = 1.3; // px per metre in the prerendered map
     this._prerender();
-    this.keyLabel = (kb) => kb; // main.js: keyboard key or gamepad button name, by last device used
+    this.keyLabel = (kb) => kb; // src/core/Game.js: keyboard key or gamepad button name, by last device used
     this.dialogQueue = []; this.dialogCb = null; this.typing = 0; this.fullText = '';
     this.bigView = { cx: 0, cz: 60, zoom: 0 };
     this.markers = [];
@@ -71,16 +71,16 @@ export class HUD {
       if (Math.abs(dx) > W || Math.abs(dz) > H) continue;
       g.fillRect(dx - 3, dz - 3, 6, 6);
     }
-    for (const mk of markers) if (mk.area) { // a search area (missions.js): a translucent circle on the map itself
+    for (const mk of markers) if (mk.area) { // a search area (src/systems/MissionSystem.js): a translucent circle on the map itself
       g.fillStyle = mk.color || 'rgba(255,210,63,.2)'; g.strokeStyle = mk.stroke || '#ffd23f'; g.lineWidth = 2; g.setLineDash([6, 5]);
       g.beginPath(); g.arc((mk.x - px) * pxPerM, (mk.z - pz) * pxPerM, mk.area * pxPerM, 0, Math.PI * 2); g.fill(); g.stroke(); g.setLineDash([]);
     }
-    if (this.route) { // race course (race.js)
+    if (this.route) { // race course (src/systems/minigames/Race.js)
       g.strokeStyle = '#ff4fa3'; g.lineWidth = 4; g.lineJoin = 'round'; g.globalAlpha = 0.85; g.beginPath();
       this.route.forEach(([x, z], i) => { const dx = (x - px) * pxPerM, dz = (z - pz) * pxPerM; i ? g.lineTo(dx, dz) : g.moveTo(dx, dz); });
       g.closePath(); g.stroke(); g.globalAlpha = 1;
     }
-    if (this.navRoute) { // map waypoint route (nav.js)
+    if (this.navRoute) { // map waypoint route (src/systems/Navigation.js)
       g.lineJoin = 'round'; g.lineCap = 'round';
       for (const [w, c] of [[7, 'rgba(20,0,40,.6)'], [4, '#b06bff']]) {
         g.strokeStyle = c; g.lineWidth = w; g.beginPath();

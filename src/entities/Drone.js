@@ -133,7 +133,7 @@ export class Drone {
     g.hud.toast('🛸 無人機已降落，VR 眼鏡收起來了', 'good', 2200);
   }
 
-  // ---- 21:9 bars (same look as the 呼叫載具 film, js/airdrop.js) ----
+  // ---- 21:9 bars (same look as the 呼叫載具 film, src/systems/minigames/Airdrop.js) ----
   _cinema(on) {
     let el = document.getElementById('cinema');
     if (!el) { el = document.createElement('div'); el.id = 'cinema'; el.innerHTML = '<i class="cb cb-a"></i><i class="cb cb-b"></i>'; document.body.appendChild(el); }
@@ -167,7 +167,7 @@ export class Drone {
     try { I.update(dt, g); } finally { g.player = real; }
   }
 
-  // ---- every frame, before the camera (main.js) ----
+  // ---- every frame, before the camera (src/core/Game.js) ----
   update(dt, inp) {
     const g = this.g; if (!this.state) return;
     const pl = g.player;
@@ -263,7 +263,7 @@ export class Drone {
     p.y = y;
   }
 
-  // ---- camera (main.js, after the normal rig) ----
+  // ---- camera (src/core/Game.js, after the normal rig) ----
   camera(cam, dt) {
     if (!this.state) return;
     const g = this.g, pl = g.player;

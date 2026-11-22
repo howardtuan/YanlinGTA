@@ -1,5 +1,5 @@
-// 中北路南側、正門西邊：茶學苑 Tea Arts 中北店（可以在門口點餐，js/teashop.js 放店員）與它左右那排店面（都不能進去）。
-// 從 js/interiors.js 原封不動搬出來；js/zones.js 決定建造順序、保留範圍。
+// 中北路南側、正門西邊：茶學苑 Tea Arts 中北店（可以在門口點餐，src/systems/minigames/TeaShop.js 放店員）與它左右那排店面（都不能進去）。
+// 從 src/world/Interiors.js 原封不動搬出來；src/world/zones/Zones.js 決定建造順序、保留範圍。
 import * as THREE from 'three';
 import { H } from '../Terrain.js';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, ROWT, rowTools } from '../Kit.js';
@@ -11,7 +11,7 @@ import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, ROWT, rowTools } from '.
 // white 「茶學苑」, a round yellow blade sign on a white bracket, a thin grey canopy over a yellow order counter
 // with an open window and a glass panel with the lit 茶學苑 TEA ARTS logo, the glass door on the right; in
 // front a raised wooden deck with dark-wood benches inside a black railing. You order at the counter from
-// the deck (the shop itself is not enterable). js/teashop.js puts the staff in (排球少年 吱吱 on his shifts).
+// the deck (the shop itself is not enterable). src/systems/minigames/TeaShop.js puts the staff in (排球少年 吱吱 on his shifts).
 // Local frame: +x runs west along 中北路, +z away from the street; the facade is z = 0, the deck z < 0.
 // =====================================================================
 export const TEA_SPEC = { ox: -243.01, oz: 90.77, ang: Math.atan2(0.354, -0.935), W: 6.0, D: 7.2, NF: 3, FH: 3.7, DECK: 2.0 };
@@ -72,7 +72,7 @@ const TEAT = {
     }
   }),
 };
-// what the menu board shows (js/teashop.js has the orderable list with the same prices)
+// what the menu board shows (src/systems/minigames/TeaShop.js has the orderable list with the same prices)
 export const TEA_BOARD = [['珍珠奶茶', 50], ['茉莉綠茶', 30], ['四季春青茶', 30], ['冬瓜檸檬', 45], ['蜂蜜檸檬綠', 50], ['鮮奶紅茶', 55]];
 export function buildTeaShop(I, scene) {
   const S = TEA_SPEC, W = S.W, D = S.D, F = S.FH, top = F * S.NF, DK = S.DECK;
@@ -385,7 +385,7 @@ export function buildTeaRow(I, scene) {
     k.plane(ROWT.num('175', '風格店 175'), 1.8, 0.3, 2.6, 2.4, -0.06, FRONT);
   }
   // ---------- concrete apron along the shopfronts (the tea shop has its own deck) ----------
-  // (the kerbside 1.8 m of it is 中北路's green walkway, js/map.js: the concrete only fills the rest)
+  // (the kerbside 1.8 m of it is 中北路's green walkway, src/world/MapBuilder.js: the concrete only fills the rest)
   for (const [lot, a] of Object.entries(TEA_ROW)) {
     const k = kits[lot], w = a[1] - a[0], d = teaApron(lot) - 1.8;
     if (d > 0.05) k.box(-0.01, w + 0.01, -0.5, 0.05, -d, 0, MR.concrete, { col: false, surface: true });

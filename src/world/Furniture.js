@@ -26,7 +26,7 @@ export class Pts {
   }
 }
 
-// ---------- geometry helpers (into a map.js Geo) ----------
+// ---------- geometry helpers (into a src/world/MapBuilder.js Geo) ----------
 // box standing on y, centred on x/z, local +z turned to heading ry
 function box(g, x, y, z, sx, sy, sz, ry, c, top = c, bottom = false) {
   const cs = Math.cos(ry), sn = Math.sin(ry), hx = sx / 2, hz = sz / 2;
@@ -204,11 +204,11 @@ export function buildFurniture(scene, world, data, ctx) {
     for (const k of keepPts) if ((k.x - x) ** 2 + (k.z - z) ** 2 < (k.r + pad) ** 2) return false;
     return true;
   };
-  // Reserved outlines (custom-built parts, js/main.js) are tested last: every placement is first decided as with no
+  // Reserved outlines (custom-built parts, src/core/Game.js) are tested last: every placement is first decided as with no
   // reserved outline at all, and only then dropped near one. A dropped item stays as a ghost: it keeps its poles /
-  // soft spacing, its rnd draws and its count against the caps, and its collider goes to world.furnGhost (js/map.js
+  // soft spacing, its rnd draws and its count against the caps, and its collider goes to world.furnGhost (src/world/MapBuilder.js
   // lays the lamps and trees out against those too), so adding or changing a reserved outline drops only what stands
-  // near it and moves nothing else (as the trees in js/map.js, see okOsm there).
+  // near it and moves nothing else (as the trees in src/world/MapBuilder.js, see okOsm there).
   // coll.noReserved: coll.blocked() leaves the reserved outlines to these explicit tests (restored at the end)
   const ghost = world.furnGhost = new CollisionWorld(B);
   const blk = (x, z, r) => coll.blocked(x, z, r) || ghost.blocked(x, z, r);
@@ -221,8 +221,8 @@ export function buildFurniture(scene, world, data, ctx) {
     const WALL = col('#aca89f'), CAP = col('#8c8880'), HEDGE = col('#3c6a2e'), HTOP = col('#4f8236');
     let segs = 0, len = 0;
     // fence: 鐵皮圍籬 colour (補建街區 sheet_fence barriers) -> 2.2 m sheet, thin, no cap
-    // skin: barriers marked b.skin (js/main.js) keep their collision here but are drawn elsewhere (the 大仁街 brick
-    // wall, js/dorms.js): their kept runs go to data.wallSkins instead of the grey wall
+    // skin: barriers marked b.skin (src/core/Game.js) keep their collision here but are drawn elsewhere (the 大仁街 brick
+    // wall, src/world/buildings/Dorms.js): their kept runs go to data.wallSkins instead of the grey wall
     let skinOut = null;
     const emit = (ax, az, bx, bz, hedge, first, last, hj, fence = null) => {
       const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz); if (l < 0.05) return;
@@ -271,7 +271,7 @@ export function buildFurniture(scene, world, data, ctx) {
           let ok = inB(mx, mz, 150), road = false;
           if (ok) { const r = roads.nearest(mx, mz); if (r.seg && r.d < (r.seg[5].drive ? roadPad : 0) + th / 2) { ok = false; road = true; } }
           if (ok && gates.some(g => (g.x - mx) ** 2 + (g.z - mz) ** 2 < 6.25)) ok = false;
-          if (ok && nearStair(mx, mz, 1.5, 4)) ok = false; // outdoor stairs (terrain.js) pass through the wall
+          if (ok && nearStair(mx, mz, 1.5, 4)) ok = false; // outdoor stairs (src/world/Terrain.js) pass through the wall
           if (ok && coll.insideAny(mx, mz)) ok = false;
           if (ok && !keepClear(mx, mz, 3)) { ok = false; log.wallSkipped.push({ barrier: bi, x: +mx.toFixed(1), z: +mz.toFixed(1) }); }
           // near a reserved outline: dropped, but still splits the runs as a kept step (ghost)
@@ -335,7 +335,7 @@ export function buildFurniture(scene, world, data, ctx) {
   };
   // a pole that passed every test but a reserved outline's: not drawn, still spaces the others and blocks as a ghost
   const ghostPole = (x, z, r) => { ghost.addCircle(x, z, r); poles.add(x, z, 0); };
-  // crossings surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; js/map.js paints them)
+  // crossings surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; src/world/MapBuilder.js paints them)
   // stand in for the one a signal junction would get on that arm:
   // a surveyed zebra (roads.json feature without osm) within 10 m that crosses the same street as this arm
   // (its ang = the street's direction, parallel to the arm): the orthophoto puts the crossing there instead
@@ -454,7 +454,7 @@ export function buildFurniture(scene, world, data, ctx) {
       if (f.t !== 'crossing' || !inB(f.x, f.z, 20)) continue;
       const r = roadAt(f.x, f.z); if (!r || r.d >= 0) continue;
       // a surveyed zebra within 10 m across the same street paints this crossing where the orthophoto has it
-      // (js/map.js), or the survey saw none here (nozebra)
+      // (src/world/MapBuilder.js), or the survey saw none here (nozebra)
       if (noZebra(f.x, f.z) || (data.roadMarks || []).some(m => m.t === 'zebra' && !m.osm && (m.x - f.x) ** 2 + (m.z - f.z) ** 2 < 100 &&
         Math.abs(Math.cos(m.ang * Math.PI / 180 - Math.atan2(r.tz, r.tx))) > 0.9)) continue;
       zebra(r.q[0], r.q[1], r.tx, r.tz, r.w);
@@ -631,7 +631,7 @@ export function buildFurniture(scene, world, data, ctx) {
       inB(x, z, -2) && !coll.insideAny(x, z) && !coll.insideAny(x + ex * 0.9, z + ez * 0.9) && !coll.insideAny(x - ex * 0.9, z - ez * 0.9) &&
       driveClear(x + ex * 0.95, z + ez * 0.95, 0.15) && driveClear(x - ex * 0.95, z - ez * 0.95, 0.15) &&
       !blk(x, z, 0.45) && keepClear(x, z, 3) && !soft.near(x, z, 0.36);
-    // near a reserved outline a scooter is a ghost: it takes its rnd draws, its place in soft (the trees in js/map.js
+    // near a reserved outline a scooter is a ghost: it takes its rnd draws, its place in soft (the trees in src/world/MapBuilder.js
     // avoid it too) and its count against the caps, and is only left out of the mesh
     const addMoto = (x, z, ry) => { motos.push([x, z, ry + (rnd() - 0.5) * 0.12, nearReserved(x, z, 3)]); soft.add(x, z, 0.35); };
     const inAreaPts = (P, a) => P.every(([x, z]) => pointInPoly(x, z, a.pts) && !(a.holes && a.holes.some(h => pointInPoly(x, z, h))));

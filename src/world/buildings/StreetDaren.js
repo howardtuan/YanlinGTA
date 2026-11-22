@@ -1,5 +1,5 @@
 // 大仁街：中北路口的轉角店面、大仁街兩側公寓店面、原泰阿杜／餡實餃色（都不能進去）。
-// 從 js/interiors.js 原封不動搬出來；js/zones.js 決定建造順序、保留範圍、要拿掉的填充樓。
+// 從 src/world/Interiors.js 原封不動搬出來；src/world/zones/Zones.js 決定建造順序、保留範圍、要拿掉的填充樓。
 import * as THREE from 'three';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, sg, ROWT, rowTools } from '../Kit.js';
 
@@ -359,7 +359,7 @@ export function buildDarenCorner(I, scene) {
   // ---------- concrete aprons along both streets ----------
   {
     const kA = kits[0], kB = kits[1];
-    // the kerbside 1.8 m along 中北路 is its green walkway (js/map.js): concrete only behind it
+    // the kerbside 1.8 m along 中北路 is its green walkway (src/world/MapBuilder.js): concrete only behind it
     if (S.apronA > 1.85) kA.box(-17.8, 0.3, -0.5, 0.05, -(S.apronA - 1.8), 0, MR.concrete, { col: false, surface: true });
     kB.box(-0.3, 31.7, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
   }

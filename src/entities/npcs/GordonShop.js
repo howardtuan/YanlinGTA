@@ -1,4 +1,4 @@
-// 戈登肉鋪 Gordon Meat Shop（校史館西南側草坪上，可以進去）。從 js/interiors.js 原封不動搬出來；js/zones.js 決定建造順序。
+// 戈登肉鋪 Gordon Meat Shop（校史館西南側草坪上，可以進去）。從 src/world/Interiors.js 原封不動搬出來；src/world/zones/Zones.js 決定建造順序。
 import * as THREE from 'three';
 import { H } from '../../world/Terrain.js';
 import { ctex, MATS, M, Kit, lcg, YHT } from '../../world/Kit.js';
@@ -309,9 +309,9 @@ export function buildGordon(I, scene) {
     // each leaf slides outward over its side's glass (sgn -1: toward x 0)
     for (const l of leaves) { const tx = l.x0 + (near ? l.sgn * 0.95 : 0); l.m.position.x += (tx - l.m.position.x) * Math.min(1, dt * 6); }
   });
-  // ---- opening hours 08:00–23:00 (店長女拳大帝 is in 力行 279 playing LOL the rest of the night, js/gordon.js): outside
+  // ---- opening hours 08:00–23:00 (店長女拳大帝 is in 力行 279 playing LOL the rest of the night, src/entities/npcs/Gordon.js): outside
   //      them a roller shutter comes down over the glass front, a 已打烊 sign hangs on it, the lights go down and the
-  //      店長 at the counter is gone; buying is off (js/gordon.js). If you are inside when it shuts, the shutter lets you out.
+  //      店長 at the counter is gone; buying is off (src/entities/npcs/Gordon.js). If you are inside when it shuts, the shutter lets you out.
   const OPEN0 = 8 * 60, OPEN1 = 23 * 60;
   const shc = document.createElement('canvas'); shc.width = 64; shc.height = 128; { const s2 = shc.getContext('2d'); s2.fillStyle = '#8f949a'; s2.fillRect(0, 0, 64, 128); for (let y = 0; y < 128; y += 8) { s2.fillStyle = '#767b81'; s2.fillRect(0, y, 64, 2); s2.fillStyle = '#a9aeb4'; s2.fillRect(0, y + 2, 64, 1); } }
   const shTex = new THREE.CanvasTexture(shc); shTex.colorSpace = THREE.SRGBColorSpace; shTex.wrapS = shTex.wrapT = THREE.RepeatWrapping; shTex.repeat.set(4, 3);

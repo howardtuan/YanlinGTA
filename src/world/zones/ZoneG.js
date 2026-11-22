@@ -1,6 +1,6 @@
-// G 區「南側活動區」校內建築外觀（這裡只做外觀；學活室內在 js/sac.js、力行宿舍室內在 js/lixing.js）。
-// 做法同 js/weiche.js：js/map.js 照舊用 OSM 輪廓蓋牆（輪廓、類型不動，共用亂數抽取次數不變），
-// zoneGLook() 只換外觀 look／分段高度（在 js/main.js 套用），buildZoneG() 自建輪廓表達不了的構件，
+// G 區「南側活動區」校內建築外觀（這裡只做外觀；學活室內在 src/world/buildings/Sac.js、力行宿舍室內在 src/world/buildings/Lixing.js）。
+// 做法同 src/systems/minigames/Weiche.js：src/world/MapBuilder.js 照舊用 OSM 輪廓蓋牆（輪廓、類型不動，共用亂數抽取次數不變），
+// zoneGLook() 只換外觀 look／分段高度（在 src/core/Game.js 套用），buildZoneG() 自建輪廓表達不了的構件，
 // zoneGFootprints() 是自建構件伸出輪廓外的保留範圍。
 //
 // 依據（campus-survey/PLAN.md G 區、zone-G.md）：
@@ -8,7 +8,7 @@
 //    圓柱落在玻璃外（評論相片 2023-01、2025-11）；東北角郵局也是弧形玻璃、綠白「郵局 POST」招牌（2025-09）；
 //    屋頂北側中央長弧頂採光罩約 64×10 m；外牆米灰小方磁磚、灰框凹窗、窗下黑色冷氣架；
 //    西面一道垂直淺綠玻璃帶、往生科館的淺灰箱形空橋（官方街景 2017-09）。
-//    麥當勞室內（js/interiors.js buildMcD）照舊，上層懸挑和弧形玻璃包在它外面。
+//    麥當勞室內（src/world/Interiors.js buildMcD）照舊，上層懸挑和弧形玻璃包在它外面。
 //  - 生物科技館 w392023428：主體＋東側窄塔＋南翼（正射），東側淡綠玻璃樓梯塔從地面到頂（2026-05），
 //    與學活之間空橋寬 3.3 m，牆米灰偏紫磁磚，西南玻璃門廳（2017-09）；東北角金色直書館名。
 //  - 全人教育村 w392023429：北棟西段褐磚（2026-05）；南棟圓柱玻璃磚樓梯塔、半圓玻璃磚低量體、主牆褐紅磚
@@ -40,11 +40,11 @@ const SAC = {
 const BIO = { xT: -206.5, zW: -101.0, hMain: 30.3, hTower: 31.9, hWing: 26.9 };
 // 空橋：生科館東側塔 → 學活西面，寬 3.3 m，約三樓
 export const BRIDGE = { x0: -200.5, x1: -195.0, z0: -103.6, z1: -100.3, y0: 7.0, y1: 10.3 };
-// 學活外牆上真的能走過去的門（js/sac.js 的室內用同一組數字挖門洞、留碰撞缺口）：
+// 學活外牆上真的能走過去的門（src/world/buildings/Sac.js 的室內用同一組數字挖門洞、留碰撞缺口）：
 // s1 一樓南面入口、s2 二樓南面（沒有門，大階梯頂的平台和門廊整段敞開，直接走進中庭）、n1 一樓北面出口、nb 二樓北面接新中北路天橋（x 範圍）；wb 三樓西面接往生科館的空橋（z 範圍）
 export const SAC_DOORS = { s1: [-152.17, -150.19], s2: [-162.5, -148.15], n1: [-148.8, -147.2], nb: [-164.4, -162.0], wb: [-103.2, -100.7] };
 
-// ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
+// ---------------- 外觀 look（src/core/Game.js 在 src/world/MapBuilder.js 蓋樓前套用） ----------------
 // 只改 look、分段（parts＋splitAc 讓屋頂冷氣的 rnd2 抽取照舊）、高度；輪廓 pts、kind 都不動
 export function zoneGLook(b) {
   if (b.id === G_IDS.sac) {
@@ -108,14 +108,14 @@ function clipPoly(pts, keep) {
   return P;
 }
 
-// ---------------- 學活南面下沉舞台＋B1 麥當勞、往二樓的大階梯（地形，js/main.js 在蓋地圖前呼叫） ----------------
+// ---------------- 學活南面下沉舞台＋B1 麥當勞、往二樓的大階梯（地形，src/core/Game.js 在蓋地圖前呼叫） ----------------
 // 相片（2022～2025 評論相片、2024 正射）與使用者給的 B1 平面圖：南面廣場往北下降約 3.3 m 到 B1。
-// B1 由西到東：樓梯廳（北）＋用餐區（南）、用餐區西南往南凸出到廣場底下的學餐攤販（js/sac_b1.js）、
-// 麥當勞（js/interiors.js，整間轉 180 度，點餐大廳在西邊、直接通用餐區，南牆封起來），
+// B1 由西到東：樓梯廳（北）＋用餐區（南）、用餐區西南往南凸出到廣場底下的學餐攤販（src/world/buildings/SacB1.js）、
+// 麥當勞（src/world/Interiors.js，整間轉 180 度，點餐大廳在西邊、直接通用餐區，南牆封起來），
 // 麥當勞南牆外是黑框弧形玻璃的練舞室，前面一塊 B1 小廣場，再往南是看台；B1 入口在攤販東邊、玻璃房西邊（街景：入口上方掛影印部、全家的招牌，進去右轉才是麥當勞），
 // 西段中間有黃色扶手的直跑樓梯從廣場下來正對入口。再往西是長花台、紅磚平台和往二樓門廊的大階梯
 // （x -162.5..-156.1，約 22 階、上升約 3.8 m）。坑都互相重疊幾公分（H() 用嚴格不等式，留縫會長出地形脊）。
-// 學活的 base 用 Hgrid 算（js/map.js footBase），坑壓到它的輪廓也不會下沉。
+// 學活的 base 用 Hgrid 算（src/world/MapBuilder.js footBase），坑壓到它的輪廓也不會下沉。
 export const PIT = {
   depth: 3.3,
   shop: [-135.95, -113.95, -111.9, -93.9],     // x0, z0, x1, z1：麥當勞室內（B1）
@@ -158,7 +158,7 @@ export function zoneGTerrain(data) {
   L.stairs.push({ id: 'sac_b1_west', site, a: [xw, PIT.flatW], b: [xw, z1], w: PIT.split - x0, y0: pitY, y1: top(xw), steps: 20, rail: 'center', railColour: '#e0b52a', wall: 'granite' });
   L.stairs.push({ id: 'sac_b1_stage', site, a: [xe, PIT.flatE], b: [xe, z1], w: x1 - PIT.split, y0: pitY, y1: top(xe), steps: 10, wall: 'granite', top: '#c4beb3' });
   // 一樓入口前庭與南緣的 4 階小階梯（頂緣折線每一段一座，往前庭裡面爬）。
-  // （map.js 的邊每 0.5 m 取樣一次，階梯兩端和轉折處各約 0.5 m 會被封起來，當作階梯的擋牆）
+  // （src/world/MapBuilder.js 的邊每 0.5 m 取樣一次，階梯兩端和轉折處各約 0.5 m 會被封起來，當作階梯的擋牆）
   const F = FORE, T = F.top, st = PIT.stall;
   foreY = Hgrid(-153, -86) + F.rise;
   T.slice(1).forEach(([bx, bz], i) => {
@@ -172,7 +172,7 @@ export function zoneGTerrain(data) {
   const pts = [...T, [F.xE, tE[1]], [F.xE, st[3]], [st[0], st[3]], [st[0], -94.42], [xb, -94.42], [xb, S2.zFoot], [T[0][0], S2.zFoot]];
   const io = T.length + 1; // [F.xE, st[3]] 的序號：它開始的兩條邊接甲板
   L.pads.push({ id: 'sac_1f_forecourt', site: '學生活動中心一樓入口前庭', y: foreY, top: '#d3d0c9', wall: 'granite', open: [io, io + 1], pts });
-  // 往二樓門廊的大階梯（從前庭起步）與頂端平台（從門廊的門走進學活二樓，js/sac.js）
+  // 往二樓門廊的大階梯（從前庭起步）與頂端平台（從門廊的門走進學活二樓，src/world/buildings/Sac.js）
   const gl = Hgrid(S2.x, S2.zTop - 1);
   landY = gl + S2.rise;
   L.stairs.push({ id: 'sac_2f_stair', site: '學生活動中心南面大階梯', a: [S2.x, S2.zFoot], b: [S2.x, S2.zTop], w: S2.w, y0: foreY, y1: landY, steps: S2.steps, rail: 'none', wall: 'granite' }); // 兩側實心矮牆在 buildZoneG
@@ -509,7 +509,7 @@ export function buildZoneG(I, scene, data, collision = null) {
   const k = new Acc(), shapes = [];
   const find = id => data.buildings.find(b => b.id === id);
   const baseOf = (b, x, z) => (b && Number.isFinite(b.base) ? b.base : groundY(x, z));
-  // I.addWall 的高度帶是「相對牆中點地面」的（js/physworld.js 會再加 H）：這裡傳世界高度，先換算
+  // I.addWall 的高度帶是「相對牆中點地面」的（src/physics/PhysWorld.js 會再加 H）：這裡傳世界高度，先換算
   const wallC = (ax, az, bx, bz, y0, y1) => { const g = H((ax + bx) / 2, (az + bz) / 2); I.addWall(ax, az, bx, bz, y0 - g, y1 - g); };
   // (圓柱站在學餐攤販上方的廣場上時，從廣場面起算，不是 B1)
   const colRound = (x, z, r, y1, m = 'column') => { const st = PIT.stall, y0 = (x > st[0] && x < st[2] && z > st[1] && z < st[3] ? Hgrid(x, z) : groundY(x, z)) - 0.2; k.cyl(m, x, z, r, y0, y1, 18); const s = r * 0.9; for (const [a, c] of [[[x - s, z - s], [x + s, z - s]], [[x + s, z - s], [x + s, z + s]], [[x + s, z + s], [x - s, z + s]], [[x - s, z + s], [x - s, z - s]]]) wallC(a[0], a[1], c[0], c[1], y0, y1); shapes.push({ name: 'column', pts: [[x - r, z - r], [x + r, z - r], [x + r, z + r], [x - r, z + r]], y0, y1 }); };
@@ -519,7 +519,7 @@ export function buildZoneG(I, scene, data, collision = null) {
   if (sac) {
     const B = baseOf(sac, -150, -110), S = SAC, yO = B + S.ov, yR = B + S.roof, yP = B + S.par, yT = B + 13.2;
     const xEo = S.xE + S.dE, zSo = S.zS + S.dS, zNo = S.zN - S.dN, m = S.mcd;
-    // 懸挑上層的外牆：5.8～13.2 m 用學活立面貼圖（v 與 map.js 的樓層線 3.3 m 對齊），13.2 m 以上女兒牆素面
+    // 懸挑上層的外牆：5.8～13.2 m 用學活立面貼圖（v 與 src/world/MapBuilder.js 的樓層線 3.3 m 對齊），13.2 m 以上女兒牆素面
     let uAcc = 0;
     const face = (ax, az, bx, bz) => {
       const l = Math.hypot(bx - ax, bz - az);
@@ -612,14 +612,14 @@ export function buildZoneG(I, scene, data, collision = null) {
       const mid = P[Math.round(P.length / 2)], nx = mid[0] - (S.xE - 6), nz = mid[1] - (S.zN + 6), l = Math.hypot(nx, nz);
       sign(group, postSignTex(), 5.2, 0.82, mid[0] + nx / l * 0.06, B + 3.25, mid[1] + nz / l * 0.06, nx / l, nz / l, 0.35);
     }
-    // 下沉區：B1 地坪、東西擋土牆、西側長花台、東側矮牆。碰撞線有高度帶（js/collision.js addSegment），
+    // 下沉區：B1 地坪、東西擋土牆、西側長花台、東側矮牆。碰撞線有高度帶（src/physics/Collision.js addSegment），
     // 只擋腳在坑裡（或樓梯上）的人，廣場上的人走到邊緣會掉下去（西段樓梯上方的柱廊邊另外有矮牆）
     if (pitY !== null) {
       const [x0, z0, x1, z1] = PIT.court, yP = pitY, gW = Hgrid(x0 - 1.5, -88), gE = Hgrid(x1 + 1.5, -88);
       const seg = (ax, az, bx, bz, ya, yb) => { if (collision) collision.addSegment(ax, az, bx, bz, ya, yb); };
       k.flat('pitFloor', [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], yP + 0.005);
       // 擋土牆（花崗石），頂端壓一條收邊；西牆北段同時是學餐攤販的東牆
-      // （攤販那段只畫攤販天花以上：下面是攤販自己的東牆，js/sac_b1.js）
+      // （攤販那段只畫攤販天花以上：下面是攤販自己的東牆，src/world/buildings/SacB1.js）
       k.box('planter', x0 - 0.5, x0, yP - 0.2, gW + 0.05, PIT.stall[3], z1); k.box('planter', x0 - 0.5, x0, yP + 2.75, gW + 0.05, z0, PIT.stall[3]); seg(x0, z0, x0, z1, yP - 0.1, gW - 0.45);
       k.box('planter', x1, x1 + 0.5, yP - 0.2, gE + 0.05, -94.0, z1); seg(x1, -94.0, x1, z1, yP - 0.1, gE - 0.45);
       // 東側：沿看台的矮牆（廣場那側的人不會掉下去）
@@ -636,14 +636,14 @@ export function buildZoneG(I, scene, data, collision = null) {
       // 花台北邊到學活牆之間：一樓入口前庭的東北角（比廣場高 0.6 m），矮牆比前庭高 0.9 m
       const fy = foreY ?? gW;
       k.box('planter', x0 - 0.3, x0, gW, fy + 0.9, -94.42, pz0); seg(x0 - 0.15, -94.42, x0 - 0.15, pz0, gW - 0.6, fy + 0.9);
-      // 學餐攤販上方：甲板（地面照畫，js/terrain.js addPit mask: false），B1 的天花在 js/sac_b1.js。
+      // 學餐攤販上方：甲板（地面照畫，src/world/Terrain.js addPit mask: false），B1 的天花在 src/world/buildings/SacB1.js。
       // 長花台以西、花台北邊的角落是一樓入口前庭（前庭高度），長花台底下照舊是廣場高度。
       // 甲板各往外多 5 cm 跟前庭 pad、彼此重疊（坑的邊用嚴格不等式，留縫會掉到 B1）
       const st = PIT.stall, xE = FORE.xE, nz = FORE.nookZ;
       addBridge([[(st[0] + xE) / 2, st[1] + 0.05], [(st[0] + xE) / 2, st[3] + 0.05]], xE - st[0] + 0.1, { yAt: () => fy, lv: LV_DECK });
       addBridge([[xE - 0.05, (st[1] + nz) / 2], [st[2], (st[1] + nz) / 2]], nz - st[1] + 0.1, { yAt: () => fy, lv: LV_DECK });
       addBridge([[(xE + st[2]) / 2, nz], [(xE + st[2]) / 2, st[3] + 0.05]], st[2] - xE + 0.1, { yAt: () => gW, lv: LV_DECK });
-      // （學活南牆線 x -152..入口東緣：B1 天花以上的牆與一、二樓的門口都在 js/sac.js 的外殼碰撞）
+      // （學活南牆線 x -152..入口東緣：B1 天花以上的牆與一、二樓的門口都在 src/world/buildings/Sac.js 的外殼碰撞）
       shapes.push({ name: 'pit', pts: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y0: yP, y1: gW });
     }
     // ===== 一樓入口前庭、入口、二樓門廊（官方街景 2017-09） =====
@@ -660,7 +660,7 @@ export function buildZoneG(I, scene, data, collision = null) {
       k.flat('foreBrick', [[bx0, bz0], [bx1, bz0], [bx1, bz1], [bx0, bz1]], fy + 0.022, false, 1.2);
       // 一樓：一排玻璃門（黑框）、門楣，貼著學活南牆；門楣到門廊樓板之間是深色的內凹門洞
       const ySl = landY - 0.35, nDoor = 6, dw = (dx1 - dx0 - 0.1) / nDoor;
-      // （中間兩扇是開著的門洞，走得進去：js/sac.js；門扇往外推開貼在兩側）
+      // （中間兩扇是開著的門洞，走得進去：src/world/buildings/Sac.js；門扇往外推開貼在兩側）
       const [o1a, o1b] = SAC_DOORS.s1, [_o2a, _o2b] = SAC_DOORS.s2;
       k.box('door', dx0 + 0.05, o1a, fy, fy + 2.7, wz + 0.02, wz + 0.1); k.box('door', o1b, dx1 - 0.05, fy, fy + 2.7, wz + 0.02, wz + 0.1);
       for (let i = 0; i <= nDoor; i++) { const x = dx0 + 0.05 + i * dw; if (x > o1a + 0.1 && x < o1b - 0.1) continue; k.box('black', x - 0.04, x + 0.04, fy, fy + 2.7, wz + 0.1, wz + 0.16); }
@@ -678,7 +678,7 @@ export function buildZoneG(I, scene, data, collision = null) {
       k.box('sacPlain', px0, px1, ySl, landY - 0.02, wz, pz1);
       for (const x of [dx0 + 1.2, (dx0 + dx1) / 2, dx1 - 1.2]) k.box('lamp', x - 0.2, x + 0.2, ySl - 0.02, ySl - 0.005, -93.4, -93.0);
       k.flat('foreGranite', [[lx0, lz0], [px1, wz], [px1, pz1], [px0, pz1], [px0, S2.zTop], [lx0, S2.zTop]], landY + 0.012, false, 2.4);
-      // （二樓南面沒有門：整段敞開，直接走進中庭，js/sac.js）
+      // （二樓南面沒有門：整段敞開，直接走進中庭，src/world/buildings/Sac.js）
       // 頂端平台東緣底下（門廊西端、一樓入口的西牆）：平台底下封起來的花崗石牆
       k.box('granite', lx1 - 0.15, lx1, fy - 0.1, landY - 0.02, lz0, S2.zTop);
       // 門廊前緣的實心女兒牆（第一根圓柱穿過它）與金字；東端（入口東側圓柱旁）細欄杆
@@ -702,7 +702,7 @@ export function buildZoneG(I, scene, data, collision = null) {
       const bTop = yPa, bH = bTop - fy - 1.0, bW = 0.85;
       sign(group, sacBannerTex('gSacBanBlue', '#25344c', '#e6edf3', null), bW, bH, dx0 + 0.45, bTop - bH / 2, pz1 + 0.06, 0, 1, 0.08);
       sign(group, sacBannerTex('gSacBanRed', '#c4262b', '#f7efe2', '賀'), bW, bH, dx1 - 0.45, bTop - bH / 2, pz1 + 0.06, 0, 1, 0.08);
-      // 北面（新中北路側）一樓穿堂的出口：一組玻璃門，中間是開著的門洞（室內穿堂在 js/sac.js）
+      // 北面（新中北路側）一樓穿堂的出口：一組玻璃門，中間是開著的門洞（室內穿堂在 src/world/buildings/Sac.js）
       {
         const nz = x => -128.4 + (-129.9 + 128.4) * (x + 163.2) / 51.2 - 0.05, ga = Hgrid(-148, -131), a = -149.6, b = -146.4, [oa, ob] = SAC_DOORS.n1;
         k.slab('door', a, nz(a), oa, nz(oa), 0.08, ga - 0.1, ga + 2.7); k.slab('door', ob, nz(ob), b, nz(b), 0.08, ga - 0.1, ga + 2.7);
@@ -719,7 +719,7 @@ export function buildZoneG(I, scene, data, collision = null) {
         collision.addSegment(px0, S2.zTop, px0, pz1, ...b2);           // 大階梯頂東側到門廊前緣
         // 頂端平台東緣底下：平台是 pad，前庭的人從這裡鑽進平台底下會被抬上二樓，只擋前庭高度
         collision.addSegment(lx1, lz0, lx1, S2.zTop, fy - 0.5, landY - 0.6);
-        // 大階梯兩側矮牆（只擋樓梯上的人；廣場上的人由 map.js 的封邊線擋）
+        // 大階梯兩側矮牆（只擋樓梯上的人；廣場上的人由 src/world/MapBuilder.js 的封邊線擋）
         for (const x of [S2.x - S2.w / 2 + 0.25, xb - 0.25]) collision.addSegment(x, S2.zFoot, x, S2.zTop, fy - 0.2, landY + 1.2);
         collision.addSegment(F.xE, PIT.stall[3], F.xE, F.nookZ, fy - 0.5, fy + 0.9); // 甲板東緣（長花台西面）
         collision.addSegment(F.xE, F.nookZ, F.nook, F.nookZ, fy - 0.5, fy + 0.9);    // 長花台北面（前庭東北角）
@@ -744,7 +744,7 @@ export function buildZoneG(I, scene, data, collision = null) {
           collision.segs[si] = [a[0], a[1], b[0], b[1]];
           collision._each(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1]), (ix, iz) => { const c = collision._cell(ix, iz); if (!c.s.includes(si)) c.s.push(si); });
         }
-        collision.sacPoly = P; // js/sac.js 蓋室內時把這塊實心輪廓換成外牆線
+        collision.sacPoly = P; // src/world/buildings/Sac.js 蓋室內時把這塊實心輪廓換成外牆線
       } else console.warn('[zone_g] 學活碰撞輪廓找不到，B1 西半沒有挖空');
       // 執行期生成（機車、直升機、行人）別生在 B1 裡：原本這裡在學活輪廓內本來就算擋住，結果一樣
       if (Array.isArray(collision.reserved)) collision.reserved.push([[-152, -114], [PIT.west[2], -114], [PIT.west[2], -94.42], [-152, -94.42]]);
@@ -796,7 +796,7 @@ export function buildZoneG(I, scene, data, collision = null) {
   if (bio && sac) {
     const b0 = baseOf(sac, -197, -102), { x0, z0, z1 } = BRIDGE, x1 = xOnEdge(sac.pts, (z0 + z1) / 2, -1) ?? BRIDGE.x1;
     const y0 = b0 + BRIDGE.y0, y1 = b0 + BRIDGE.y1;
-    // 箱形是空心的（三樓走得過去，地面與牆的碰撞、裡面的門在 js/sac.js）
+    // 箱形是空心的（三樓走得過去，地面與牆的碰撞、裡面的門在 src/world/buildings/Sac.js）
     k.box('bridge', x0, x1, y0, y0 + 0.2, z0, z1); k.box('bridge', x0, x1, y1 - 0.25, y1, z0, z1);
     k.box('bridge', x0, x1, y0, y1, z0, z0 + 0.14); k.box('bridge', x0, x1, y0, y1, z1 - 0.14, z1); k.box('bridge', x0, x0 + 0.14, y0, y1, z0, z1);
     for (let x = x0 + 0.6; x < x1 - 0.8; x += 1.3) for (const z of [z0 - 0.02, z1 + 0.02]) k.box('win', x, x + 0.8, y0 + 1.3, y0 + 2.3, z - 0.02, z + 0.02);
@@ -969,12 +969,12 @@ export function buildZoneG(I, scene, data, collision = null) {
     shapes.push({ name: 'lxEast', pts: [[xE, z0], [xE + 0.8, z0], [xE + 0.8, z1], [xE, z1]], y0: B, y1: B + h });
   }
 
-  // ===== 南面大階梯 → 二樓門廊 → 學活二樓（js/sac.js）→ 新中北路天橋 → 力行男宿 =====
+  // ===== 南面大階梯 → 二樓門廊 → 學活二樓（src/world/buildings/Sac.js）→ 新中北路天橋 → 力行男宿 =====
   // 大階梯與門廊平台是 data.levels（zoneGTerrain）；天橋是 tools/overrides.json 的 xinzhongbei_footbridge（LV_DECK）。
-  // 門廊進門、穿過二樓中庭、從北面走上天橋都是用走的（學活室內 js/sac.js）；天橋北端是力行宿舍牆外的樓梯，往下走到二樓門口（js/lixing.js）。
+  // 門廊進門、穿過二樓中庭、從北面走上天橋都是用走的（學活室內 src/world/buildings/Sac.js）；天橋北端是力行宿舍牆外的樓梯，往下走到二樓門口（src/world/buildings/Lixing.js）。
   // 天橋兩側加有高度帶的欄杆碰撞。
   if (collision && landY !== null) {
-    // 門廊平台三邊與大階梯兩側上段：map.js 的封邊線沒有高度帶，物理牆只到地面上 4 m，站在 3.8 m 的平台上
+    // 門廊平台三邊與大階梯兩側上段：src/world/MapBuilder.js 的封邊線沒有高度帶，物理牆只到地面上 4 m，站在 3.8 m 的平台上
     // 角色控制器（腳上 0.35～1.6 m）會從牆頂上越過去，所以另外加只擋平台／上段樓梯高度的線
     {
       // （東邊不封：接入口上方的二樓門廊甲板，門廊自己的邊在前庭那段加）
@@ -988,7 +988,7 @@ export function buildZoneG(I, scene, data, collision = null) {
     const deckY = surfaceAt(-163.0, -141.6, 60), g0 = Hgrid(-163.0, -141.6);
     if (deckY > g0 + 3) {
       const bx = z => -162.7 + (-163.2 + 162.7) * (z + 165.0) / 36.6; // 天橋中心線（北端 z -165 → 南端 -128.4）
-      // 兩側欄杆一路到力行端（z -165，接進力行南牆；最北 5.7 m 是力行牆外的樓梯，那段的欄杆碰撞在 js/lixing.js，這條只擋橋面高度）
+      // 兩側欄杆一路到力行端（z -165，接進力行南牆；最北 5.7 m 是力行牆外的樓梯，那段的欄杆碰撞在 src/world/buildings/Lixing.js，這條只擋橋面高度）
       for (const o of [-1.42, 1.42]) collision.addSegment(bx(-165.0) + o, -165.0, bx(-128.6) + o, -128.6, deckY - 0.3, deckY + 0.6);
     }
   }

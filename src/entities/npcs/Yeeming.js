@@ -1,10 +1,10 @@
 // YeeMing：物理系、跟彥霖同年級，羊明衫的男朋友（兩個人是宿營認識的，他還為了女友把菸戒了）。個性友好開朗、成績也很優秀，
 // 很支持彥霖選會長。現在正在當兵：穿迷彩軍服、戴迷彩鋼盔。外型照使用者給的照片（黑色蓬鬆短髮、圓臉）。
 // 一天（遊戲時鐘）：
-//   羊明衫白天有些整點不練舞，改成跟他手牽手在校園散步（兩個人一起出現在你附近的步道上，js/mingshan.js 的 walk）；
+//   羊明衫白天有些整點不練舞，改成跟他手牽手在校園散步（兩個人一起出現在你附近的步道上，src/entities/npcs/Mingshan.js 的 walk）；
 //   羊明衫在練舞或在麥當勞上班的時候，他去體育館旁的排球場打排球（墊球練習；跟吱吱很好，常一起打）；
 //   22:00–09:00 不在校園（收假回營、睡覺）。
-// 跟他們說話時彥霖都會問「要不要打麻將？」；聊完可以加他好友（js/friends.js 的 yeeming）。
+// 跟他們說話時彥霖都會問「要不要打麻將？」；聊完可以加他好友（src/ui/phone/Friends.js 的 yeeming）。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
@@ -37,7 +37,7 @@ export class YeeMing {
     const tag = makeLabel('🪖 YeeMing', { height: 0.26, size: 40, color: '#b9d38a' }); tag.position.set(0, 2.12, 0); ch.root.add(tag);
     ch.root.visible = false; game.scene.add(ch.root);
     this.pos = new THREE.Vector3(); this.heading = 0; this.walkOn = false; this.wait = 2;
-    // the volleyball court next to the gym (js/court.js), on one half of it
+    // the volleyball court next to the gym (src/world/Court.js), on one half of it
     const gym = game.world.named['中原大學體育館'] || { x: 0, z: -330 };
     const C = VBALL.slice().sort((a, b) => Math.hypot(a.c[0] - gym.x, a.c[1] - gym.z) - Math.hypot(b.c[0] - gym.x, b.c[1] - gym.z))[0];
     const [cx, cz] = courtP(C, -4.5, 0), [nx, nz] = courtP(C, 0, 0);

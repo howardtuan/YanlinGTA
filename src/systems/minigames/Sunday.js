@@ -5,7 +5,7 @@
 // 用電腦時她搬到電腦畫面的右下角：終端機在偵探模式（SQL 查案）時給那個案件的提示（含支線案件），
 // 沒在查案時給主線提示，或提醒還有案件沒破；電腦裡只能用滑鼠點她（J 會打進終端機）。
 
-// hints for mission idx (js/missions.js), given the mission state; each returns a list shown one by one
+// hints for mission idx (src/systems/MissionSystem.js), given the mission state; each returns a list shown one by one
 const HINTS = [
   // 0 序章
   (M) => !M.talked ? ['先跟 <b>小安</b> 把話說完（按 <kbd>E</kbd> 或 <kbd>Enter</kbd> 繼續）。'] : [
@@ -141,7 +141,7 @@ export class Sunday {
     el.querySelector('.sd-n').textContent = `提示 ${i + 1} / ${list.length}`;
     el.querySelector('.sd-foot').classList.toggle('hidden', list.length < 2);
   }
-  // every frame (main.js): show / hide, new stage -> back to hint 1 with a "!", J key
+  // every frame (src/core/Game.js): show / hide, new stage -> back to hint 1 with a "!", J key
   update(inp) {
     const g = this.g;
     const pc = !!g.pc?.isOpen;

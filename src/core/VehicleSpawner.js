@@ -95,7 +95,7 @@ export class VehicleSpawner {
       for (let i = 0; i < n * 5 && placed < n; i++) {
         const x = x0 + rnd() * (x1 - x0),
           z = z0 + rnd() * (z1 - z0);
-        if (!pointInPoly(x, z, a.pts) || !w.isFree(x, z, moto ? 1 : 2.2) || pitAt(x, z, 2.5) !== null) continue; // not down in the 學活 pit (js/zone_g.js)
+        if (!pointInPoly(x, z, a.pts) || !w.isFree(x, z, moto ? 1 : 2.2) || pitAt(x, z, 2.5) !== null) continue; // not down in the 學活 pit (src/world/zones/ZoneG.js)
         if (game.vehicles.some(v => Math.hypot(v.pos.x - x, v.pos.z - z) < (moto ? 1.6 : 5))) continue;
         this.addVehicle(moto || rnd() < 0.5 ? 'scooter' : rnd() < 0.3 ? 'taxi' : 'car', x, z, moto ? Math.PI / 2 : rnd() * 6.28, rnd);
         placed++;
@@ -127,7 +127,7 @@ export class VehicleSpawner {
     }
   }
 
-  // a parked vehicle hit hard (js/vehicles.js KNOCK_MIN): thrown by physics until it rests. Momentum of the
+  // a parked vehicle hit hard (src/entities/Vehicles.js KNOCK_MIN): thrown by physics until it rests. Momentum of the
   // hitter (with its rider) against the parked one decides how hard; returns the factor the hitter's speed keeps
   knockVehicle(o, by, nx, nz, impact) {
     const m1 = vmass(by) + 70,
@@ -140,7 +140,7 @@ export class VehicleSpawner {
   }
 
   // a traffic vehicle hit hard: thrown too (with its own speed), then back on its lane when it lands on its
-  // wheels next to it, otherwise a wreck for a while (js/npc.js Traffic)
+  // wheels next to it, otherwise a wreck for a while (src/entities/NPC.js Traffic)
   // impact: the closing speed of the two
   knockTraffic(o, by, nx, nz, impact) {
     const game = this.game;

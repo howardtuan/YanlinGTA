@@ -1,9 +1,9 @@
 // 林口體育館（國立體育大學綜合體育館）演唱會配置。不在中原附近的地圖上，所以蓋在地圖外很遠的地方（ARENA.ox / oz），
-// 只能搭演唱會接駁車進出（js/concert.js）。
+// 只能搭演唱會接駁車進出（src/systems/minigames/Concert.js）。
 // 依網友實拍與演唱會座位圖：圓角長方形的碗形看台，舞台在一端，看台三面圍住場地、兩側一路延伸到舞台旁；
 // 下層綠色座椅，前緣是暗紅色矮牆加橘色欄杆；中間一圈白色走道立面；上層深藍色座椅；白色屋頂與桁架。
 // 演唱會時場內一樓全是站區，用金屬欄杆隔成 A／B／C 幾塊，中間留走道；主舞台中間有延伸台接到場中央的方形小舞台。
-// 主舞台：中央 LED 大螢幕（concert.js 把 YouTube 疊在上面）、左右兩面側螢幕、上方一排白燈和藍燈的燈架、兩側吊掛喇叭陣列。
+// 主舞台：中央 LED 大螢幕（src/systems/minigames/Concert.js 把 YouTube 疊在上面）、左右兩面側螢幕、上方一排白燈和藍燈的燈架、兩側吊掛喇叭陣列。
 // Local frame (metres): origin at the centre of the floor, +z toward the stage, y up from the floor.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -18,7 +18,7 @@ const UP = { n: 14, y0: CONC.y + RISE, d0: CONC.d0 + CONC.w }; // upper ring: na
 const OUTER = UP.d0 + UP.n * RUN;       // outer wall of the bowl (offset from the floor edge)
 const BACK = FZ + 8;                    // back wall behind the stage
 
-// ticket zones (js/concert.js sells them): floor standing blocks, then the two seat rings
+// ticket zones (src/systems/minigames/Concert.js sells them): floor standing blocks, then the two seat rings
 export const ARENA_ZONES = [
   { name: '搖滾站區 A', price: 6880, seats: 1200, kind: 'floor', z0: 8, z1: 19 },
   { name: '搖滾站區 B', price: 5880, seats: 1500, kind: 'floor', z0: -12, z1: 4 },
@@ -74,7 +74,7 @@ function tex(w, h, draw) {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 
-// Kit / regMat come from js/interiors.js (passed in to keep the modules acyclic)
+// Kit / regMat come from src/world/Interiors.js (passed in to keep the modules acyclic)
 export function buildArena(I, scene, Kit, regMat) {
   const A = ARENA;
   const k = new Kit(I, A.ox, A.oz, 0);
@@ -194,7 +194,7 @@ export function buildArena(I, scene, Kit, regMat) {
   }
   const signTex = new THREE.CanvasTexture(atlas); signTex.colorSpace = THREE.SRGBColorSpace;
   if (signGeos.length) shell.add(new THREE.Mesh(mergeGeometries(signGeos), new THREE.MeshBasicMaterial({ map: signTex, toneMapped: false, side: THREE.DoubleSide })));
-  // LED ribbon board along the front of the upper ring (concert.js scrolls it)
+  // LED ribbon board along the front of the upper ring (src/systems/minigames/Concert.js scrolls it)
   const ribbonTex = tex(1024, 64, (g) => { g.fillStyle = '#05060a'; g.fillRect(0, 0, 1024, 64); });
   ribbonTex.wrapS = THREE.RepeatWrapping;
   const ledRibbon = new THREE.Mesh(ribbonUV(ring(CONC.d0 - 0.03), CONC.y + 0.86, ring(CONC.d0 - 0.03), CONC.y + 1.32, 16), new THREE.MeshBasicMaterial({ map: ribbonTex, toneMapped: false, side: THREE.DoubleSide }));
@@ -294,7 +294,7 @@ export function buildArena(I, scene, Kit, regMat) {
   }
   I.zones.push({ name: '林口體育館', pts: [k.w(-FX - OUTER, -FZ - OUTER), k.w(FX + OUTER, -FZ - OUTER), k.w(FX + OUTER, BACK), k.w(-FX - OUTER, BACK)], y0: 0, y1: A.ROOF, ceil: () => A.ROOF - 1 });
 
-  // ---------------- side screens, beams, crowd (concert.js animates them) ----------------
+  // ---------------- side screens, beams, crowd (src/systems/minigames/Concert.js animates them) ----------------
   const fx = new THREE.Group(); fx.position.copy(shell.position); scene.add(fx);
   const sideTex = tex(512, 288, (g) => { g.fillStyle = '#05060a'; g.fillRect(0, 0, 512, 288); });
   const sideMat = new THREE.MeshBasicMaterial({ map: sideTex, toneMapped: false });
@@ -318,7 +318,7 @@ export function buildArena(I, scene, Kit, regMat) {
   }
   // the audience is a sea of lightsticks in the dark (you watch in first person)
   const stickMat = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false });
-  // lightsticks bob on the GPU: y += |sin(t * speed + id * 0.37)| * amp (uniforms set by concert.js)
+  // lightsticks bob on the GPU: y += |sin(t * speed + id * 0.37)| * amp (uniforms set by src/systems/minigames/Concert.js)
   const U = { uT: { value: 0 }, uAmp: { value: 0.05 }, uSpd: { value: 2 } };
   stickMat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
@@ -441,7 +441,7 @@ function buildPlaza(I, scene, k) {
   plaque.position.set(P.cx, B + 9, P.cz - R - 1.5); plaque.rotation.y = Math.PI; g0.add(plaque);
   // ---------------- concert day ----------------
   const gz = P.gateZ;
-  // tour banner wrapped round the plinth on the south side (concert.js paints it for the group)
+  // tour banner wrapped round the plinth on the south side (src/systems/minigames/Concert.js paints it for the group)
   const bandP = circ(R + 0.95, 40, Math.PI * 1.22, Math.PI * 1.78).reverse();
   const banner = new THREE.Mesh(ribbonUV(bandP, B + 0.2, bandP, B + 3.6, Math.PI * 0.56 * (R + 0.95)), new THREE.MeshBasicMaterial({ color: '#111', toneMapped: false, side: THREE.DoubleSide }));
   g0.add(banner);
@@ -500,7 +500,7 @@ function buildPlaza(I, scene, k) {
   }
   for (const [mat, list] of geos) { const m = new THREE.Mesh(mergeAll(list), mat); m.castShadow = false; m.receiveShadow = true; g0.add(m); }
   I.zones.push({ name: '林口體育館 外場', pts: [k.w(-160, -260), k.w(160, -260), k.w(160, 120), k.w(-160, 120)], y0: -5, y1: 4, outdoor: true, ceil: () => 999 }); // outdoors (a zone only so the helicopter can't come here)
-  // where people stand in the queue and mill about (concert.js puts characters there)
+  // where people stand in the queue and mill about (src/systems/minigames/Concert.js puts characters there)
   const ppl = []; let s = 21; const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
   for (let r = 0; r < 3; r++) for (let x = -19; x < 19; x += 1.6) if (rnd() < 0.7) ppl.push([x + rnd() * 0.5, gz - 18.3 - r * 2.6, 0]);
   for (const x of lanes) for (let z = gz - 13; z < gz - 6; z += 1.4) if (rnd() < 0.8) ppl.push([x + (rnd() - 0.5) * 0.6, z, 0]);
@@ -508,7 +508,7 @@ function buildPlaza(I, scene, k) {
   g0.visible = false;
   return {
     group: g0, banner, truck, stalls: STALLS,
-    people: ppl.slice(0, 64).map(([x, z, h]) => ({ ...xz(k, x, z), h })), // concert.js puts characters here
+    people: ppl.slice(0, 64).map(([x, z, h]) => ({ ...xz(k, x, z), h })), // src/systems/minigames/Concert.js puts characters here
     bus: xz(k, 9, bz + 3), arrive: { ...xz(k, 4, bz + 6), h: 0 }, // h 0 = facing +z, toward the arena
     gate: xz(k, 2.5, gz - 7), staff: [-7.5, 7.5].map(x => ({ ...xz(k, x, gz - 3.6), h: Math.PI })),
     out: { ...xz(k, 0, gz - 10), h: Math.PI },

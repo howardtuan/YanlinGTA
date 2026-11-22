@@ -135,7 +135,7 @@ Chrome 會以 `--headless=new`、暫時的 `--user-data-dir` 與 `--remote-debug
 - `steps[]`：每一步的詳細資料（欄位見下方）。
 - `ending`、`endingVotes`、`playTimeSec`：結局、結局票數與遊戲總時間。
 - `fallbacks`、`pageErrors`、`consoleErrors`、`networkErrors`、`botErrors`：備援紀錄與各類錯誤。
-- `ignoredErrors`：已知無害的錯誤（例如 `js/nano.js` 先用 `zh` 探測 Gemini Nano 被 Chrome 記成錯誤）。
+- `ignoredErrors`：已知無害的錯誤（例如 `src/ui/phone/Nano.js` 先用 `zh` 探測 Gemini Nano 被 Chrome 記成錯誤）。
 - `events`、`screenshots`、`verdict`、`exitCode`：所有事件時間軸、截圖清單、整體判定與結束代碼。
 
 `steps[]` 單一步驟欄位：
@@ -154,7 +154,7 @@ Chrome 會以 `--headless=new`、暫時的 `--user-data-dir` 與 `--remote-debug
 
 ## 目前已知的遊戲問題（機器人會回報）
 
-- 任務四最後一站「管理大樓」的檢查點 (117.4, 59.0) 落在管理大樓的建築碰撞裡面（`js/missions.js` 用 `world.nearestRoadPoint()` 取最近道路點，取到一條穿過建築的 tunnel service 道路），能走到的最近點離它約 12 公尺，大於判定半徑 7 公尺。正常玩法無法完成任務四，所以機器人在這裡會印出 `objective 管理大樓 ... cannot be entered` 並用兩次備援瞬移（跳進去、跳回來），任務四記為 FAIL，結束代碼為 1。修好之後同一個指令應該就會全部 PASS。
+- 任務四最後一站「管理大樓」的檢查點 (117.4, 59.0) 落在管理大樓的建築碰撞裡面（`src/systems/MissionSystem.js` 用 `world.nearestRoadPoint()` 取最近道路點，取到一條穿過建築的 tunnel service 道路），能走到的最近點離它約 12 公尺，大於判定半徑 7 公尺。正常玩法無法完成任務四，所以機器人在這裡會印出 `objective 管理大樓 ... cannot be entered` 並用兩次備援瞬移（跳進去、跳回來），任務四記為 FAIL，結束代碼為 1。修好之後同一個指令應該就會全部 PASS。
 
 ## 怎麼看失敗
 

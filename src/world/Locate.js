@@ -40,16 +40,16 @@ export function friendLocations(g) {
       else add('hank', '漢克', '🎸', '#2b2f3a', null, m === 'walk' ? '在校園另一頭散步' : '騎 ZMAX 在外面兜風（距離太遠）');
     }
   }
-  if (has('garry')) { // 黃蓋瑞 (js/garry.js)
+  if (has('garry')) { // 黃蓋瑞 (src/entities/npcs/Garry.js)
     const G = g.garry, m = G?.mode;
     if (m === 'run') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在體育園區跑道慢跑');
     else if (m === 'club') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在活動中心 3 樓的古箏社教室');
     else if (m === 'sleep') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間睡覺（彥霖隔壁）');
     else if (G) add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間（彥霖隔壁）');
   }
-  if (has('yeeming')) { const Y = g.yeeming; if (Y?.mode) add('yeeming', 'YeeMing', '🪖', '#56643a', Y.mode === 'walk' ? (Y.walkOn ? Y.pos : null) : Y.mode === 'volley' ? Y.pos : null, Y.where()); } // YeeMing (js/yeeming.js)
-  if (has('mingshan')) { const S = g.mingshan; if (S?.mode) add('mingshan', '羊明衫', '💃', '#c2414b', S.mode === 'dance' || (S.mode === 'walk' && g.yeeming?.walkOn) ? S.pos : S.mode === 'work' ? S.worker?.root.position : null, S.where()); } // 羊明衫 (js/mingshan.js)
-  if (has('jianyu')) { const J = g.jianyu; if (J?.mode) add('jianyu', '劍玉', '🏎️', '#5d6b8a', J.cruising && J.cruiser?.ai?.dormant ? null : J.pos, J.where()); } // 劍玉 (js/jianyu.js)
+  if (has('yeeming')) { const Y = g.yeeming; if (Y?.mode) add('yeeming', 'YeeMing', '🪖', '#56643a', Y.mode === 'walk' ? (Y.walkOn ? Y.pos : null) : Y.mode === 'volley' ? Y.pos : null, Y.where()); } // YeeMing (src/entities/npcs/Yeeming.js)
+  if (has('mingshan')) { const S = g.mingshan; if (S?.mode) add('mingshan', '羊明衫', '💃', '#c2414b', S.mode === 'dance' || (S.mode === 'walk' && g.yeeming?.walkOn) ? S.pos : S.mode === 'work' ? S.worker?.root.position : null, S.where()); } // 羊明衫 (src/entities/npcs/Mingshan.js)
+  if (has('jianyu')) { const J = g.jianyu; if (J?.mode) add('jianyu', '劍玉', '🏎️', '#5d6b8a', J.cruising && J.cruiser?.ai?.dormant ? null : J.pos, J.where()); } // 劍玉 (src/entities/npcs/Jianyu.js)
   return out;
 }
 

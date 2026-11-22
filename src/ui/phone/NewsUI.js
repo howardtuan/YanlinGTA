@@ -1,5 +1,5 @@
 // PYtoday screens, shared by the i-Piyan app (compact: list, tap for the article) and the desktop computers (wide:
-// list on the left, article on the right). Articles come from js/news.js; the reading state is game.news (NewsDesk).
+// list on the left, article on the right). Articles come from src/ui/phone/News.js; the reading state is game.news (NewsDesk).
 import { publishedNews } from './News.js';
 import { dayDate, fmtP } from '../../systems/StockMarket.js';
 
@@ -7,7 +7,7 @@ const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const hhmm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 const UP = '#e8323c', DOWN = '#1f9d55';
 
-// reading state + "new article" notices; saved (save.js: news)
+// reading state + "new article" notices; saved (src/systems/SaveSystem.js: news)
 export class NewsDesk {
   constructor(game) { this.g = game; this.seen = new Set(); this._last = null; }
   list() { return publishedNews(this.g.clock); }

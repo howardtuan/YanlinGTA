@@ -1,9 +1,9 @@
-// 偵探模式：在電腦的終端機輸入 `case`，用 SQL 查「校園紀錄」破案（SQL 引擎與資管學堂共用 sql.js，js/learn.js）。
-// 主線（js/missions.js 任務五）是「布條失竊案」；破了之後解鎖兩個支線小案子。案件、人物、資料全部是遊戲裡虛構的。
+// 偵探模式：在電腦的終端機輸入 `case`，用 SQL 查「校園紀錄」破案（SQL 引擎與資管學堂共用 sql.js，src/systems/minigames/Learn.js）。
+// 主線（src/systems/MissionSystem.js 任務五）是「布條失竊案」；破了之後解鎖兩個支線小案子。案件、人物、資料全部是遊戲裡虛構的。
 // 每個案子：brief 簡報、seed 資料庫、tables 欄位說明、clues 線索（查詢結果裡出現某些內容時自動記到筆記）、
 // need 指認時一定要先找到的線索、culprit 犯人、alibi 指錯人時的說明、hints 分段提示、reward 獎勵。
 // 終端機指令：help tables schema brief notes hint accuse cases open reset exit；其他輸入都當成 SQL 執行。
-// 進度（找到的線索、用過的提示、破了哪些案子）跟著遊戲存檔（save.js 的 detective）。
+// 進度（找到的線索、用過的提示、破了哪些案子）跟著遊戲存檔（src/systems/SaveSystem.js 的 detective）。
 import { sqlEngine } from './Learn.js';
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -157,7 +157,7 @@ INSERT INTO reservations VALUES (1,'a01','3F-12','11/18',1),(2,'a02','3F-01','11
     ],
     solved: '小翔開了兩個帳號，每天一早把 3F 靠窗的位子預約起來「保留」，自己卻在宿舍睡覺。他的帳號被停權一週。',
   },
-  // ---------------------------------------------------------------- 支線：劍玉的班費失竊案（js/jianyu.js：跟劍玉說過話才會出現）
+  // ---------------------------------------------------------------- 支線：劍玉的班費失竊案（src/entities/npcs/Jianyu.js：跟劍玉說過話才會出現）
   jianyu: {
     id: 'jianyu', icon: '💰', title: '劍玉的班費失竊案', unlock: (g) => !!g.jianyu?.state.met,
     brief: `劍玉把裝著「三甲班費 2000」的信封放在力行宿舍 278 寢的書桌上，下午回來就不見了。
@@ -230,7 +230,7 @@ export class Detective {
     return Object.values(CASES).filter(c => c.unlock ? c.unlock(this.g) || this.solved(c.id) : c.main ? story || this.solved(c.id) : this.solved('banner'));
   }
   // ---------------- terminal ----------------
-  // io: { print(text, cls), html(html), prompt(p), clear() } from the terminal window (js/pc.js)
+  // io: { print(text, cls), html(html), prompt(p), clear() } from the terminal window (src/ui/PC.js)
   async enter(io, id) {
     this.io = io;
     const list = this.available();

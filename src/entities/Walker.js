@@ -4,19 +4,19 @@
 // interior walls, tree trunks, the map's edge: physics.tags.walls / trunks) instead of the game's own
 // collision (CollisionWorld.resolve): a capsule is swept along the move and
 // slides along what it hits, so a fast frame can never step through a thin wall. Physics walls are boxes
-// WALL_T thick on each side of the game's wall line (js/physworld.js) and the controller keeps SKIN off them,
+// WALL_T thick on each side of the game's wall line (src/physics/PhysWorld.js) and the controller keeps SKIN off them,
 // so the capsule is that much thinner: you stop where the game's collision stopped you, and doorways stay
 // as wide as before (tree trunks are exact cylinders: you get about 0.1 m closer to those).
 // Heights stay the game's: terrain, decks, stairs and interior floors (surfaceAt, interiors.groundAt) and
-// jumping (js/player.js). So the capsule covers 0.35 to 1.6 m above the feet, the same band the game's
+// jumping (src/entities/Player.js). So the capsule covers 0.35 to 1.6 m above the feet, the same band the game's
 // interior walls use, and floors are never in its way.
 // The capsule itself is a query shape only (no body, collides with nothing): cones and barriers are still
-// pushed by your physics stand-in (main.js _physMovers), vehicles still push you out of their bodies.
-// Without physics (or ?oldwalk) js/player.js uses CollisionWorld.resolve as before.
+// pushed by your physics stand-in (src/core/Game.js _physMovers), vehicles still push you out of their bodies.
+// Without physics (or ?oldwalk) src/entities/Player.js uses CollisionWorld.resolve as before.
 import { G } from '../physics/Physics.js';
 import { WALL_T } from '../physics/PhysWorld.js';
 
-export const RADIUS = 0.38;                      // as js/player.js without a walker (against a wall line)
+export const RADIUS = 0.38;                      // as src/entities/Player.js without a walker (against a wall line)
 const SKIN = 0.02;                               // the controller's gap to what it touches (m)
 const CR = RADIUS - WALL_T - SKIN;               // capsule radius
 const LOW = 0.35, HIGH = 1.6;                    // the band above the feet that walls block

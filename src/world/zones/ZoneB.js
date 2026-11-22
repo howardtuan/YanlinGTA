@@ -1,5 +1,5 @@
 // B 區「理學院（中央）」校內建築外觀（都不能進去，只做外觀）。
-// 做法同 js/zone_a.js、js/zone_h.js：js/map.js 照舊用 OSM 輪廓蓋牆，zoneBLook() 只換 look／高度，
+// 做法同 src/world/zones/ZoneA.js、src/world/zones/ZoneH.js：src/world/MapBuilder.js 照舊用 OSM 輪廓蓋牆，zoneBLook() 只換 look／高度，
 // buildZoneB() 自建輪廓表達不了的構件（屋頂設備、入口、尖塔、花磚欄杆、A6 步道與招牌）。
 //
 // 依據（campus-survey/PLAN.md 第 1 節 B 區、批次 2，zone-B.md）：
@@ -27,9 +27,9 @@
 //    恩惠堂方塔紅磚面紅框白十字（2021 地點相片）。
 // 北面、西面玩家幾乎看不到，照南面推；入口、招牌等特殊構件只放在有影像的那一面。
 //
-// 共用亂數（js/map.js）：
+// 共用亂數（src/world/MapBuilder.js）：
 //  - 只換 look、高度、名稱以外的 OSM 欄位不動；kind 不改。屋頂冷氣（rnd2）只在 h >= 6 且不是斜屋頂時抽，所以副堂、林森館
-//    高度不低於 6 m；副堂的雙坡用 look.roof.shape（map.js 的 pitched 仍是 OSM 的值，抽取照舊，冷氣只是不畫）。
+//    高度不低於 6 m；副堂的雙坡用 look.roof.shape（src/world/MapBuilder.js 的 pitched 仍是 OSM 的值，抽取照舊，冷氣只是不畫）。
 //  - 恩惠堂本來就是 OSM gabled（不抽冷氣），只改高度；尖塔 feature 拿掉改自建（landmarkRoof 不抽亂數）。
 //  - w588979511（town）：輪廓換成小屋的 4 個頂點，四邊都大於 4 m（town 每條大於 4 m 的邊抽一次舊招牌亂數，次數照舊），
 //    凸四邊形形心一定在裡面（水塔抽取照舊）；附近只有沒名字的 service 路，原本、現在都不是店面牆。
@@ -61,7 +61,7 @@ function edgeOut(a, c, cen) {
   return { a, c, l, tx: dx / l, tz: dz / l, nx, nz };
 }
 const along = (e, s, o) => [e.a[0] + e.tx * s + e.nx * o, e.a[1] + e.tz * s + e.nz * o];
-// 半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 js/zone_h.js）
+// 半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 src/world/zones/ZoneH.js）
 function clipPoly(pts, keep) {
   let P = pts.map(p => [p[0], p[1]]);
   const n = keep(P[0]).length;
@@ -92,7 +92,7 @@ const SCI = {
   room: [8.6, 31.0, 14.4, 36.2],      // 紅磚機房（深綠屋頂）
   tank: [33.0, 29.0],                 // 綠色水塔（主屋頂東南、天窗東側設備區）
   // 南面大階梯入口：在西段南牆（v 38.0）中段偏東（官方 2017 往北 0～45° 看到）
-  // 立面磚墩在 u 11.35、19.0（js/map.js fins：西段南牆 22.9 m 分 3 格），玻璃門牆放在兩根磚墩之間
+  // 立面磚墩在 u 11.35、19.0（src/world/MapBuilder.js fins：西段南牆 22.9 m 分 3 格），玻璃門牆放在兩根磚墩之間
   door: { u0: 10.9, u1: 19.5, g0: 11.98, g1: 18.37, wall: 38.0, deep: 2.6, rise: 0.9, steps: 6, run: 2.4, w: 7.6 },
 };
 const CHEM = { h: 10.5, floors: 3 };
@@ -109,7 +109,7 @@ const HUT = (() => {
   return area2(P) > 0 ? P : P.reverse(); // 和 OSM 輪廓同向（正面積）
 })();
 
-// ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
+// ---------------- 外觀 look（src/core/Game.js 在 src/world/MapBuilder.js 蓋樓前套用） ----------------
 export function zoneBLook(b) {
   const id = b.id;
   if (id === B_IDS.sci) {
@@ -190,7 +190,7 @@ export function zoneBLook(b) {
 
 // ---------------- 南面大階梯（data.levels：可以走上去的平台與階梯） ----------------
 let sciDoor = null;
-// 平台與階梯上的樹、灌木藏起來（js/map.js opts.treeHide，種植位置與共用亂數不變）
+// 平台與階梯上的樹、灌木藏起來（src/world/MapBuilder.js opts.treeHide，種植位置與共用亂數不變）
 // 化學館南面入口雨遮的位置（南牆、a = 西端，牆長 58% 處、寬 8 m、深 3 m）
 function chemCanopy(P) {
   const cen = centroid(P);
@@ -368,7 +368,7 @@ function mat(key) {
     tin: () => std({ map: tinTex(), roughness: 0.6, metalness: 0.25, side: THREE.DoubleSide }),
     redFrame: () => std({ color: '#8e2a26', roughness: 0.7, side: THREE.DoubleSide }),
     redDoor: () => std({ color: '#7a2622', roughness: 0.75, side: THREE.DoubleSide }),
-    terrazzo: () => std({ color: '#85817b', roughness: 0.9 }), // 和 js/zone_c.js 自強外牆深灰洗石子同色
+    terrazzo: () => std({ color: '#85817b', roughness: 0.9 }), // 和 src/world/zones/ZoneC.js 自強外牆深灰洗石子同色
     stone: () => std({ color: '#1e1f21', roughness: 0.35, metalness: 0.2 }),
     arch: () => std({ color: '#d9d8d3', roughness: 0.85, side: THREE.DoubleSide }),
     pipe: () => std({ color: '#efefeb', roughness: 0.45, metalness: 0.15 }),
@@ -471,7 +471,7 @@ export function buildZoneB(I, scene, data, collision) {
   const k = new Acc(), shapes = [];
   const find = id => data.buildings.find(b => b.id === id);
   const baseOf = (b) => (Number.isFinite(b.base) ? b.base : Math.min(...b.pts.map(([x, z]) => H(x, z))));
-  // I.addWall 的高度帶是「相對牆中點地面」的（js/physworld.js 會再加 H）：這裡傳世界高度，先換算（同 js/zone_g.js）
+  // I.addWall 的高度帶是「相對牆中點地面」的（src/physics/PhysWorld.js 會再加 H）：這裡傳世界高度，先換算（同 src/world/zones/ZoneG.js）
   const wallC = (ax, az, bx, bz, y0, y1) => { const g = H((ax + bx) / 2, (az + bz) / 2); I.addWall(ax, az, bx, bz, y0 - g, y1 - g); };
   const ringColl = (P, y0, y1) => { for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; wallC(a[0], a[1], c[0], c[1], y0, y1); } };
   // 局部座標框裡的盒子：u0..u1 × v0..v1
@@ -521,7 +521,7 @@ export function buildZoneB(I, scene, data, collision) {
     for (let u = 5.5; u < 33; u += 2.4) fbox(F, 'box', u, 1.6, u + 1.4, 2.6, R, R + 1.1);
     for (let u = 6.5; u < 30; u += 7.5) fbox(F, 'duct', u, 3.4, u + 0.6, 7.5, R + 0.4, R + 1.0);
 
-    // 南面大階梯入口（平台與階梯是 data.levels，js/map.js 畫踏階、側牆、不鏽鋼扶手）
+    // 南面大階梯入口（平台與階梯是 data.levels，src/world/MapBuilder.js 畫踏階、側牆、不鏽鋼扶手）
     if (sciDoor) {
       const D = SCI.door, y = sciDoor.y, w0 = D.wall + 0.03;
       // 整面玻璃門窗（從平台到雨遮底）
@@ -584,7 +584,7 @@ export function buildZoneB(I, scene, data, collision) {
   const grace = find(B_IDS.grace);
   if (grace) {
     const P = grace.pts, cen = centroid(P), B = baseOf(grace), top = B + grace.h;
-    // 和 js/map.js pitchedRoof 同樣的屋脊高度（沿最長邊的框）
+    // 和 src/world/MapBuilder.js pitchedRoof 同樣的屋脊高度（沿最長邊的框）
     let li = 0, ll = 0; for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length], l = Math.hypot(c[0] - a[0], c[1] - a[1]); if (l > ll) { ll = l; li = i; } }
     const a0 = P[li], a1 = P[(li + 1) % P.length], ux = (a1[0] - a0[0]) / ll, uz = (a1[1] - a0[1]) / ll;
     let v0 = 1e9, v1 = -1e9; for (const p of P) { const v = (p[0] - a0[0]) * -uz + (p[1] - a0[1]) * ux; v0 = Math.min(v0, v); v1 = Math.max(v1, v); }

@@ -1,6 +1,6 @@
 // 學生活動中心室內（OSM w392023427）：一樓到四樓走得進去，二樓從南面門廊穿過中庭走上新中北路天橋，三樓走進往生科館的空橋。
-// 外觀仍由 js/map.js 照輪廓畫、js/zone_g.js 補構件；麥當勞（js/interiors.js buildMcD）、古箏社教室（js/clubroom.js）、
-// B1 用餐區與學餐（js/sac_b1.js）照舊，這裡蓋它們以外的部分（輪廓 = sacTrimmedPts：東南角麥當勞那塊、西北角 js/clubroom.js 那塊不算）。
+// 外觀仍由 src/world/MapBuilder.js 照輪廓畫、src/world/zones/ZoneG.js 補構件；麥當勞（src/world/Interiors.js buildMcD）、古箏社教室（src/world/buildings/ClubRoom.js）、
+// B1 用餐區與學餐（src/world/buildings/SacB1.js）照舊，這裡蓋它們以外的部分（輪廓 = sacTrimmedPts：東南角麥當勞那塊、西北角 src/world/buildings/ClubRoom.js 那塊不算）。
 //
 // 依據：
 //  - 課外活動指導組《學生社團活動空間場地借用說明》（110 學年，有各場地的照片與房號）、活動中心管理細則、總務處場地收費表、學校新聞：
@@ -10,17 +10,17 @@
 //       雅文多功能展演廳 A／B 廳、社團多功能交誼廳；
 //    3F 課外活動指導組 313、學生會 308、活動教室 301／302／317／318、韻律教室 312、招待所、幾個紅磚平台（有鏡子）；
 //    4F 大音樂練習室 411、琴房 412～414／418、小音樂練習室 417、武術練習室 419、社團辦公室、倉儲室、樂器室。
-//    3F 西北角（主走廊西端）：古箏社教室（js/clubroom.js buildClub3F；使用者指正在 3 樓，哪一角是推測）。
+//    3F 西北角（主走廊西端）：古箏社教室（src/world/buildings/ClubRoom.js buildClub3F；使用者指正在 3 樓，哪一角是推測）。
 //  - Google 地圖相片（培英廳 2023-09）、既有的街景與正射（屋頂北側的長弧頂採光罩、西面約三樓的空橋）。
 // 找不到平面圖：每一層「有什麼」照上面的資料，「在該層的哪裡」是照建築外形排的（推測）：
 // 東西向主走廊在採光罩下方，北排房間靠新中北路，中庭對著南面大門廊，培英廳在一樓西半挑高兩層。
-// B1 的圓形旋轉梯（js/sac_b1.js）往上到一樓大廳、再到二樓中庭東牆邊為止（使用者指正）。
+// B1 的圓形旋轉梯（src/world/buildings/SacB1.js）往上到一樓大廳、再到二樓中庭東牆邊為止（使用者指正）。
 // 沒有來源的房間只寫社團辦公室、儲藏室、廁所。能進去的房間：培英廳、101 交誼廳、雅文 A 廳、301／302／317／318 活動教室、312 韻律教室、
 // 303／401／403／405 社團辦公室、3F 古箏社教室、412 琴房、419 武術練習室；其他是關著的門。麥當勞上面的各樓層（弧形玻璃那塊）沒有做。
 //
 // 高度（世界高度）：一樓 = 入口前庭、二樓 = 南面門廊（大階梯頂）、三樓 = 往生科館空橋的地板、四樓再上 3.4 m。
 // 新中北路天橋的橋面比二樓高約 1.1 m：二樓北面進門後是橋面高度的平台，往下走 7 階到二樓（不改天橋）。
-// 碰撞：js/zone_g.js 換過的實心輪廓在這裡拿掉，換成外牆線（門口留缺口）和室內牆，全部走 Interiors.addWall。
+// 碰撞：src/world/zones/ZoneG.js 換過的實心輪廓在這裡拿掉，換成外牆線（門口留缺口）和室內牆，全部走 Interiors.addWall。
 // 座標：這個檔直接用世界座標（Kit 原點 0,0、不旋轉），y 是世界高度。
 import * as THREE from 'three';
 import { H, Hgrid, surfaceAt } from '../Terrain.js';
@@ -42,7 +42,7 @@ const WCZ = -99.5;
 const CF = { x0: -156.2, z0: -105.7, z1: -103.3 };                 // 中庭 centre flight 2F -> 3F (up to the east gallery)
 const SF = { x1: -155.8, x2: -153.6, z0: -100.3, z1: -98.2 };     // south flight 3F -> 4F and its landing
 const HALL = { x0: XL, x1: -170, z0: CS, z1: ZS, stage: -188.5, row0: -185, pitch: 0.95, rows: 15, step: 0.085 };
-const WELL = [-147.9, -144.1, -110.9, -107.1];                    // the B1 spiral stair's well (js/sac_b1.js), x0 x1 z0 z1
+const WELL = [-147.9, -144.1, -110.9, -107.1];                    // the B1 spiral stair's well (src/world/buildings/SacB1.js), x0 x1 z0 z1
 // the outline's skewed walls
 const zSouth = (x) => x > -144.4 ? -94.4 : -94.4 - 0.1 * (-144.4 - x) / 50.8;
 const zNorth = (x) => x < -163.2 ? -128.55 + 0.15 * (x + 181) / 17.8 : -128.4 - 1.5 * (x + 163.2) / 51.2;
@@ -54,13 +54,13 @@ export function sacLevels() {
   const s = surfaceAt(-163.0, -141.6, 60), deck = s > Hgrid(-163.0, -141.6) + 3 ? s : H(-163.0, -141.6) + 5.1;
   return { B, F: [f1, f2, f3, f3 + 3.4], deck, gN: Hgrid(-148, -131), pit: Hgrid(-125, -100) - PIT.depth };
 }
-// door openings: [{ p, q, y0, y1 }] in world coordinates (js/map.js b.wallDoors cuts them out of the walls)
+// door openings: [{ p, q, y0, y1 }] in world coordinates (src/world/MapBuilder.js b.wallDoors cuts them out of the walls)
 function sacDoors() {
   const L = sacLevels(), D = SAC_DOORS, S = (a, b, y0, y1) => ({ p: [a, zSouth(a)], q: [b, zSouth(b)], y0, y1 }), N = (a, b, y0, y1) => ({ p: [a, zNorth(a)], q: [b, zNorth(b)], y0, y1 });
   return [
     S(...D.s1, L.F[0] - 0.05, L.F[0] + 2.7), S(...D.s2, L.F[1] - 0.02, L.F[1] + 2.5),
     N(...D.n1, L.gN - 0.2, L.gN + 2.6), N(...D.nb, L.deck - 0.05, L.deck + 2.05),
-    { p: [CLUB_DOOR[0], -118.2], q: [CLUB_DOOR[1], -118.2], y0: L.F[2] - 0.02, y1: L.F[2] + 2.4 }, // 古箏社教室 (js/clubroom.js)
+    { p: [CLUB_DOOR[0], -118.2], q: [CLUB_DOOR[1], -118.2], y0: L.F[2] - 0.02, y1: L.F[2] + 2.4 }, // 古箏社教室 (src/world/buildings/ClubRoom.js)
     { p: [xWest(D.wb[0]), D.wb[0]], q: [xWest(D.wb[1]), D.wb[1]], y0: L.F[2] - 0.02, y1: L.F[2] + 2.3 },
   ];
 }
@@ -132,7 +132,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   // walkable surface: y is a world height or (x, z) => world height. Interiors wants heights above what the player's height
   // counts from, and that is not always the terrain here: the forecourt deck over the B1 stalls reaches about a metre in
   // under the south wall, the 2F porch deck lies over the 1F door. So the base is surfaceAt() at the player's feet, exactly
-  // what js/player.js uses (only the player asks Interiors.groundAt).
+  // what src/entities/Player.js uses (only the player asks Interiors.groundAt).
   let feet = -1e9; I.updaters.push((dt, g) => { feet = g.player?.pos?.y ?? -1e9; });
   const sf = (x0, x1, z0, z1, y) => I.addSurface(k.rect(Math.min(x0, x1), Math.max(x0, x1), Math.min(z0, z1), Math.max(z0, z1)), typeof y === 'function' ? (x, z) => y(x, z) - surfaceAt(x, z, feet) : (x, z) => y - surfaceAt(x, z, feet));
   const clamp01 = (t) => t < 0 ? 0 : t > 1 ? 1 : t;
@@ -216,7 +216,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   // the rectangles of a ring: `out` minus `hole` (both [x0, x1, z0, z1])
   const ring = ([x0, x1, z0, z1], [hx0, hx1, hz0, hz1]) => [[x0, hx0, z0, z1], [hx1, x1, z0, z1], [hx0, hx1, z0, hz0], [hx0, hx1, hz1, z1]];
 
-  // ---------------- switchback stairs (as js/lixing.js) ----------------
+  // ---------------- switchback stairs (as src/world/buildings/Lixing.js) ----------------
   const stairs = ({ x0, x1, z0, z1, ax, dir, ld = 1.5, wallM = MT.white }) => {
     const a0 = ax === 'x' ? x0 : z0, a1 = ax === 'x' ? x1 : z1, c0 = ax === 'x' ? z0 : x0, c1 = ax === 'x' ? z1 : x1;
     const L = a1 - a0, cm = (c0 + c1) / 2;
@@ -313,7 +313,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     label: () => '按 <kbd>E</kbd> 搭電梯（1F → 2F → 3F → 4F）',
     fn: (g) => {
       const p = g.player, gh = H(p.pos.x, p.pos.z); let cur = 0; for (let f = 0; f < 4; f++) if (p.y > FL[f] - gh - 0.8) cur = f;
-      const next = (cur + 1) % 4; const dy = FL[next] - gh + 0.05 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; // the feet go along (js/player.js compares the two)
+      const next = (cur + 1) % 4; const dy = FL[next] - gh + 0.05 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; // the feet go along (src/entities/Player.js compares the two)
       g.audio?.lift?.(); g.hud?.toast(`電梯 → ${next + 1}F`, 'good', 1200);
     },
   });
@@ -511,7 +511,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   bx(V.x0 - 0.1, V.x1 + 0.1, CT - 0.03, CT + 0.05, V.z0 - 0.1, V.z1 + 0.1, MT.sky);
   for (let x = V.x0; x <= V.x1 + 0.01; x += (V.x1 - V.x0) / 6) bx(x - 0.05, x + 0.05, CT - 0.14, CT - 0.03, V.z0, V.z1, MT.white);
 
-  // ---------------- 3F：往生物科技館的空橋（箱形外殼在 js/zone_g.js） ----------------
+  // ---------------- 3F：往生物科技館的空橋（箱形外殼在 src/world/zones/ZoneG.js） ----------------
   {
     const y = F3, x0 = BRIDGE.x0 + 0.14, [b0, b1] = SAC_DOORS.wb, z0 = BRIDGE.z0 + 0.14, z1 = BRIDGE.z1 - 0.14, c = B + BRIDGE.y1 - 0.25;
     sf(x0, XL + 0.05, z0, z1, y);
@@ -579,7 +579,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   }
 
   // =====================================================================
-  // outer shell: collision along the outline, gaps at the doors (heights as js/map.js b.wallDoors)
+  // outer shell: collision along the outline, gaps at the doors (heights as src/world/MapBuilder.js b.wallDoors)
   // =====================================================================
   {
     const P = b.pts, cutsAll = [...sacDoors(),
@@ -606,7 +606,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     if (collision) {
       const Q = collision.sacPoly;
       if (Q) {
-        // the solid footprint goes: its outline becomes points on one corner in a height band nothing reaches (as js/lixing.js)
+        // the solid footprint goes: its outline becomes points on one corner in a height band nothing reaches (as src/world/buildings/Lixing.js)
         const n = Q.pts.length, c0 = Q.pts[0];
         Q.pts = Q.pts.map(() => [c0[0], c0[1]]); Q.top = -Infinity;
         for (let i = 0; i < n; i++) collision.segs[Q.s0 + i] = [c0[0], c0[1], c0[0], c0[1], 1e8, 1e8 + 1];

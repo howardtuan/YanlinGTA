@@ -210,7 +210,7 @@ export function plantVegetation(scene, spots, quality) {
         const sc = s.s; S.set(sc * (0.92 + r() * 0.16), sc * (0.9 + r() * 0.2), sc * (0.92 + r() * 0.16)); P.set(s.x, s.y ?? 0, s.z);
         M.compose(P, Q, S);
         const hl = hues[kind], c = new THREE.Color(hl[Math.floor(r() * hl.length)]);
-        // hidden spots (js/map.js: on stairs / astride a retaining wall) still take their
+        // hidden spots (src/world/MapBuilder.js: on stairs / astride a retaining wall) still take their
         // draws and their slot in the variant cycle, so every other plant looks the same
         if (s.hide) return;
         items.push({ x: s.x, z: s.z, m: M.clone(), c });
@@ -222,7 +222,7 @@ export function plantVegetation(scene, spots, quality) {
   }
   return {
     count: spots.length,
-    viewDist: 700, // set by main.js from the quality level (shorter on low)
+    viewDist: 700, // set by src/core/GameLoop.js from the quality level (shorter on low)
     update(t, cam) {
       uniforms.uTime.value = t;
       if (!cam) return;

@@ -1,10 +1,10 @@
 // A 區「正門／行政」校內建築外觀（都不能進去，只做外觀）。
-// 做法同 js/zone_g.js、js/zone_e.js：js/map.js 照舊蓋牆，zoneALook() 在 js/main.js 蓋樓前換輪廓／名稱／look，
-// buildZoneA() 自建輪廓表達不了的構件（js/interiors.js 呼叫）。
+// 做法同 src/world/zones/ZoneG.js、src/world/zones/ZoneE.js：src/world/MapBuilder.js 照舊蓋牆，zoneALook() 在 src/core/Game.js 蓋樓前換輪廓／名稱／look，
+// buildZoneA() 自建輪廓表達不了的構件（src/world/Interiors.js 呼叫）。
 //
 // 依據（campus-survey/PLAN.md 批次 1、zone-A.md 與其補充調查）：
 //  - 行政大樓 w392023425（OSM 名「校史館」）：Google 衛星標籤、校方報導都說這棟是行政大樓，校史館在 1 樓兩側
-//    （2017-10 揭牌）。遊戲名稱改「行政大樓（含校史館）」，js/missions.js 用 NAME_ALIAS 新舊名都找得到。
+//    （2017-10 揭牌）。遊戲名稱改「行政大樓（含校史館）」，src/systems/MissionSystem.js 用 NAME_ALIAS 新舊名都找得到。
 //    三層，每層樓板邊是很厚的白色水平板；1F 退縮在細白柱後面（黑框落地玻璃）；密鰭片在**西面北半段的 2F**
 //    （2022-05 相片、2019-04 相片右側），不是北面；2F 板面中央金色「行政大樓」（右至左）；屋頂整面太陽能板，
 //    東側南北各一座深色機房、西南一座白色小屋、深咖啡色鋼構棚架、白色細欄杆（正射 2024、空拍 2021）。
@@ -29,15 +29,15 @@
 //    東南角階梯轉過來，沿平台東緣也有一段朝東的階梯接到下沉廣場西側步道（正射 2024 量位置、2017-09 街景兩張），平台中央四片三角形玻璃天窗（地下室採光，正射 2024），大門是黑框玻璃門＋斜面玻璃雨遮、
 //    上方館名，雙塔南面掛「全人」牌（2020-10 官方相片）。平台、階梯用 data.levels（zoneATerrain，可以走上去）。
 //
-// 共用亂數：OSM 建物的輪廓 pts 改了，但 b.acPts 留住原本輪廓（平移量相同），js/map.js 屋頂冷氣的 rnd2 抽取
-// 次數因此不變；名稱、look、parts 都在 map.js 的共用抽取之後才用到（行政大樓新名稱在 STYLE_BY_NAME 也是 white）。
+// 共用亂數：OSM 建物的輪廓 pts 改了，但 b.acPts 留住原本輪廓（平移量相同），src/world/MapBuilder.js 屋頂冷氣的 rnd2 抽取
+// 次數因此不變；名稱、look、parts 都在 src/world/MapBuilder.js 的共用抽取之後才用到（行政大樓新名稱在 STYLE_BY_NAME 也是 white）。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { groundY, Hgrid, addPit } from '../Terrain.js';
 
 export const A_IDS = { adm: 'w392023425', hue: 'w229238548', lib: 'w392023426', sci: 'w392023392' };
 export const ADM_NAME = '行政大樓（含校史館）';
-// 舊名 ↔ 新名（js/missions.js 找任務點時兩個都認）
+// 舊名 ↔ 新名（src/systems/MissionSystem.js 找任務點時兩個都認）
 export const NAME_ALIAS = { '校史館': ADM_NAME, [ADM_NAME]: '校史館' };
 
 const mv = (P, dx, dz) => P.map(([x, z]) => [+(x + dx).toFixed(2), +(z + dz).toFixed(2)]);
@@ -68,12 +68,12 @@ const LIBP = {
   // 平台東邊的下沉庭院（2019-07 街景 P5 四向、使用者 2025 相片）：樹林地面比東邊草地低約 1 m、比平台低約 2.5 m，
   // 圖書館一樓的黑框玻璃雙開門開在平台東側磚牆上（朝東、上方是建物出挑的天花），南面一樓是格柵窗；
   // 坡道從庭院往東爬到草地（兩側不鏽鋼扶手），庭院東緣草地邊是一道刻白字的磚紅色斜頂矮牆。
-  // 坑（js/terrain.js addPit）只能是方塊：A 塊貼建物南面、B 塊在平台斜邊與南邊步道之間（平台底下那部分被 pad 蓋住）
+  // 坑（src/world/Terrain.js addPit）只能是方塊：A 塊貼建物南面、B 塊在平台斜邊與南邊步道之間（平台底下那部分被 pad 蓋住）
   court: { A: [-173.2, -10.2, -153.0, -0.9], B: [-173.2, -0.9, -158.5, 9.6], drop: 1.0, ramp: { z: 1.5, x0: -166.5, w: 1.7 }, door: { z0: -9.4, z1: -5.6 } },
   sky: { c: [-179.4, 5.6], r: 4.4, rot: 0.26 }, // 中央四片三角玻璃天窗
 };
 let libPadY = null, libMidY = null, courtY = null;
-// js/map.js 種完樹之後才把平台上的樹、棕櫚、灌木藏起來（opts.treeHide，種樹位置與共用亂數抽取次數不變；樹的碰撞一起拿掉）
+// src/world/MapBuilder.js 種完樹之後才把平台上的樹、棕櫚、灌木藏起來（opts.treeHide，種樹位置與共用亂數抽取次數不變；樹的碰撞一起拿掉）
 export const zoneATreeHide = () => [LIBP.pts, LIBP.walk.pts, [[LIBP.main.x0, LIBP.main.zT], [LIBP.main.x1, LIBP.main.zT], [LIBP.main.x1, LIBP.main.zB], [LIBP.main.x0, LIBP.main.zB]]];
 export function zoneATerrain(data) {
   const L = data.levels || (data.levels = {}); L.pads = L.pads || []; L.stairs = L.stairs || [];
@@ -98,7 +98,7 @@ export function zoneATerrain(data) {
   L.stairs.push({ id: 'lib_east_stair', site, a: E.a.slice(), b: E.b.slice(), w: E.w, y0: LIBP.walk.y, y1: libPadY, steps: E.steps, wall: 'granite', rail: 'none' });
 }
 
-// ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
+// ---------------- 外觀 look（src/core/Game.js 在 src/world/MapBuilder.js 蓋樓前套用） ----------------
 export function zoneALook(b) {
   if (b.id === A_IDS.adm) {
     b.name = ADM_NAME;
@@ -457,7 +457,7 @@ export function buildZoneA(I, scene, data) {
     // 門廊南面（bump[1]→bump[2]）：拱上方金屬字「懷恩樓」，右至左讀
     const eS = edge(bump[1], bump[2]);
     { const c = along(bump[1], eS, eS.l / 2, 0.04); sign(group, hText('aHueName', '樓恩懷', '#d9c08a', SERIF, 768, 192), 3.0, 0.55, c[0], topB - 0.32, c[1], eS.nx, eS.nz, 0.1, 0.7); }
-    // 三個半圓拱（蓋在 map.js 依 4 m 間距排的兩個拱上）
+    // 三個半圓拱（蓋在 src/world/MapBuilder.js 依 4 m 間距排的兩個拱上）
     { const p = along(bump[1], eS, 0, 0.03), q = along(bump[1], eS, eS.l, 0.03), y0 = Math.min(groundY(...p), groundY(...q)) - 0.05;
       k.quad('huePortal', [p[0], y0, p[1]], [q[0], y0, q[1]], [q[0], B + 3.55, q[1]], [p[0], B + 3.55, p[1]], [[0, (y0 - B) / 3.55], [1, (y0 - B) / 3.55], [1, 1], [0, 1]]); }
     // 露台紅色欄杆（門廊頂三面，在 0.7 m 女兒牆上）
@@ -540,10 +540,10 @@ export function buildZoneA(I, scene, data) {
       shapes.push({ name: 'libTower', pts: [[xa, zA], [xb, zA], [xb, zB], [xa, zB]], y0: g0, y1: yN });
     }
     k.box('slot', -200.3, -199.5, B, B + 15.6, -10.5, -6.9); // 兩塔之間的窄縫（深色）
-    // ---- 南面平台的構件（平台與階梯本身是 data.levels，js/map.js 畫磚牆、封邊） ----
+    // ---- 南面平台的構件（平台與階梯本身是 data.levels，src/world/MapBuilder.js 畫磚牆、封邊） ----
     if (libPadY !== null) {
       const yP = libPadY, zW = -9.9 - LIB.over + 0.02;
-      // 平台外緣：褐灰長條磚牆面（蓋過 map.js pad 的紅磚擋土牆，外推 3 cm），上面 0.5 m 磚欄牆＋短柱＋混凝土扶手
+      // 平台外緣：褐灰長條磚牆面（蓋過 src/world/MapBuilder.js pad 的紅磚擋土牆，外推 3 cm），上面 0.5 m 磚欄牆＋短柱＋混凝土扶手
       // （2019-07 街景 R4：磚牆頂一條混凝土扶手架在短柱上，中間是空的）
       const brickUV = (l, h) => [[0, 0], [l / 1.6, 0], [l / 1.6, h / 1.6], [0, h / 1.6]];
       // 欄牆斷面（平台面以上的高度）：實心磚 0.55 m、壓頂 0.15 m、短柱 0.3 m、扶手樑 0.22 m；短柱約 2.4 m 一根
@@ -593,7 +593,7 @@ export function buildZoneA(I, scene, data) {
         k.flat('grass', [[ax0, az0], [ax1, az0], [ax1, az1], [bx1, bz0], [bx1, bz1], [bx0, bz1]], yC + 0.02);
         k.flat('courtBrick', [[ax0, az0 + 0.6], [ax0 + 7.5, az0 + 0.6], [ax0 + 7.5, -3.6], [ax0, -3.6]], yC + 0.04, false, 1.6);
         k.flat('courtBrick', [[ax0 + 4.0, -3.6], [ax0 + 7.5, -3.6], [C.ramp.x0, C.ramp.z - 0.85], [C.ramp.x0 - 2.0, C.ramp.z + 0.85]], yC + 0.04, false, 1.6);
-        // 擋土牆：東緣（A 塊東邊）、A 塊南緣、B 塊東緣（坡道處留口）、B 塊南緣（南邊步道 pad 那段 map.js 已畫），牆頂高出草地 0.1 m
+        // 擋土牆：東緣（A 塊東邊）、A 塊南緣、B 塊東緣（坡道處留口）、B 塊南緣（南邊步道 pad 那段 src/world/MapBuilder.js 已畫），牆頂高出草地 0.1 m
         const ret = (a, c, m = 'terraceBrick', over = 0.1, coll = true) => {
           const e = edge(a, c), n = Math.max(2, Math.ceil(e.l / 1.0));
           for (let i = 0; i < n; i++) {

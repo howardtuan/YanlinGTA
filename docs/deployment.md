@@ -184,7 +184,7 @@ flowchart TD
    - 專門負責構建 `dist/` 並推送至 GitHub Pages。
    - 使用 `actions/configure-pages` 自動注入對應的儲存庫路徑 Base URL。
 3. **`e2e.yml`（端對端劇本走查）**：
-   - 支援手動觸發與排程觸發，在虛擬無頭瀏覽器中自動跑完主線劇情。
+   - 只支援手動觸發（`workflow_dispatch`，沒有排程），在虛擬無頭瀏覽器中自動跑完主線劇情。
 
 ---
 

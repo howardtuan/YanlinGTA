@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { buildSkinnedBody } from './BodyMesh.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Body style: one continuous skinned mesh (bodymesh.js) by default; ?legacy in the URL brings back the old
+// Body style: one continuous skinned mesh (src/entities/BodyMesh.js) by default; ?legacy in the URL brings back the old
 // sphere-and-capsule body for side-by-side comparison.
 const SKINNED = !(typeof location !== 'undefined' && /[?&]legacy\b/.test(location.search));
 // small deterministic hash -> 0..1, for per-person face / build variation that stays the same every visit
@@ -414,7 +414,7 @@ export function createCharacter(opts = {}) {
       }
     }
   }
-  // army helmet (YeeMing, js/yeeming.js): a camouflage shell with a short brim and a chin strap over the hair
+  // army helmet (YeeMing, src/entities/npcs/Yeeming.js): a camouflage shell with a short brim and a chin strap over the hair
   if (opts.helmet) {
     let tex = camoTex;
     if (!tex) {
@@ -594,7 +594,7 @@ function animate(ch, dt, st) {
     t.shL = [-0.35 - Math.max(0, Math.sin(ch.poseT * 1.3)) * 0.3, -0.2, 0.15]; t.elL = -0.9;
     ch.setHandPose('grip');
   } else if (st.pose === 'handR' || st.pose === 'handL') {
-    // walking hand in hand (js/yeeming.js): that arm hangs a little out to the side towards the partner, no swing
+    // walking hand in hand (src/entities/npcs/Yeeming.js): that arm hangs a little out to the side towards the partner, no swing
     if (st.pose === 'handR') { t.shR = [-0.12, 0, -0.42]; t.elR = -0.12; } else { t.shL = [-0.12, 0, 0.42]; t.elL = -0.12; }
     if (!ch.pose) ch.setHandPose('relaxed');
   } else if (st.pose === 'bump') {
@@ -604,7 +604,7 @@ function animate(ch, dt, st) {
     t.knR = t.knL = 0.45 - b * 0.3; t.hpR = t.hpL = -0.3 + b * 0.2; t.hipsY = 0.86 + b * 0.05; t.lean = 0.15;
     ch.setHandPose('grip');
   } else if (st.pose === 'dance') {
-    // K-pop practice (羊明衫, js/mingshan.js): an 8-count at 120 bpm — arm waves left / right, a double arm push, both
+    // K-pop practice (羊明衫, src/entities/npcs/Mingshan.js): an 8-count at 120 bpm — arm waves left / right, a double arm push, both
     // arms up; knees bounce on every beat, hips and shoulders sway, the head tilts with the moves
     const bt = ch.poseT * 2, n = Math.floor(bt) % 8, f = bt - Math.floor(bt), bounce = Math.abs(Math.sin(bt * Math.PI));
     t.hipsY = 0.93 - bounce * 0.07; t.knR = t.knL = 0.12 + bounce * 0.35; t.hpR = t.hpL = -bounce * 0.18;
@@ -616,14 +616,14 @@ function animate(ch, dt, st) {
     else { t.shR = [-2.8, 0, -0.5 - Math.sin(f * Math.PI) * 0.2]; t.shL = [-2.8, 0, 0.5 + Math.sin(f * Math.PI) * 0.2]; t.elR = t.elL = -0.2; t.headX = -0.15; }
     ch.setHandPose('relaxed');
   } else if (st.pose === 'pet' || st.pose === 'feed') {
-    // squatting by a cat (mode 'sit' with no chair, js/mingshan.js): lean in, right hand down to its head — stroking, or holding out the meat
+    // squatting by a cat (mode 'sit' with no chair, src/entities/npcs/Mingshan.js): lean in, right hand down to its head — stroking, or holding out the meat
     t.lean = 0.55; t.headX = 0.5;
     if (st.pose === 'pet') { const s = Math.sin(ch.poseT * 4.5); t.shR = [-0.75 + s * 0.14, 0.12, -0.12]; t.elR = -0.35 - s * 0.12; }
     else { t.shR = [-0.95, 0.08, -0.1]; t.elR = -0.2; }
     t.shL = [-0.55, -0.2, 0.25]; t.elL = -1.2;
     ch.setHandPose(st.pose === 'feed' ? 'grip' : 'relaxed');
   } else if (st.pose === 'drone') {
-    // flying the drone (js/drone.js): both hands on the remote in front of the chest, thumbs on the sticks, VR goggles on
+    // flying the drone (src/entities/Drone.js): both hands on the remote in front of the chest, thumbs on the sticks, VR goggles on
     const tw = Math.sin(ch.poseT * 3.1) * 0.04;
     t.shR = [-0.42 + tw, 0.42, -0.12]; t.elR = -1.55; t.shL = [-0.42 - tw, -0.42, 0.12]; t.elL = -1.55;
     t.headX = 0.08 + Math.sin(ch.poseT * 0.9) * 0.05; t.headY = Math.sin(ch.poseT * 0.5) * 0.12;
@@ -634,7 +634,7 @@ function animate(ch, dt, st) {
     t.shR = [-0.5 - g * 0.5, 0.2, -0.2]; t.elR = -0.9 - g * 0.4;
     t.headX = Math.max(0, Math.sin(ch.poseT * 1.7)) * 0.12; t.headZ = Math.sin(ch.poseT * 0.6) * 0.06;
   } else if (st.pose === 'guitar') {
-    // playing a guitar held across the body (漢克, js/hank.js): left hand up the neck, right hand strumming over the
+    // playing a guitar held across the body (漢克, src/entities/npcs/Hank.js): left hand up the neck, right hand strumming over the
     // sound hole, head tipped down toward the strings
     const st2 = Math.sin(ch.poseT * 15);
     t.shR = [-0.45 + st2 * 0.12, 0.45, -0.2]; t.elR = -1.45 + st2 * 0.12;
@@ -654,7 +654,7 @@ function animate(ch, dt, st) {
   ch.torso.rotation.y = lerp(ch.torso.rotation.y, t.torsoY, k);
   ch.head.rotation.x = lerp(ch.head.rotation.x, t.headX, k);
   ch.head.rotation.z = lerp(ch.head.rotation.z, t.headZ, k);
-  if (st.mode !== 'drive') ch.head.rotation.y = lerp(ch.head.rotation.y, t.headY, Math.min(1, dt * 4)); // (the helicopter pilot turns his own, airdrop.js)
+  if (st.mode !== 'drive') ch.head.rotation.y = lerp(ch.head.rotation.y, t.headY, Math.min(1, dt * 4)); // (the helicopter pilot turns his own, src/systems/minigames/Airdrop.js)
   const setRot = (o, r) => { o.rotation.x = lerp(o.rotation.x, r[0], k); o.rotation.y = lerp(o.rotation.y, r[1], k); o.rotation.z = lerp(o.rotation.z, r[2], k); };
   setRot(aR.sh, t.shR); setRot(aL.sh, t.shL);
   aR.el.rotation.x = lerp(aR.el.rotation.x, t.elR, k); aL.el.rotation.x = lerp(aL.el.rotation.x, t.elL, k);

@@ -1,6 +1,6 @@
 // 可以在校園裡認識、聊完再決定要不要加好友的同學。
-// 加了好友：i-Piyan「訊息」多一個聊天室（js/chats.js 的 FRIEND_CONTACTS），Peachgram 看得到他的貼文與限時動態。
-// 好友名單會存檔（save.js 的 friends）。
+// 加了好友：i-Piyan「訊息」多一個聊天室（src/ui/phone/Chats.js 的 FRIEND_CONTACTS），Peachgram 看得到他的貼文與限時動態。
+// 好友名單會存檔（src/systems/SaveSystem.js 的 friends）。
 import { makeMissionNpc } from '../../entities/NPC.js';
 import { HANK_LOOK } from '../../entities/npcs/Hank.js';
 import { MINGSHAN_LOOK } from '../../entities/npcs/Mingshan.js';
@@ -17,7 +17,7 @@ export const ZZ_LOOK = { skin: '#f0cfb0', shirt: '#7a1f2c', shorts: '#161616', p
 export const FRIENDS = {
   zz: {
     name: '排球少年 吱吱', short: '吱吱', look: ZZ_LOOK,
-    // 體育館南牆西段的入口雨遮（map.js entrance_canopy）旁、體育館與游泳池之間的走道，面向走道西口
+    // 體育館南牆西段的入口雨遮（src/world/MapBuilder.js entrance_canopy）旁、體育館與游泳池之間的走道，面向走道西口
     spot: { x: -39.5, z: -182.2, h: -Math.PI / 2 },
     intro: [
       ['吱吱', '欸！彥霖！你怎麼跑來體育館？'],
@@ -40,7 +40,7 @@ export const FRIENDS = {
       [['吱吱', '晚上 10 點排位，記得上線 🎮']],
       [['吱吱', '體保生也是要交報告的……救我']],
     ],
-    // 在正門外的茶學苑打工時（js/teashop.js）說的話
+    // 在正門外的茶學苑打工時（src/systems/minigames/TeaShop.js）說的話
     shop: {
       intro: [
         ['吱吱', '歡迎光臨茶學苑～欸？彥霖！'],
@@ -59,12 +59,12 @@ export const FRIENDS = {
       ],
     },
   },
-  // 戈登肉鋪店長 女拳大帝：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞。站在櫃台後面（js/interiors.js 的
-  // buildGordon 給位置）；跟他說話、結帳都在櫃台（js/gordon.js），結完帳還不是好友的話他會問要不要互加。
-  // 漢克（js/hank.js）：資管系同學、女拳大帝的室友。晚上在麥當勞內場炸薯條，其他時間騎 ZMAX 兜風或背吉他散步；
-  // 他會動，沒有固定位置（spot 回傳 null），說話由 hank.js 觸發：散步時（先彈吉他）用 intro，在內場用 work。
-  // YeeMing（js/yeeming.js）：物理系、羊明衫的男朋友，正在當兵（迷彩軍服、鋼盔）。spot 為 null：人由 yeeming.js 放，
-  // 聊天由 yeeming.js 呼叫 talk('yeeming', 'walk' | 'volley')；跟他們聊天彥霖每次都會問「要不要打麻將？」
+  // 戈登肉鋪店長 女拳大帝：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞。站在櫃台後面（src/world/Interiors.js 的
+  // buildGordon 給位置）；跟他說話、結帳都在櫃台（src/entities/npcs/Gordon.js），結完帳還不是好友的話他會問要不要互加。
+  // 漢克（src/entities/npcs/Hank.js）：資管系同學、女拳大帝的室友。晚上在麥當勞內場炸薯條，其他時間騎 ZMAX 兜風或背吉他散步；
+  // 他會動，沒有固定位置（spot 回傳 null），說話由 src/entities/npcs/Hank.js 觸發：散步時（先彈吉他）用 intro，在內場用 work。
+  // YeeMing（src/entities/npcs/Yeeming.js）：物理系、羊明衫的男朋友，正在當兵（迷彩軍服、鋼盔）。spot 為 null：人由 src/entities/npcs/Yeeming.js 放，
+  // 聊天由 src/entities/npcs/Yeeming.js 呼叫 talk('yeeming', 'walk' | 'volley')；跟他們聊天彥霖每次都會問「要不要打麻將？」
   yeeming: {
     name: 'YeeMing', short: 'YeeMing', look: YEEMING_LOOK, spot: () => null,
     intro: [
@@ -112,8 +112,8 @@ export const FRIENDS = {
       ],
     },
   },
-  // 羊明衫（js/mingshan.js）：資管系的內捲王、舞蹈專家（想進 K-POP 女團），晚上是麥當勞的值班經理（外場櫃台）；
-  // spot 為 null：人由 mingshan.js 放，聊天由 mingshan.js 呼叫 talk('mingshan', 'dance' | 'work')。
+  // 羊明衫（src/entities/npcs/Mingshan.js）：資管系的內捲王、舞蹈專家（想進 K-POP 女團），晚上是麥當勞的值班經理（外場櫃台）；
+  // spot 為 null：人由 src/entities/npcs/Mingshan.js 放，聊天由 src/entities/npcs/Mingshan.js 呼叫 talk('mingshan', 'dance' | 'work')。
   mingshan: {
     name: '羊明衫', short: '羊明衫', look: MINGSHAN_LOOK, spot: () => null,
     intro: [
@@ -204,9 +204,9 @@ export const FRIENDS = {
     chat: [],
   },
   // 黃蓋瑞：古箏社幹部，住彥霖隔壁（同一層不同戶）。會在跑道跑步、在活動中心的古箏社教室、在房間，
-  // 角色和行程在 js/garry.js（spot 為 null：這裡不放固定的人，聊天由 garry.js 呼叫 talk('garry', 地點)）
-  // 劍玉（js/jianyu.js）：基隆航海王、資管三甲班代。住力行 278，白天在資管系館停車場顧他的超跑，晚上在寢室打特戰英豪；
-  // spot 為 null：人由 jianyu.js 放，聊天由 jianyu.js 呼叫 talk('jianyu', 'car' | 'room')。第一次見面他會拜託你查班費失竊案。
+  // 角色和行程在 src/entities/npcs/Garry.js（spot 為 null：這裡不放固定的人，聊天由 src/entities/npcs/Garry.js 呼叫 talk('garry', 地點)）
+  // 劍玉（src/entities/npcs/Jianyu.js）：基隆航海王、資管三甲班代。住力行 278，白天在資管系館停車場顧他的超跑，晚上在寢室打特戰英豪；
+  // spot 為 null：人由 src/entities/npcs/Jianyu.js 放，聊天由 src/entities/npcs/Jianyu.js 呼叫 talk('jianyu', 'car' | 'room')。第一次見面他會拜託你查班費失竊案。
   jianyu: {
     name: '基隆航海王 劍玉', short: '劍玉', look: JIANYU_LOOK, spot: () => null,
     intro: [
@@ -274,7 +274,7 @@ export const FRIENDS = {
         [['黃蓋瑞', '跑完要去吃早餐，蛋餅加起司 🍳']],
       ],
     },
-    club: { // 古箏社教室 in 學生活動中心 (js/clubroom.js)
+    club: { // 古箏社教室 in 學生活動中心 (src/world/buildings/ClubRoom.js)
       intro: [
         ['黃蓋瑞', '歡迎來古箏社教室～欸，彥霖！'],
         ['彥霖', '蓋瑞！原來你是古箏社的'],
@@ -317,7 +317,7 @@ export class Friends {
       game.interiors.actions.push({
         x: sp.x, z: sp.z, r: 2.8, y: 0, anyY: true,
         label: () => `按 <kbd>E</kbd> 和${f.name}聊天`,
-        cond: () => n.ch.root.visible, // at work (js/teashop.js) he isn't here
+        cond: () => n.ch.root.visible, // at work (src/systems/minigames/TeaShop.js) he isn't here
         fn: (g) => this.talk(id),
       });
     }

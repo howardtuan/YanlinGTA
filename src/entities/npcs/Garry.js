@@ -1,4 +1,4 @@
-// 黃蓋瑞：古箏社幹部，住彥霖隔壁（js/garryhome.js）。很常去體育園區的跑道跑步，偶爾在學生活動中心 3 樓的古箏社教室（js/clubroom.js）。
+// 黃蓋瑞：古箏社幹部，住彥霖隔壁（src/world/buildings/GarryHome.js）。很常去體育園區的跑道跑步，偶爾在學生活動中心 3 樓的古箏社教室（src/world/buildings/ClubRoom.js）。
 // 外型照使用者給的照片：高瘦、黑色短髮有瀏海，白底熱帶葉印花短袖襯衫（橘、藍綠、深藍的葉子，扣好正常穿），
 // 膝上黑色緊身運動短褲；跑步時換素色深灰運動 T。同一時間只會出現在一個地方（跟勞大、吱吱一樣）：
 //   SCHEDULE 依日期輪：早上／傍晚跑步（有幾天沒跑）、中午或晚上在古箏社教室（每小時前 15 分鐘整理琴盒，之後坐在老師位練琴，有撥弦聲）、
@@ -25,7 +25,7 @@ export const ALARM_SRC = 'assets/sfx/garry/alarm.m4a';
 // ---------------------------------------------------------------- the aloha shirt
 // 照照片的花色：白底上大片的熱帶葉（橘、杏、赭橘為主，配藍綠、深藍、灰藍），扣好扣子正常穿：小領口、印花短袖（套在上臂外的寬袖），
 // 下襬自然蓋到腰。身體本身的上衣顏色換成膚色（領口和袖子下面露出來的手臂）。
-// 印花外殼的做法跟 jersey.js 一樣：一層包在軀幹外的殼 + 一張程序貼圖，不是布料的地方用 alphaTest 挖空。
+// 印花外殼的做法跟 src/ui/Jersey.js 一樣：一層包在軀幹外的殼 + 一張程序貼圖，不是布料的地方用 alphaTest 挖空。
 let shirtTex = null;
 const INK = { ground: '#f6f2ea', orange: '#e9803b', peach: '#f3a862', rust: '#c9622a', teal: '#2c9aa8', navy: '#1f3a5f', slate: '#8fb3c6' };
 function paintPrint(g, w, h, seed, scale = 1) {
@@ -167,7 +167,7 @@ export class Garry {
     for (let i = 0; i < path.length; i++) { if (d <= seg[i]) { const p = path[i], q = path[(i + 1) % path.length], t = d / seg[i]; return { x: p[0] + (q[0] - p[0]) * t, z: p[1] + (q[1] - p[1]) * t, h: Math.atan2(q[0] - p[0], q[1] - p[1]) }; } d -= seg[i]; }
     return { x: path[0][0], z: path[0][1], h: 0 };
   }
-  _clubSpot() { // 古箏社教室 in 活動中心 (js/clubroom.js): playing the teacher's guzheng, or tidying the cases
+  _clubSpot() { // 古箏社教室 in 活動中心 (src/world/buildings/ClubRoom.js): playing the teacher's guzheng, or tidying the cases
     const c = this.g.interiors.club;
     this.clubPlay = { ...c.play, play: true };
     this.clubTidy = { ...c.tidy };
@@ -200,7 +200,7 @@ export class Garry {
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }
       else this.heading += angDiff(sp.h, this.heading) * Math.min(1, dt * 4);
       if (sp.play) { mode = 'sit'; this.heading = sp.h; } // stays on the stool behind the guzheng, also while you talk
-      playing = !!sp.play; // (the sound: js/clubmembers.js)
+      playing = !!sp.play; // (the sound: src/entities/npcs/ClubMembers.js)
     } else if (this.mode === 'desk') {
       const s = this.home.seat; this.pos.set(s.x, this.home.base + this.home.F, s.z);
       if (this.pause > 0) { this.pause -= dt; if (this.face != null) this.heading += angDiff(this.face, this.heading) * Math.min(1, dt * 6); }

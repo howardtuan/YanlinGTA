@@ -36,7 +36,7 @@ export class Player {
       this.speed = 0; this.ch.update(dt, { mode: 'sit' }); return;
     }
     if (this.tumble > 0) { this._tumble(dt, collision, interiors); return; }
-    // feet height last frame; the level under the feet (js/terrain.js grade separations)
+    // feet height last frame; the level under the feet (src/world/Terrain.js grade separations)
     const feet = this.pos.y, surf0 = feet - this.y;
     const ax = this.frozen ? { x: 0, y: 0 } : input.axis();
     const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
@@ -51,7 +51,7 @@ export class Player {
     const acc = this.y > 0.01 ? 4 : 14;
     this.vel.x += (tvx - this.vel.x) * Math.min(1, dt * acc);
     this.vel.y += (tvz - this.vel.y) * Math.min(1, dt * acc);
-    // walls: the physics character controller (js/walker.js, this.walker set by main.js) sweeps the move;
+    // walls: the physics character controller (src/entities/Walker.js, this.walker set by src/core/Game.js) sweeps the move;
     // without it the game's own collision, in substeps so a low-FPS sprint frame can't step past a thin wall
     const mx = this.vel.x * dt, mz = this.vel.y * dt;
     if (this.walker) this.walker.move(this.pos, mx, mz);
@@ -95,9 +95,9 @@ export class Player {
     if (this.speed > 0.6 && this.y <= this.ground + 0.02 && foot !== this.lastFoot && !this.sfx) this.sfx = 'step';
     this.lastFoot = foot;
   }
-  // thrown off the scooter (js/main.js): fly with velocity (vx, vz) and vy for t seconds of no
+  // thrown off the scooter (src/core/VehicleSpawner.js): fly with velocity (vx, vz) and vy for t seconds of no
   // control, tumbling in the air, sliding to a stop, lying down until t runs out. With physics the body goes
-  // limp (a ragdoll, js/ragdoll.js; this.ragdoll is set by main.js) for RAG_MAX s at most, and you lie still
+  // limp (a ragdoll, src/physics/Ragdoll.js; this.ragdoll is set by src/core/Game.js) for RAG_MAX s at most, and you lie still
   // at least RAG_LIE s, so a crash costs about as much time as before
   throwOff(vx, vz, vy, t) {
     this.vel.set(vx, vz); this.vy = vy; this.y = Math.max(this.y, 0.6); this.tumble = t; this.spin = 0; this.speed = 0;
@@ -133,11 +133,11 @@ export class Player {
   _ragdoll(dt, interiors) {
     const r = this.rag;
     this.speed = 0; this.vel.set(0, 0); this.vy = 0;
-    // (tumble stays above 0 until you are up: updateFoot and main.js take tumble > 0 as "lying")
+    // (tumble stays above 0 until you are up: updateFoot and src/core/Game.js take tumble > 0 as "lying")
     this.tumble = Math.max(TUMBLE_MIN, this.tumble - dt);
     if (!r.resting) { r.lie = RAG_LIE; return; }
     if ((r.lie -= dt) > 0 || this.tumble > TUMBLE_MIN) return;
-    // up where the trunk lies, on the floor there (an interior floor above the ground, js/interiors.js)
+    // up where the trunk lies, on the floor there (an interior floor above the ground, src/world/Interiors.js)
     this.tumble = 0; this.rag = null;
     const p = this.pos, t = r.moved ? p.y : r.trunkY, surf = surfaceAt(p.x, p.z, t); // (moved: placed by the game)
     this.y = this.ground = interiors ? interiors.groundAt(p.x, p.z, Math.max(0, t - surf - 0.3)) : 0;
@@ -158,13 +158,13 @@ export class Player {
     this.pos = this.ch.root.position; // local now
     this.ch.update(0.2, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
     this.ch.root.visible = v.kind === 'scooter'; // in a car the driver is hidden (a low roof would cut through the head)
-    Vehicle.onRide?.(v, true); // physics body for the ridden vehicle (main.js, js/vehphys.js)
+    Vehicle.onRide?.(v, true); // physics body for the ridden vehicle (src/core/Game.js, src/physics/VehPhysics.js)
     v.up = 0; // (the body starts where the mesh is; an interior floor it was parked on is the physics' business now)
   }
   exit(scene, collision, interiors) {
     const v = this.vehicle; if (!v) return;
     // ridden onto an interior floor above the ground (力行宿舍 2F, up the stairs): the parked vehicle stays on that floor
-    // (v.up = the floor's height above the terrain's surface, js/vehicles.js sync) and you step off onto it, not onto the ground under it
+    // (v.up = the floor's height above the terrain's surface, src/entities/Vehicles.js sync) and you step off onto it, not onto the ground under it
     const vy = v.mesh.position.y, y0 = surfaceAt(v.pos.x, v.pos.z, vy), rise = vy - y0;
     const fv = interiors && rise > 0.5 ? interiors.groundAt(v.pos.x, v.pos.z, rise + 0.4) : 0, up = fv > 0.3 && Math.abs(fv - rise) < 0.6;
     v.up = up ? fv : 0;
@@ -180,8 +180,8 @@ export class Player {
     const nr = collision.noReserved; if (up) collision.noReserved = true; // (a building with an interior is "reserved" against spawns: not against you)
     for (const [cx, cz] of cands) {
       const x = v.pos.x + cx * v.exitSide, z = v.pos.z + cz * v.exitSide;
-      // on the vehicle's own level (deck / cut / ground, terrain.js grade separations),
-      // and not over a retaining wall (terrain.js height levels)
+      // on the vehicle's own level (deck / cut / ground, src/world/Terrain.js grade separations),
+      // and not over a retaining wall (src/world/Terrain.js height levels)
       const y = surfaceAt(x, z, y0), f = floor(x, z, y);
       if (!collision.blocked(x, z, 0.4, f, y0) && Math.abs(y + f - (y0 + (up ? fv : 0))) < 0.5) { this.pos.set(x, y + f, z); h = f; placed = true; break; }
     }
@@ -216,12 +216,12 @@ export class CameraRig {
   update(dt, input, player, collision, sens = 1, interiors = null) {
     const mx = input.mdx, my = input.mdy;
     this.yaw -= mx * 0.0026 * sens;
-    const fpOn = this.fp || !!this.fpv?.active; // concert venue (fp) or the player's own first-person toggle (js/firstperson.js)
+    const fpOn = this.fp || !!this.fpv?.active; // concert venue (fp) or the player's own first-person toggle (src/entities/FirstPerson.js)
     this.pitch = Math.max(fpOn ? -1.1 : -0.25, Math.min(1.2, this.pitch + my * 0.0022 * sens));
     if (Math.abs(mx) + Math.abs(my) > 0) this.idle = 0; else this.idle += dt;
     const v = player.vehicle;
     const wp = player.worldPos();
-    // first person (演唱會場內, js/concert.js): eyes at head height, look where the mouse points
+    // first person (演唱會場內, src/systems/minigames/Concert.js): eyes at head height, look where the mouse points
     if (fpOn && !v) {
       const eye = this.cur.set(wp.x, player.pos.y + 1.62, wp.z), cp = Math.cos(this.pitch);
       this.cam.position.copy(eye);

@@ -2,12 +2,12 @@
 // 外型照使用者給的照片：白皙圓臉、紅棕色長直髮加齊瀏海。
 // 一天（遊戲時鐘）：
 //   09:00–17:00 在資訊管理學系館正面（「資管要贏 票投彥霖」布條前的走廊）練宿營的舞，她養的橘貓跟在旁邊；
-//     其中有些整點不練舞，跟男朋友 YeeMing 手牽手在校園散步（walk：位置與動作由 js/yeeming.js 控制）；
+//     其中有些整點不練舞，跟男朋友 YeeMing 手牽手在校園散步（walk：位置與動作由 src/entities/npcs/Yeeming.js 控制）；
 //   18:00–22:00 在活動中心麥當勞當外場（櫃台）兼值班經理，跟漢克同一班（漢克在內場炸薯條）；
 //   其他時間在圖書館／宿舍讀書或睡覺（找不到人）。
-// 橘貓：走過去按 E 可以摸摸頭；牠只吃戈登肉鋪的肉（js/gordon.js 買過的肉），有肉就可以選擇餵牠。
+// 橘貓：走過去按 E 可以摸摸頭；牠只吃戈登肉鋪的肉（src/entities/npcs/Gordon.js 買過的肉），有肉就可以選擇餵牠。
 //   摸頭和餵食都是幾秒鐘的 21:9 特寫（跟呼叫載具一樣的黑邊），彥霖蹲下來摸牠／把肉放到牠面前。
-// 說完話可以加好友（js/friends.js 的 mingshan）；存檔 save.js 的 mingshan（見過、餵過幾次）。
+// 說完話可以加好友（src/ui/phone/Friends.js 的 mingshan）；存檔 src/systems/SaveSystem.js 的 mingshan（見過、餵過幾次）。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { dressCrew } from '../../systems/minigames/McUniform.js';
@@ -113,7 +113,7 @@ export class Mingshan {
     }
     this.spot = sp;
     this.pos.set(sp.x, surfaceAt(sp.x, sp.z), sp.z);
-    // at work: the register at the dining end (where 漢克 used to stand: he fries in the kitchen now, js/hank.js)
+    // at work: the register at the dining end (where 漢克 used to stand: he fries in the kitchen now, src/entities/npcs/Hank.js)
     const mcd = game.interiors.mcd;
     if (mcd?.hankSpot) {
       const wk = this.worker = createCharacter(MINGSHAN_LOOK); dressCrew(wk, { name: '值班經理 羊明衫' });
@@ -221,7 +221,7 @@ export class Mingshan {
     if (on) { this.g.input.releaseAll?.(); this.g.audio.setEngine?.(false, 0); }
   }
 
-  // ---------------- every frame (main.js) ----------------
+  // ---------------- every frame (src/core/Game.js) ----------------
   update(dt) {
     const g = this.g, plan = mingshanPlan(g.clock);
     if (plan !== this.mode && !this.film) this.mode = plan;
@@ -232,7 +232,7 @@ export class Mingshan {
       this.worker.root.visible = on;
       if (on && g.player.pos.distanceToSquared(this.worker.root.position) < 4900) this.worker.update(dt, { speed: 0, pose: Math.sin(g.time * 0.7) > 0.6 ? 'talk' : null });
     }
-    // walking with YeeMing: js/yeeming.js places and animates her (the cat stays home)
+    // walking with YeeMing: src/entities/npcs/Yeeming.js places and animates her (the cat stays home)
     if (this.mode === 'walk') { this.cat.g.visible = false; if (!g.yeeming?.walkOn) this.ch.root.visible = false; return; }
     // dancing in front of the 資管系館, the cat round her
     const dance = this.mode === 'dance', near = Math.hypot(this.spot.x - p.x, this.spot.z - p.z) < 160 || !!this.film;
@@ -325,7 +325,7 @@ export class Mingshan {
     if ((this._purrT = (this._purrT || 0) - dt) > 0) return; this._purrT = 0.55;
     A.noise?.(0.45, 120, 1, 0.12, 0, 'lowpass');
   }
-  // the close-up camera (after the normal rig, main.js)
+  // the close-up camera (after the normal rig, src/core/Game.js)
   camera(cam, dt) {
     const F = this.film; if (!F) return;
     const c = this.catPos, a = F.a, side = a + Math.PI / 2, t = F.t;

@@ -1,4 +1,4 @@
-// 麥當勞內場值班 — the kitchen side of the part-time job (mcshift.js is the counter side and owns this:
+// 麥當勞內場值班 — the kitchen side of the part-time job (src/systems/minigames/McShift.js is the counter side and owns this:
 // g.job.startKitchen()). Orders from the registers come up on the KVS screen; 彥霖 runs the cooking line:
 // clamshell grill (beef patties), chicken fryer and fries fryer. A station beeps when its food is done —
 // lift it in time (too early = raw, too late = burnt, both go to waste). Cooked food goes into the UHC
@@ -10,7 +10,7 @@ import { mulberry32 } from '../../world/MapBuilder.js';
 import { dressCrew } from './McUniform.js';
 import { dual } from '../../ui/Prompts.js';
 
-// station key as shown to the player: 1 / 2 / 3 on keyboard, D-pad on a gamepad (input.js job layout)
+// station key as shown to the player: 1 / 2 / 3 on keyboard, D-pad on a gamepad (src/core/Input.js job layout)
 const KEY = (g, def) => g.hud.keyLabel(String(def.key), ['Up', 'Right', 'Down', 'Left', 'X', 'Y'][def.key - 1]);
 const STATIONS = [
   { k: 'beef', key: 1, name: '煎台', what: '牛肉餅', icon: '🥩', time: 6.5, yield: 2 },

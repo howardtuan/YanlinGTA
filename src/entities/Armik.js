@@ -1,5 +1,5 @@
 // two-bone arm: bend the arm so the palm reaches a point given in the character's own frame
-// (used by 勞大's ball handling, js/pilot.js, and the guzheng players, js/clubmembers.js)
+// (used by 勞大's ball handling, src/entities/Pilot.js, and the guzheng players, src/entities/npcs/ClubMembers.js)
 import * as THREE from 'three';
 const A = 0.26, B = 0.25, v = () => new THREE.Vector3();
 const t = v(), h0 = v(), e0 = v(), d = v(), m = new THREE.Matrix4(), m2 = new THREE.Matrix4();

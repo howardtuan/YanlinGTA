@@ -1,7 +1,7 @@
 // 黃蓋瑞家：孫師傅牛肉拉麵（彥霖以前住的地方）隔壁那戶的 2 樓，同一層、不同戶。
-// 臨中北路那一排是 js/street_zhongbei.js 照街景蓋的店面（隔壁是「五折天」、再過去「扑藝 salon」，只做外觀），
+// 臨中北路那一排是 src/world/buildings/StreetZhongbei.js 照街景蓋的店面（隔壁是「五折天」、再過去「扑藝 salon」，只做外觀），
 // 所以蓋瑞家是它們後面的一棟 3 層樓後棟：x 跟原本的 f900／f901 一樣（從彥霖那棟的牆到 13.8 m），z 從 10.4 m 到 19.1 m，
-// 跟五折天的後牆之間留一道採光井。從彥霖那棟 2 樓樓梯口右側牆的門（interiors.js buildYanlinHome 的 GZ0..GZ1）
+// 跟五折天的後牆之間留一道採光井。從彥霖那棟 2 樓樓梯口右側牆的門（src/world/Interiors.js buildYanlinHome 的 GZ0..GZ1）
 // 進來是一條走廊，房門在房間右側牆的下方。
 // 房間照使用者畫的平面圖（從上往下看，不能鏡射）：轉 180 度放進來——圖的右邊 = 彥霖家那側（x 小），圖的上方 = 後巷（z 大）。
 // 每件家具都用圖上的像素座標換算（下面的 PX / PZ / rectOf），房間外框在圖上是 (105,120)–(1920,1898)：
@@ -46,7 +46,7 @@ const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 export function buildGarryHome(I, scene, Kit, regMat, YH) {
   const G = GARRY, c0 = Math.cos(YH.ang), s0 = Math.sin(YH.ang);
   const k = new Kit(I, YH.ox - G.DZ * s0, YH.oz + G.DZ * c0, YH.ang, 1), base = k.base;
-  // I.addWall's heights count from the ground under each wall's midpoint (js/physworld.js adds it back); this house's count from base
+  // I.addWall's heights count from the ground under each wall's midpoint (src/physics/PhysWorld.js adds it back); this house's count from base
   k.wallLine = (x0, z0, x1, z1, y0, y1) => { const a = k.w(x0, z0), b = k.w(x1, z1), g = base - H((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); I.addWall(a[0], a[1], b[0], b[1], y0 + g, y1 + g); };
   k.wallRect = (x0, x1, z0, z1, y0, y1) => { k.wallLine(x0, z0, x1, z0, y0, y1); k.wallLine(x1, z0, x1, z1, y0, y1); k.wallLine(x1, z1, x0, z1, y0, y1); k.wallLine(x0, z1, x0, z0, y0, y1); };
   const F = H(YH.ox, YH.oz) + G.F2 - base, CH = F + 2.85, top = F + (G.NF - 1) * G.FH; // 2F level with 彥霖's landing
@@ -193,7 +193,7 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     return g;
   };
   const CX = PL.chair.cx, CZ = D1Z0 - 0.36;
-  const deskChair = chair(CX, CZ, 0); // faces the desk (+z); swivels with 蓋瑞 (js/garry.js)
+  const deskChair = chair(CX, CZ, 0); // faces the desk (+z); swivels with 蓋瑞 (src/entities/npcs/Garry.js)
   // on it (he sits on the -z side, his left is +x): laptop in front of him, the charging phone by his right hand, notebook and pens,
   // power strip and wifi router along the wall, the toast night light at the bed end
   const dz = (d) => D1Z0 + d; // d: metres in from the desk's front edge

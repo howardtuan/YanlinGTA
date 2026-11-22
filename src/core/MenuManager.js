@@ -147,7 +147,7 @@ export class MenuManager {
     $('modal').classList.toggle('wide', sub === 'CONTROLS');
   }
 
-  // 操作說明: keyboard & mouse / gamepad / touch tabs (js/controls.js); opens on the device in use
+  // 操作說明: keyboard & mouse / gamepad / touch tabs (src/core/Controls.js); opens on the device in use
   showControls(fromPause = false) {
     this.modal('操作說明', controlsHTML(this.game) + (fromPause ? '<div class="modal-btns" style="margin-top:14px"><button class="menu-btn primary" id="mBack"><span>▶ 繼續遊戲</span><small>RESUME</small></button></div>' : ''), 'CONTROLS');
     bindControls($('modalBody'));

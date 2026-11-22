@@ -1,9 +1,9 @@
 // 麥當勞打工值班 — go through the staff entrance behind the counter of the 活動中心 McDonald's, take
 // the students' orders, pack each tray and serve it. A shift pays the hourly wage (NT$196, pro rata
 // when you leave early) plus a tip per order (faster = more), and every happy customer is worth votes;
-// wrong trays and slow service cost you. interiors.js hands over the shop layout (Kit frame, staff NPC);
-// main.js keeps the player frozen while `active`, calls update() every frame and camera() after the
-// camera rig. shifts / earned / best feed the phone's 麥當勞 app. The kitchen-line position (mckitchen.js,
+// wrong trays and slow service cost you. src/world/Interiors.js hands over the shop layout (Kit frame, staff NPC);
+// src/core/Game.js keeps the player frozen while `active`, calls update() every frame and camera() after the
+// camera rig. shifts / earned / best feed the phone's 麥當勞 app. The kitchen-line position (src/systems/minigames/McKitchen.js,
 // startKitchen) runs through here too and shares the wage, those stats and the vote cap.
 import * as THREE from 'three';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
@@ -59,7 +59,7 @@ export class McShift {
     this._camPos = new THREE.Vector3(); this._camFrom = new THREE.Vector3(); this._look = new THREE.Vector3(); this._lookFrom = new THREE.Vector3();
     this.wage = WAGE;
     this._buildUI();
-    this.kitchen = new McKitchen(game, this); // the kitchen-line shift (mckitchen.js) shares wage, stats and vote cap
+    this.kitchen = new McKitchen(game, this); // the kitchen-line shift (src/systems/minigames/McKitchen.js) shares wage, stats and vote cap
   }
   get active() { return this.state !== 'off' || this.kitchen.active; }
   startKitchen() { if (!this.active) this.kitchen.start(); }
@@ -310,7 +310,7 @@ export class McShift {
     cam.lookAt(e >= 1 ? this._look : this._lookFrom);
   }
 
-  // ------------------------------------------------------------------ crew uniform (mcuniform.js)
+  // ------------------------------------------------------------------ crew uniform (src/systems/minigames/McUniform.js)
   _uniform(on) {
     if (on && !this._undress) this._undress = dressCrew(this.g.player.ch, { name: '彥霖' });
     else if (!on && this._undress) { this._undress(); this._undress = null; }

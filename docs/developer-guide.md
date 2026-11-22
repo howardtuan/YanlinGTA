@@ -63,7 +63,7 @@ npm run dev
 
 ```mermaid
 flowchart TD
-    E2E["端對端測試 (E2E Story Bot)<br/>• 瀏覽器真實運行、劇本走查、無頭點擊 (tests/e2e/)"]
+    E2E["端對端測試 (E2E Story Bot)<br/>• 瀏覽器真實運行、劇本走查、無頭點擊 (tools/e2e/)"]
     WASM["WASM 雙軌精度驗收 (Integration)<br/>• Rust WASM vs JS fallback 逐像素 0 誤差比對 (tools/check_wasm.mjs)"]
     Unit["核心演算法單元測試 (Unit Tests)<br/>• Vitest 驅動 (collision, nav, save, stocks, missions) (tests/unit/)"]
 

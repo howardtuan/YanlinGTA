@@ -1,9 +1,9 @@
 // 體育園區的戶外籃球場、排球場。
 //  東側（操場東邊、聖火台後面）：學校公告的「體育園區籃排球場」，三座全場＋南端半場、東邊三座排球場，2024 年起加蓋太陽能光電頂棚。
-//    OSM way 492479183；場地照 NLSC 2019 正射圖（蓋頂棚前）量，頂棚輪廓照 2024 正射圖；柱子位置和高度是推測。勞大來這裡打球（js/pilot.js）。
+//    OSM way 492479183；場地照 NLSC 2019 正射圖（蓋頂棚前）量，頂棚輪廓照 2024 正射圖；柱子位置和高度是推測。勞大來這裡打球（src/entities/Pilot.js）。
 //  西側（體育館北側、操場西邊）：OSM way 492479182，照 2024 正射圖：兩座並排全場、一座籃框朝西的半場、一座朝南的半場、最南一座全場
 //    （東半被樹遮住，寬度是推測）、東南角兩座排球場。
-// 鋪面和線畫在 js/map.js 的 areas 圖層（原本是草地），籃架、球網、頂棚在這裡蓋。
+// 鋪面和線畫在 src/world/MapBuilder.js 的 areas 圖層（原本是草地），籃架、球網、頂棚在這裡蓋。
 import * as THREE from 'three';
 import { terrainGrid, surfaceAt } from './Terrain.js';
 
@@ -39,7 +39,7 @@ export function courtRims(C) {
 }
 const AT = [[1.6, -347.7], [190.1, -418.5]];             // one vertex of each OSM pitch
 export const isCourt = (a) => a.kind === 'pitch' && a.pts.some(([x, z]) => AT.some(q => Math.hypot(x - q[0], z - q[1]) < 0.5));
-// trees and shrubs the survey doesn't have (js/zones.js): under the roof, on the west volleyball courts
+// trees and shrubs the survey doesn't have (src/world/zones/Zones.js): under the roof, on the west volleyball courts
 export const courtTreeHide = () => [[[-50, -13], [-50, 27], [23, 27], [23, 12.6], [56, 12.6], [56, -13]].map(([u, v]) => EW(u, v)), RED_W];
 // the east courts are level (the 20 m terrain model is not): terrain nodes under the roof go to one gently sloping plane
 export function courtTerrain() {
@@ -50,7 +50,7 @@ export function courtTerrain() {
   }
 }
 
-// the paint (js/map.js): red all over, green courts, red keys and centre circles, white lines
+// the paint (src/world/MapBuilder.js): red all over, green courts, red keys and centre circles, white lines
 const RED = [0.27, 0.075, 0.07], GREEN = [0.15, 0.215, 0.105], WHITE = [0.86, 0.87, 0.84]; // linear rgb
 export function paintCourts(areas, geo) {
   for (const a of areas) geo.flatPoly(a.pts, 0.02, RED);

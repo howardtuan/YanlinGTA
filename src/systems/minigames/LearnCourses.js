@@ -1,4 +1,4 @@
-// 資管學堂（js/learn.js）的課程內容：Python 入門、MySQL 入門各 9 章，AI Agent 入門 10 章。
+// 資管學堂（src/systems/minigames/Learn.js）的課程內容：Python 入門、MySQL 入門各 9 章，AI Agent 入門 10 章。
 // 每章：intro 觀念說明 → ex 三個範例（程式碼可以直接試跑，note 逐行解說）→ pit 常見錯誤 → sum 重點整理 → 練習題。
 // 練習題欄位：task 題目、start 起始程式、ans 參考解答；Python 用 out 比對輸出（must：程式裡一定要出現的字，
 // mustAny 表示出現其中一個就好）；SQL 用 ans 的查詢結果比對（ordered 連順序一起比；check 是改資料的題目執行後拿來比對的查詢）。

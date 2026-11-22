@@ -34,8 +34,8 @@ function bez(c, s) {
 export class Traffic {
   constructor(scene, world, count = 28) {
     this.scene = scene; this.world = world; this.rnd = mulberry32(99);
-    this.inView = () => true; // inView(pos): whether the camera may be looking at pos (main.js sets it)
-    this.peds = null; // Peds (main.js): traffic stops for pedestrians in its path
+    this.inView = () => true; // inView(pos): whether the camera may be looking at pos (src/core/Game.js sets it)
+    this.peds = null; // Peds (src/core/Game.js): traffic stops for pedestrians in its path
     this.time = 0;
     this.agents = [];
     // now and then a 超跑 (supercar) or a 重機 (big bike): its own random stream, so the rest of the traffic is as before;
@@ -67,7 +67,7 @@ export class Traffic {
       v.mesh.visible = false; v.ai.dormant = true;
     }
   }
-  // a story character's own vehicle joins the traffic (漢克's ZMAX, js/hank.js) with the given rider; while
+  // a story character's own vehicle joins the traffic (漢克's ZMAX, src/entities/npcs/Hank.js) with the given rider; while
   // v.ai.hold is set it is not spawned again (he is walking or at work), otherwise it comes and goes like the rest
   adopt(v, rider) {
     v.driver = 'ai';
@@ -248,10 +248,10 @@ export class Traffic {
       if (!a) continue;
       if (v.rider?.rag || v.rider?.lieT !== undefined) this._riderTick(v, dt);
       if (a.dormant) { if (!a.hold && this.rnd() < 0.05) this.spawn(v, p.x, p.z, 90, 260); continue; }
-      if (v.knocked) continue; // thrown by physics (main.js _knockTraffic) until it lands (landed())
+      if (v.knocked) continue; // thrown by physics (src/core/Game.js _knockTraffic) until it lands (landed())
       const dPl = Math.hypot(v.pos.x - p.x, v.pos.z - p.z);
       // a wreck stays where it came to rest (the traffic behind it goes around it), then is recycled once you
-      // are 90 m away or not looking at it (inView, set by main.js)
+      // are 90 m away or not looking at it (inView, set by src/core/Game.js)
       if (a.wreck > 0) { a.wreck -= dt; if (a.wreck <= 0) { if (dPl > 90 || !this.inView(v.pos)) { a.dormant = true; v.mesh.visible = false; } else a.wreck = 1; } continue; }
       if (dPl > 330) { a.dormant = true; v.mesh.visible = false; continue; }
       if (v.rider?.lieT !== undefined && a.stunned > 0) a.stunned = Math.max(a.stunned, 0.1); // back on its lane: waits for its rider
@@ -345,7 +345,7 @@ export class Traffic {
       a.d = Math.max(0, a.d + v.speed * dt); // (backing up only while swinging out to pass)
       while (!a.dormant && a.d >= a.len) this._next(v);
       if (!a.dormant) this._place(v, dt);
-      v.mesh.visible = !a.dormant && dPl < 230 * (this.viewK ?? 1); // viewK: shorter on lower quality (main.js _applyQuality)
+      v.mesh.visible = !a.dormant && dPl < 230 * (this.viewK ?? 1); // viewK: shorter on lower quality (src/core/Game.js _applyQuality)
       if (v.rider && dPl < 60) v.rider.update(dt, { mode: 'ride' });
     }
   }
@@ -363,8 +363,8 @@ export class Traffic {
       if (v.rider && v.rider.lieT === undefined) v.rider.root.visible = true; // (a thrown rider gets back on when it is up, _riderTick)
     } else { a.wreck = 20; v.speed = 0; }
   }
-  // the rider of traffic vehicle v thrown off (main.js _knockTraffic) with velocity (vx, vy, vz): a ragdoll
-  // (js/ragdoll.js) that lies still a moment, then is back on its vehicle (hidden while that is a wreck);
+  // the rider of traffic vehicle v thrown off (src/core/Game.js _knockTraffic) with velocity (vx, vy, vz): a ragdoll
+  // (src/physics/Ragdoll.js) that lies still a moment, then is back on its vehicle (hidden while that is a wreck);
   // without physics it just disappears until then
   throwRider(v, vx, vy, vz) {
     const r = v.rider; if (!r || r.lieT !== undefined) return;
@@ -384,7 +384,7 @@ export class Traffic {
     this._riderHome(v);
     r.root.visible = !a.dormant && !(a.wreck > 0) && !v.knocked;
   }
-  // v.runBack (漢克's ZMAX, js/hank.js): the thrown rider gets up where he landed and runs back to the vehicle;
+  // v.runBack (漢克's ZMAX, src/entities/npcs/Hank.js): the thrown rider gets up where he landed and runs back to the vehicle;
   // it waits for him (a fallen one is picked up and put back on its lane). True while he is still running.
   _runBack(v, dt) {
     const r = v.rider, a = v.ai;
@@ -437,7 +437,7 @@ const ACCEPT = ['好啊！支持彥霖！', '資管要贏！', '我會去投票�
 export class Peds {
   constructor(scene, world, count = 34) {
     this.scene = scene; this.world = world; this.rnd = mulberry32(7);
-    this.inView = () => true; // inView(pos): whether the camera may be looking at pos (main.js sets it)
+    this.inView = () => true; // inView(pos): whether the camera may be looking at pos (src/core/Game.js sets it)
     this.time = 0;
     this.list = [];
     for (let i = 0; i < count; i++) {
@@ -659,12 +659,12 @@ export class Peds {
       }
       // walkers on a footbridge / viaduct way use its deck, others keep their level
       p.y = surfaceAt(p.pos.x, p.pos.z, p.state === 'walk' && p.edge.road.deck ? Infinity : p.y);
-      // (a deck's end that is a building's outside stair instead: js/lixing.js)
+      // (a deck's end that is a building's outside stair instead: src/world/buildings/Lixing.js)
       if (p.state === 'walk' && p.edge.road.deckY) { const sy = p.edge.road.deckY(p.pos.x, p.pos.z); if (sy !== undefined) p.y = sy; }
       p.ch.root.position.set(p.pos.x, p.y + (p.state === 'fly' ? p.air : 0), p.pos.z);
       p.ch.root.rotation.y = p.heading;
       p.ch.root.rotation.x = p.state === 'fly' ? p.spin : 0; // tumbling through the air
-      const vr = 80 * (this.viewK ?? 1); // shorter on lower quality (main.js _applyQuality)
+      const vr = 80 * (this.viewK ?? 1); // shorter on lower quality (src/core/Game.js _applyQuality)
       p.ch.root.visible = dPl < vr;
       p.ch.setDetail(dPl < 16);
       if (dPl < vr) p.ch.update(dt, { speed, mode, pose });
@@ -683,7 +683,7 @@ export class Peds {
     p.state = 'fly'; p.t = 2.5;
     p.vx = dirX * s * 0.75; p.vz = dirZ * s * 0.75; p.vy = 2.2 + s * 0.28; p.air = 0.1; p.spin = 0;
     p.heading = Math.atan2(-dirX, -dirZ);
-    // with physics: limp (js/ragdoll.js), flipping backwards over the hit (it faces the vehicle)
+    // with physics: limp (src/physics/Ragdoll.js), flipping backwards over the hit (it faces the vehicle)
     p.ch.root.rotation.set(0, p.heading, 0);
     const sp = Math.min(8, s * 0.6);
     p.rag = this.ragdoll?.(p.ch, { x: p.vx, y: p.vy, z: p.vz }, { x: dirZ * sp, y: 0, z: -dirX * sp }) || null;

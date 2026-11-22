@@ -1,6 +1,6 @@
-// 古箏社教室：學生活動中心 3 樓西北角（使用者指正在 3 樓），從主走廊西端的門進去（js/sac.js 在走廊北牆留門、外牆挖門洞）。
+// 古箏社教室：學生活動中心 3 樓西北角（使用者指正在 3 樓），從主走廊西端的門進去（src/world/buildings/Sac.js 在走廊北牆留門、外牆挖門洞）。
 // 教室裡：前面（北牆）白板和社旗、老師位的古箏，對面三排社員的古箏架和琴凳、譜架，西牆的琴盒櫃和成發海報。
-// 社團時間黃蓋瑞（js/garry.js）和社員（js/clubmembers.js）在這裡，沒有人的時候沒有聲音。
+// 社團時間黃蓋瑞（src/entities/npcs/Garry.js）和社員（src/entities/npcs/ClubMembers.js）在這裡，沒有人的時候沒有聲音。
 // 同一角的其他樓層不能進去（輪廓在 sacTrimmedPts 挖掉，外牆在這裡照活動中心的窗戶樣式蓋）。
 // Local frame: origin at the NW corner of 活動中心 (-195, -128.6), x east, z SOUTH (as everywhere in the game).
 import * as THREE from 'three';
@@ -34,7 +34,7 @@ export function buildClubCorner(I, scene, Kit) {
   k.finish(scene);
 }
 
-// ---------------- 3F: 古箏社教室 (called by js/sac.js: F3 = 3F's world height, c = its ceiling) ----------------
+// ---------------- 3F: 古箏社教室 (called by src/world/buildings/Sac.js: F3 = 3F's world height, c = its ceiling) ----------------
 export function buildClub3F(I, scene, Kit, regMat, { F3, c, sf }) {
   const W = CLUB.W, D = CLUB.D, Y = F3 - 0.1, H = c - Y, ZB = 0.45, XW = 0.45, XE = W - 0.05, ZS = D - 0.05;
   const k = new Kit(I, CLUB.ox, CLUB.oz, 0), { MO, MT } = materials(regMat, 'cz'), nc = { col: false };
@@ -148,5 +148,5 @@ export function buildClub3F(I, scene, Kit, regMat, { F3, c, sf }) {
   };
 }
 
-// the classroom's outline (js/main.js keeps trees and street furniture off it)
+// the classroom's outline (src/core/Game.js keeps trees and street furniture off it)
 export function clubFootprint() { const { ox, oz, W, D } = CLUB; return [[ox - 0.5, oz - 0.5], [ox + W, oz - 0.5], [ox + W, oz + D], [ox - 0.5, oz + D]]; }

@@ -18,15 +18,15 @@ export function loadTerrain(t) {
 }
 export const terrainGrid = () => G;
 
-// ---------- pits: runtime sunken areas (js/zone_g.js 學活南面下沉舞台＋B1 麥當勞) ----------
-// Axis-aligned rectangles registered before the world is built (js/main.js). Inside one H() is the
+// ---------- pits: runtime sunken areas (src/world/zones/ZoneG.js 學活南面下沉舞台＋B1 麥當勞) ----------
+// Axis-aligned rectangles registered before the world is built (src/core/Game.js). Inside one H() is the
 // pit floor, so everything that stands on H (players, NPCs, vehicles, trees, pads / stairs, the
 // interiors and their physics walls / floors) follows it down. The 10 m grid itself is untouched:
-// js/map.js draws the ground mesh from Hgrid() and masks it over the pits (pitRects), js/physworld.js
+// src/world/MapBuilder.js draws the ground mesh from Hgrid() and masks it over the pits (pitRects), src/physics/PhysWorld.js
 // refines the cells under a pit to 1 m so its floor follows H(). clearBridges() keeps the pits.
 const pits = [];
-// mask: false keeps the ground mesh drawn over it (a B1 room under a walkable plaza: js/zone_g.js puts a deck on top)
-// veg: true keeps the trees and shrubs that grow in it (an outdoor sunken garden: js/zone_a.js 圖書館東側下沉庭院)
+// mask: false keeps the ground mesh drawn over it (a B1 room under a walkable plaza: src/world/zones/ZoneG.js puts a deck on top)
+// veg: true keeps the trees and shrubs that grow in it (an outdoor sunken garden: src/world/zones/ZoneA.js 圖書館東側下沉庭院)
 export function addPit(x0, z0, x1, z1, y, { mask = true, veg = false } = {}) { pits.push({ x0: Math.min(x0, x1), z0: Math.min(z0, z1), x1: Math.max(x0, x1), z1: Math.max(z0, z1), y, mask, veg }); }
 export const pitList = () => pits;
 // pit floor at (x,z) (within r metres of a pit when r > 0), or null
@@ -35,7 +35,7 @@ export function pitAt(x, z, r = 0, bare = false) {
   for (let i = 0; i < pits.length; i++) { const p = pits[i]; if (bare && p.veg) continue; if (x > p.x0 - r && x < p.x1 + r && z > p.z0 - r && z < p.z1 + r) return p.y; }
   return null;
 }
-// mask rectangles for js/map.js cutMask: [cx, cz, ux, uz, half length, half width]
+// mask rectangles for src/world/MapBuilder.js cutMask: [cx, cz, ux, uz, half length, half width]
 export const pitRects = () => pits.filter(p => p.mask).map(p => [(p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, 1, 0, (p.x1 - p.x0) / 2, (p.z1 - p.z0) / 2]);
 
 export function H(x, z) {
@@ -71,7 +71,7 @@ const BC = 24; const bgrid = new Map(); const decks = [];
 const bkey = (ix, iz) => ix * 73856 + iz;
 // pts: polyline of one OSM bridge way. The deck runs straight between its two
 // end heights but never below the ground across its width; it is sampled every
-// <= DS m (map.js draws the same stations). Returns yAt(distance along the way).
+// <= DS m (src/world/MapBuilder.js draws the same stations). Returns yAt(distance along the way).
 export const DS = 2.5;
 // opt (grade separations, see below): yAt(d) = deck height instead of the
 // straight line between the ends; lv = the level kind the stations register as
@@ -111,7 +111,7 @@ export function addBridge(pts, w, opt = {}) {
     return ys[ys.length - 1];
   };
 }
-// every deck / cut / box station (2.5 m segments): js/physworld.js turns them into physics colliders
+// every deck / cut / box station (2.5 m segments): src/physics/PhysWorld.js turns them into physics colliders
 export const deckList = () => decks;
 export function clearBridges() { bgrid.clear(); decks.length = 0; levels.length = 0; }
 
@@ -128,7 +128,7 @@ export function clearBridges() { bgrid.clear(); decks.length = 0; levels.length 
 // slope) (grade separations are picked on top of that, see below), so the player,
 // NPCs, vehicles and the camera follow them like a bridge. groundY() is the
 // same without bridge decks: things placed on the ground use it (via Hmin).
-// The edges are drawn and sealed by js/map.js (retaining walls / stair sides
+// The edges are drawn and sealed by src/world/MapBuilder.js (retaining walls / stair sides
 // with 2D collision segments wherever the drop is above a step), so a pad
 // is only reached by its stairs and ramps; vehicles may drive up stairs.
 const levels = [];
@@ -207,10 +207,10 @@ export function nearStair(x, z, pad = 0, foot = pad) {
 }
 
 // ---------- grade separations (viaducts, footbridges, road cuts) ----------
-// tools/overrides.json 'grade', drawn by js/map.js. Unlike the low bridges
+// tools/overrides.json 'grade', drawn by src/world/MapBuilder.js. Unlike the low bridges
 // above these are levels of their own, with something else at the same x/z:
 //  LV_DECK: a deck above a street that stays at grade (viaduct, footbridge);
-//  LV_CUT:  the floor of an open cut; there is no ground at its x/z (js/map.js
+//  LV_CUT:  the floor of an open cut; there is no ground at its x/z (src/world/MapBuilder.js
 //           masks the ground mesh there);
 //  LV_BOX:  the floor of a roofed cut (box under the railway); the ground on
 //           top stays a level of its own.

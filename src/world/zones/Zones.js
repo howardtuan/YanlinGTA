@@ -1,21 +1,21 @@
 // 分區註冊表：校內各區與周邊街道自建的部分，一區一列。
-// 新增一個區：開一個新檔（例如 js/zone_a.js）寫建模，然後在下面 ZONES 加一列，main.js 和 interiors.js 都不用改。
+// 新增一個區：開一個新檔（例如 src/world/zones/ZoneA.js）寫建模，然後在下面 ZONES 加一列，src/core/Game.js 和 src/world/Interiors.js 都不用改。
 //
 // 每一列可以有這些欄位（都可以省略）：
 //   name                 給人看的名字
 //   drop                 要從 OSM／補建街區拿掉的建物 id（自建的房子取代它們）
 //   fix(b)               每棟建物先跑一次的資料修正（輪廓、高度、類型）
 //   add(buildings)       新增建物到 data.buildings（push 到最後面）
-//   look(b)              每棟建物換外觀 look／分段高度（只動自己那幾棟；map.js 照舊從輪廓畫牆和屋頂）
+//   look(b)              每棟建物換外觀 look／分段高度（只動自己那幾棟；src/world/MapBuilder.js 照舊從輪廓畫牆和屋頂）
 //   footprints(data)     保留範圍：樹、街道家具、出生點不會長進來
 //   terrain(data)        執行期地形修改（例如學活的下沉舞台）
 //   trees()              額外指定位置的樹
 //   vegHide(data)        蓋完植栽後才補的構件範圍，裡面的樹和灌木只隱藏不重抽
-//   treeHide(data)       可以走上去的平坦平台範圍，裡面的樹、棕櫚、灌木都隱藏、樹的碰撞拿掉（不重抽，js/map.js opts.treeHide）
+//   treeHide(data)       可以走上去的平坦平台範圍，裡面的樹、棕櫚、灌木都隱藏、樹的碰撞拿掉（不重抽，src/world/MapBuilder.js opts.treeHide）
 //   ownSign              自己掛店名的 POI 名稱（地圖就不再另外畫招牌）
 //   build(I, scene, data, collision)   自建的模型、碰撞、可走的地面、E 鍵動作
 //
-// 順序很重要：ZONES 的順序就是 build 的順序，跟拆檔前 interiors.js 裡的呼叫順序完全一樣；很多地方共用亂數，
+// 順序很重要：ZONES 的順序就是 build 的順序，跟拆檔前 src/world/Interiors.js 裡的呼叫順序完全一樣；很多地方共用亂數，
 // 順序一換，樹、灌木、冷氣的位置就會跟著變。新的區加在最後面。
 import * as THREE from 'three';
 import { Kit, regMat, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS } from '../Kit.js';
@@ -42,9 +42,9 @@ import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
-  { name: '校內第 0 批資料修正', drop: CF_DROP, fix: campusFix, add: campusAdd }, // js/campus_fix.js
+  { name: '校內第 0 批資料修正', drop: CF_DROP, fix: campusFix, add: campusAdd }, // src/world/CampusFix.js
   // ---------------- 周邊街道 ----------------
-  { // 茶學苑（門口點餐，js/teashop.js 放店員）與中北路南側那排店面
+  { // 茶學苑（門口點餐，src/systems/minigames/TeaShop.js 放店員）與中北路南側那排店面
     name: '中北路南側：茶學苑那排', footprints: () => [teaFootprint(), ...teaRowFootprints()],
     build: (I, scene) => { I.tea = buildTeaShop(I, scene); buildTeaRow(I, scene); },
   },
@@ -57,7 +57,7 @@ export const ZONES = [
     build: (I, scene) => buildZhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
   { name: '戈登肉鋪', footprints: () => [gordonFootprint()], build: (I, scene) => { I.gordon = buildGordon(I, scene); } }, // 校史館西南側草坪
-  { name: '林口體育館（地圖外，演唱會）', build: (I, scene) => { I.arena = buildArena(I, scene, Kit, regMat); } }, // js/concert.js
+  { name: '林口體育館（地圖外，演唱會）', build: (I, scene) => { I.arena = buildArena(I, scene, Kit, regMat); } }, // src/systems/minigames/Concert.js
   // ---------------- 校內各區 ----------------
   { // 正門：混凝土校名牆、校園導覽牌、停車場入口、P 字塔
     name: '正門', footprints: gateExtrasFootprints, trees: gateTrees, build: (I, scene) => buildGateExtras(I, scene),
@@ -102,12 +102,12 @@ export const ZONES = [
     name: '學活室內', look: sacLook,
     build: (I, scene, data, collision) => buildSac(I, scene, data, collision, Kit, regMat),
   },
-  { // 東側光電頂棚籃排球場、西側室外球場：籃架、球網、頂棚（鋪面與線在 js/map.js 的 areas 圖層）
+  { // 東側光電頂棚籃排球場、西側室外球場：籃架、球網、頂棚（鋪面與線在 src/world/MapBuilder.js 的 areas 圖層）
     name: '體育園區籃排球場', terrain: courtTerrain, treeHide: courtTreeHide, build: (I, scene) => buildCourts(I, scene, Kit, regMat),
   },
 ];
 
-// ---------------- main.js / interiors.js 用的彙總 ----------------
+// ---------------- src/core/Game.js / src/world/Interiors.js 用的彙總 ----------------
 export const zoneDrops = () => ZONES.flatMap(z => z.drop || []);
 export const zoneOwnSigns = () => ZONES.flatMap(z => z.ownSign || []);
 export function zonesFix(buildings) { for (const z of ZONES) if (z.fix) for (const b of buildings) z.fix(b); }

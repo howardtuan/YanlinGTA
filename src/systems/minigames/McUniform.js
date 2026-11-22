@@ -23,7 +23,7 @@ function mats() {
 export function dressCrew(ch, { name = '', hairnet = false } = {}) {
   const m = mats(), added = [], swapped = [];
   const add = (parent, o) => { o.traverse(c => { if (c.isMesh) c.castShadow = c.geometry.boundingSphere?.radius > 0.04 || !!c.userData.shadow; }); parent.add(o); added.push([parent, o]); };
-  // crew shirt: a continuous skinned body (bodymesh.js) is recoloured; the old part-built body swaps the
+  // crew shirt: a continuous skinned body (src/entities/BodyMesh.js) is recoloured; the old part-built body swaps the
   // material of every part drawn in the figure's own shirt material (torso, hem, shoulders, sleeves)
   const recolor = ch.bodyMesh?.userData.recolor;
   if (recolor) recolor({ shirt: CREW_SHIRT });
@@ -34,7 +34,7 @@ export function dressCrew(ch, { name = '', hairnet = false } = {}) {
   // head: cap (counter) or hairnet (kitchen)
   const hat = new THREE.Group();
   if (hairnet) {
-    // sized to enclose the hair cap of character.js (r 0.127, y-scale 1.1, centre y 0.108)
+    // sized to enclose the hair cap of src/entities/Character.js (r 0.127, y-scale 1.1, centre y 0.108)
     const net = new THREE.Mesh(new THREE.SphereGeometry(0.135, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), m.net);
     net.scale.set(1.03, 1.13, 1.08); net.position.set(0, 0.106, -0.006); hat.add(net);
     const band = new THREE.Mesh(new THREE.TorusGeometry(0.139, 0.006, 5, 32), m.net);

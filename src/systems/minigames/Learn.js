@@ -11,7 +11,7 @@ const KEY = 'yanlinGTA.learn.v1';
 const PY_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
 const SQL_URL = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/';
 
-// ---------------------------------------------------------------- courses (content in js/learn_courses.js)
+// ---------------------------------------------------------------- courses (content in src/systems/minigames/LearnCourses.js)
 import { PY, SQ, AG, SEED, SCHEMA } from './LearnCourses.js';
 const COURSES = [
   { id: 'py', name: 'Python 入門', icon: '🐍', color: '#3776ab', desc: '從 print 到函式，9 堂課學會 Python 基本功', lessons: PY, lang: 'python' },

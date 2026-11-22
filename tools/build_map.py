@@ -19,14 +19,14 @@ Anything outside BOUNDS is dropped here, so the query may over-fetch.
 tools/overrides.json holds hand-checked facts with a source URL per entry; it
 wins over OSM tags and the height estimate. Building entries may set floors, h,
 colour, material, roof, roofColour, facade (window style), feature (list of
-named extras drawn by js/map.js) and split (cut one footprint into blocks of
+named extras drawn by src/world/MapBuilder.js) and split (cut one footprint into blocks of
 different heights). The 'landmarks' section describes the hand-built landmarks
-in js/map.js and is copied to cycu.json without its source/note fields.
+in src/world/MapBuilder.js and is copied to cycu.json without its source/note fields.
 
 tools/looks.json holds per-building facade looks for the campus (wall finish and
 colour, window type per storey, bands, plinth, fins, canopies, roof extras; see its
 _doc), keyed by OSM id, each entry with its own source and confidence. Its 'look'
-object is copied to the building as 'look' (js/map.js reads it); 'noShop' is
+object is copied to the building as 'look' (src/world/MapBuilder.js reads it); 'noShop' is
 copied as a plain field. Entries with 'skip' (a reason) are survey data only and
 are not merged. Kept apart from overrides.json so looks and sizes can
 be edited independently.
@@ -65,7 +65,7 @@ CAMPUS_REL = 8286924
 # Buildings the game replaces with hand-built geometry or keeps clear for
 # landmarks / spawn / missions. (x0, z0, x1, z1) boxes in metres; any OSM
 # building intersecting one is dropped unless it is listed in KEEP_NAMES
-# (those are handled by name in js/main.js).
+# (those are handled by name in src/core/Game.js).
 # Checked 2026-11 against mission points, spawn, 鐘塔, 舊校門, 噴水池, night market
 # and the interiors' reserved footprints: no new OSM building overlaps them, so
 # both lists are empty. Entry formats: ((x0, z0, x1, z1), 'reason'), 'w123': 'reason'.
@@ -367,7 +367,7 @@ def load_overrides():
 
 def build_levels(sites):
     """overrides.json 'levels' (see levels_doc there) -> data 'levels': pads,
-    stairs and floors in game x/z for js/terrain.js + js/map.js, sinks for
+    stairs and floors in game x/z for src/world/Terrain.js + src/world/MapBuilder.js, sinks for
     tools/build_terrain.py. Heights pass through unchanged."""
     out = dict(pads=[], stairs=[], floors=[], sinks=[])
     for site in sites:
@@ -406,7 +406,7 @@ MARK_FEATURES = ('box', 'zebra', 'stop', 'bikebox', 'arrow', 'nozebra')
 def apply_marks(out, stats):
     """tools/roads.json 'marks' and 'features' (see its _doc): the painted markings of a street as
     the NLSC 2024 orthophoto shows them. 'marks' sets r['marks'] = {centre, edge, lanes} on that OSM
-    way (js/map.js draws it instead of the class defaults); 'features' (網狀黃線, 斑馬線, 停止線,
+    way (src/world/MapBuilder.js draws it instead of the class defaults); 'features' (網狀黃線, 斑馬線, 停止線,
     機車停等區, lane arrows at their surveyed spots) go to out['roadMarks'] as they are."""
     if not os.path.exists(ROADS):
         return
@@ -440,7 +440,7 @@ def shift_roads(out, items, by, real, stats, st, final_w={}):
     _survey/xsec.py cut). Between anchors v is interpolated along the way; past the first / last
     anchor it holds for HOLD m, then eases back to 0 over another HOLD m. A node shared with other
     ways moves in all of them (as overrides.json grade 'move' does). Returns the roads whose line
-    changed; each keeps its OSM line in r['osm'] and gets r['sh'] = 1 (js/map.js lays trees, lamps
+    changed; each keeps its OSM line in r['osm'] and gets r['sh'] = 1 (src/world/MapBuilder.js lays trees, lamps
     and shop fronts out on the OSM line, then moves the spots the moved road now covers)."""
     HOLD = 40.0
     moved = {}   # node id -> [sum x, sum z, n]
@@ -617,7 +617,7 @@ def width_anchors(r, e, stats):
 def push_barriers(out, moved, stats, st):
     """An OSM wall / hedge running along a shifted road (shift_roads) that the new carriageway now
     covers or comes within its draw margin of (and that did not stand in the old one) moves
-    sideways to just past the new kerb, so js/furniture.js (which drops the stretches within
+    sideways to just past the new kerb, so src/world/Furniture.js (which drops the stretches within
     0.3 m + half its thickness of a carriageway) still draws it; e.g. a median hedge OSM traced
     along one kerb of the median. Only the 2 m steps near the road move (at most 2.5 m); the rest
     of the barrier keeps its OSM vertices. Run after the widths are final."""
@@ -702,7 +702,7 @@ def apply_roads(out, stats):
     補建 (synthetic) houses, ground and fences the block fill laid along the old
     kerb are cut back behind the new one instead (ones left too small are
     skipped: they draw from their own random streams). Every road changed here
-    keeps its OSM width / line in r['osm'] (as build_grade does), so js/map.js
+    keeps its OSM width / line in r['osm'] (as build_grade does), so src/world/MapBuilder.js
     lays the trees and lamps out as before and moves the ones the wider road takes."""
     if not os.path.exists(ROADS):
         return
@@ -759,7 +759,7 @@ def apply_roads(out, stats):
             continue
         if 'osm' not in r:   # (a shifted road already keeps its OSM line there)
             r['osm'] = {'w': r['w'], 'pts': [list(p) for p in r['pts']]}
-        r['rw'] = 1   # width from roads.json (js/map.js: the OSM width stays in r.osm.w)
+        r['rw'] = 1   # width from roads.json (src/world/MapBuilder.js: the OSM width stays in r.osm.w)
         if w > r['w']:
             grown = [g for g in grown if g[0] is not r]
             grown.append((r, w / 2 + (side if side > 0.3 else 1.1)))
@@ -803,7 +803,7 @@ def apply_roads(out, stats):
             bd['skip'] = 1; st['skipped'] += 1
         else:
             bd['pre'] = bd['pts']; bd['pts'] = P; st['cut'] += 1
-    # cut ground keeps its old ring in 'pre': js/map.js lays the 補建 woods' / lawns' trees
+    # cut ground keeps its old ring in 'pre': src/world/MapBuilder.js lays the 補建 woods' / lawns' trees
     # out on it (one random stream for all of them), and a wood / lawn left with nothing stays
     # in the list as 'gone' so the ones after it keep their draws
     for ar in out['areas']:
@@ -851,7 +851,7 @@ def apply_roads(out, stats):
 
 def apply_water(out, stats):
     """tools/water.json (see its _doc): fix water areas (kind / outline) and attach
-    'sink' (sunk water, banks, railings for js/map.js) to areas and waterway segments.
+    'sink' (sunk water, banks, railings for src/world/MapBuilder.js) to areas and waterway segments.
     Runs after the block fill and grade so neither moves."""
     if not os.path.exists(WATER):
         return
@@ -875,7 +875,7 @@ def apply_water(out, stats):
             best['pts'] = [[float(x), float(z)] for x, z in e['pts']]
         if 'kind' in e:
             best['kind'] = e['kind']
-            best['was'] = 'water'  # trees keep off it as before (js/map.js), so no other tree moves
+            best['was'] = 'water'  # trees keep off it as before (src/world/MapBuilder.js), so no other tree moves
         if 'sink' in e:
             best['sink'] = e['sink']
 
@@ -964,7 +964,7 @@ def build_grade(out, items, stats):
     and turns the [x, z, v] anchors into [s, v] along the path. A tunnel way of
     a cut sets its roof span; other tunnel ways alongside the cut get
     r['beside'] = id (no portals of their own). Every road changed here keeps
-    its OSM geometry in r['osm'] = {w, pts}: js/map.js lays the trees out on it,
+    its OSM geometry in r['osm'] = {w, pts}: src/world/MapBuilder.js lays the trees out on it,
     so the shared random streams are drawn as without this step."""
     res = []
     orig = [(r['w'], [list(p) for p in r['pts']]) for r in out['roads']]
@@ -994,7 +994,7 @@ def build_grade(out, items, stats):
         g = dict(id=it['id'], kind=it['kind'], name=it['name'], path=path, w=it['w'], prof=prof)
         if it.get('clearance'):
             g['clearance'] = it['clearance']
-        if it.get('cut0'):   # the path's first metres are not built (a building's stair is there): js/map.js gradeDeck
+        if it.get('cut0'):   # the path's first metres are not built (a building's stair is there): src/world/MapBuilder.js gradeDeck
             g['cut0'] = it['cut0']
         tun = [path_proj(path, *p)[0] for r in mine if r.get('tunnel') for p in r['pts']]
         if tun:
@@ -1146,7 +1146,7 @@ def split_parts(pts, sp):
 # 衛星, text only, no imagery used); here each block's 'plan' becomes
 # deterministic synthetic content: buildings (synthetic=1, src='f'), ground
 # areas (synthetic=1; new kinds farm / dirt / wood) and 鐵皮圍籬 barriers
-# (type sheet_fence). None of it is a real footprint. js/main.js drops all of
+# (type sheet_fence). None of it is a real footprint. src/core/Game.js drops all of
 # it when the 補建街區 setting is off.
 SURVEY = os.path.join(HERE, 'block_survey.json')
 FC = 10            # blank-cell size: the survey's grid (blank_cells below)
@@ -1154,7 +1154,7 @@ FF = 2.5           # fine cell for ground polygons and footprint tests
 FN = int(FC / FF)
 B_BLD, B_AREA, B_ROAD, B_WATER, B_RAIL = 1, 2, 4, 8, 16
 CONTENT = {'park', 'grass', 'pitch', 'track', 'water', 'parking', 'school'}
-SIDEWALK = 2.6     # js/map.js sidewalk(): kerb strip out to w/2 + 2.6 on primary..tertiary
+SIDEWALK = 2.6     # src/world/MapBuilder.js sidewalk(): kerb strip out to w/2 + 2.6 on primary..tertiary
 GROUND_KIND = {'farm': 'farm', 'wood': 'wood', 'grass': 'grass', 'dirt': 'dirt', 'parking': 'parking',
                'yard': 'industrial', 'factory': 'industrial', 'apt': 'grass', 'campus': 'grass', 'pond': 'water'}
 STRICT = {'parking', 'yard', 'sport', 'factory', 'pond'}   # ground kept >= 1 m off kerbs (cars spawn on parking)
@@ -1293,7 +1293,7 @@ def bbox_of(pts, pad=0):
 
 def keepouts(out):
     """Spots the fill must keep off: spawn / 舊校門, night market, the enterable
-    buildings and their flattened terrain (js/interiors.js, tools/build_terrain.py
+    buildings and their flattened terrain (src/world/Interiors.js, tools/build_terrain.py
     interior_zones), guardhouse barriers, named landmarks. (circles, rings+gap)"""
     circ, polys = [], []
     poi = {p['name']: p for p in out['pois']}
@@ -1715,7 +1715,7 @@ def fill_blocks(out, stats, rnd=1):
             elif zt == 'apt':
                 lo, hi = fl_range(zd, '7-12')
                 kd = zd.get('kind', 'town')
-                fc = zd.get('facade')   # e.g. 'glass' for a curtain-wall tower (js/map.js window style)
+                fc = zd.get('facade')   # e.g. 'glass' for a curtain-wall tower (src/world/MapBuilder.js window style)
 
                 def mk(Pr, W, D, lo=lo, hi=hi, kd=kd, fc=fc):
                     add_bld(Pr, kd, lo + int(R() * (hi - lo + 1)), 'apt', colour=tint(0.7),
@@ -2152,7 +2152,7 @@ def main():
                 rec['floors'] = max(q['floors'] for q in rec['parts'])
                 rec['h'] = max(q['h'] for q in rec['parts'])
                 if o['split'].get('ac'):
-                    rec['splitAc'] = 1   # js/map.js: keep the unsplit roof's AC units
+                    rec['splitAc'] = 1   # src/world/MapBuilder.js: keep the unsplit roof's AC units
         lk = looks.get(oid)
         if lk:
             used_looks.add(oid)
@@ -2338,18 +2338,18 @@ def main():
              'parking': 2, 'park': 3, 'grass': 4, 'pitch': 5, 'track': 5, 'water': 6}
     out['areas'].sort(key=lambda a: (order.get(a['kind'], 3), -abs(area(a['pts']))))
 
-    # hand-built landmarks (map.js): looks checked against the sources in overrides.json
+    # hand-built landmarks (src/world/MapBuilder.js): looks checked against the sources in overrides.json
     out['landmarks'] = {k: {j: v for j, v in o.items() if j not in ('source', 'note')}
                         for k, o in ovr_all.get('landmarks', {}).items()}
 
     # outdoor level changes (overrides.json 'levels'): local site frames -> game x/z
     out['levels'] = build_levels(ovr_all.get('levels', []))
 
-    # shops OSM lacks (overrides.json 'pois'); egg = easter-egg trigger (js/main.js)
+    # shops OSM lacks (overrides.json 'pois'); egg = easter-egg trigger (src/core/Game.js)
     out['eggs'] = []
     for p in ovr_all.get('pois', []):
         x, z = proj(p['lat'], p['lon'])
-        # prio: js/furniture.js gives these a shop-sign atlas cell before OSM pois
+        # prio: src/world/Furniture.js gives these a shop-sign atlas cell before OSM pois
         out['pois'].append(dict(name=p['name'], x=round(x, 1), z=round(z, 1), kind=p['kind'], prio=1))
         if p.get('egg'):
             e = p['egg']; ex, ez = proj(*e['at'])
@@ -2367,7 +2367,7 @@ def main():
     # block fill so the synthetic blocks stay exactly as they were
     out['grade'] = build_grade(out, ovr_all.get('grade', []), stats)
     # measured carriageway widths (tools/roads.json); after the block fill and
-    # grade so neither moves, and the old width stays in r['osm'] for js/map.js
+    # grade so neither moves, and the old width stays in r['osm'] for src/world/MapBuilder.js
     # the slip lanes join the map only now: the block fill (and the survey it replays) ran without them,
     # and at the end of the list they leave every other road's index (hashed by js) as it was
     out['roads'] += links

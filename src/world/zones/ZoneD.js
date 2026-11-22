@@ -1,6 +1,6 @@
 // D 區「北側教學」校內建築外觀（都不能進去，只做外觀）。
-// 做法同 js/zone_h.js：js/map.js 照舊用 OSM 輪廓蓋牆，zoneDLook() 只換 look／高度／執行時切塊（b.parts＋splitAc，
-// 輪廓 b.pts、名稱、kind 都不動，map.js 的共用亂數抽取次數不變），buildZoneD() 自建輪廓表達不了的構件。
+// 做法同 src/world/zones/ZoneH.js：src/world/MapBuilder.js 照舊用 OSM 輪廓蓋牆，zoneDLook() 只換 look／高度／執行時切塊（b.parts＋splitAc，
+// 輪廓 b.pts、名稱、kind 都不動，src/world/MapBuilder.js 的共用亂數抽取次數不變），buildZoneD() 自建輪廓表達不了的構件。
 // 自建構件不加 reserved；碰撞用 Interiors.addWall（高度相對當地地面，地圖植栽之後才加），
 // 陸華樓東端樓梯間、北側水池範圍內原本的樹用 treeHide 藏起來（種樹位置與抽取次數不變）。
 //
@@ -35,7 +35,7 @@ export const D_IDS = {
   zx: 'w392023405', zj: 'w392023408', tm: 'w328790116',
 };
 
-// 凸多邊形以外也可用的半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 zone_h.js）
+// 凸多邊形以外也可用的半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 src/world/zones/ZoneH.js）
 function clipPoly(pts, keep) {
   let P = pts.map(p => [p[0], p[1]]);
   const n = keep(P[0]).length;
@@ -117,14 +117,14 @@ const LH_BOX = () => quadAt(LH_E, LH.boxS0, LH.boxS1, 0, LH.boxOut);
 const lhPool = (r, n = 18) => { const { s, o, a0, a1 } = LH_PLAZA.pool, c = LH_N.atM(s, o), P = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; P.push([c[0] + Math.cos(a) * r * LH_N.tx - Math.sin(a) * r * LH_N.nx, c[1] + Math.cos(a) * r * LH_N.tz - Math.sin(a) * r * LH_N.nz]); } return P; };
 const lhPoolRing = () => [...lhPool(LH_PLAZA.pool.r1 + 0.5), ...lhPool(LH_PLAZA.pool.r0 - 0.5).reverse()];
 
-// 平坦平台範圍內的樹、棕櫚、灌木種完後藏起來（js/map.js opts.treeHide）：陸華樓東端樓梯間、北面大階梯、水池
+// 平坦平台範圍內的樹、棕櫚、灌木種完後藏起來（src/world/MapBuilder.js opts.treeHide）：陸華樓東端樓梯間、北面大階梯、水池
 // 中正樓東面（P[7]→P[8]，外法線朝東）南北兩端室外樓梯：w 離牆寬、land 平台長、run 梯段水平長、end 離牆角距離
 const ZX_E = edge([119.6, 173.9], [110.3, 195.3]);
 const ZX_ST = { w: 1.4, land: 2.0, run: 6.8, end: 0.3 };
 const zxStairSpans = () => { const L = ZX_ST.land + ZX_ST.run; return [[ZX_ST.end, ZX_ST.end + L, 1], [ZX_E.l - ZX_ST.end - L, ZX_E.l - ZX_ST.end, -1]]; };
 export const zoneDTreeHide = () => [...zxStairSpans().map(([a, b]) => quadAt(ZX_E, a - 0.3, b + 0.3, 0, ZX_ST.w + 0.5)), dxLink(), LH_BOX(),quadAt(LH_N, LH.stairS - 3.8, LH.stairS + 3.8, 0, LH.stairOff + 0.6), lhPoolRing()];
 
-// ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
+// ---------------- 外觀 look（src/core/Game.js 在 src/world/MapBuilder.js 蓋樓前套用） ----------------
 export function zoneDLook(b) {
   const id = b.id;
   if (id === D_IDS.luhua) {
@@ -155,7 +155,7 @@ export function zoneDLook(b) {
     delete b.look.topFloor; // 實景沒有退縮的頂樓
   } else if (id === D_IDS.dxs) {
     b.h = DXS.h; b.floors = DXS.floors;
-    delete b.material; // 原本 OSM 材質 tiles 會蓋過 look（map.js matKey）；look 自己有牆色
+    delete b.material; // 原本 OSM 材質 tiles 會蓋過 look（src/world/MapBuilder.js matKey）；look 自己有牆色
     const bar = (b.parts && b.parts[0]?.pts) || null, back = (b.parts && b.parts[1]?.pts) || null;
     const tile = { base: 'tile', colour: '#7e665e' };
     b.look = {
@@ -167,7 +167,7 @@ export function zoneDLook(b) {
     };
     if (bar && back) {
       const conn = clipPoly(back, p => [DXS.vConn - dxsV(p)]), pod = clipPoly(back, p => [dxsV(p) - DXS.vConn]);
-      // 牆色在 map.js 是整棟共用的 tint，單塊要靠 faces.colour 改
+      // 牆色在 src/world/MapBuilder.js 是整棟共用的 tint，單塊要靠 faces.colour 改
       const white = { wall: { base: 'smooth', colour: '#e4e1da' }, faces: [{ colour: '#e4e1da' }], windows: { types: ['ribbon'], bay: 3.0, accent: '#cfcac2', glass: '#56646c' }, parapet: { h: 0.8, colour: '#d8d4cc' }, roof: { colour: '#dcdad4' } };
       if (conn.length > 2 && pod.length > 2) {
         b.parts = [
@@ -409,7 +409,7 @@ function mat(key) {
   return (MATS[key] = m());
 }
 
-// ---------------- 幾何累加（依材質合併，同 zone_h.js） ----------------
+// ---------------- 幾何累加（依材質合併，同 src/world/zones/ZoneH.js） ----------------
 class Acc {
   constructor() { this.parts = new Map(); }
   add(m, g) { if (g.index) g = g.toNonIndexed(); if (!this.parts.has(m)) this.parts.set(m, []); this.parts.get(m).push(g); return g; }
@@ -488,7 +488,7 @@ export function buildZoneD(I, scene, data, collision) {
   const k = new Acc(), shapes = [];
   const find = id => data.buildings.find(b => b.id === id);
   const H = (x, z) => groundY(x, z);
-  // 碰撞牆：高度相對牆中點的地面（js/kit.js Interiors 的牆是相對地面的）
+  // 碰撞牆：高度相對牆中點的地面（src/world/Kit.js Interiors 的牆是相對地面的）
   const wallC = (ax, az, bx, bz, y0, y1) => { const g = H((ax + bx) / 2, (az + bz) / 2); I.addWall(ax, az, bx, bz, y0 - g, y1 - g); };
   const ringColl = (P, y0, y1) => { for (let i = 0; i < P.length; i++) { const a = P[i], c = P[(i + 1) % P.length]; wallC(a[0], a[1], c[0], c[1], y0, y1); } };
   // 屋頂欄杆（沿多邊形外圈內縮 inset）

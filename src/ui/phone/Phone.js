@@ -21,9 +21,9 @@ const APPS = [
   { id: 'missions', name: '任務', icon: '📋', bg: 'linear-gradient(#7aa7ff,#2f6bff)', noArt: true },
   { id: 'stock', name: '靈感股', icon: '📈', bg: 'linear-gradient(#ff6b6b,#c81e2a)', noArt: true },
   { id: 'news', name: 'PYtoday', icon: '📰', bg: 'linear-gradient(#ff3b3b,#1a1a1a)', noArt: true },
-  { id: 'locate', name: '定位', icon: '📍', bg: 'linear-gradient(#5ac8fa,#007aff)', noArt: true }, // friends on a map (js/locate.js)
-  { id: 'drone', name: '無人機', icon: '🛸', bg: 'linear-gradient(#3a4256,#0d111a)', noArt: true }, // connects to 彥霖's drone (js/drone.js)
-  { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (js/concert.js)
+  { id: 'locate', name: '定位', icon: '📍', bg: 'linear-gradient(#5ac8fa,#007aff)', noArt: true }, // friends on a map (src/world/Locate.js)
+  { id: 'drone', name: '無人機', icon: '🛸', bg: 'linear-gradient(#3a4256,#0d111a)', noArt: true }, // connects to 彥霖's drone (src/entities/Drone.js)
+  { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (src/systems/minigames/Concert.js)
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
   { id: 'wallet', name: 'Peach Pay', icon: '💳', bg: 'linear-gradient(#ffb38a,#ff6f61)' },
@@ -68,7 +68,7 @@ const DOCK = ['messages', 'camera', 'wallet', 'settings'];
 const PAGE1 = 8;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // a promise that gives up after ms (the on-device AI can stall)
-// last-resort fallback for an AI reply; nano.js gives up earlier itself (session 40 s + prompt 25 s)
+// last-resort fallback for an AI reply; src/ui/phone/Nano.js gives up earlier itself (session 40 s + prompt 25 s)
 const REPLY_LIMIT = 70000;
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => {
   setTimeout(() => no(new Error('timeout')), ms);
@@ -85,7 +85,7 @@ export class Phone {
     this.feed = FEED.map((p, i) => ({ ...p, id: `f${  i}`, at: now - p.ago }));
     this.pcard = PCARD.map((p, i) => ({ ...p, id: `c${  i}`, at: now - p.ago }));
     this.storySeen = new Set(); // ids of stories already watched ('名字|日|0或1')
-    this.friends = new Set();   // friend ids (js/friends.js): their chats and Peachgram show up
+    this.friends = new Set();   // friend ids (src/ui/phone/Friends.js): their chats and Peachgram show up
     this.poolI = { feed: 0, pcard: 0, story: 0 }; this.nextPost = now + 30; this.fresh = { gram: 0, pcard: 0 };
     this.page = 0;
     Nano.init();
@@ -249,7 +249,7 @@ export class Phone {
   }
   _dateStr() { const d = new Date(); return `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`; }
   _temp() { return Math.round(this.g.night > 0.5 ? 19 : 24 + Math.sin((this.g.clock % 1440) / 1440 * Math.PI) * 3); }
-  // ---------------- 🛸 無人機 (js/drone.js) ----------------
+  // ---------------- 🛸 無人機 (src/entities/Drone.js) ----------------
   // the app only shows the drone; the take-off waits for the button (and the phone never comes back with the drone
   // already flying: putting the phone away from here forgets this app)
   _drone() {
@@ -814,7 +814,7 @@ export class Phone {
     // the typing box (AI on) is selectable like an option (blue when chosen); ↑ sends what is in the box. Clicking an
     // option puts its words in the box, so you send it (or change it first) from there.
     const typeRow = (ph, on) => `<div class="ph-input ph-typerow ${on ? 'on' : ''}"><input class="ph-type" maxlength="80" autocomplete="off" spellcheck="false" placeholder="${esc(ph)}"><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>`;
-    // AI paused after it stopped answering (nano.js _stall): the box stays, greyed out, saying why
+    // AI paused after it stopped answering (src/ui/phone/Nano.js _stall): the box stays, greyed out, saying why
     const pausedRow = Nano.stalled ? '<div class="ph-input ph-typerow ph-typeoff"><input class="ph-type" disabled placeholder="AI 暫時沒回應，先用上面的選項聊"></div>' : '';
     const opts = this._options(st);
     if (!opts) {
@@ -960,7 +960,7 @@ export class Phone {
       this._deliver(st, out.replies || [], 0, 150, null, true);
     }).catch(() => { if (st.optsPending && st.tok === tok) return this._lateOpts(st, tok, null); if (!mine()) return; st.tok++; st.aiOpts = ['最近在忙什麼？', '有空幫我宣傳一下嗎 🙏']; st.busy = false; if (this.cur === st) this._renderCompose(); });
   }
-  // the AI's replies are out before it has written your two options (nano.js onReplies): show them right away; the
+  // the AI's replies are out before it has written your two options (src/ui/phone/Nano.js onReplies): show them right away; the
   // options follow (_lateOpts). Meanwhile it no longer counts as thinking, and no new topic is started.
   _early(st, tok, v) {
     return (rs) => {

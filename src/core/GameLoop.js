@@ -156,7 +156,7 @@ export class GameLoop {
     }
   }
 
-  // far vehicles (> ~30 m from the camera) draw one baked mesh instead of their parts (vehicles.js lod)
+  // far vehicles (> ~30 m from the camera) draw one baked mesh instead of their parts (src/entities/Vehicles.js lod)
   vehicleLod(dt) {
     const game = this.game;
     if ((this._lodT = (this._lodT || 0) + dt) < 0.25 || !game.traffic) return;
@@ -273,7 +273,7 @@ export class GameLoop {
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
     const yieldGpu = Nano.active > 0 && game.phone?.open && !game.player.vehicle && !game._shot && now - (game._drawnAt || 0) < 160;
-    // the computer (js/pc.js) and the PYL video cover the whole screen: don't draw the 3D scene behind them at all, so typing
+    // the computer (src/ui/PC.js) and the PYL video cover the whole screen: don't draw the 3D scene behind them at all, so typing
     // in the terminal / notes stays smooth (drawing the campus took ~20 ms a frame and made the keys lag)
     const covered = (game.pc?.isOpen || game.videoOpen) && !game._shot;
     if (!yieldGpu && !covered) {

@@ -1,7 +1,7 @@
 // 演唱會：手機「皮元系統」App 搶 ITZV / aespo 在林口體育館的演唱會門票，開演當天搭接駁車進場。
 // - 每團每週一場（day + 7n，19:00），開演前兩天 12:00 開賣；越貴的區越早賣完，開賣 45 分鐘（遊戲時間）全部售完。
 // - 搶票：排隊 → 選區（錢不夠買不了）→ 依序按驗證碼（限時）→ 付款成功，票會存檔。
-// - 林口體育館在地圖外（js/arena.js）。19:00 開演：主螢幕疊上 YouTube 播放器（youtube-nocookie，官方頻道的 MV），
+// - 林口體育館在地圖外（src/world/buildings/Arena.js）。19:00 開演：主螢幕疊上 YouTube 播放器（youtube-nocookie，官方頻道的 MV），
 //   依序輪播該團的播放清單，播不了的（不給嵌入）自動跳下一首；播完就散場。音樂和畫面都直接來自官方影片，遊戲裡不存任何檔案。
 import * as THREE from 'three';
 import { ARENA_ZONES } from '../../world/buildings/Arena.js';
@@ -111,7 +111,7 @@ export class Concerts {
       b.rotation.z = Math.sin(t * 0.8 + i) * 0.55; b.rotation.x = 0.35 + Math.sin(t * 0.6 + i * 1.7) * 0.25;
       b.material.color.set(i % 2 ? c.color : c.color2); b.material.opacity = 0.08 + 0.05 * Math.sin(t * 3 + i);
     });
-    // lightsticks bob on the GPU (arena.js stick shader): to a ~120 bpm beat while the show is on
+    // lightsticks bob on the GPU (src/world/buildings/Arena.js stick shader): to a ~120 bpm beat while the show is on
     ar.U.uT.value = t; ar.U.uAmp.value = live ? 0.24 : 0.05; ar.U.uSpd.value = live ? 6.3 : 1.5;
     ar.lamps.visible = !live || Math.sin(t * 6.3) > -0.6;
     // LED ribbon round the upper ring: the group name and hearts scroll past
@@ -311,7 +311,7 @@ export class Concerts {
       const sp = ar.spots[n]; if (sp.hidden || Math.abs(sp[1] - pl.y) > 0.5) continue; push(sp[0] + o.x, sp[2] + o.z);
     }
   }
-  // inside the hall you watch in first person (no body in the way of the stage); js/player.js CameraRig.fp
+  // inside the hall you watch in first person (no body in the way of the stage); src/entities/Player.js CameraRig.fp
   _fp(on) { const g = this.g; g.rig.fp = on; g.player.ch.root.visible = !on; }
   // your own lightstick (bought at the 手燈 stall): held up at the lower right of the view during the show
   _myStick(on) {

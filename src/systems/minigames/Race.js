@@ -212,7 +212,7 @@ export class Race {
       }
       grp.position.set(x, y, z); grp.rotation.y = p.a + (kind === 'cone' ? 0 : Math.PI / 2); // barriers lie across the lane
       this.g.scene.add(grp);
-      // physics props (js/physics.js addProp): cones tumble away, water barriers (full: heavy) slide a little
+      // physics props (src/physics/Physics.js addProp): cones tumble away, water barriers (full: heavy) slide a little
       const prop = this.g.physics.addProp(grp, kind === 'cone'
         ? { parts: [{ shape: 'cone', r: 0.24, hh: 0.36, y: 0.42, mass: 1.6 }, { shape: 'box', hx: 0.25, hy: 0.03, hz: 0.25, mass: 1.4 }], friction: 0.8, damping: 0.7, angularDamping: 0.8 }
         : { shape: 'box', hx: 1, hy: 0.4, hz: 0.275, mass: 220, friction: 0.9, damping: 1.5, angularDamping: 2, maxSpeed: 2.5 });

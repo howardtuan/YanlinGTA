@@ -1,7 +1,7 @@
 // Played as a short film: 21:9 letterbox, HUD hidden, the player can't move, and a street-level camera
 // follows the helicopter in, watches the scooter touch down and the helicopter leave, then hands back.
 // 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JET SL hanging under it on a cable, lowers it
-// onto the road next to you, lets go and flies off again. Its pilot (pilot.js) sits behind a glass canopy and gets a short
+// onto the road next to you, lets go and flies off again. Its pilot (src/entities/Pilot.js) sits behind a glass canopy and gets a short
 // close-up while he lowers the scooter. When he isn't flying he walks around campus (CampusPilot) — there is only ever one of him.
 import * as THREE from 'three';
 import { surfaceAt } from '../../world/Terrain.js';
@@ -210,7 +210,7 @@ export class Airdrop {
       const sy = at.y - 1.4 - hang;
       v.mesh.position.set(at.x + Math.sin(R.t * 1.7) * 0.15, Math.max(R.gy, sy), at.z + Math.cos(R.t * 1.3) * 0.15);
       v.mesh.rotation.y = R.spot.h + Math.sin(R.t * 0.8) * 0.2;
-      v.mesh.updateMatrix(); // vehicle matrices only update on request (vehicles.js)
+      v.mesh.updateMatrix(); // vehicle matrices only update on request (src/entities/Vehicles.js)
       const pos = R.cable.geometry.attributes.position;
       pos.setXYZ(0, at.x, at.y - 1.4, at.z); pos.setXYZ(1, v.mesh.position.x, v.mesh.position.y + 1.25, v.mesh.position.z); pos.needsUpdate = true;
       v.mesh.visible = true;

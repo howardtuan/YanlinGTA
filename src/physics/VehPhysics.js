@@ -1,6 +1,6 @@
 // Vehicle physics (P3): the vehicle you ride is a dynamic Rapier body ("servo chassis").
 //
-// The arcade handling in js/vehicles.js (_intent: throttle, brake, steering, drift) still decides where you
+// The arcade handling in src/entities/Vehicles.js (_intent: throttle, brake, steering, drift) still decides where you
 // want to go. The chassis is a real rigid body that is pushed toward that velocity with a limited force
 // (aMax), so on open road it drives exactly like the arcade model (the story bot's driving model stays
 // right), while everything it touches is real physics: walls and trees stop it, traffic and rivals shove it,
@@ -14,7 +14,7 @@
 //     were going into the obstacle yourself (being pushed by traffic or a rival is not you ramming it), is
 //     the impact; once per frame (with physics steps) and object the arcade rules run (Vehicle.hitWall /
 //     _hitVehicle: stop, slow down, bump, crash, knock), on the speed from before the hit
-// Per frame (main.js _stepPhysics): latch(input) -> physics.update (pre / post every step) -> frame(dt).
+// Per frame (src/core/Game.js _stepPhysics): latch(input) -> physics.update (pre / post every step) -> frame(dt).
 // Without physics (or ?arcadecar) Vehicle.drive() runs as before.
 import { G, groups } from './Physics.js';
 import { surfaceAt } from '../world/Terrain.js';
@@ -39,7 +39,7 @@ const yawRot = h => ({ x: 0, y: Math.sin(h / 2), z: 0, w: Math.cos(h / 2) });
 // SLIP_MAX of that direction (negative backing up), otherwise more and more only its part along it
 const arcSpeed = (x, z, ang) => { const al = x * Math.sin(ang) + z * Math.cos(ang), hs = Math.hypot(x, z); return hs > 0.5 ? al / Math.max(Math.abs(al) / hs, COS_SLIP) : al; };
 
-// the body's shape: the arcade body's outline (js/vehicles.js bodySeg: a capsule of radius hw around the
+// the body's shape: the arcade body's outline (src/entities/Vehicles.js bodySeg: a capsule of radius hw around the
 // middle line, round at both ends, so it slips past a tree or a corner the way the arcade model and the
 // story bot expect; a box's corners would catch them) as a prism with upright sides from y0 to y1
 function footprint(R, v, y0, y1) {

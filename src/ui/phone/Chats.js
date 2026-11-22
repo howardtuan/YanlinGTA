@@ -8,7 +8,7 @@ import { trackFriend } from '../../world/Locate.js';
 export const CONTACTS = [
   {
     // 彥霖的女朋友：韓國舞蹈女團 aespo 的成員，遠距離戀愛中（她在首爾）。pinned: 訊息列表永遠置頂，頭貼右下角有藍色圖釘。
-    // aespo 週五在林口體育館開唱（js/concert.js），搶票用手機的「皮元系統」。
+    // aespo 週五在林口體育館開唱（src/systems/minigames/Concert.js），搶票用手機的「皮元系統」。
     // newer: 舊存檔（沒有記聊天室 id）照順序對回聊天室時跳過這個
     id: 'winter', name: 'aespo Winter', sub: '遠距離戀愛中 💙 首爾', avatar: '<img class="ph-avimg" src="assets/gram/winter_av.jpg" alt="">', color: '#9b7bff', unread: 2, pinned: true, newer: true,
     history: [
@@ -310,11 +310,11 @@ export const CONTACTS = [
     ],
   },
   {
-    // 勞大（彥霖航空的直升機駕駛員，js/pilot.js）：一開始就是好友。「你在哪？」每一輪都能問，
+    // 勞大（彥霖航空的直升機駕駛員，src/entities/Pilot.js）：一開始就是好友。「你在哪？」每一輪都能問，
     // 他會回現在在哪；在校園散步或在籃球場打球的話會設定導航，路線跟著他走（nav.track）。
     // newer: 舊存檔（沒有記聊天室 id）照順序對回聊天室時跳過這個
     id: 'laoda', name: '勞大', sub: '彥霖航空・直升機駕駛員', avatar: '<img class="ph-avimg" src="assets/gram/laoda_av.jpg" alt="">', color: '#552583', unread: 1, newer: true,
-    laugh: '孩子們，這並不好笑', // 你傳的訊息有「哈哈」之類的笑，他的回覆最後一定補這句（js/phone.js）
+    laugh: '孩子們，這並不好笑', // 你傳的訊息有「哈哈」之類的笑，他的回覆最後一定補這句（src/ui/phone/Phone.js）
     history: [
       { day: '今天' },
       ['laoda', 'Man 我勞大，要空運機車打給我 🚁'],
@@ -349,7 +349,7 @@ export const CONTACTS = [
   },
 ];
 
-// 加了好友才會出現的聊天室（js/friends.js）。unread = 加好友當下的未讀數。
+// 加了好友才會出現的聊天室（src/ui/phone/Friends.js）。unread = 加好友當下的未讀數。
 export const FRIEND_CONTACTS = {
   zz: {
     id: 'zz', name: '排球少年 吱吱', sub: '資管系・體保生・同屆', avatar: '<img class="ph-avimg" src="assets/gram/zz_av.jpg" alt="">', color: '#7a1f2c', unread: 2,
@@ -435,7 +435,7 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
-  // YeeMing（js/yeeming.js）：「你在哪？」說他在排球場、跟明衫散步或收假回營；也可以問「要不要打麻將？」
+  // YeeMing（src/entities/npcs/Yeeming.js）：「你在哪？」說他在排球場、跟明衫散步或收假回營；也可以問「要不要打麻將？」
   yeeming: {
     id: 'yeeming', name: 'YeeMing', sub: '物理系・當兵中・排球', avatar: '<img class="ph-avimg" src="assets/gram/yeeming_av.jpg" alt="">', color: '#56643a', unread: 1,
     history: [
@@ -469,7 +469,7 @@ export const FRIEND_CONTACTS = {
       { t: '要不要打麻將？', match: /麻將|打牌|三缺一/, ask: () => ({ r: ['又是麻將 😂', '休假那天晚上，三缺一揪我 🀄'] }) },
     ],
   },
-  // 羊明衫（js/mingshan.js）：「你在哪？」說她在系館練舞、在麥當勞值班或在讀書，並導航過去
+  // 羊明衫（src/entities/npcs/Mingshan.js）：「你在哪？」說她在系館練舞、在麥當勞值班或在讀書，並導航過去
   mingshan: {
     id: 'mingshan', name: '羊明衫', sub: '資管系・舞蹈・麥當勞值班經理', avatar: '<img class="ph-avimg" src="assets/gram/mingshan_av.jpg" alt="">', color: '#c2414b', unread: 2,
     history: [
@@ -511,7 +511,7 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
-  // 劍玉（js/jianyu.js）：基隆航海王、資管三甲班代。「你在哪？」會說在系館停車場還是 278，並導航過去；「借車」會告訴你車停在哪
+  // 劍玉（src/entities/npcs/Jianyu.js）：基隆航海王、資管三甲班代。「你在哪？」會說在系館停車場還是 278，並導航過去；「借車」會告訴你車停在哪
   jianyu: {
     id: 'jianyu', name: '基隆航海王 劍玉', sub: '資管三甲班代・特戰英豪鑽石', avatar: '<img class="ph-avimg" src="assets/gram/jianyu_av.jpg" alt="">', color: '#5d6b8a', unread: 2,
     history: [
@@ -558,7 +558,7 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
-  // 黃蓋瑞（js/garry.js）：古箏社幹部，住彥霖隔壁。「你在哪？」每一輪都能問，他會說在跑道、活動中心還是房間，並設定導航跟著他
+  // 黃蓋瑞（src/entities/npcs/Garry.js）：古箏社幹部，住彥霖隔壁。「你在哪？」每一輪都能問，他會說在跑道、活動中心還是房間，並設定導航跟著他
   garry: {
     id: 'garry', name: '古箏社 黃蓋瑞', sub: '古箏社幹部・住你隔壁', avatar: '<img class="ph-avimg" src="assets/gram/garry_av.jpg" alt="">', color: '#21486e', unread: 2,
     history: [

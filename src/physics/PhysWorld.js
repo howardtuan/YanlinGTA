@@ -1,8 +1,8 @@
 // Static physics world (P1): builds Rapier colliders from the same data the game's own collision and ground
 // heights use, so physics objects stand, drive and stop where the rest of the game expects them.
-//   terrain      -> one triangle mesh, split exactly like terrain.js H() (same heights everywhere); cells an
+//   terrain      -> one triangle mesh, split exactly like src/world/Terrain.js H() (same heights everywhere); cells an
 //                   open road cut (LV_CUT) passes through are refined to 1 m and the cut is left open
-//   decks / cut floors / boxes (terrain.js deck stations, 2.5 m each) -> thin sloped boxes
+//   decks / cut floors / boxes (src/world/Terrain.js deck stations, 2.5 m each) -> thin sloped boxes
 //                   (low bridges also get a flat disc at each station end: surfaceAt's round caps)
 //   pads -> flat triangle meshes, stairs / ramps -> sloped boxes (smooth slope, like levelY)
 //   building outlines, free-standing walls, interior walls -> 0.2 m walls (height band where one is set)
@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { terrainGrid, H, surfaceAt, deckList, levelList, LV_CUT, pitList } from '../world/Terrain.js';
 import { G, groups } from './Physics.js';
 
-export const WALL_T = 0.1; // half thickness of a wall (m; js/walker.js stops that much earlier)
+export const WALL_T = 0.1; // half thickness of a wall (m; src/entities/Walker.js stops that much earlier)
 const DECK_T = 0.15;  // half thickness of a deck / stair slab
 const FREE_WALL_H = 4; // free-standing walls without a height band: from the ground up this far
 const TRUNK_H = 6;
@@ -94,8 +94,8 @@ export function buildPhysicsWorld(physics, collision, interiors) {
       const z0 = Math.floor((Math.min(s.az, s.bz) - s.r - minZ) / step), z1 = Math.floor((Math.max(s.az, s.bz) + s.r - minZ) / step);
       for (let i = x0; i <= x1; i++) for (let j = z0; j <= z1; j++) cutCell.add(j * nx + i);
     }
-    // ... and the cells under a pit (js/terrain.js addPit): their 1 m sub-grid follows H(), so it drops to the
-    // pit floor inside it (the pit's walls are js/zone_g.js collision lines)
+    // ... and the cells under a pit (src/world/Terrain.js addPit): their 1 m sub-grid follows H(), so it drops to the
+    // pit floor inside it (the pit's walls are src/world/zones/ZoneG.js collision lines)
     for (const p of pitList()) {
       const x0 = Math.floor((p.x0 - 1 - minX) / step), x1 = Math.floor((p.x1 + 1 - minX) / step);
       const z0 = Math.floor((p.z0 - 1 - minZ) / step), z1 = Math.floor((p.z1 + 1 - minZ) / step);
@@ -113,7 +113,7 @@ export function buildPhysicsWorld(physics, collision, interiors) {
       const i = k % nx, j = (k / nx) | 0;
       if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) continue;
       const x0 = minX + i * step, z0 = minZ + j * step, d = step / SUB, base = verts.length / 3;
-      // sub-grid lines every d m, plus a pair 2 cm apart on each pit edge inside the cell (js/terrain.js addPit),
+      // sub-grid lines every d m, plus a pair 2 cm apart on each pit edge inside the cell (src/world/Terrain.js addPit),
       // so the pit's side is a vertical step, not a 1 m ramp that sinks the plaza or lifts the pit floor
       const xs = [], zs = [];
       for (let a = 0; a <= SUB; a++) { xs.push(x0 + a * d); zs.push(z0 + a * d); }

@@ -7,8 +7,8 @@
 //
 // FOR EVERYONE ADDING THINGS: you do not need to know Rapier.
 // - Something solid that never moves (wall, pillar, kiosk): keep adding it to the game's own collision
-//   (collision.addPolygon / addSegment / addCircle) while the map is built, as before. js/physworld.js turns
-//   everything in it into physics colliders once, right after buildInteriors (main.js), so it blocks both.
+//   (collision.addPolygon / addSegment / addCircle) while the map is built, as before. src/physics/PhysWorld.js turns
+//   everything in it into physics colliders once, right after buildInteriors (src/core/Game.js), so it blocks both.
 //   Added later than that (at run time)? Also call physics.addStaticBox / addStaticCylinder.
 // - Something that can be knocked over (cone, bin, sign): build its mesh as usual with its origin at the
 //   bottom centre, stand it on the ground, then
@@ -17,15 +17,15 @@
 //   vehicle or the player bumps it, tumbles, and falls asleep again. prop.remove() takes it out again.
 //   Props more than PROP_FAR from the player are switched off and wait where they are.
 //   A trash can, for example, needs nothing else: the map data only has to say where they stand.
-// - The game keeps moving vehicles and the player itself (js/vehicles.js, js/player.js). Each frame main.js
+// - The game keeps moving vehicles and the player itself (src/entities/Vehicles.js, src/entities/Player.js). Each frame src/core/Game.js
 //   hands the nearby ones to physics.movers() as kinematic stand-ins: they push props out of the way
 //   but are never pushed back (the game's own collision still decides where vehicles go).
-// - A parked vehicle hit hard is thrown with physics.knock() until it comes to rest (main.js knockVehicle);
-//   so is traffic hit hard (main.js _knockTraffic, js/npc.js Traffic.landed).
-// - The vehicle you ride is a dynamic body of its own (js/vehphys.js Chassis, P3; ?arcadecar: the old way).
+// - A parked vehicle hit hard is thrown with physics.knock() until it comes to rest (src/core/VehicleSpawner.js knockVehicle);
+//   so is traffic hit hard (src/core/Game.js _knockTraffic, src/entities/NPC.js Traffic.landed).
+// - The vehicle you ride is a dynamic body of its own (src/physics/VehPhysics.js Chassis, P3; ?arcadecar: the old way).
 //   It hooks into every step through physics.before / physics.after.
 // - A character thrown by a hit (you off the scooter, a pedestrian, a traffic rider) goes limp as a ragdoll
-//   until it lies still (js/ragdoll.js Ragdoll.start, P4; ?noragdoll: the old tumble).
+//   until it lies still (src/physics/Ragdoll.js Ragdoll.start, P4; ?noragdoll: the old tumble).
 // Every collider gets a collision group (G below) that decides what it collides with.
 //
 // Debug: ?physdebug in the URL draws every collider as lines; ?nophysics turns the engine off.
@@ -69,7 +69,7 @@ export class Physics {
     this.debug = null;
     this.props = new Set();   // addProp records
     this.knocked = new Set(); // knock records
-    this.rags = new Set();    // ragdolls flying (js/ragdoll.js)
+    this.rags = new Set();    // ragdolls flying (src/physics/Ragdoll.js)
     this.moverMap = new Map(); // key object -> { body, t, sig }
     this.focus = null; this._farT = 0;
   }
@@ -223,7 +223,7 @@ export class Physics {
     const rec = this.moverMap.get(key); if (!rec) return;
     this.moverMap.delete(key); this._drop(rec.body);
   }
-  // a stand-in, or a vehicle that has a physics body of its own (vehphys.js), already pushes what it touches
+  // a stand-in, or a vehicle that has a physics body of its own (src/physics/VehPhysics.js), already pushes what it touches
   hasMover(key) { return !!this.moverMap.get(key)?.on || !!key?.body; }
 
   // ---------- knocked loose: a dynamic body for an object the game normally places itself ----------

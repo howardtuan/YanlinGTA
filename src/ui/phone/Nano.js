@@ -129,7 +129,7 @@ export const Nano = {
     const sys = `${BASE}\n\n你扮演：${C.group ? `群組「${C.name}」裡的其他成員` : `「${C.name}」（${C.sub || '家人'}）`}。\n${PERSONA[C.id] || ''}\n${ 
       C.group ? `replies 每則的 who 要填發言人名字（${members.join('、')}之一）。` : `replies 每則的 who 填「${C.name}」。`}`;
     st.members = members;
-    this.active = (this.active || 0) + 1; // creating it (the model may be loading) also gets the GPU (main.js)
+    this.active = (this.active || 0) + 1; // creating it (the model may be loading) also gets the GPU (src/core/GameLoop.js)
     // creating can get stuck too (seen right after a page reload: 40 s+ with no answer, the next try 7 s): give up on
     // an attempt after 15 s and try once more
     const make = async () => {
@@ -160,9 +160,9 @@ export const Nano = {
   // Never hangs the chat. Measured on a Mac (Chrome 157): the first session after Chrome starts takes ~19 s (the model
   // loads), a short reply on a clone ~2–6 s. Creating the base session gets SESSION_MS (a creation that runs over keeps
   // going and is reused by the next message), each prompt PROMPT_MS; a prompt that runs over is aborted. A timeout pauses
-  // the AI for a while (_stall). phone.js's own fallback (REPLY_LIMIT) is longer than both together.
+  // the AI for a while (_stall). src/ui/phone/Phone.js's own fallback (REPLY_LIMIT) is longer than both together.
   // signal: aborting it stops the generation for real (the model works on one prompt at a time, so an answer nobody
-  // wants any more would otherwise hold up the next one). `active` counts replies in progress (main.js draws the game
+  // wants any more would otherwise hold up the next one). `active` counts replies in progress (src/core/GameLoop.js draws the game
   // at a low frame rate meanwhile, leaving the GPU to the model).
   // onReplies(replies): called as soon as the replies part of the answer is out, before the two options for you are
   // written (measured in a game tab: replies done ~2.5 s, whole answer ~4 s); the returned value then has early: true.

@@ -1,6 +1,6 @@
 // 操作說明 (controls help): three tabs — keyboard & mouse / gamepad / touch.
 // Each tab has a diagram (key map, controller with call-outs, phone layout) and a list per situation.
-// Pad glyphs come from prompts.js so the labels match the connected controller (Xbox / PS / Switch).
+// Pad glyphs come from src/ui/Prompts.js so the labels match the connected controller (Xbox / PS / Switch).
 // The modal is skipped by the prompts MutationObserver, so the <kbd>s here are never re-translated.
 
 // ---------------- keyboard ----------------

@@ -1,7 +1,7 @@
-// PYtoday — 虛構新聞 App（手機 i-Piyan 和電腦都有，畫面在 js/newsui.js）。
+// PYtoday — 虛構新聞 App（手機 i-Piyan 和電腦都有，畫面在 src/ui/phone/NewsUI.js）。
 // 每個遊戲日 3 篇：早上 07:30、中午 12:00、晚上 19:30 發佈（第一天的第一篇在 06:00，就是資管會長的新聞）。
 // 內容是 (日, 篇) 決定的純函式：同一天每次讀檔看到的都一樣，存檔只要記看到哪裡。
-// 跟上市公司有關的新聞會帶一個漲跌效果（pct），js/stocks.js 生成那天的走勢時用 newsEffects() 讀進去：
+// 跟上市公司有關的新聞會帶一個漲跌效果（pct），src/systems/StockMarket.js 生成那天的走勢時用 newsEffects() 讀進去：
 //   開盤前發的（含前一晚、週末）→ 當天開盤跳空；盤中發的 → 從發佈那一刻起股價往那個方向走；收盤後的 → 下個交易日開盤。
 // 全部是遊戲裡編的，公司名稱都是靈感股的改名公司。
 import { STOCKS, isTradingDay, OPEN, CLOSE } from '../../systems/StockMarket.js';

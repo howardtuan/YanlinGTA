@@ -1,6 +1,6 @@
 // 茶學苑 Tea Arts（正門外中北路）：走到櫃台前按 E 點飲料（選品項、甜度、冰塊）。
 // 排球少年 吱吱 有時候在這裡打工（ZZ_SHIFTS 排班）：他在店裡的時候，體育館門口就看不到他，
-// 可以在點單畫面跟他聊天（還沒加好友的話，聊完一樣可以選要不要加）。店面建模在 interiors.js buildTeaShop。
+// 可以在點單畫面跟他聊天（還沒加好友的話，聊完一樣可以選要不要加）。店面建模在 src/world/Interiors.js buildTeaShop。
 import { createCharacter } from '../../entities/Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { FRIENDS } from '../../ui/phone/Friends.js';

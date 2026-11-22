@@ -1,7 +1,7 @@
 // F 區「北宿舍」: 良善樓 (OSM w392023419), 恩慈樓 (w392023418), the campus boundary wall along 大仁街 / 大仁二街,
 // the A2 gate sign wall and 恩慈小門. Outside only, nothing here can be entered.
-// js/map.js still draws both slabs from their OSM outlines (so none of its shared random draws change);
-// liangshanLook() / enciLook() only swap the facade looks (js/main.js), and buildDorms() adds what the outlines
+// src/world/MapBuilder.js still draws both slabs from their OSM outlines (so none of its shared random draws change);
+// liangshanLook() / enciLook() only swap the facade looks (src/core/Game.js), and buildDorms() adds what the outlines
 // cannot say:
 //  良善樓 — the ~7 m blue glass disc on the roof (centre about (-43, 273), replacing the old white roof_drum) over
 //    the salmon concrete roof grid; on the 大仁街 (south-west) face the off-white tiles with white ribs (looks), the
@@ -14,7 +14,7 @@
 //    tower standing out of the south face (about 5.5 x 7.5 m, centre about (16, 321)) with an orange-brown cap; the
 //    north entrance: a double-height colonnade of four square piers, 「恩慈樓」 on the ochre band, a blue soffit, six wide
 //    steps between cheek walls; roof plant from the 2024 ortho (cooling towers, a plant room, a green-topped box).
-//  校界牆 — the OSM wall along 大仁街 / 大仁二街 (js/furniture.js keeps its collision) re-skinned as the real ~2.8 m
+//  校界牆 — the OSM wall along 大仁街 / 大仁二街 (src/world/Furniture.js keeps its collision) re-skinned as the real ~2.8 m
 //    red brick wall with grey piers every ~6 m, razor wire coils on brackets and graffiti on the street side; the
 //    low granite A2 gate wall with the dark 「中原大學」 panel and the orange 「A2 Gate」 block where it starts by
 //    the A2 steps; at 恩慈小門 brick gate piers, two red-and-white boom arms (raised) and the yellow ticket box.
@@ -30,7 +30,7 @@ import { H, groundY } from '../Terrain.js';
 import { pointInPoly } from '../../physics/Collision.js';
 
 export const LIANGSHAN_ID = 'w392023419', ENCI_ID = 'w392023418';
-// heights above the building base (js/map.js: 3.3 m storeys + 0.6 m)
+// heights above the building base (src/world/MapBuilder.js: 3.3 m storeys + 0.6 m)
 const FL = 3.3, LS_TOP = 30.3, EC_TOP = 33.6;
 // 良善樓 outline points used here (data/cycu.json)
 const LS = {
@@ -49,7 +49,7 @@ const LS_ENT = { s0: 16.0, s1: 23.0 }, LS_RAMP = { s0: 8.0, s1: 16.0, w: 0.9, ri
 const EC_TOWER = { s0: 15.3, s1: 20.8, out: 4.0, back: 1.0 };
 const EC_ENT = { s: 38, w: 12, d: 3.7, steps: 6, rise: 0.15 };
 
-// ---------------- looks (tools/looks.json looks, edited; applied in js/main.js after the random draws) ----------------
+// ---------------- looks (tools/looks.json looks, edited; applied in src/core/Game.js after the random draws) ----------------
 // 良善樓: keeps the tiles / grid windows / deep white ribs (their collision stays the same); the cobalt colour is now
 // only two strips on the west end (buildDorms), and the flat red canopy gives way to the real semicircular balcony
 export function liangshanLook(L) {
@@ -82,7 +82,7 @@ function edge(a, c, poly) {
   return { a, c, len, t, n, ang: Math.atan2(t[1], t[0]), P: (s, o = 0) => [a[0] + t[0] * s + n[0] * o, a[1] + t[1] * s + n[1] * o] };
 }
 
-// outlines of the added parts: js/map.js hides the shrubs planted there (opts.vegHide; not reserved, which would
+// outlines of the added parts: src/world/MapBuilder.js hides the shrubs planted there (opts.vegHide; not reserved, which would
 // change the shared random draws of the shrub placement)
 export function dormsFootprints(data) {
   const out = [];
@@ -685,7 +685,7 @@ function buildEnciGate(I, k, data) {
   const o = [end[0] + dir[0] * 4, end[1] + dir[1] * 4], hw = best.w / 2 + 0.6;
   const E = { a: o, t: n, n: dir, ang: Math.atan2(n[1], n[0]), P: (s, off = 0) => [o[0] + n[0] * s + dir[0] * off, o[1] + n[1] * s + dir[1] * off] };
   const y = groundY(o[0], o[1]);
-  // brick piers just outside the walkers' strip along the road (npc.js walks people up to ~w/2 + 1.4 m off its centre)
+  // brick piers just outside the walkers' strip along the road (src/entities/NPC.js walks people up to ~w/2 + 1.4 m off its centre)
   const sp = best.w / 2 + 1.8;
   for (const s of [-sp, sp]) {
     k.ebox('brick', E, s - 0.35, s + 0.35, -0.35, 0.35, y - 0.4, y + 2.2, [1, 1]);

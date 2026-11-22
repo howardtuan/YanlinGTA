@@ -1,12 +1,12 @@
 // 漢克：皮膚偏黑的亞洲男生、捲捲的長髮，資管系、跟彥霖同系同學，跟戈登肉鋪的女拳大帝是室友。
 // 興趣：聽團、寫程式（資管系校內專題競賽第一名）、騎車跑山看夜景、偶爾打 LOL。
 // 一天的行程（遊戲時鐘）：
-//   18:00–22:00 在活動中心麥當勞內場打工、顧薯條爐（穿店員制服、戴髮網；外場櫃台是值班經理羊明衫，js/mingshan.js）；
+//   18:00–22:00 在活動中心麥當勞內場打工、顧薯條爐（穿店員制服、戴髮網；外場櫃台是值班經理羊明衫，src/entities/npcs/Mingshan.js）；
 //   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他（走近聽得到，一直輪播），或跟女朋友講電話；
 //     00:00–06:00 睡在 2 號床（上舖）。室友是 6 號床的女拳大帝；
 //   其他時間以 90 分鐘為一段，大多騎他的 ZMAX（155cc 白牌大速克達）在校園外圍和附近道路兜風（跟著車流跑），
 //   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前彈一段給你聽。
-// 他同一時間只會出現在一個地方。說完話可以選擇要不要加好友（js/friends.js 的 hank）。
+// 他同一時間只會出現在一個地方。說完話可以選擇要不要加好友（src/ui/phone/Friends.js 的 hank）。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { dressCrew } from '../../systems/minigames/McUniform.js';
@@ -92,7 +92,7 @@ export class Hank {
     // riding: his ZMAX joins the traffic with him on it (held back while he walks, works or sleeps)
     const rider = this.rider = createCharacter(HANK_LOOK), rtag = makeLabel('🏍️ 漢克', { height: 0.26, size: 40 }); rtag.position.set(0, 2.1, 0); rider.root.add(rtag);
     this.zmax = game.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'zmax' }), rider);
-    if (this.zmax) { this.zmax.runBack = true; this.zmax.label = '漢克的 ZMAX'; } // knocked off, he runs back to it (js/npc.js _runBack)
+    if (this.zmax) { this.zmax.runBack = true; this.zmax.label = '漢克的 ZMAX'; } // knocked off, he runs back to it (src/entities/NPC.js _runBack)
     this.lent = false; this.lentIdle = 0;
     this._dorm(game);
   }

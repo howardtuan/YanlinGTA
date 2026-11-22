@@ -1,6 +1,6 @@
 // E 區（設計學院一帶）三棟外觀：建築館（w392023416）、祐生建築中心（w392023417）、設計學院（w587171779）。
-// 都不能進去。js/map.js 照舊從 OSM 輪廓畫牆和屋頂（共用亂數抽取次數不變），這裡只做三件事：
-//  1. applyZoneE(b)：在 js/main.js 換掉這三棟的 look（牆色、窗型、屋頂色）；建築館在執行時切成兩塊
+// 都不能進去。src/world/MapBuilder.js 照舊從 OSM 輪廓畫牆和屋頂（共用亂數抽取次數不變），這裡只做三件事：
+//  1. applyZoneE(b)：在 src/core/Game.js 換掉這三棟的 look（牆色、窗型、屋頂色）；建築館在執行時切成兩塊
 //     b.parts（北段 3F 10.5 m、南段 12.5 m 圓弧轉角高牆，輪廓 b.pts 不動，splitAc 讓冷氣的 rnd2 照抽）；
 //     設計學院把 gable_row 的山牆間距改成 4 m（約 9 個）。
 //  2. zoneEFootprints()：自建部分的保留範圍（變電箱、入口廣場、台階、簷下），樹和街道家具不會長進來。
@@ -30,7 +30,7 @@ const DES_EAVE = 1.6;       // 東西兩側出簷
 
 // ---------------- 小工具 ----------------
 const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
-// 邊 a→c；外法線 n = (dz, -dx)（js/map.js 的輪廓都是這個方向朝外）
+// 邊 a→c；外法線 n = (dz, -dx)（src/world/MapBuilder.js 的輪廓都是這個方向朝外）
 function edge(a, c) {
   const dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz), tx = dx / l, tz = dz / l;
   return { a, c, l, tx, tz, nx: tz, nz: -tx, ang: Math.atan2(tz, tx), at: (s, o = 0) => [a[0] + tx * s + tz * o, a[1] + tz * s - tx * o] };
@@ -59,7 +59,7 @@ function archParts(pts) {
   return [{ pts: north, h: 10.5, floors: 3 }, { pts: south, h: H_ARC, floors: 3 }];
 }
 
-// js/main.js：OSM 建物迴圈裡呼叫（在 map.js 抽亂數之前，只換外觀）
+// src/core/Game.js：OSM 建物迴圈裡呼叫（在 src/world/MapBuilder.js 抽亂數之前，只換外觀）
 export function applyZoneE(b) {
   if (b.id === ARCH_ID) {
     b.look = {
@@ -88,7 +88,7 @@ export function applyZoneE(b) {
   }
 }
 
-// ---------------- 保留範圍（main.js reserved） ----------------
+// ---------------- 保留範圍（src/core/Game.js reserved） ----------------
 const ARCH_ENT = [[84.2, 260.9], [88.8, 249.3]];          // 建築館入口牆
 const ARCH_NW = [[91.1, 241.2], [98.5, 222.6]];           // 北翼西面（變電箱在它前面）
 const YUS_N = [[124.1, 233.7], [139.1, 228.0]];           // 祐生北面
@@ -590,7 +590,7 @@ function buildDesign(k, I, b, group) {
   }
 }
 
-// interiors.js 呼叫：三棟的自建部分
+// src/world/Interiors.js 呼叫：三棟的自建部分
 export function buildZoneE(I, scene, data) {
   const group = new THREE.Group(); group.name = 'zoneE';
   const k = new Acc();

@@ -1,12 +1,12 @@
 // 力行宿舍室內（力行大樓 OSM w392023431）：照使用者給的「力行宿舍寢室分布圖」做成可以走進去的四層樓。
-// 外觀仍由 js/map.js 照 OSM 輪廓畫（js/zone_g.js 換顏色、東端山牆），這裡做：
-//  - 兩個天井（西棟、東棟）：b.holes 讓屋頂開洞、b.holeWalls = false 讓 map.js 不畫天井那圈牆（走廊是開放式，自己蓋）；
+// 外觀仍由 src/world/MapBuilder.js 照 OSM 輪廓畫（src/world/zones/ZoneG.js 換顏色、東端山牆），這裡做：
+//  - 兩個天井（西棟、東棟）：b.holes 讓屋頂開洞、b.holeWalls = false 讓 src/world/MapBuilder.js 不畫天井那圈牆（走廊是開放式，自己蓋）；
 //  - 每層：北排寢室＋東西向主走廊、天井四周的迴廊（二樓以上有彩色色塊女兒牆）、中段南排寢室、兩翼南排寢室、
 //    東西兩端凸出的曬衣場／浴廁／樓梯、中段北側樓梯、兩翼靠中段的樓梯（樓梯間朝前院，剪刀梯：兩條梯道方向相反，側面看是 X；
 //    南端從南迴廊端頭的走道進去，北端各樓有一段走道接回主走廊）、東棟電梯；
 //  - 一樓：中廊通到南面大門（門楣「力行大樓」），天井鋪面、涼亭、野餐桌；沿新中北路的一層樓門房（早餐屋、會客室、大門、傳達室、公佈欄）；
 //  - 二樓：中廊南端的門開在二樓地板高度，出門是牆外的平台，沿著天橋方向往上走一段露天樓梯到新中北路天橋橋面
-//    （天橋北端因此縮短：data.grade 的 cut0，js/map.js 照它少畫、少鋪橋面）；
+//    （天橋北端因此縮短：data.grade 的 cut0，src/world/MapBuilder.js 照它少畫、少鋪橋面）；
 //  - 寢室只有二樓 276～281 能進去（六人房：兩側各三組上床下桌、中間走道、門上氣窗、對外窗），其他寢室是關著的門。
 // 依據：寢室分布圖（力行宿舍自治會）、Google 街景 2026-05（新中北路 291 號）、Google 地圖相片（天井 2023-01、寢室 2026-06）、
 // YouTube「中原大學宿舍介紹_力行宿舍」（走廊藍牆、黃綠門與門上色帶、馬賽克洗手台、曬衣場、洗衣間）。
@@ -14,7 +14,7 @@
 // 高度：每層 3.3 m。遊戲裡天橋橋面比二樓地板高約 2.6 m，這段高差由牆外的樓梯走（使用者指正：接天橋的樓梯在建築物外面）。
 // 牆外樓梯的樣子：正射影像（NLSC 2024）看得到天橋頂棚在南牆前約 2 m 就停、中間是一小塊露天平台；直上、和天橋同寬是推測，
 // 長度因為遊戲裡高差比實際大而拉長。
-// 碰撞：把 map.js 加的整棟實心多邊形拿掉，換成外牆線（大門、天橋門留缺口）和室內牆，全部走 Interiors.addWall（高度以當地地面為準）。
+// 碰撞：把 src/world/MapBuilder.js 加的整棟實心多邊形拿掉，換成外牆線（大門、天橋門留缺口）和室內牆，全部走 Interiors.addWall（高度以當地地面為準）。
 // Local frame: origin at the north-west corner (-221.7, -183.8), x east along the north face, z south. y = metres above the building base.
 import * as THREE from 'three';
 import { H, surfaceAt } from '../Terrain.js';
@@ -35,7 +35,7 @@ const BW = { x0: -6.5, x1: 0.25, z0: 6.6, zA: 12.2, zB: 21.0, z1: 26.2 }; // wes
 const BE = { x0: 121.55, x1: 128.0, z0: 7.95, zA: 13.5, zB: 21.5, z1: 26.9 };
 const ROWC_W = { x0: 0.25, x1: 37.25, z1: 34.45 }, ROWC_E = { x0: 85.75, x1: 122.3, z1: 34.15 };
 const OPEN_ROOMS = [276, 277, 278, 279, 280, 281];
-const ROOM_SPOTS = {}; // 276～281: beds, desks and chairs in local metres (I.lixing.rooms, used by js/jianyu.js for 278)
+const ROOM_SPOTS = {}; // 276～281: beds, desks and chairs in local metres (I.lixing.rooms, used by src/entities/npcs/Jianyu.js for 278)
 const ST = 3.3;                         // storey height
 // 兩翼靠中段的樓梯（分布圖「樓梯」）：樓梯間在兩翼朝前院的那一面（使用者指正；街景 2026-05 拍到東棟那面是清水混凝土＋藍白格子、
 // 三個凸出的平台）。樓梯 z SW.z0..SW.z1，入口在南端：各樓南迴廊東端那段走道（一樓那段就是前院進來的通道，二樓以上的走道在它正上方；
@@ -56,7 +56,7 @@ export function lixingLook(b) {
   if (b.id !== LX_ID) return;
   const out = Math.sign(area2(b.pts));
   b.holes = HOLES.map(([x0, x1, z0, z1]) => { const r = rectW(x0, x1, z0, z1); return Math.sign(area2(r)) === out ? r.reverse() : r; });
-  b.holeWalls = false; // js/map.js: no walls round the courtyards (the galleries are built here), roof and parapet as usual
+  b.holeWalls = false; // src/world/MapBuilder.js: no walls round the courtyards (the galleries are built here), roof and parapet as usual
   // door openings in the south wall of the middle block: 1F 大門, 2F 天橋門 at the 2F floor (world heights)
   const { f1 } = lxLevels(), p = W(MID.door0, 19.4), q = W(MID.door1, 19.4);
   b.wallDoors = [{ p, q, y0: f1 - 0.4, y1: f1 + 2.3 }, { p, q, y0: f1 + ST - 0.05, y1: f1 + ST + 2.3 }];
@@ -510,7 +510,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       label: () => '按 <kbd>E</kbd> 搭電梯（1F → 2F → 3F → 4F）',
       fn: (g) => {
         const p = g.player; let cur = 0; for (let f = 0; f < 4; f++) if (p.y > rel(f, p.pos.x, p.pos.z) - 0.8) cur = f;
-        const next = (cur + 1) % 4; const dy = rel(next, p.pos.x, p.pos.z) + 0.05 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; // the feet go along (js/player.js compares the two)
+        const next = (cur + 1) % 4; const dy = rel(next, p.pos.x, p.pos.z) + 0.05 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; // the feet go along (src/entities/Player.js compares the two)
         g.audio?.lift?.(); g.hud?.toast(`電梯 → ${next + 1}F`, 'good', 1200);
       },
     });
@@ -562,7 +562,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
           B3(0.6, 0.604, y + 0.04, y + wh - 0.04, t1 + WD / 2 - 0.004, t1 + WD / 2 + 0.004, MT.frame);  // 門縫
           if (!under) B3(0.6, 0.604, y + 1.72, y + 1.728, t1 + 0.02, t2 - 0.02, MT.frame);
           for (const dt of [-0.06, 0.06]) B3(0.6, 0.625, y + 0.95, y + 1.13, t1 + WD / 2 + dt - 0.008, t1 + WD / 2 + dt + 0.008, MT.steel); // 把手
-          // 橘色椅子（279 寢 2 號床那張中間的書桌：漢克把椅子轉過來、背靠書桌，面向對面坐著彈吉他，js/hank.js）
+          // 橘色椅子（279 寢 2 號床那張中間的書桌：漢克把椅子轉過來、背靠書桌，面向對面坐著彈吉他，src/entities/npcs/Hank.js）
           const turned = no === 279 && side < 0 && u === 1, bk = turned ? [0.66, 0.69] : [0.95, 0.98];
           B3(0.66, 0.98, y + 0.44, y + 0.47, t0 + 0.25, t0 + 0.65, MT.chair); B3(bk[0], bk[1], y + 0.47, y + 0.85, t0 + 0.25, t0 + 0.65, MT.chair); B3(0.8, 0.84, y, y + 0.44, t0 + 0.43, t0 + 0.47, MT.steel); // 橘色椅子
         }
@@ -570,7 +570,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         for (const t of [LEN - BED, LEN - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
         bed(LEN - BED, LEN, bedY, nos[2], true); ladder(LEN - BED + 0.1, bedY + 0.55);
         const [a, b2] = X(0, DW + 0.03); wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
-        // where people go (js/jianyu.js): bed decks, each desk with its chair; face = local angle towards the desk
+        // where people go (src/entities/npcs/Jianyu.js): bed decks, each desk with its chair; face = local angle towards the desk
         const R = (ROOM_SPOTS[no] ||= { door: [cx, z0 + T + 0.3], center: [cx, (z0 + z1) / 2], y, beds: {}, desks: [] });
         const mid = (p) => (p[0] + p[1]) / 2;
         R.beds[nos[0]] = { x: mid(X(0, DW)), z: mid(Z(0.07, BED - 0.07)), y: y + 0.42 };
@@ -603,8 +603,8 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   }
 
   // ---------------- 牆外樓梯：二樓門口的平台 → 沿天橋方向往上 → 天橋橋面（一樓大門在它正下方）----------------
-  // 天橋（橋面和模型）從 zT 才開始（data.grade 的 cut0，js/map.js）；這裡的平台和樓梯是一般的室內地面（高度從地面算），
-  // 樓梯頂的平台和橋面北端重疊一小段，走上橋面時由 js/player.js 接手。
+  // 天橋（橋面和模型）從 zT 才開始（data.grade 的 cut0，src/world/MapBuilder.js）；這裡的平台和樓梯是一般的室內地面（高度從地面算），
+  // 樓梯頂的平台和橋面北端重疊一小段，走上橋面時由 src/entities/Player.js 接手。
   let stairY = null;
   if (DL > F2 + 0.3) {
     const gi = data?.grade?.find(v => v.id === FB_ID), cut = gi?.cut0 ?? FB_CUT;
@@ -629,7 +629,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     for (const x of [x0 - 0.12, x1 + 0.12]) cbx(x - 0.12, x + 0.12, gy(x, zT + 0.2) - 0.4, DL - 0.4, zT + 0.08, zT + 0.32, MT.orange);
     bx(x0 - 0.24, x1 + 0.24, DL - 0.7, DL - 0.4, zT + 0.08, zT + 0.32, MT.orange);
     stairY = (wx, wz) => { const [lx, lz] = k.l(wx, wz); return lz < zT && lz > zf - 0.5 && lx > x0 - 0.3 && lx < x1 + 0.3 ? B + yAt(lz) : undefined; };
-    // 行人（js/npc.js）走這條天橋到北端時，沿樓梯下到二樓門口，不要掉到地面
+    // 行人（src/entities/NPC.js）走這條天橋到北端時，沿樓梯下到二樓門口，不要掉到地面
     const way = data?.roads?.find(r => r.grade === FB_ID); if (way) way.deckY = stairY;
   }
 

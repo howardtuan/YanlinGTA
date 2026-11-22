@@ -1,4 +1,4 @@
-// Ragdolls (P4): a character (js/character.js) thrown by a hit goes limp as physics bodies, then lies still.
+// Ragdolls (P4): a character (src/entities/Character.js) thrown by a hit goes limp as physics bodies, then lies still.
 //
 // Ragdoll.start(physics, ch, v, w) turns character ch into 9 dynamic capsules (trunk = hips + torso, head, upper
 // arms, forearms, thighs, shins) joined at its pivots: ball joints at the shoulders, hinges with limits at

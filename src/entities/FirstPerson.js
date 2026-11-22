@@ -77,7 +77,7 @@ export class FirstPerson {
     if (v.model) k.add(box(1.72, 0.62, 0.06, carpet, 0, y(0.62), zb + 0.03)); // two-seater: bulkhead to the engine bay
     else { k.add(box(1.5, 0.16, 0.5, seatM, 0, y(0.5), -1.25)); k.add(box(1.5, 0.6, 0.14, seatM, 0, y(0.85), -1.52)); k.add(box(1.6, 0.04, 0.3, carpet, 0, y(0.97), zb + 0.17)); } // rear bench, parcel shelf
     // phone in a holder on the dash next to the cluster, toward the middle: a live mini map, the time and unread
-    // messages; open the real phone with E while driving (the car keeps going, see main.js)
+    // messages; open the real phone with E while driving (the car keeps going, see src/core/Game.js)
     const ph = new THREE.Group(), px = sx > 0 ? sx - 0.36 : sx + 0.36;
     ph.rotation.order = 'YXZ'; ph.position.set(px, y(1.07) + d, 0.6); ph.rotation.set(-0.35, Math.atan2(sx - px, (S.z + 0.08) - 0.6), 0);
     ph.add(box(0.19, 0.1, 0.012, std('#0b0b0d', { roughness: 0.4 }), 0, 0, 0.004));
@@ -141,7 +141,7 @@ export class FirstPerson {
       for (let p = o; p; p = p.parent) if (p === rider) return;
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
       b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
-      // moved to a layer no camera draws instead of visible = false, which the far-LOD check (js/vehicles.js) would
+      // moved to a layer no camera draws instead of visible = false, which the far-LOD check (src/entities/Vehicles.js) would
       // take for an unmarked part toggling and drop the vehicle's far copy
       if (b.min.y > S.y + 0.92 && b.max.z > S.z + 0.15) { o.layers.set(1); parts.push(o); }
     });

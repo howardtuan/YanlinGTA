@@ -1,6 +1,6 @@
-// 彥霖航空的直升機駕駛：高大壯碩的光頭黑人大叔，修得整齊的山羊鬍，穿湖人隊紫金球衣和及膝球褲（jersey.js，背號 24），
-// 戴著橄欖綠的航空耳機（麥克風桿伸到嘴邊）。他開「呼叫載具」空運機車的那架直升機（airdrop.js）；
-// 沒在飛的時候，會不定時出現在校園某處散步（CampusPilot），有幾天的早上或傍晚會到體育園區的籃球場打球（js/court.js）。
+// 彥霖航空的直升機駕駛：高大壯碩的光頭黑人大叔，修得整齊的山羊鬍，穿湖人隊紫金球衣和及膝球褲（src/ui/Jersey.js，背號 24），
+// 戴著橄欖綠的航空耳機（麥克風桿伸到嘴邊）。他開「呼叫載具」空運機車的那架直升機（src/systems/minigames/Airdrop.js）；
+// 沒在飛的時候，會不定時出現在校園某處散步（CampusPilot），有幾天的早上或傍晚會到體育園區的籃球場打球（src/world/Court.js）。
 // 他不會同時出現在兩個地方：散步、打球、開直升機是同一個狀態（同一個模型），開直升機時校園和球場都看不到他。
 import * as THREE from 'three';
 import { createCharacter } from './Character.js';
@@ -62,7 +62,7 @@ export function createPilot() {
 
 // ---- the pilot on foot: turns up somewhere on campus near you, strolls the footpaths for a few minutes, wanders off,
 // and shows up again somewhere else later. Hidden whenever he is flying (Airdrop passes busy = true).
-export const PILOT_CALL_VOICE = 'assets/sfx/pilot/voice1.mp3';        // played when you call the helicopter (airdrop.js)
+export const PILOT_CALL_VOICE = 'assets/sfx/pilot/voice1.mp3';        // played when you call the helicopter (src/systems/minigames/Airdrop.js)
 const PILOT_VOICES = [2, 3, 4].map(n => `assets/sfx/pilot/voice${n}.mp3`); // greeting him on foot: one of these at random
 // greeting him also opens a dialog: one of these jokes at random (question, then the punchline after a key press),
 // always followed by the same closing line

@@ -1,6 +1,6 @@
 // Enterable buildings: 資管系館 (multi-floor, classrooms, stairs, elevator), 麥當勞 (in 活動中心), 警衛室,
 // 孫師傅牛肉拉麵 with 彥霖's old room upstairs. The shared kit (textures, materials, Interiors, Kit, finishRow) is in
-// js/kit.js; the other hand-built areas (茶學苑那排、大仁街、戈登肉鋪、校內各區) are listed in js/zones.js.
+// src/world/Kit.js; the other hand-built areas (茶學苑那排、大仁街、戈登肉鋪、校內各區) are listed in src/world/zones/Zones.js.
 // Provides height-aware walls, walkable surfaces (floors/stairs) and E-key actions.
 // All y values here are relative to the building's ground; tools/build_terrain.py
 // flattens the terrain around each footprint so that ground is one constant height.
@@ -15,7 +15,7 @@ import { ctex, font, T, MATS, M, regMat, Interiors, Kit, finishRow, lcg, YHT } f
 import { buildGarryHome } from './buildings/GarryHome.js';
 import { buildClubCorner } from './buildings/ClubRoom.js';
 import { buildZones } from './zones/Zones.js';
-// the kit moved to js/kit.js; these stay importable from here for the modules that already do
+// the kit moved to src/world/Kit.js; these stay importable from here for the modules that already do
 export { T, regMat, Interiors, Kit, finishRow };
 
 // =====================================================================
@@ -169,7 +169,7 @@ function buildIM(I, scene) {
     fn: (g) => {
       const p = g.player; const cur = Math.round(p.y / FH); const next = (cur + 1) % NF;
       liftTarget = next * FH; g.audio.lift(); g.hud.toast(`電梯 → ${next + 1}F`, 'good', 1200);
-      { const dy = liftTarget + 0.12 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; } // the feet go along (js/player.js compares the two)
+      { const dy = liftTarget + 0.12 - p.y; p.y += dy; p.pos.y += dy; p.vy = 0; } // the feet go along (src/entities/Player.js compares the two)
     },
   });
   I.updaters.push((dt, g) => { const t = liftTarget ?? 0; liftY += (t - liftY) * Math.min(1, dt * 3); cab.position.y = liftY; });
@@ -182,11 +182,11 @@ function buildIM(I, scene) {
 // NOTE: tools/build_terrain.py flattens the terrain under this footprint from a
 // copy of these numbers; after changing them, sync it and rerun the script.
 export const MCD_SPEC = { x0: -136, x1: -112, z0: -114, z1: -94, H: 4.6, top: 14 };
-// the store is turned 180° (Kit origin at the SE corner, js/zone_g.js B1 plan): its lobby opens westwards (shop-local
-// x = W, z MCD_OPEN) onto the B1 學餐用餐區 under the 活動中心 (js/sac_b1.js), the rest of that side is a wall to the stair hall
+// the store is turned 180° (Kit origin at the SE corner, src/world/zones/ZoneG.js B1 plan): its lobby opens westwards (shop-local
+// x = W, z MCD_OPEN) onto the B1 學餐用餐區 under the 活動中心 (src/world/buildings/SacB1.js), the rest of that side is a wall to the stair hall
 export const MCD_OPEN = [3.9, 9.6];
 export function sacTrimmedPts() {
-  // SE corner: 麥當勞 (buildMcD); NW corner: js/clubroom.js (CLUB 14 x 10.4 m: closed, 古箏社教室 on 3F)
+  // SE corner: 麥當勞 (buildMcD); NW corner: src/world/buildings/ClubRoom.js (CLUB 14 x 10.4 m: closed, 古箏社教室 on 3F)
   return [[-181, -128.55], [-163.2, -128.4], [-112, -129.9], [-112, -114], [-136, -114], [-136, -94.4], [-144.4, -94.4], [-195.2, -94.5], [-195.05, -118.2], [-181, -118.2]];
 }
 // Look of the real store (photos of 中原大學麥當勞): dark grey 60 cm floor tiles, white grid ceiling with
@@ -542,8 +542,8 @@ function mcdMaterials() {
 }
 function buildMcD(I, scene) {
   const S = MCD_SPEC; const k = new Kit(I, S.x1, S.z1, Math.PI); // turned 180°: shop x/z run west/north from the SE corner
-  // the store is in the 活動中心's B1 (js/zone_g.js digs the pit: the shop and the sunken stage in front of it,
-  // js/terrain.js addPit), so the render base is the pit floor inside the shop, not the street at its corner;
+  // the store is in the 活動中心's B1 (src/world/zones/ZoneG.js digs the pit: the shop and the sunken stage in front of it,
+  // src/world/Terrain.js addPit), so the render base is the pit floor inside the shop, not the street at its corner;
   // every height below stays relative to it (walls, floors, zones and actions follow H() there)
   const street = Hgrid(S.x0, S.z0); // (the corner is in the B1 用餐區's pit since that was dug)
   k.base = Hterrain(S.x0 + 2, S.z0 + 2); k.group.position.y = k.base;
@@ -599,7 +599,7 @@ function buildMcD(I, scene) {
   // east side on 中北路's corner: the low window strip above the street (glass outside the shop's east wall)
   k.box(-0.15, 0, Math.max(0, up - 0.3), H, 0, D, 'glass', { col: false });
   for (const z of [0, 5.2, 9.75, 12.6, 16.6, D]) k.box(-0.19, 0.02, Math.max(0, up - 0.3), H, z - 0.08, z + 0.08, MT.frame, { col: false });
-  // ---- outside: dark fascia band (the "McDonald's" board and the curved glass front are js/zone_g.js) ----
+  // ---- outside: dark fascia band (the "McDonald's" board and the curved glass front are src/world/zones/ZoneG.js) ----
   km.box(-0.4, W + 0.05, H, H + 1.2, -0.05, D + 0.05, MT.fasciaBox, { col: false }); // (sticks out on the street side, east)
   // the 活動中心 above, up to its roof (S.top is above the street)
   km.box(0, W, H + 1.2, S.top + up, 0, D, 'sac', { col: false });
@@ -717,7 +717,7 @@ function buildMcD(I, scene) {
   k.plane(T.mcLogo(), 3.2, 1.6, -4.15, up + 7.6, -1.15, -Math.PI / 2, { emissive: 0.5, double: true });
   k.finish(scene);
   I.zones.push({ name: '麥當勞 中原店', pts: k.rect(0, W, 0, D), y0: 0, y1: H, ceil: () => H - 0.4 });
-  // crew in the real store's uniform (mcuniform.js): the counter girl at the middle register, and two in the
+  // crew in the real store's uniform (src/systems/minigames/McUniform.js): the counter girl at the middle register, and two in the
   // kitchen with hairnets — one on the first grill, one at the assembly island. They go through the motions
   // (reach / turn) while the player is close enough to see them.
   const staff = createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
@@ -770,7 +770,7 @@ function buildMcD(I, scene) {
       });
     },
   });
-  // part-time job (值班, see mcshift.js): staff entrance through the gap at the counter's dining end, time
+  // part-time job (值班, see src/systems/minigames/McShift.js): staff entrance through the gap at the counter's dining end, time
   // clock on the partition just inside; you work the middle register, the queue forms across the counter
   const se = k.w(14.4, mz(11.0));
   I.actions.push({
@@ -778,7 +778,7 @@ function buildMcD(I, scene) {
     label: () => '按 <kbd>E</kbd> 打卡上班：櫃台點餐（時薪 NT$196）',
     fn: (g) => g.job.start(),
   });
-  // …or work the kitchen line (mckitchen.js): punch in at the second grill
+  // …or work the kitchen line (src/systems/minigames/McKitchen.js): punch in at the second grill
   const kp = k.w(...kitchen.player);
   I.actions.push({
     x: kp[0], z: kp[1], r: 1.1, y: 0, cond: () => !(I.mcd && (I.mcd.busy || I.mcd.closed)),
@@ -818,9 +818,9 @@ function buildMcD(I, scene) {
   });
   I.actions.push({ ...(() => { const e = k.w(W + 1.2, OZM); return { x: e[0], z: e[1] }; })(), r: 2.2, y: 0, cond: () => mcdState.closed,
     label: () => '麥當勞已打烊（營業時間 05:00–23:00）', fn: (g) => g.hud.toast('🍟 麥當勞已打烊，早上 5 點再來吧', 'good', 2000) });
-  // 漢克 (js/hank.js) works the register at the dining end, 18:00–22:00
+  // 漢克 (src/entities/npcs/Hank.js) works the register at the dining end, 18:00–22:00
   const hankSpot = { at: k.w(14.6, mz(12.6)), y: k.base, h: k.heading(Math.PI / 2), talk: k.w(17.0, mz(12.6)) };
-  // entry: shop-local spot in the 學餐用餐區 where the 值班's customers come in from / go back to (js/mcshift.js)
+  // entry: shop-local spot in the 學餐用餐區 where the 值班's customers come in from / go back to (src/systems/minigames/McShift.js)
   const out = { entrance: k.w(W + 3, OZM), door: MCD_OPEN, entry: [W + 2.5, 7.8], k, W, D, staff, crew, kitchen, busy: false, hankSpot };
   Object.defineProperty(out, 'closed', { get: () => mcdState.closed });
   return out;
@@ -839,7 +839,7 @@ function buildMcD(I, scene) {
 //                black shelf of syrup boxes with the delivery bag, water filter with blue hoses, red pedal bin,
 //                white wall tiles, terracotta quarry floor, LED ceiling panels
 // Small details are atlas pictures (KR) on quads merged into two meshes. Returns shop-local anchors for the
-// crew and for the kitchen job (mckitchen.js), which animates the grill platen, baskets and food itself.
+// crew and for the kitchen job (src/systems/minigames/McKitchen.js), which animates the grill platen, baskets and food itself.
 // =====================================================================
 function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
   const box = (x0, x1, y0, y1, z0, z1, mat) => km.box(x0, x1, y0, y1, z0, z1, mat, { col: false });
@@ -873,7 +873,7 @@ function buildMcKitchen({ I, k, km, mz, put, MT, H, KX, DZ, D }) {
       barZ('chrome', 0.012, z1 - z0 - 0.3, KX + 0.21, 1.52, m);
     }
   };
-  grill(11.9, 13.3, true); grill(13.4, 14.8, false); // the second grill's platen belongs to mckitchen.js
+  grill(11.9, 13.3, true); grill(13.4, 14.8, false); // the second grill's platen belongs to src/systems/minigames/McKitchen.js
   // vertical bun toaster + a tray of buns
   cabinet(14.9, 15.5, 0.88); box(KX, E + 0.02, 0.88, 0.92, 14.9, 15.5, MT.kSteel);
   box(KX + 0.04, KX + 0.5, 0.92, 1.62, 14.95, 15.45, MT.kSteelDk);
@@ -1148,7 +1148,7 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
 // by giving the walkable surfaces the building's base height minus the local ground (see surf()).
 // =====================================================================
 // k: the whole house is built 1.35x (roomier rooms, stair and corridor); W is in local units (5.8 m wide),
-// D in metres (the depth of the plot stays 16 m). It takes the first 1.5 m of the town house next door (f900, trimmed in main.js).
+// D in metres (the depth of the plot stays 16 m). It takes the first 1.5 m of the town house next door (f900, trimmed in src/core/Game.js).
 export const YH_SPEC = { id: 'f899', next: 'f900', ox: -566.8, oz: 221.9, ang: Math.atan2(-1.6, 4.0), W: 4.31, D: 16.03, k: 1.35, NF: 4 };
 export function yhFootprint() {
   const { ox, oz, ang, W, D, k } = YH_SPEC; const c = Math.cos(ang), s = Math.sin(ang);
@@ -1196,7 +1196,7 @@ function buildYanlinHome(I, scene) {
   const PX0 = 2.75;                           // shop / hallway partition
   const SZ0 = 5.6, SZ1 = 9.3, NS = 14;        // straight flight at the back, 14 risers up to 2F
   const LZ1 = 10.4;                           // end of the 2F landing
-  const GZ0 = 9.42, GZ1 = 10.28;              // doorway in the right wall at the landing -> 黃蓋瑞's flat (js/garryhome.js)
+  const GZ0 = 9.42, GZ1 = 10.28;              // doorway in the right wall at the landing -> 黃蓋瑞's flat (src/world/buildings/GarryHome.js)
   const CX0 = 1.75;                           // 2F corridor: lx CX0..SX0, from the landing back to the room (1.6 m wide)
   const RZ1 = 4.4;                            // 彥霖's room: full width lx 0.2..SX1, lz 0.2..RZ1
   const DX0 = 3.2, DX1 = 4.05;                // room door, bottom-right corner (bottom wall)
@@ -1207,7 +1207,7 @@ function buildYanlinHome(I, scene) {
 
   // ---------------- shell ----------------
   k.box(0, 0.2, -0.6, top, 0, D, MT.facade, { tile: [0.6, 0.6] });
-  // right wall: a doorway at the 2F landing into 黃蓋瑞's flat next door (js/garryhome.js), same floor, other unit
+  // right wall: a doorway at the 2F landing into 黃蓋瑞's flat next door (src/world/buildings/GarryHome.js), same floor, other unit
   k.box(W - 0.2, W, -0.6, top, 0, GZ0, MT.facade, { tile: [0.6, 0.6] }); k.box(W - 0.2, W, -0.6, top, GZ1, D, MT.facade, { tile: [0.6, 0.6] });
   k.box(W - 0.2, W, -0.6, F, GZ0, GZ1, MT.facade); k.box(W - 0.2, W, F + 1.62, top, GZ0, GZ1, MT.facade);
   k.box(0.2, W - 0.2, -0.6, top, D - 0.2, D, MT.facade, { tile: [0.6, 0.6] });
@@ -1463,14 +1463,14 @@ function buildYanlinHome(I, scene) {
 // 中北路 over a white-grey dado, an overhanging roof slab with a green roof, on a low kerbed island;
 // a clipped-hedge planter with a card reader on the island nose, a CCTV lamp post, a boom across
 // each lane at the OSM barrier=lift_gate nodes, yellow-and-white bollards along the exit lane, and the
-// name wall's kerbed lawn (js/map.js draws the wall and the spire from MAIN_GATE.wall / spire).
+// name wall's kerbed lawn (src/world/MapBuilder.js draws the wall and the spire from MAIN_GATE.wall / spire).
 // =====================================================================
 // NOTE: tools/build_terrain.py flattens the terrain under the island and the lawn from a copy of
 // these numbers; after changing them, sync it and rerun the script.
 export const MAIN_GATE = {
   // kiosk centre; local +x runs ENE along the island (mean heading of the two lanes), +z toward the entry lane
   x: -201.2, z: 82.25, ang: Math.atan2(-2.25, 5.2), name: '正門警衛室',
-  // OSM node where 中北路 ends at the gate; both one-way lanes start / end there (js/map.js paves them)
+  // OSM node where 中北路 ends at the gate; both one-way lanes start / end there (src/world/MapBuilder.js paves them)
   streetNode: 286745347,
   // island outline (local, ~8 m long), >= 5 cm inside both 4.2 m lanes
   island: [[-4.9, 0], [-4, -0.8], [-3, -1.55], [-2.4, -2], [-1.8, -2.05], [2.6, -2.05], [3.1, -1.8], [3.35, -1.2], [3.35, 1.2], [3.1, 1.8],
@@ -1493,11 +1493,11 @@ export const MAIN_GATE = {
   wall: { x: -205.2, z: 73.0, ang: 0.35, W: 6, H: 2.9, D: 1.5, lawn: [[-5, -1.4], [3.6, -1.4], [3.6, 1.2], [-5, 2.4]] },
   spire: { x: -209.2, z: 73.0, h: 12.2 },
   // world: forecourt pavers between the grate, the exit lane's outer edge and the lawn (the lanes and the
-  // end of 中北路 are paved by js/map.js); ±3 m, Google 衛星圖 / 街景 2024-08 heading 30-40
+  // end of 中北路 are paved by src/world/MapBuilder.js); ±3 m, Google 衛星圖 / 街景 2024-08 heading 30-40
   forecourt: [[-216, 80], [-213.4, 71.6], [-209.6, 70.9], [-202, 74.9], [-201.56, 75.38], [-206.46, 77.58], [-207.39, 78.41], [-210.99, 84.31], [-212.68, 84.8]],
 };
 const gateFrame = (s) => { const c = Math.cos(s.ang), sn = Math.sin(s.ang); return (x, z) => [s.x + x * c - z * sn, s.z + x * sn + z * c]; };
-// reserved footprints (js/main.js): trees, furniture and spawns keep off the island and the lawn
+// reserved footprints (src/core/Game.js): trees, furniture and spawns keep off the island and the lawn
 export function mainGateFootprint() { const w = gateFrame(MAIN_GATE); return MAIN_GATE.island.map(([x, z]) => w(x, z)); }
 export function mainGateLawn() { const w = gateFrame(MAIN_GATE.wall); return MAIN_GATE.wall.lawn.map(([x, z]) => w(x, z)); }
 // keep-clear spots for street furniture: boom posts and arms, bollards
@@ -1656,9 +1656,9 @@ export function buildInteriors(scene, data, collision) {
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene);
   I.yh = buildYanlinHome(I, scene);
-  I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC); // 黃蓋瑞家: next door to 彥霖's, same floor (js/garryhome.js)
-  buildClubCorner(I, scene, Kit); // outside of 活動中心's NW corner; the 3F 古箏社教室 in it (I.club) is built with js/sac.js
-  buildZones(I, scene, data, collision); // 周邊街道與校內各區自建的部分，順序見 js/zones.js
+  I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC); // 黃蓋瑞家: next door to 彥霖's, same floor (src/world/buildings/GarryHome.js)
+  buildClubCorner(I, scene, Kit); // outside of 活動中心's NW corner; the 3F 古箏社教室 in it (I.club) is built with src/world/buildings/Sac.js
+  buildZones(I, scene, data, collision); // 周邊街道與校內各區自建的部分，順序見 src/world/zones/Zones.js
   for (const s of GUARD_SPECS(data)) buildGuardhouse(I, scene, s.x, s.z, s.ang, s.name, s.gate || null, s.lanes || null, s.main ? s : null);
   collision.extra = I;
   I.im = im; I.mcd = mcd;

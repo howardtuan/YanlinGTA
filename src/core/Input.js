@@ -25,10 +25,10 @@ export class Input {
     this.joy = { x: 0, y: 0, active: false, id: null };
     // gamepad (browser Gamepad API, standard mapping: Xbox / PlayStation / Switch Pro)
     this.pad = { connected: false, axis: { x: 0, y: 0 }, held: new Set(), btn: [], hits: new Set(), ctx: 'play', block: new Set() };
-    this.padContext = () => 'play'; // main.js swaps in the phone / gate / job layouts
-    this.padDriving = () => false;  // main.js: true while riding / driving
+    this.padContext = () => 'play'; // src/core/Game.js swaps in the phone / gate / job layouts
+    this.padDriving = () => false;  // src/core/Game.js: true while riding / driving
     this.onPad = null;
-    // last device used ('kb' = keyboard / mouse / touch, 'pad'); prompts.js swaps the on-screen key hints
+    // last device used ('kb' = keyboard / mouse / touch, 'pad'); src/ui/Prompts.js swaps the on-screen key hints
     this.device = 'kb'; this.onDevice = null;
     addEventListener('gamepadconnected', e => { this.pad.connected = true; this.onPad?.(true, e.gamepad.id); });
     addEventListener('gamepaddisconnected', () => { this.pad.connected = !!this._firstPad(); this.onPad?.(this.pad.connected, ''); });

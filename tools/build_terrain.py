@@ -21,21 +21,21 @@ Output
 ------
 Game coordinates as in build_map.py (x = east, z = south, metres). A 10 m grid
 covering BOUNDS plus one cell, heights relative to REF (so y is roughly -15..+10),
-lightly smoothed. Enterable buildings (js/interiors.js) are flattened to their
+lightly smoothed. Enterable buildings (src/world/Interiors.js) are flattened to their
 entrance height on the footprint grown by FLAT_PAD, with every grid cell that
 touches that area pinned so the game's triangle interpolation is exactly constant
 there; small ponds and the fountain are flattened to their median bank height.
 Sunken plazas (data/cycu.json levels.sinks, from tools/overrides.json 'levels')
 pin only the grid posts inside their rectangle to the given height, so the cut
 does not spill a whole cell onto the roads around them; raised terraces and
-stairs are not in the grid (js/terrain.js adds them on top).
+stairs are not in the grid (src/world/Terrain.js adds them on top).
 Road cuts (data/cycu.json 'grade', kind cut, from tools/overrides.json) are
 filled back up to their bank height along the road, so the streets beside the
-cut stay level; the cut itself is drawn below that by js/map.js.
+cut stay level; the cut itself is drawn below that by src/world/MapBuilder.js.
 
 Encoding: heights in decimetres; per row, r0[i] is the first value and rows[i]
 holds one char per following column, chr(OFF + delta) with |delta| <= 45.
-js/terrain.js decodes it.
+src/world/Terrain.js decodes it.
 """
 import json, math, os, sys, zipfile, urllib.request, argparse
 
@@ -137,7 +137,7 @@ def poly_d(x, z, pts):
     return min(seg_d(x, z, *pts[i], *pts[(i + 1) % len(pts)]) for i in range(len(pts)))
 
 
-class Kit:  # mirrors Kit.w() in js/interiors.js
+class Kit:  # mirrors Kit.w() in src/world/Interiors.js
     def __init__(self, ox, oz, ang):
         self.ox, self.oz, self.c, self.s = ox, oz, math.cos(ang), math.sin(ang)
 
@@ -149,7 +149,7 @@ class Kit:  # mirrors Kit.w() in js/interiors.js
 
 
 def interior_zones(data):
-    """Flatten zones for the enterable buildings. Keep in sync with js/interiors.js
+    """Flatten zones for the enterable buildings. Keep in sync with src/world/Interiors.js
     (IM_SPEC / imFootprint, MCD_SPEC / sacTrimmedPts, MAIN_GATE, GUARD_SPECS / guardFootprint)."""
     zones = []
     # 資管系館
@@ -171,7 +171,7 @@ def interior_zones(data):
     zones.append(('正門警衛室', [[k.w(*p) for p in island], [wl.w(*p) for p in lawn]], k.w(0, 0)))
     # (the A6 side-gate guardhouse was removed; only the main gate and the 新中北路 side gate remain)
     specs = []
-    # 全人大道 side gate by the activity centre (mirror of GUARD_SPECS in js/interiors.js)
+    # 全人大道 side gate by the activity centre (mirror of GUARD_SPECS in src/world/Interiors.js)
     best = None
     for r in data['roads']:
         if not r.get('drive'):
@@ -287,7 +287,7 @@ def main():
     h = [[sum(K[b + 1][a + 1] * g(j + b, i + a) for a in (-1, 0, 1) for b in (-1, 0, 1)) / 16
           for i in range(nx)] for j in range(nz)]
 
-    def bil(x, z):  # matches js/terrain.js triangle split (diagonal i,j -> i+1,j+1)
+    def bil(x, z):  # matches src/world/Terrain.js triangle split (diagonal i,j -> i+1,j+1)
         fx = min(max((x - gx0) / STEP, 0), nx - 1.001); fz = min(max((z - gz0) / STEP, 0), nz - 1.001)
         i, j = int(fx), int(fz); u, v = fx - i, fz - j
         h00, h10, h01, h11 = h[j][i], h[j][i + 1], h[j + 1][i], h[j + 1][i + 1]
@@ -339,8 +339,8 @@ def main():
         print('flatten %-14s -> %+.1f m (%d pinned posts)' % (name, target, len(pinned)))
     # ---- road cuts (data 'grade', kind cut): the 20 m DTM blurs a real cut into a
     # shallow valley 1-2.5 m deep and ~50 m wide. Fill it back up to the banks so
-    # the streets beside the cut stay at grade; js/terrain.js then sinks the road
-    # itself between vertical retaining walls (and js/map.js draws them).
+    # the streets beside the cut stay at grade; src/world/Terrain.js then sinks the road
+    # itself between vertical retaining walls (and src/world/MapBuilder.js draws them).
     for g in data.get('grade', []):
         if g['kind'] != 'cut':
             continue

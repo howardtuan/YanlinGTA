@@ -1,7 +1,7 @@
 // 湖人隊紫色球衣（宣言版 Statement 的經典樣式，參考 2018–2025 那套）：深挖袖口的紫色背心、V 字（wishbone）領，
 // 領口和袖口是金邊加一條白色細線，身體兩側黑色側條（金＋白滾邊），胸前斜體金字 LAKERS 加白邊；球褲兩側同款側條。
 // 背號 24：胸前 LAKERS 下方一個小的、背後一個大的，金字加白邊。
-// 球衣是一層包在連續身體（bodymesh.js）軀幹外 9 mm 的殼，掛在 torso 骨上；圖案全部畫在一張程序貼圖上，
+// 球衣是一層包在連續身體（src/entities/BodyMesh.js）軀幹外 9 mm 的殼，掛在 torso 骨上；圖案全部畫在一張程序貼圖上，
 // 袖口和領口用 alphaTest 挖空，滾邊寬度用貼圖上的表面距離算，所以轉角、腋下都一樣寬。
 import * as THREE from 'three';
 import { torsoProfile, LEG_PROF } from '../entities/BodyMesh.js';
@@ -9,7 +9,7 @@ import { torsoProfile, LEG_PROF } from '../entities/BodyMesh.js';
 // Lakers gold is the official #FDB927. The official purple #552583 comes out blue-violet under the game's sky light
 // (measured on screen: 51, 27, 158), so the cloth uses a warmer #74267a that lands near it at midday (82, 29, 143).
 export const LAKERS = { purple: '#74267a', gold: '#fdb927', white: '#ffffff', black: '#141414' };
-export const HIPS = 0.93;            // torso pivot height in the bind pose (character.js)
+export const HIPS = 0.93;            // torso pivot height in the bind pose (src/entities/Character.js)
 export const Y0 = 0.9, Y1 = 1.548;   // from over the shorts' waistband up to the base of the neck (root frame)
 const OFF = 0.009;            // how far the cloth sits off the skin
 export const TW = 1536, TH = 512;    // texture: u runs round the body (seam at the back), v up the body

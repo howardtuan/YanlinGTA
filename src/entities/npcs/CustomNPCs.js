@@ -1,7 +1,7 @@
 // 自訂 NPC：在開發用的 NPC 儀表板（tools/npc-dashboard）新增的人物，不用改程式就會出現在遊戲裡。
 // 讀 data/npcs.json 裡 kind 為 custom、enabled 不是 false 的 NPC，放在他選的出沒地點（places），頭上有名牌；
 // 走近按 E 跟他聊天，talks 裡的對話一段一段輪流說（[說話的人, 台詞]，說話的人可以是「彥霖」）。
-// 需要作息、店鋪、加好友、手機聊天這些特別行為的 NPC，請照儀表板的「需求單」另外寫程式（像 js/hank.js、js/garry.js）。
+// 需要作息、店鋪、加好友、手機聊天這些特別行為的 NPC，請照儀表板的「需求單」另外寫程式（像 src/entities/npcs/Hank.js、src/entities/npcs/Garry.js）。
 import { makeMissionNpc } from '../NPC.js';
 
 export class CustomNpcs {

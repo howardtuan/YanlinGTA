@@ -278,7 +278,7 @@ function cutRects(items) {
 // ---------- sunk water (tools/water.json, carried into data as area / waterway 'sink') ----------
 // Ponds and streams sit below the ground round them. The terrain grid (10 m) cannot hold a
 // bank, so like the open road cut the ground and draped layers are masked over the water and
-// its banks (sinkPlan().glsl in cutMask) and js/map.js draws water, banks, railings and caps.
+// its banks (sinkPlan().glsl in cutMask) and src/world/MapBuilder.js draws water, banks, railings and caps.
 const SINK_COPE = 0.3; // concrete coping on top of a wall
 const sideOf = (nx, nz) => Math.abs(nx) > Math.abs(nz) ? (nx > 0 ? 'e' : 'w') : (nz > 0 ? 's' : 'n');
 const segDist = (px, pz, ax, az, bx, bz) => {
@@ -741,8 +741,8 @@ const STYLE_BY_NAME = {
   '自強商學大樓': 'white', '商設館': 'white', '智信樓': 'brick', '莊敬大樓': 'white', '建築館': 'granite', '祐生建築中心': 'granite',
   '張靜愚紀念圖書館': 'granite', '學生活動中心': 'tan', '全人教育村': 'brick', '電學大樓': 'tan', '力行大樓': 'red', '篤信大樓': 'white',
   '信實樓': 'brick', '恩慈樓': 'brick', '良善樓': 'brick', '喜樂樓': 'brick', '陸華樓': 'white', '維澈樓': 'white', '校史館': 'white',
-  '行政大樓（含校史館）': 'white', // 行政大樓＝OSM 的「校史館」（js/zone_a.js 改名）
-  '商業設計館': 'white', // 商業設計館＝OSM 的「商設館」（js/zone_c.js 改名）
+  '行政大樓（含校史館）': 'white', // 行政大樓＝OSM 的「校史館」（src/world/zones/ZoneA.js 改名）
+  '商業設計館': 'white', // 商業設計館＝OSM 的「商設館」（src/world/zones/ZoneC.js 改名）
   '生物科技館': 'white', '真知教學大樓': 'white', '設計學院': 'granite', '室設系館': 'white', '景觀系館': 'tan', '恩惠堂': 'white', '恩惠堂副堂': 'white',
   '中原大學體育館': 'white', '中原大學室內游泳池': 'white', '薄膜中心': 'white', '熱誠樓A棟': 'brick', '熱誠樓B C棟': 'brick', '林森館': 'tan', '望樓': 'tan',
   '月老宮': 'temple', '桃園白沙屯天上聖母': 'temple', '普忠里福德祠': 'temple', '盧氏宗祠': 'temple', '土地公廟': 'temple', '普仁福德祠(土地公廟)': 'temple',
@@ -778,7 +778,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const quality = opts.quality || (opts.low ? 'low' : 'high');
   const world = { data, bounds: B, labels: [], animated: [], named: {}, tris: {} };
   clearBridges(); // (and the height levels)
-  // raised pads / stairs (terrain.js) go in first so every ground query below
+  // raised pads / stairs (src/world/Terrain.js) go in first so every ground query below
   // (furniture, lamps, trees: groundY / Hmin) already stands on them; their
   // walls and collision are added after the trees (see 'height levels')
   const LV = data.levels || {};
@@ -915,7 +915,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // polygonOffset: draped layers sit a few cm above the terrain; keep them in front at distance
   const OFFSET = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 };
   const flatMat = (map = null) => maskCut(new THREE.MeshStandardMaterial({ vertexColors: true, map, depthWrite: false, roughness: 0.9, envMapIntensity: 0.5, ...OFFSET }));
-  // PBR ground surface (textures.js groundTex) with large-scale macro variation
+  // PBR ground surface (src/graphics/Textures.js groundTex) with large-scale macro variation
   const gmat = (tex, o = {}) => {
     const m = new THREE.MeshStandardMaterial({
       vertexColors: true, depthWrite: false, map: tex.map || null, normalMap: tex.normalMap || null, roughnessMap: tex.roughnessMap || null,
@@ -1011,7 +1011,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     addFlat(gDirt, gmat(T.dirt(), { macroAmt: 0.3 }), 'areas');
     addFlat(gGreen, gmat(T.grass(), { macroAmt: 0.3, macroScale: 0.015, env: 0.4 }), 'areas');
     addFlat(gTrack, gmat(T.track(), { macroAmt: 0.1 }), 'areas');
-    { const ct = data.areas.filter(isCourt); if (ct.length) { const g = new Geo(true); paintCourts(ct, g); addFlat(g, null, 'areas'); } } // 體育園區籃球場 (js/court.js)
+    { const ct = data.areas.filter(isCourt); if (ct.length) { const g = new Geo(true); paintCourts(ct, g); addFlat(g, null, 'areas'); } } // 體育園區籃球場 (src/world/Court.js)
     addFlat(gLines, null, 'areas');
     // water: dark, glossy, reflects the sky; ripples scroll
     const wn = T.waterNormal();
@@ -1086,7 +1086,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // ground, so without this slab the deck's underside and end walls (drawn later) show through
   // the road. Drawn right after the ground (renderOrder below), see the mesh at the end.
   const deckBase = new Geo(), DECK_BASE = col('#4a4b4f');
-  // bridge deck: height profile from terrain.js addBridge (same <=DS m stations);
+  // bridge deck: height profile from src/world/Terrain.js addBridge (same <=DS m stations);
   // visual only, collision stays 2D
   const deckStrip = (g, a, b, w, d0, yAt, y, c, sides) => {
     const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.01) return;
@@ -1384,12 +1384,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     deckSides.quad(P(-hw, hh), P(hw, hh), P(hw, hh + 1), P(-hw, hh + 1), C, F);
     deckSides.quad(P(-hw - 1, hh + 1), P(hw + 1, hh + 1), P(hw + 1, hh + 1, 0.6), P(-hw - 1, hh + 1, 0.6), C, UP);
   };
-  // viaduct / footbridge deck (js/terrain.js level LV_DECK): the item's anchors, not the ends' terrain
+  // viaduct / footbridge deck (src/world/Terrain.js level LV_DECK): the item's anchors, not the ends' terrain
   const gradeDeck = (r, gi) => {
     const s0 = gi.proj(r.pts[0][0], r.pts[0][1]), dir = gi.proj(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]) >= s0 ? 1 : -1;
-    r.deck = 1; // npc.js: traffic / walkers on this way use the deck
-    // gi.cut0: the first metres of the item's path are not built (a building's own stair up to the deck is there, js/lixing.js).
-    // A level's station also counts 1 m past its end (js/terrain.js surfaceAt), so the deck's centreline starts 1 m later.
+    r.deck = 1; // src/entities/NPC.js: traffic / walkers on this way use the deck
+    // gi.cut0: the first metres of the item's path are not built (a building's own stair up to the deck is there, src/world/buildings/Lixing.js).
+    // A level's station also counts 1 m past its end (src/world/Terrain.js surfaceAt), so the deck's centreline starts 1 m later.
     let pts = r.pts, off = 0;
     if (gi.cut0 > 0) {
       const keep = gi.cut0 + 1, c = gi.at(keep), in0 = (p) => gi.proj(p[0], p[1]) > keep + 0.01;
@@ -1441,9 +1441,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     sidewalk(r);
   }
   // ---------- grade separations: viaduct piers and ramp walls, footbridge, road cut ----------
-  // (tools/overrides.json 'grade'; heights in js/terrain.js). 2D collision: walls that
+  // (tools/overrides.json 'grade'; heights in src/world/Terrain.js). 2D collision: walls that
   // nothing passes (open cut, low ramp) block everyone; viaduct parapets and the box
-  // walls under the railway are height-banded (collision.js) so the street below /
+  // walls under the railway are height-banded (src/physics/Collision.js) so the street below /
   // the ground on top stays open. gradeSegs: the range of these walls in collision.segs (trees, below).
   const cutFloor = new Geo(false, uvS(8)), cutMarks = new Geo(), gradeMetal = new Geo(), gradeLights = new Geo(), gradeSigns = [];
   const gradeSegs = [collision.segs.length, 0];
@@ -1659,7 +1659,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const a = (f.ang ?? Math.atan2(q.uz, q.ux) * 180 / Math.PI) * Math.PI / 180, ux = Math.cos(a), uz = Math.sin(a);
       const P = (u, v) => [f.x + ux * u - uz * v, f.z + uz * u + ux * v], W = (f.w || RW) / 2;
       if (f.t === 'zebra') { // 斑馬線: 0.45 m bars along the street, 0.9 m apart, across its width
-        if (f.osm) continue; // furniture.js already lays this one (OSM crossing / signal junction): only breaks the lines
+        if (f.osm) continue; // src/world/Furniture.js already lays this one (OSM crossing / signal junction): only breaks the lines
         const L = (f.len || 3) / 2;
         for (let v = -W + 0.5; v <= W - 0.3; v += 0.9) marks.strip(P(-L, v), P(L, v), 0.45, 0.05, WHITE);
       } else if (f.t === 'stop') marks.strip(P(0, -W), P(0, W), 0.4, 0.045, WHITE);
@@ -1722,7 +1722,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // are only built when some building actually carries the tag
   const wallMat = {}; const wallGeo = {};
   const SEED = { campus: 7, town: 11, apt: 13, wash: 17, glass: 19, concrete: 23, arcade: 29 };
-  // PBR facades (textures.js): colour + normal + roughness/metalness (glass panes reflect the sky)
+  // PBR facades (src/graphics/Textures.js): colour + normal + roughness/metalness (glass panes reflect the sky)
   const makeWallMat = (t, o = {}) => new THREE.MeshStandardMaterial({
     map: t.map, emissiveMap: t.emi, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0, vertexColors: true,
     normalMap: t.normalMap, roughnessMap: t.rm, metalnessMap: t.rm, roughness: 1, metalness: 1, envMapIntensity: o.env ?? 1,
@@ -1874,7 +1874,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (shape === 'gabled' && (b.feature || []).includes('gable_row')) {
         // 設計學院: a row of small dark-grey gables (Google 街景目視, 2017-09), ridges
         // across the short side, one every ~7 m along the long edge p0-p1
-        const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), N = Math.max(1, Math.round(len / (b.gableEvery || 7))); // b.gableEvery: js/zone_e.js（實測 4 m）
+        const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), N = Math.max(1, Math.round(len / (b.gableEvery || 7))); // b.gableEvery: src/world/zones/ZoneE.js（實測 4 m）
         const rr = b.roofH || Math.min(2.4, len / N * 0.32);
         const lp = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
         for (let i = 0; i < N; i++) {
@@ -2142,7 +2142,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const t0 = j / k, t1 = (j + 1) / k;
       const p0 = [a[0] + (c[0] - a[0]) * t0, a[1] + (c[1] - a[1]) * t0], p1 = [a[0] + (c[0] - a[0]) * t1, a[1] + (c[1] - a[1]) * t1];
       const q0 = [p0[0] + n[0] * o, p0[1] + n[2] * o], q1 = [p1[0] + n[0] * o, p1[1] + n[2] * o];
-      if (pitAt(q0[0], q0[1]) !== null || pitAt(q1[0], q1[1]) !== null) continue; // not down into a pit (js/zone_g.js)
+      if (pitAt(q0[0], q0[1]) !== null || pitAt(q1[0], q1[1]) !== null) continue; // not down into a pit (src/world/zones/ZoneG.js)
       const Y = p => [p[0], Hgrid(p[0], p[1]) + 0.06 + TOL_LO, p[1]];
       aoGeo.tri(Y(p0), Y(p1), Y(q1), [AO_DARK, AO_DARK, AO_CLEAR], UP);
       aoGeo.tri(Y(p0), Y(q1), Y(q0), [AO_DARK, AO_CLEAR, AO_CLEAR], UP);
@@ -2156,7 +2156,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     let m = Infinity, M = -Infinity;
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], c = pts[(i + 1) % pts.length], n = Math.ceil(Math.hypot(c[0] - a[0], c[1] - a[1]) / 5);
-      for (let k = 0; k < n; k++) { const y = Hgrid(a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n); if (y < m) m = y; if (y > M) M = y; } // Hgrid, not H(): a B1 pit under an outline (js/zone_g.js) must not sink the building
+      for (let k = 0; k < n; k++) { const y = Hgrid(a[0] + (c[0] - a[0]) * k / n, a[1] + (c[1] - a[1]) * k / n); if (y < m) m = y; if (y > M) M = y; } // Hgrid, not H(): a B1 pit under an outline (src/world/zones/ZoneG.js) must not sink the building
     }
     if (m === Infinity) { footLo = 0; return 0; }
     footLo = m;
@@ -2226,7 +2226,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // water stains at the wall foot, slightly darker under the roof line
     const cLo = tint.map(v => v * 0.7), cTop = tint.map(v => v * 0.88);
     // looks.json noShop (e.g. 溜冰場, 電力中心 are kind town): the shopfront and awning are not
-    // drawn, but the wall stays in shopWalls and its rnd2 draw happens, so furniture.js and
+    // drawn, but the wall stays in shopWalls and its rnd2 draw happens, so src/world/Furniture.js and
     // everything after keep their sequences
     const hideShop = !!L && !!b.noShop;
     const shops = (b.kind === 'town' || b.kind === 'commercial') && !mk && !style.startsWith('glass') && !b.parts && (!b.noShop || hideShop);
@@ -2245,7 +2245,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // facadeParam atlas; plinth / top-floor colours, setbacks, bands, fins and corner piers.
     // Returns the rings the roof sits on (inset when the top floor steps back).
     const lookWalls = (V, rings, vh, vf) => {
-      // b.parts 的單塊可以帶自己的 look（js/zone_h.js：熱誠兩塔、薄膜中棟米黃塔）；只影響牆面畫法，不抽亂數
+      // b.parts 的單塊可以帶自己的 look（src/world/zones/ZoneH.js：熱誠兩塔、薄膜中棟米黃塔）；只影響牆面畫法，不抽亂數
       const L = V.look || b.look;
       const fl = vh / vf > 2.8 ? (vh - 0.6) / vf : vh / vf, top = base + vh, yF = base + vf * fl, yS = Math.min(base + 1.2, top);
       const W = L.windows || {}, tf = L.topFloor, tn = tf ? Math.min(vf - 1, tf.floors || 1) : 0, yT = base + (vf - tn) * fl, sb = tn ? tf.setback || 0 : 0;
@@ -2257,7 +2257,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const lines = [base, yS, plTop, yT, yF]; for (let j = 1; j < vf; j++) lines.push(base + j * fl);
       // look.open (超巨溜冰場): an open-air pad, not a building. No walls; a kerb and a 1 m steel
       // railing along the outer ring (the roof is replaced by the pad in the caller)
-      // look.open.bare（js/zone_h.js 熱誠 A／B 空橋）：連路緣、欄杆都不畫，空橋本體由自建程式蓋
+      // look.open.bare（src/world/zones/ZoneH.js 熱誠 A／B 空橋）：連路緣、欄杆都不畫，空橋本體由自建程式蓋
       if (L.open?.bare) return rings;
       if (L.open) {
         const kc = col(L.open.kerb || '#9a9a95'), rc2 = col(L.open.rail || '#b8bcbf');
@@ -2290,7 +2290,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const tiers = sb > 0 ? [[rings, foot, yT], [rings.map(r => offsetRing(r, sb)), yT, top]]
         : sb < 0 ? [[rings.map(r => offsetRing(r, -sb)), foot, yT], [rings, yT, top]] : [[rings, foot, top]];
       for (const [rs, y0, y1] of tiers) for (const ring of rs) for (let i = 0; i < ring.length; i++) {
-        if (b.holeWalls === false && ring !== rs[0]) break; // courtyards whose walls are built elsewhere (js/lixing.js)
+        if (b.holeWalls === false && ring !== rs[0]) break; // courtyards whose walls are built elsewhere (src/world/buildings/Lixing.js)
         const a = ring[i], c = ring[(i + 1) % ring.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
         if (l < 0.05) continue;
         const tx = dx / l, tz = dz / l, n = [tz, 0, -tx];
@@ -2302,7 +2302,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const nb = l >= bayF * 0.6 ? Math.max(1, Math.round(l / bayF)) : l / bayF;
         const u0 = colAcc / 8, u1 = (colAcc + nb) / 8; colAcc += Math.ceil(nb);
         const ys = [y0, y1, ...lines.filter(y => y > y0 + 0.01 && y < y1 - 0.01)].sort((p, q) => p - q);
-        // door openings cut into this wall (b.wallDoors: [{ p, q, y0, y1 }], world coordinates; js/lixing.js):
+        // door openings cut into this wall (b.wallDoors: [{ p, q, y0, y1 }], world coordinates; src/world/buildings/Lixing.js):
         // spans(ya, yb) = the stretches [t0, t1] along the edge with the heights left standing in ya..yb
         const cuts = (b.wallDoors || []).map(d => {
           const off = q => Math.abs((q[0] - a[0]) * tz - (q[1] - a[1]) * tx), at = q => (q[0] - a[0]) * tx + (q[1] - a[1]) * tz;
@@ -2461,9 +2461,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           const s0 = -sAcc / 32, s1 = -(sAcc + l) / 32, w0 = (foot - base) / 3.6, w1 = (yS - base) / 3.6; sAcc += l;
           if (!hideShop) shopGeo.quad([a[0], foot, a[1]], [c[0], foot, c[1]], [c[0], yS, c[1]], [a[0], yS, a[1]], [SHOP_LO, SHOP_LO, SHOP_HI, SHOP_HI], n,
             [[s0, w0], [s1, w0], [s1, w1], [s0, w1]]);
-          // street-facing shop walls: furniture.js hangs POI signs and parks scooters here
+          // street-facing shop walls: src/world/Furniture.js hangs POI signs and parks scooters here
           shopWalls.push({ a, c, n, base, h, floors, bi });
-          // slanted metal awning over the shopfront (under the POI signs from furniture.js)
+          // slanted metal awning over the shopfront (under the POI signs from src/world/Furniture.js)
           if (!lean2) {
             const o = 1.25, y0 = base + 3.2, y1 = base + 2.85;
             const A0 = [a[0], y0, a[1]], C0 = [c[0], y0, c[1]], A1 = [a[0] + n[0] * o, y1, a[1] + n[2] * o], C1 = [c[0] + n[0] * o, y1, c[1] + n[2] * o];
@@ -2480,7 +2480,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
         if (!fp && top > yS + 0.01) g.quad([a[0], yS, a[1]], [c[0], yS, c[1]], [c[0], top, c[1]], [a[0], top, a[1]], [tint, tint, cTop, cTop], n,
           [[u0, vAt(yS)], [u1, vAt(yS)], [u1, vAt(top)], [u0, vAt(top)]]);
-        // the old fixed-word signs are gone (POI signs in furniture.js); their
+        // the old fixed-word signs are gone (POI signs in src/world/Furniture.js); their
         // draws stay so the shared rnd sequence (stalls, trees...) is unchanged
         if (ring === pts && b.kind === 'town' && l > 4 && rnd() < 0.22 && oldSigns < 260) { oldSigns++; rnd(); }
         // horizontal floor ledges give campus blocks real depth and shadow lines
@@ -2562,7 +2562,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
     // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
     // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
-    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts: b.acPts || pts, top, /* acPts：改過輪廓的建物用原本輪廓抽冷氣亂數（js/zone_a.js） */ town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h, V.holes]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts: b.acPts || pts, top, /* acPts：改過輪廓的建物用原本輪廓抽冷氣亂數（src/world/zones/ZoneA.js） */ town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h, V.holes]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
@@ -2584,7 +2584,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
   world.windowMats = Object.values(wallMat);
   if (shopGeo.tris) {
-    // PBR shopfronts: shutters / lit glass fronts under a blank sign band (POI signs come from furniture.js)
+    // PBR shopfronts: shutters / lit glass fronts under a blank sign band (POI signs come from src/world/Furniture.js)
     const mat = makeWallMat(shopTex());
     const m = shopGeo.mesh(mat); m.castShadow = true; m.receiveShadow = true; scene.add(m);
     world.shopMat = mat; world.tris.shops = shopGeo.tris;
@@ -2826,7 +2826,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // middle arch as it did the old wide one; the outer columns block as drawn
     for (const x of cxs) collision.addCircle(gx + Math.cos(dir) * x, gz - Math.sin(dir) * x, Math.abs(x) < STEP ? 0.15 : COL * 0.65);
   }
-  // 正門 校名牆 + spire (js/interiors.js MAIN_GATE.wall / spire; Google 街景 2017-09 / 2022-08 / 2024-08):
+  // 正門 校名牆 + spire (src/world/Interiors.js MAIN_GATE.wall / spire; Google 街景 2017-09 / 2022-08 / 2024-08):
   // a ~6 x 2.9 x 1.5 m black polished granite block with grid joints, the CYCU emblem and 中原大學 facing
   // SSW toward 中北路, on a kerbed lawn (built with the guard kiosk); a vertical twisted square stainless
   // column (~12 m, gold band, black stone base) just off its west end.
@@ -3121,12 +3121,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
   onProgress(0.7);
 
-  // ---------- street furniture (furniture.js) ----------
+  // ---------- street furniture (src/world/Furniture.js) ----------
   {
     const f = buildFurniture(scene, world, data, { Geo, col, addFlat, obb, polyArea, low: !!opts.low, rnd: mulberry32(4401), keep: opts.keep || [] });
     world.signMats = f.signMats;
   }
-  // street furniture a reserved outline dropped (js/furniture.js ghosts): the lamps and trees below are laid out as if
+  // street furniture a reserved outline dropped (src/world/Furniture.js ghosts): the lamps and trees below are laid out as if
   // it still stood, in the same passes that leave the reserved outlines out, so it shifts none of their draws
   const furnGhost = (x, z, r) => world.furnGhost.blocked(x, z, r);
 
@@ -3283,7 +3283,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   }
 
   // ---------- trees ----------
-  // species modelled on the campus (vegetation.js): rain trees / banyans, round street trees,
+  // species modelled on the campus (src/world/Vegetation.js): rain trees / banyans, round street trees,
   // black pines, 大王椰子 palms and clipped shrubs; placement and colliders as before
   {
     const spots = [], palms = [], shrubs = [];
@@ -3328,7 +3328,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const cutHouses = data.buildings.filter(b => b.pre).map(b => ({ P: b.pre, box: [Math.min(...b.pre.map(p => p[0])), Math.min(...b.pre.map(p => p[1])), Math.max(...b.pre.map(p => p[0])), Math.max(...b.pre.map(p => p[1]))] }));
     const inCutHouse = (x, z, r) => cutHouses.some(({ P, box }) => x > box[0] - r && x < box[2] + r && z > box[1] - r && z < box[3] + r &&
       (pointInPoly(x, z, P) || P.some((p, i) => { const q = P[(i + 1) % P.length], c = closestOnSeg(x, z, p[0], p[1], q[0], q[1]); return Math.hypot(c[0] - x, c[1] - z) < r; })));
-    // The reserved outlines (custom-built parts, js/main.js) are left out of this first test as well: they keep trees
+    // The reserved outlines (custom-built parts, src/core/Game.js) are left out of this first test as well: they keep trees
     // and shrubs off only in the final okSpot (a tree dropped there stays as a ghost of the same size), so adding or
     // changing a reserved outline no longer re-deals every tree and shrub after it in the shared rnd sequence.
     const okOsm = (x, z, r) => {
@@ -3459,9 +3459,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       return false;
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
-    // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way),
-    // except one that keeps its vegetation (addPit veg: js/zone_a.js 圖書館東側下沉庭院 is a grove)
-    // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, js/zone_a.js 圖書館南面平台; placement unchanged the same way)
+    // ... and nothing grows in a pit (src/world/Terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way),
+    // except one that keeps its vegetation (addPit veg: src/world/zones/ZoneA.js 圖書館東側下沉庭院 is a grove)
+    // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, src/world/zones/ZoneA.js 圖書館南面平台; placement unchanged the same way)
     const treeHide = opts.treeHide || [], onPad = (x, z) => treeHide.some(p => pointInPoly(x, z, p));
     const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8, true) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
@@ -3477,7 +3477,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const veg = [];
     for (const p of spots) { const gone = moveTree(p, 0.35), [x, z, kind, s] = p; veg.push({ x, z, y: groundY(x, z) - 0.15, kind, s, hide: gone || hideTree(x, z) }); }
     for (const p of palms) { const gone = moveTree(p, 0.3), [x, z, s] = p; veg.push({ x, z, y: groundY(x, z) - 0.15, kind: 'palm', s: 0.85 + (s - 0.8) * 0.3, hide: gone || hideTree(x, z) }); }
-    // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
+    // opts.vegHide: outlines of custom-built parts added after the placement (src/world/buildings/Dorms.js stair tower, entrance steps):
     // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
     const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
     for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6, true) !== null });
@@ -3488,7 +3488,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   for (const f of lateColliders) f();
   onProgress(0.85);
 
-  // ---------- height levels: pads, stairs, retaining walls (terrain.js) ----------
+  // ---------- height levels: pads, stairs, retaining walls (src/world/Terrain.js) ----------
   // Drawn after the trees and furniture, and their collision added last, so
   // nothing placed earlier (or its random draws) changes. Every outer edge is
   // sampled: where the ground beyond it (terrain or another level) is more than
@@ -3571,7 +3571,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       } else gTop.flatPoly(pts, L.y, col(d.top || '#e6e2da'));
       for (let i = 0; i < n; i++) {
         // d.open: edges (pts[i] -> pts[i+1]) that meet a bridge deck at the same height (decks are not levels,
-        // so below() would see the ground under it): no wall, no seal there (js/zone_g.js 學活前庭、二樓門廊)
+        // so below() would see the ground under it): no wall, no seal there (src/world/zones/ZoneG.js 學活前庭、二樓門廊)
         if (d.open && d.open.includes(i)) continue;
         const A = pts[i], Bp = pts[(i + 1) % n], ex = Bp[0] - A[0], ez = Bp[1] - A[1], l = Math.hypot(ex, ez) || 1;
         const nx = sgn * ez / l, nz = -sgn * ex / l;

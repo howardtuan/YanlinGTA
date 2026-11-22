@@ -1,5 +1,5 @@
 // H 區「東側」校內建築外觀（都不能進去，只做外觀）。
-// 做法同 js/zone_g.js：js/map.js 照舊用 OSM 輪廓蓋牆，zoneHLook() 只換 look／高度／執行時切塊（b.parts＋splitAc，
+// 做法同 src/world/zones/ZoneG.js：src/world/MapBuilder.js 照舊用 OSM 輪廓蓋牆，zoneHLook() 只換 look／高度／執行時切塊（b.parts＋splitAc，
 // 輪廓 b.pts、kind 不動，共用亂數抽取次數不變），zoneHAdd() 新增 OSM 沒有的建物（synthetic，各自用自己的亂數），
 // buildZoneH() 自建輪廓表達不了的構件（空橋、鋼格架、入口雨遮、大階梯、招牌、沖孔板外框等）。
 // 自建構件不加 reserved（會讓全圖牆邊灌木的共用亂數錯位），碰撞用 Interiors.addWall（地圖植栽之後才加）。
@@ -29,7 +29,7 @@ export const H_IDS = {
   bmS: 'w492487884', bmM: 'w492487885', bm4: 'w492487889', sy: 'w492487886', rn: 'f694',
 };
 
-// 凸多邊形以外也可用的半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 zone_g.js）
+// 凸多邊形以外也可用的半平面裁切：keep(p) 回傳 [d1, d2…]，全部 >= 0 的部分保留（同 src/world/zones/ZoneG.js）
 function clipPoly(pts, keep) {
   let P = pts.map(p => [p[0], p[1]]);
   const n = keep(P[0]).length;
@@ -98,7 +98,7 @@ const RENNAI_LOOK = () => ({
   roof: { colour: '#e9e8e3' },
 });
 
-// ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
+// ---------------- 外觀 look（src/core/Game.js 在 src/world/MapBuilder.js 蓋樓前套用） ----------------
 export function zoneHLook(b) {
   const id = b.id;
   if (id === H_IDS.xs) {
@@ -154,7 +154,7 @@ export function zoneHLook(b) {
       parapet: { h: 1.5, colour: '#1f5ad6' },
     };
   } else if (id === H_IDS.link) {
-    // 架高空橋：map.js 不畫牆和屋頂（共用亂數照抽），buildZoneH 蓋柱子＋玻璃廊道，碰撞改成一根柱子
+    // 架高空橋：src/world/MapBuilder.js 不畫牆和屋頂（共用亂數照抽），buildZoneH 蓋柱子＋玻璃廊道，碰撞改成一根柱子
     b.look = { ...(b.look || {}), wall: { base: 'smooth', colour: '#d9d9d6' }, open: { bare: true }, roof: { ac: false } };
   } else if (id === H_IDS.bmS) {
     b.h = 9.5; b.floors = 2; // 兩層但層高高
@@ -330,7 +330,7 @@ function mat(key) {
   return (MATS[key] = m());
 }
 
-// ---------------- 幾何累加（依材質合併，同 zone_g.js） ----------------
+// ---------------- 幾何累加（依材質合併，同 src/world/zones/ZoneG.js） ----------------
 class Acc {
   constructor() { this.parts = new Map(); }
   add(m, g) { if (g.index) g = g.toNonIndexed(); if (!this.parts.has(m)) this.parts.set(m, []); this.parts.get(m).push(g); return g; }
@@ -520,7 +520,7 @@ export function buildZoneH(I, scene, data, collision) {
     const cols = P.map(p => { const dx = p[0] - c[0], dz = p[1] - c[1], l = Math.hypot(dx, dz); return [p[0] + dx / l * 0.25, p[1] + dz / l * 0.25]; }), cw = 0.225;
     for (const [x, z] of cols) { const yb = groundY(x, z) - 0.2; k.box('white', x - cw, x + cw, yb, y0 - 0.3, z - cw, z + cw); }
     for (const [x, z] of cols.slice(1)) boxColl(rect(x - cw, z - cw, x + cw, z + cw), groundY(x, z) - 0.2, y0 - 0.3);
-    // map.js 加的整塊碰撞多邊形縮成第一根柱子（植栽已經照原本的多邊形種好，共用亂數不變）
+    // src/world/MapBuilder.js 加的整塊碰撞多邊形縮成第一根柱子（植栽已經照原本的多邊形種好，共用亂數不變）
     const pi = collision ? collision.polys.findIndex(p => p.pts === lk.pts) : -1;
     if (pi >= 0) { const [x, z] = cols[0]; collision.insetPolygon(pi, rect(x - cw, z - cw, x + cw, z + cw)); }
     shapes.push({ name: 'skybridge', pts: P, y0: y0 - 0.6, y1: y1 + 0.7 });

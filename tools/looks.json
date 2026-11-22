@@ -1,8 +1,8 @@
 {
   "_doc": [
-    "Per-building facade looks for the campus, merged into data/cycu.json as building.look by tools/build_map.py (keyed by OSM id; js/map.js draws them).",
+    "Per-building facade looks for the campus, merged into data/cycu.json as building.look by tools/build_map.py (keyed by OSM id; src/world/MapBuilder.js draws them).",
     "Values are read off the Google 街景 / 衛星 survey text of each building (handoff buildings_merged.json): the source field says where it was seen, confidence how sure it is (high / medium / low). No imagery is stored.",
-    "Heights, floors and footprints are not set here (tools/overrides.json). A look building draws its walls from the facadeParam atlas (js/textures.js), one window-type row per storey.",
+    "Heights, floors and footprints are not set here (tools/overrides.json). A look building draws its walls from the facadeParam atlas (src/graphics/Textures.js), one window-type row per storey.",
     "look.wall: base = tile | smooth | stone (texture of the wall finish), colour = wall hex, stripes = [hex..] wall colour per storey from the 2nd up (cycled).",
     "look.windows: type = punched | pair | ribbon | curtain | grid | slit | louver | arch | gallery | none; ground = type of the ground floor; types = per storey from the ground (last repeats); bay = window spacing m; accent = frames / mullions / pilasters / louvers / arch recess hex; glass = glass tint hex.",
     "look.faces: [{on, colour, accent, glass, windows}] overrides for walls facing on = n|ne|e|se|s|sw|w|nw (or a list), or 'long' / 'short' (sides of the footprint's oriented box).",
@@ -13,7 +13,7 @@
     "look.roof: {colour, shape (pitched roof drawn for looks only, e.g. gabled / hipped), rise, solar ({u, v, colour} fractions of the oriented box, or true), boxes ([{at [u, v] fractions or corner (n / ne / ... : 1 m inside that corner), size [w, d] m, h, colour, topColour}]: stair cores, roof lights), ac (false = no AC units), extras (false = no 透天 stair house / 鐵皮 shed / tank)}.",
     "look.open: {floor, kerb, rail} an open-air pad (no walls or roof) with a kerb and a 1 m railing; the footprint and its random draws stay as they are.",
     "skip: the entry is survey data only and is not merged (the footprint is drawn elsewhere).",
-    "noShop: copied to the building (kind town buildings that are not shops: no shopfront or awning). There is no shed field here: shed 0 would skip the shed's rb() draws, so roof.extras false hides the 鐵皮 shed instead. Nothing here may change the shared random streams in js/map.js (see the comments there)."
+    "noShop: copied to the building (kind town buildings that are not shops: no shopfront or awning). There is no shed field here: shed 0 would skip the shed's rb() draws, so roof.extras false hides the 鐵皮 shed instead. Nothing here may change the shared random streams in src/world/MapBuilder.js (see the comments there)."
   ],
   "buildings": {
     "w229238548": {
@@ -35,7 +35,7 @@
       "confidence": "high",
       "source": "Google 街景，校內步道（24.95686,121.24336）朝東北 30°，2017年9月；Google 衛星（@24.957002,121.243499，約 208m，2026 影像）",
       "note": "open corridor storeys with rose-red solid balustrades between white columns and beams; green dado under the ground-floor windows; solar panels on the east half of the roof",
-      "skip": "not applied: js/main.js skips this footprint and js/interiors.js (IM_SPEC) builds the 資管 shell by hand; kept as survey data for that shell",
+      "skip": "not applied: src/core/Game.js skips this footprint and src/world/Interiors.js (IM_SPEC) builds the 資管 shell by hand; kept as survey data for that shell",
       "look": {
         "wall": {"base": "smooth", "colour": "#f2f0ec"},
         "windows": {"type": "gallery", "ground": "ribbon", "bay": 4.5, "accent": "#b8455e", "glass": "#5f6e78"},

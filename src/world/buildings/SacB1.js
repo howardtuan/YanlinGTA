@@ -1,8 +1,8 @@
-// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，往上走到一樓、再到二樓為止，樓上的室內在 js/sac.js）、南邊用餐區（學餐的座位），
-// 用餐區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，js/zone_g.js 放了一塊甲板），
-// 入口在攤販東邊、麥當勞玻璃房西邊（從下沉區的西段樓梯下來），往東直接通到麥當勞的點餐大廳（js/interiors.js buildMcD）。
-// 地板是 js/zone_g.js 的坑（PIT.west / PIT.stall），天花在坑底上 2.8 m（= 學活外牆的牆腳），把學活空心的內部擋住。
-// 學活的碰撞輪廓在 js/zone_g.js 換成挖掉這塊的版本（蓋完地圖之後才換，共用亂數不變）。
+// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，往上走到一樓、再到二樓為止，樓上的室內在 src/world/buildings/Sac.js）、南邊用餐區（學餐的座位），
+// 用餐區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，src/world/zones/ZoneG.js 放了一塊甲板），
+// 入口在攤販東邊、麥當勞玻璃房西邊（從下沉區的西段樓梯下來），往東直接通到麥當勞的點餐大廳（src/world/Interiors.js buildMcD）。
+// 地板是 src/world/zones/ZoneG.js 的坑（PIT.west / PIT.stall），天花在坑底上 2.8 m（= 學活外牆的牆腳），把學活空心的內部擋住。
+// 學活的碰撞輪廓在 src/world/zones/ZoneG.js 換成挖掉這塊的版本（蓋完地圖之後才換，共用亂數不變）。
 // Local frame: origin at (-152, -114), x east, z south (Kit angle 0).
 import * as THREE from 'three';
 import { H, Hgrid } from '../Terrain.js';
@@ -50,7 +50,7 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   // ceiling 2.8 m up (the 活動中心's outer wall starts there), a square hole over the spiral stair
   const SX = 6, SZ = 5, SR = 1.7, hx0 = SX - SR - 0.2, hx1 = SX + SR + 0.2, hz0 = SZ - SR - 0.2, hz1 = SZ + SR + 0.2;
   for (const [x0, x1, z0, z1] of [[0, W, 0, hz0], [0, W, hz1, D + 0.35], [0, hx0, hz0, hz1], [hx1, W, hz0, hz1], [0, SW, D + 0.35, SD]]) k.box(x0, x1, Hc, Hc + 0.12, z0, z1, MT.ceil, { ...nc, tile: [0.6, 0.6] });
-  // the well over the stair, up to the 1F floor (js/sac.js), and a beam over the entrance
+  // the well over the stair, up to the 1F floor (src/world/buildings/Sac.js), and a beam over the entrance
   k.box(hx0, hx1, Hc, Hgrid(-153, -86) + FORE.rise - k.base - 0.02, hz0, hz1, MT.shaft, nc);
   k.box(SW, W, Hc - 0.35, Hc + 0.4, D - 0.1, D + 0.35, MT.wall, nc);
   // the sign on that beam (street view 2017): a blue 影印部 board; 麥當勞 is inside to the right
@@ -64,13 +64,13 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   for (let x = 2; x < W - 0.5; x += 3) for (let z = 1.5; z < D; z += 3) { if (Math.abs(x - SX) < 2.6 && Math.abs(z - SZ) < 2.6) continue; k.box(x - 0.6, x + 0.6, Hc - 0.02, Hc, z - 0.12, z + 0.12, MT.light, nc); }
   for (let x = 1.6; x < SW - 0.5; x += 2.6) k.box(x - 0.5, x + 0.5, Hc - 0.02, Hc, 21.0, 21.24, MT.light, nc);
 
-  // ---------------- stair hall: round spiral stair, walkable up to 1F (js/sac.js builds the floor and the rail round the well) ----------------
+  // ---------------- stair hall: round spiral stair, walkable up to 1F (src/world/buildings/Sac.js builds the floor and the rail round the well) ----------------
   // 18 wedges of 30 degrees, one and a half turns anticlockwise (seen from above, x east / z south): in from the south at B1,
   // out to the north at 1F. Each wedge is a walkable surface; the drum (chords at the rail), the newel and two radial stops
   // (under the flight at the bottom, past the last step at the top) are collision lines with height bands.
   const TOP1F = SAC_B1.f1 = Hgrid(-153, -86) + FORE.rise - k.base, NS = 18, A0 = Math.PI / 2, DA = Math.PI / 6, rise = (TOP1F - 0.1) / NS;
   const pol = (a, r) => [SX + Math.cos(a) * r, SZ + Math.sin(a) * r];
-  const TOP2F = Hgrid(STAIR2F.x, STAIR2F.zTop - 1) + STAIR2F.rise - k.base; // the stair goes on up to 2F and ends there (js/sac.js builds the floor round it)
+  const TOP2F = Hgrid(STAIR2F.x, STAIR2F.zTop - 1) + STAIR2F.rise - k.base; // the stair goes on up to 2F and ends there (src/world/buildings/Sac.js builds the floor round it)
   k.cyl(SX, SZ, 0.12, 0, TOP2F + 1.0, MT.rail, { seg: 12 });
   k.wallRect(SX - 0.2, SX + 0.2, SZ - 0.2, SZ + 0.2, 0, TOP2F + 1.2);
   for (let i = 0; i < NS; i++) {

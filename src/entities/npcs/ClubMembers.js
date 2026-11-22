@@ -3,7 +3,9 @@
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { garryPlan } from './Garry.js';
-import { reachArm } from '../Armik.js';
+import { playPose } from './GuzhengPose.js';
+
+export { playPose };
 
 export const MEMBERS = [
   { id: 'qi', name: '小琪', title: '古箏社社長', seat: 0, look: { skin: '#f0cfae', shirt: '#e9dfe8', shorts: '#3a3f52', pants: true, hair: '#2a1c14', hairStyle: 'long', shoes: '#f2f2f0', face: true },
@@ -22,16 +24,6 @@ export function clubWho(clock) {
   if (day % 7 < 5 && m >= 17 * 60 && m < 18 * 60 + 30) return ['xuan', 'yu'];
   return [];
 }
-// hands on the strings of a guzheng 0.6 m in front (t: time, busy: really playing)
-export function playPose(ch, t, busy) {
-  const [aR, aL] = ch.arms; ch.torso.rotation.x = 0.34; ch.head.rotation.x = 0.26 + Math.sin(t * 0.9) * 0.05;
-  ch.root.updateMatrixWorld(true);
-  const s = busy ? 1 : 0, a = Math.sin(t * 5.2), b = Math.sin(t * 1.3);
-  const y = 0.735 / ch.root.scale.y;
-  reachArm(ch, aR, -0.3 + b * 0.03 * s, y + Math.max(0, a) * 0.045 * s, 0.5 + Math.cos(t * 2.6) * 0.05 * s, -0.6, -0.5, -0.5);
-  reachArm(ch, aL, 0.2 + b * 0.06 * s, y + Math.max(0, Math.sin(t * 2.1)) * 0.035 * s, 0.5 + Math.sin(t * 1.7) * 0.04 * s, 0.6, -0.5, -0.5);
-}
-
 const SCALE = [293.66, 329.63, 369.99, 440, 493.88, 587.33, 659.25, 739.99, 880, 987.77];
 export class ClubMembers {
   constructor(game) {

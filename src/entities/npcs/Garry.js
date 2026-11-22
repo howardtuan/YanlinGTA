@@ -5,7 +5,7 @@
 //   其他時間在房間（書桌前，深夜睡覺）。跑步的時候跑道上還有幾個一起慢跑的同學。
 // 起床鬧鐘彩蛋：他桌上的手機按 E（或早上 07:00 你人在他房間）會響起鬧鐘（assets/sfx/garry/alarm.m4a，只有聲音）；
 // 檔案載入失敗時改成一般的鬧鈴聲。
-import { playPose } from './ClubMembers.js';
+import { playPose } from './GuzhengPose.js';
 import * as THREE from 'three';
 import { createCharacter, randomStudent } from '../Character.js';
 import { torsoProfile } from '../BodyMesh.js';

@@ -21,7 +21,8 @@
 // stands there, facing the forecourt, with the ramp running down along the south-west side.
 // =====================================================================
 import * as THREE from 'three';
-import { Kit, regMat, MAIN_GATE } from '../Interiors.js';
+import { Kit, regMat } from '../Kit.js';
+import { MAIN_GATE } from '../MainGateSpec.js';
 
 // ---- frames -------------------------------------------------------------------------------------
 // 維澈樓 west terrace (tools/overrides.json 「維澈樓西側抬高平台」): o = the building's west corner, u along

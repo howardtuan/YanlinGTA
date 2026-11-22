@@ -1,6 +1,6 @@
 // PYtoday screens, shared by the i-Piyan app (compact: list, tap for the article) and the desktop computers (wide:
-// list on the left, article on the right). Articles come from src/ui/phone/News.js; the reading state is game.news (NewsDesk).
-import { publishedNews } from './News.js';
+// list on the left, article on the right). Articles come from src/systems/News.js; the reading state is game.news (NewsDesk).
+import { publishedNews } from '../../systems/News.js';
 import { dayDate, fmtP } from '../../systems/StockMarket.js';
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);

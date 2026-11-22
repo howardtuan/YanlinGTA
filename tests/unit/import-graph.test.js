@@ -71,11 +71,7 @@ function cycles() {
   return out.sort();
 }
 
-const KNOWN_CYCLES = [
-  'entities/npcs/ClubMembers.js <-> entities/npcs/Garry.js',
-  'systems/StockMarket.js <-> ui/phone/News.js',
-  'world/Interiors.js <-> world/buildings/GateExtras.js <-> world/zones/Zones.js',
-];
+const KNOWN_CYCLES = [];
 
 const layer = (f) => f.split('/')[0];
 // AGENT.md: core / physics / graphics must not depend on systems / ui; world builds the static
@@ -92,7 +88,6 @@ const FORBIDDEN = [
 // core/Game.js is the entry point that wires everything together
 const WIRING = new Set(['core/Game.js', 'core/GameLoop.js', 'core/MenuManager.js']);
 const KNOWN_VIOLATIONS = [
-  'systems/StockMarket.js -> ui/phone/News.js',
   'systems/minigames/McKitchen.js -> ui/Prompts.js',
   'systems/minigames/McShift.js -> ui/Prompts.js',
   'systems/minigames/Race.js -> ui/Prompts.js',

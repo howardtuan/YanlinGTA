@@ -4,7 +4,7 @@
 // 跟上市公司有關的新聞會帶一個漲跌效果（pct），src/systems/StockMarket.js 生成那天的走勢時用 newsEffects() 讀進去：
 //   開盤前發的（含前一晚、週末）→ 當天開盤跳空；盤中發的 → 從發佈那一刻起股價往那個方向走；收盤後的 → 下個交易日開盤。
 // 全部是遊戲裡編的，公司名稱都是靈感股的改名公司。
-import { STOCKS, isTradingDay, OPEN, CLOSE } from '../../systems/StockMarket.js';
+import { STOCKS, isTradingDay, OPEN, CLOSE } from './StockData.js';
 
 const hashN = (...n) => { let h = 2166136261; for (const x of n) { h ^= (x | 0) + 0x9e3779b9 + (h << 6) + (h >>> 2); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; };
 const rngOf = (seed) => () => { seed = (seed + 0x6D2B79F5) | 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };

@@ -4,6 +4,7 @@
 import { makeMissionNpc } from './npc.js';
 import { HANK_LOOK } from './hank.js';
 import { MINGSHAN_LOOK } from './mingshan.js';
+import { YEEMING_LOOK } from './yeeming.js';
 import { JIANYU_LOOK } from './jianyu.js';
 import { FRIEND_CONTACTS } from './chats.js';
 import { FRIEND_POSTS } from './feeds.js';
@@ -62,6 +63,55 @@ export const FRIENDS = {
   // buildGordon 給位置）；跟他說話、結帳都在櫃台（js/gordon.js），結完帳還不是好友的話他會問要不要互加。
   // 漢克（js/hank.js）：資管系同學、女拳大帝的室友。晚上在麥當勞內場炸薯條，其他時間騎 ZMAX 兜風或背吉他散步；
   // 他會動，沒有固定位置（spot 回傳 null），說話由 hank.js 觸發：散步時（先彈吉他）用 intro，在內場用 work。
+  // YeeMing（js/yeeming.js）：物理系、羊明衫的男朋友，正在當兵（迷彩軍服、鋼盔）。spot 為 null：人由 yeeming.js 放，
+  // 聊天由 yeeming.js 呼叫 talk('yeeming', 'walk' | 'volley')；跟他們聊天彥霖每次都會問「要不要打麻將？」
+  yeeming: {
+    name: 'YeeMing', short: 'YeeMing', look: YEEMING_LOOK, spot: () => null,
+    intro: [
+      ['YeeMing', '嗨彥霖！我是 YeeMing，物理系的，跟你同屆 🪖'],
+      ['彥霖', '你怎麼穿迷彩？……對了，要不要打麻將？'],
+      ['YeeMing', '哈哈哈我在當兵啦，今天放假。麻將等我下次休假，三缺一一定揪你 🀄'],
+      ['YeeMing', '選會長我挺你！物理系那邊我幫你拉票。加個好友吧～'],
+    ],
+    again: [['彥霖', '要不要打麻將？'], ['YeeMing', '等我休假啦哈哈。要不要先互加好友？']],
+    yes: [['YeeMing', '加到了！休假的時候約打排球，或……打麻將 🀄😆']],
+    no: [['YeeMing', '好喔～放假的時候常在學校，想加再找我']],
+    chat: [
+      [['彥霖', '要不要打麻將？'], ['YeeMing', '收假前一晚可以！先說好不能放水 🀄']],
+      [['彥霖', '要不要打麻將？'], ['YeeMing', '你每次都問這個欸哈哈哈，好啦休假就打']],
+      [['YeeMing', '當兵每天五點半起床，回學校反而覺得好輕鬆 😂']],
+      [['YeeMing', '投票那天我剛好休假，一定回來投你一票 🗳️']],
+    ],
+    walk: {
+      intro: [
+        ['羊明衫', '彥霖～這是我男朋友 YeeMing 😊'],
+        ['YeeMing', '嗨！我物理系的，跟你同屆。常聽明衫說你選會長超拚的，加油！'],
+        ['彥霖', '你們好閃……對了，你們要不要打麻將？'],
+        ['YeeMing', '麻將！？我現在在當兵，今天剛好放假出來陪她，下次休假一定打 🀄'],
+        ['羊明衫', '我們是宿營的時候認識的，他還為了我把菸戒了 😌'],
+        ['YeeMing', '戒菸比當兵還難好嗎……對了，我們加個好友吧！物理系的票我幫你拉。'],
+      ],
+      again: [['彥霖', '所以……要不要打麻將？'], ['YeeMing', '哈哈哈休假再說！先互加好友？']],
+      chat: [
+        [['彥霖', '要不要打麻將？'], ['羊明衫', '他會輸到脫褲子啦 😂'], ['YeeMing', '……我最近有在練好嗎']],
+        [['彥霖', '要不要打麻將？'], ['YeeMing', '收假前一晚可以！明衫負責算台 🀄']],
+        [['彥霖', '要不要打麻將？'], ['羊明衫', '先說好，我們只是在散步，不要拐他去打牌 😤']],
+      ],
+    },
+    volley: {
+      intro: [
+        ['YeeMing', '欸彥霖！來打排球嗎？明衫在忙，我先來練一下。'],
+        ['彥霖', '你排球打得不錯欸……對了，要不要打麻將？'],
+        ['YeeMing', '哈哈哈哈怎麼又是麻將，等我休假！吱吱常跟我在這邊打球，下次一起來。'],
+        ['YeeMing', '我們加個好友吧，選會長我挺你 🏐'],
+      ],
+      chat: [
+        [['彥霖', '要不要打麻將？'], ['YeeMing', '先陪我墊球 100 下再說 🏐']],
+        [['YeeMing', '吱吱等等也會來，三個人可以練傳球']],
+        [['彥霖', '要不要打麻將？'], ['YeeMing', '你這個人……好啦休假晚上 🀄']],
+      ],
+    },
+  },
   // 羊明衫（js/mingshan.js）：資管系的內捲王、舞蹈專家（想進 K-POP 女團），晚上是麥當勞的值班經理（外場櫃台）；
   // spot 為 null：人由 mingshan.js 放，聊天由 mingshan.js 呼叫 talk('mingshan', 'dance' | 'work')。
   mingshan: {

@@ -42,6 +42,7 @@ import { Concerts } from './concert.js';
 import { Garry } from './garry.js';
 import { Jianyu } from './jianyu.js';
 import { Mingshan } from './mingshan.js';
+import { YeeMing } from './yeeming.js';
 import { Gordon } from './gordon.js';
 import { LibraryLink } from './library.js';
 import { Hank } from './hank.js';
@@ -297,6 +298,7 @@ class Game {
     this.garry = new Garry(this);       // 黃蓋瑞: runs on the track, 古箏社 at 活動中心, lives next door to 彥霖 (js/garry.js)
     this.jianyu = new Jianyu(this);     // 劍玉: 力行 278, his supercars at the 資管系館, the 班費 case (js/jianyu.js)
     this.mingshan = new Mingshan(this); // 羊明衫: dances in front of the 資管系館 with her orange cat, McDonald's duty manager at night (js/mingshan.js)
+    this.yeeming = new YeeMing(this);   // YeeMing: 羊明衫's boyfriend in army camo — walks with her hand in hand, volleyball by the gym (js/yeeming.js)
     // warm up a frame so shaders compile behind the loading screen; compileAsync lets the driver
     // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
     try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }
@@ -963,6 +965,7 @@ class Game {
     this.hank.update(dt);
     this.jianyu?.update(dt);
     this.mingshan?.update(dt);
+    this.yeeming?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) { if (hud.advanceDialog()) this.audio.talk(); inp.pressed.clear(); }

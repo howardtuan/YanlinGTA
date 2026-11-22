@@ -2,6 +2,7 @@
 // 外型照使用者給的照片：白皙圓臉、紅棕色長直髮加齊瀏海。
 // 一天（遊戲時鐘）：
 //   09:00–17:00 在資訊管理學系館正面（「資管要贏 票投彥霖」布條前的走廊）練宿營的舞，她養的橘貓跟在旁邊；
+//     其中有些整點不練舞，跟男朋友 YeeMing 手牽手在校園散步（walk：位置與動作由 js/yeeming.js 控制）；
 //   18:00–22:00 在活動中心麥當勞當外場（櫃台）兼值班經理，跟漢克同一班（漢克在內場炸薯條）；
 //   其他時間在圖書館／宿舍讀書或睡覺（找不到人）。
 // 橘貓：走過去按 E 可以摸摸頭；牠只吃戈登肉鋪的肉（js/gordon.js 買過的肉），有肉就可以選擇餵牠。
@@ -28,7 +29,7 @@ const DANCE = { x: 101.7, z: 115.6, h: Math.atan2(-0.32, 0.95) };
 
 export function mingshanPlan(clock) {
   const m = ((clock % 1440) + 1440) % 1440;
-  if (m >= M(9) && m < M(17)) return 'dance';
+  if (m >= M(9) && m < M(17)) return ((Math.floor(clock / 60) * 2246822519) >>> 0) % 100 < 40 ? 'walk' : 'dance'; // some hours: a walk with YeeMing
   if (m >= M(18) && m < M(22)) return 'work';
   return m >= M(17) && m < M(18) ? 'library' : m >= M(22) ? 'study' : 'sleep';
 }
@@ -231,6 +232,8 @@ export class Mingshan {
       this.worker.root.visible = on;
       if (on && g.player.pos.distanceToSquared(this.worker.root.position) < 4900) this.worker.update(dt, { speed: 0, pose: Math.sin(g.time * 0.7) > 0.6 ? 'talk' : null });
     }
+    // walking with YeeMing: js/yeeming.js places and animates her (the cat stays home)
+    if (this.mode === 'walk') { this.cat.g.visible = false; if (!g.yeeming?.walkOn) this.ch.root.visible = false; return; }
     // dancing in front of the 資管系館, the cat round her
     const dance = this.mode === 'dance', near = Math.hypot(this.spot.x - p.x, this.spot.z - p.z) < 160 || !!this.film;
     this.ch.root.visible = dance && near; this.cat.g.visible = dance && near;
@@ -335,6 +338,6 @@ export class Mingshan {
   }
   // where she is (定位 / 你在哪)
   where() {
-    return { dance: '在資管系館正面練舞（宿營的舞）💃', work: '在活動中心麥當勞櫃台值班（值班經理，到 22:00）', library: '在圖書館讀書（內捲中）📚', study: '在宿舍熬夜讀書 📖', sleep: '睡覺中（離線）' }[this.mode] || '';
+    return { walk: '跟 YeeMing 手牽手在校園散步 💑', dance: '在資管系館正面練舞（宿營的舞）💃', work: '在活動中心麥當勞櫃台值班（值班經理，到 22:00）', library: '在圖書館讀書（內捲中）📚', study: '在宿舍熬夜讀書 📖', sleep: '睡覺中（離線）' }[this.mode] || '';
   }
 }

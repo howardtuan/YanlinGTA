@@ -13,6 +13,7 @@ export const PEOPLE = {
   黃蓋瑞: { av: `<img class="ph-avimg" src="${G('garry_av')}" alt="">`, color: '#21486e' },
   劍玉: { av: `<img class="ph-avimg" src="${G('jianyu_av')}" alt="">`, color: '#5d6b8a' },
   羊明衫: { av: `<img class="ph-avimg" src="${G('mingshan_av')}" alt="">`, color: '#c2414b' },
+  YeeMing: { av: `<img class="ph-avimg" src="${G('yeeming_av')}" alt="">`, color: '#56643a' },
 };
 
 export const FEED = [
@@ -46,6 +47,10 @@ export const FEED_POOL = [
 ];
 // 加吱吱好友時，他過去的貼文一起出現在動態裡（ago = 幾分鐘前）
 export const FRIEND_POSTS = {
+  yeeming: [ // yeeming / yeeming_walk / yeeming_volley 是用遊戲裡的 3D 角色算繪的，不是真人照片
+    { who: 'YeeMing', img: G('yeeming_walk'), cap: '放假第一件事：陪女朋友散步 💑 #宿營認識的 #戒菸第 200 天', likes: 486, ago: 340 },
+    { who: 'YeeMing', img: G('yeeming_volley'), cap: '休假也要墊球 🏐 吱吱今天被我打爆（他會說不是）', likes: 233, ago: 1300 },
+  ],
   mingshan: [ // mingshan / mingshan_dance / mingshan_cat 是用遊戲裡的 3D 角色算繪的，不是真人照片
     { who: '羊明衫', img: G('mingshan_dance'), cap: '宿營開場舞練到第 3 天 💃 系館前面的走廊是最好的練舞室 #五六七八', likes: 412, ago: 260 },
     { who: '羊明衫', img: G('mingshan_cat'), cap: '今天的評審：橘貓 🐱（只吃戈登肉鋪的肉，比我還挑）', likes: 538, ago: 1100 },
@@ -189,6 +194,14 @@ export const STORY_SETS = {
     { img: G('e_im'), t: '專題第一名的獎狀掛在系辦了 謝謝組員', s: '🏆' },
   ],
   // 戈登肉鋪店長（加了好友才看得到）。gd / gd_av 是遊戲裡的 3D 角色算繪，gd_shop 是遊戲裡的店內畫面
+  YeeMing: [
+    { img: G('yeeming_walk'), t: '休假 day 1 陪明衫散步', s: '💑' },
+    { bg: GR('#3b4528', '#7d6c47'), t: '05:30 起床\n當兵日常', s: '🪖' },
+    { img: G('yeeming_volley'), t: '體育館旁 墊球 100 下', s: '🏐' },
+    { bg: GR('#0b6b3a', '#d9c27a'), t: '三缺一\n休假晚上 誰要', s: '🀄' },
+    { bg: GR('#1f4fbf', '#ffd23f'), t: '物理系挺彥霖！\n明天一起去投票', s: '🗳️' },
+    { img: G('yeeming'), t: '收假前最後一張', s: '🫡' },
+  ],
   羊明衫: [
     { img: G('mingshan_dance'), t: '系館前 宿營的舞 day 3', s: '💃' },
     { img: G('mingshan_cat'), t: '練舞評審 橘貓 🐱', s: '🧡' },
@@ -234,10 +247,10 @@ export const STORY_TIMES = {
   芷瑄: [10 * 60 + 20, 23 * 60 + 40], 柏宇: [7 * 60 + 50, 21 * 60 + 15], 小涵: [12 * 60 + 5, 19 * 60 + 30],
   冠廷: [9 * 60 + 10, 20 * 60 + 45], 阿凱: [8 * 60 + 35, 18 * 60 + 10], 中原麥當勞: [6 * 60 + 30, 17 * 60],
   品妍: [11 * 60 + 15, 22 * 60 + 50], 阿哲: [13 * 60 + 40, 21 * 60 + 55], 中原大學: [8 * 60, 16 * 60 + 30],
-  吱吱: [6 * 60 + 45, 22 * 60 + 20], 女拳大帝: [10 * 60 + 30, 23 * 60 + 35], 漢克: [14 * 60 + 10, 23 * 60 + 50], 黃蓋瑞: [7 * 60 + 35, 22 * 60 + 5], 劍玉: [11 * 60 + 20, 23 * 60 + 55], 羊明衫: [9 * 60 + 40, 22 * 60 + 30],
+  吱吱: [6 * 60 + 45, 22 * 60 + 20], 女拳大帝: [10 * 60 + 30, 23 * 60 + 35], 漢克: [14 * 60 + 10, 23 * 60 + 50], 黃蓋瑞: [7 * 60 + 35, 22 * 60 + 5], 劍玉: [11 * 60 + 20, 23 * 60 + 55], 羊明衫: [9 * 60 + 40, 22 * 60 + 30], YeeMing: [10 * 60 + 15, 21 * 60 + 40],
 };
 // 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 js/friends.js）
-export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd', 漢克: 'hank', 黃蓋瑞: 'garry', 劍玉: 'jianyu', 羊明衫: 'mingshan' };
+export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd', 漢克: 'hank', 黃蓋瑞: 'garry', 劍玉: 'jianyu', 羊明衫: 'mingshan', YeeMing: 'yeeming' };
 export const FEED_IMAGES = [...new Set([...FEED, ...FEED_POOL, ...Object.values(FRIEND_POSTS).flat()].map(p => p.img))];
 
 export const PCARD = [

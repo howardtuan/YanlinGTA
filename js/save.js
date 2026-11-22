@@ -22,6 +22,7 @@ export function writeSave(g) {
     detective: g.detective?.toJSON() || null,
     jianyu: g.jianyu?.toJSON() || null,
     mingshan: g.mingshan?.toJSON() || null,
+    yeeming: g.yeeming?.toJSON() || null,
     eggs: g.eggs.filter(e => e.found).map(e => e.title),
     pos: g.concerts?.savePos() || { x: wp.x, z: wp.z, h: pl.worldHeading(), y: pl.vehicle || pl.seat ? 0 : pl.y }, // at the concert: where you took the shuttle
     look: pl.look || null,
@@ -73,6 +74,7 @@ export function applySave(g, d) {
   g.detective?.load(d.detective);
   g.jianyu?.load(d.jianyu);
   g.mingshan?.load(d.mingshan);
+  g.yeeming?.load(d.yeeming);
   const M = g.missions;
   M.rewarded = new Set(d.mission?.rewarded || []);
   const m = d.mission || { idx: -1 };

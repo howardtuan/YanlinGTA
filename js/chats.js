@@ -434,6 +434,40 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
+  // YeeMing（js/yeeming.js）：「你在哪？」說他在排球場、跟明衫散步或收假回營；也可以問「要不要打麻將？」
+  yeeming: {
+    id: 'yeeming', name: 'YeeMing', sub: '物理系・當兵中・排球', avatar: '<img class="ph-avimg" src="assets/gram/yeeming_av.jpg" alt="">', color: '#56643a', unread: 1,
+    history: [
+      { day: '今天' },
+      ['yeeming', '彥霖！我 YeeMing，加到了 🪖 選會長加油！'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '當兵還好嗎', r: ['每天五點半起床 😵', '但伙食比學餐好吃（小聲）'] },
+          { t: '物理系的票拜託了', r: ['包在我身上', '班群我已經發了 🗳️'], v: 1 },
+        ],
+      },
+      {
+        choices: [
+          { t: '你跟明衫怎麼認識的？', r: ['宿營的時候同一小隊', '她跳舞超帥，我就……戒菸了 😂'] },
+          { t: '最近有在打排球嗎', r: ['休假都在體育館旁邊打', '吱吱也常來'] },
+        ],
+      },
+    ],
+    always: [
+      {
+        t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) => {
+          const Y = g.yeeming; if (!Y?.mode) return { r: ['等我一下'] };
+          if (Y.mode === 'off') return { r: ['收假回營了 🪖', '晚上沒辦法看手機，明天早上 9 點後回學校'] };
+          const r = Y.mode === 'walk' ? ['跟明衫在校園散步 💑', '定位傳你'] : ['在體育館旁邊的排球場 🏐', '要來一起打嗎'];
+          return { r, then: () => { if (Y.pos && (Y.mode !== 'walk' || Y.walkOn)) { g.nav.set(Y.pos.x, Y.pos.z); g.hud.toast('🧭 已設定導航到 YeeMing 那邊', 'good', 2400); } } };
+        },
+      },
+      { t: '要不要打麻將？', match: /麻將|打牌|三缺一/, ask: () => ({ r: ['又是麻將 😂', '休假那天晚上，三缺一揪我 🀄'] }) },
+    ],
+  },
   // 羊明衫（js/mingshan.js）：「你在哪？」說她在系館練舞、在麥當勞值班或在讀書，並導航過去
   mingshan: {
     id: 'mingshan', name: '羊明衫', sub: '資管系・舞蹈・麥當勞值班經理', avatar: '<img class="ph-avimg" src="assets/gram/mingshan_av.jpg" alt="">', color: '#c2414b', unread: 2,
@@ -469,8 +503,8 @@ export const FRIEND_CONTACTS = {
           const S = g.mingshan; if (!S?.mode) return { r: ['等我一下～'] };
           if (S.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 羊明衫在睡覺，早上 9 點以後會在系館前面練舞', 'good', 2800) };
           if (S.mode === 'library' || S.mode === 'study') return { r: [S.mode === 'library' ? '在圖書館讀書 📚' : '在宿舍讀書 📖', '明天早上 9 點我會在系館前面練舞～'] };
-          const at = S.mode === 'dance' ? S.pos : S.worker?.root.position;
-          const r = S.mode === 'dance' ? ['在資管系館前面練舞 💃', '橘貓也在喔，定位傳你'] : ['在活動中心麥當勞值班 🍟', '來的話我幫你點餐～'];
+          const at = S.mode === 'dance' || S.mode === 'walk' ? S.pos : S.worker?.root.position;
+          const r = S.mode === 'walk' ? ['跟 YeeMing 在校園散步 💑', '定位傳你～'] : S.mode === 'dance' ? ['在資管系館前面練舞 💃', '橘貓也在喔，定位傳你'] : ['在活動中心麥當勞值班 🍟', '來的話我幫你點餐～'];
           return { r, then: () => { if (at) { g.nav.set(at.x, at.z); g.hud.toast('🧭 已設定導航到羊明衫那邊', 'good', 2400); } } };
         },
       },

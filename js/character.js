@@ -202,7 +202,8 @@ function faceGeo(jaw, chin = 0) {
 // polo (true: 系學會幹部T — a polo collar, a two-button placket and the lion logo on the left chest),
 // imTee (true: 資管系服 — geometric lion on the left chest, the Information Management code print on the back),
 // chin (0..1: a narrower, pointier chin), glassesStyle ('browline': a thick bar in glassesColor over the top of each lens, thin silver rims;
-// 'thick': thick full frames in glassesColor, default black), belly (0..1, skinned body only: a chubby tummy, hips and thighs)
+// 'thick': thick full frames in glassesColor, default black), belly (0..1, skinned body only: a chubby tummy, hips and thighs),
+// camo (true, skinned body only: the shirt and trousers in woodland camouflage), helmet ('camo': an army helmet with a chin strap)
 // The head's parts never move against the head (only the head pivot turns, and the eyelids blink), so they
 // are merged into one mesh per material — the small detail parts (hidden at distance) apart from the rest.
 // About 15–25 pieces become 5–8: fewer draw calls for every person on screen. skip: parts that must stay
@@ -413,6 +414,28 @@ export function createCharacter(opts = {}) {
       }
     }
   }
+  // army helmet (YeeMing, js/yeeming.js): a camouflage shell with a short brim and a chin strap over the hair
+  if (opts.helmet) {
+    let tex = camoTex;
+    if (!tex) {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+      x.fillStyle = '#56643a'; x.fillRect(0, 0, 128, 128);
+      let sd = 11; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+      for (const col of ['#3b4528', '#7d6c47', '#2b2b22', '#3b4528']) for (let i = 0; i < 9; i++) {
+        x.fillStyle = col; x.beginPath(); const cx = rnd() * 128, cy = rnd() * 128;
+        for (let a = 0; a < 6.28; a += 0.7) { const r = 6 + rnd() * 10; x.lineTo(cx + Math.cos(a) * r * 1.6, cy + Math.sin(a) * r); }
+        x.fill();
+      }
+      tex = camoTex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(2, 1);
+    }
+    const hm = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+    const shell = new THREE.Mesh(geo('helmet', () => { const g = new THREE.SphereGeometry(0.152, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.52); g.scale(1.04, 0.92, 1.12); return g; }), hm);
+    shell.position.set(0, 0.142, -0.006); head.add(shell);
+    const brim = new THREE.Mesh(geo('helmetBrim', () => { const g = new THREE.TorusGeometry(0.155, 0.012, 6, 28); g.rotateX(Math.PI / 2); g.scale(1.04, 1, 1.12); return g; }), hm);
+    brim.position.set(0, 0.136, -0.006); head.add(brim);
+    const strapM = new THREE.MeshStandardMaterial({ color: '#2b2b22', roughness: 0.9 });
+    for (const s of [-1, 1]) { const st = new THREE.Mesh(geo('helmetStrap', () => new THREE.BoxGeometry(0.008, 0.12, 0.016)), strapM); st.position.set(s * 0.118, 0.07, 0.03); st.rotation.z = s * -0.12; head.add(st); }
+  }
   // glasses (thin round frames, like the photo)
   if (opts.glasses) {
     const brow = opts.glassesStyle === 'browline', thick = opts.glassesStyle === 'thick';
@@ -477,7 +500,7 @@ export function createCharacter(opts = {}) {
     legs.push({ hp, kn, ft, s });
   }
   let bodyMesh = null;
-  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { longSleeve: !!opts.jacket, shirt: opts.jacket || opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm, belly: opts.belly });
+  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { longSleeve: !!opts.jacket, shirt: opts.jacket || opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm, belly: opts.belly, camo: opts.camo });
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
   // small parts (eyes, fingers, glasses, hair tips…) don't cast shadows and can be hidden at distance
@@ -501,6 +524,7 @@ export function createCharacter(opts = {}) {
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // st: {speed, air, mode:'foot'|'ride'|'drive'|'down', pose:'peace'|'cheer'|'wave'|'give'|'phone'|'talk'|'look'|null}
+let camoTex = null; // the army helmet's camouflage (built once)
 function animate(ch, dt, st) {
   const sp = st.speed || 0;
   // blink every 2–6 s (eyelids show for ~0.13 s)
@@ -563,6 +587,16 @@ function animate(ch, dt, st) {
     // looking down at a phone held in the right hand (thumb scrolling)
     t.shR = [-0.55, 0.35, -0.25]; t.elR = -1.75; t.shL = [-0.35, -0.3, 0.2]; t.elL = -1.3;
     t.headX = 0.42 + Math.sin(ch.poseT * 1.3) * 0.03;
+    ch.setHandPose('grip');
+  } else if (st.pose === 'handR' || st.pose === 'handL') {
+    // walking hand in hand (js/yeeming.js): that arm hangs a little out to the side towards the partner, no swing
+    if (st.pose === 'handR') { t.shR = [-0.12, 0, -0.42]; t.elR = -0.12; } else { t.shL = [-0.12, 0, 0.42]; t.elL = -0.12; }
+    if (!ch.pose) ch.setHandPose('relaxed');
+  } else if (st.pose === 'bump') {
+    // volleyball: a forearm pass, arms straight and together in front, knees bent (YeeMing on the court)
+    const b = Math.max(0, Math.sin(ch.poseT * Math.PI * 2 / 1.2));
+    t.shR = [-0.7 - b * 0.35, 0.35, -0.05]; t.shL = [-0.7 - b * 0.35, -0.35, 0.05]; t.elR = t.elL = -0.05;
+    t.knR = t.knL = 0.45 - b * 0.3; t.hpR = t.hpL = -0.3 + b * 0.2; t.hipsY = 0.86 + b * 0.05; t.lean = 0.15;
     ch.setHandPose('grip');
   } else if (st.pose === 'dance') {
     // K-pop practice (羊明衫, js/mingshan.js): an 8-count at 120 bpm — arm waves left / right, a double arm push, both

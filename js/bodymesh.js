@@ -156,8 +156,20 @@ export function buildSkinnedBody(ch, o) {
   g.setIndex(out.idx);
   g.computeVertexNormals();
   const col = g.attributes.color; // THREE.Color already holds linear values, as vertex colours expect
+  // o.camo (YeeMing's army uniform, js/yeeming.js): the shirt and trousers become woodland camouflage — blotches from
+  // a smooth noise of the bind-pose vertex position, in four colours (the vertex colours blend into soft patches)
+  const CAMO = o.camo ? ['#56643a', '#3b4528', '#7d6c47', '#2b2b22'].map(c => new THREE.Color(c)) : null;
+  const camoAt = (i) => {
+    const x = out.pos[i * 3], y = out.pos[i * 3 + 1], z = out.pos[i * 3 + 2];
+    const n = Math.sin(x * 21 + Math.sin(y * 13) * 2.1) + Math.sin(y * 17 + Math.sin(z * 19) * 1.7) + Math.sin(z * 23 + x * 9 + 1.3);
+    return CAMO[n > 1.0 ? 2 : n > 0.1 ? 0 : n > -0.9 ? 1 : 3];
+  };
   const paint = (over) => {
-    for (let i = 0; i < col.count; i++) { const c = over.get(out.ref[i]) || out.ref[i], k = out.ao[i]; col.setXYZ(i, c.r * k, c.g * k, c.b * k); }
+    for (let i = 0; i < col.count; i++) {
+      let c = over.get(out.ref[i]) || out.ref[i]; const k = out.ao[i];
+      if (CAMO && !over.has(out.ref[i]) && (out.ref[i] === shirt || out.ref[i] === bottom)) c = camoAt(i);
+      col.setXYZ(i, c.r * k, c.g * k, c.b * k);
+    }
     col.needsUpdate = true;
   };
   paint(new Map());

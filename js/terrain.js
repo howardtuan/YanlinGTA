@@ -26,11 +26,13 @@ export const terrainGrid = () => G;
 // refines the cells under a pit to 1 m so its floor follows H(). clearBridges() keeps the pits.
 const pits = [];
 // mask: false keeps the ground mesh drawn over it (a B1 room under a walkable plaza: js/zone_g.js puts a deck on top)
-export function addPit(x0, z0, x1, z1, y, { mask = true } = {}) { pits.push({ x0: Math.min(x0, x1), z0: Math.min(z0, z1), x1: Math.max(x0, x1), z1: Math.max(z0, z1), y, mask }); }
+// veg: true keeps the trees and shrubs that grow in it (an outdoor sunken garden: js/zone_a.js 圖書館東側下沉庭院)
+export function addPit(x0, z0, x1, z1, y, { mask = true, veg = false } = {}) { pits.push({ x0: Math.min(x0, x1), z0: Math.min(z0, z1), x1: Math.max(x0, x1), z1: Math.max(z0, z1), y, mask, veg }); }
 export const pitList = () => pits;
 // pit floor at (x,z) (within r metres of a pit when r > 0), or null
-export function pitAt(x, z, r = 0) {
-  for (let i = 0; i < pits.length; i++) { const p = pits[i]; if (x > p.x0 - r && x < p.x1 + r && z > p.z0 - r && z < p.z1 + r) return p.y; }
+// (bare: skip the pits that keep their vegetation)
+export function pitAt(x, z, r = 0, bare = false) {
+  for (let i = 0; i < pits.length; i++) { const p = pits[i]; if (bare && p.veg) continue; if (x > p.x0 - r && x < p.x1 + r && z > p.z0 - r && z < p.z1 + r) return p.y; }
   return null;
 }
 // mask rectangles for js/map.js cutMask: [cx, cz, ux, uz, half length, half width]

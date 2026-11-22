@@ -3424,10 +3424,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       return false;
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
-    // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way)
+    // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way),
+    // except one that keeps its vegetation (addPit veg: js/zone_a.js 圖書館東側下沉庭院 is a grove)
     // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, js/zone_a.js 圖書館南面平台; placement unchanged the same way)
     const treeHide = opts.treeHide || [], onPad = (x, z) => treeHide.some(p => pointInPoly(x, z, p));
-    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8, true) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
     // order, same draws); one that would land in a building, another road or water is hidden
     const moveTree = (p, cr) => {
@@ -3444,7 +3445,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
     // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
     const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6) !== null });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6, true) !== null });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;

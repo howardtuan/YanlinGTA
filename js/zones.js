@@ -32,6 +32,7 @@ import { zoneGLook, zoneGFootprints, zoneGTerrain, buildZoneG } from './zone_g.j
 import { buildSacB1 } from './sac_b1.js';
 import { zoneHLook, zoneHAdd, buildZoneH } from './zone_h.js';
 import { zoneALook, zoneATerrain, zoneATreeHide, buildZoneA } from './zone_a.js';
+import { zoneDLook, zoneDTreeHide, buildZoneD } from './zone_d.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
 
 export const ZONES = [
@@ -78,6 +79,9 @@ export const ZONES = [
   },
   { // 行政大樓（含校史館）改名、懷恩樓門廊三拱、圖書館南面平台與兩段階梯（data.levels）、雙塔、折板、科學館樓梯塔與天文台、下沉廣場泉源之谷
     name: 'A 區', look: zoneALook, terrain: zoneATerrain, treeHide: zoneATreeHide, build: buildZoneA,
+  },
+  { // 陸華樓大階梯與東端樓梯間、北側水池、真知屋頂 D 形地標與西南入口、篤信門廊與橘紅欄杆、電學長條 9F＋圓筒、中正樓拱形凹陽台、莊敬分段與舷窗、土木 7F 與南面入口
+    name: 'D 區', look: zoneDLook, treeHide: zoneDTreeHide, build: buildZoneD,
   },
 ];
 

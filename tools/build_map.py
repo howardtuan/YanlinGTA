@@ -420,7 +420,9 @@ def apply_marks(out, stats):
         if r is None:
             stats['warn'].append('roads.json marks way %s (%s): not in the map' % (e['way'], e.get('name', '')))
             continue
-        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes', 'walk', 'cv', 'ev', 'inner', 'segs') if k in e}
+        if 'span' in e and not (isinstance(e['span'], dict) and len(e['span'].get('from') or []) == 2 and len(e['span'].get('to') or []) == 2):
+            raise SystemExit('roads.json marks way %s: span needs from [x, z] and to [x, z]' % e['way'])
+        r['marks'] = {k: e[k] for k in ('centre', 'edge', 'lanes', 'walk', 'cv', 'ev', 'inner', 'segs', 'span') if k in e}
         n += 1
     feats = []
     for f in R.get('features', []):

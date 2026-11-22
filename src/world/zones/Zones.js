@@ -69,7 +69,7 @@ export const ZONES = [
   { // 學活南面下沉舞台與 B1 麥當勞（地形坑）、往二樓門廊的大階梯、柱廊、弧形玻璃、斜裙、樓梯塔等
     name: 'G 區', look: zoneGLook, footprints: zoneGFootprints, terrain: zoneGTerrain, build: buildZoneG,
   },
-  { // 學活 B1 西半：樓梯廳、學習區、學餐攤販（坑與入口在 G 區）
+  { // 學活 B1 西半：樓梯廳、用餐區、學餐攤販（坑與入口在 G 區）
     name: 'G 區：學活 B1', build: (I, scene, data, collision) => buildSacB1(I, scene, Kit, regMat, collision),
   },
   { // 信實、熱誠、薄膜中心、實英樓、忍耐樓；新增知行領航館、4館南北兩段、忍耐樓北盒

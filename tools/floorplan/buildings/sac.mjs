@@ -1,13 +1,13 @@
 // 學生活動中心一～四樓平面圖的設定。幾何（牆、地板、樓梯、門牌）全部取自 src/world/buildings/Sac.js 實際蓋出來的東西
 // （旋轉梯在 SacB1.js）；這裡只補「哪一塊叫什麼」，位置用 Sac.js 檔頭那組平面常數算（readConsts）。
-// B1：西半（樓梯廳、學習區、學餐攤販）在 SacB1.js，東半是麥當勞（Interiors.js 的 buildMcD，沒有匯出，用 env.gamePrivate 取）；
+// B1：西半（樓梯廳、用餐區、學餐攤販）在 SacB1.js，東半是麥當勞（Interiors.js 的 buildMcD，沒有匯出，用 env.gamePrivate 取）；
 // 攤販的牆走世界碰撞，傳 env.worldWalls 給 buildSacB1 才收得到。
 import { readConsts } from '../lib/consts.mjs';
 
 const SRC = 'src/world/buildings/Sac.js';
 // 不當成房間名稱的字：古箏社教室裡的海報、旋轉梯和樓梯間的指示牌（改由下面的 labels 標）
-const B1_CLUTTER = /今日菜單|影印部|學 習 區|樓梯 往/;
-const CLUTTER = /期末成發|高 山|漁 舟|弦歌|出席與分部|GUZHENG|中原大學 古箏社|← 古箏社|B1 學習區|樓梯 ↓ 1F|古箏社 → 3F|往 天橋|門禁管制|^空橋|^培英廳$|^服務台$/;
+const B1_CLUTTER = /今日菜單|影印部|用 餐 區|餐具回收|飲水機|資源回收|樓梯 往/;
+const CLUTTER = /期末成發|高 山|漁 舟|弦歌|出席與分部|GUZHENG|中原大學 古箏社|← 古箏社|B1 用餐區|樓梯 ↓ 1F|古箏社 → 3F|往 天橋|門禁管制|^空橋|^培英廳$|^服務台$/;
 
 function planB1(sl) {
   const { SAC_B1: S } = readConsts('src/world/buildings/SacB1.js', ['SAC_B1']);
@@ -24,8 +24,9 @@ function planB1(sl) {
   const labels = [
     { text: '樓梯廳', x: x0 + 11, z: z0 + 2.2, size: 11, bold: true },
     { text: '旋轉梯\n往上到一樓、二樓', x: x0 + 9.4, z: z0 + 6.4, leader: [x0 + 7.6, z0 + 5.4], size: 8, anchor: 'start' },
-    { text: '學習區', x: x0 + 12.5, z: z0 + 13.5, size: 12, bold: true },
-    { text: '長桌 × 6、西牆書架', x: x0 + 5.6, z: z0 + 12.4, size: 7.5, color: dim },
+    { text: '學餐用餐區', x: x0 + 12.7, z: z0 + 13.5, size: 12, bold: true },
+    { text: '四人桌 × 16', x: x0 + 5.9, z: z0 + 8.9, size: 7.5, color: dim },
+    { text: '餐具回收\n飲水機\n資源回收', x: x0 - 0.5, z: z0 + 13, size: 7, color: dim, anchor: 'end' },
     { text: '學餐攤販（在廣場底下）', x: mid(x0, xSt), z: zD + 1.3, size: 8.5, bold: true },
     { text: '入口（門楣「影印部」招牌）', x: x1 + 0.6, z: zD + 2.2, leader: [mid(xSt, x1), zD + 0.3], size: 8, anchor: 'start' },
     { text: '下沉廣場（戶外）\n往南是上到地面的樓梯', x: mid(x1, PIT.court[2]) + 3, z: PIT.flatW - 1.6, size: 9, color: dim },
@@ -38,8 +39,8 @@ function planB1(sl) {
     { text: '內場\n（不開放）', x: mx(4.8), z: mz(4), size: 9, color: dim },
   ];
   const legend = [
-    '西半（樓梯廳、學習區、學餐攤販、入口位置）照使用者給的 B1 平面圖；東半是麥當勞。攤販區站在坑底，上面是廣場的甲板。',
-    '待確認：麥當勞店內的格局（櫃台、廚房、用餐區的位置）、學習區的桌椅擺法、三個攤販的名稱。',
+    '西半（樓梯廳、用餐區、學餐攤販、入口位置）照使用者給的 B1 平面圖；東半是麥當勞。攤販區站在坑底，上面是廣場的甲板。',
+    '待確認：麥當勞店內的格局（櫃台、廚房、用餐區的位置）、用餐區的桌椅擺法、三個攤販的名稱。',
   ];
   return { zones, labels, legend, autoLabels: true, zoneNames: { open: '學餐攤販區', outdoor: '下沉廣場（戶外）' }, bounds: { x0: x0 - 1, x1: M.x1 + 1, z0: z0 - 1, z1: zS + 1.5 } };
 }

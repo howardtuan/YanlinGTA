@@ -30,7 +30,7 @@ export const WAGE = 196; // hourly wage, one full shift = one hour
 
 // shop-local layout (see buildMcD; the shop frame is turned 180°, shop x W = the world west side): the counter is at
 // x 15.2–16.2, z 1.4–8.6 (customers on the lobby side), the dining room fills z 9.75–20 and the lobby opens at x = W,
-// z mcd.door (3.9–9.6) onto the B1 study area under the 活動中心: customers walk in from mcd.entry out there
+// z mcd.door (3.9–9.6) onto the B1 學餐用餐區 under the 活動中心: customers walk in from mcd.entry out there
 const REGISTER = [14.6, 5.0];
 const LINE_Z = 5.0, SLOT = (i) => [17.0 + i * 1.15, LINE_Z];
 const LEAVE_Z = 6.6; // step out of the queue first
@@ -170,7 +170,7 @@ export class McShift {
     this.g.scene.add(ch.root);
     this.customers.push(c);
   }
-  // where customers come in from / go back to: the B1 study area just outside the lobby's west opening
+  // where customers come in from / go back to: the B1 學餐用餐區 just outside the lobby's west opening
   _entry() { return this.mcd.entry || [this.mcd.W + 2.5, 7.8]; }
   _orderText(c) {
     const parts = [...c.order].map(([k, n]) => `${NUM[n]}${ITEM[k].unit}${ITEM[k].name.replace(/（.*）| 6塊/g, '')}`);
@@ -180,7 +180,7 @@ export class McShift {
   _leave(c, emoji) {
     c.state = 'leaving';
     const [ex, ez] = this._entry();
-    c.path = [[c.lx, LEAVE_Z], [this.mcd.W - 1.0, ez], [ex + 0.3, ez]]; // out through the west opening into the study area
+    c.path = [[c.lx, LEAVE_Z], [this.mcd.W - 1.0, ez], [ex + 0.3, ez]]; // out through the west opening into the 學餐用餐區
     if (emoji) this._say(c, emoji);
     if (this.front === c) this.front = null;
     // everyone behind moves up one place

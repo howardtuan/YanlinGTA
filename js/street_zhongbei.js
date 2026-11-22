@@ -16,9 +16,6 @@ export const ZB_ROAD = [[-209.2, 85.4], [-225.2, 90.3], [-231.9, 93.3], [-271.0,
 // 路寬的一半（tools/roads.json / cycu.json）：中北路 8.5、橋 7、橋西 9、中北路二段 13
 const halfAt = (s) => (s < 328 ? 4.25 : s < 345 ? 3.5 : s < 528 ? 4.5 : 6.5);
 // 立面離中心線：街景量到正門段 6.0～6.3 m，實踐路以西約 6.6，二段約 8.6
-// 中北路 26186381 在 tools/roads.json 'shift' 往北（side +1）平移的量：力行北街口 J25（s 278.7）為 0，到 x -484.9（s 293.6）
-// 漸增到 1.5 m，一直到幸福街口 J24（s 328.1）；立面照街景不動，只有騎樓板跟著新路緣伸縮
-const shiftAt = (s) => (s <= 278.7 ? 0 : s < 293.6 ? 1.5 * (s - 278.7) / 14.9 : s <= 328.1 ? 1.5 : 0);
 const setAt = (s) => (s < 130 ? 6.1 : s < 345 ? 6.6 : s < 528 ? 6.6 : 8.6);
 
 export const ZB_ST = {
@@ -174,7 +171,7 @@ export function zbLotFrame([s0, s1, side, sp]) {
   const m = zbAt((s0 + s1) / 2), w = s1 - s0, nx = -m.uz * side, nz = m.ux * side;
   const ax = side > 0 ? m.ux : -m.ux, az = side > 0 ? m.uz : -m.uz;
   const set = (sp && sp.set) || setAt((s0 + s1) / 2);
-  return { ox: m.x + nx * set - ax * w / 2, oz: m.z + nz * set - az * w / 2, ang: Math.atan2(az, ax), w, apron: Math.max(0.6, set - halfAt((s0 + s1) / 2) - side * shiftAt((s0 + s1) / 2)) };
+  return { ox: m.x + nx * set - ax * w / 2, oz: m.z + nz * set - az * w / 2, ang: Math.atan2(az, ax), w, apron: Math.max(0.6, set - halfAt((s0 + s1) / 2)) };
 }
 export function zbFootprints() {
   const fp = ZB_ST.fences.map(([s0, s1, side]) => {
@@ -318,14 +315,13 @@ export function buildZhongbeiStreet(I, scene, X) {
       if (gk === 'gate') k.plane(YHT.win(), bodyW - 0.5, gh - 0.4, bodyW / 2, gh / 2 - 0.15, -0.05, FRONT);
       k.box(0.15, bodyW - 0.15, gh - 0.02, gh + 0.2, -0.22, 0, '#7a7e80', { col: false });                       // 鐵捲門的罩盒
     }
-    if (apron < 1.4) { /* 騎樓被平移後的路面吃掉：不放機車 */ }
-    else if (sp.bikes) for (let j = 0; j < sp.bikes; j++) { const x = 0.2 + j * ((w - 2.2) / Math.max(1, sp.bikes - 0.5)); bike(k, x, -0.9 - (j % 2) * 0.35, 0, bikeCols[(i + j) % 6]); }
-    else if (w > 4 && apron >= 2 && r() < 0.6) {                                                         // 騎樓邊停幾台機車
+    if (sp.bikes) for (let j = 0; j < sp.bikes; j++) { const x = 0.2 + j * ((w - 2.2) / Math.max(1, sp.bikes - 0.5)); bike(k, x, -0.9 - (j % 2) * 0.35, 0, bikeCols[(i + j) % 6]); }
+    else if (w > 4 && r() < 0.6) {                                                                       // 騎樓邊停幾台機車
       const n = 1 + (r() * 3 | 0); let x = 0.3 + r() * 1.5;
       for (let j = 0; j < n && x < w - 1.7; j++) { const per = r() < 0.4; bike(k, per ? x + 0.3 : x, per ? -1.75 : -1.0 - r() * 0.3, per ? 1 : 0, bikeCols[(i * 3 + j) % 6]); x += per ? 0.8 : 1.9 + r() * 0.5; }
     }
     if (r() < 0.3) k.box(w - 0.38, w - 0.3, 0, top, -0.13, -0.05, '#8a8d90', { col: false });           // 外牆水管
-    if ((gk === 'shop' || gk === 'stall') && w > 3.5 && r() < 0.4 && apron >= 1.7) { const sx = 0.4 + r() * (w - 2); k.box(sx, sx + 0.55, 0, 0.95, -1.5, -1.45, '#26282b', { col: false }); k.box(sx + 0.04, sx + 0.51, 0.55, 0.9, -1.51, -1.49, '#f3efe4', { col: false }); } // 門口立牌
+    if ((gk === 'shop' || gk === 'stall') && w > 3.5 && r() < 0.4) { const sx = 0.4 + r() * (w - 2); k.box(sx, sx + 0.55, 0, 0.95, -1.5, -1.45, '#26282b', { col: false }); k.box(sx + 0.04, sx + 0.51, 0.55, 0.9, -1.51, -1.49, '#f3efe4', { col: false }); } // 門口立牌
     if (sp.banner) { const [bt, bb, bf] = sp.banner; k.plane(paint(bt, bb, bf, null, Math.min(w - 0.4, 3.4), 0.5, 96), Math.min(w - 0.4, 3.4), 0.5, w / 2, gf - 1.5, -0.3, FRONT, { emissive: 0.15 }); }
     // ---- 樓上 ----
     for (let f = 1; f < nf; f++) {

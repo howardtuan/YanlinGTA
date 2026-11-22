@@ -118,7 +118,11 @@ const lhPool = (r, n = 18) => { const { s, o, a0, a1 } = LH_PLAZA.pool, c = LH_N
 const lhPoolRing = () => [...lhPool(LH_PLAZA.pool.r1 + 0.5), ...lhPool(LH_PLAZA.pool.r0 - 0.5).reverse()];
 
 // 平坦平台範圍內的樹、棕櫚、灌木種完後藏起來（js/map.js opts.treeHide）：陸華樓東端樓梯間、北面大階梯、水池
-export const zoneDTreeHide = () => [dxLink(), LH_BOX(),quadAt(LH_N, LH.stairS - 3.8, LH.stairS + 3.8, 0, LH.stairOff + 0.6), lhPoolRing()];
+// 中正樓東面（P[7]→P[8]，外法線朝東）南北兩端室外樓梯：w 離牆寬、land 平台長、run 梯段水平長、end 離牆角距離
+const ZX_E = edge([119.6, 173.9], [110.3, 195.3]);
+const ZX_ST = { w: 1.4, land: 2.0, run: 6.8, end: 0.3 };
+const zxStairSpans = () => { const L = ZX_ST.land + ZX_ST.run; return [[ZX_ST.end, ZX_ST.end + L, 1], [ZX_E.l - ZX_ST.end - L, ZX_E.l - ZX_ST.end, -1]]; };
+export const zoneDTreeHide = () => [...zxStairSpans().map(([a, b]) => quadAt(ZX_E, a - 0.3, b + 0.3, 0, ZX_ST.w + 0.5)), dxLink(), LH_BOX(),quadAt(LH_N, LH.stairS - 3.8, LH.stairS + 3.8, 0, LH.stairOff + 0.6), lhPoolRing()];
 
 // ---------------- 外觀 look（js/main.js 在 map.js 蓋樓前套用） ----------------
 export function zoneDLook(b) {
@@ -707,6 +711,36 @@ export function buildZoneD(I, scene, data, collision) {
     // 屋頂：白色圓筒水塔（頂上欄杆）、西北角兩座冷卻水塔
     { const c = [96.0, 177.0]; tank(c[0], c[1], 2.0, top, 3.6, 'white'); railRing('rail', circle(c[0], c[1], 2.0, 16), top + 3.6, 0.9, 0.05, 1.2); }
     for (const [x, z] of [[73.5, 162.5], [78.5, 164.6]]) cooler(x, z, 3.2, top);
+    // 東面南北兩端室外樓梯（2017-09 官方街景 pano MYFs7SftofXfpu4ErPpH7Q）：沿牆一段直跑樓梯往兩端爬到二樓平台，
+    // 外側斜的實心混凝土欄牆（不是欄杆），平台外角一根方柱撐著，門上方外凸雨遮盒。實心不能走上去（同陸華樓大階梯）
+    { const E = ZX_E, { w, land } = ZX_ST, yTop = B + fl, pw = 0.16, ph = 1.0;
+      for (const [sa, sb, dir] of zxStairSpans()) {
+        const sEnd = dir > 0 ? sa : sb, sL = sEnd + dir * land, sBase = dir > 0 ? sb : sa; // 平台內緣、梯腳
+        const yG = H(...E.atM(sBase, w / 2)) - 0.05, n = Math.max(8, Math.round((yTop - yG) / 0.17)), rz = (yTop - yG) / n, stp = (sBase - sL) / n;
+        for (let i = 0; i < n; i++) { const s0 = sBase - i * stp, s1 = s0 - stp, y = yG + (i + 1) * rz; k.obox('concLight', E, Math.min(s0, s1), Math.max(s0, s1), 0, w - pw, Math.max(yG - 0.3, y - 0.5), y); }
+        // 外側斜欄牆：下緣沿梯底、上緣高出踏階 1 m
+        { const lo = Math.min(sBase, sL), hi = Math.max(sBase, sL), yAt = s => yG + (yTop - yG) * (s - sBase) / (sL - sBase);
+          const P = (s, o, y) => { const q = E.atM(s, o); return [q[0], y, q[1]]; };
+          const ya = yAt(lo), yb = yAt(hi);
+          for (const [o, out] of [[w, true], [w - pw, false]]) {
+            const a0 = P(lo, o, ya - 0.6), b0 = P(hi, o, yb - 0.6), a1 = P(lo, o, ya + ph), b1 = P(hi, o, yb + ph);
+            if (out) k.quad('concLight', b0, a0, a1, b1, [[hi - lo, 0], [0, 0], [0, 1.6], [hi - lo, 1.6]]); else k.quad('concLight', a0, b0, b1, a1, [[0, 0], [hi - lo, 0], [hi - lo, 1.6], [0, 1.6]]);
+          }
+          k.quad('concLight', P(lo, w - pw, ya + ph), P(hi, w - pw, yb + ph), P(hi, w, yb + ph), P(lo, w, ya + ph), [[0, 0], [1, 0], [1, 1], [0, 1]]);
+          k.quad('concLight', P(hi, w - pw, yb - 0.6), P(lo, w - pw, ya - 0.6), P(lo, w, ya - 0.6), P(hi, w, yb - 0.6), [[0, 0], [1, 0], [1, 1], [0, 1]]); // 梯底
+        }
+        // 平台＋外緣與端頭欄牆、外角方柱、門、雨遮盒
+        const l0 = Math.min(sEnd, sL), l1 = Math.max(sEnd, sL);
+        k.obox('concLight', E, l0, l1, 0, w, yTop - 0.35, yTop);
+        k.obox('concLight', E, l0, l1, w - pw, w, yTop, yTop + ph);
+        { const e0 = dir > 0 ? l0 : l1 - pw; k.obox('concLight', E, e0, e0 + pw, 0, w, yTop, yTop + ph); }
+        { const c0 = dir > 0 ? l0 : l1 - 0.4, yc = H(...E.atM(c0 + 0.2, w - 0.2)) - 0.2; k.obox('concLight', E, c0, c0 + 0.4, w - 0.4, w, yc, yTop - 0.35); }
+        { const dm = (l0 + l1) / 2, a = E.atM(dm - 0.5, 0.65), b = E.atM(dm + 0.5, 0.65); k.wall('dark', b[0], b[1], a[0], a[1], yTop, yTop + 2.2, 1, 1); }
+        k.obox('concLight', E, l0, l1, 0, w + 0.1, yTop + 2.6, yTop + 3.3);
+        const C = quadAt(E, Math.min(sa, sb), Math.max(sa, sb), 0, w + 0.05);
+        ringColl(C, yG - 0.3, yTop + ph); shapes.push({ name: dir > 0 ? 'zhongzhengStairN' : 'zhongzhengStairS', pts: C, y0: yG, y1: yTop + 3.3 });
+      }
+    }
   }
 
   // ===== 莊敬大樓：北面入口白磁磚雨遮「莊敬大樓」、左側斜頂樓梯間牆板＋4 個圓形舷窗 =====

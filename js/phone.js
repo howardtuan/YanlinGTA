@@ -293,18 +293,24 @@ export class Phone {
       ['任務二 · 早餐補給', '去中原夜市那條街幫競選小組買早餐'],
       ['任務三 · 掃街拉票', '對路上的同學發傳單，拉到 15 票'],
       ['任務四 · 布條保衛戰', '依序把競選布條掛好，限時完成'],
+      ['任務五 · 布條失竊案', '回到以前住的地方，用電腦的 SQL 查出拆布條的人'],
       ['終章 · 政見發表會', '到學生活動中心發表政見'],
     ];
     const cur = M.done ? LIST.length : Math.max(0, M.idx);
     const obj = document.getElementById('objText')?.innerText || '';
     const rows = LIST.map(([t, d], i) => {
       const st = i < cur ? 'done' : i === cur ? 'now' : 'todo';
-      return `<div class="ph-mrow ${st}"><i>${st === 'done' ? '✅' : st === 'now' ? '▶' : '🔒'}</i><div><b>${esc(t)}</b><small>${esc(st === 'now' && obj ? obj : d)}</small></div></div>`;
+      const paused = st === 'now' && M.exited;
+      return `<div class="ph-mrow ${st}"><i>${st === 'done' ? '✅' : paused ? '⏸' : st === 'now' ? '▶' : '🔒'}</i><div><b>${esc(t)}${paused ? '（已暫停）' : ''}</b><small>${paused ? '這一小節的進度沒有保存。回到地圖上 ▶ 的任務起點，按下面的「▶ 繼續任務」從這一小節重新開始。' : esc(st === 'now' && obj ? obj : d)}</small></div></div>`;
     }).join('');
-    const tgt = this._missionTarget();
+    // pause / carry on (the start ring: you have to stand in it to carry on; from anywhere else the button takes you there)
+    const ex = M.exited, here = M.inRing;
+    const ctl = ex ? (here ? '<button class="ph-gbtn ph-mgo">▶ 繼續任務</button>' : '<button class="ph-gbtn ph-mring">🧭 導航到任務起點</button><div class="ph-note">走到任務起點後再打開這裡按「▶ 繼續任務」。</div>')
+      : M.canExit ? '<button class="ph-gbtn ph-mquit" style="background:#8e8e93">⏹ 退出目前任務</button><div class="ph-note">退出後這一小節的進度不會保存，之後回到任務起點再繼續。</div>' : '';
+    const tgt = ex ? null : this._missionTarget();
     const c = this._frame('任務', `<div class="ph-mhead"><small>主線進度</small><b>${Math.min(cur, LIST.length)} / ${LIST.length}</b>
         <div class="ph-mbar"><i style="width:${Math.min(cur, LIST.length) / LIST.length * 100}%"></i></div>${M.done ? '<span>🎉 已當選！繼續自由玩吧</span>' : ''}</div>
-      ${tgt ? '<button class="ph-gbtn ph-mnav">🧭 導航到目前目標</button>' : ''}
+      ${tgt ? '<button class="ph-gbtn ph-mnav">🧭 導航到目前目標</button>' : ''}${ctl}
       <div class="ph-msec">主線任務</div>${rows}
       <div class="ph-msec">支線與收集</div>
       <div class="ph-row"><span>🗳 金色選票</span><b>${g.ballotsTaken} / 34</b></div>
@@ -313,6 +319,9 @@ export class Phone {
       <div class="ph-row"><span>🏁 新中北路障礙賽</span><b>${g.race.runs ? `${g.race.runs} 場 · 冠軍 ${g.race.wins} 次` : '未參加'}</b></div>`);
     const nb = c.querySelector('.ph-mnav');
     if (nb) nb.onclick = () => { g.nav.set(tgt.x, tgt.z); g.hud.toast('🧭 已設定導航到任務目標', 'good', 2000); this.close(); g.lockPointer(); };
+    const go = c.querySelector('.ph-mgo'); if (go) go.onclick = () => { this.close(); g.lockPointer(); M.resumeSection(); };
+    const rg = c.querySelector('.ph-mring'); if (rg) rg.onclick = () => { const a = M.exited.at; g.nav.set(a.x, a.z); g.hud.toast('🧭 已設定導航到任務起點', 'good', 2200); this.close(); g.lockPointer(); };
+    const qt = c.querySelector('.ph-mquit'); if (qt) qt.onclick = () => { M.exit(); this._missions(); g.hud.toast('⏹ 已退出任務，回到 ▶ 任務起點再從這裡繼續', 'good', 2800); };
   }
   // ---------------- 定位 (friends' locations) ----------------
   _locate() {

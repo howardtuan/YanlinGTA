@@ -98,7 +98,7 @@ export class Sunday {
   // the hints for where the story is right now (empty when Sunday has nothing to say)
   hints() {
     const M = this.g.missions; if (!M || M.done || M.free || M.idx < 0) return [];
-    if (M.exited) return ['任務先暫停了，這一小節的進度沒有保存。', '準備好了按 <kbd>Esc</kbd>，選「▶ 繼續任務」，會從這一小節重新開始（計時也重來）。'];
+    if (M.exited) return ['任務先暫停了，這一小節的進度沒有保存。', '回到地圖上 <b>▶</b> 的任務起點（這一小節開始的地方），打開手機的 <b>任務</b> App 按「▶ 繼續任務」，會從這一小節重新開始（計時也重來）。'];
     const f = HINTS[M.idx]; return f ? f(M, this.g) : [];
   }
   // on the PC: the open case's hints (SQL detective mode), else the story's, else a nudge to the unsolved cases

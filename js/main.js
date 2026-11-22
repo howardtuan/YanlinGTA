@@ -629,7 +629,7 @@ class Game {
         if (m.done) { this.missions.done = true; this.missions.free = true; this.hud.setObjective('自由探索', '收集 <b>34 張金色選票</b>，繼續發傳單拉票！'); }
         else {
           // back at the start of the section you were on (progress inside it isn't saved); a timed one waits
-          // paused, so its clock only starts when you pick ▶ 繼續任務 in the pause menu
+          // paused (a start ring where it began), so its clock only starts when you pick ▶ 繼續任務 in the phone's 任務 app
           this.missions.resumeAt(Math.max(0, m.idx ?? 0), m.prog ? { ...m.prog, hits: null, base: null } : m.prog);
           if (this.missions.step && this.missions.timer !== null) this.missions.exit();
         }
@@ -696,7 +696,6 @@ class Game {
     this.modal(racing ? '暫停 · 新中北路障礙賽' : '暫停 · 設定', (racing ? '' : this._settingsHTML()) + `<div class="modal-btns" style="margin-top:14px">
       ${racing ? '<button class="menu-btn primary" id="mQuitRace"><span>🏳 退出比賽</span><small>QUIT RACE</small></button>' : ''}
       <button class="menu-btn ${racing ? '' : 'primary'}" id="mResume"><span>▶ ${racing ? '繼續比賽' : '繼續遊戲'}</span><small>RESUME</small></button>
-      ${!racing && this.missions?.exited ? `<button class="menu-btn primary" id="mMisGo"><span>▶ 繼續任務</span><small>${this.missions.exited.title}・從這一小節重新開始</small></button>` : ''}
       ${!racing && this.missions?.canExit ? '<button class="menu-btn" id="mMisQuit"><span>⏹ 退出目前任務</span><small>這一小節的進度不會保存</small></button>' : ''}
       ${racing ? '' : `<button class="menu-btn" id="mGate" ${this._gateBlock() ? 'disabled' : ''}><span>🏫 回到校門口</span><small>${this._gateBlock() || 'BACK TO THE GATE'}</small></button>`}
       <button class="menu-btn" id="mCtrl"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
@@ -706,8 +705,7 @@ class Game {
     if (racing) $('mQuitRace').onclick = () => { this.race.abandon('你退出了比賽'); this.closeModal(); };
     $('mResume').onclick = () => this.closeModal();
     if (!racing && $('mGate')) $('mGate').onclick = () => this.toGate();
-    if ($('mMisGo')) $('mMisGo').onclick = () => { this.closeModal(); this.missions.resumeSection(); };
-    if ($('mMisQuit')) $('mMisQuit').onclick = () => { this.missions.exit(); this.closeModal(); this.hud.toast('⏹ 已退出任務，按 Esc 選「▶ 繼續任務」可以重新開始這一小節', 'good', 3200); };
+    if ($('mMisQuit')) $('mMisQuit').onclick = () => { this.missions.exit(); this.closeModal(); this.hud.toast('⏹ 已退出任務：回到地圖上 ▶ 的任務起點，打開手機「任務」App 按「▶ 繼續任務」', 'good', 3600); };
     $('mCtrl').onclick = () => this.showControls(true);
     $('mTitle').onclick = () => { if (racing) this.race.abandon('你退出了比賽'); writeSave(this); this._noSave = true; location.reload(); };
     $('mRestart').onclick = () => this._confirmClear(1);

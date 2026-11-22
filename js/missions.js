@@ -56,26 +56,36 @@ export class Missions {
   // section (小節: goto / checkpoint run / until / flyer count) you are on. Only finished sections are kept —
   // checkpoints reached or votes counted inside the unfinished one are not, so it starts over from scratch.
   progress() {
-    if (this.exited) return { talked: true, sub: this.exited.sub, hits: null, base: null };
-    return { talked: !!this.talked, sub: Math.max(0, this.sub - 1), hits: null, base: null };
+    if (this.exited) return { talked: true, sub: this.exited.sub, hits: null, base: null, at: this.exited.at };
+    return { talked: !!this.talked, sub: Math.max(0, this.sub - 1), hits: null, base: null, at: this._sectionAt || null };
   }
+  // where the section you are starting began: the player's spot then (or, resuming a save, the spot saved with it) —
+  // a paused section's start ring (▶) waits there
+  _mark() {
+    const a = this.resume?.at, p = this.g.player.worldPos();
+    this._sectionAt = a ? { x: a.x, z: a.z } : { x: p.x, z: p.z };
+  }
+  // you are standing in the paused section's start ring (the phone's 任務 app can carry on from there)
+  get inRing() { const a = this.exited?.at; if (!a) return false; const p = this.g.player.worldPos(); return Math.hypot(p.x - a.x, p.z - a.z) < 6; }
   // ---- leaving a section (時間到 / 暫停選單「退出目前任務」) and coming back to it ----
   // the section's progress is dropped; ▶ 繼續任務 (pause menu) starts that same section again
   get canExit() { return !!this.step && !this.exited && !this.g.hud.inDialog && this.idx >= 1 && this.idx <= 5; }
   exit(reason = '') {
     if (!this.step) return false;
-    const title = this._title || '任務';
-    this.exited = { idx: this.idx, sub: Math.max(0, this.sub - 1), title };
-    this.step = null; this.timer = null; this.g.hud.setTimer(null); this.g.setBeam(null); this.markers = []; this.hideHome = false;
-    this.g.hud.setObjective(`⏸ ${title}（已暫停）`, '這一小節的進度沒有保存。準備好了按 <kbd>Esc</kbd>，選「▶ 繼續任務」從這一小節重新開始。');
+    const title = this._title || '任務', p = this.g.player.worldPos(), at = this._sectionAt || { x: p.x, z: p.z };
+    this.exited = { idx: this.idx, sub: Math.max(0, this.sub - 1), title, at };
+    this.step = null; this.timer = null; this.g.hud.setTimer(null); this.hideHome = false;
+    // the start ring: a light column and a ▶ on the map where the section began; no objective banner while paused
+    this.markers = [{ x: at.x, z: at.z, big: true, icon: '▶' }]; this.g.setBeam(at, 5);
+    this.g.hud.setObjective(null, null);
     if (reason) { this.g.hud.bigToast('任務暫停', reason); this.g.audio.fail(); }
     this.g._saveT = 9.5;
     return true;
   }
   resumeSection() {
     const ex = this.exited; if (!ex) return false;
-    this.exited = null;
-    this.resumeAt(ex.idx, { talked: true, sub: ex.sub });
+    this.exited = null; this.markers = []; this.g.setBeam(null);
+    this.resumeAt(ex.idx, { talked: true, sub: ex.sub, at: ex.at });
     this.g.hud.bigToast('繼續任務', ex.title);
     return true;
   }
@@ -106,7 +116,7 @@ export class Missions {
   goto(target, title, text, onArrive, radius = 7) {
     const i = this.sub++;
     if (this.resume && i < this.resume.sub) { onArrive(); return; } // reached before the save
-    this.step = { type: 'goto', target, radius, onArrive }; this._title = title;
+    this.step = { type: 'goto', target, radius, onArrive }; this._title = title; this._mark();
     this.markers = [{ x: target.x, z: target.z, big: true, icon: '★' }];
     this.g.setBeam(target, radius);
     this.g.hud.setObjective(title, text);
@@ -115,7 +125,7 @@ export class Missions {
   until(title, text, test, onDone, opt = {}) {
     const i = this.sub++;
     if (this.resume && i < this.resume.sub) { onDone(); return; } // reached before the save
-    this.step = { type: 'until', test, onDone, t: 0, opt }; this._title = title;
+    this.step = { type: 'until', test, onDone, t: 0, opt }; this._title = title; this._mark();
     this.markers = opt.markers || [];
     this.g.setBeam(opt.beam || null, opt.radius || 7);
     this.g.hud.setObjective(title, text);
@@ -124,7 +134,7 @@ export class Missions {
     const i = this.sub++;
     if (this.resume && i < this.resume.sub) { onDone(); return; } // finished before the save
     const hits = this.resume && i === this.resume.sub ? this.resume.hits : null;
-    this.step = { type: 'cps', list: list.map((p, k) => ({ ...p, hit: !!(hits && hits[k]) })), ordered, onCp, onDone, onFail, radius, textFn, title }; this._title = title;
+    this.step = { type: 'cps', list: list.map((p, k) => ({ ...p, hit: !!(hits && hits[k]) })), ordered, onCp, onDone, onFail, radius, textFn, title }; this._title = title; this._mark();
     this.timer = seconds;
     this._refreshCps();
   }
@@ -137,7 +147,7 @@ export class Missions {
     this.g.hud.setObjective(s.title, s.textFn(s.list.length - left.length, s.list.length, left));
   }
   fail(reason, retry) {
-    this.exit(`${reason}這一小節先退出，進度沒有保存`);
+    this.exit(`${reason}這一小節先退出，進度沒有保存。回到 ▶ 任務起點，用手機「任務」App 繼續`);
   }
   update(dt) {
     const s = this.step; if (!s || this.g.hud.inDialog) return;
@@ -234,7 +244,7 @@ Missions.prototype.steps = [
       ['小安', '去路上找同學聊聊，對他們按 [[滑鼠左鍵|X]]（手機按 📄）遞傳單。目標再拿 15 票！'],
       ['小安', '騎車小心，撞到同學會掉票喔 😅'],
     ], () => {
-      this._title = '任務三 · 掃街拉票'; this.sub++;
+      this._title = '任務三 · 掃街拉票'; this.sub++; this._mark();
       this.step = { type: 'votes', base: g.flyerVotes || 0, need: 15, title: '任務三 · 掃街拉票', onDone: () => { g.hud.bigToast('任務完成！', '大家都認識彥霖了'); g.audio.fanfare(); this.g.after(() => this.next(), 1500); } };
     });
   },

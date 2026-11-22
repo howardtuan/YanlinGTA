@@ -685,15 +685,37 @@ class Game {
     this.modal(racing ? '暫停 · 新中北路障礙賽' : '暫停 · 設定', (racing ? '' : this._settingsHTML()) + `<div class="modal-btns" style="margin-top:14px">
       ${racing ? '<button class="menu-btn primary" id="mQuitRace"><span>🏳 退出比賽</span><small>QUIT RACE</small></button>' : ''}
       <button class="menu-btn ${racing ? '' : 'primary'}" id="mResume"><span>▶ ${racing ? '繼續比賽' : '繼續遊戲'}</span><small>RESUME</small></button>
+      ${racing ? '' : `<button class="menu-btn" id="mGate" ${this._gateBlock() ? 'disabled' : ''}><span>🏫 回到校門口</span><small>${this._gateBlock() || 'BACK TO THE GATE'}</small></button>`}
       <button class="menu-btn" id="mCtrl"><span>⌨ 操作說明</span><small>CONTROLS</small></button>
       <button class="menu-btn" id="mTitle"><span>🏠 儲存並回到主畫面</span><small>SAVE &amp; QUIT</small></button>
       <button class="menu-btn danger" id="mRestart"><span>🗑 清除遊戲紀錄</span><small>DELETE SAVE</small></button></div>`);
     if (!racing) this._bindSettings();
     if (racing) $('mQuitRace').onclick = () => { this.race.abandon('你退出了比賽'); this.closeModal(); };
     $('mResume').onclick = () => this.closeModal();
+    if (!racing && $('mGate')) $('mGate').onclick = () => this.toGate();
     $('mCtrl').onclick = () => this.showControls(true);
     $('mTitle').onclick = () => { if (racing) this.race.abandon('你退出了比賽'); writeSave(this); this._noSave = true; location.reload(); };
     $('mRestart').onclick = () => this._confirmClear(1);
+  }
+  // 🏫 回到校門口 (pause menu): back to where the game starts, inside the old campus gate (舊校門), on foot or with
+  // the vehicle you are in. Not during a shift at McDonald's / the guardhouse (they need you at the counter).
+  _gateBlock() {
+    if (this.job?.active) return '打工中不能傳送';
+    if (this.gate?.active) return '站崗中不能傳送';
+    if (this.speechOn) return '政見發表中不能傳送';
+    return '';
+  }
+  toGate() {
+    if (this._gateBlock()) return;
+    const pl = this.player, s = this.startPos; if (!s) return;
+    if (this.drone?.active) this.drone._end();        // the drone lands first
+    if (pl.seat) pl.standUp();
+    const v = pl.vehicle;
+    if (v) { v.place(s.x, s.z, s.h); v.mesh.visible = true; }
+    else { pl.place(s.x, s.z, s.h); pl.y = 0; pl.vy = 0; pl.ground = 0; pl.vel.set(0, 0); pl.tumble = 0; }
+    this.rig.yaw = s.h; this.rig.pitch = 0.32; this.rig.first = true;
+    this.closeModal();
+    this.hud.toast('🏫 已回到校門口', 'good', 2000);
   }
   // deleting the save takes three steps: warn, ask again, then type 清除
   _confirmClear(step, fromEnding = false) {

@@ -5,7 +5,8 @@
 // 依據：
 //  - 課外活動指導組《學生社團活動空間場地借用說明》（110 學年，有各場地的照片與房號）、活動中心管理細則、總務處場地收費表、學校新聞：
 //    1F 培英廳（425 席、紅椅、深紅布幕、兩側奶油色圓柱與木格吸音板）、101 邱林信貞全球交誼廳、1 樓活動室、咖啡廳、郵局；
-//    2F 前平台（大階梯上來的半戶外紅磚中庭：圓柱、貼滿海報的布告欄、上方圓窗、兩側是三樓迴廊的白磁磚女兒牆）、
+//    2F 前平台（大階梯上來直接走進去的半戶外紅磚中庭，南面沒有門；西端是貼滿海報的布告欄、上方圓窗，
+//       中間一座往三樓的樓梯、南側一座往四樓的樓梯，兩側是三樓迴廊的白磁磚女兒牆；相片是面向西拍的，使用者確認）、
 //       雅文多功能展演廳 A／B 廳、社團多功能交誼廳；
 //    3F 課外活動指導組 313、學生會 308、活動教室 301／302／317／318、韻律教室 312、招待所、幾個紅磚平台（有鏡子）；
 //    4F 大音樂練習室 411、琴房 412～414／418、小音樂練習室 417、武術練習室 419、社團辦公室、倉儲室、樂器室。
@@ -29,12 +30,14 @@ const ZS = -94.65, ZN = -128.2, CN = -117.4, CS = -114.3;         // south wall,
 const AX0 = -166.1, AX1 = -146;                                   // 中庭（2F 前平台）x range
 const V = { x0: -162.6, x1: -149.4, z0: -111.5, z1: -97.5 };      // the void over it on 3F / 4F
 const ST = { x0: -169.8, x1: -166.1, z0: CS, z1: -106.3 };        // main stairs; the lift is behind them
-const EL = { z0: -106.3, z1: -103.9 };
+const EL = { z0: -97.05, z1: ZS };                                // the lift: south end of the 中庭's west wall
 const STE = { x0: -116, x1: XR, z0: -125.4, z1: CN };             // east stairs
 const BH = { x0: -164.8, x1: -161.6 };                            // 2F hall to the footbridge
 const NH = { x0: -149.6, x1: -146.4 };                            // 1F hall to the north door
 const WC = -192;                                                  // 3F / 4F west corridor: XL..WC
 const WCZ = -99.5;
+const CF = { x0: -156.2, z0: -105.7, z1: -103.3 };                 // 中庭 centre flight 2F -> 3F (up to the east gallery)
+const SF = { x1: -155.8, x2: -153.6, z0: -100.3, z1: -98.2 };     // south flight 3F -> 4F and its landing
 const HALL = { x0: XL, x1: -170, z0: CS, z1: ZS, stage: -188.5, row0: -185, pitch: 0.95, rows: 15, step: 0.085 };
 const WELL = [-147.9, -144.1, -110.9, -107.1];                    // the B1 spiral stair's well (js/sac_b1.js), x0 x1 z0 z1
 // the outline's skewed walls
@@ -52,7 +55,7 @@ export function sacLevels() {
 function sacDoors() {
   const L = sacLevels(), D = SAC_DOORS, S = (a, b, y0, y1) => ({ p: [a, zSouth(a)], q: [b, zSouth(b)], y0, y1 }), N = (a, b, y0, y1) => ({ p: [a, zNorth(a)], q: [b, zNorth(b)], y0, y1 });
   return [
-    S(...D.s1, L.F[0] - 0.05, L.F[0] + 2.7), S(...D.s2, L.F[1] - 0.02, L.F[1] + 2.4),
+    S(...D.s1, L.F[0] - 0.05, L.F[0] + 2.7), S(...D.s2, L.F[1] - 0.02, L.F[1] + 2.5),
     N(...D.n1, L.gN - 0.2, L.gN + 2.6), N(...D.nb, L.deck - 0.05, L.deck + 2.05),
     { p: [xWest(D.wb[0]), D.wb[0]], q: [xWest(D.wb[1]), D.wb[1]], y0: L.F[2] - 0.02, y1: L.F[2] + 2.3 },
   ];
@@ -286,7 +289,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     quad(MT.posters, 5.2, 1.3, (XMC + XR) / 2, y + 1.5, CS - T - 0.01, 'n');
     // --- 中庭 / 大廳 south wall with its windows
     const ex = f === 0 || f === 2 ? XMC : AX1, gap = f === 0 ? SAC_DOORS.s1 : f === 1 ? SAC_DOORS.s2 : null;
-    front(f, 'x', ZS, 'n', gap ? [[AX0, gap[0], '', 'solid'], [gap[0], gap[1], '', 'open'], [gap[1], ex, '', 'solid']] : [[AX0, ex, '', 'solid']], { head: f === 0 ? 2.7 : 2.4 });
+    front(f, 'x', ZS, 'n', gap ? [[AX0, gap[0], '', 'solid'], [gap[0], gap[1], '', 'open'], [gap[1], ex, '', 'solid']] : [[AX0, ex, '', 'solid']], { head: f === 0 ? 2.7 : 2.5 });
     for (let x = AX0 + 2.2; x < ex - 1.2; x += 3.3) if (!gap || x < gap[0] - 1.4 || x > gap[1] + 1.4) win(2.2, 1.5, x, y + 1.75, ZS - T - 0.01, 'n');
     // --- the lift (behind the main stairs), 中庭 west wall
     door(AX0 + 0.012, y, (EL.z0 + EL.z1) / 2, 'e', '電梯', 'steel');
@@ -296,7 +299,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   stairs({ ...STE, ax: 'z', dir: -1 });
   for (let f = 0; f < 4; f++) wall(STE.x0, ZN, STE.x1, ZN, FL[f], FL[f] + CH[f], MT.white, 1); // behind the east stairs
   // round columns of the 中庭, from the 1F lobby up to the skylight
-  for (const x of [V.x0, V.x1]) for (const z of [V.z0, (V.z0 + V.z1) / 2, V.z1]) column(x, z, F1, CT);
+  for (const x of [V.x0, V.x1]) for (const z of [V.z0, V.z1]) column(x, z, F1, CT);
 
   // ---------------- lift ----------------
   I.actions.push({
@@ -317,7 +320,7 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     // lobby: everything but the well of the B1 spiral stair (its last step comes up on the well's north side)
     for (const [x0, x1, z0, z1] of ring([AX0, XMC, CS, ZS], WELL)) room(f, x0, x1, z0, z1);
     sf(d0, d1, ZS - 0.02, -94.4, y); bx(d0, d1, y - SL, y, ZS, -94.42, MT.floor);
-    front(f, 'z', AX0, 'e', [[EL.z1, -101, '', 'solid'], [-101, -99, '培英廳 後門', 'room'], [-99, ZS, '', 'solid']]);
+    front(f, 'z', AX0, 'e', [[ST.z1, -101, '', 'solid'], [-101, -99, '培英廳 後門', 'room'], [-99, EL.z0, '', 'solid']]);
     front(f, 'z', XMC, 'w', [[CS, -108, '', 'solid'], [-108, -104, '原創咖啡', 'office'], [-104, ZS, '', 'solid']]);
     quad(MT.posters, 4.6, 1.25, XMC - T - 0.01, y + 1.5, -99.5, 'w');
     // rail round the well; the gap is where the stair's top landing meets the floor (north side)
@@ -404,11 +407,12 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     room(f, AX0, AX1, CS, ZS, { floor: MT.red, ceil: false });
     for (const [x0, x1, z0, z1] of ring([AX0, AX1, CS, ZS], [V.x0, V.x1, V.z0, V.z1])) { bx(x0, x1, c - 0.03, c + 0.05, z0, z1, MT.ceil); lights(x0, x1, z0, z1, c); }
     sf(d0, d1, ZS - 0.02, -94.4, y); bx(d0, d1, y - SL, y, ZS, -94.42, MT.red, { tile: [2.4, 2.4] });
-    front(f, 'z', AX0, 'e', [[EL.z1, ZS, '', 'solid']]);
+    front(f, 'z', AX0, 'e', [[ST.z1, EL.z0, '', 'solid']]);
     front(f, 'z', AX1, 'w', [[CS, -108, '儲藏室', 'svc'], [-108, -101, '', 'solid'], [-101, ZS, '倉儲室', 'svc']]);
     // 布告欄（北牆，貼滿海報）
-    bx(BH.x1 + 0.6, -150.6, y + 0.7, y + 2.35, CN + 0.012, CN + 0.05, MT.dark); quad(MT.posters, 10.2, 1.5, (BH.x1 - 150) / 2, y + 1.52, CN + 0.06, 's');
-    quad(MT.posters, 6, 1.4, AX0 + T + 0.01, y + 1.5, -99.3, 'e');
+    // （西端，面向東：一道獨立的牆，兩側留通道往後面走；正上方是三樓西牆的圓窗。使用者確認「2樓前平台」的相片是面向西拍的）
+    cbx(-164.35, -164.15, y, y + 2.6, -109.2, -99.8, MT.dark); quad(MT.posters, 9.0, 1.6, -164.14, y + 1.5, -104.5, 'e');
+    bx(-164.6, -163.7, y + 2.6, y + 2.78, -109.5, -99.5, MT.band);
     sign('2F 前平台', (d0 + d1) / 2, y + 2.6, ZS - T - 0.02, 'n', '#2d3b4a', 1.4);
     // --- hall to the footbridge: floor, 7 steps up to a landing level with the deck, the door
     const zT = -124.5, zB = -126.6, zW = -128.5, [n0, n1] = SAC_DOORS.nb, N = 7;
@@ -445,13 +449,16 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     const y = FL[f], c = y + CH[f], ex = f === 2 ? XMC : AX1;
     for (const [x0, x1, z0, z1] of ring([AX0, AX1, CS, ZS], [V.x0, V.x1, V.z0, V.z1])) room(f, x0, x1, z0, z1, { floor: MT.red });
     if (f === 2) room(f, AX1, XMC, CS, ZS, { floor: MT.red }); // 3樓右邊平台
-    for (const [x0, z0, x1, z1] of [[V.x0, V.z0, V.x1, V.z0], [V.x0, V.z1, V.x1, V.z1], [V.x0, V.z0, V.x0, V.z1], [V.x1, V.z0, V.x1, V.z1]]) {
+    const edges = f === 2
+      ? [[V.x0, V.z0, V.x1, V.z0], [V.x0, V.z1, V.x1, V.z1], [V.x0, V.z0, V.x0, SF.z0], [V.x0, SF.z1, V.x0, V.z1], [V.x1, V.z0, V.x1, CF.z0], [V.x1, CF.z1, V.x1, V.z1]]
+      : [[V.x0, V.z0, V.x1, V.z0], [V.x0, V.z1, SF.x1, V.z1], [SF.x2, V.z1, V.x1, V.z1], [V.x0, V.z0, V.x0, V.z1], [V.x1, V.z0, V.x1, V.z1]];
+    for (const [x0, z0, x1, z1] of edges) {
       const alongX = z0 === z1;
       if (alongX) { bx(x0, x1, y - SL, y + 0.95, z0 - 0.09, z0 + 0.09, MT.tileW, { tile: [0.6, 0.6] }); bx(x0, x1, y + 1.12, y + 1.17, z0 - 0.03, z0 + 0.03, MT.rail); }
       else { bx(x0 - 0.09, x0 + 0.09, y - SL, y + 0.95, z0, z1, MT.tileW, { tile: [0.6, 0.6] }); bx(x0 - 0.03, x0 + 0.03, y + 1.12, y + 1.17, z0, z1, MT.rail); }
       wl(x0, z0, x1, z1, y - 0.3, y + 1.3);
     }
-    front(f, 'z', AX0, 'e', f === 2 ? [[EL.z1, ZS, '招待所', 'office']] : [[EL.z1, ZS, '425 社團辦公室', 'room']]);
+    front(f, 'z', AX0, 'e', f === 2 ? [[ST.z1, -103, '', 'solid'], [-103, EL.z0, '招待所', 'office']] : [[ST.z1, EL.z0, '425 社團辦公室', 'room']]);
     if (f === 3) front(f, 'z', AX1, 'w', [[CS, -108, '431 社團辦公室', 'room'], [-108, -101, '433 社團辦公室', 'room'], [-101, ZS, '435 社團辦公室', 'room']]);
     else {
       // 3樓右邊平台：東牆整面鏡子（社團練舞用）
@@ -467,7 +474,23 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     win(2.2, 1.4, XL + T + 0.01, y + 1.7, -110.5, 'e'); if (f === 3) win(2.2, 1.4, XL + T + 0.01, y + 1.7, -103.5, 'e');
   }
   // 圓窗（3F 北牆，2F 布告欄正上方）、中庭頂的採光罩
-  { const g = new THREE.CircleGeometry(1.35, 36); g.translate(-154, F3 + 1.55, CN + 0.02); k._part(MT.window, g); const t = new THREE.TorusGeometry(1.4, 0.1, 8, 36); t.translate(-154, F3 + 1.55, CN + 0.04); k._part(MT.band, t); }
+  { const g = new THREE.CircleGeometry(1.35, 36); g.rotateY(Math.PI / 2); g.translate(AX0 + 0.02, F3 + 1.55, -104.5); k._part(MT.window, g); const t = new THREE.TorusGeometry(1.4, 0.1, 8, 36); t.rotateY(Math.PI / 2); t.translate(AX0 + 0.04, F3 + 1.55, -104.5); k._part(MT.band, t); }
+  // 中庭裡的兩座直跑樓梯（相片）：正中間 2F → 3F 東側迴廊（往東上）、南側 3F 西側迴廊 → 4F 南側迴廊（往東上，頂端一塊平台）
+  {
+    const flight = (x0, x1, z0, z1, ya, yb, lo) => {
+      const n = Math.round((yb - ya) / 0.17), sl = Math.atan2(yb - ya, x1 - x0), len = Math.hypot(x1 - x0, yb - ya);
+      sf(x0, x1, z0, z1, (x) => ya + (yb - ya) * clamp01((x - x0) / (x1 - x0)));
+      for (let i = 0; i < n; i++) { const h = ya + (yb - ya) * (i + 1) / n; bx(x0 + (x1 - x0) * i / n, x0 + (x1 - x0) * (i + 1) / n, h - 0.36, h, z0, z1, MT.stair); }
+      for (const z of [z0, z1]) {
+        wl(x0, z, x1, z, lo, yb + 1.1);
+        for (const [dy, th, m] of [[0.95, 0.05, MT.rail], [0.5, 0.04, MT.rail], [-0.12, 0.3, MT.white]]) { const g = new THREE.BoxGeometry(len, th, 0.06); g.rotateZ(sl); g.translate((x0 + x1) / 2, (ya + yb) / 2 + dy, z); k._part(m, g); }
+      }
+    };
+    flight(CF.x0, V.x1, CF.z0, CF.z1, F2, F3, F2 - 0.2); wl(V.x1, CF.z0, V.x1, CF.z1, F2 - 0.2, F3 - 0.4);
+    flight(V.x0, SF.x1, SF.z0, SF.z1, F3, F4, F3 - 0.3);
+    bx(SF.x1, SF.x2, F4 - SL, F4, SF.z0, V.z1, MT.red, { tile: [2.4, 2.4] }); sf(SF.x1, SF.x2, SF.z0, V.z1, F4);
+    for (const [ax, az, cx, cz] of [[SF.x1, SF.z0, SF.x2, SF.z0], [SF.x2, SF.z0, SF.x2, V.z1], [SF.x1, SF.z1, SF.x1, V.z1]]) { wl(ax, az, cx, cz, F4 - 0.3, F4 + 1.3); bx(Math.min(ax, cx) - 0.03, Math.max(ax, cx) + 0.03, F4 + 1.0, F4 + 1.06, Math.min(az, cz) - 0.03, Math.max(az, cz) + 0.03, MT.rail); }
+  }
   bx(V.x0 - 0.1, V.x1 + 0.1, CT - 0.03, CT + 0.05, V.z0 - 0.1, V.z1 + 0.1, MT.sky);
   for (let x = V.x0; x <= V.x1 + 0.01; x += (V.x1 - V.x0) / 6) bx(x - 0.05, x + 0.05, CT - 0.14, CT - 0.03, V.z0, V.z1, MT.white);
 

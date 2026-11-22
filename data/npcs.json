@@ -313,6 +313,36 @@
         "js/interiors.js",
         "js/mcuniform.js"
       ]
+    },
+    {
+      "id": "jianyu",
+      "kind": "builtin",
+      "ref": "jianyu",
+      "name": "劍玉",
+      "title": "基隆航海王・資管三甲班代",
+      "gender": "男",
+      "dept": "資管系三年級（三甲）",
+      "personality": "溫和、有禮貌，很照顧同學；超有錢但不炫耀，常自嘲。",
+      "interests": [
+        "特戰英豪（排位鑽石，高端玩家）",
+        "超跑",
+        "回基隆吃廟口"
+      ],
+      "likes": "雙排上分、天婦羅",
+      "catchphrase": "今晚要不要雙排？我帶你上分 🎯",
+      "background": "家裡非常有錢：校園裡看到的超跑都是他借給別人開的，自己的法拉利、保時捷、藍寶堅尼停在資管系館西邊的停車場。最近放在桌上的 2000 元班費被偷了（支線：劍玉的班費失竊案）。",
+      "relations": "彥霖的同班同學，資管三甲班代；278 寢室友小偉、小宏、小澤、小志、小誠。",
+      "where": "力行宿舍 278 寢（進門右手邊第一個床位）／資管系館停車場",
+      "schedule": "02:00–10:00 睡覺，10:00–17:00 在系館停車場顧車，17:00–02:00 在寢室打特戰英豪",
+      "friend": true,
+      "sources": [
+        "js/jianyu.js",
+        "js/friends.js",
+        "js/chats.js",
+        "js/feeds.js",
+        "js/detective.js",
+        "js/lixing.js"
+      ]
     }
   ]
 }

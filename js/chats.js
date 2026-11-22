@@ -428,6 +428,53 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
+  // 劍玉（js/jianyu.js）：基隆航海王、資管三甲班代。「你在哪？」會說在系館停車場還是 278，並導航過去；「借車」會告訴你車停在哪
+  jianyu: {
+    id: 'jianyu', name: '基隆航海王 劍玉', sub: '資管三甲班代・特戰英豪鑽石', avatar: '<img class="ph-avimg" src="assets/gram/jianyu_av.jpg" alt="">', color: '#5d6b8a', unread: 2,
+    history: [
+      { day: '今天' },
+      ['jianyu', '班代劍玉報到 🫡'],
+      ['jianyu', '三甲的群組我幫你宣傳了，明天大家一起去投票'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '班代辛苦了！明天拜託大家了', r: ['交給我', '班上我一個一個私訊提醒 📋'], v: 1 },
+          { t: '你真的是鑽石喔？', r: ['鑽石 II 啦', '晚上要不要雙排，我帶你 🎯'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '你哪來那麼多超跑', r: ['家裡的啦 😅', '放著也是放著，大家借去開比較有意義'] },
+          { t: '基隆航海王是什麼梗', r: ['我也不知道誰開始叫的', '可能因為我家在基隆有船吧……（小聲）'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['票投彥霖！三甲全體出動 🗳️'], v: 1 },
+          { t: '週末要回基隆嗎', r: ['要啊 廟口見', '天婦羅跟營養三明治幫你帶'] },
+        ],
+      },
+    ],
+    always: [
+      {
+        t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) => {
+          const J = g.jianyu; if (!J?.mode) return { r: ['等我一下'] };
+          if (J.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 劍玉在 278 寢的上舖睡覺，下午 5 點以後會醒來打積分', 'good', 2800) };
+          const r = J.mode === 'car' ? ['在系館停車場顧車 🏎️', '定位傳你了'] : ['在 278 打積分 🎧', '定位傳你了，進門右手邊第一個就是我'];
+          return { r, then: () => { if (g.nav.track(J)) g.hud.toast('🧭 已設定導航到劍玉身邊', 'good', 2400); } };
+        },
+      },
+      {
+        t: '可以借車嗎？', match: /借車|開車|跑車|超跑|車子/,
+        ask: (g) => {
+          const lambo = !!g.jianyu?.state.thanked;
+          return { r: ['停在資管系館西邊的停車場，鑰匙都在車上 🔑', lambo ? '藍寶堅尼也可以開了，小心一點喔 😂' : '法拉利跟保時捷隨你開，藍寶堅尼……等班費的事搞定再說'], then: () => { const c = g.jianyu?.cars?.[0]; if (c) { g.nav.set(c.pos.x, c.pos.z); g.hud.toast('🧭 已導航到劍玉的超跑', 'good', 2400); } } };
+        },
+      },
+    ],
+  },
   // 黃蓋瑞（js/garry.js）：古箏社幹部，住彥霖隔壁。「你在哪？」每一輪都能問，他會說在跑道、活動中心還是房間，並設定導航跟著他
   garry: {
     id: 'garry', name: '古箏社 黃蓋瑞', sub: '古箏社幹部・住你隔壁', avatar: '<img class="ph-avimg" src="assets/gram/garry_av.jpg" alt="">', color: '#21486e', unread: 2,

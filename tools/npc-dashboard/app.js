@@ -18,6 +18,7 @@ const BUILTIN = {
   hank: async () => createCharacter((await import('../../js/hank.js')).HANK_LOOK),
   garry: async () => (await import('../../js/garry.js')).createGarry(),
   laoda: async () => (await import('../../js/pilot.js')).createPilot(),
+  jianyu: async () => createCharacter((await import('../../js/jianyu.js')).JIANYU_LOOK),
   xiaoyun: async () => {
     const { dressCrew, CREW_SHIRT } = await import('../../js/mcuniform.js');
     const ch = createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
@@ -193,16 +194,18 @@ function fine() {
     <label>褲子<select data-s="pants"><option value="1" ${L.pants ? 'selected' : ''}>長褲</option><option value="0" ${!L.pants ? 'selected' : ''}>短褲</option></select></label>
     <label>上衣款式<select data-s="top"><option value="tee" ${!L.polo && !L.imTee ? 'selected' : ''}>素 T</option><option value="polo" ${L.polo ? 'selected' : ''}>系學會幹部 T（polo）</option><option value="im" ${L.imTee ? 'selected' : ''}>資管系服</option></select></label>
     <label>眼鏡<input type="checkbox" data-b="glasses" ${L.glasses ? 'checked' : ''}></label>
+    <label>鏡框<select data-s="glassesStyle"><option value="" ${!L.glassesStyle ? 'selected' : ''}>細圓框</option><option value="browline" ${L.glassesStyle === 'browline' ? 'selected' : ''}>眉框（上粗下細）</option><option value="thick" ${L.glassesStyle === 'thick' ? 'selected' : ''}>黑粗框</option></select></label>
     <label>粗眉<input type="checkbox" data-b="brows" ${L.brows ? 'checked' : ''}></label>
     <label>嚴肅的嘴<input type="checkbox" data-b="mouth" ${L.mouth ? 'checked' : ''}></label>
     <label>山羊鬍<input type="checkbox" data-b="beard" ${L.beard ? 'checked' : ''}></label>
-    <h4>體型</h4>${rng('build', '體格', 0.85, 1.2, 0.01, 1)}${rng('height', '身高', 0.9, 1.12, 0.01, 1)}${rng('chin', '下巴尖', 0, 1, 0.05, 0)}${rng('jaw', '下顎寬', 0.9, 1.1, 0.01, 1)}`;
+    <h4>體型</h4>${rng('build', '體格', 0.85, 1.3, 0.01, 1)}${rng('belly', '肚子', 0, 1, 0.05, 0)}${rng('height', '身高', 0.9, 1.12, 0.01, 1)}${rng('chin', '下巴尖', 0, 1, 0.05, 0)}${rng('jaw', '下顎寬', 0.9, 1.1, 0.01, 1)}`;
   el.querySelectorAll('[data-c]').forEach(i => i.oninput = () => { const k = i.dataset.c; if (k === 'jacket' || k === 'bag') { L[k] = i.value; el.querySelector(`[data-on="${k}"]`).checked = true; } else L[k] = i.value; refresh(); });
   el.querySelectorAll('[data-on]').forEach(i => i.onchange = () => { const k = i.dataset.on; if (i.checked) L[k] = el.querySelector(`[data-c="${k}"]`).value; else delete L[k]; refresh(); });
   el.querySelectorAll('[data-s]').forEach(i => i.onchange = () => {
     const k = i.dataset.s;
     if (k === 'pants') L.pants = i.value === '1';
     else if (k === 'top') { delete L.polo; delete L.imTee; if (i.value === 'polo') L.polo = true; if (i.value === 'im') L.imTee = true; }
+    else if (k === 'glassesStyle' && !i.value) delete L.glassesStyle;
     else L[k] = i.value;
     refresh();
   });
@@ -238,7 +241,9 @@ function parseDesc(text) {
   const hs = [[/光頭/, 'bald', '光頭'], [/平頭|寸頭|小平頭|短短的頭髮/, 'buzz', '平頭'], [/捲/, 'curly', '捲髮'], [/馬尾/, 'pony', '馬尾'], [/長髮|頭髮很長|長頭髮/, 'long', '長髮'], [/西瓜皮|妹妹頭|瀏海|香菇頭/, 'bowl', '有瀏海'], [/短髮/, 'short', '短髮']].find(([re]) => re.test(t));
   if (hs) set('hairStyle', hs[1], '髮型：' + hs[2]); else if (/女生|女孩|女性/.test(t) && !L.hairStyle) set('hairStyle', 'long', '髮型：長髮（女生預設）');
   // glasses
-  if (/墨鏡|太陽眼鏡/.test(t)) { set('glasses', true, '戴墨鏡'); L.glassesColor = '#111111'; }
+  if (/黑框|粗框|膠框/.test(t)) { set('glasses', true, '黑粗框眼鏡'); L.glassesStyle = 'thick'; if (!L.glassesColor) L.glassesColor = '#141414'; }
+  if (/眉框|半框|上框/.test(t)) { set('glasses', true, '眉框眼鏡'); L.glassesStyle = 'browline'; if (!L.glassesColor) L.glassesColor = '#2b1f1a'; }
+  else if (/墨鏡|太陽眼鏡/.test(t)) { set('glasses', true, '戴墨鏡'); L.glassesColor = '#111111'; }
   else if (/眼鏡/.test(t)) set('glasses', true, '戴眼鏡'); else if (/沒戴眼鏡|不戴眼鏡/.test(t)) set('glasses', false, '沒戴眼鏡');
   // tops / bottoms of a known kind
   if (/系學會幹部T|幹部T|polo|POLO|Polo/.test(t)) { L.polo = true; delete L.imTee; did.push('上衣：polo 衫'); }
@@ -268,7 +273,7 @@ function parseDesc(text) {
   }
   // build / height / face
   if (/壯|肌肉|健身|魁梧|結實/.test(t)) set('build', 1.12, '體格：壯'); else if (/瘦|纖細|苗條/.test(t)) set('build', 0.92, '體格：瘦');
-  if (/胖|圓潤|肉肉/.test(t)) set('build', 1.16, '體格：圓潤');
+  if (/胖|圓潤|肉肉|圓滾/.test(t)) { set('build', 1.22, '體格：胖胖的'); L.belly = 0.9; L.arm = 1.25; }
   if (/很高|高瘦|高大|身高很高|高個子/.test(t)) { cur.height = 1.06; did.push('身高：高'); } else if (/矮|嬌小|個子小/.test(t)) { cur.height = 0.94; did.push('身高：嬌小'); }
   if (/鬍/.test(t)) set('beard', 'goatee', '山羊鬍');
   if (/粗眉|濃眉/.test(t)) set('brows', 'thick', '粗眉');

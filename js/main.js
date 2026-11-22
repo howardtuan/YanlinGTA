@@ -38,6 +38,7 @@ import { garryOutline } from './garryhome.js';
 import { clubFootprint } from './clubroom.js';
 import { Concerts } from './concert.js';
 import { Garry } from './garry.js';
+import { Jianyu } from './jianyu.js';
 import { Gordon } from './gordon.js';
 import { LibraryLink } from './library.js';
 import { Hank } from './hank.js';
@@ -289,6 +290,7 @@ class Game {
     this.missions = new Missions(this);
     this.sunday = new Sunday(this);   // the hint helper in the bottom-right corner during the story (J)
     this.garry = new Garry(this);       // 黃蓋瑞: runs on the track, 古箏社 at 活動中心, lives next door to 彥霖 (js/garry.js)
+    this.jianyu = new Jianyu(this);     // 劍玉: 力行 278, his supercars at the 資管系館, the 班費 case (js/jianyu.js)
     // warm up a frame so shaders compile behind the loading screen; compileAsync lets the driver
     // compile them in parallel (KHR_parallel_shader_compile) without freezing the page
     try { await this.renderer.compileAsync(this.scene, this.camera); } catch (e) { this.renderer.compile(this.scene, this.camera); }
@@ -902,6 +904,7 @@ class Game {
     this.phone.tick(); // Peachgram / Pcard get new posts every 30 game minutes
     this.news.tick();  // PYtoday: a notice when an article comes out
     this.hank.update(dt);
+    this.jianyu?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) { if (hud.advanceDialog()) this.audio.talk(); inp.pressed.clear(); }
@@ -940,9 +943,10 @@ class Game {
         if (Math.abs(pl.vehicle.speed) < 6) { this.audio.engineStop(pl.vehicle.kind); pl.exit(this.scene, w.collision); this.audio.setEngine(false, 0); this.audio.mount(); }
         else hud.toast('先減速才能下車！', 'bad');
       } else {
-        const v = this._nearestVehicle(3.2);
-        if (v) {
-          if (v.ai !== null && v.ai !== undefined) { this.traffic.hijack(v); this.vehicles.push(v); hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : '不好意思，借一下車！', 'bad'); }
+        const v = this._nearestVehicle(3.2), locked = v?.lock?.();
+        if (locked) hud.toast(locked, 'bad', 2800);
+        else if (v) {
+          if (v.ai !== null && v.ai !== undefined) { this.traffic.hijack(v); this.vehicles.push(v); hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : v.model ? '這台超跑是劍玉借給同學的……借一下！' : '不好意思，借一下車！', 'bad'); }
           pl.enter(v); this.audio.mount(); this.audio.engineStart(v.kind);
           if (v.hint) { v.mesh.remove(v.hint); v.hint = null; }
           hud.setTip(v.kind === 'scooter' ? '🛵 騎車' : '🚗 開車', dual('<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車/倒車 <kbd>A</kbd><kbd>D</kbd> 轉向<br><kbd>Space</kbd> 甩尾 <kbd>H</kbd> 喇叭 <kbd>F</kbd> 下車',
@@ -1010,7 +1014,7 @@ class Game {
       const v = pl.y < 1 && !pl.seat ? this._nearestVehicle(3.2) : null;
       const p = this._nearestPed(3.5);
       if (act) hud.setPrompt(act.label(this));
-      else if (v) hud.setPrompt(`按 <kbd>F</kbd> ${v.ai ? '借用' : v.kind === 'scooter' ? '騎上' : '開'}${v.label}`);
+      else if (v) hud.setPrompt(v.lock?.() ? `🔒 ${v.label}` : `按 <kbd>F</kbd> ${v.ai ? '借用' : v.kind === 'scooter' ? '騎上' : '開'}${v.label}`);
       else if (p && !p.voted) hud.setPrompt(`${this.input.touch ? '按 📄' : '<kbd>左鍵</kbd>'} 發傳單給同學`);
       else hud.setPrompt(null);
     } else hud.setPrompt(null);

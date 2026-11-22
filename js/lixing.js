@@ -31,6 +31,7 @@ const BW = { x0: -6.5, x1: 0.25, z0: 6.6, zA: 12.2, zB: 21.0, z1: 26.2 }; // wes
 const BE = { x0: 121.55, x1: 128.0, z0: 7.95, zA: 13.5, zB: 21.5, z1: 26.9 };
 const ROWC_W = { x0: 0.25, x1: 37.25, z1: 34.45 }, ROWC_E = { x0: 85.75, x1: 122.3, z1: 34.15 };
 const OPEN_ROOMS = [276, 277, 278, 279, 280, 281];
+const ROOM_SPOTS = {}; // 276～281: beds, desks and chairs in local metres (I.lixing.rooms, used by js/jianyu.js for 278)
 const ANNEX = { z0: 29.6, z1: 34.3, x0: 38.3, x1: 84.7, gate0: 56.2, gate1: 61.4, h: 3.3 };
 // courtyards + the galleries round them, 6 cm behind the walls that face them
 const HOLES = [[0.19, 33.86, 7.34, 27.36], [89.14, 121.61, 7.34, 27.36]];
@@ -474,6 +475,16 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         for (const t of [LEN - BED, LEN - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
         bed(LEN - BED, LEN, bedY, nos[2]); ladder(LEN - BED + 0.1, bedY + 0.55);
         const [a, b2] = X(0, DW + 0.03); wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
+        // where people go (js/jianyu.js): bed decks, each desk with its chair; face = local angle towards the desk
+        const R = (ROOM_SPOTS[no] ||= { door: [cx, z0 + T + 0.3], center: [cx, (z0 + z1) / 2], y, beds: {}, desks: [] });
+        const mid = (p) => (p[0] + p[1]) / 2;
+        R.beds[nos[0]] = { x: mid(X(0, DW)), z: mid(Z(0.07, BED - 0.07)), y: y + 0.42 };
+        R.beds[nos[1]] = { x: mid(X(0, DW)), z: mid(Z(0, BED)), y: bedY + 0.12 };
+        R.beds[nos[2]] = { x: mid(X(0, DW)), z: mid(Z(LEN - BED, LEN)), y: bedY + 0.12 };
+        for (let u = 0; u < 3; u++) {
+          const t0 = BED + u * (DK + WD), t1 = t0 + DK;
+          R.desks.push({ side, u, bed: t1 > LEN - BED ? nos[2] : null, x: mid(X(0, 0.6)), z: mid(Z(t0, t1)), chair: { x: mid(X(0.66, 0.98)), z: mid(Z(t0 + 0.25, t0 + 0.65)) }, face: Math.atan2(-s, 0) });
+        }
       }
       sign(`${no} 寢`, cx, y + 2.52, z0 - 0.02, 'n', '#59833a', 0.7);
     });
@@ -565,6 +576,6 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
 
   doorTex.needsUpdate = true;
   k.finish(scene);
-  I.lixing = { k, FL, DL, B, W, setFeet: (v) => { feet = v; } };
+  I.lixing = { k, FL, DL, B, W, rooms: ROOM_SPOTS, setFeet: (v) => { feet = v; } };
   return I.lixing;
 }

@@ -157,6 +157,56 @@ INSERT INTO reservations VALUES (1,'a01','3F-12','11/18',1),(2,'a02','3F-01','11
     ],
     solved: '小翔開了兩個帳號，每天一早把 3F 靠窗的位子預約起來「保留」，自己卻在宿舍睡覺。他的帳號被停權一週。',
   },
+  // ---------------------------------------------------------------- 支線：劍玉的班費失竊案（js/jianyu.js：跟劍玉說過話才會出現）
+  jianyu: {
+    id: 'jianyu', icon: '💰', title: '劍玉的班費失竊案', unlock: (g) => !!g.jianyu?.state.met,
+    brief: `劍玉把裝著「三甲班費 2000」的信封放在力行宿舍 278 寢的書桌上，下午回來就不見了。
+寢室門是刷卡進出的，宿舍自治會把當天的紀錄匯出來了：寢室門禁、室友名單、附近超商的發票，還有寢室群組的對話。
+查出是誰拿走的，再輸入 accuse 名字 指認。`,
+    tables: {
+      room_log: 'id, time 時間, name 刷卡的人, action 進／出（278 寢的門）',
+      roommates: 'bed 床位, name 姓名, class 班級, note 備註',
+      purchases: 'id, time 時間, store 店, buyer 買的人, item 品項, price 金額, pay 付款方式',
+      group_chat: 'id, time 時間, who 誰, msg 訊息（278 寢群組）',
+    },
+    seed: `
+CREATE TABLE roommates (bed INT PRIMARY KEY, name VARCHAR(10), class VARCHAR(10), note VARCHAR(30));
+INSERT INTO roommates VALUES (1,'小偉','資管三甲','下舖，早八常遲到'),(2,'小宏','資管三甲','上舖，熱音社'),(3,'劍玉','資管三甲','進門右手邊的高架床，班代'),
+ (4,'小澤','資管三甲','下舖，最近很常課金'),(5,'小志','資管三乙','上舖，系籃'),(6,'小誠','資管三乙','高架床，籃球校隊');
+CREATE TABLE room_log (id INT PRIMARY KEY, time VARCHAR(5), name VARCHAR(10), action VARCHAR(2));
+INSERT INTO room_log VALUES (1,'08:05','小偉','出'),(2,'09:40','小志','出'),(3,'12:30','劍玉','進'),(4,'13:10','劍玉','出'),
+ (5,'13:40','小宏','進'),(6,'14:05','小宏','出'),(7,'14:20','小澤','進'),(8,'14:26','小澤','出'),(9,'15:50','小誠','進'),
+ (10,'16:30','小誠','出'),(11,'17:30','劍玉','進'),(12,'18:10','小偉','進'),(13,'21:40','小志','進');
+CREATE TABLE purchases (id INT PRIMARY KEY, time VARCHAR(5), store VARCHAR(12), buyer VARCHAR(10), item VARCHAR(12), price INT, pay VARCHAR(6));
+INSERT INTO purchases VALUES (1,'12:10','7-11 中原店','劍玉','御飯糰',39,'信用卡'),(2,'13:55','全家 力行店','小宏','泡麵',45,'悠遊卡'),
+ (3,'14:41','7-11 中原店','小澤','遊戲點數卡',2000,'現金'),(4,'16:45','全家 力行店','小誠','運動飲料',35,'現金'),(5,'18:20','全家 力行店','小偉','微波便當',89,'悠遊卡');
+CREATE TABLE group_chat (id INT PRIMARY KEY, time VARCHAR(5), who VARCHAR(10), msg VARCHAR(40));
+INSERT INTO group_chat VALUES (1,'17:35','劍玉','誰有看到我桌上的信封？裡面是班費 2000'),(2,'17:38','小宏','我 2 點就出門練團了，沒注意欸'),
+ (3,'17:40','小澤','沒看到欸，我今天一整天都在圖書館'),(4,'17:41','小誠','我 4 點回來拿球衣，桌上好像就已經沒東西了'),(5,'17:45','小偉','我早八出門到現在還沒回去');`,
+    clues: [
+      { id: 'window', text: '劍玉 13:10 出門、17:30 回來：班費是在這段時間不見的。', test: (sql, res) => /room_log/.test(sql) && rowHas(res, row => row.includes('劍玉') && (row.includes('13:10') || row.includes('17:30'))) },
+      { id: 'visitors', text: '13:10～17:30 進過 278 的有三個人：小宏（13:40–14:05）、小澤（14:20–14:26，只待 6 分鐘）、小誠（15:50–16:30）。', test: (sql, res) => /room_log/.test(sql) && ['小宏', '小澤', '小誠'].filter(n => cells(res, v => v === n)).length >= 2 },
+      { id: 'cash', text: '小澤 14:41 在 7-11 用現金買了 2000 元的遊戲點數卡 —— 離開寢室才 15 分鐘。', test: (sql, res) => rowHas(res, row => row.includes('遊戲點數卡') || (row.includes('小澤') && row.includes(2000))) },
+      { id: 'lie', text: '小澤在群組說「我今天一整天都在圖書館」，可是 14:20 他刷卡進了 278 —— 他說謊。', test: (sql, res) => cells(res, v => typeof v === 'string' && v.includes('一整天都在圖書館')) },
+      { id: 'gone', text: '小誠 15:50 回來時，桌上就已經沒東西了：錢在他回來之前就不見了。', test: (sql, res) => cells(res, v => typeof v === 'string' && v.includes('桌上好像就已經沒東西')) },
+    ],
+    need: ['visitors', 'cash', 'lie'],
+    culprit: '小澤',
+    alibi: {
+      小宏: '小宏 13:40～14:05 在寢室，但他只用悠遊卡買了 45 元的泡麵，群組裡說的也跟刷卡紀錄對得上。',
+      小誠: '小誠 15:50 才回來，而且他回來的時候桌上已經沒東西了 —— 錢在那之前就不見了。',
+      小偉: '小偉早上 8 點出門、傍晚 6 點才回來，整個下午都不在寢室。',
+      小志: '小志早上 9 點多出門，晚上 9 點多才回來，下午不在寢室。',
+      劍玉: '劍玉是苦主啦……',
+    },
+    hints: [
+      '先看 278 的刷卡紀錄：<code>SELECT * FROM room_log;</code> 劍玉幾點出門、幾點回來？',
+      '那段時間誰進過寢室？<code>WHERE time BETWEEN \'13:10\' AND \'17:30\'</code>',
+      '拿了 2000 塊的人，可能很快就把錢花掉：查 <code>purchases</code>，看誰用<b>現金</b>買了很貴的東西。',
+      '最後對一下大家在群組怎麼說：<code>SELECT * FROM group_chat;</code> 有人說的話跟刷卡紀錄對不上。',
+    ],
+    solved: '小澤 14:20 刷卡進 278，看到劍玉桌上的信封就拿走了，14:41 在 7-11 用現金買了 2000 元的遊戲點數卡，還在群組說自己一整天都在圖書館。回去跟劍玉說吧！',
+  },
 };
 
 const SQL_ERR = [
@@ -177,7 +227,7 @@ export class Detective {
   // the main case opens with mission 5 (or any time after the story); the side cases once it is solved
   available() {
     const M = this.g.missions, story = M && (M.done || M.free || M.idx >= 5);
-    return Object.values(CASES).filter(c => c.main ? story || this.solved(c.id) : this.solved('banner'));
+    return Object.values(CASES).filter(c => c.unlock ? c.unlock(this.g) || this.solved(c.id) : c.main ? story || this.solved(c.id) : this.solved('banner'));
   }
   // ---------------- terminal ----------------
   // io: { print(text, cls), html(html), prompt(p), clear() } from the terminal window (js/pc.js)
@@ -279,6 +329,7 @@ const MISSING = {
   banner: { plate: '監視器拍到的那台可疑機車（cctv）', suspects: '車牌符合的學生是誰（students，LIKE）', cutter: '案發前誰買了美工刀（purchases）', alibi: '另一個嫌犯的不在場證明（access_log）' },
   fries: { gap: '哪個時段炸的和賣的差最多（JOIN fry_log 和 sales）', who: '那些時段是誰在炸台，總共差幾份（GROUP BY staff）' },
   seat: { noshow: '哪些帳號預約了卻沒報到（checked_in = 0）', owner: '那些帳號的主人是誰、總共幾次（JOIN accounts，GROUP BY owner）' },
+  jianyu: { visitors: '劍玉不在的時候誰進過寢室（room_log）', cash: '誰很快就花了一大筆現金（purchases）', lie: '誰在群組說的話跟刷卡紀錄對不上（group_chat）' },
 };
 function table(r) {
   const n = r.values.length, rows = r.values.slice(0, 60);

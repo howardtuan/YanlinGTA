@@ -201,7 +201,8 @@ function faceGeo(jaw, chin = 0) {
 // mouth ('flat': a closed, serious mouth instead of the smile), jaw (override the per-person jaw width),
 // polo (true: 系學會幹部T — a polo collar, a two-button placket and the lion logo on the left chest),
 // imTee (true: 資管系服 — geometric lion on the left chest, the Information Management code print on the back),
-// chin (0..1: a narrower, pointier chin)
+// chin (0..1: a narrower, pointier chin), glassesStyle ('browline': a thick bar in glassesColor over the top of each lens, thin silver rims;
+// 'thick': thick full frames in glassesColor, default black), belly (0..1, skinned body only: a chubby tummy, hips and thighs)
 // The head's parts never move against the head (only the head pivot turns, and the eyelids blink), so they
 // are merged into one mesh per material — the small detail parts (hidden at distance) apart from the rest.
 // About 15–25 pieces become 5–8: fewer draw calls for every person on screen. skip: parts that must stay
@@ -347,7 +348,8 @@ export function createCharacter(opts = {}) {
       head.add(mesh(geo('lipU', () => { const g = new THREE.CapsuleGeometry(0.0042, 0.026, 3, 8); g.rotateZ(Math.PI / 2); return g; }), mat('#a8695c'), 0, 0.041, 0.106));
       head.add(mesh(geo('lipL', () => { const g = new THREE.CapsuleGeometry(0.005, 0.022, 3, 8); g.rotateZ(Math.PI / 2); return g; }), mat('#b97a6b'), 0, 0.0335, 0.105));
     } else {
-      const mouth = mesh(geo('mouth', () => new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI)), mat('#8a4a3e'), 0, 0.035, 0.103);
+      // a very round face (jaw over 1.1, e.g. 劍玉) pushes the cheeks forward: bring the smile out with them
+      const mouth = mesh(geo('mouth', () => new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI)), mat('#8a4a3e'), 0, 0.035, 0.103 + Math.max(0, fv.jaw - 1.1) * 0.06);
       mouth.rotation.z = Math.PI; head.add(mouth);
     }
   }
@@ -413,16 +415,22 @@ export function createCharacter(opts = {}) {
   }
   // glasses (thin round frames, like the photo)
   if (opts.glasses) {
-    const fm = mat(opts.glassesColor || '#cfc6b6', { metalness: 0.7, roughness: 0.3 });
+    const brow = opts.glassesStyle === 'browline', thick = opts.glassesStyle === 'thick';
+    const fm = thick ? mat(opts.glassesColor || '#141414', { roughness: 0.4 }) : mat(brow ? '#c9ccd0' : opts.glassesColor || '#cfc6b6', { metalness: 0.7, roughness: 0.3 });
     const lensM = new THREE.MeshStandardMaterial({ color: '#dfefff', transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.2 });
     const g = pivot(0, 0.104, 0.112); head.add(g);
     for (const s of [-1, 1]) {
-      g.add(mesh(geo('rim', () => new THREE.TorusGeometry(0.03, 0.0038, 6, 20)), fm, 0.04 * s, 0, 0));
+      if (thick) { const rim = mesh(geo('rimThick', () => new THREE.TorusGeometry(0.031, 0.0068, 6, 24)), fm, 0.041 * s, 0, 0.001); rim.scale.set(1.08, 0.86, 1); g.add(rim); } // thick black frames, a little wider than tall
+      else g.add(mesh(geo('rim', () => new THREE.TorusGeometry(0.03, 0.0038, 6, 20)), fm, 0.04 * s, 0, 0));
       const lens = new THREE.Mesh(geo('lens', () => new THREE.CircleGeometry(0.029, 16)), lensM); lens.position.set(0.04 * s, 0, 0.001); g.add(lens);
       const temple = mesh(geo('temple', () => { const gg = new THREE.BoxGeometry(0.004, 0.005, 0.12); gg.translate(0, 0, -0.06); return gg; }), fm, 0.071 * s, 0.004, 0);
       temple.rotation.y = -0.07 * s; g.add(temple);
     }
     g.add(mesh(geo('bridge', () => new THREE.BoxGeometry(0.022, 0.004, 0.004)), fm, 0, 0.008, 0));
+    if (brow) { // browline frames: the thick upper half of each rim (an arc from 0 to π is the top half)
+      const bm = mat(opts.glassesColor || '#2b1f1a', { roughness: 0.35 });
+      for (const s of [-1, 1]) { const b = mesh(geo('browbar', () => new THREE.TorusGeometry(0.031, 0.0075, 6, 20, Math.PI)), bm, 0.04 * s, 0.001, 0.002); b.scale.y = 0.9; g.add(b); }
+    }
   }
 
   // arms
@@ -469,7 +477,7 @@ export function createCharacter(opts = {}) {
     legs.push({ hp, kn, ft, s });
   }
   let bodyMesh = null;
-  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { longSleeve: !!opts.jacket, shirt: opts.jacket || opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm });
+  if (sk) bodyMesh = buildSkinnedBody({ root, hips, torso, head, arms, legs }, { longSleeve: !!opts.jacket, shirt: opts.jacket || opts.shirt || '#161616', bottom: opts.shorts || '#f1f0ea', skin: opts.skin || '#e8c3a2', pants, female, build: fv.build, hem: opts.hem, arm: opts.arm, belly: opts.belly });
   root.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
   // small parts (eyes, fingers, glasses, hair tips…) don't cast shadows and can be hidden at distance

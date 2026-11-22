@@ -72,7 +72,8 @@ export const LEG_PROF = [
 ];
 
 // ch: the rig from createCharacter; o: { shirt, bottom, skin, sock, pants, female, build, hem (shorts length, e.g. -0.4
-//   for knee-length basketball shorts; default -0.3), arm (upper-arm thickness, 1 = default) }
+//   for knee-length basketball shorts; default -0.3), arm (upper-arm thickness, 1 = default),
+//   belly (0..1: a round tummy and fuller hips and thighs, for a chubby build) }
 export function buildSkinnedBody(ch, o) {
   const { root, hips, torso, head, arms, legs } = ch;
   root.updateMatrixWorld(true);
@@ -85,6 +86,8 @@ export function buildSkinnedBody(ch, o) {
   const f = o.female ? 1 : 0, bw = o.build || 1; // build: 1 = default, >1 broader
   // baked ambient occlusion (vertex shade): armpits, crotch, inner arms and thighs, backs of the knees
   const bump = (y, c, wd) => Math.exp(-(((y - c) / wd) ** 2));
+  const bel = o.belly || 0;
+  const tum = (y) => bel * bump(y, 1.12, 0.17); // how much the tummy pushes out at this height (0 away from the waist)
 
   // ---- torso + neck (root frame) ----
   const prof = torsoProfile(f);
@@ -93,9 +96,9 @@ export function buildSkinnedBody(ch, o) {
   for (const [y, rx, rz, cz] of prof) {
     const col = y >= 1.54 ? skin : y >= 0.95 ? shirt : bottom;
     const ao = (sa, ca) => 1 - 0.26 * bump(y, 1.37, 0.07) * Math.abs(sa) ** 6 - 0.16 * bump(y, 0.86, 0.05) * Math.max(0, -ca * 0.5 + 0.5) - (y > 1.548 ? 0.12 * bump(y, 1.56, 0.02) : 0);
-    rings.push({ y, rx: rx * bw, rz: rz * (0.5 + bw / 2), cz, e: y < 1.54 ? 2.5 : 2, w: wAt(tw, y), col, ao });
-    if (y === 0.925) rings.push({ y: 0.94, rx: (rx + 0.004) * bw, rz: (rz + 0.004) * (0.5 + bw / 2), cz, e: 2.5, w: wAt(tw, 0.94), col: bottom },
-      { y: 0.95, rx: (rx + 0.014) * bw, rz: (rz + 0.012) * (0.5 + bw / 2), cz, e: 2.5, w: wAt(tw, 0.95), col: shirt }); // tee hem over the waistband
+    rings.push({ y, rx: (rx + 0.035 * tum(y)) * bw, rz: (rz + 0.06 * tum(y)) * (0.5 + bw / 2), cz: cz + 0.035 * tum(y), e: y < 1.54 ? 2.5 : 2, w: wAt(tw, y), col, ao });
+    if (y === 0.925) rings.push({ y: 0.94, rx: (rx + 0.004 + 0.035 * tum(0.94)) * bw, rz: (rz + 0.004 + 0.06 * tum(0.94)) * (0.5 + bw / 2), cz: cz + 0.035 * tum(0.94), e: 2.5, w: wAt(tw, 0.94), col: bottom },
+      { y: 0.95, rx: (rx + 0.014 + 0.035 * tum(0.95)) * bw, rz: (rz + 0.012 + 0.06 * tum(0.95)) * (0.5 + bw / 2), cz: cz + 0.035 * tum(0.95), e: 2.5, w: wAt(tw, 0.95), col: shirt }); // tee hem over the waistband
   }
   rings[0].cap = 0.03; rings[rings.length - 1].cap = 0.01;
   sweep(rings, new THREE.Matrix4(), out);
@@ -133,7 +136,8 @@ export function buildSkinnedBody(ch, o) {
     }
     const pantsCol = (y) => o.pants ? (y > -0.845 ? bottom : sock) : y > (hem ?? -0.3) - (hem ? 0.0005 : 0) ? bottom : y < -0.775 ? sock : skin;
     const ringsL = [];
-    for (const { y, r } of rr) {
+    for (const { y, r: r0 } of rr) {
+      const r = r0 * (1 + 0.22 * bel * Math.min(1, Math.max(0, (y + 0.6) / 0.5))); // belly: fuller thighs
       const loose = y > -0.02 ? 0 : hem ? (y >= hem ? 0.024 : 0) : !o.pants && y > -0.3 ? 0.014 : o.pants ? 0.006 : 0; // shorts / trousers sit a little off the leg
       const side = l.s, ao = (sa, ca) => 1 - 0.13 * Math.max(0, -side * sa) ** 2 * (y > -0.4 ? 1 : 0.4) - 0.16 * Math.max(0, -ca) ** 2 * bump(y, -0.43, 0.06);
       ringsL.push({ y, rx: (r + loose) * (1 + 0.04 * f) * bw, rz: r + loose, w: wAt(keys, y), col: pantsCol(y), ao });

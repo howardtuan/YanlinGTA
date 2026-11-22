@@ -37,6 +37,7 @@ export function friendLocations(g) {
     else if (m === 'sleep') add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間睡覺（彥霖隔壁）');
     else if (G) add('garry', '黃蓋瑞', '🎶', '#21486e', G.pos, '在房間（彥霖隔壁）');
   }
+  if (has('jianyu')) { const J = g.jianyu; if (J?.mode) add('jianyu', '劍玉', '🏎️', '#5d6b8a', J.pos, J.where()); } // 劍玉 (js/jianyu.js)
   return out;
 }
 
@@ -54,7 +55,7 @@ export function locateUI(root, g) {
         <span class="lc-main"><b>${esc(f.name)}</b><small>${esc(f.status)}</small></span>
         <span class="lc-side"><small>${dist}</small>${f.x != null ? `<button class="lc-go" data-id="${f.id}">導航</button>` : ''}</span></div>`;
     }).join('');
-    const more = g.friends && ['zz', 'gd', 'hank', 'garry'].some(id => !g.friends.added.has(id)) ? '<div class="lc-note">在校園裡認識新朋友、加好友，他們就會出現在這裡 📍</div>' : '';
+    const more = g.friends && ['zz', 'gd', 'hank', 'garry', 'jianyu'].some(id => !g.friends.added.has(id)) ? '<div class="lc-note">在校園裡認識新朋友、加好友，他們就會出現在這裡 📍</div>' : '';
     root.innerHTML = `<div class="lc"><canvas class="lc-map" width="552" height="420"></canvas><div class="lc-list">${rows}${more}</div></div>`;
     drawMap(root.querySelector('.lc-map'), g, L, p);
     root.querySelectorAll('.lc-go').forEach(b => b.onclick = () => {

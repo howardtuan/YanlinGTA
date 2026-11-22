@@ -20,6 +20,7 @@ export function writeSave(g) {
     // mv 2: mission 5 (布條失竊案) was added before the speech, so older saves past it are one step behind
     mission: { mv: 2, idx: M.idx, rewarded: [...M.rewarded], done: M.done, free: M.free, prog: M.progress() },
     detective: g.detective?.toJSON() || null,
+    jianyu: g.jianyu?.toJSON() || null,
     eggs: g.eggs.filter(e => e.found).map(e => e.title),
     pos: g.concerts?.savePos() || { x: wp.x, z: wp.z, h: pl.worldHeading(), y: pl.vehicle || pl.seat ? 0 : pl.y }, // at the concert: where you took the shuttle
     look: pl.look || null,
@@ -69,6 +70,7 @@ export function applySave(g, d) {
     g.bringMyScooter(d.pos.x, d.pos.z);
   }
   g.detective?.load(d.detective);
+  g.jianyu?.load(d.jianyu);
   const M = g.missions;
   M.rewarded = new Set(d.mission?.rewarded || []);
   const m = d.mission || { idx: -1 };

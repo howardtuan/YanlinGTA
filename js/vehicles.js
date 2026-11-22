@@ -737,7 +737,7 @@ export class Vehicle {
       Object.assign(this, { wb: 1.25, radius: 0.75, hl: 0.92, hw: 0.36, maxSpeed: opt.jet ? 22 : 19, accel: opt.jet ? 10.5 : 9, brake: 18, turn: 2.6, grip: 9, seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29), exitSide: 1.0, label: opt.jet ? '我的 SYM JET SL' : '機車', jet: !!opt.jet });
     } else if (SUPERCARS[opt.model]) { // 超跑: a car, much quicker, a little wider and lower
       const C = SUPERCARS[opt.model];
-      this.mesh = buildSupercar(opt.model, pick(C.colors)); this.model = opt.model;
+      this.mesh = buildSupercar(opt.model, opt.color || pick(C.colors)); this.model = opt.model; // opt.color: 劍玉's own cars (js/jianyu.js)
       Object.assign(this, { wb: 2.66, radius: 1.38, hl: 2.28, hw: 0.98, maxSpeed: 46, accel: 15, brake: 22, turn: 1.8, grip: 7.5, seat: new THREE.Vector3(0.38, 0.0, -0.35), exitSide: 2.0, label: `超跑・${C.name}` });
     } else {
       const taxi = kind === 'taxi';

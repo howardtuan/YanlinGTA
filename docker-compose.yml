@@ -3,5 +3,5 @@ services:
     build: .
     image: cycu-shun-qi-lai
     ports:
-      - "8080:80"
+      - '8080:80'
     restart: unless-stopped

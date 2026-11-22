@@ -4,7 +4,7 @@
 // normalFromHeight's pixel loop); the fbm parameter sets are read from the fbmField(...) calls there.
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { initKernels, fbmWasm, normalWasm } from '../js/wasm/kernels.js';
+import { initKernels, fbmWasm, normalWasm } from '../src/graphics/wasm/kernels.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 
@@ -40,11 +40,11 @@ function normalJS(hf, w, h, strength, d) {
   }
 }
 
-const ok = await initKernels(fs.readFileSync(root + 'js/wasm/kernels.wasm'));
+const ok = await initKernels(fs.readFileSync(root + '/src/graphics/wasm/kernels.wasm'));
 if (!ok) { console.error('kernels.wasm failed to load'); process.exit(2); }
 
 // fbm parameter sets used by the game: (size, P, oct, seed[, gain]); size S resolved per texture
-const src = fs.readFileSync(root + 'js/textures.js', 'utf8');
+const src = fs.readFileSync(root + '/src/graphics/Textures.js', 'utf8');
 const sets = new Set();
 for (const m of src.matchAll(/fbmField\(([^)]*)\)/g)) {
   const a = m[1].split(',').map(s => s.trim()); if (a[0] === 'size') continue;

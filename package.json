@@ -1,0 +1,36 @@
+{
+  "name": "yanlin-gta",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:wasm": "node tools/check_wasm.mjs",
+    "test:e2e": "node tools/e2e/story-bot.mjs",
+    "ci": "npm run format:check && npm run lint && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "happy-dom": "^15.11.7",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.11",
+    "vite-plugin-wasm": "^3.3.0",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@types/three": "^0.187.0",
+    "three": "^0.160.1"
+  }
+}

@@ -1,0 +1,51 @@
+name: E2E Story Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      timeout:
+        description: 'Story Bot timeout limit in minutes'
+        required: false
+        default: '20'
+      quality:
+        description: 'Render quality (low, medium, high)'
+        required: false
+        default: 'low'
+
+jobs:
+  story-bot:
+    name: Run Story Mode E2E Bot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Story Bot (SwiftShader software renderer)
+        run: |
+          node tools/e2e/story-bot.mjs \
+            --swiftshader \
+            --quality=${{ github.event.inputs.quality || 'low' }} \
+            --timeout=${{ github.event.inputs.timeout || '20' }} \
+            --no-shots
+
+      - name: Upload E2E Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: story-bot-results
+          path: tools/e2e/out/
+          if-no-files-found: ignore

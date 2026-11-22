@@ -11,6 +11,7 @@
 //   terrain(data)        執行期地形修改（例如學活的下沉舞台）
 //   trees()              額外指定位置的樹
 //   vegHide(data)        蓋完植栽後才補的構件範圍，裡面的樹和灌木只隱藏不重抽
+//   treeHide(data)       可以走上去的平坦平台範圍，裡面的樹、棕櫚、灌木都隱藏、樹的碰撞拿掉（不重抽，js/map.js opts.treeHide）
 //   ownSign              自己掛店名的 POI 名稱（地圖就不再另外畫招牌）
 //   build(I, scene, data, collision)   自建的模型、碰撞、可走的地面、E 鍵動作
 //
@@ -30,6 +31,7 @@ import { applyZoneE, zoneEFootprints, buildZoneE } from './zone_e.js';
 import { zoneGLook, zoneGFootprints, zoneGTerrain, buildZoneG } from './zone_g.js';
 import { buildSacB1 } from './sac_b1.js';
 import { zoneHLook, zoneHAdd, buildZoneH } from './zone_h.js';
+import { zoneALook, zoneATerrain, zoneATreeHide, buildZoneA } from './zone_a.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
 
 export const ZONES = [
@@ -74,6 +76,9 @@ export const ZONES = [
       if (b.id === ENCI_ID) b.look = enciLook(b.look);
     },
   },
+  { // 行政大樓（含校史館）改名、懷恩樓門廊三拱、圖書館南面平台與兩段階梯（data.levels）、雙塔、折板、科學館樓梯塔與天文台、下沉廣場泉源之谷
+    name: 'A 區', look: zoneALook, terrain: zoneATerrain, treeHide: zoneATreeHide, build: buildZoneA,
+  },
 ];
 
 // ---------------- main.js / interiors.js 用的彙總 ----------------
@@ -86,4 +91,5 @@ export const zoneFootprints = (data) => ZONES.flatMap(z => z.footprints?.(data) 
 export function zonesTerrain(data) { for (const z of ZONES) z.terrain?.(data); }
 export const zoneTrees = () => ZONES.flatMap(z => z.trees?.() || []);
 export const zoneVegHide = (data) => ZONES.flatMap(z => z.vegHide?.(data) || []);
+export const zoneTreeHide = (data) => ZONES.flatMap(z => z.treeHide?.(data) || []);
 export function buildZones(I, scene, data, collision) { for (const z of ZONES) z.build?.(I, scene, data, collision); }

@@ -740,6 +740,7 @@ const STYLE_BY_NAME = {
   '自強商學大樓': 'white', '商設館': 'white', '智信樓': 'brick', '莊敬大樓': 'white', '建築館': 'granite', '祐生建築中心': 'granite',
   '張靜愚紀念圖書館': 'granite', '學生活動中心': 'tan', '全人教育村': 'brick', '電學大樓': 'tan', '力行大樓': 'red', '篤信大樓': 'white',
   '信實樓': 'brick', '恩慈樓': 'brick', '良善樓': 'brick', '喜樂樓': 'brick', '陸華樓': 'white', '維澈樓': 'white', '校史館': 'white',
+  '行政大樓（含校史館）': 'white', // 行政大樓＝OSM 的「校史館」（js/zone_a.js 改名）
   '生物科技館': 'white', '真知教學大樓': 'white', '設計學院': 'granite', '室設系館': 'white', '景觀系館': 'tan', '恩惠堂': 'white', '恩惠堂副堂': 'white',
   '中原大學體育館': 'white', '中原大學室內游泳池': 'white', '薄膜中心': 'white', '熱誠樓A棟': 'brick', '熱誠樓B C棟': 'brick', '林森館': 'tan', '望樓': 'tan',
   '月老宮': 'temple', '桃園白沙屯天上聖母': 'temple', '普忠里福德祠': 'temple', '盧氏宗祠': 'temple', '土地公廟': 'temple', '普仁福德祠(土地公廟)': 'temple',
@@ -2497,7 +2498,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
     // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
     // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
-    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts: b.acPts || pts, top, /* acPts：改過輪廓的建物用原本輪廓抽冷氣亂數（js/zone_a.js） */ town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
@@ -3393,7 +3394,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
     // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way)
-    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null) return false; collision.removeCircleAt(x, z); return true; };
+    // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, js/zone_a.js 圖書館南面平台; placement unchanged the same way)
+    const treeHide = opts.treeHide || [], onPad = (x, z) => treeHide.some(p => pointInPoly(x, z, p));
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
     // order, same draws); one that would land in a building, another road or water is hidden
     const moveTree = (p, cr) => {
@@ -3410,7 +3413,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
     // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
     const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || pitAt(x, z, 0.6) !== null });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6) !== null });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;

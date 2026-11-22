@@ -7,7 +7,7 @@ import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
-import { zoneDrops, zoneOwnSigns, zonesFix, zonesAdd, zonesLook, zoneFootprints, zonesTerrain, zoneTrees, zoneVegHide } from './zones.js';
+import { zoneDrops, zoneOwnSigns, zonesFix, zonesAdd, zonesLook, zoneFootprints, zonesTerrain, zoneTrees, zoneVegHide, zoneTreeHide } from './zones.js';
 import { GD_SPEC, gordonOutline } from './gordon_shop.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
@@ -184,7 +184,7 @@ class Game {
         .map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
     featureTrees.push(...zoneTrees()); // 各區指定位置的樹，例如正門 P 字塔旁的大仁街行道樹（js/zones.js）
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: zoneVegHide(data) });
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: zoneVegHide(data), treeHide: zoneTreeHide(data) });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality(); // view distance / fog / shadows / skyline size for the chosen quality
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');

@@ -1,6 +1,7 @@
 // Campaign story for 彥霖 (Yanlin) (第34屆資管系會長候選人).
 // All story text lives here — edit freely.
 import { makeMissionNpc } from './npc.js';
+import { NAME_ALIAS } from './zone_a.js';
 
 export const SPEECH = [
   ['彥霖', '各位同學晚安！我是第34屆資訊管理學系系學會會長候選人 —— 彥霖！'],
@@ -19,7 +20,7 @@ export class Missions {
     this.free = false; this.done = false;
     const w = game.world;
     const ap = (name) => {
-      const it = w.named[name]; if (!it) return null;
+      const it = w.named[name] || w.named[NAME_ALIAS[name]]; if (!it) return null; // 校史館＝行政大樓（含校史館），新舊名都認
       const p = w.nearestRoadPoint(it.x, it.z);
       return { x: p.x, z: p.z, name };
     };

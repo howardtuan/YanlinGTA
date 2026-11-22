@@ -3,10 +3,11 @@
 // 所以蓋瑞家是它們後面的一棟 3 層樓後棟：x 跟原本的 f900／f901 一樣（從彥霖那棟的牆到 13.8 m），z 從 10.4 m 到 19.1 m，
 // 跟五折天的後牆之間留一道採光井。從彥霖那棟 2 樓樓梯口右側牆的門（interiors.js buildYanlinHome 的 GZ0..GZ1）
 // 進來是一條走廊，房門在房間右側牆的下方。
-// 房間照使用者畫的格局（圖上方 = 採光井那面牆，有小窗；左邊牆的小窗朝向扑藝後面的空地）：
-//   左上 床（床頭靠左牆）· 上方 對外窗下的桌子（筆電、文具、wifi 機、延長線、充電中的手機、吐司小夜燈）＋椅子
-//   右上 衣櫃 · 右邊 電視櫃 · 右下 門 · 左邊 小對外窗下的 IKEA 沙發
-//   靠浴室的桌子放 K-pop 專輯和手燈（＋椅子）· 左下 浴室
+// 房間照使用者畫的平面圖（從上往下看，不能鏡射）：轉 180 度放進來——圖的右邊 = 彥霖家那側（x 小），圖的上方 = 後巷（z 大）。
+// 每件家具都用圖上的像素座標換算（下面的 PX / PZ / rectOf），房間外框在圖上是 (105,120)–(1920,1898)：
+//   左上 床 · 上方 對外窗下的桌子（筆電、文具、wifi 機、延長線、充電中的手機、吐司小夜燈），椅子在桌子下方
+//   右上 衣櫃 · 右邊中間 電視 · 右下 門 · 左邊中間 小對外窗下的 IKEA 沙發（面對電視）
+//   中間偏左下 放 K-pop 專輯和手燈的桌子（椅子在它上方），再下面緊鄰 左下角的浴室（門開在浴室右邊牆，對著房門）
 // 座標：彥霖那棟的方向，原點沿 z 往裡移 DZ（Kit 的 local z 0 = 世界上離中北路立面 10.4 m），單位公尺。
 // 2F 樓板跟彥霖那棟同高（彥霖那棟地面 + 4.617 m）。
 import * as THREE from 'three';
@@ -14,11 +15,19 @@ import { H } from './terrain.js';
 import { makeLightstick, CONCERTS } from './concert.js';
 
 export const GARRY = { X0: 5.82, X1: 13.8, DZ: 10.4, D: 8.7, F2: 4.617, FH: 3.3, NF: 3 };
-const RX0 = 7.1, RX1 = 13.6, RZ0 = 0.2, RZ1 = 7.4; // the room
-const CW0 = 6.0, CZ0 = 2.15, CZ1 = 7.6;           // corridor x CW0..RX0, z CZ0..CZ1
-const DZ0 = 5.9, DZ1 = 6.8;                       // room door (on the room's right wall, x = RX0)
+const RX0 = 7.1, RX1 = 13.6, RZ0 = 2.1, RZ1 = 8.5; // the room: 6.5 x 6.4 m (the drawing is almost square)
+// the drawing -> the room (turned 180 degrees: drawing right = small x, drawing top = large z)
+const PX = (px) => RX1 - (px - 105) / 1815 * (RX1 - RX0), PZ = (py) => RZ1 - (py - 120) / 1778 * (RZ1 - RZ0);
+const rectOf = (l, t, r, b) => ({ x0: PX(r), x1: PX(l), z0: PZ(b), z1: PZ(t), cx: (PX(l) + PX(r)) / 2, cz: (PZ(t) + PZ(b)) / 2 });
+export const GARRY_PLAN = { // rectangles measured off the drawing (pixels: left, top, right, bottom)
+  bed: [185, 175, 850, 630], desk: [963, 175, 1628, 377], chair: [1162, 425, 1438, 545], wardrobe: [1675, 262, 1875, 715], tv: [1707, 782, 1875, 1295],
+  sofa: [185, 702, 353, 1295], chair2: [587, 960, 862, 1080], desk2: [435, 1110, 1015, 1318], bath: [160, 1380, 1077, 1835],
+  winTop: [1158, 120, 1472, 120], winLeft: [105, 802, 105, 1153], door: [1920, 1432, 1920, 1782],
+};
+const PL = Object.fromEntries(Object.entries(GARRY_PLAN).map(([n, q]) => [n, rectOf(...q)]));
+const CW0 = 6.0, CZ0 = RZ0, CZ1 = 4.4;            // corridor x CW0..RX0, z CZ0..CZ1
+const DZ0 = PL.door.cz - 0.5, DZ1 = PL.door.cz + 0.5; // room door (drawing: right wall, near the bottom), straight across the corridor from 彥霖's landing
 const LDZ0 = 12.72 - 10.4, LDZ1 = 13.88 - 10.4;   // doorway from 彥霖's landing (YH local 9.42..10.28 x 1.35, minus DZ)
-const BX0 = 10.0, BZ0 = 5.25;                     // bathroom: x BX0..RX1, z BZ0..RZ1
 
 // the back building's outline (trees and street furniture keep off it)
 export function garryOutline(YH) {
@@ -37,6 +46,9 @@ const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 export function buildGarryHome(I, scene, Kit, regMat, YH) {
   const G = GARRY, c0 = Math.cos(YH.ang), s0 = Math.sin(YH.ang);
   const k = new Kit(I, YH.ox - G.DZ * s0, YH.oz + G.DZ * c0, YH.ang, 1), base = k.base;
+  // I.addWall's heights count from the ground under each wall's midpoint (js/physworld.js adds it back); this house's count from base
+  k.wallLine = (x0, z0, x1, z1, y0, y1) => { const a = k.w(x0, z0), b = k.w(x1, z1), g = base - H((a[0] + b[0]) / 2, (a[1] + b[1]) / 2); I.addWall(a[0], a[1], b[0], b[1], y0 + g, y1 + g); };
+  k.wallRect = (x0, x1, z0, z1, y0, y1) => { k.wallLine(x0, z0, x1, z0, y0, y1); k.wallLine(x1, z0, x1, z1, y0, y1); k.wallLine(x1, z1, x0, z1, y0, y1); k.wallLine(x0, z1, x0, z0, y0, y1); };
   const F = H(YH.ox, YH.oz) + G.F2 - base, CH = F + 2.85, top = F + (G.NF - 1) * G.FH; // 2F level with 彥霖's landing
   const std = (o, lift = 0) => { const m = new THREE.MeshStandardMaterial({ roughness: 0.8, envMapIntensity: 0.5, ...o }); if (lift) { m.emissive.set(o.color || '#ffffff'); if (o.map) m.emissiveMap = o.map; m.emissiveIntensity = lift; } return m; };
   const T = {
@@ -53,11 +65,11 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   const MT = {
     facade: def('grFacade', std({ map: T.facade })), shutter: def('grShutter', std({ map: T.shutter, metalness: 0.3 })),
     plaster: def('grPlaster', std({ color: '#f1efe9' }, 0.3)), floor: def('grFloor', std({ map: T.wood, roughness: 0.5 }, 0.15)),
-    ceil: def('grCeil', std({ color: '#f6f5f1' }, 0.45)), tile: def('grTile', std({ map: T.tile, roughness: 0.3 }, 0.2)),
+    ceil: def('grCeil', std({ color: '#f6f5f1' }, 0.45)), tile: def('grTile', std({ map: T.tile, color: '#e0e4e8', roughness: 0.5 }, 0.16)),
     oak: def('grOak', std({ color: '#c49a6c', roughness: 0.55 }, 0.12)), white: def('grWhite', std({ color: '#f4f4f1', roughness: 0.45 }, 0.15)),
     black: def('grBlack', std({ color: '#1c1c20', roughness: 0.4 })), grey: def('grGrey', std({ color: '#8d9297', roughness: 0.9 }, 0.1)),
     sofa: def('grSofa', std({ color: '#6f7a80', roughness: 0.95 }, 0.12)), metal: def('grMetal', std({ color: '#b9bec3', metalness: 0.7, roughness: 0.3 })),
-    door: def('grDoor', std({ color: '#7b5a3e', roughness: 0.55 }, 0.1)), porcelain: def('grPorc', std({ color: '#f7f7f4', roughness: 0.2 }, 0.15)),
+    door: def('grDoor', std({ color: '#7b5a3e', roughness: 0.55 }, 0.1)), porcelain: def('grPorc', std({ color: '#d9dad8', roughness: 0.4 }, 0.05)),
     glass: 'glass', light: def('grLight', new THREE.MeshStandardMaterial({ color: '#fff8ea', emissive: '#fff4dc', emissiveIntensity: 1.1 })),
   };
   const at = (x, z) => { const q = k.w(x, z); return { x: q[0], z: q[1], y: F + base - H(q[0], q[1]) }; };
@@ -70,50 +82,45 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   // shared side wall with 彥霖's house: a doorway at the 2F landing (the way in, LDZ0..LDZ1), solid everywhere else
   box(X0, X0 + 0.18, -0.6, top, 0, LDZ0, MT.facade, { tile: [0.6, 0.6] }); box(X0, X0 + 0.18, -0.6, top, LDZ1, G.D, MT.facade, { tile: [0.6, 0.6] });
   box(X0, X0 + 0.18, -0.6, F, LDZ0, LDZ1, MT.facade); box(X0, X0 + 0.18, F + 2.18, top, LDZ0, LDZ1, MT.facade);
-  box(X1 - 0.2, X1, -0.6, top, 0, G.D, MT.facade, { tile: [0.6, 0.6] });
-  box(X0, X1, -0.6, top, G.D - 0.2, G.D, MT.facade, { tile: [0.6, 0.6] });
+  const tl = { tile: [0.6, 0.6] };
+  // side wall (drawing left) with the small window over the sofa, back wall (drawing top) with the small window over the desk
+  const LW0 = PL.winLeft.z0, LW1 = PL.winLeft.z1, LY0 = F + 1.15, LY1 = F + 1.95, WX0 = PL.winTop.x0, WX1 = PL.winTop.x1, WY0 = F + 1.05, WY1 = F + 2.0;
+  box(X1 - 0.2, X1, -0.6, top, 0, LW0, MT.facade, tl); box(X1 - 0.2, X1, -0.6, top, LW1, G.D, MT.facade, tl);
+  box(X1 - 0.2, X1, -0.6, LY0, LW0, LW1, MT.facade, tl); box(X1 - 0.2, X1, LY1, top, LW0, LW1, MT.facade, tl);
+  box(X0, WX0, -0.6, top, G.D - 0.2, G.D, MT.facade, tl); box(WX1, X1, -0.6, top, G.D - 0.2, G.D, MT.facade, tl);
+  box(WX0, WX1, -0.6, WY0, G.D - 0.2, G.D, MT.facade, tl); box(WX0, WX1, WY1, top, G.D - 0.2, G.D, MT.facade, tl);
+  // both windows: aluminium frame, two sliding panes, an iron grille outside
+  box(X1 - 0.12, X1 - 0.09, LY0, LY1, LW0, LW1, MT.glass); box(WX0, WX1, WY0, WY1, G.D - 0.12, G.D - 0.09, MT.glass);
+  const fr = 0.035, mz = (LW0 + LW1) / 2, mx = (WX0 + WX1) / 2;
+  for (const [z0, z1, y0, y1] of [[LW0, LW1, LY0, LY0 + fr], [LW0, LW1, LY1 - fr, LY1], [LW0, LW0 + fr, LY0, LY1], [LW1 - fr, LW1, LY0, LY1], [mz - 0.02, mz + 0.02, LY0, LY1]]) box(X1 - 0.14, X1 - 0.07, y0, y1, z0, z1, MT.metal, nc);
+  for (const [x0, x1, y0, y1] of [[WX0, WX1, WY0, WY0 + fr], [WX0, WX1, WY1 - fr, WY1], [WX0, WX0 + fr, WY0, WY1], [WX1 - fr, WX1, WY0, WY1], [mx - 0.02, mx + 0.02, WY0, WY1]]) box(x0, x1, y0, y1, G.D - 0.14, G.D - 0.07, MT.metal, nc);
+  for (let z = LW0 + 0.1; z < LW1; z += 0.16) box(X1 + 0.02, X1 + 0.04, LY0, LY1, z - 0.01, z + 0.01, MT.black, nc);
+  for (let x = WX0 + 0.1; x < WX1; x += 0.16) box(x - 0.01, x + 0.01, WY0, WY1, G.D + 0.02, G.D + 0.04, MT.black, nc);
   box(X0, X1, top - 0.2, top, 0, G.D, 'gray', nc);
   box(X0, X1, top, top + 0.9, -0.05, 0.15, MT.facade, nc);
   box(X0 + 0.4, X1 - 0.4, top, top + 2.4, 4, G.D - 0.4, '#8a959d', nc);         // 頂樓加蓋
   box(X0 + 0.6, X0 + 1.8, top, top + 1.1, 2.5, 3.7, 'steel', nc);                // water tank
-  // 1F front (on the light well): plain wall
-  box(X0 + 0.18, X1 - 0.2, -0.6, F, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
-  // 2F front (on the light well between this and 五折天): the small window over the desk (the rest is wall)
-  const WX0 = 8.75, WX1 = 9.85, WY0 = F + 1.0, WY1 = F + 2.15;
-  box(X0 + 0.18, WX0, F, F + 3.3, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
-  box(WX1, X1 - 0.2, F, F + 3.3, 0, 0.2, MT.facade, { tile: [0.6, 0.6] });
-  box(WX0, WX1, F, WY0, 0, 0.2, MT.facade); box(WX0, WX1, WY1, F + 3.3, 0, 0.2, MT.facade);
-  box(WX0, WX1, WY0, WY1, 0.08, 0.11, MT.glass);
-  box(WX0 - 0.05, WX1 + 0.05, WY0 - 0.05, WY0, -0.06, 0.2, MT.metal, nc);
-  for (let x = WX0 + 0.1; x < WX1; x += 0.16) box(x - 0.012, x + 0.012, WY0, WY1, -0.1, -0.08, MT.black, nc); // iron grille
-  box(WX0 - 0.05, WX1 + 0.05, WY1, WY1 + 0.03, -0.12, 0, MT.black, nc);
-  // 3F
-  for (let f = 1; f < G.NF - 1; f++) {
-    const y = F + f * G.FH;
-    box(X0 + 0.18, X1 - 0.2, y, y + G.FH, 0, 0.2, MT.facade, { col: false, tile: [0.6, 0.6] });
-    k.plane(T.win, 2.6, 1.4, (X0 + X1) / 2 - 1, y + 1.55, -0.01, Math.PI); k.plane(T.win, 1.4, 1.1, X1 - 1.4, y + 1.6, -0.01, Math.PI);
-    box(X0 + 1.2, X0 + 2.0, y + 0.35, y + 0.9, -0.4, -0.02, '#e6e2d6', nc);
-  }
-  // back wall: windows on every floor (the back alley)
-  for (let f = 0; f < G.NF; f++) { const y = f ? F + (f - 1) * G.FH : 0.4; if (f === 1) continue; k.plane(T.win, 2.2, 1.3, (X0 + X1) / 2, y + 1.6, G.D + 0.01, 0); }
+  // front on the light well behind 五折天: plain wall, 3F windows; back wall: windows on 1F and 3F
+  box(X0 + 0.18, X1 - 0.2, -0.6, top, 0, 0.2, MT.facade, tl);
+  k.plane(T.win, 2.6, 1.4, (X0 + X1) / 2 - 1, F + G.FH + 1.55, -0.01, Math.PI);
+  for (const y of [0.4, F + G.FH]) k.plane(T.win, 2.2, 1.3, (X0 + X1) / 2, y + 1.6, G.D + 0.01, 0);
 
   // ---------------- 2F: floor, ceiling, corridor ----------------
-  box(X0 + 0.18, X1 - 0.2, F - 0.25, F, 0.2, CZ1 + 0.2, MT.floor, { col: false, tile: [1.2, 1.2] });
-  surf(CW0, RX1, RZ0, RZ1, F); surf(CW0, RX0, CZ0, CZ1, F);
-  box(CW0 - 0.18, RX1, CH, CH + 0.06, RZ0, CZ1 + 0.2, MT.ceil, nc);
-  // corridor walls: front end, the room's right wall with its door, the back end; the far wall of the corridor past the room
-  box(CW0, RX0, F, CH, CZ0 - 0.12, CZ0, MT.plaster);                                  // corridor front end
-  box(RX0, RX0 + 0.12, F, CH, RZ0, DZ0, MT.plaster); box(RX0, RX0 + 0.12, F, CH, DZ1, RZ1 + 0.12, MT.plaster);
+  box(X0 + 0.18, X1 - 0.2, F - 0.25, F, 0.2, RZ1, MT.floor, { col: false, tile: [1.2, 1.2] });
+  surf(RX0 - 0.02, RX1, RZ0, RZ1, F); surf(CW0, RX0, CZ0, CZ1, F);
+  box(CW0 - 0.18, RX1, CH, CH + 0.06, RZ0 - 0.12, RZ1, MT.ceil, nc);
+  // corridor: front end (runs on as the room's bottom wall), back end; the room's right wall with its door
+  box(CW0, RX1, F, CH, RZ0 - 0.12, RZ0, MT.plaster);
+  box(RX0, RX0 + 0.12, F, CH, RZ0, DZ0, MT.plaster); box(RX0, RX0 + 0.12, F, CH, DZ1, RZ1, MT.plaster);
   box(RX0, RX0 + 0.12, F + 2.1, CH, DZ0, DZ1, MT.plaster, nc);
-  box(RX0, RX0 + 0.12, F, CH, RZ1 + 0.12, CZ1, MT.plaster);                           // corridor right wall past the room
-  box(CW0, RX0 + 0.12, F, CH, CZ1, CZ1 + 0.2, MT.plaster);                            // back end
+  box(CW0, RX0 + 0.12, F, CH, CZ1, CZ1 + 0.2, MT.plaster);
   // the shared wall: doorway from 彥霖's landing
   box(X0 + 0.18, CW0, F, CH, CZ0, LDZ0, MT.plaster, nc); box(X0 + 0.18, CW0, F, CH, LDZ1, CZ1, MT.plaster, nc);
   box(X0 + 0.18, CW0, F + 2.18, CH, LDZ0, LDZ1, MT.plaster, nc);
   k.wallLine(CW0, CZ0, CW0, LDZ0, F - 0.2, CH); k.wallLine(CW0, LDZ1, CW0, CZ1, F - 0.2, CH);
   surf(X0 - 0.05, CW0 + 0.02, LDZ0, LDZ1, F);
   // corridor light, shoe rack by the room door, a little calendar
-  box(6.3, 6.8, CH - 0.05, CH, 4.0, 4.6, MT.light, nc);
+  box(6.3, 6.8, CH - 0.05, CH, 2.9, 3.5, MT.light, nc);
   box(CW0 + 0.02, RX0 - 0.05, F, F + 0.9, CZ1 - 0.42, CZ1 - 0.02, MT.oak);      // shoe rack at the far end of the corridor (past the room door)
   for (let i = 0; i < 3; i++) box(CW0 + 0.1 + i * 0.32, CW0 + 0.35 + i * 0.32, F + 0.9, F + 0.98, CZ1 - 0.38, CZ1 - 0.08, ['#f2f2f2', '#1c1c20', '#d33'][i], nc);
   // room door (hinged on the room side, opens in when you come near)
@@ -128,28 +135,21 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   ld.position.set(0, 1.06, (LDZ1 - LDZ0) / 2); ldoor.add(ld);
 
   // ---------------- the room ----------------
-  // walls: street wall (with the window), left wall (small window), back wall (bathroom side)
-  box(RX0, WX0, F, CH, RZ0 - 0.0, RZ0 + 0.02, MT.plaster, nc); box(WX1, RX1, F, CH, RZ0, RZ0 + 0.02, MT.plaster, nc);
-  box(WX0, WX1, F, WY0, RZ0, RZ0 + 0.02, MT.plaster, nc); box(WX0, WX1, WY1, CH, RZ0, RZ0 + 0.02, MT.plaster, nc);
-  const LW0 = 2.95, LW1 = 4.35, LY0 = F + 1.15, LY1 = F + 1.95; // the small window on the left wall
-  box(RX1 - 0.02, RX1, F, CH, RZ0, LW0, MT.plaster, nc); box(RX1 - 0.02, RX1, F, CH, LW1, RZ1, MT.plaster, nc);
-  box(RX1 - 0.02, RX1, F, LY0, LW0, LW1, MT.plaster, nc); box(RX1 - 0.02, RX1, LY1, CH, LW0, LW1, MT.plaster, nc);
-  { const g = new THREE.Mesh(new THREE.PlaneGeometry(LW1 - LW0, LY1 - LY0), new THREE.MeshBasicMaterial({ color: '#dbe8f0' })); g.position.set(RX1 - 0.015, (LY0 + LY1) / 2, (LW0 + LW1) / 2); g.rotation.y = -Math.PI / 2; k.group.add(g); }
-  box(RX1 - 0.05, RX1, LY0 - 0.04, LY0, LW0 - 0.05, LW1 + 0.05, MT.metal, nc); box(RX1 - 0.04, RX1, LY0, LY1, (LW0 + LW1) / 2 - 0.02, (LW0 + LW1) / 2 + 0.02, MT.metal, nc);
-  box(RX0, RX1, F, CH, RZ1, RZ1 + 0.12, MT.plaster);                                   // back wall
-  k.wallLine(RX0 + 0.12, RZ0 + 0.05, RX1 - 0.05, RZ0 + 0.05, F - 0.2, CH); k.wallLine(RX1 - 0.05, RZ0, RX1 - 0.05, RZ1, F - 0.2, CH);
-  box(8.9, 9.7, CH - 0.05, CH, 2.6, 3.4, MT.light, nc); box(10.9, 11.7, CH - 0.05, CH, 2.6, 3.4, MT.light, nc); // ceiling lights
-  box(RX0 + 0.12, RX0 + 0.14, F + 0.3, F + 0.4, 4.95, 5.05, MT.white, nc);          // switch
+  // inside faces of the outer walls, round the two windows
+  for (const [z0, z1, y0, y1] of [[RZ0, LW0, F, CH], [LW1, RZ1, F, CH], [LW0, LW1, F, LY0], [LW0, LW1, LY1, CH]]) box(RX1 - 0.02, RX1, y0, y1, z0, z1, MT.plaster, nc);
+  for (const [x0, x1, y0, y1] of [[RX0, WX0, F, CH], [WX1, RX1, F, CH], [WX0, WX1, F, WY0], [WX0, WX1, WY1, CH]]) box(x0, x1, y0, y1, RZ1 - 0.02, RZ1, MT.plaster, nc);
+  for (const x of [8.6, 11.0]) box(x, x + 0.8, CH - 0.05, CH, 5.5, 6.3, MT.light, nc); // ceiling lights
+  box(RX0 + 0.12, RX0 + 0.14, F + 1.15, F + 1.27, DZ1 + 0.12, DZ1 + 0.2, MT.white, nc);  // light switch by the door
   const dk = (x0, x1, z0, z1, h) => k.wallRect(x0, x1, z0, z1, F - 0.2, F + h);
 
   // bed (top-left): oak frame, headboard on the left wall, grey-blue quilted duvet, two pillows
-  const BX = 11.35, BZ = 0.45, BZ2 = 2.15;
+  const BX = 11.35, BZ2 = RZ1 - 0.1, BZ = BZ2 - (PL.bed.z1 - PL.bed.z0);
   box(BX, RX1 - 0.05, F, F + 0.4, BZ, BZ2, MT.oak, nc); box(RX1 - 0.12, RX1 - 0.04, F, F + 1.0, BZ, BZ2, MT.oak, nc); dk(BX, RX1 - 0.05, BZ, BZ2, 0.9);
   box(BX + 0.04, RX1 - 0.13, F + 0.4, F + 0.6, BZ + 0.04, BZ2 - 0.04, MT.white, nc);
   // the made bed: a flat duvet. Asleep: the same duvet drawn up over him to the chest, draped over the bed's sides and foot
   const flatDuvet = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.06, BZ2 - BZ - 0.02), new THREE.MeshStandardMaterial({ map: T.duvet, roughness: 0.95, emissive: '#7d97b5', emissiveIntensity: 0.12 }));
   flatDuvet.position.set(BX + 0.78, F + 0.63, (BZ + BZ2) / 2); flatDuvet.rotation.z = 0.01; k.group.add(flatDuvet);
-  const SLZ = 0.92, QX0 = 11.31, QX1 = 12.74; // he lies along z = SLZ; the duvet reaches from the foot (QX0) to his chest (QX1)
+  const SLZ = (BZ + BZ2) / 2, QX0 = 11.31, QX1 = 12.74; // he lies along z = SLZ; the duvet reaches from the foot (QX0) to his chest (QX1)
   const lerpPts = (pts, x) => { for (let i = 0; i + 1 < pts.length; i++) if (x <= pts[i + 1][0]) { const t = Math.max(0, (x - pts[i][0]) / (pts[i + 1][0] - pts[i][0])), e = t * t * (3 - 2 * t); return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * e; } return pts[pts.length - 1][1]; };
   // height of the cloth above the floor over him (measured off the lying figure: toes up, shins low, chest high) and how wide he is there
   const ridge = [[11.31, 0.8], [11.4, 0.885], [11.56, 0.88], [11.72, 0.8], [11.92, 0.82], [12.1, 0.865], [12.3, 0.905], [12.6, 0.935], [12.74, 0.935]], width = [[11.31, 0.2], [11.95, 0.21], [12.28, 0.35], [12.74, 0.36]];
@@ -175,12 +175,11 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map, roughness: 0.95, side: THREE.DoubleSide, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: 0.1 }));
     m.visible = false; k.group.add(m); return m;
   })();
-  for (const z of [BZ + 0.45, BZ2 - 0.45]) box(RX1 - 0.62, RX1 - 0.15, F + 0.6, F + 0.75, z - 0.32, z + 0.32, MT.white, nc);
-  // desk under the street window, chair
-  const D1X0 = 8.5, D1X1 = 10.1, D1Z0 = 0.24, D1Z1 = 0.9, DH = 0.75;
-  box(D1X0, D1X1, F + DH - 0.04, F + DH, D1Z0, D1Z1, MT.white, nc);
-  for (const x of [D1X0 + 0.03, D1X1 - 0.07]) for (const z of [D1Z0 + 0.03, D1Z1 - 0.07]) box(x, x + 0.04, F, F + DH - 0.04, z, z + 0.04, MT.black, nc);
-  dk(D1X0, D1X1, D1Z0, D1Z1, DH);
+  box(RX1 - 0.62, RX1 - 0.15, F + 0.6, F + 0.75, SLZ - 0.42, SLZ + 0.42, MT.white, nc); // pillow
+  // the window desk, pushed against the top wall (as long as the bed, as drawn); its chair is on the room side
+  const DH = 0.75, Y = F + DH, D1X0 = PL.desk.x0, D1X1 = PL.desk.x1, D1Z1 = RZ1 - 0.04, D1Z0 = D1Z1 - (PL.desk.z1 - PL.desk.z0);
+  const table = (x0, x1, z0, z1, m) => { box(x0, x1, Y - 0.04, Y, z0, z1, m, nc); for (const x of [x0 + 0.03, x1 - 0.07]) for (const z of [z0 + 0.03, z1 - 0.07]) box(x, x + 0.04, F, Y - 0.04, z, z + 0.04, MT.black, nc); dk(x0, x1, z0, z1, DH); };
+  table(D1X0, D1X1, D1Z0, D1Z1, MT.white);
   const chair = (x, z, h) => { // office chair: five-star base, gas lift, seat, back
     const g = new THREE.Group(); g.position.set(x, F, z); g.rotation.y = h; k.group.add(g);
     const blk = new THREE.MeshStandardMaterial({ color: '#202024', roughness: 0.5 }), seat = new THREE.MeshStandardMaterial({ color: '#2f3640', roughness: 0.9, emissive: '#2f3640', emissiveIntensity: 0.15 });
@@ -191,63 +190,66 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
     dk(x - 0.25, x + 0.25, z - 0.25, z + 0.25, 0.5);
     return g;
   };
-  const deskChair = chair(9.3, 1.25, Math.PI); // swivels with 蓋瑞 (js/garry.js)
-  // desk 1 things: open laptop, pen cup, notebook, wifi router, power strip, the charging phone (alarm), toast night light
-  const Y = F + DH;
-  box(9.05, 9.43, Y, Y + 0.018, 0.36, 0.62, '#b9bdc2', nc);
-  { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.23), new THREE.MeshBasicMaterial({ map: T.screen, toneMapped: false })); s.position.set(9.24, Y + 0.13, 0.355); s.rotation.x = -0.25; k.group.add(s);
-    box(9.05, 9.43, Y + 0.01, Y + 0.25, 0.33, 0.35, '#b9bdc2', nc); }
-  box(8.7, 8.78, Y, Y + 0.11, 0.4, 0.48, '#2f62c9', nc);                                                   // pen cup
-  for (const [dx, c] of [[0, '#e8323c'], [0.02, '#111'], [0.04, '#ffd23f']]) box(8.71 + dx, 8.72 + dx, Y + 0.11, Y + 0.16, 0.43, 0.44, c, nc);
-  box(8.6, 8.84, Y, Y + 0.012, 0.6, 0.78, '#f1e6c8', nc);                                                  // notebook
-  box(9.7, 9.92, Y, Y + 0.035, 0.32, 0.46, MT.white, nc);                                                  // wifi router + antennas
-  for (const x of [9.72, 9.81, 9.9]) box(x - 0.006, x + 0.006, Y + 0.035, Y + 0.17, 0.43, 0.442, MT.white, nc);
-  box(9.73, 9.76, Y + 0.036, Y + 0.04, 0.33, 0.34, new THREE.MeshBasicMaterial({ color: '#3fd16b' }), nc);
-  box(8.6, 9.0, Y, Y + 0.035, 0.27, 0.33, MT.white, nc);                                                   // power strip
-  for (let i = 0; i < 4; i++) box(8.64 + i * 0.09, 8.68 + i * 0.09, Y + 0.035, Y + 0.037, 0.29, 0.31, '#333', nc);
-  box(9.5, 9.58, Y, Y + 0.01, 0.62, 0.78, '#1a1a1d', nc);                                                  // phone (alarm)
+  const CX = PL.chair.cx, CZ = D1Z0 - 0.36;
+  const deskChair = chair(CX, CZ, 0); // faces the desk (+z); swivels with 蓋瑞 (js/garry.js)
+  // on it (he sits on the -z side, his left is +x): laptop in front of him, the charging phone by his right hand, notebook and pens,
+  // power strip and wifi router along the wall, the toast night light at the bed end
+  const dz = (d) => D1Z0 + d; // d: metres in from the desk's front edge
+  box(CX - 0.19, CX + 0.19, Y, Y + 0.018, dz(0.12), dz(0.38), '#b9bdc2', nc);
+  { const lid = new THREE.Group(); lid.position.set(CX, Y + 0.018, dz(0.38)); lid.rotation.x = 0.22; k.group.add(lid); // leans back, the screen faces him
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.25, 0.012), new THREE.MeshStandardMaterial({ color: '#b9bdc2', metalness: 0.4, roughness: 0.4 })); back.position.set(0, 0.125, 0); lid.add(back);
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.23), new THREE.MeshBasicMaterial({ map: T.screen, toneMapped: false })); s.position.set(0, 0.125, -0.008); s.rotation.y = Math.PI; lid.add(s); }
+  const PHX = CX - 0.4, PHZ = dz(0.2);
+  box(PHX - 0.04, PHX + 0.04, Y, Y + 0.01, PHZ - 0.08, PHZ + 0.08, '#1a1a1d', nc);                          // phone (alarm)
   const phoneScr = new THREE.Mesh(new THREE.PlaneGeometry(0.065, 0.145), new THREE.MeshBasicMaterial({ color: '#0d1020', toneMapped: false }));
-  phoneScr.rotation.x = -Math.PI / 2; phoneScr.position.set(9.54, Y + 0.0115, 0.70); k.group.add(phoneScr);
-  { const c = new THREE.CatmullRomCurve3([new THREE.Vector3(9.54, Y + 0.005, 0.62), new THREE.Vector3(9.4, Y + 0.004, 0.5), new THREE.Vector3(9.0, Y + 0.004, 0.32)]); const g = new THREE.Mesh(new THREE.TubeGeometry(c, 12, 0.003, 4), new THREE.MeshStandardMaterial({ color: '#fafafa' })); k.group.add(g); } // charging cable
-  // toast night light: a slice of bread with a crust, lit from inside at night
+  phoneScr.rotation.x = -Math.PI / 2; phoneScr.position.set(PHX, Y + 0.0115, PHZ); k.group.add(phoneScr);
+  const PSX = CX - 0.25; // power strip
+  box(PSX - 0.22, PSX + 0.22, Y, Y + 0.035, dz(0.6), dz(0.66), MT.white, nc);
+  for (let i = 0; i < 4; i++) box(PSX - 0.17 + i * 0.1, PSX - 0.13 + i * 0.1, Y + 0.035, Y + 0.037, dz(0.615), dz(0.645), '#333', nc);
+  { const c = new THREE.CatmullRomCurve3([new THREE.Vector3(PHX, Y + 0.005, PHZ + 0.08), new THREE.Vector3(PHX + 0.06, Y + 0.004, dz(0.42)), new THREE.Vector3(PSX - 0.1, Y + 0.03, dz(0.6))]); k.group.add(new THREE.Mesh(new THREE.TubeGeometry(c, 14, 0.003, 4), new THREE.MeshStandardMaterial({ color: '#fafafa' }))); } // charging cable
+  const RTX = D1X0 + 0.3; // wifi router + antennas
+  box(RTX - 0.12, RTX + 0.12, Y, Y + 0.035, dz(0.5), dz(0.64), MT.white, nc);
+  for (const x of [-0.1, 0, 0.1]) box(RTX + x - 0.006, RTX + x + 0.006, Y + 0.035, Y + 0.18, dz(0.625), dz(0.637), MT.white, nc);
+  box(RTX - 0.02, RTX + 0.02, Y + 0.036, Y + 0.04, dz(0.505), dz(0.515), new THREE.MeshBasicMaterial({ color: '#3fd16b' }), nc);
+  const NBX = CX + 0.5; // notebook, pen cup
+  box(NBX - 0.13, NBX + 0.13, Y, Y + 0.012, dz(0.14), dz(0.33), '#f1e6c8', nc); box(NBX - 0.02, NBX + 0.1, Y + 0.012, Y + 0.02, dz(0.22), dz(0.23), '#2f62c9', nc);
+  box(NBX + 0.02, NBX + 0.1, Y, Y + 0.11, dz(0.46), dz(0.54), '#2f62c9', nc);
+  for (const [dx, c] of [[0.03, '#e8323c'], [0.055, '#111'], [0.08, '#ffd23f']]) box(NBX + dx, NBX + dx + 0.01, Y + 0.11, Y + 0.16, dz(0.49), dz(0.5), c, nc);
   const toastMat = new THREE.MeshStandardMaterial({ color: '#f3d28c', roughness: 0.7, emissive: '#ffcf7a', emissiveIntensity: 0.2 });
   const crustMat = new THREE.MeshStandardMaterial({ color: '#b5732e', roughness: 0.8, emissive: '#7a4415', emissiveIntensity: 0.1 });
   { const sh = new THREE.Shape(); sh.moveTo(-0.07, 0); sh.lineTo(0.07, 0); sh.lineTo(0.07, 0.1); sh.bezierCurveTo(0.09, 0.15, 0.05, 0.17, 0.0, 0.17); sh.bezierCurveTo(-0.05, 0.17, -0.09, 0.15, -0.07, 0.1); sh.lineTo(-0.07, 0);
     const g = new THREE.ExtrudeGeometry(sh, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2 });
-    const toast = new THREE.Mesh(g, [toastMat, crustMat]); toast.position.set(10.0, Y, 0.72); toast.rotation.y = Math.PI * 0.85; k.group.add(toast); }
-  // wardrobe on the right wall (top), TV cabinet + TV below it
-  box(RX0 + 0.12, RX0 + 0.72, F, F + 2.1, 0.8, 2.6, MT.white); box(RX0 + 0.72, RX0 + 0.73, F + 0.05, F + 2.05, 1.69, 1.71, '#bbb', nc);
-  for (const z of [1.6, 1.8]) box(RX0 + 0.73, RX0 + 0.76, F + 0.95, F + 1.25, z - 0.01, z + 0.01, MT.metal, nc);
-  box(RX0 + 0.12, RX0 + 0.55, F, F + 0.5, 3.0, 4.9, MT.oak); dk(RX0 + 0.12, RX0 + 0.55, 3.0, 4.9, 0.5);
-  box(RX0 + 0.28, RX0 + 0.34, F + 0.5, F + 0.58, 3.7, 4.2, MT.black, nc);
-  box(RX0 + 0.29, RX0 + 0.33, F + 0.58, F + 1.3, 3.33, 4.57, MT.black, nc);
-  { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.68), new THREE.MeshBasicMaterial({ map: T.tv, toneMapped: false })); s.position.set(RX0 + 0.335, F + 0.94, 3.95); s.rotation.y = Math.PI / 2; k.group.add(s); }
-  // IKEA sofa under the left window: grey two-seater, low arms
-  const SX = RX1 - 0.85;
-  box(SX, RX1 - 0.05, F, F + 0.42, 2.6, 4.75, MT.sofa); box(RX1 - 0.25, RX1 - 0.05, F + 0.42, F + 0.85, 2.6, 4.75, MT.sofa, nc);
-  for (const z of [2.6, 4.55]) box(SX, RX1 - 0.05, F + 0.42, F + 0.62, z, z + 0.2, MT.sofa, nc);
-  for (const z of [3.05, 3.95]) box(SX + 0.08, RX1 - 0.27, F + 0.42, F + 0.5, z - 0.38, z + 0.38, '#7b868c', nc);
-  // desk by the bathroom: K-pop albums and lightsticks; chair in front
-  const D2X0 = 10.6, D2X1 = 12.2, D2Z0 = 4.4, D2Z1 = 5.05;
-  box(D2X0, D2X1, F + DH - 0.04, F + DH, D2Z0, D2Z1, MT.oak, nc);
-  for (const x of [D2X0 + 0.03, D2X1 - 0.07]) for (const z of [D2Z0 + 0.03, D2Z1 - 0.07]) box(x, x + 0.04, F, F + DH - 0.04, z, z + 0.04, MT.black, nc);
-  dk(D2X0, D2X1, D2Z0, D2Z1, DH);
-  chair(11.2, 3.85, 0);
-  const covers = ['#ff4fa3', '#9b7bff', '#ffd23f', '#1aa3c4', '#111', '#e8323c', '#f2f2f2'];
-  for (let i = 0; i < 7; i++) { const x = 10.7 + i * 0.045; box(x, x + 0.035, Y, Y + 0.3, 4.8, 5.0, covers[i], nc); } // albums standing in a row
-  box(11.15, 11.45, Y, Y + 0.02, 4.6, 4.9, '#ff4fa3', nc);                                                // an open album with photocards
-  for (let i = 0; i < 3; i++) box(11.18 + i * 0.09, 11.24 + i * 0.09, Y + 0.02, Y + 0.022, 4.63, 4.72, ['#ffd23f', '#7fe3ff', '#fff'][i], nc);
-  for (const [x, c] of [[11.75, CONCERTS[0]], [11.95, CONCERTS[1]]]) { const ls = makeLightstick(c); ls.position.set(x, Y + 0.02, 4.85); ls.scale.setScalar(0.85); ls.userData.pulse(0.3); k.group.add(ls); box(x - 0.04, x + 0.04, Y, Y + 0.02, 4.81, 4.89, MT.black, nc); }
-  // bathroom (bottom-left): walls with a doorway, tiles, toilet, basin, shower
-  box(BX0, BX0 + 0.1, F, CH, BZ0, RZ1, MT.plaster);
-  box(BX0 + 0.1, BX0 + 0.3, F, CH, BZ0, BZ0 + 0.1, MT.plaster); box(BX0 + 1.1, RX1, F, CH, BZ0, BZ0 + 0.1, MT.plaster);
-  box(BX0 + 0.3, BX0 + 1.1, F + 2.05, CH, BZ0, BZ0 + 0.1, MT.plaster, nc);
-  box(BX0 + 0.1, RX1, F + 0.005, F + 0.01, BZ0 + 0.1, RZ1, MT.tile, { col: false, tile: [0.6, 0.6] });
-  box(RX1 - 0.03, RX1 - 0.02, F, F + 1.5, BZ0 + 0.1, RZ1, MT.tile, { col: false, tile: [0.6, 0.6] });
-  box(BX0 + 1.6, BX0 + 2.0, F, F + 0.42, RZ1 - 0.62, RZ1 - 0.1, MT.porcelain); box(BX0 + 1.62, BX0 + 1.98, F + 0.42, F + 0.75, RZ1 - 0.25, RZ1 - 0.12, MT.porcelain, nc);
-  box(BX0 + 0.2, BX0 + 0.7, F + 0.8, F + 0.9, RZ1 - 0.5, RZ1 - 0.1, MT.porcelain); box(BX0 + 0.25, BX0 + 0.65, F + 1.25, F + 1.85, RZ1 - 0.13, RZ1 - 0.1, '#cfe3ec', nc); // basin + mirror
-  box(RX1 - 1.0, RX1 - 0.05, F, F + 0.05, BZ0 + 0.15, BZ0 + 1.1, MT.porcelain, nc); box(RX1 - 1.0, RX1 - 0.98, F, F + 1.9, BZ0 + 0.15, BZ0 + 1.1, MT.glass, nc); // shower tray + screen
-  box(RX1 - 0.15, RX1 - 0.1, F + 1.9, F + 2.0, BZ0 + 0.5, BZ0 + 0.7, MT.metal, nc);
+    const toast = new THREE.Mesh(g, [toastMat, crustMat]); toast.position.set(D1X1 - 0.25, Y, dz(0.42)); toast.rotation.y = Math.PI + 0.35; k.group.add(toast); }
+  // wardrobe (right wall, top) and TV (right wall, middle), both facing the room (+x)
+  const WR = RX0 + 0.12, WRD = WR + PL.wardrobe.x1 - PL.wardrobe.x0, wz = PL.wardrobe.cz, TVD = WR + 0.48, tz = PL.tv.cz;
+  box(WR, WRD, F, F + 2.1, PL.wardrobe.z0, PL.wardrobe.z1, MT.white); box(WRD, WRD + 0.01, F + 0.05, F + 2.05, wz - 0.008, wz + 0.008, '#bbb', nc);
+  for (const z of [wz - 0.08, wz + 0.08]) box(WRD + 0.01, WRD + 0.04, F + 0.95, F + 1.25, z - 0.01, z + 0.01, MT.metal, nc);
+  box(WR, TVD, F, F + 0.5, PL.tv.z0, PL.tv.z1, MT.oak);
+  box(WR + 0.16, WR + 0.22, F + 0.5, F + 0.58, tz - 0.25, tz + 0.25, MT.black, nc); box(WR + 0.17, WR + 0.21, F + 0.58, F + 1.3, tz - 0.62, tz + 0.62, MT.black, nc);
+  { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.68), new THREE.MeshBasicMaterial({ map: T.tv, toneMapped: false })); s.position.set(WR + 0.215, F + 0.94, tz); s.rotation.y = Math.PI / 2; k.group.add(s); }
+  // IKEA sofa under the left window, facing the TV
+  const SX = RX1 - 0.85, sz0 = PL.sofa.z0, sz1 = PL.sofa.z1, sm = (sz0 + sz1) / 2;
+  box(SX, RX1 - 0.05, F, F + 0.42, sz0, sz1, MT.sofa); box(RX1 - 0.25, RX1 - 0.05, F + 0.42, F + 0.85, sz0, sz1, MT.sofa, nc);
+  for (const z of [sz0, sz1 - 0.2]) box(SX, RX1 - 0.05, F + 0.42, F + 0.62, z, z + 0.2, MT.sofa, nc);
+  for (const z of [(sz0 + 0.2 + sm) / 2, (sz1 - 0.2 + sm) / 2]) box(SX + 0.08, RX1 - 0.27, F + 0.42, F + 0.5, z - 0.4, z + 0.4, '#7b868c', nc);
+  // the second desk, just above the bathroom: K-pop albums and lightsticks; its chair is on the bed side (drawing: above it)
+  const D2 = PL.desk2; table(D2.x0, D2.x1, D2.z0, D2.z1, MT.oak);
+  chair(PL.chair2.cx, D2.z1 + 0.34, Math.PI);
+  const covers = ['#ff4fa3', '#9b7bff', '#ffd23f', '#1aa3c4', '#111', '#e8323c', '#f2f2f2', '#3fae49', '#7fe3ff'];
+  covers.forEach((c, i) => { const x = D2.x0 + 0.15 + i * 0.045; box(x, x + 0.035, Y, Y + 0.3, D2.z0 + 0.08, D2.z0 + 0.3, c, nc); }); // albums standing in a row along the bathroom side
+  box(D2.cx - 0.2, D2.cx + 0.1, Y, Y + 0.02, D2.z0 + 0.3, D2.z0 + 0.6, '#ff4fa3', nc);                     // an open album with photocards
+  for (let i = 0; i < 3; i++) box(D2.cx - 0.17 + i * 0.09, D2.cx - 0.11 + i * 0.09, Y + 0.02, Y + 0.022, D2.z0 + 0.4, D2.z0 + 0.49, ['#ffd23f', '#7fe3ff', '#fff'][i], nc);
+  for (const [x, c] of [[D2.x1 - 0.45, CONCERTS[0]], [D2.x1 - 0.22, CONCERTS[1]]]) { const ls = makeLightstick(c); ls.position.set(x, Y + 0.02, D2.z0 + 0.22); ls.scale.setScalar(0.85); ls.userData.pulse(0.3); k.group.add(ls); box(x - 0.04, x + 0.04, Y, Y + 0.02, D2.z0 + 0.18, D2.z0 + 0.26, MT.black, nc); }
+  // bathroom in the bottom-left corner; its door is in its right wall (toward the room door), clear of the desk
+  const BX0 = PL.bath.x0, BZ1 = PL.bath.z1, bd0 = RZ0 + 0.45, bd1 = RZ0 + 1.35;
+  box(BX0, BX0 + 0.1, F, CH, RZ0, bd0, MT.plaster); box(BX0, BX0 + 0.1, F, CH, bd1, BZ1, MT.plaster); box(BX0, BX0 + 0.1, F + 2.05, CH, bd0, bd1, MT.plaster, nc);
+  box(BX0 + 0.1, RX1, F, CH, BZ1 - 0.1, BZ1, MT.plaster);
+  for (const z of [bd0 - 0.02, bd1 - 0.02]) box(BX0 - 0.02, BX0 + 0.12, F, F + 2.05, z, z + 0.04, MT.door, nc); box(BX0 - 0.02, BX0 + 0.12, F + 2.0, F + 2.05, bd0 + 0.02, bd1 - 0.02, MT.door, nc);
+  box(BX0 + 0.1, RX1, F + 0.005, F + 0.01, RZ0, BZ1 - 0.1, MT.tile, { col: false, tile: [0.6, 0.6] });
+  box(BX0 + 0.1, RX1, F, F + 1.6, RZ0, RZ0 + 0.01, MT.tile, { col: false, tile: [0.6, 0.6] }); box(RX1 - 0.03, RX1 - 0.02, F, F + 1.6, RZ0, BZ1 - 0.1, MT.tile, { col: false, tile: [0.6, 0.6] });
+  box(11.75, 12.13, F, F + 0.42, RZ0 + 0.15, RZ0 + 0.68, MT.porcelain); box(11.77, 12.11, F + 0.42, F + 0.78, RZ0 + 0.02, RZ0 + 0.16, MT.porcelain, nc); // toilet
+  box(10.75, 11.25, F + 0.78, F + 0.9, RZ0 + 0.02, RZ0 + 0.42, MT.porcelain); box(10.8, 11.2, F + 1.25, F + 1.85, RZ0 + 0.015, RZ0 + 0.04, '#cfe3ec', nc); // basin + mirror
+  box(12.6, RX1 - 0.03, F, F + 0.05, RZ0 + 0.02, BZ1 - 0.1, MT.porcelain, nc); box(12.6, 12.62, F, F + 1.9, RZ0 + 0.02, RZ0 + 0.95, MT.glass, nc); box(RX1 - 0.12, RX1 - 0.06, F + 1.95, F + 2.0, RZ0 + 0.6, RZ0 + 0.8, MT.metal, nc); // shower
 
   k.finish(scene);
   // zones: corridor and room (camera ceiling + location name)
@@ -265,11 +267,11 @@ export function buildGarryHome(I, scene, Kit, regMat, YH) {
   });
   return {
     k, base, F, at, phoneScr,
-    phone: at(9.54, 1.15),                         // stand here to reach the phone on the desk
-    seat: { ...at(9.3, 1.25), h: k.heading(Math.PI) }, // 蓋瑞 at the window desk: the desk is on the local -z side of the chair
+    phone: at(PHX - 0.35, CZ + 0.02),               // stand here (between the wardrobe and the chair) to reach the phone
+    seat: { ...at(CX, CZ), h: k.heading(0) },       // 蓋瑞 at the window desk, facing it (+z)
     chairTo: (h) => { deskChair.rotation.y = h - k.heading(0); }, // turn the chair to a world heading
-    bed: { ...at(12.2, SLZ), h: k.heading(-Math.PI / 2) }, // hips here; lying back, the head points away from the heading (+x, the pillows)
+    bed: { ...at(12.2, SLZ), h: k.heading(-Math.PI / 2) }, // hips here; lying back, the head points away from the heading (+x, the pillow)
     tuckIn: (on) => { quilt.visible = on; flatDuvet.visible = !on; }, quiltHeight,
-    room: k.rect(RX0, RX1, RZ0, RZ1), albums: at(11.0, 3.9), tv: at(8.5, 3.95),
+    room: k.rect(RX0, RX1, RZ0, RZ1), albums: at(D2.x0 + 0.3, D2.z1 + 0.4), tv: at(8.6, tz), plan: PL,
   };
 }

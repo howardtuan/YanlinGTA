@@ -1,5 +1,5 @@
 {
- "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there. Optional cv in a marks entry puts the centre line cv metres off the middle of the carriageway (+ = (-uz, ux) of the way's direction), where one side is wider (kerbside parking). 'shift' moves OSM ways sideways onto the carriageway the orthophoto shows: at = anchors [x, z, v], v the offset in metres along (-uz, ux) of the way's direction (+ = the top of an _survey/xsec.py cut) of the middle between the kerbs from the OSM line; tools/build_map.py shift_roads() interpolates between anchors, holds 40 m past the end ones and eases out over 40 m more, and moves shared nodes in every way; the old line stays in r.osm (trees, lamps and shop fronts are laid out on it, then the spots the moved road covers move past its new kerb). 'pave' lays asphalt (an unnamed service strip with no nodes, so it stays out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams) where the orthophoto shows a median opening or a paved gap between two one-way carriageways that the build leaves as grass: pts (game metres), w; js/map.js leaves out the median kerb over it. 'features' t 'nozebra' (x, z, way): js/furniture.js lays no generic signal-junction zebra / stop line and no OSM-crossing zebra within 6 m of it, where the orthophoto shows plain asphalt. Optional in a marks entry: ev [vPos, vNeg] puts the two white edge lines at these offsets from the way's centreline (+ = (-uz, ux)) where they are painted well inside the kerbs; inner false on a 'median' one-way leaves out the white edge line along the median side; segs [{from: [x, z], to: [x, z], centre}] paints another centre line style between the two points (projected onto the way as drawn). span {from: [x, z], to: [x, z]}: only the stretch between the two points (projected onto the way as drawn) is painted; no centre, edge or lane line outside it, where the orthophoto cannot show them.",
+ "_doc": "Measured carriageway widths (2026-11 survey on the NLSC 2024 orthophoto, WMTS PHOTO2 z20, about 0.14 m/px; cross-sections rotated along each road with a metre ruler, kerb to kerb including 機慢車道 and kerbside parking, excluding sidewalks, 騎樓, medians and ditches; the biggest changes re-measured blind by a second surveyor). tools/build_map.py apply_roads() sets each OSM way's w (and lanes where given) after the block fill and the grade separations; 'was' is the width OSM / the class default gave, checked on every build. Only widths that differ by 0.8 m or more are listed. 'measured' entries come from cuts on that road; class entries (source says 同類道路) use the typical width of a measured sample of the same kind of lane. 'marks' lists the painted markings of a way read off the same orthophoto: centre (double-yellow 雙黃實線, yellow 單黃實線, yellow-dash 黃虛線, white-dash 白虛線, none, median 分隔島, pair / pair-other: one of the two one-way ways OSM splits a two-way street without a median into; pair paints the 雙黃線 along its edge facing the other way, pair-other nothing there, and neither gets a white edge line on that side), edge (white edge lines) and lanes (lanes per direction); optional walk gives the sidewalk as surveyed: {n, s} or {e, w} widths in metres for the side facing that way (0 = none) and col, its paving colour; js/map.js draws these instead of the class defaults (primary..tertiary get lines, others none). 'features' are painted spots in game metres: box 網狀黃線 (centre x, z, len along the street; kerb to kerb unless w), zebra 斑馬線 (centre, ang = direction of the street it crosses in degrees, w across it, len of the stripes), stop 停止線 (centre, ang, w across), bikebox 機車停等區 (centre, ang, len deep, w wide); zebras the game already lays at an OSM crossing / signal junction carry osm: true and only break the lines there. Optional cv in a marks entry puts the centre line cv metres off the middle of the carriageway (+ = (-uz, ux) of the way's direction), where one side is wider (kerbside parking). 'shift' moves OSM ways sideways onto the carriageway the orthophoto shows: at = anchors [x, z, v], v the offset in metres along (-uz, ux) of the way's direction (+ = the top of an _survey/xsec.py cut) of the middle between the kerbs from the OSM line; tools/build_map.py shift_roads() interpolates between anchors, holds 40 m past the end ones and eases out over 40 m more, and moves shared nodes in every way; the old line stays in r.osm (trees, lamps and shop fronts are laid out on it, then the spots the moved road covers move past its new kerb). 'pave' lays asphalt (an unnamed service strip with no nodes, so it stays out of the traffic graph, the junction / zebra code and the lamp / moto / tree streams) where the orthophoto shows a median opening or a paved gap between two one-way carriageways that the build leaves as grass: pts (game metres), w; js/map.js leaves out the median kerb over it. 'features' t 'nozebra' (x, z, way): js/furniture.js lays no generic signal-junction zebra / stop line and no OSM-crossing zebra within 6 m of it, where the orthophoto shows plain asphalt. Optional in a marks entry: ev [vPos, vNeg] puts the two white edge lines at these offsets from the way's centreline (+ = (-uz, ux)) where they are painted well inside the kerbs; inner false on a 'median' one-way leaves out the white edge line along the median side; segs [{from: [x, z], to: [x, z], centre}] paints another centre line style between the two points (projected onto the way as drawn). span {from: [x, z], to: [x, z]}: only the stretch between the two points (projected onto the way as drawn) is painted; no centre, edge or lane line outside it, where the orthophoto cannot show them. Optional wat in a 'ways' entry: [[x, z, w], ...] width anchors for a carriageway whose width changes along the way: each anchor is projected onto the way as drawn (after 'shift'), the width is interpolated along the way between anchors and holds past the first / last one (put anchors at the entry's w at both ends of a taper); tools/build_map.py width_anchors() adds vertices at the anchors and gives the road wv (the width at every vertex), which js/map.js uses for the surface, the edge / lane lines, the sidewalks and kerbs, the painted spots' kerb-to-kerb width, roadGrid and the lamp / tree clearance; w stays the nominal width for the rest. To keep one kerb where it is (e.g. the median side), move the 'shift' anchors by half the width change at the same places.",
  "ways": [
   {
    "way": 13944868,
@@ -1731,6 +1731,148 @@
    "was": 7,
    "confidence": "low",
    "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）第二輪複核，整條 way 一個值取 8.0 折衷。貼地證據：西段 s 44～57 網狀框油漆 +3.5～-5.2（8.7 m）；裁決者斷面 judge/prof.py（8 px/m，±2.5 m 列中位數，亮度／R-B）s 50 框邊 +3.5、-5.1 峰，+3.75 以外磚色人行道（R-B 30），s 65 白邊線 +2.75／-4.25，+3.6 以外與 -4.9 以外都是磚色鋪面（R-B 20～39），路面約 8.5 m；J29 前後 s 175～255 -v 側人行道從 -5.9～-6.1 開始（盲測），+v 側 +3.0～+3.1 細亮線，往外是往路內倒的屋頂，路面約 9.0 m（上限 9.5）。東段 s 300～420 網狀框與斑馬線只有 7.1～7.7 m，裁決者 s 320 斷面 -3.25 起即磚色（R-B 12→60）、+v 約 +4.0，s 340 框 +3.3～-4.25（7.6 m）。西段約 290 m 實際 8.5～9.0、東段約 270 m 7.3～7.7，長度加權約 8.2；取 8.0 是為了東段不壓到 -v 側人行道太多，以及中北路口 7-ELEVEN 轉角騎樓的淨距（8.5 時只剩 0.11 m，8.0 時 0.36 m）。屋頂複核指出 J29 前後機車帶外緣受屋頂傾倒影響、沒有路緣石，所以信心 low"
+  },
+  {
+   "way": 307857192,
+   "name": "環中東路",
+   "type": "tertiary",
+   "w": 7.4,
+   "was": 7.4,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px），2026-11 第三輪（_survey/rv3/huanzhong-median2）的路緣量測。整條 w 7.4，wat 只改外側路緣（分隔島側的內緣由 shift 跟著補，保持不動）：J83 振興街口以西 x -185～-150 外緣貼正射柏油邊（-185 -7.90、-170 -8.07、-155 -8.40），w 7.75～8.25（實寬 8.4～8.7，內緣仍比實測靠分隔島約 0.3）；東段一 x 375～505 外緣退回白邊線外的路緣（白邊線 380 -7.05、440 -6.53、480 -6.12，外側鋪面 440 -6.95、480 -6.45），w 6.85～7.0；東段二 x 950～1140 外緣退回白邊線外約 0.38（白邊線 1000 -8.40、1060 -8.50、1100 -8.74），w 6.95。兩端各用 15～25 m 漸變回 7.4。",
+   "confidence": "medium",
+   "wat": [
+    [
+     1165.0,
+     -374.1,
+     7.4
+    ],
+    [
+     1140.0,
+     -354.3,
+     6.95
+    ],
+    [
+     950.0,
+     -203.5,
+     6.95
+    ],
+    [
+     930.0,
+     -187.4,
+     7.4
+    ],
+    [
+     530.0,
+     128.4,
+     7.4
+    ],
+    [
+     505.0,
+     148.6,
+     6.9
+    ],
+    [
+     480.0,
+     168.8,
+     6.9
+    ],
+    [
+     460.0,
+     185.0,
+     6.85
+    ],
+    [
+     440.0,
+     201.2,
+     7.0
+    ],
+    [
+     400.0,
+     233.6,
+     6.9
+    ],
+    [
+     375.0,
+     253.8,
+     6.85
+    ],
+    [
+     355.0,
+     270.0,
+     7.4
+    ],
+    [
+     -135.0,
+     653.3,
+     7.4
+    ],
+    [
+     -150.0,
+     664.5,
+     8.25
+    ],
+    [
+     -160.0,
+     672.0,
+     8.2
+    ],
+    [
+     -170.0,
+     679.4,
+     8.05
+    ],
+    [
+     -185.0,
+     690.6,
+     7.75
+    ],
+    [
+     -200.0,
+     701.8,
+     7.4
+    ]
+   ]
+  },
+  {
+   "way": 307857194,
+   "name": "環中東路",
+   "type": "tertiary",
+   "w": 7.4,
+   "was": 7.4,
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px），2026-11 第三輪（_survey/rv3/huanzhong-median2）的路緣量測。整條 w 7.4，wat 只改外側路緣（內緣由 shift 跟著補，保持不動）：東段二 x 960～1100 外緣退回正射路緣（1000 外側粉紅鋪面 +7.95、白邊線 1060 +7.56、1100 +7.37，路緣約在白邊線外 0.38），w 7.05～7.3；兩端各 20～30 m 漸變回 7.4。東段一外緣靠 OSM 建物，不改。",
+   "confidence": "medium",
+   "wat": [
+    [
+     936.5,
+     -179.2,
+     7.4
+    ],
+    [
+     966.6,
+     -203.3,
+     7.05
+    ],
+    [
+     1006.8,
+     -235.3,
+     7.05
+    ],
+    [
+     1066.7,
+     -283.0,
+     7.2
+    ],
+    [
+     1106.6,
+     -314.6,
+     7.3
+    ],
+    [
+     1126.5,
+     -330.4,
+     7.4
+    ]
+   ]
   }
  ],
  "marks": [
@@ -4920,13 +5062,13 @@
   },
   {
    "t": "zebra",
-   "x": -144.37,
-   "z": 664.73,
+   "x": -144.52,
+   "z": 664.53,
    "ang": 143.2,
    "len": 3.7,
-   "w": 10.85,
+   "w": 11.6,
    "way": 307857192,
-   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：淡，最近號誌點 76 m（遊戲沒有）；2026-11 第三輪（_survey/rv3/huanzhong-median2/judge）：192 在 J83 以西往分隔島移約 1.1 m 後，西北端裁到新 192 外緣（站點 v -7.83；正射斑馬線條紋約到 -7.5～-8.3），東南端維持原本的 +3.03，w 12→10.85、中心往東南約 0.17 m"
+   "source": "NLSC 2024 正射（PHOTO2 z20，約 0.14 m/px）沿路長條圖判讀：淡，最近號誌點 76 m（遊戲沒有）；2026-11 第三輪（_survey/rv3/huanzhong-median2/judge）：192 在 J83 以西往分隔島移約 1.1 m 後，西北端裁到新 192 外緣（站點 v -7.83；正射斑馬線條紋約到 -7.5～-8.3），東南端維持原本的 +3.03，w 12→10.85、中心往東南約 0.17 m；之後 192 在這裡用 wat 加寬到柏油邊（外緣 -8.4），西北端再延長到新外緣，w 10.85→11.6、中心往西北 0.25 m（東南端多 0.125 m，讓 0.9 m 一條的條紋剛好多出西北端那一條，最後一條外緣在新路緣內約 0.03 m）"
   }
  ],
  "shift": [
@@ -4963,34 +5105,54 @@
      0.0
     ],
     [
+     1165.0,
+     -374.1,
+     0.29
+    ],
+    [
      1150.0,
      -362.2,
-     0.5
+     0.36
+    ],
+    [
+     1140.0,
+     -354.3,
+     0.27
     ],
     [
      1100.0,
      -322.9,
-     0.5
+     0.27
     ],
     [
      1040.0,
      -275.8,
-     0.15
+     -0.08
     ],
     [
      1000.0,
      -243.9,
-     0.15
+     -0.08
     ],
     [
      964.8,
      -215.4,
-     0.1
+     -0.13
+    ],
+    [
+     950.0,
+     -203.5,
+     -0.22
     ],
     [
      933.6,
      -190.3,
-     -0.1
+     -0.14
+    ],
+    [
+     930.0,
+     -187.4,
+     -0.11
     ],
     [
      903.3,
@@ -5020,7 +5182,7 @@
     [
      779.5,
      -67.7,
-     0
+     0.0
     ],
     [
      684.9,
@@ -5043,34 +5205,64 @@
      -2.7
     ],
     [
+     530.0,
+     128.4,
+     -2.68
+    ],
+    [
      510.0,
      144.6,
-     -2.25
+     -2.45
+    ],
+    [
+     505.0,
+     148.6,
+     -2.44
     ],
     [
      485.0,
      164.8,
-     -1.95
+     -2.2
+    ],
+    [
+     480.0,
+     168.8,
+     -2.1
     ],
     [
      462.0,
      183.4,
-     -1.5
+     -1.77
+    ],
+    [
+     460.0,
+     185.0,
+     -1.77
     ],
     [
      440.0,
      201.2,
-     -1.4
+     -1.6
     ],
     [
      400.0,
      233.6,
-     -1.05
+     -1.3
     ],
     [
      380.0,
      249.8,
-     -0.65
+     -0.92
+    ],
+    [
+     375.0,
+     253.8,
+     -0.93
+    ],
+    [
+     355.0,
+     270.0,
+     -0.69
     ],
     [
      346.8,
@@ -5090,12 +5282,12 @@
     [
      254.2,
      351.3,
-     0
+     0.0
     ],
     [
      223,
      376.4,
-     0
+     0.0
     ],
     [
      192.6,
@@ -5110,7 +5302,7 @@
     [
      171.6,
      417.7,
-     0
+     0.0
     ],
     [
      161.5,
@@ -5173,24 +5365,54 @@
      -0.97
     ],
     [
+     -135.0,
+     653.3,
+     -1.19
+    ],
+    [
      -145.6,
      661.3,
-     -1.85
+     -1.55
+    ],
+    [
+     -150.0,
+     664.5,
+     -1.62
     ],
     [
      -152.0,
      666.1,
-     -2.05
+     -1.69
+    ],
+    [
+     -160.0,
+     672.0,
+     -1.63
+    ],
+    [
+     -170.0,
+     679.4,
+     -1.78
     ],
     [
      -172.0,
      681.0,
-     -2.0
+     -1.8
+    ],
+    [
+     -185.0,
+     690.6,
+     -1.57
     ],
     [
      -190.0,
      694.4,
-     -1.65
+     -1.53
+    ],
+    [
+     -200.0,
+     701.8,
+     -1.55
     ],
     [
      -215.3,
@@ -5351,14 +5573,39 @@
      -0.2
     ],
     [
+     936.5,
+     -179.2,
+     -0.51
+    ],
+    [
      966.7,
      -203.3,
-     -0.8
+     -0.98
+    ],
+    [
+     1006.8,
+     -235.3,
+     -1.06
     ],
     [
      1056.8,
      -275.1,
-     -1.0
+     -1.11
+    ],
+    [
+     1066.7,
+     -283.0,
+     -1.12
+    ],
+    [
+     1106.6,
+     -314.6,
+     -1.13
+    ],
+    [
+     1126.5,
+     -330.4,
+     -1.12
     ],
     [
      1146.5,

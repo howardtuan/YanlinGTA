@@ -401,7 +401,7 @@ export function buildFurniture(scene, world, data, ctx) {
       if (j < 0 || j >= n) continue;
       const p = r.pts[i], q = r.pts[j], dx = q[0] - p[0], dz = q[1] - p[1], l = Math.hypot(dx, dz); if (l < 0.5) continue;
       let A = arms.get(r.nodes[i]); if (!A) arms.set(r.nodes[i], A = []);
-      A.push({ x: p[0], z: p[1], ex: dx / l, ez: dz / l, w: r.w, road: r, fwd: j > i }); // fwd: the arm runs the way's own direction (one-way traffic leaves)
+      A.push({ x: p[0], z: p[1], ex: dx / l, ez: dz / l, w: r.wv ? r.wv[i] : r.w, road: r, fwd: j > i }); // fwd: the arm runs the way's own direction (one-way traffic leaves)
     }
   }
   const junctions = [];

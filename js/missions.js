@@ -40,12 +40,30 @@ export class Missions {
     const g = this.g, s = g.startPos, P = this.P;
     if (!this.manager) {
       this.manager = makeMissionNpc(g.scene, MANAGER, '競選總幹事 小安', s.x + 1.6, s.z + 1.2, s.h + Math.PI);
-      g.npcs.push(this.manager);
+      g.npcs.push(this.manager); this._talkable(this.manager, '小安', '競選總幹事小安');
     }
     if (idx >= 1 && !this.senior) {
       this.senior = makeMissionNpc(g.scene, SENIOR, '資管系學長 阿哲', P.im.x + 2, P.im.z + 1.5, 0);
-      g.npcs.push(this.senior);
+      g.npcs.push(this.senior); this._talkable(this.senior, '阿哲', '阿哲學長');
     }
+  }
+  // 小安 / 阿哲 between their story scenes: E reminds you what to do now (or that the mission is paused), and cheers
+  // you on once the story is over. (They used to have no E at all: walking up to them did nothing.)
+  _talkable(npc, who, title) {
+    const g = this.g, p = npc.ch.root.position;
+    g.interiors.actions.push({ x: p.x, z: p.z, r: 2.4, y: 0, anyY: true,
+      cond: () => npc.ch.root.visible && !g.hud.inDialog, label: () => `按 <kbd>E</kbd> 和${title}說話`, fn: () => this.chat(who) });
+  }
+  chat(who) {
+    const g = this.g, obj = (document.getElementById('objText')?.innerText || '').trim();
+    let lines;
+    if (this.done || this.free) lines = who === '小安'
+      ? [['小安', '辛苦了會長！✌ 接下來就是自由時間啦，去收集金色選票、到處逛逛吧。'], ['小安', '有空也幫忙發發傳單，選票是越多越好 🗳️']]
+      : [['阿哲', '會長好！系學會的事之後再慢慢跟你交接 😆'], ['阿哲', '想打工的話活動中心的麥當勞在缺人喔 🍟']];
+    else if (this.exited) lines = [[who, `「${this.exited.title}」先暫停了，沒關係！`], [who, '準備好了就回到地圖上的 ▶ 任務起點，打開手機的「任務」App 按「▶ 繼續任務」。']];
+    else if (this.step && obj) lines = [[who, who === '小安' ? '我們現在要做的是：' : '學弟，現在要：'], [who, obj], [who, '不知道怎麼走就按 M 看大地圖，或打開手機「任務」App 導航 🧭']];
+    else lines = [[who, who === '小安' ? '我在這邊等你，有事隨時來找我！' : '加油！系館這邊交給我顧 💪']];
+    g.dialog(lines);
   }
   start(free = false) {
     this.free = free;

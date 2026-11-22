@@ -3041,6 +3041,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const f = buildFurniture(scene, world, data, { Geo, col, addFlat, obb, polyArea, low: !!opts.low, rnd: mulberry32(4401), keep: opts.keep || [] });
     world.signMats = f.signMats;
   }
+  // street furniture a reserved outline dropped (js/furniture.js ghosts): the lamps and trees below are laid out as if
+  // it still stood, in the same passes that leave the reserved outlines out, so it shifts none of their draws
+  const furnGhost = (x, z, r) => world.furnGhost.blocked(x, z, r);
 
   // ---------- street lamps ----------
   let lampSpots = [];
@@ -3097,7 +3100,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         rot = Math.atan2(-vx, -vz);
       }
       if (!laneClear(x, z)) { inLane++; continue; }
-      if (!collision.insideAny(x, z) && !collision.blocked(x, z, 0.3)) spots.push([x, z, rot]);
+      if (!collision.insideAny(x, z) && !collision.blocked(x, z, 0.3) && !furnGhost(x, z, 0.3)) spots.push([x, z, rot]);
     }
     const osmN = spots.length;
     const nearOsm = (x, z) => osm.some(f => (f.x - x) ** 2 + (f.z - z) ** 2 < 225);
@@ -3113,7 +3116,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           // the other kerb when this one is inside a junction / another road
           for (const side of [s0, -s0]) {
             const px = x + nx * side * (r.w / 2 + 0.6), pz = z + nz * side * (r.w / 2 + 0.6);
-            if (nearOsm(px, pz) || collision.blocked(px, pz, 0.5)) break;
+            if (nearOsm(px, pz) || collision.blocked(px, pz, 0.5) || furnGhost(px, pz, 0.5)) break;
             if (!laneClear(px, pz)) { if (side !== s0) inLane++; continue; }
             spots.push([px, pz, Math.atan2(-nx * side, -nz * side)]); break;
           }
@@ -3206,7 +3209,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // species from the visual-only stream, so layout and colliders don't depend on it
     // ghosts (trees / lamps a reserved outline dropped after their draws) count like the colliders they stand for, so a
     // reserved outline changes no species beyond the trees it drops (ghosts is declared below, before the first call)
-    const nearGhost = (x, z, r) => ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2);
+    const nearGhost = (x, z, r) => ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2) || furnGhost(x, z, r);
     const pickKind = (x, z, s) => {
       const r = rnd2(), campus = world.inCampus(x, z);
       let kind = campus || greenAt(x, z) ? (r < 0.3 ? 'rain' : r < 0.66 ? 'round' : r < 0.84 ? 'pine' : 'palm') : (r < 0.18 ? 'palm' : 'round');
@@ -3243,7 +3246,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // and shrubs off only in the final okSpot (a tree dropped there stays as a ghost of the same size), so adding or
     // changing a reserved outline no longer re-deals every tree and shrub after it in the shared rnd sequence.
     const okOsm = (x, z, r) => {
-      if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2)) return false;
+      if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2) || furnGhost(x, z, r)) return false;
       if (cutHouses.length && inCutHouse(x, z, r)) return false;
       collision.muted = gradeSegs; collision.noReserved = true;
       const ok = okSpot(x, z, r, osmRoads);
@@ -3346,7 +3349,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           const x0 = p0[0] + (p1[0] - p0[0]) * t / l, z0 = p0[1] + (p1[1] - p0[1]) * t / l;
           const d = Math.hypot(cx - x0, cz - z0) || 1, x = x0 + (cx - x0) / d * 5, z = z0 + (cz - z0) / d * 5;
           // reserved outlines only drop the tree after its draw (see okOsm), so they never shift rnd2
-          collision.noReserved = true; const hit = collision.blocked(x, z, 4); collision.noReserved = false;
+          collision.noReserved = true; const hit = collision.blocked(x, z, 4) || furnGhost(x, z, 4); collision.noReserved = false;
           if (!pointInPoly(x, z, pts) || roadGrid.nearest(x, z).d < 1.5 || hit) continue;
           const sc = 0.75 + rnd2() * 0.25;
           if (collision.blocked(x, z, 4)) continue;

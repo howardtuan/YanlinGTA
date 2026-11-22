@@ -78,6 +78,16 @@ button{font-family:inherit;cursor:pointer}
 #bigToastSub{font-size:18px;font-weight:700;color:#fff;text-shadow:0 2px 6px #000;margin-top:6px}
 @keyframes bigIn{from{opacity:0;transform:scale(1.6)}}
 #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:rgba(255,255,255,.55);font:300 22px system-ui;display:none}
+/* 準心: first person = a dot and four short ticks (FPS style); third person = just the dot (over-the-shoulder games keep it small) */
+#aim{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:2}
+#aim.hidden{display:none}
+#aim i{position:absolute;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.55);border-radius:1px}
+#aim .aim-dot{left:-2px;top:-2px;width:4px;height:4px;border-radius:50%}
+#aim .aim-t,#aim .aim-b{left:-1px;width:2px;height:7px}#aim .aim-t{top:-12px}#aim .aim-b{top:5px}
+#aim .aim-lf,#aim .aim-r{top:-1px;width:7px;height:2px}#aim .aim-lf{left:-12px}#aim .aim-r{left:5px}
+#aim.tp .aim-l{display:none}#aim.tp .aim-dot{opacity:.85}
+#aim.drone .aim-dot{background:#6ff0ff}#aim.drone .aim-l{background:#6ff0ff}
+body.cinema #aim{display:none}
 
 /* big map */
 /* the map is the i-Piyan turned sideways */
@@ -995,8 +1005,28 @@ body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
 #sunday .sd-text kbd,#sunday .sd-key kbd{background:#2b1d33;color:#fff;border-radius:4px;padding:0 5px;font-size:11.5px}
 #sunday .sd-foot{display:flex;align-items:center;justify-content:space-between;margin-top:6px}#sunday .sd-foot.hidden{display:none}
 #sunday .sd-key{font-size:11.5px;color:#8a7d90}
-#sunday .sd-next{border:0;background:#ffb400;color:#2b1d33;font-weight:800;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12.5px}
+#sunday .sd-next,#sunday .sd-prev{border:0;background:#ffb400;color:#2b1d33;font-weight:800;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12.5px}
+#sunday .sd-prev{background:#efe6d3}
+#sunday .sd-key{flex:1;text-align:center}
 @keyframes sdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes sdBang{from{transform:scale(1)}to{transform:scale(1.18)}}
 body.touch #sunday{bottom:auto;top:330px;right:12px}
 body.touch #sunday .sd-bubble{width:240px;font-size:13px}
+
+/* 🛸 無人機 (js/drone.js): goggles view — corner brackets, LIVE tag, altitude / speed, the keys */
+#droneHud{position:absolute;inset:0;pointer-events:none;z-index:2;font:600 13px/1.4 "Noto Sans TC",system-ui,sans-serif;color:#dff8ff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+#droneHud.hidden{display:none}
+#droneHud .dh-frame i{position:absolute;width:46px;height:46px;border:2px solid rgba(160,240,255,.75)}
+#droneHud .dh-frame i:nth-child(1){left:18%;top:16%;border-right:0;border-bottom:0}#droneHud .dh-frame i:nth-child(2){right:18%;top:16%;border-left:0;border-bottom:0}
+#droneHud .dh-frame i:nth-child(3){left:18%;bottom:16%;border-right:0;border-top:0}#droneHud .dh-frame i:nth-child(4){right:18%;bottom:16%;border-left:0;border-top:0}
+#droneHud .dh-top{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:rgba(6,14,24,.5);padding:5px 14px;border-radius:999px}
+#droneHud .dh-rec{color:#ff4d5e;animation:dhBlink 1.2s steps(2) infinite}
+#droneHud .dh-sig{color:#8fe9ff;font-size:11px}
+#droneHud .dh-stats{position:absolute;bottom:58px;left:50%;transform:translateX(-50%);display:flex;gap:18px;background:rgba(6,14,24,.5);padding:5px 16px;border-radius:10px}
+#droneHud .dh-stats b{font-size:17px;color:#fff;font-variant-numeric:tabular-nums}
+#droneHud .dh-keys{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12px;opacity:.85}
+#droneHud kbd{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:4px;padding:0 5px;margin:0 1px;font:inherit;font-size:11px}
+body.touch #droneHud .dh-keys{display:none}
+@keyframes dhBlink{50%{opacity:.2}}
+#droneFade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:60;transition:opacity .35s ease}
+#droneFade.on{opacity:1}

@@ -265,10 +265,11 @@ export class Garry {
   // ---- the alarm easter egg ----
   alarm(auto = false) {
     const g = this.g; if (this._alarmEl) return;
+    g._overlay = true; // the pointer is released for the alarm screen: that must not open the pause (Esc) menu
     document.exitPointerLock?.(); g.audio.duck?.(true);
     const scr = this.home.phoneScr.material; scr.color.set('#ff4fa3');
     const el = this._alarmEl = document.createElement('div'); el.id = 'garryAlarm';
-    const close = () => { removeEventListener('keydown', key, true); this._alarmAudio?.pause(); this._alarmAudio = null; el.remove(); this._alarmEl = null; scr.color.set('#0d1020'); clearInterval(this._beep); this._beep = null; g.audio.duck?.(false); if (g.state === 'play') g.lockPointer?.(); };
+    const close = () => { removeEventListener('keydown', key, true); this._alarmAudio?.pause(); this._alarmAudio = null; el.remove(); this._alarmEl = null; g._overlay = false; scr.color.set('#0d1020'); clearInterval(this._beep); this._beep = null; g.audio.duck?.(false); if (g.state === 'play') g.lockPointer?.(); };
     const key = (e) => { if (['Escape', 'KeyE', 'Enter', 'Space'].includes(e.code)) { e.preventDefault(); e.stopPropagation(); close(); } };
     addEventListener('keydown', key, true);
     const head = `<div class="ga-head"><b>⏰ 07:00</b><span>蓋瑞的起床鬧鐘${auto ? '響了！' : ''}</span></div>`;

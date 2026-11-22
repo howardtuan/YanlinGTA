@@ -1,9 +1,9 @@
-// 圖書館門口（張靜愚紀念圖書館南面、面向懷恩樓的那片草地，緊貼圖書館南牆前）一個發光的黃色圓圈：
+// 圖書館西南角（張靜愚紀念圖書館南側，空拍圖 C4 左下角）一個發光的黃色圓圈：
 // 站上去按 E 會問要不要開啟外部網站「中原大學電子書 HyRead」，確定的話用新分頁打開。
 import * as THREE from 'three';
 import { surfaceAt } from './terrain.js';
 
-const SPOT = { x: -170, z: -5 };          // user's pick on the aerial view (square D3): the lawn just south of the library wall
+const SPOT = { x: -187.5, z: -7.5 };      // user's pick on the aerial view (square C4, its bottom-left corner): south-west of the library, after the library update covered the old spot
 const URL = 'https://cycu.ebook.hyread.com.tw/';
 const NAME = '中原大學電子書 HyRead';
 

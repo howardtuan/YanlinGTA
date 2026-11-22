@@ -22,6 +22,7 @@ const APPS = [
   { id: 'stock', name: '靈感股', icon: '📈', bg: 'linear-gradient(#ff6b6b,#c81e2a)', noArt: true },
   { id: 'news', name: 'PYtoday', icon: '📰', bg: 'linear-gradient(#ff3b3b,#1a1a1a)', noArt: true },
   { id: 'locate', name: '定位', icon: '📍', bg: 'linear-gradient(#5ac8fa,#007aff)', noArt: true }, // friends on a map (js/locate.js)
+  { id: 'drone', name: '無人機', icon: '🛸', bg: 'linear-gradient(#3a4256,#0d111a)', noArt: true }, // connects to 彥霖's drone (js/drone.js)
   { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (js/concert.js)
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
@@ -330,6 +331,13 @@ export class Phone {
     if (id === 'stock') return this._stock();
     if (id === 'news') return this._news();
     if (id === 'locate') return this._locate();
+    if (id === 'drone') { // connect and take off straight away (the phone goes away for the film)
+      const err = g.drone.start(); this.app = null;
+      if (err) { g.hud.toast(err, 'bad', 2400); this.home(); return; }
+      if (this.open) this.close();
+      g.lockPointer?.();
+      g.hud.toast('🛸 正在連線到無人機……', 'good', 1800); return;
+    }
     if (id === 'tix') return g.concerts.app(this);
     if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
     if (id === 'camera') return this._camera();

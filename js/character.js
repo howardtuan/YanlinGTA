@@ -564,6 +564,12 @@ function animate(ch, dt, st) {
     t.shR = [-0.55, 0.35, -0.25]; t.elR = -1.75; t.shL = [-0.35, -0.3, 0.2]; t.elL = -1.3;
     t.headX = 0.42 + Math.sin(ch.poseT * 1.3) * 0.03;
     ch.setHandPose('grip');
+  } else if (st.pose === 'drone') {
+    // flying the drone (js/drone.js): both hands on the remote in front of the chest, thumbs on the sticks, VR goggles on
+    const tw = Math.sin(ch.poseT * 3.1) * 0.04;
+    t.shR = [-0.42 + tw, 0.42, -0.12]; t.elR = -1.55; t.shL = [-0.42 - tw, -0.42, 0.12]; t.elL = -1.55;
+    t.headX = 0.08 + Math.sin(ch.poseT * 0.9) * 0.05; t.headY = Math.sin(ch.poseT * 0.5) * 0.12;
+    ch.setHandPose('grip');
   } else if (st.pose === 'talk') {
     // chatting: one hand gestures, the head nods now and then
     const g = Math.sin(ch.poseT * 2.3) * 0.5 + 0.5;

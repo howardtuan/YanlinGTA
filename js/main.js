@@ -30,6 +30,7 @@ import { CustomNpcs } from './customnpcs.js';
 import { Wardrobe } from './wardrobe.js';
 import { Nav } from './nav.js';
 import { Airdrop } from './airdrop.js';
+import { Drone } from './drone.js';
 import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
@@ -225,6 +226,7 @@ class Game {
     this.wardrobe = new Wardrobe(this); // …and the wardrobe next to it
     this.nav = new Nav(this);           // map waypoint + route
     this.airdrop = new Airdrop(this);   // 呼叫載具: helicopter drops your JET SL
+    this.drone = new Drone(this);       // 🛸 無人機 app: VR goggles, free first-person flight (js/drone.js)
     this.market = new Market(this);     // 靈感股 (phone app + desktop computers)
     this.news = new NewsDesk(this);     // PYtoday: 3 made-up articles a day; company news moves 靈感股
     this.library = new LibraryLink(this); // glowing circle at the library door: opens 中原大學電子書 HyRead
@@ -642,7 +644,7 @@ class Game {
     });
     onClick('btnRestart', () => this._confirmClear(1, true));
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this.videoOpen && !this.phone?.open && !this.job?.active && !this.pc?.isOpen && !this.wardrobe?.isOpen) this.pause();
+      if (!document.pointerLockElement && this.state === 'play' && !this.hud.bigOpen && !this.input.touch && !this._modalOpen && !this._overlay && !this.videoOpen && !this.phone?.open && !this.job?.active && !this.pc?.isOpen && !this.wardrobe?.isOpen) this.pause();
     });
   }
   // artwork + 5 s progress bar shown after pressing Start
@@ -731,11 +733,24 @@ class Game {
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
       <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('xlow', '超低')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
       <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this._qualityNote(qNow)}</small></div>
+      <div class="set-row"><label>➕ 準心</label><div class="seg" id="setAim">${['on', 'off'].map(v => `<button data-aim="${v}" class="${(s.aim || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>
       <div class="set-row"><label>🧭 地面導航線</label><div class="seg" id="setNav">${nv('on', '開')}${nv('off', '關')}</div></div>
       <div class="set-row"><label>🖥 全螢幕</label><div class="seg" id="setFull">${fs('on', '開')}${fs('off', '關')}</div></div>
       ${document.fullscreenEnabled ? '' : '<div class="set-row"><label></label><small style="color:#a9adbf">這個瀏覽器不支援網頁全螢幕（iPhone 可用「分享 → 加入主畫面」以全螢幕開啟）</small></div>'}
       <div class="set-row"><label>🏘 補建街區</label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
       <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this._fillNote()}</small></div>`;
+  }
+  // 準心 (settings.aim, on by default): first person (and the drone) get the dot with four ticks, third person on foot just
+  // a small dot; none while driving / riding, in menus, dialogs, the phone, the PC, the map or a film
+  _aim() {
+    const el = this._aimEl || (this._aimEl = $('aim')); if (!el) return;
+    const fp = this.fpv.active, dr = !!this.drone?.flying, pl = this.player;
+    const show = this.settings.aim !== 'off' && this.state === 'play' && !this.hud.inDialog && !this.hud.bigOpen && !this._modalOpen && !this._overlay
+      && !this.phone?.open && !this.pc?.isOpen && !this.videoOpen && !this.airdrop.cinema && !this.drone?.cinema && !this.job.active && !this.gate.active && !this._sleeping
+      && (dr || fp || !pl.vehicle);
+    el.classList.toggle('hidden', !show);
+    el.classList.toggle('tp', show && !fp && !dr);
+    el.classList.toggle('drone', show && dr);
   }
   _bindSettings() {
     const s = this.settings, save = () => saveSettings(s);
@@ -758,6 +773,10 @@ class Game {
       // sky, shadows, bloom / colour grade and lamp lights switch now
       this.setQuality(qn);
       $('qNote').textContent = this._qualityNote(qn);
+    };
+    for (const b of document.querySelectorAll('#setAim button')) b.onclick = () => {
+      s.aim = b.dataset.aim; save();
+      for (const o of document.querySelectorAll('#setAim button')) o.classList.toggle('on', o === b);
     };
     for (const b of document.querySelectorAll('#setNav button')) b.onclick = () => {
       s.navGround = b.dataset.nav; save();
@@ -926,10 +945,10 @@ class Game {
     if (this.videoOpen) { if (inp.hit('Escape', 'KeyE')) this.closeVideo(); inp.pressed.clear(); }
     else if (inp.hit('Escape')) { if (hud.bigOpen) this.closeMap(); else if (!this._modalOpen) { document.exitPointerLock?.(); this.pause(); return; } }
     // the phone doesn't stop a vehicle: you can keep driving with it open (W A S D; the arrows, Enter and Space go to the phone)
-    const busy = inDialog || this._sleeping || this.airdrop.cinema || this.speechOn || hud.bigOpen || this.videoOpen || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
+    const busy = inDialog || this._sleeping || this.airdrop.cinema || this.drone.active || this.speechOn || hud.bigOpen || this.videoOpen || this.job.active || this.gate.active || this.race.locked || this.pc.isOpen || this.wardrobe.isOpen || this._modalOpen;
     pl.frozen = busy || this.phone.open;
     const phoneDrive = this.phone.open && !busy && !!pl.vehicle && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || ''); // not while typing a message
-    this.interiors.update(dt, this);
+    this.drone.doors(dt); // interiors.update; while the drone flies, the doors open for it instead of for 彥霖
     // ---- E actions (lift, McDonald's counter, guardhouse seat, computers) ----
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
     if (act && !pl.frozen && inp.hit('KeyE')) { this.audio.interact(); act.fn(this); inp.pressed.delete('KeyE'); }
@@ -1019,10 +1038,11 @@ class Game {
       else hud.setPrompt(null);
     } else hud.setPrompt(null);
 
-    // ---- world sims ----
-    const info = { pos: wp, vehicle: pl.vehicle, extraObstacles: [...this.vehicles.filter(v => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25), ...this.race.vehicles()] };
+    // ---- world sims ---- (around the drone while it flies)
+    const fw = this.drone.flying ? this.drone.pos : wp;
+    const info = { pos: fw, vehicle: pl.vehicle, extraObstacles: [...this.vehicles.filter(v => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25), ...this.race.vehicles()] };
     this.traffic.update(dt, info, this.audio);
-    this.peds.update(dt, { pos: wp, vehicle: pl.vehicle }, w.collision);
+    this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
     this.audio.ambient(dt, { x: wp.x, z: wp.z, yaw: this.rig.yaw, night: this.night, indoor: !pl.vehicle && !!this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y), market: w.nightMarket, crowd: this.speechOn, job: this.job.active, timed: this.missions.timer !== null || this.race.active });
     for (const n of this.npcs) { n.ch.update(dt, { speed: 0, pose: n.pose }); n.mark.position.y = 2.75 + Math.sin(this.time * 3) * 0.08; }
@@ -1065,6 +1085,8 @@ class Game {
     if (this.job.active) this.job.camera(this.camera, dt); // over-the-shoulder shot of the counter
     else if (this.gate.active) this.gate.camera(this.camera, dt); // booth view of the barrier
     if (this.airdrop.cinema) this.airdrop.camera(this.camera, dt); // 呼叫載具 film
+    this.drone.update(dt, inp); this.drone.camera(this.camera, dt); // 🛸 the take-off film / flying
+    this._aim();
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];
     // 🏠 is hidden while mission 5 has you find the place yourself
@@ -1073,13 +1095,14 @@ class Game {
     // side quest: 新中北路側門門禁 (always on the map)
     if (!this.gate.active) for (const gq of Object.values(this.interiors.gates || {})) { const [gx, gz] = gq.k.w(gq.W / 2, gq.D / 2); markers.push({ x: gx, z: gz, icon: '🚧', color: '#ff9f0a' }); }
     const range = pl.vehicle ? 170 : 110;
-    hud.drawMinimap(wp.x, wp.z, this.rig.yaw, pl.worldHeading(), range, markers, this.ballotList);
-    hud.drawBig(wp.x, wp.z, pl.worldHeading(), markers, this.ballotList);
+    const dn = this.drone.flying ? this.drone : null; // the map follows the drone while it flies
+    hud.drawMinimap(fw.x, fw.z, dn ? dn.yaw : this.rig.yaw, dn ? dn.yaw : pl.worldHeading(), dn ? 220 : range, markers, this.ballotList);
+    hud.drawBig(fw.x, fw.z, dn ? dn.yaw : pl.worldHeading(), markers, this.ballotList);
     if ((this._locT = (this._locT || 0) - dt) <= 0) {
       this._locT = 0.5;
       const zn = !pl.vehicle && this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
-      hud.setLocation(zn ? (zn.floorOf ? `${zn.name} ${zn.floorOf(pl.y)}F` : zn.name) : hud.locationName(wp.x, wp.z));
-      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 160 * (this.viewK ?? 1);
+      hud.setLocation(dn ? `🛸 ${hud.locationName(fw.x, fw.z)}` : zn ? (zn.floorOf ? `${zn.name} ${zn.floorOf(pl.y)}F` : zn.name) : hud.locationName(wp.x, wp.z));
+      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - fw.x, v.pos.z - fw.z) < (dn ? 260 : 160) * (this.viewK ?? 1);
     }
     // tip box fades after a while on foot
     if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') { this._tipMode = 'foot'; hud.setTip('🎮 移動', dual('<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · 滑鼠 視角 · <kbd>Shift</kbd> 衝刺 · <kbd>Space</kbd> 跳<br><kbd>F</kbd> 上車 · <kbd>E</kbd> 互動／📱手機 · <kbd>左鍵</kbd> 發傳單 · <kbd>G</kbd> ✌ · <kbd>M</kbd> 地圖 · <kbd>Esc</kbd> 設定',

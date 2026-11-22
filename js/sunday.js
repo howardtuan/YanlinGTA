@@ -1,4 +1,5 @@
-// S.U.N.D.A.Y（名字前面有一個 AI 小圖示）：主線任務進行時，畫面右下角的小助手。按 J（或點她）就會給目前這個任務階段的提示，再按一次看下一則。
+// S.U.N.D.A.Y（名字前面有一個 AI 小圖示）：主線任務進行時，畫面右下角的小助手。按 J（或點她）打開提示，再按一次（或再點她）收起來；
+// 泡泡裡的「‹ 上一則」「下一則 ›」切換提示（打開時也可以按 , 和 . 鍵）。
 // 提示全部是寫好的（不是 AI），依「第幾個任務、任務裡的第幾個目標、對話看完了沒」切換；換到新階段時頭上會冒出「!」。
 // 只在主線進行中出現；自由探索、結局、用電腦／手機／大地圖、打工、站崗、比賽時都會收起來。
 
@@ -82,13 +83,15 @@ export class Sunday {
     this.g = game; this.key = ''; this.i = 0; this.open = false; this.fresh = false;
     const el = this.el = document.createElement('div');
     el.id = 'sunday'; el.className = 'hidden';
-    el.innerHTML = `<div class="sd-bubble hidden"><div class="sd-head">${AI_ICON}<b>${NAME}</b><span class="sd-n"></span><button class="sd-x" title="收起來">✕</button></div>
-      <div class="sd-text"></div><div class="sd-foot"><span class="sd-key">再按 <kbd>J</kbd> 看下一則</span><button class="sd-next">下一則 ›</button></div></div>
-      <button class="sd-btn" title="${NAME} 小助手：按 J 看提示">${AVATAR}<span class="sd-bang">!</span><span class="sd-tag">${AI_ICON}${NAME} <kbd>J</kbd></span></button>`;
+    el.innerHTML = `<div class="sd-bubble hidden"><div class="sd-head">${AI_ICON}<b>${NAME}</b><span class="sd-n"></span></div>
+      <div class="sd-text"></div><div class="sd-foot"><button class="sd-prev">‹ 上一則</button><span class="sd-key"><kbd>,</kbd> <kbd>.</kbd> 切換・<kbd>J</kbd> 收起</span><button class="sd-next">下一則 ›</button></div></div>
+      <button class="sd-btn" title="${NAME} 小助手：按 J 打開／收起提示">${AVATAR}<span class="sd-bang">!</span><span class="sd-tag">${AI_ICON}${NAME} <kbd>J</kbd></span></button>`;
     document.getElementById('hud').appendChild(el);
-    el.querySelector('.sd-btn').onclick = () => this.press();
-    el.querySelector('.sd-next').onclick = () => this.press();
-    el.querySelector('.sd-x').onclick = () => this.close();
+    // the clicks must not reach the game (pointer lock / hand out a flyer)
+    for (const ev of ['pointerdown', 'mousedown', 'touchstart']) el.addEventListener(ev, (e) => e.stopPropagation());
+    el.querySelector('.sd-btn').onclick = (e) => { e.stopPropagation(); this.toggle(); };
+    el.querySelector('.sd-next').onclick = (e) => { e.stopPropagation(); this.step(1); };
+    el.querySelector('.sd-prev').onclick = (e) => { e.stopPropagation(); this.step(-1); };
   }
   // the hints for where the story is right now (empty when Sunday has nothing to say)
   hints() {
@@ -96,11 +99,16 @@ export class Sunday {
     const f = HINTS[M.idx]; return f ? f(M, this.g) : [];
   }
   get stage() { const M = this.g.missions; return `${M.idx}:${M.sub}:${M.talked ? 1 : 0}:${this.g.detective?.solved('banner') ? 1 : 0}`; }
-  // J / click: open on the first hint, then the next one each time (wrapping round)
-  press() {
+  // J / the avatar: one button opens and closes the bubble
+  toggle() {
     const list = this.hints(); if (!list.length) return;
-    if (!this.open) { this.open = true; } else this.i = (this.i + 1) % list.length;
-    this.fresh = false; this.render(list); this.g.audio?.blip?.();
+    this.open = !this.open; this.fresh = false; this.render(list); this.g.audio?.blip?.();
+  }
+  press() { this.toggle(); }
+  // ‹ / › (and the , . keys while open): previous / next hint, wrapping round
+  step(d) {
+    const list = this.hints(); if (!list.length || !this.open) return;
+    this.i = ((this.i + d) % list.length + list.length) % list.length; this.render(list); this.g.audio?.blip?.();
   }
   close() { this.open = false; this.render(this.hints()); }
   render(list) {
@@ -116,13 +124,15 @@ export class Sunday {
   // every frame (main.js): show / hide, new stage -> back to hint 1 with a "!", J key
   update(inp) {
     const g = this.g;
-    const busy = g.state !== 'play' || g.hud.inDialog || g.hud.bigOpen || g.pc?.isOpen || g.phone?.open || g.videoOpen || g.job?.active || g.gate?.active || g.race?.active || g.wardrobe?.isOpen || g.airdrop?.cinema || g.speechOn || g._sleeping;
+    const busy = g.state !== 'play' || g.hud.inDialog || g.hud.bigOpen || g.pc?.isOpen || g.phone?.open || g.videoOpen || g.job?.active || g.gate?.active || g.race?.active || g.wardrobe?.isOpen || g.airdrop?.cinema || g.drone?.active || g.speechOn || g._sleeping;
     const list = busy ? [] : this.hints();
     const show = list.length > 0;
     this.el.classList.toggle('hidden', !show);
     if (!show) return;
     const k = this.stage;
     if (k !== this.key) { this.key = k; this.i = 0; this.open = false; this.fresh = true; this.render(list); }
-    if (inp?.hit('KeyJ')) this.press();
+    if (inp?.hit('KeyJ')) this.toggle();
+    if (this.open && inp?.hit('Comma')) this.step(-1);
+    if (this.open && inp?.hit('Period')) this.step(1);
   }
 }

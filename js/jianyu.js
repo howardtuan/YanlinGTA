@@ -16,6 +16,46 @@ export const JIANYU_LOOK = {
   shirt: '#5d6b8a', shorts: '#2c2f36', pants: true, shoes: '#f2f2ee', build: 1.24, belly: 1, arm: 1.3, jaw: 1.2, face: true,
 };
 const NAME = '劍玉';
+// his 班代 campaign poster (資管四甲 班代候選人), drawn on a canvas in the style of the real one: black and yellow blocks,
+// his slogans and the round photo — the photo is his 3D avatar (assets/gram/jianyu_av.jpg), not a real picture.
+// cb(canvas) is called again once the avatar has loaded.
+export function drawPoster(cb) {
+  const W = 540, H = 760, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'), Y = '#ffbf00', K = '#0d0d0d';
+  const paint = (img) => {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+    // the black slab with the title, yellow bars and dots round it
+    g.fillStyle = Y; g.beginPath(); g.moveTo(400, 40); g.lineTo(460, 60); g.lineTo(400, 230); g.lineTo(340, 210); g.fill();
+    g.fillStyle = K; g.beginPath(); g.moveTo(0, 0); g.lineTo(440, 0); g.lineTo(380, 280); g.lineTo(0, 195); g.fill();
+    g.fillStyle = Y; g.beginPath(); g.arc(520, 15, 34, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(520, 15, 18, 0, 7); g.fill();
+    g.fillStyle = Y; g.beginPath(); g.arc(315, 205, 15, 0, 7); g.fill(); g.beginPath(); g.arc(88, 215, 13, 0, 7); g.fill();
+    g.beginPath(); g.arc(0, 300, 36, -1.6, 1.6); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 300, 18, -1.6, 1.6); g.fill();
+    // the bottom: yellow sweep, a black bar
+    g.fillStyle = Y; g.beginPath(); g.moveTo(0, 520); g.lineTo(540, 620); g.lineTo(540, 760); g.lineTo(0, 760); g.fill();
+    g.fillStyle = '#ff9a00'; g.beginPath(); g.moveTo(0, 545); g.lineTo(300, 600); g.lineTo(300, 612); g.lineTo(0, 560); g.fill();
+    g.fillStyle = K; g.beginPath(); g.moveTo(85, 510); g.lineTo(330, 540); g.lineTo(320, 590); g.lineTo(75, 560); g.fill();
+    g.fillRect(270, 742, 245, 18);
+    g.fillStyle = K; g.beginPath(); g.arc(0, 760, 42, -1.6, 0); g.lineTo(0, 760); g.fill();
+    // the round photo
+    g.save(); g.beginPath(); g.arc(395, 495, 165, 0, 7); g.clip();
+    if (img) { const s = 330 / Math.min(img.width, img.height); g.drawImage(img, 395 - img.width * s / 2, 495 - img.height * s / 2, img.width * s, img.height * s); }
+    else { g.fillStyle = '#5d6b8a'; g.fillRect(230, 330, 330, 330); }
+    g.restore();
+    // words
+    const F = '"Noto Sans TC","Microsoft JhengHei",sans-serif';
+    g.textAlign = 'left'; g.fillStyle = '#fff'; g.font = `700 34px ${F}`; g.fillText('資管四甲 班代候選人', 40, 82);
+    g.fillStyle = Y; g.font = `900 58px ${F}`; g.fillText('劍玉', 44, 150);
+    g.fillStyle = K; g.font = `700 22px ${F}`; g.fillText('資管系的驕傲', 52, 308);
+    g.font = `400 15px ${F}`; ['APEX 全系第一', '言論素質全系第一', '唯一能取代彥霖的男人', '資管三甲班代'].forEach((t, i) => g.fillText(t, 52, 338 + i * 24));
+    g.font = `700 22px ${F}`; g.fillText('人人皆知的稱號', 52, 448);
+    g.font = `400 17px ${F}`; ['基隆航海王', '毒瘤監獄'].forEach((t, i) => g.fillText(t, 52, 478 + i * 26));
+    g.font = `800 19px ${F}`; g.fillText('CONTACT US', 52, 662); g.font = `700 14px ${F}`; g.fillText('CYCU IM', 52, 684);
+    cb(cv);
+  };
+  paint(null);
+  const img = new Image(); img.onload = () => paint(img); img.src = 'assets/gram/jianyu_av.jpg';
+}
+
 const M = (h, m = 0) => h * 60 + m;
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 // his three cars in the lot west of the 資管系館 (anchor; the free spots are searched round it). The Lamborghini is his
@@ -57,7 +97,9 @@ export class Jianyu {
   // ---------------- room 278: his bed (3) and his desk under it, laptop and the empty envelope ----------------
   _room() {
     const L = this.g.interiors.lixing, R = L?.rooms?.[278]; if (!R) { console.warn('[jianyu] 力行 278 寢找不到'); return; }
-    const { k, B, W } = L, desk = R.desks.find(d => d.bed === 3), bed = R.beds[3];
+    const { k, B, W } = L, bed = R.beds[3];
+    // the desk right under his loft bed (two desks reach under it: take the one whose middle is nearest the bed's)
+    const desk = R.desks.filter(d => d.bed === 3).sort((a, b) => Math.hypot(a.x - bed.x, a.z - bed.z) - Math.hypot(b.x - bed.x, b.z - bed.z))[0];
     const world = (lx, lz, ly) => { const [x, z] = W(lx, lz); return { x, z, y: B + ly }; };
     this.home = {
       bed: { ...world(bed.x, bed.z, bed.y + 0.12), h: k.heading(0) },
@@ -80,7 +122,18 @@ export class Jianyu {
     lid.position.set(0, 0.115, 0); scr.position.set(0, 0.115, 0.007); hinge.add(lid, scr); hinge.rotation.x = -0.25;
     const env = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.004, 0.2), new THREE.MeshStandardMaterial({ color: '#f3efe6', roughness: 0.9 }));
     at(env, -s * 0.12, -0.25, 0.004); env.rotation.y += 0.3;
+    // his 班代 poster, on the end of the wardrobe under his loft bed, facing the door (you see it as you come in, on the right)
+    const sx = Math.sign(R.center[0] - bed.x) || 1, zA = bed.z - 1.0; // sx: from his wall towards the aisle; zA: the door end of his loft bed
+    const ptex = new THREE.CanvasTexture(document.createElement('canvas')); ptex.colorSpace = THREE.SRGBColorSpace;
+    drawPoster((cv) => { ptex.image = cv; ptex.needsUpdate = true; this._posterUrl = cv.toDataURL('image/jpeg', 0.9); });
+    const poster = new THREE.Mesh(new THREE.PlaneGeometry(0.43, 0.6), new THREE.MeshStandardMaterial({ map: ptex, roughness: 0.75 }));
+    const pp = world(bed.x + sx * (0.3 - 0.475), zA - 0.006, R.y + 1.2); poster.position.set(pp.x, pp.y, pp.z); poster.rotation.y = k.heading(Math.PI);
+    grp.add(poster); this.poster = poster;
     this.g.scene.add(grp);
+    this.g.interiors.actions.push({
+      x: pp.x, z: pp.z, y: R.y + B - 0.2, r: 1.0, label: () => '按 <kbd>E</kbd> 看劍玉的班代海報',
+      fn: () => this.g.modal('劍玉的班代競選海報', `<img src="${this._posterUrl || ''}" alt="" style="display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:6px">`, '資管四甲'),
+    });
     // his desk: the envelope, the card-locked door and his laptop (the 班費 case)
     const D = this.home.desk;
     this.g.interiors.actions.push({

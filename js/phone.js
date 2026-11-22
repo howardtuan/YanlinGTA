@@ -247,6 +247,26 @@ export class Phone {
   }
   _dateStr() { const d = new Date(); return `${d.getMonth() + 1}月${d.getDate()}日 星期${'日一二三四五六'[d.getDay()]}`; }
   _temp() { return Math.round(this.g.night > 0.5 ? 19 : 24 + Math.sin((this.g.clock % 1440) / 1440 * Math.PI) * 3); }
+  // ---------------- 🛸 無人機 (js/drone.js) ----------------
+  // the app only shows the drone; the take-off waits for the button (and the phone never comes back with the drone
+  // already flying: putting the phone away from here forgets this app)
+  _drone() {
+    const g = this.g, D = g.drone, busy = D.active, pl = g.player;
+    const why = busy ? '飛行中' : pl.vehicle ? '先下車才能起飛' : '已配對 · 電量 100%';
+    const c = this._frame('無人機', `<div class="ph-garage">
+        <div class="ph-gcard"><span>🛸</span><div><b>彥霖的無人機</b><small>${why}</small></div></div>
+        <button class="ph-gbtn ph-dbtn" ${busy || pl.vehicle ? 'disabled' : ''}>🥽 戴上 VR 眼鏡・連線並起飛</button>
+        <div class="ph-note">無人機會從你頭上起飛，用第一人稱視角自由飛行，最高時速 100 km/h。<br>W A S D 移動、滑鼠轉向、Space 上升、Shift／C 下降、F 結束飛行。</div>
+      </div>`);
+    c.querySelector('.ph-dbtn').onclick = () => {
+      const err = D.start();
+      if (err) { g.hud.toast(err, 'bad', 2400); return; }
+      this.app = null; this._last = null;
+      if (this.open) { this.close(); this._last = null; }
+      g.lockPointer?.();
+      g.hud.toast('🛸 正在連線到無人機……', 'good', 1800);
+    };
+  }
   // ---------------- 呼叫載具 ----------------
   _garage() {
     const g = this.g, v = g.myScooter, p = g.player.worldPos();
@@ -331,13 +351,7 @@ export class Phone {
     if (id === 'stock') return this._stock();
     if (id === 'news') return this._news();
     if (id === 'locate') return this._locate();
-    if (id === 'drone') { // connect and take off straight away (the phone goes away for the film)
-      const err = g.drone.start(); this.app = null;
-      if (err) { g.hud.toast(err, 'bad', 2400); this.home(); return; }
-      if (this.open) this.close();
-      g.lockPointer?.();
-      g.hud.toast('🛸 正在連線到無人機……', 'good', 1800); return;
-    }
+    if (id === 'drone') return this._drone();
     if (id === 'tix') return g.concerts.app(this);
     if (id === 'map') { this.close(); this._last = null; g.openMap('phone'); return; } // closing the map brings back the home screen
     if (id === 'camera') return this._camera();

@@ -33,7 +33,7 @@
 // 次數因此不變；名稱、look、parts 都在 map.js 的共用抽取之後才用到（行政大樓新名稱在 STYLE_BY_NAME 也是 white）。
 import * as THREE from 'three';
 import { mergeGeometries } from '../vendor/BufferGeometryUtils.js';
-import { groundY, Hgrid } from './terrain.js';
+import { groundY, Hgrid, addPit } from './terrain.js';
 
 export const A_IDS = { adm: 'w392023425', hue: 'w229238548', lib: 'w392023426', sci: 'w392023392' };
 export const ADM_NAME = '行政大樓（含校史館）';
@@ -65,9 +65,14 @@ const LIBP = {
   walk: { y: 0.25, pts: [[-164.4, 9.6], [-162.45, 9.6], [-162.76, 10.65], [-165.83, 21.3], [-166.0, 21.3], [-166.0, 15.5], [-164.4, 15.5]] },
   planters: [[-182.1, -180.5], [-173.5, -171.9]],
   rise: 1.5,
+  // 平台東邊的下沉庭院（2019-07 街景 P5 四向、使用者 2025 相片）：樹林地面比東邊草地低約 1 m、比平台低約 2.5 m，
+  // 圖書館一樓的黑框玻璃雙開門開在平台東側磚牆上（朝東、上方是建物出挑的天花），南面一樓是格柵窗；
+  // 坡道從庭院往東爬到草地（兩側不鏽鋼扶手），庭院東緣草地邊是一道刻白字的磚紅色斜頂矮牆。
+  // 坑（js/terrain.js addPit）只能是方塊：A 塊貼建物南面、B 塊在平台斜邊與南邊步道之間（平台底下那部分被 pad 蓋住）
+  court: { A: [-173.2, -10.2, -153.0, -0.9], B: [-173.2, -0.9, -158.5, 9.6], drop: 1.0, ramp: { z: 1.5, x0: -166.5, w: 1.7 }, door: { z0: -9.4, z1: -5.6 } },
   sky: { c: [-179.4, 5.6], r: 4.4, rot: 0.26 }, // 中央四片三角玻璃天窗
 };
-let libPadY = null, libMidY = null;
+let libPadY = null, libMidY = null, courtY = null;
 // js/map.js 種完樹之後才把平台上的樹、棕櫚、灌木藏起來（opts.treeHide，種樹位置與共用亂數抽取次數不變；樹的碰撞一起拿掉）
 export const zoneATreeHide = () => [LIBP.pts, LIBP.walk.pts, [[LIBP.main.x0, LIBP.main.zT], [LIBP.main.x1, LIBP.main.zT], [LIBP.main.x1, LIBP.main.zB], [LIBP.main.x0, LIBP.main.zB]]];
 export function zoneATerrain(data) {
@@ -83,6 +88,11 @@ export function zoneATerrain(data) {
   L.stairs.push({ id: 'lib_south_stair_lo', site, a: [xc, M.zB], b: [xc, M.zL1], w, y0: 'ground', y1: libMidY, steps: M.steps, wall: 'granite', rail: 'none' });
   L.pads.push({ id: 'lib_south_landing', y: libMidY, top: '#b9b6ae', wall: 'granite', site, pts: [[M.x0, M.zL0], [M.x1, M.zL0], [M.x1, M.zL1], [M.x0, M.zL1]] });
   L.stairs.push({ id: 'lib_south_stair_hi', site, a: [xc, M.zL0], b: [xc, M.zT], w, y0: libMidY, y1: libPadY, steps: M.steps, wall: 'granite', rail: 'none' });
+  // 下沉庭院：地面比東側草地低 drop；坡道往東爬回草地
+  const C = LIBP.court;
+  courtY = +(Hgrid(C.A[2] + 0.5, -5) - C.drop).toFixed(2);
+  addPit(...C.A, courtY, { veg: true }); addPit(...C.B, courtY, { veg: true }); // 庭院本來就是樹林：原本種的樹留著，跟著坑底降下去
+  L.stairs.push({ id: 'lib_court_ramp', site: '張靜愚紀念圖書館東側下沉庭院', a: [C.ramp.x0, C.ramp.z], b: [C.B[2] + 0.1, C.ramp.z], w: C.ramp.w, y0: courtY, y1: 'ground', steps: 0, rail: 'sides', railColour: '#c9ccce', wall: 'brick' });
   const E = LIBP.east;
   L.pads.push({ id: 'lib_east_walk', y: LIBP.walk.y, top: '#c8c4bc', wall: 'granite', site, pts: LIBP.walk.pts.map(p => p.slice()) });
   L.stairs.push({ id: 'lib_east_stair', site, a: E.a.slice(), b: E.b.slice(), w: E.w, y0: LIBP.walk.y, y1: libPadY, steps: E.steps, wall: 'granite', rail: 'none' });
@@ -253,6 +263,14 @@ const valeTex = () => textTex('aVale', 1024, 192, (g, W, H) => {
   g.font = '600 52px "Times New Roman",serif'; g.fillText('Vale of Springs', 500, H * 0.48);
 });
 
+// 庭院東緣磚紅矮牆上的白色刻字：幾行長短不一的直書小字（相片上看不清內容，只做字跡的樣子，不寫成真的文字）
+const engraveTex = () => ctex('aEngrave', 512, 128, (g, W, H) => {
+  g.clearRect(0, 0, W, H);
+  const r = lcg(131); g.fillStyle = 'rgba(240,236,226,0.9)';
+  const cols = [[30, 0.55], [52, 0.7], [74, 0.4], [96, 0.75], [118, 0.6], [200, 0.8], [222, 0.85], [244, 0.65], [266, 0.9], [288, 0.5], [310, 0.8], [332, 0.6], [440, 0.45]];
+  for (const [x, f] of cols) for (let y = 14; y < 14 + (H - 28) * f; y += 9) { g.fillRect(x + r() * 2, y, 7 + r() * 3, 3 + r() * 4); }
+}, false);
+
 // ---------------- 材質 ----------------
 const MATS = {}, glowMats = [];
 function mat(key) {
@@ -296,6 +314,10 @@ function mat(key) {
     steel: () => std({ color: '#c9ccce', roughness: 0.25, metalness: 0.85 }),
     planter: () => std({ map: concTex(), roughness: 0.95 }),
     lantana: () => std({ map: lantanaTex(), roughness: 1, flatShading: true }),
+    redWall: () => std({ color: '#a2463c', roughness: 0.8, side: THREE.DoubleSide }),
+    courtBrick: () => std({ map: brickTex(), roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+    bark: () => std({ color: '#5b4a3c', roughness: 1 }),
+    canopy: () => std({ color: '#4d7034', roughness: 1, flatShading: true }),
     rail: () => std({ color: '#8b8378', roughness: 0.95, side: THREE.DoubleSide }), // 平台與階梯欄牆的混凝土壓頂、短柱、粗扶手（2019-07 街景 R4）
   }[key];
   return (MATS[key] = m());
@@ -563,6 +585,111 @@ export function buildZoneA(I, scene, data) {
         for (let i = 0; i < pts.length; i += 3) tube('steel', [rx, pts[i][1] - 0.9, pts[i][2]], pts[i], 0.022);
         tube('steel', [rx, pts[0][1] - 0.9, pts[0][2] + 0.35], [rx, pts[0][1], pts[0][2] + 0.35], 0.022);
         tube('steel', [rx, pts[0][1], pts[0][2] + 0.35], pts[0], 0.025);
+      }
+      // ---- 平台東邊的下沉庭院（坑在 zoneATerrain 挖；地面網格在坑上方被遮掉，這裡畫地面、擋土牆與構件） ----
+      if (courtY !== null) {
+        const C = LIBP.court, yC = courtY, [ax0, az0, ax1, az1] = C.A, [bx0, bz0, bx1, bz1] = C.B;
+        const top = (x, z) => Hgrid(x, z);
+        // 地面：樹下青苔草地，靠門口一片紅磚鋪面（P5 h180、h270）
+        k.flat('grass', [[ax0, az0], [ax1, az0], [ax1, az1], [bx1, bz0], [bx1, bz1], [bx0, bz1]], yC + 0.02);
+        k.flat('courtBrick', [[ax0, az0 + 0.6], [ax0 + 7.5, az0 + 0.6], [ax0 + 7.5, -3.6], [ax0, -3.6]], yC + 0.04, false, 1.6);
+        k.flat('courtBrick', [[ax0 + 4.0, -3.6], [ax0 + 7.5, -3.6], [C.ramp.x0, C.ramp.z - 0.85], [C.ramp.x0 - 2.0, C.ramp.z + 0.85]], yC + 0.04, false, 1.6);
+        // 擋土牆：東緣（A 塊東邊）、A 塊南緣、B 塊東緣（坡道處留口）、B 塊南緣（南邊步道 pad 那段 map.js 已畫），牆頂高出草地 0.1 m
+        const ret = (a, c, m = 'terraceBrick', over = 0.1, coll = true) => {
+          const e = edge(a, c), n = Math.max(2, Math.ceil(e.l / 1.0));
+          for (let i = 0; i < n; i++) {
+            const p = along(a, e, e.l * i / n, 0), q = along(a, e, e.l * (i + 1) / n, 0), yt = Math.max(top(...p), top(...q)) + over;
+            k.quad(m, [p[0], yC - 0.1, p[1]], [q[0], yC - 0.1, q[1]], [q[0], yt, q[1]], [p[0], yt, p[1]], [[0, 0], [e.l / n / 1.6, 0], [e.l / n / 1.6, (yt - yC) / 1.6], [0, (yt - yC) / 1.6]]);
+          }
+          if (coll) wallC(a[0], a[1], c[0], c[1], yC - 0.1, Math.max(top(...a), top(...c)) + 1.2);
+        };
+        const rz0 = C.ramp.z - C.ramp.w / 2 - 0.15, rz1 = C.ramp.z + C.ramp.w / 2 + 0.15;
+        ret([ax1, az1], [bx1, az1]);
+        ret([bx1, az1], [bx1, rz0]); ret([bx1, rz1], [bx1, bz1]);
+        ret([bx1, bz1], [-164.4, bz1]);
+        // 南緣、B 塊東緣牆頂的不鏽鋼欄杆（坡道口除外）
+        for (const [a, c] of [[[ax1, az1], [bx1, az1]], [[bx1, az1], [bx1, rz0]], [[bx1, rz1], [bx1, bz1]]]) {
+          const e = edge(a, c), n = Math.max(2, Math.round(e.l / 1.6)), P = [];
+          for (let i = 0; i <= n; i++) { const q = along(a, e, e.l * i / n, -0.12); P.push([q[0], top(...q) + 0.1, q[1]]); }
+          for (let i = 0; i < n; i++) tube('steel', [P[i][0], P[i][1] + 0.9, P[i][2]], [P[i + 1][0], P[i + 1][1] + 0.9, P[i + 1][2]], 0.025);
+          for (const q of P) tube('steel', q, [q[0], q[1] + 0.9, q[2]], 0.022);
+        }
+        // 東緣：磚紅色斜頂矮牆（北高南低）＋白色刻字，北端接一段混凝土矮台（使用者相片）
+        { const a = [ax1, az0], c = [ax1, az1], e = edge(a, c), n = 12, h0 = 1.0, h1 = 0.35;
+          for (let i = 0; i < n; i++) {
+            const t0 = i / n, t1 = (i + 1) / n, p = along(a, e, e.l * t0, 0), q = along(a, e, e.l * t1, 0);
+            const y0 = top(...p) + h0 + (h1 - h0) * t0, y1 = top(...q) + h0 + (h1 - h0) * t1;
+            k.quad('redWall', [p[0] + 0.12, yC - 0.1, p[1]], [q[0] + 0.12, yC - 0.1, q[1]], [q[0] + 0.12, y1, q[1]], [p[0] + 0.12, y0, p[1]]);
+            k.quad('redWall', [p[0] - 0.12, yC - 0.1, p[1]], [q[0] - 0.12, yC - 0.1, q[1]], [q[0] - 0.12, y1, q[1]], [p[0] - 0.12, y0, p[1]]);
+            k.quad('redWall', [p[0] - 0.12, y0, p[1]], [q[0] - 0.12, y1, q[1]], [q[0] + 0.12, y1, q[1]], [p[0] + 0.12, y0, p[1]]);
+          }
+          k.quad('redWall', [ax1 - 0.12, yC - 0.1, az1], [ax1 + 0.12, yC - 0.1, az1], [ax1 + 0.12, top(ax1, az1) + h1, az1], [ax1 - 0.12, top(ax1, az1) + h1, az1]);
+          wallC(ax1, az0, ax1, az1, yC - 0.1, top(ax1, (az0 + az1) / 2) + 1.2);
+          // 刻字在朝東（草地）那面，偏南段
+          const zc = az0 + (az1 - az0) * 0.6, yt = top(ax1, zc) + h0 + (h1 - h0) * 0.6;
+          sign(group, engraveTex(), 3.6, 0.9, ax1 + 0.14, yt - 0.5, zc, 1, 0, 0.05, 0.05);
+          k.box('planter', ax1 + 0.15, ax1 + 1.1, top(ax1 + 0.6, az0 + 1.2) - 0.2, top(ax1 + 0.6, az0 + 1.2) + 0.4, az0 + 0.3, az0 + 2.3);
+          shapes.push({ name: 'libCourtRedWall', pts: [[ax1 - 0.12, az0], [ax1 + 0.12, az0], [ax1 + 0.12, az1], [ax1 - 0.12, az1]], y0: yC, y1: top(ax1, az0) + h0 });
+        }
+        // 建物南面一樓：坑把地面降低了，牆腳補磚、一樓格柵窗往下延伸到庭院地面（P5 h000）
+        { const zf = az0 + 0.04, gB = top(ax0 + 1, az0 - 0.5);
+          k.wall('terraceBrick', ax0, zf, ax1, zf, yC - 0.1, gB + 0.2, 1.6, 1.6);
+          for (let x = ax0 + 8.5; x < ax1 - 1; x += 3.6) { k.box('slot', x, x + 2.8, yC + 0.5, gB + 2.6, zf - 0.02, zf + 0.03); for (let j = 1; j < 4; j++) k.box('frame', x + j * 0.7 - 0.03, x + j * 0.7 + 0.03, yC + 0.5, gB + 2.6, zf + 0.03, zf + 0.06); }
+        }
+        // 一樓入口：平台東側磚牆上的黑框玻璃雙開門＋上方氣窗（朝東，P5 h270），門前天花是建物出挑
+        { const x = ax0 + 0.08, { z0, z1 } = C.door, yD = yC + 2.5, yT = yC + 3.2;
+          k.wall('glass1f', x, z1, x, z0, yC, yT, 1.9, 3.2);
+          for (const z of [z0, (z0 + z1) / 2 - 0.9, (z0 + z1) / 2, (z0 + z1) / 2 + 0.9, z1]) k.box('slot', x, x + 0.1, yC, yT, z - 0.05, z + 0.05);
+          k.box('slot', x, x + 0.1, yD - 0.05, yD + 0.05, z0, z1);
+          for (const z of [(z0 + z1) / 2 - 0.25, (z0 + z1) / 2 + 0.25]) tube('steel', [x + 0.16, yC + 0.85, z], [x + 0.16, yC + 1.55, z], 0.02);
+          k.box('darkBox', x + 0.02, x + 1.8, yC + 0.01, yC + 0.03, z0 + 0.2, z1 - 0.2); // 腳踏墊
+          k.box('conc', x, x + 2.6, yT + 0.1, yT + 0.4, az0, z1 + 0.6); // 門口上方的混凝土天花
+          wallC(x, z0, x, z1, yC, yT);
+        }
+        // 庭院裡的大樹（P5 相片：整片樹林；這塊原本沒有種到樹，補幾棵，只加細的樹幹碰撞）
+        for (const [x, z, h, r] of [[-167.5, -6.5, 8.5, 3.6], [-160.5, -7.5, 9.5, 4.0], [-156.0, -3.2, 8.0, 3.4], [-164.5, -2.6, 9.0, 3.8], [-162.0, 5.5, 8.5, 3.4]]) {
+          k.cyl('bark', x, z, 0.22, yC, yC + h * 0.62, 8);
+          const g1 = new THREE.DodecahedronGeometry(r, 1); g1.scale(1.0, 0.45, 1.0); g1.translate(x, yC + h * 0.78, z); k.add('canopy', g1);
+          const g2 = new THREE.DodecahedronGeometry(r * 0.6, 0); g2.scale(1.0, 0.5, 1.0); g2.translate(x + r * 0.3, yC + h * 0.95, z - r * 0.2); k.add('canopy', g2);
+          boxColl([[x - 0.25, z - 0.25], [x + 0.25, z - 0.25], [x + 0.25, z + 0.25], [x - 0.25, z + 0.25]], yC, yC + 3);
+        }
+        // 南面二樓陽台（2019-07 街景 P5 h000、h090）：一樓窗戶上方沿南面一整條、約 2.4 m 深，褐灰磚欄牆＋混凝土壓頂
+        // 與短柱扶手，上方是 3F 出挑；東端接東面室外樓梯的頂，中段南牆一樘黑框玻璃門進館。只做外觀（不能走上去）
+        { const y2 = B + fl, xw = ax0, xe = -149.9, zN = az0, zS = az0 + 2.4;
+          k.box('conc', xw, xe, y2 - 0.35, y2, zN, zS); // 樓板
+          const par = (a, c) => { const e = edge(a, c);
+            strip('terraceBrick', a, e, 0, e.l, -0.25, 0, y2, y2 + 0.55, 1.6);
+            strip('rail', a, e, -0.03, e.l + 0.03, -0.29, 0.03, y2 + 0.55, y2 + 0.68);
+            const n = Math.max(1, Math.round(e.l / 2.4));
+            for (let i = 0; i <= n; i++) { const s2 = Math.min(Math.max(e.l * i / n, 0.13), e.l - 0.13); strip('rail', a, e, s2 - 0.13, s2 + 0.13, -0.24, -0.02, y2 + 0.68, y2 + 0.95); }
+            strip('rail', a, e, -0.03, e.l + 0.03, -0.27, 0.01, y2 + 0.95, y2 + 1.12);
+            wallC(a[0], a[1], c[0], c[1], y2 - 0.35, y2 + 1.12);
+          };
+          // 輪廓逆時針（朝外法線在右手）：南緣由東往西、西端由南往北；東端只封樓梯頂以南那段
+          par([xe, zS], [xw, zS]); par([xw, zS], [xw, zN]); par([xe, zN + 1.1], [xe, zS]);
+          k.quad('terraceBrick', [xw, y2 - 0.35, zS + 0.04], [xe, y2 - 0.35, zS + 0.04], [xe, y2, zS + 0.04], [xw, y2, zS + 0.04]);
+          // 進館門：黑框玻璃雙開門＋氣窗（朝南）
+          const dx0 = -160.2, dx1 = -157.6, zf = zN + 0.03, yD = y2 + 2.5;
+          k.wall('glass1f', dx0, zf, dx1, zf, y2, y2 + 3.0, 2.6, 3.0);
+          for (const x of [dx0, (dx0 + dx1) / 2, dx1]) k.box('slot', x - 0.05, x + 0.05, y2, y2 + 3.0, zf, zf + 0.1);
+          k.box('slot', dx0, dx1, yD - 0.05, yD + 0.05, zf, zf + 0.1);
+          for (const x of [(dx0 + dx1) / 2 - 0.22, (dx0 + dx1) / 2 + 0.22]) tube('steel', [x, y2 + 0.85, zf + 0.15], [x, y2 + 1.55, zf + 0.15], 0.02);
+          shapes.push({ name: 'libBalcony2F', pts: [[xw, zN], [xe, zN], [xe, zS], [xw, zS]], y0: y2 - 0.35, y1: y2 + 1.12 });
+        }
+        // 圖書館東面的室外樓梯（2019-07 街景 Q5 h200、h270）：貼著東牆由北往南爬到二樓陽台，外側磚牆、斜混凝土扶牆，
+        // 踏階紅褐色磁磚；樓梯底下就是一樓。只做外觀（實心，有碰撞）
+        { const xa = -151.75, xb = -149.9, zB = -22.0, zT = -11.4, n = 20, gS = top((xa + xb) / 2, zB - 0.5), yTop = B + fl; // 頂端接南面二樓陽台
+          for (let i = 0; i < n; i++) { const z0 = zB + (zT - zB) * i / n, z1 = zB + (zT - zB) * (i + 1) / n, y = gS + (yTop - gS) * (i + 1) / n; k.box('step', xa, xb - 0.25, y - 0.16, y, z0, z1); k.box('redWall', xa, xb - 0.25, y - 0.02, y + 0.01, z0, z0 + 0.06); }
+          k.box('step', xa, xb - 0.25, yTop - 0.2, yTop, zT, zT + 1.2); // 頂端平台
+          // 外側磚牆：底邊沿地面、頂邊沿踏階斜線＋扶牆
+          k.quad('terraceBrick', [xb, gS - 0.2, zB], [xb, gS - 0.2, zT + 1.2], [xb, yTop + 0.9, zT + 1.2], [xb, gS + 0.9, zB], [[0, 0], [(zT + 1.2 - zB) / 1.6, 0], [(zT + 1.2 - zB) / 1.6, (yTop + 1.1 - gS) / 1.6], [0, 1.1 / 1.6]]);
+          k.quad('terraceBrick', [xb - 0.25, gS - 0.2, zB], [xb - 0.25, gS - 0.2, zT + 1.2], [xb - 0.25, yTop + 0.9, zT + 1.2], [xb - 0.25, gS + 0.9, zB]);
+          k.quad('rail', [xb - 0.3, gS + 0.9, zB - 0.05], [xb + 0.05, gS + 0.9, zB - 0.05], [xb + 0.05, yTop + 0.9, zT + 1.2], [xb - 0.3, yTop + 0.9, zT + 1.2]);
+          k.quad('terraceBrick', [xb - 0.25, gS - 0.2, zB], [xb, gS - 0.2, zB], [xb, gS + 0.9, zB], [xb - 0.25, gS + 0.9, zB]);
+          boxColl([[xa, zB], [xb, zB], [xb, zT + 1.2], [xa, zT + 1.2]], gS - 0.2, yTop + 0.9);
+          shapes.push({ name: 'libEastStair', pts: [[xa, zB], [xb, zB], [xb, zT + 1.2], [xa, zT + 1.2]], y0: gS, y1: yTop + 0.9 });
+        }
+        shapes.push({ name: 'libCourt', pts: [[ax0, az0], [ax1, az0], [ax1, az1], [bx1, az1], [bx1, bz1], [bx0, bz1]], y0: yC, y1: yC });
       }
       // 大門：雙塔東側，黑框玻璃門與兩層高玻璃，前面斜面玻璃雨遮，兩根兩層高混凝土圓柱撐館名橫樑（2020-10 相片）
       const xa = -194.6, xb = -184.2;

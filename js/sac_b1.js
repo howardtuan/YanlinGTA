@@ -1,11 +1,12 @@
-// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，樓上沒有做）、南邊學習區，
+// 學生活動中心 B1 西半（使用者給的 B1 平面圖）：北邊樓梯廳（圓形旋轉梯，往上走到一樓、再到二樓為止，樓上的室內在 js/sac.js）、南邊學習區，
 // 學習區西南角往南凸出到廣場底下的學餐攤販（上面還是廣場，js/zone_g.js 放了一塊甲板），
 // 入口在攤販東邊、麥當勞玻璃房西邊（從下沉區的西段樓梯下來），往東直接通到麥當勞的點餐大廳（js/interiors.js buildMcD）。
 // 地板是 js/zone_g.js 的坑（PIT.west / PIT.stall），天花在坑底上 2.8 m（= 學活外牆的牆腳），把學活空心的內部擋住。
 // 學活的碰撞輪廓在 js/zone_g.js 換成挖掉這塊的版本（蓋完地圖之後才換，共用亂數不變）。
 // Local frame: origin at (-152, -114), x east, z south (Kit angle 0).
 import * as THREE from 'three';
-import { H } from './terrain.js';
+import { H, Hgrid } from './terrain.js';
+import { FORE, STAIR2F } from './zone_g.js';
 
 export const SAC_B1 = { ox: -152, oz: -114, W: 16, D: 19.58, stallW: 9.3, stallD: 24.5, H: 2.8 }; // stallD stays 5 cm inside PIT.stall: a wall on the pit edge would count from the plaza (H() there)
 
@@ -28,7 +29,7 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
     chair: std({ color: '#2f5d8a', roughness: 0.6 }, 0.12), shelf: std({ map: books, roughness: 0.7 }, 0.15), shelfWood: std({ color: '#6b4a2e', roughness: 0.6 }, 0.1),
     stair: std({ color: '#d8d3c8', roughness: 0.6 }, 0.2), rail: std({ color: '#3a3d40', metalness: 0.6, roughness: 0.4 }),
     counter: std({ color: '#d9d6cf', roughness: 0.4 }, 0.2), stallBack: std({ color: '#d7cbb5' }, 0.25), stove: std({ color: '#b6bbc0', metalness: 0.5, roughness: 0.35 }, 0.1),
-    dark: std({ color: '#2a2b2d', roughness: 0.6 }), shaft: new THREE.MeshStandardMaterial({ color: '#1a1a1c', roughness: 1, side: THREE.BackSide }),
+    dark: std({ color: '#2a2b2d', roughness: 0.6 }), shaft: new THREE.MeshStandardMaterial({ color: '#e9e6de', emissive: '#e9e6de', emissiveIntensity: 0.3, roughness: 1, side: THREE.BackSide }),
   };
   const MT = Object.fromEntries(Object.entries(MO).map(([n, m]) => [n, regMat('sb1' + n, m)]));
   const nc = { col: false };
@@ -50,8 +51,8 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   // ceiling 2.8 m up (the 活動中心's outer wall starts there), a square hole over the spiral stair
   const SX = 6, SZ = 5, SR = 1.7, hx0 = SX - SR - 0.2, hx1 = SX + SR + 0.2, hz0 = SZ - SR - 0.2, hz1 = SZ + SR + 0.2;
   for (const [x0, x1, z0, z1] of [[0, W, 0, hz0], [0, W, hz1, D + 0.35], [0, hx0, hz0, hz1], [hx1, W, hz0, hz1], [0, SW, D + 0.35, SD]]) k.box(x0, x1, Hc, Hc + 0.12, z0, z1, MT.ceil, { ...nc, tile: [0.6, 0.6] });
-  // the shaft over the stair (dark: the floors above are not built) and a beam over the entrance
-  k.box(hx0, hx1, Hc, Hc + 3.4, hz0, hz1, MT.shaft, nc);
+  // the well over the stair, up to the 1F floor (js/sac.js), and a beam over the entrance
+  k.box(hx0, hx1, Hc, Hgrid(-153, -86) + FORE.rise - k.base - 0.02, hz0, hz1, MT.shaft, nc);
   k.box(SW, W, Hc - 0.35, Hc + 0.4, D - 0.1, D + 0.35, MT.wall, nc);
   // the sign on that beam (street view 2017): a blue 影印部 board; 麥當勞 is inside to the right
   const gate = tex(1024, 112, (g, w, h) => {
@@ -64,18 +65,53 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   for (let x = 2; x < W - 0.5; x += 3) for (let z = 1.5; z < D; z += 3) { if (Math.abs(x - SX) < 2.6 && Math.abs(z - SZ) < 2.6) continue; k.box(x - 0.6, x + 0.6, Hc - 0.02, Hc, z - 0.12, z + 0.12, MT.light, nc); }
   for (let x = 1.6; x < SW - 0.5; x += 2.6) k.box(x - 0.5, x + 0.5, Hc - 0.02, Hc, 21.0, 21.24, MT.light, nc);
 
-  // ---------------- stair hall: round spiral stair (decor; its drum blocks you) ----------------
-  k.cyl(SX, SZ, 0.12, 0, Hc + 3.2, MT.rail, { seg: 12 });
-  const steps = 18, rise = (Hc + 3.2) / steps;
-  for (let i = 0; i < steps; i++) {
-    const a = i * Math.PI * 2 / 12, g = new THREE.BoxGeometry(SR - 0.15, 0.06, 0.62).translate((SR - 0.15) / 2 + 0.12, 0, 0);
-    g.rotateY(-a); g.translate(SX, (i + 1) * rise, SZ); k._part(MT.stair, g);
-    const px = SX + Math.cos(a) * (SR - 0.05), pz = SZ + Math.sin(a) * (SR - 0.05);
-    k._part(MT.rail, new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6).translate(px, (i + 1) * rise + 0.47, pz));
+  // ---------------- stair hall: round spiral stair, walkable up to 1F (js/sac.js builds the floor and the rail round the well) ----------------
+  // 18 wedges of 30 degrees, one and a half turns anticlockwise (seen from above, x east / z south): in from the south at B1,
+  // out to the north at 1F. Each wedge is a walkable surface; the drum (chords at the rail), the newel and two radial stops
+  // (under the flight at the bottom, past the last step at the top) are collision lines with height bands.
+  const TOP1F = SAC_B1.f1 = Hgrid(-153, -86) + FORE.rise - k.base, NS = 18, A0 = Math.PI / 2, DA = Math.PI / 6, rise = (TOP1F - 0.1) / NS;
+  const pol = (a, r) => [SX + Math.cos(a) * r, SZ + Math.sin(a) * r];
+  const TOP2F = Hgrid(STAIR2F.x, STAIR2F.zTop - 1) + STAIR2F.rise - k.base; // the stair goes on up to 2F and ends there (js/sac.js builds the floor round it)
+  k.cyl(SX, SZ, 0.12, 0, TOP2F + 1.0, MT.rail, { seg: 12 });
+  k.wallRect(SX - 0.2, SX + 0.2, SZ - 0.2, SZ + 0.2, 0, TOP2F + 1.2);
+  for (let i = 0; i < NS; i++) {
+    const a1 = A0 + i * DA, a2 = a1 + DA, y = 0.1 + (i + 1) * rise, ro = i === NS - 1 ? 2.3 : SR;
+    const g = new THREE.CylinderGeometry(SR, SR, 0.07, 5, 1, false, Math.PI / 2 - a2, DA); g.translate(SX, y - 0.035, SZ); k._part(MT.stair, g);
+    I.addSurface([pol(a1, 0.15), pol(a1, ro), pol((a1 + a2) / 2, ro / Math.cos(DA / 2)), pol(a2, ro), pol(a2, 0.15)].map(([x, z]) => k.w(x, z)), y);
+    // baluster and a piece of handrail at the outer end of every tread
+    const [px, pz] = pol(a1, SR - 0.05), [qx, qz] = pol(a2, SR - 0.05);
+    k._part(MT.rail, new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6).translate(px, y + 0.47, pz));
+    const hr = new THREE.BoxGeometry(Math.hypot(qx - px, qz - pz) + 0.04, 0.05, 0.05); hr.rotateZ(Math.atan2(rise, Math.hypot(qx - px, qz - pz))); hr.rotateY(-Math.atan2(qz - pz, qx - px)); hr.translate((px + qx) / 2, y + 0.95 + rise / 2, (pz + qz) / 2); k._part(MT.rail, hr);
   }
-  for (let i = 0; i < 6; i++) { const r = SR - 0.05, g = new THREE.TorusGeometry(r, 0.025, 6, 32, Math.PI * 2); g.rotateX(Math.PI / 2); g.translate(SX, 0.95 + i * rise * 2.0, SZ); k._part(MT.rail, g); }
-  k.wallRect(SX - SR, SX + SR, SZ - SR, SZ + SR, 0, Hc);
-  k.plane(signTex('樓梯 STAIRS ↑', '#2d3b4a', '#ffffff', 512, 96, 52), 1.6, 0.3, SX, 2.45, SZ + SR + 0.25, 0, { emissive: 0.5 });
+  // the drum: 12 chords; open at the bottom where you walk in (30..90 degrees) and at the top where you walk out (240..300)
+  for (let j = 0; j < 12; j++) {
+    const a1 = j * DA, [x0, z0] = pol(a1, SR), [x1, z1] = pol(a1 + DA, SR);
+    if (j === 1 || j === 2) k.wallLine(x0, z0, x1, z1, 2.3, TOP2F + 1.1);
+    else if (j === 8 || j === 9) { k.wallLine(x0, z0, x1, z1, 0, TOP1F - 0.5); k.wallLine(x0, z0, x1, z1, TOP1F + 2.3, TOP2F + 1.1); }
+    else if (j === 5 || j === 6) k.wallLine(x0, z0, x1, z1, 0, TOP2F - 0.5); // 2F: out to the west, into the 中庭
+    else k.wallLine(x0, z0, x1, z1, 0, TOP2F + 1.1);
+  }
+  { const [x0, z0] = pol(Math.PI / 6, 0.15), [x1, z1] = pol(Math.PI / 6, SR); k.wallLine(x0, z0, x1, z1, 0, 2.2); }             // no way under the flight
+  { // the top landing is two wedges wide (240..300 degrees); no way past it
+    const a1 = Math.PI * 1.5, a2 = a1 + DA, g = new THREE.CylinderGeometry(SR, SR, 0.07, 5, 1, false, Math.PI / 2 - a2, DA); g.translate(SX, TOP1F - 0.035, SZ); k._part(MT.stair, g);
+    I.addSurface([pol(a1, 0.15), pol(a1, 2.3), pol((a1 + a2) / 2, 2.3 / Math.cos(DA / 2)), pol(a2, 2.3), pol(a2, 0.15)].map(([x, z]) => k.w(x, z)), TOP1F);
+  }
+  { // 1F -> 2F: 16 narrower wedges (15 degrees) from 300 degrees on round to 180, the top landing 150..210 degrees faces west
+    const N2 = 16, D2 = Math.PI / 12, B0 = Math.PI * 5 / 3, r2 = (TOP2F - TOP1F) / N2;
+    const wedge = (a1, a2, y, ro) => {
+      const g = new THREE.CylinderGeometry(SR, SR, 0.07, 4, 1, false, Math.PI / 2 - a2, a2 - a1); g.translate(SX, y - 0.035, SZ); k._part(MT.stair, g);
+      I.addSurface([pol(a1, 0.15), pol(a1, ro), pol((a1 + a2) / 2, ro / Math.cos((a2 - a1) / 2)), pol(a2, ro), pol(a2, 0.15)].map(([x, z]) => k.w(x, z)), y);
+    };
+    for (let j = 0; j < N2; j++) {
+      const a1 = B0 + j * D2, y = TOP1F + (j + 1) * r2; wedge(a1, a1 + D2, y, j === N2 - 1 ? 2.3 : SR);
+      const [px, pz] = pol(a1, SR - 0.05), [qx, qz] = pol(a1 + D2, SR - 0.05);
+      k._part(MT.rail, new THREE.CylinderGeometry(0.02, 0.02, 0.95, 6).translate(px, y + 0.47, pz));
+      const hr = new THREE.BoxGeometry(Math.hypot(qx - px, qz - pz) + 0.04, 0.05, 0.05); hr.rotateZ(Math.atan2(r2, Math.hypot(qx - px, qz - pz))); hr.rotateY(-Math.atan2(qz - pz, qx - px)); hr.translate((px + qx) / 2, y + 0.95 + r2 / 2, (pz + qz) / 2); k._part(MT.rail, hr);
+    }
+    wedge(Math.PI, Math.PI * 7 / 6, TOP2F, 2.3);
+    const [x0, z0] = pol(Math.PI * 7 / 6, 0.15), [x1, z1] = pol(Math.PI * 7 / 6, 2.3); k.wallLine(x0, z0, x1, z1, TOP2F - 0.5, TOP2F + 1.1); // the stair ends at 2F
+  }
+  k.plane(signTex('樓梯 往 1F ↑', '#2d3b4a', '#ffffff', 512, 96, 52), 1.6, 0.3, SX + 1.6, 2.45, SZ + SR + 0.25, 0, { emissive: 0.5 });
 
   // ---------------- study area: long desks with lamps, chairs, bookshelves on the west wall ----------------
   // (the walk from the entrance to the 麥當勞 opening, x 11.5..16, stays clear: the 值班 customers come in there)

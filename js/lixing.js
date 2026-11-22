@@ -2,14 +2,17 @@
 // 外觀仍由 js/map.js 照 OSM 輪廓畫（js/zone_g.js 換顏色、東端山牆），這裡做：
 //  - 兩個天井（西棟、東棟）：b.holes 讓屋頂開洞、b.holeWalls = false 讓 map.js 不畫天井那圈牆（走廊是開放式，自己蓋）；
 //  - 每層：北排寢室＋東西向主走廊、天井四周的迴廊（二樓以上有彩色色塊女兒牆）、中段南排寢室、兩翼南排寢室、
-//    東西兩端凸出的曬衣場／浴廁／樓梯、中段北側樓梯、兩翼靠中段的樓梯、東棟電梯；
+//    東西兩端凸出的曬衣場／浴廁／樓梯、中段北側樓梯、兩翼靠中段的樓梯（樓梯間朝前院，半層平台開口）、東棟電梯；
 //  - 一樓：中廊通到南面大門（門楣「力行大樓」），天井鋪面、涼亭、野餐桌；沿新中北路的一層樓門房（早餐屋、會客室、大門、傳達室、公佈欄）；
-//  - 二樓：中廊南端接新中北路天橋，橋面比二樓地板低，進門後往上走 5 階；
+//  - 二樓：中廊南端的門開在二樓地板高度，出門是牆外的平台，沿著天橋方向往上走一段露天樓梯到新中北路天橋橋面
+//    （天橋北端因此縮短：data.grade 的 cut0，js/map.js 照它少畫、少鋪橋面）；
 //  - 寢室只有二樓 276～281 能進去（六人房：兩側各三組上床下桌、中間走道、門上氣窗、對外窗），其他寢室是關著的門。
 // 依據：寢室分布圖（力行宿舍自治會）、Google 街景 2026-05（新中北路 291 號）、Google 地圖相片（天井 2023-01、寢室 2026-06）、
 // YouTube「中原大學宿舍介紹_力行宿舍」（走廊藍牆、黃綠門與門上色帶、馬賽克洗手台、曬衣場、洗衣間）。
 // 分布圖不是照比例畫的，這裡把它套進 OSM 輪廓：中段比圖上短，所以中段寢室比兩翼窄。
-// 高度：遊戲裡天橋橋面比前院地面高約 6.7 m，為了讓天橋接二樓，一樓做成挑高（吊頂在 3.1 m），一樓到二樓的樓梯多兩段。
+// 高度：每層 3.3 m。遊戲裡天橋橋面比二樓地板高約 2.6 m，這段高差由牆外的樓梯走（使用者指正：接天橋的樓梯在建築物外面）。
+// 牆外樓梯的樣子：正射影像（NLSC 2024）看得到天橋頂棚在南牆前約 2 m 就停、中間是一小塊露天平台；直上、和天橋同寬是推測，
+// 長度因為遊戲裡高差比實際大而拉長。
 // 碰撞：把 map.js 加的整棟實心多邊形拿掉，換成外牆線（大門、天橋門留缺口）和室內牆，全部走 Interiors.addWall（高度以當地地面為準）。
 // Local frame: origin at the north-west corner (-221.7, -183.8), x east along the north face, z south. y = metres above the building base.
 import * as THREE from 'three';
@@ -32,6 +35,11 @@ const BE = { x0: 121.55, x1: 128.0, z0: 7.95, zA: 13.5, zB: 21.5, z1: 26.9 };
 const ROWC_W = { x0: 0.25, x1: 37.25, z1: 34.45 }, ROWC_E = { x0: 85.75, x1: 122.3, z1: 34.15 };
 const OPEN_ROOMS = [276, 277, 278, 279, 280, 281];
 const ROOM_SPOTS = {}; // 276～281: beds, desks and chairs in local metres (I.lixing.rooms, used by js/jianyu.js for 278)
+const ST = 3.3;                         // storey height
+// 兩翼靠中段的樓梯（分布圖「樓梯」）：樓梯間在兩翼朝前院的那一面（使用者指正；街景 2026-05 拍到東棟那面是清水混凝土＋藍白格子、
+// 三個凸出的半層平台）。從主走廊進去先走一段通道（z CZ..SW.z0），樓梯 z SW.z0..SW.z1，半層平台在南端、朝前院開口。
+const SW = { z0: 17.7, z1: 24.78, ld: 1.6, fW: 37.5, fE: 85.53, sill: 1.1, head: 2.5 }; // fW / fE: the two faces on the forecourt (outline x)
+const FB_ID = 'xinzhongbei_footbridge', FB_CUT = 5.7; // the footbridge's first metres are the outside stair (data.grade cut0)
 const ANNEX = { z0: 29.6, z1: 34.3, x0: 38.3, x1: 84.7, gate0: 56.2, gate1: 61.4, h: 3.3 };
 // courtyards + the galleries round them, 6 cm behind the walls that face them
 const HOLES = [[0.19, 33.86, 7.34, 27.36], [89.14, 121.61, 7.34, 27.36]];
@@ -42,9 +50,11 @@ export function lixingLook(b) {
   const out = Math.sign(area2(b.pts));
   b.holes = HOLES.map(([x0, x1, z0, z1]) => { const r = rectW(x0, x1, z0, z1); return Math.sign(area2(r)) === out ? r.reverse() : r; });
   b.holeWalls = false; // js/map.js: no walls round the courtyards (the galleries are built here), roof and parapet as usual
-  // door openings in the south wall of the middle block: 1F 大門, 2F 天橋門 (world heights)
-  const { f1, deck } = lxLevels(), p = W(MID.door0, 19.4), q = W(MID.door1, 19.4);
-  b.wallDoors = [{ p, q, y0: f1 - 0.4, y1: f1 + 2.3 }, { p, q, y0: deck - 0.05, y1: deck + 2.3 }];
+  // door openings in the south wall of the middle block: 1F 大門, 2F 天橋門 at the 2F floor (world heights)
+  const { f1 } = lxLevels(), p = W(MID.door0, 19.4), q = W(MID.door1, 19.4);
+  b.wallDoors = [{ p, q, y0: f1 - 0.4, y1: f1 + 2.3 }, { p, q, y0: f1 + ST - 0.05, y1: f1 + ST + 2.3 }];
+  // the half landings of the two wing stairs are open to the forecourt
+  for (const x of [SW.fW, SW.fE]) for (let i = 0; i < 3; i++) { const y = f1 + ST * (i + 0.5); b.wallDoors.push({ p: W(x, SW.z1 - SW.ld + 0.1), q: W(x, SW.z1 - 0.1), y0: y + SW.sill, y1: y + SW.head }); }
 }
 // world heights that do not depend on the building's base: the 1F floor (just above the highest ground inside)
 // and the footbridge deck (tools/overrides.json xinzhongbei_footbridge: 5.1 m above the road's centre)
@@ -73,11 +83,10 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   const TOP = b.h || 17.1;
 
   // ---------------- heights ----------------
-  // 1F just above the highest ground inside; 2F five steps above the footbridge deck; 3F / 4F fitted under the roof
   const LV = lxLevels(), F1 = LV.f1 - B, DL = LV.deck - B; // 1F floor, bridge deck level
-  const F2 = DL + 0.75, CLR = 2.7, SL = 0.25;
-  const ST = Math.min(3.3, (TOP - 0.4 - CLR - F2) / 2); // storey height above 2F
-  const FL = [F1, F2, F2 + ST, F2 + 2 * ST], CH = [3.1, CLR, CLR, CLR];
+  // 1F just above the highest ground inside, 3.3 m a storey; the bridge deck is above the 2F floor: the stair outside the south wall
+  const CLR = 3.0, SL = 0.25, F2 = F1 + ST;
+  const FL = [F1, F2, F2 + ST, F2 + 2 * ST], CH = [CLR, CLR, CLR, CLR];
   const ROOF = FL[3] + CLR;
 
   // ---------------- materials (roofed over: a little glow of their own, like the other interiors) ----------------
@@ -110,7 +119,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     table: mat('table', std({ color: '#7a5b3c', roughness: 0.7 })), plant: mat('plant', std({ color: '#3f8a3c', roughness: 0.9 })),
     stone: mat('stone', std({ map: stone, roughness: 0.85 })), canopy: mat('canopy', std({ color: '#e4e2dc', roughness: 0.8 })), grille: mat('grille', std({ color: '#7d7468', metalness: 0.5, roughness: 0.5 })),
     lattice: mat('lattice', std({ color: '#9a4a3a', roughness: 0.8 })), shutter: mat('shutter', std({ color: '#a7aaa8', metalness: 0.5, roughness: 0.45 })), machine: mat('machine', std({ color: '#e9eaec', roughness: 0.4 }, 0.2)),
-    red: mat('red', std({ color: '#d43a2f', roughness: 0.6 }, 0.15)), dark: mat('dark', std({ color: '#2a2b2d', roughness: 0.6 })),
+    red: mat('red', std({ color: '#d43a2f', roughness: 0.6 }, 0.15)), conc: mat('conc', std({ color: '#b5b2aa', roughness: 0.9 })), orange: mat('orange', std({ color: '#c8452a', metalness: 0.3, roughness: 0.55 })), dark: mat('dark', std({ color: '#2a2b2d', roughness: 0.6 })),
   };
   const BLOCKS = [MT.sky, MT.teal, MT.green, MT.white, MT.blue];
 
@@ -190,14 +199,14 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
 
   // ---------------- switchback stairs ----------------
   // well x0..x1, z0..z1; ax: the flights run along 'x' or 'z'; dir: +1 if the entry landing (floor level) is at the low end of that axis
-  const stairs = ({ x0, x1, z0, z1, ax, dir, ld = 1.5, wallM = MT.white }) => {
+  const stairs = ({ x0, x1, z0, z1, ax, dir, ld = 1.5, wallM = MT.white, open = 0 }) => { // open: -1 / +1 = the half landings are open on the low / high side
     const a0 = ax === 'x' ? x0 : z0, a1 = ax === 'x' ? x1 : z1, c0 = ax === 'x' ? z0 : x0, c1 = ax === 'x' ? z1 : x1;
     const L = a1 - a0, cm = (c0 + c1) / 2;
     const A = (u) => dir > 0 ? a0 + u : a1 - u;                         // along-axis coordinate at distance u from the entry end
     const R = (u0, u1, v0, v1) => { const p = A(u0), q = A(u1), lo = Math.min(p, q), hi2 = Math.max(p, q); return ax === 'x' ? [lo, hi2, v0, v1] : [v0, v1, lo, hi2]; };
     const uOf = (lx, lz) => { const a = ax === 'x' ? lx : lz; return dir > 0 ? a - a0 : a1 - a; };
     const lanes = [[c0 + 0.1, cm - 0.07], [cm + 0.07, c1 - 0.1]];
-    const ys = [FL[0]]; for (const [n, f] of [[4, 0], [2, 1], [2, 2]]) for (let i = 1; i <= n; i++) ys.push(FL[f] + (FL[f + 1] - FL[f]) * i / n);
+    const ys = [FL[0]]; for (const [n, f] of [[2, 0], [2, 1], [2, 2]]) for (let i = 1; i <= n; i++) ys.push(FL[f] + (FL[f + 1] - FL[f]) * i / n);
     const slab = (r, y, m = MT.stair) => { bx(r[0], r[1], y - 0.18, y, r[2], r[3], m); sf(r[0], r[1], r[2], r[3], y); };
     slab(R(0, ld, c0 + 0.1, c1 - 0.1), ys[0], MT.floor);
     for (let i = 0; i < ys.length - 1; i++) {
@@ -218,7 +227,12 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     bar(ld, lanes[0], FL[3], FL[3] + 1.1, MT.rail);
     // far end wall and the two sides (lining; the outer shell or the neighbours' walls carry the collision where they coincide)
     { const r = R(L - 0.1, L, c0, c1); bx(r[0], r[1], FL[0], ROOF, r[2], r[3], wallM); if (ax === 'x') wl(A(L), c0, A(L), c1, FL[0], ROOF); else wl(c0, A(L), c1, A(L), FL[0], ROOF); }
-    for (const [v, s] of [[c0, 1], [c1, -1]]) { const r = R(0.14, L, s > 0 ? v : v - 0.1, s > 0 ? v + 0.1 : v); bx(r[0], r[1], FL[0], ROOF, r[2], r[3], wallM); if (ax === 'x') wl(a0, v, a1, v, FL[0], ROOF); else wl(v, a0, v, a1, FL[0], ROOF); }
+    for (const [v, s] of [[c0, 1], [c1, -1]]) {
+      const side = (u0, u1, ya, yb) => { const r = R(u0, u1, s > 0 ? v : v - 0.1, s > 0 ? v + 0.1 : v); bx(r[0], r[1], ya, yb, r[2], r[3], wallM); };
+      if (open === -s) { side(0.14, L - ld, FL[0], ROOF); let yy = FL[0]; for (let i = 1; i < ys.length; i += 2) { side(L - ld, L, yy, ys[i] + SW.sill); yy = ys[i] + SW.head; } side(L - ld, L, yy, ROOF); }
+      else side(0.14, L, FL[0], ROOF);
+      if (ax === 'x') wl(a0, v, a1, v, FL[0], ROOF); else wl(v, a0, v, a1, FL[0], ROOF);
+    }
     // entry side: open one storey high at each floor, closed in between (the half landing of the tall 1F is behind it)
     for (let f = 0; f < 4; f++) {
       const y0 = FL[f] + 2.3, y1 = f < 3 ? FL[f + 1] : ROOF, r = R(-0.06, 0.06, c0, c1);
@@ -249,6 +263,10 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       room(f, w.g0, w.g1, SG, RC);
     }
     room(f, WW.x1, WW.e, SG, RC); room(f, EW.w, EW.x0, SG, RC);
+    // 主走廊到兩翼樓梯間的通道（樓梯間在南邊、朝前院）
+    room(f, WW.x1 + T, WW.e, CZ, SW.z0, { step: 3 }); wall(WW.e, CZ, WW.e, SW.z0, y, c, MT.blue, -1);
+    room(f, EW.w, EW.x0 - T, CZ, SW.z0, { step: 3 }); wall(EW.w, CZ, EW.w, SW.z0, y, c, MT.blue, 1);
+    for (const x of [(WW.x1 + WW.e) / 2, (EW.w + EW.x0) / 2]) sign('樓梯 ↑↓', x, y + 2.5, CZ - 0.02, 'n', '#2d3b4a', 1.2);
     // --- row A: north rooms, west to east (分布圖最上面那排)
     {
       const w7 = (34.9 - 0.25) / 7, cells = [];
@@ -310,7 +328,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         const piece = (t0, t1, ya, yb, m) => alongX ? bx(x0 + (x1 - x0) * t0, x0 + (x1 - x0) * t1, ya, yb, z0 - 0.08, z0 + 0.08, m) : bx(x0 - 0.08, x0 + 0.08, ya, yb, z0 + (z1 - z0) * t0, z0 + (z1 - z0) * t1, m);
         for (let i = 0; i < n; i++) {
           if (up) piece(i / n, (i + 1) / n, y - SL, y + 1.1, BLOCKS[(i * 2 + f + (alongX ? 0 : 1)) % BLOCKS.length]);
-          if (f === 0) piece(i / n, (i + 1) / n, y + CH[0], FL[1] - SL, BLOCKS[(i + (alongX ? 2 : 0)) % BLOCKS.length]);
+          
         }
         if (up) { wl(x0, z0, x1, z1, y - 0.3, y + 1.4); piece(0, 1, y + 1.1, y + 1.16, MT.white); }
         if (f === 3) piece(0, 1, ROOF, TOP + 0.5, MT.sky); // fascia up to the roof parapet
@@ -347,23 +365,16 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     // --- the 中廊
     {
       const hx0 = MID.hall0, hx1 = MID.hall1, zS = MID.z1;
-      wall(hx0, CZ, hx0, zS + 0.25, y, c, MT.white, 1); wall(hx1, CZ, hx1, zS + 0.25, y, c, MT.white, -1);
+      wall(hx0, CZ, hx0, zS + 0.15, y, c, MT.white, 1); wall(hx1, CZ, hx1, zS + 0.15, y, c, MT.white, -1); // (short of the outer wall's face at 19.4)
       if (f === 0) {
         room(f, hx0, hx1, CZ, 17.9); bx(hx0, hx1, y - SL, y, 17.9, 19.6, MT.floor, { tile: [2.4, 2.4] }); bx(hx0, hx1, c - 0.03, c + 0.05, 17.9, 19.4, MT.ceil); sfLow(hx0, hx1, 17.9, 19.6, y);
         // 白牆上的藍、綠直條和 CHUNG YUAN 字（影片 0:21）
         const stripe = canvasTex(1024, 256, (g) => { g.fillStyle = '#f3f2ec'; g.fillRect(0, 0, 1024, 256); const cols = ['#2f7fc6', '#27b3b0', '#79bd45', '#2f7fc6', '#27b3b0', '#2f7fc6', '#79bd45', '#27b3b0', '#2f7fc6']; cols.forEach((cl, i) => { g.fillStyle = cl; g.fillRect(40 + i * 110, 0, 34, 256); }); g.fillStyle = '#ffffff'; g.font = `900 30px ${FONT}`; g.textAlign = 'center'; [...'CHUNGYUAN'].forEach((ch, i) => g.fillText(ch, 57 + i * 110, i < 5 ? 60 : 200)); g.fillStyle = '#d8d4c8'; for (let i = 0; i < 8; i++) g.fillRect(96 + i * 110, 96, 40, 52); });
         plane(stripe, 8.6, 2.6, hx0 + T + 0.01, y + 1.45, (CZ + zS) / 2, 'e', { emissive: 0.4 }); plane(stripe, 8.6, 2.6, hx1 - T - 0.01, y + 1.45, (CZ + zS) / 2, 'w', { emissive: 0.4 });
       } else if (f === 1) {
-        // 二樓：橋面比地板低，從天橋進門後往上 5 階
-        const zT = 16.6, zB = 18.1;
-        room(f, hx0, hx1, CZ, zT);
-        bx(hx0, hx1, DL - SL, DL, zB, 19.6, MT.floor); sf(hx0, hx1, zB, 20.6, DL);
-        sf(hx0, hx1, zT, zB, (lx, lz) => DL + (F2 - DL) * clamp01((zB - lz) / (zB - zT)));
-        for (let i = 0; i < 5; i++) bx(hx0, hx1, DL - SL, DL + (F2 - DL) * (5 - i) / 5, zT + i * 0.3, zT + (i + 1) * 0.3, MT.stair);
-        bx(hx0, hx1, c - 0.03, c + 0.05, zT, 19.4, MT.ceil);
-        for (const x of [hx0 + T + 0.05, hx1 - T - 0.05]) bx(x - 0.025, x + 0.025, DL + 0.9, F2 + 0.95, zT, zB, MT.rail);
-        for (const [x, s] of [[hx0, 1], [hx1, -1]]) bx(s > 0 ? x : x - T, s > 0 ? x + T : x, DL - SL, F2, zT, 19.4, MT.blue);
-        sign('天橋 → 學生活動中心', (hx0 + hx1) / 2, DL + 2.45, 19.27, 'n', '#2d3b4a', 2.0);
+        // 二樓：平的走道一路到南牆的門（門開在二樓地板高度），出門是牆外的平台和上天橋的樓梯（下面「牆外樓梯」）
+        room(f, hx0, hx1, CZ, 19.3); bx(hx0, hx1, y - SL, y, 19.3, 19.4, MT.floor);
+        sign('天橋 → 學生活動中心', (hx0 + hx1) / 2, y + 2.45, 19.27, 'n', '#2d3b4a', 2.0);
       } else {
         room(f, hx0, hx1, CZ, zS);
         wall(hx0, zS, hx1, zS, y, c, MT.white, -1); plane(winT, 2.2, 1.3, (hx0 + hx1) / 2, y + 1.7, zS - T - 0.01, 'n', { emissive: 0.7 });
@@ -404,8 +415,26 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   // ---------------- stairs ----------------
   stairs({ x0: BW.x0, x1: BW.x1, z0: BW.zB, z1: BW.z1, ax: 'x', dir: -1, wallM: MT.white });      // 西端
   stairs({ x0: BE.x0, x1: BE.x1, z0: BE.zB, z1: BE.z1, ax: 'x', dir: 1, wallM: MT.white });       // 東端
-  stairs({ x0: WW.x1 + T, x1: WW.e, z0: CZ, z1: 17.0, ax: 'z', dir: 1, ld: 1.6, wallM: MT.blue }); // 西棟靠中段
-  stairs({ x0: EW.w, x1: EW.x0 - T, z0: CZ, z1: 17.0, ax: 'z', dir: 1, ld: 1.6, wallM: MT.blue }); // 東棟靠中段
+  stairs({ x0: WW.x1 + T, x1: WW.e, z0: SW.z0, z1: SW.z1, ax: 'z', dir: 1, ld: SW.ld, wallM: MT.white, open: 1 }); // 西棟靠中段（朝前院）
+  stairs({ x0: EW.w, x1: EW.x0 - T, z0: SW.z0, z1: SW.z1, ax: 'z', dir: 1, ld: SW.ld, wallM: MT.white, open: -1 }); // 東棟靠中段（朝前院）
+  // 樓梯間朝前院那一面：清水混凝土、藍白格子，三個半層平台往外凸出（實心混凝土欄板）、平台上方開口
+  for (const [xf, xi, d] of [[SW.fW, WW.e, 1], [SW.fE, EW.w, -1]]) {
+    const X = (a, b2) => [Math.min(xf + d * a, xf + d * b2), Math.max(xf + d * a, xf + d * b2)], za = SW.z1 - SW.ld, zb = SW.z1 + 0.1, zn = 19.55;
+    const gy = (() => { const p = W(xf + d * 0.5, 22); return H(p[0], p[1]) - B; })();
+    const P = (a, b2, y0, y1, z0, z1, m) => { const [xa, xb] = X(a, b2); bx(xa, xb, y0, y1, z0, z1, m); };
+    P(0, 0.05, gy - 0.4, TOP + 0.6, zn, za, MT.conc);
+    for (let f = 0; f < 5; f++) for (let j = 0; j < 3; j++) { const m = (f + j) % 2 ? MT.blue : j === 1 ? MT.white : null, zc = zn + 0.1 + j * (za - zn - 0.2) / 3; if (m) P(0.05, 0.07, FL[0] + f * ST + (j % 2) * 1.2, Math.min(TOP + 0.5, FL[0] + f * ST + (j % 2) * 1.2 + 1.7), zc, zc + (za - zn - 0.2) / 3, m); }
+    const xin = Math.abs(xi - xf); // from the face back to the stair's lining
+    let yy = gy - 0.4;
+    for (let i = 0; i < 3; i++) {
+      const yl = FL[0] + ST * (i + 0.5);
+      P(-xin, 0.06, yy, yl - 0.25, za, zb, MT.conc);                 // wall up to the landing
+      P(-xin, 0.85, yl - 0.25, yl + SW.sill, za - 0.1, zb, MT.conc); // the landing's projecting parapet
+      yy = yl + SW.head;
+    }
+    P(-xin, 0.06, yy, TOP + 0.6, za, zb, MT.conc);
+    P(-xin, 0.06, gy - 0.4, TOP + 0.6, za - 0.1, za + 0.1, MT.conc); P(-xin, 0.06, gy - 0.4, TOP + 0.6, zb - 0.2, zb, MT.conc); // jambs
+  }
   stairs({ x0: sx, x1: sx + 3.3, z0: 0.25, z1: RA, ax: 'z', dir: -1, ld: 1.6, wallM: MT.blue }); // 中段北側
   for (const [x, z, face] of [[BW.x1 + 0.012, 23.6, 'e'], [BE.x0 - 0.012, 24.2, 'w']]) for (let f = 0; f < 4; f++) sign('樓梯 ↑↓', x, FL[f] + 2.5, z, face, '#2d3b4a', 1.0);
 
@@ -436,25 +465,25 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       wall(x0, z1, x1, z1, y, c, MT.white, 1); plane(winT, 2.2, 1.35, cx, y + 1.75, z1 - 0.01, 'n', { emissive: 0.75 });
       plane(winT, 0.9, 0.34, cx, y + 2.5, z0 + T + 0.01, 's', { emissive: 0.6 });
       door(cx + 0.45 - 0.02, y, z0 + T + 0.45, 'w', String(no));
-      // 每面牆：一端上下舖，接著 桌／衣櫥 三組，另一端的桌與衣櫥上面再架一張高架床（使用者給的配置；兩面牆對角對稱，影片 0:32、0:35）
+      // 每面牆：靠窗那端上下舖（爬梯也在靠窗那頭），接著 桌／衣櫥 三組，靠門那端的桌與衣櫥上面再架一張高架床（使用者給的配置，兩面牆相同）
       const zA = z0 + 0.95, LEN = z1 - 0.12 - zA, DW = 0.95, bedY = y + 1.72, BED = 2.0, DK = (LEN - BED) / 3 - 0.5, WD = 0.5;
       for (const side of [-1, 1]) {
         const wx = side < 0 ? ix0 : ix1, s = -side;                      // s: from the wall towards the aisle
         const X = (a, b2) => [Math.min(wx + s * a, wx + s * b2), Math.max(wx + s * a, wx + s * b2)];
-        const Z = (t0, t1) => side < 0 ? [zA + LEN - t1, zA + LEN - t0] : [zA + t0, zA + t1]; // t: distance from the bunk end (west wall: bunk by the window, east wall: by the door)
+        const Z = (t0, t1) => [zA + LEN - t1, zA + LEN - t0]; // t: distance from the window end (both walls: bunk by the window, loft bed by the door)
         const B3 = (a, b2, ya, yb, t0, t1, m) => { const [xa, xb] = X(a, b2), [za, zb] = Z(t0, t1); bx(xa, xb, ya, yb, za, zb, m); };
         const face = s > 0 ? 'e' : 'w', nos = side < 0 ? [1, 2, 3] : [4, 5, 6];
         const plate = (n, yy, t) => { const nt = signs.get('bed' + n) || signs.set('bed' + n, signTex(String(n), '#2e8f86', '#ffffff', 64, 64, 46)).get('bed' + n); plane(nt, 0.13, 0.13, wx + s * (DW + 0.006), yy, (Z(t, t)[0]), face, { emissive: 0.4 }); };
-        const bed = (t0, t1, yy, n) => {                                  // deck + mattress + side board (with the number) + head / foot boards
+        const bed = (t0, t1, yy, n, gapAt0) => {                          // gapAt0: the gap in the side board (for the ladder) is at the t0 end                                  // deck + mattress + side board (with the number) + head / foot boards
           B3(0, DW, yy - 0.05, yy, t0, t1, MT.frame); B3(0.03, DW - 0.03, yy, yy + 0.12, t0 + 0.05, t1 - 0.05, MT.mattress);
-          B3(DW - 0.025, DW, yy - 0.12, yy + 0.3, t0, t1 - 0.5, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t0, t0 + 0.03, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t1 - 0.03, t1, MT.wood);
-          plate(n, yy + 0.12, t0 + 0.35);
+          B3(DW - 0.025, DW, yy - 0.12, yy + 0.3, gapAt0 ? t0 + 0.5 : t0, gapAt0 ? t1 : t1 - 0.5, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t0, t0 + 0.03, MT.wood); B3(0, DW, yy - 0.12, yy + 0.42, t1 - 0.03, t1, MT.wood);
+          plate(n, yy + 0.12, gapAt0 ? t1 - 0.35 : t0 + 0.35);
         };
         const ladder = (t, top) => { for (const dt of [0, 0.36]) B3(DW, DW + 0.03, y, top, t + dt - 0.015, t + dt + 0.015, MT.ladder); for (let r = 0; r < 5; r++) B3(DW, DW + 0.03, y + 0.3 + r * 0.3, y + 0.33 + r * 0.3, t, t + 0.36, MT.ladder); };
         // 上下舖
         for (const t of [0.02, BED - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
-        B3(0, DW, y, y + 0.3, 0.02, BED - 0.02, MT.wood); B3(0.03, DW - 0.03, y + 0.3, y + 0.42, 0.07, BED - 0.07, MT.mattress); plate(nos[0], y + 0.2, 0.4);
-        bed(0, BED, bedY, nos[1]); ladder(BED - 0.48, bedY + 0.55);
+        B3(0, DW, y, y + 0.3, 0.02, BED - 0.02, MT.wood); B3(0.03, DW - 0.03, y + 0.3, y + 0.42, 0.07, BED - 0.07, MT.mattress); plate(nos[0], y + 0.2, BED - 0.4);
+        bed(0, BED, bedY, nos[1], true); ladder(0.1, bedY + 0.55); // 爬梯在靠窗那一端
         // 桌／衣櫥 三組；最後一組上面是高架床，那一組的衣櫥做矮的
         for (let u = 0; u < 3; u++) {
           const t0 = BED + u * (DK + WD), t1 = t0 + DK, t2 = t1 + WD, under = t1 > LEN - BED, wh = under ? bedY - 0.06 - y : 2.2;
@@ -473,7 +502,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         }
         // 另一端的高架床
         for (const t of [LEN - BED, LEN - 0.06]) for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
-        bed(LEN - BED, LEN, bedY, nos[2]); ladder(LEN - BED + 0.1, bedY + 0.55);
+        bed(LEN - BED, LEN, bedY, nos[2], true); ladder(LEN - BED + 0.1, bedY + 0.55);
         const [a, b2] = X(0, DW + 0.03); wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
         // where people go (js/jianyu.js): bed decks, each desk with its chair; face = local angle towards the desk
         const R = (ROOM_SPOTS[no] ||= { door: [cx, z0 + T + 0.3], center: [cx, (z0 + z1) / 2], y, beds: {}, desks: [] });
@@ -502,9 +531,40 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     bx(x0 - 0.7, x1 + 0.7, F1 + 2.3, F1 + 3.0, zf, zf + 0.35, MT.tileW, { tile: [0.3, 0.3] });
     const gold = canvasTex(512, 128, (g) => { g.fillStyle = '#e9e7df'; g.fillRect(0, 0, 512, 128); g.fillStyle = '#b8892b'; g.font = `900 84px "Noto Serif TC","Songti TC",serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; [...'力行大樓'].forEach((ch, i) => g.fillText(ch, 76 + i * 120, 68)); });
     plane(gold, 2.5, 0.62, (x0 + x1) / 2, F1 + 2.65, zf + 0.36, 's', { emissive: 0.35 });
-    // 2F 天橋門框
-    for (const [a, b2] of [[x0 - 0.25, x0], [x1, x1 + 0.25]]) bx(a, b2, DL - 0.2, DL + 2.5, zf - 0.1, zf + 0.12, MT.band);
-    bx(x0 - 0.25, x1 + 0.25, DL + 2.3, DL + 2.55, zf - 0.1, zf + 0.12, MT.band);
+    // 2F 天橋門框（門開在二樓地板高度）
+    for (const [a, b2] of [[x0 - 0.25, x0], [x1, x1 + 0.25]]) bx(a, b2, F2 - 0.2, F2 + 2.5, zf - 0.1, zf + 0.12, MT.band);
+    bx(x0 - 0.25, x1 + 0.25, F2 + 2.3, F2 + 2.55, zf - 0.1, zf + 0.12, MT.band);
+  }
+
+  // ---------------- 牆外樓梯：二樓門口的平台 → 沿天橋方向往上 → 天橋橋面（一樓大門在它正下方）----------------
+  // 天橋（橋面和模型）從 zT 才開始（data.grade 的 cut0，js/map.js）；這裡的平台和樓梯是一般的室內地面（高度從地面算），
+  // 樓梯頂的平台和橋面北端重疊一小段，走上橋面時由 js/player.js 接手。
+  let stairY = null;
+  if (DL > F2 + 0.3) {
+    const gi = data?.grade?.find(v => v.id === FB_ID), cut = gi?.cut0 ?? FB_CUT;
+    const zf = 19.4, zL = zf + 1.3, zT = (gi ? k.l(gi.path[0][0], gi.path[0][1])[1] : zf) + cut;
+    const x0 = MID.door0 - 0.05, x1 = MID.door1 + 0.05, rise = DL - F2, run = zT - zL, n = Math.max(6, Math.round(rise / 0.16));
+    const yAt = (lz) => F2 + rise * clamp01((lz - zL) / run);
+    bx(x0, x1, F2 - 0.2, F2, zf, zL, MT.stair); sf(x0, x1, zf - 0.1, zL, F2);
+    sf(x0, x1, zL, zT, (lx, lz) => yAt(lz));
+    for (let i = 0; i < n; i++) bx(x0, x1, F2 + rise * (i + 1) / n - 0.3, F2 + rise * (i + 1) / n, zL + run * i / n, zL + run * (i + 1) / n, MT.stair);
+    sf(x0, x1, zT, zT + 1.3, DL);
+    // 兩側：斜的側板、扶手和欄杆柱（天橋桁架的橘色），碰撞一路到橋面
+    const slant = (x, w, h, dy) => { const g = new THREE.BoxGeometry(w, h, Math.hypot(run, rise)); g.rotateX(-Math.atan2(rise, run)); g.translate(x, F2 + rise / 2 + dy, zL + run / 2); k._part(MT.orange, g); };
+    for (const x of [x0 + 0.04, x1 - 0.04]) {
+      slant(x, 0.08, 0.34, -0.2); slant(x, 0.06, 0.06, 1.0);
+      bx(x - 0.03, x + 0.03, F2 + 0.97, F2 + 1.03, zf + 0.12, zL, MT.orange);
+      for (let i = 0; i <= n; i += 2) { const z = zL + run * i / n; bx(x - 0.025, x + 0.025, yAt(z) - 0.05, yAt(z) + 1.0, z - 0.025, z + 0.025, MT.orange); }
+      bx(x - 0.025, x + 0.025, F2, F2 + 1.0, zf + 0.6, zf + 0.65, MT.orange);
+      wl(x < 58.8 ? x0 : x1, zf, x < 58.8 ? x0 : x1, zT + 1.3, F2 - 0.3, DL + 1.2);
+    }
+    // 樓梯頂（天橋北端）下面的兩支柱子和橫梁
+    const gy = (x, z) => { const p = W(x, z); return H(p[0], p[1]) - B; };
+    for (const x of [x0 - 0.12, x1 + 0.12]) cbx(x - 0.12, x + 0.12, gy(x, zT + 0.2) - 0.4, DL - 0.4, zT + 0.08, zT + 0.32, MT.orange);
+    bx(x0 - 0.24, x1 + 0.24, DL - 0.7, DL - 0.4, zT + 0.08, zT + 0.32, MT.orange);
+    stairY = (wx, wz) => { const [lx, lz] = k.l(wx, wz); return lz < zT && lz > zf - 0.5 && lx > x0 - 0.3 && lx < x1 + 0.3 ? B + yAt(lz) : undefined; };
+    // 行人（js/npc.js）走這條天橋到北端時，沿樓梯下到二樓門口，不要掉到地面
+    const way = data?.roads?.find(r => r.grade === FB_ID); if (way) way.deckY = stairY;
   }
 
   // ---------------- 沿新中北路的一層樓門房（街景 2026-05）----------------
@@ -516,8 +576,8 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     block(47.6, A.gate0);     // 會客室
     block(A.gate1, 70.5);     // 傳達室
     block(70.5, A.x1);        // 公佈欄那段
-    // 早餐屋與會客室之間：鐵捲門
-    bx(46.2, 47.6, g - 0.4, yT, A.z0 + 0.4, A.z1 - 0.3, MT.shutter); wl(46.2, A.z1 - 0.3, 47.6, A.z1 - 0.3, g - 0.4, yT);
+    // 早餐屋與會客室之間的通道：朝街那一側是關著的鐵捲門（街景 2026-05），只從前院（宿舍那一側）走得進去（使用者指正）
+    bx(46.2, 47.6, g - 0.4, yT, A.z1 - 0.5, A.z1 - 0.3, MT.shutter); wl(46.2, A.z1 - 0.3, 47.6, A.z1 - 0.3, g - 0.4, yT);
     // 平屋頂與出挑雨遮（往街上挑 1.4 m）、女兒牆
     bx(A.x0 - 0.3, A.x1 + 0.3, yT, yT + 0.22, A.z0 - 0.5, A.z1 + 1.4, MT.canopy);
     bx(A.x0 - 0.3, A.x1 + 0.3, yT + 0.22, yT + 0.6, A.z0 - 0.5, A.z0 - 0.35, MT.canopy);
@@ -538,7 +598,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     door(52.0, g, A.z0 - 0.012, 'n', '會客室', '#e9e9e4'); door(65.0, g, A.z0 - 0.012, 'n', '傳達室', '#e9e9e4'); door(42.0, g, A.z0 - 0.012, 'n', '早餐屋', '#e9e9e4');
   }
 
-  // ---------------- outer shell: collision along the outline, gaps at the 1F 大門 and the 2F bridge door ----------------
+  // ---------------- outer shell: collision along the outline, gaps at the 1F 大門 and the 2F door to the outside stair ----------------
   {
     const P = b.pts, isMidS = (a, c) => { const la = k.l(a[0], a[1]), lc = k.l(c[0], c[1]); return Math.abs(la[1] - 19.4) < 0.3 && Math.abs(lc[1] - 19.4) < 0.3; };
     for (let i = 0; i < P.length; i++) {
@@ -547,8 +607,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       const g = H((a[0] + c[0]) / 2, (a[1] + c[1]) / 2); I.addWall(a[0], a[1], c[0], c[1], B - g - 1, B - g + TOP + 1);
     }
     wl(MID.x0, 19.4, MID.door0, 19.4, -1, TOP + 1); wl(MID.door1, 19.4, MID.x1, 19.4, -1, TOP + 1);
-    wl(MID.door0, 19.4, MID.door1, 19.4, F1 + 2.3, DL - 0.05); wl(MID.door0, 19.4, MID.door1, 19.4, DL + 2.3, TOP + 1);
-    // 2F door cheeks down to the bridge rails
+    wl(MID.door0, 19.4, MID.door1, 19.4, F1 + 2.3, F2 - 0.05); wl(MID.door0, 19.4, MID.door1, 19.4, F2 + 2.3, TOP + 1);
     if (collision) {
       const pi = collision.polys.findIndex(p => p.pts === P || (p.pts.length === P.length && p.pts.every((q, i) => Math.abs(q[0] - P[i][0]) < 1e-6 && Math.abs(q[1] - P[i][1]) < 1e-6)));
       if (pi >= 0) {
@@ -566,7 +625,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   {
     const g0 = H(...W(60, 10)), relF = FL.map(v => v + B - g0);
     const floorOf = (yy) => { let f = 1; for (let i = 0; i < 4; i++) if (yy > relF[i] - 1.2) f = i + 1; return f; };
-    const ceil = (yy) => yy + (yy < relF[1] - 1.5 ? 2.7 : 2.3);
+    const ceil = (yy) => yy + 2.6;
     const zone = (x0, x1, z0, z1) => I.zones.push({ name: '力行宿舍', pts: k.rect(x0, x1, z0, z1), y0: -1.5, y1: TOP + 2, ceil, floorOf });
     zone(0, NX, 0, CZ); zone(MID.x0, MID.x1, CZ, 19.4);
     zone(BW.x0 - 0.2, 0, BW.z0 - 0.2, BW.z1 + 0.2); zone(BE.x0, BE.x1 + 0.2, BE.z0 - 0.2, BE.z1 + 0.3);
@@ -576,6 +635,6 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
 
   doorTex.needsUpdate = true;
   k.finish(scene);
-  I.lixing = { k, FL, DL, B, W, rooms: ROOM_SPOTS, setFeet: (v) => { feet = v; } };
+  I.lixing = { k, FL, DL, B, W, stairY, rooms: ROOM_SPOTS, setFeet: (v) => { feet = v; } };
   return I.lixing;
 }

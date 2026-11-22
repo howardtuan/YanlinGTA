@@ -155,11 +155,11 @@ class Geo {
     for (let i = 0; i < seg; i++) { const a = i / seg * Math.PI * 2; ring.push([x + Math.cos(a) * r, z + Math.sin(a) * r]); }
     this.fpoly(ring, y, col);
   }
-  strip(a, b, w, y, col) {
+  strip(a, b, w, y, col, w1 = w) { // (w1: the width at b, for a road whose width changes along it)
     const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
     if (l < 0.01) return;
-    const nx = -dz / l * w / 2, nz = dx / l * w / 2;
-    this.fpoly([[a[0] + nx, a[1] + nz], [b[0] + nx, b[1] + nz], [b[0] - nx, b[1] - nz], [a[0] - nx, a[1] - nz]], y, col);
+    const nx = -dz / l * w / 2, nz = dx / l * w / 2, mx = -dz / l * w1 / 2, mz = dx / l * w1 / 2;
+    this.fpoly([[a[0] + nx, a[1] + nz], [b[0] + mx, b[1] + mz], [b[0] - mx, b[1] - mz], [a[0] - nx, a[1] - nz]], y, col);
   }
   // box in a local frame: centre (x,z), yaw ang, w along ang, d across, y0..y1 (absolute)
   box(x, z, ang, w, d, y0, y1, col, uvS = 3) {
@@ -1047,6 +1047,20 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   // OSM node degree: junction nodes get a disc and no lane marks across them
   const nodeDeg = new Map(), nodeUse = new Map();
   const hasNodes = r => r.nodes && r.nodes.length === r.pts.length;
+  // tools/roads.json wat: a road whose width changes along it carries r.wv, the width at each vertex
+  // (r.w stays its nominal width for everything else); wOn: the width t (0..1) along segment i
+  const wPt = (r, i) => r.wv ? r.wv[i] : r.w;
+  const wOn = (r, i, t) => r.wv ? r.wv[i] + (r.wv[i + 1] - r.wv[i]) * t : r.w;
+  // the road's segment i in roadGrid: in 2 m pieces where its width changes, each as wide as its wider end
+  const gridSeg = (r, i) => {
+    const a = r.pts[i], b = r.pts[i + 1];
+    if (!r.wv || r.wv[i] === r.wv[i + 1]) return roadGrid.add(a[0], a[1], b[0], b[1], wPt(r, i), r);
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 2));
+    for (let k = 0; k < n; k++) {
+      const t0 = k / n, t1 = (k + 1) / n;
+      roadGrid.add(a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0, a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1, Math.max(wOn(r, i, t0), wOn(r, i, t1)), r);
+    }
+  };
   for (const r of data.roads) {
     if (!hasNodes(r)) continue;
     const n = r.nodes.length;
@@ -1182,7 +1196,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     return { G, D, M }; // M: the side roads' mouths only (no boxes / ends), per side
   };
   // a solid (or dashed: 4 m on / 6 m off) line at `off` along r, skipping the [from, to] distances in gaps
+  // (off may be a function (i, t) of segment i and 0..1 along it, on a road whose width changes: r.wv)
   const lineGaps = (r, yAt, off, lw, c, gaps, D, maxD = Infinity, dash = false) => {
+    const O = typeof off === 'function' ? off : () => off;
     for (let i = 0; i < r.pts.length - 1 && D[i] < maxD; i++) {
       const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = D[i + 1] - D[i];
       if (l < 0.3 || (!inPlay(a) && !inPlay(b))) continue;
@@ -1191,8 +1207,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       for (const [g0, g1] of gaps) runs = runs.flatMap(([u0, u1]) => g1 <= u0 || g0 >= u1 ? [[u0, u1]] : [[u0, g0], [g1, u1]].filter(([v0, v1]) => v1 - v0 > 0.3));
       if (dash) runs = runs.flatMap(([u0, u1]) => { const o = []; for (let u = Math.ceil(u0 / 10) * 10; u < u1; u += 10) if (Math.min(u + 4, u1) - Math.max(u, u0) > 0.3) o.push([Math.max(u, u0), Math.min(u + 4, u1)]); return o; });
       for (const [u0, u1] of runs) {
-        const s0 = u0 - D[i], s1 = u1 - D[i];
-        const p0 = [a[0] + dx * s0 / l + nx * off, a[1] + dz * s0 / l + nz * off], p1 = [a[0] + dx * s1 / l + nx * off, a[1] + dz * s1 / l + nz * off];
+        const s0 = u0 - D[i], s1 = u1 - D[i], o0 = O(i, s0 / l), o1 = O(i, s1 / l);
+        const p0 = [a[0] + dx * s0 / l + nx * o0, a[1] + dz * s0 / l + nz * o0], p1 = [a[0] + dx * s1 / l + nx * o1, a[1] + dz * s1 / l + nz * o1];
         if (yAt) deckStrip(marks, p0, p1, lw, u0, yAt, 0.04 + TOL_LO, c, false);
         else marks.strip(p0, p1, lw, 0.04, c);
       }
@@ -1252,9 +1268,12 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       // orthophoto shows none there). ev [vPos, vNeg]: the white edge lines at these offsets from the centreline
       // (+ = (-uz, ux)) where they are painted well inside the kerbs, instead of 0.35 m in
       const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair || M.inner === false ? pairSide(r) : 0;
-      const eP = M.ev ? M.ev[0] : e, eN = M.ev ? -M.ev[1] : e;
-      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, eP, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -eN, 0.15, WHITE, G[-1], D); }
-      if (M.centre === 'pair' && inner) { const o = inner * (r.w / 2 - 0.15); lineGaps(r, yAt, o, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, o - inner * 0.3, 0.12, YELLOW, G[0], D); }
+      // where the width changes along r (r.wv) the offsets that follow the kerbs are functions (i, t); L() turns
+      // one into a plain number elsewhere
+      const eAt = r.wv && !M.ev ? (i, t) => wOn(r, i, t) / 2 - 0.35 : null, L = g => eAt ? g : g(0, 0);
+      const eP = L(eAt || (() => M.ev ? M.ev[0] : e)), eN = L(eAt || (() => M.ev ? -M.ev[1] : e)), at = (v, i, t) => typeof v === 'function' ? v(i, t) : v;
+      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, eP, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, L((i, t) => -at(eN, i, t)), 0.15, WHITE, G[-1], D); }
+      if (M.centre === 'pair' && inner) { const o = (i, t) => inner * (wOn(r, i, t) / 2 - 0.15); lineGaps(r, yAt, L(o), 0.12, YELLOW, G[0], D); lineGaps(r, yAt, L((i, t) => o(i, t) - inner * 0.3), 0.12, YELLOW, G[0], D); }
       // cv: the centre line off the middle of the carriageway (+ = (-uz, ux)), where one side is wider (kerbside parking)
       const cv = M.cv || 0;
       const centre = (style, gaps) => {
@@ -1268,8 +1287,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const segs = (M.segs || []).map(g => { const a = along(...g.from), b = along(...g.to); return [Math.min(a, b), Math.max(a, b), g.centre]; });
       centre(M.centre, G[0].concat(segs.map(([a, b]) => [a, b])));
       for (const [a, b, st] of segs) centre(st, G[0].concat([[-Infinity, a], [b, Infinity]]));
-      if (two) for (const sd of [1, -1]) { const lw = ((sd > 0 ? eP : eN) - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, cv + sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
-      else { const lw = (eP + eN) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -eN + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      if (two) for (const sd of [1, -1]) { const lw = (i, t) => (at(sd > 0 ? eP : eN, i, t) - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, L((i, t) => cv + sd * k * lw(i, t)), 0.12, WHITE, G[0], D, Infinity, true); }
+      else { const lw = (i, t) => (at(eP, i, t) + at(eN, i, t)) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, L((i, t) => -at(eN, i, t) + k * lw(i, t)), 0.12, WHITE, G[0], D, Infinity, true); }
       return;
     }
     line(r, yAt, e, 0.15, WHITE, false); line(r, yAt, -e, 0.15, WHITE, false);
@@ -1317,19 +1336,21 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const nx = -dz / l, nz = dx / l;
       for (const sd of [1, -1]) {
         const W = walkOf(r, nx, nz, sd); if (!W) continue;
-        const o = sd * (r.w / 2 + 0.1 + W / 2), oc = sd * (r.w / 2 + 0.1);
-        const mx = (a[0] + b[0]) / 2 + nx * sd * (r.w / 2 + 1.35), mz = (a[1] + b[1]) / 2 + nz * sd * (r.w / 2 + 1.35);
+        // (at each end: the width there, where r.wv changes it along the road)
+        const wa = wPt(r, i), wb = wPt(r, i + 1), hm = (wa + wb) / 4;
+        const o = sd * (wa / 2 + 0.1 + W / 2), oc = sd * (wa / 2 + 0.1), ob = sd * (wb / 2 + 0.1 + W / 2), ocb = sd * (wb / 2 + 0.1);
+        const mx = (a[0] + b[0]) / 2 + nx * sd * (hm + 1.35), mz = (a[1] + b[1]) / 2 + nz * sd * (hm + 1.35);
         if (r.oneway && facesOther(r, mx, mz)) {   // median kerb only
-          if (paved(a[0] + nx * oc + dx / 2, a[1] + nz * oc + dz / 2)) continue;   // median opening paved over (roads.json pave)
-          walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
+          if (paved(a[0] + nx * (oc + ocb) / 2 + dx / 2, a[1] + nz * (oc + ocb) / 2 + dz / 2)) continue;   // median opening paved over (roads.json pave)
+          walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * ocb, b[1] + nz * ocb], 0.2, 0.025, CURB);
           continue;
         }
-        walks.strip([a[0] + nx * o, a[1] + nz * o], [b[0] + nx * o, b[1] + nz * o], W, 0.02, C);
-        walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * oc, b[1] + nz * oc], 0.2, 0.025, CURB);
+        walks.strip([a[0] + nx * o, a[1] + nz * o], [b[0] + nx * ob, b[1] + nz * ob], W, 0.02, C);
+        walks.strip([a[0] + nx * oc, a[1] + nz * oc], [b[0] + nx * ocb, b[1] + nz * ocb], 0.2, 0.025, CURB);
       }
       if (i > 0 && turnAt(r, i) > 0.1 && !(r.oneway && facesOther(r, a[0], a[1]))) {
         const W = Math.max(walkOf(r, nx, nz, 1), walkOf(r, nx, nz, -1));
-        if (W) walks.disc(a[0], a[1], r.w / 2 + 0.1 + W, 0.02, C, 12);
+        if (W) walks.disc(a[0], a[1], wPt(r, i) / 2 + 0.1 + W, 0.02, C, 12);
       }
     }
   };
@@ -1365,7 +1386,14 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
   const gradeDeck = (r, gi) => {
     const s0 = gi.proj(r.pts[0][0], r.pts[0][1]), dir = gi.proj(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]) >= s0 ? 1 : -1;
     r.deck = 1; // npc.js: traffic / walkers on this way use the deck
-    return addBridge(r.pts, r.w, { yAt: d => gi.y(s0 + dir * d), lv: LV_DECK });
+    // gi.cut0: the first metres of the item's path are not built (a building's own stair up to the deck is there, js/lixing.js).
+    // A level's station also counts 1 m past its end (js/terrain.js surfaceAt), so the deck's centreline starts 1 m later.
+    let pts = r.pts, off = 0;
+    if (gi.cut0 > 0) {
+      const keep = gi.cut0 + 1, c = gi.at(keep), in0 = (p) => gi.proj(p[0], p[1]) > keep + 0.01;
+      if (dir > 0) { pts = [[c.x, c.z], ...r.pts.filter(in0)]; off = keep - s0; } else pts = [...r.pts.filter(in0), [c.x, c.z]];
+    }
+    return addBridge(pts, r.w, { yAt: d => gi.y(s0 + dir * (d + off)), lv: LV_DECK });
   };
   for (const r of data.roads) {
     if (r.under) {
@@ -1392,8 +1420,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const a = r.pts[i], b = r.pts[i + 1];
       const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
       if (yAt) deckStrip(g, a, b, r.w, acc, yAt, 0.03 + TOL_LO, c, true);
-      else g.strip(a, b, r.w, 0.03, c);
-      roadGrid.add(a[0], a[1], b[0], b[1], r.w, r);
+      else g.strip(a, b, wPt(r, i), 0.03, c, wPt(r, i + 1));
+      gridSeg(r, i);
       acc += l;
     }
     // discs only where needed: bends, junctions and joins with another way
@@ -1405,7 +1433,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (!need) return;
       if (gi && gi.kind === 'cut') { const q = gi.proj(p[0], p[1]); if (q > gi.s0 && q < gi.s1) return; } // inside the cut
       if (yAt && !end) deckDisc(g, p[0], p[1], r.w / 2, yAt(acc) + 0.03 + TOL_LO, c, L === 0 ? 6 : 10);
-      else g.disc(p[0], p[1], r.w / 2, 0.03, c, L === 0 ? 6 : 10);
+      else g.disc(p[0], p[1], wPt(r, i) / 2, 0.03, c, L === 0 ? 6 : 10);
     });
     if (marked(r)) markRoad(r, yAt);
     sidewalk(r);
@@ -1493,8 +1521,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
       } else if (gi.kind === 'footbridge') {
         // orange Warren truss with a white roof, deck slab at its foot, red banner; height-limit
-        // plates on both faces over the street. The ends run into the two buildings.
-        const A = gi.at(0), L = gi.len, ux = A.ux, uz = A.uz, nx = -uz, nz = ux, y = gi.y(0);
+        // plates on both faces over the street. The ends run into the two buildings (力行: up to its outside stair).
+        const c0 = gi.cut0 || 0, A = gi.at(c0), L = gi.len - c0, ux = A.ux, uz = A.uz, nx = -uz, nz = ux, y = gi.y(c0); // (cut0: see gradeDeck)
         const P3 = (s, o, yy) => [A.x + ux * s + nx * o, yy, A.z + uz * s + nz * o];
         const yb = y - 0.4, yt = yb + 2.6, o = 1.5, n = Math.max(2, Math.round(L / 3));
         deckSides.box(A.x + ux * L / 2, A.z + uz * L / 2, Math.atan2(uz, ux), L, 3.0, yb, y, col('#9c968c'));
@@ -1512,7 +1540,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         for (let k = 0; k <= n; k++) beam(gradeMetal, P3(k * L / n, -o, yt - 0.15), P3(k * L / n, o, yt - 0.15), 0.14, TRUSS);
         deckSides.box(A.x + ux * L / 2, A.z + uz * L / 2, Math.atan2(uz, ux), L + 0.4, 3.8, yt, yt + 0.1, col('#f2f2ee'));
         // the street's middle under the span
-        const sr = gi.prof[0][0], tex = plate('淨高4.7公尺', 0.9, 0.6), ban = canvasTex(512, 64, (g2, W, Hh) => { g2.fillStyle = '#c41e24'; g2.fillRect(0, 0, W, Hh); }, false);
+        const sr = gi.prof[0][0] - c0, tex = plate('淨高4.7公尺', 0.9, 0.6), ban = canvasTex(512, 64, (g2, W, Hh) => { g2.fillStyle = '#c41e24'; g2.fillRect(0, 0, W, Hh); }, false);
         for (const sd of [1, -1]) {
           const c = P3(sr, (o + 0.2) * sd, yb + 0.3);
           sign(tex, c[0], c[1], c[2], nx * sd, nz * sd, 0.9, 0.6);
@@ -1605,6 +1633,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     for (const f of FEATS) {
       const q = f.at, R = q.r;
       if (!inPlay([q.x, q.z])) continue;
+      // the road's width where the spot sits (r.wv: it changes along the road)
+      const RW = R.wv ? wOn(R, q.i, Math.min(1, Math.hypot(q.x - R.pts[q.i][0], q.z - R.pts[q.i][1]) / (Math.hypot(R.pts[q.i + 1][0] - R.pts[q.i][0], R.pts[q.i + 1][1] - R.pts[q.i][1]) || 1))) : R.w;
       // on a deck (bridge, viaduct) the spot is laid at the deck's height where it sits, not on the ground below
       const yd = deckY.get(R), y0 = yd ? yd(Math.max(0, R.pts.slice(0, q.i).reduce((s, p, k) => s + Math.hypot(R.pts[k + 1][0] - p[0], R.pts[k + 1][1] - p[1]), 0) + Math.hypot(q.x - R.pts[q.i][0], q.z - R.pts[q.i][1]))) + TOL_LO : 0;
       const marks = yd ? { strip(a, b, w, y, c) { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz); if (l < 0.01) return; const nx = -dz / l * w / 2, nz = dx / l * w / 2;
@@ -1613,7 +1643,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (f.t === 'box') { // 網狀黃線: outline + diagonal grid; kerb to kerb, or w wide round its surveyed centre
         // (one nearly as wide as the street is laid kerb to kerb: the OSM line can be off the real centre by a metre or two;
         // one much wider spans both one-way ways of a split street, round its surveyed centre)
-        const part = f.w && (f.w < R.w - 1.5 || f.w > R.w + 1.5), v0 = part ? (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux : 0, h = f.len / 2, e = (part ? f.w / 2 : R.w / 2) - 0.35;
+        const part = f.w && (f.w < RW - 1.5 || f.w > RW + 1.5), v0 = part ? (f.x - q.x) * -q.uz + (f.z - q.z) * q.ux : 0, h = f.len / 2, e = (part ? f.w / 2 : RW / 2) - 0.35;
         const P = (u, v) => [q.x + q.ux * u - q.uz * (v + v0), q.z + q.uz * u + q.ux * (v + v0)];
         const bar = (u0, v0, u1, v1) => marks.strip(P(u0, v0), P(u1, v1), 0.14, 0.045, YELLOW);
         bar(-h, -e, h, -e); bar(-h, e, h, e); bar(-h, -e, -h, e); bar(h, -e, h, e);
@@ -1625,7 +1655,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       }
       // the others are laid on their own direction: u along ang (the street), v across it
       const a = (f.ang ?? Math.atan2(q.uz, q.ux) * 180 / Math.PI) * Math.PI / 180, ux = Math.cos(a), uz = Math.sin(a);
-      const P = (u, v) => [f.x + ux * u - uz * v, f.z + uz * u + ux * v], W = (f.w || R.w) / 2;
+      const P = (u, v) => [f.x + ux * u - uz * v, f.z + uz * u + ux * v], W = (f.w || RW) / 2;
       if (f.t === 'zebra') { // 斑馬線: 0.45 m bars along the street, 0.9 m apart, across its width
         if (f.osm) continue; // furniture.js already lays this one (OSM crossing / signal junction): only breaks the lines
         const L = (f.len || 3) / 2;
@@ -2639,9 +2669,10 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       if (!inB(r.pts[i]) || !inB(r.pts[i + 1])) continue;
       const a = getNode(r.nodes[i], r.pts[i]), b = getNode(r.nodes[i + 1], r.pts[i + 1]);
       if (a === b) continue;
-      a.adj.push({ to: b, w: r.w, drive, road: r, fwd: true });
-      if (!r.oneway) b.adj.push({ to: a, w: r.w, drive, road: r, fwd: false });
-      else b.adj.push({ to: a, w: r.w, drive: false, road: r, fwd: false });
+      const w = Math.min(wPt(r, i), wPt(r, i + 1));
+      a.adj.push({ to: b, w, drive, road: r, fwd: true });
+      if (!r.oneway) b.adj.push({ to: a, w, drive, road: r, fwd: false });
+      else b.adj.push({ to: a, w, drive: false, road: r, fwd: false });
     }
   }
   world.graph = nodes;
@@ -3109,7 +3140,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const q = roadGrid.nearest(x, z, s => (s[5].sh || (s[5].rw && s[5].w > s[5].osm.w)) && !s[5].under);
     if (!q.seg) return null;
     const r = q.seg[5], vx = x - q.q[0], vz = z - q.q[1], d = Math.hypot(vx, vz) || 1;
-    if (r.sh) return d < r.w / 2 + clr ? [q.q[0] + vx / d * (r.w / 2 + clr), q.q[1] + vz / d * (r.w / 2 + clr)] : null;
+    const W = r.wv ? q.seg[4] : r.w;   // (r.wv: roadGrid keeps the width where it is)
+    if (r.sh) return d < W / 2 + clr ? [q.q[0] + vx / d * (W / 2 + clr), q.q[1] + vz / d * (W / 2 + clr)] : null;
     if (q.d >= clr) return null;
     const k = Math.max(d, r.osm.w / 2 + clr) + (r.w - r.osm.w) / 2;
     return [q.q[0] + vx / d * k, q.q[1] + vz / d * k];
@@ -3156,7 +3188,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const osmN = spots.length;
     const nearOsm = (x, z) => osm.some(f => (f.x - x) ** 2 + (f.z - z) ** 2 < 225);
     for (const r0 of data.roads) {
-      const r = r0.osm ? { ...r0, ...r0.osm } : r0;
+      const r = r0.osm ? { ...r0, ...r0.osm, wv: undefined } : r0;
       if (!r.drive || !r.name || r.type === 'service' || r.under) continue;
       let acc = 0, k = hashStr(r.name) & 1;
       for (let i = 0; i < r.pts.length - 1; i++) {
@@ -3315,7 +3347,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const polyBox = (pts) => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const [x, z] of pts) { a = Math.min(a, x); b = Math.min(b, z); c = Math.max(c, x); d = Math.max(d, z); } return [a, b, c, d]; };
     // campus footways first: regular rows every 8 m on both sides, some rows palms
     data.roads.forEach((r0, ri) => {
-      const r = r0.osm ? { ...r0, ...r0.osm } : r0;
+      const r = r0.osm ? { ...r0, ...r0.osm, wv: undefined } : r0;
       if (r.type !== 'footway' || !world.inCampus(r.pts[0][0], r.pts[0][1])) return;
       const palm = hashStr('palm' + ri) % 100 < 28;
       let acc = -2; // first tree 2 m in, then a steady 8 m pitch across bends
@@ -3341,7 +3373,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     }
     // roadside trees on the bigger roads (on the sidewalk)
     for (const r0 of data.roads) {
-      const r = r0.osm ? { ...r0, ...r0.osm } : r0;
+      const r = r0.osm ? { ...r0, ...r0.osm, wv: undefined } : r0;
       if (!(r.type === 'tertiary' || r.type === 'secondary')) continue;
       for (let i = 0; i < r.pts.length - 1; i++) {
         const a = r.pts[i], b = r.pts[i + 1]; const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
@@ -3424,10 +3456,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       return false;
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
-    // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way)
+    // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way),
+    // except one that keeps its vegetation (addPit veg: js/zone_a.js 圖書館東側下沉庭院 is a grove)
     // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, js/zone_a.js 圖書館南面平台; placement unchanged the same way)
     const treeHide = opts.treeHide || [], onPad = (x, z) => treeHide.some(p => pointInPoly(x, z, p));
-    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8, true) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
     // order, same draws); one that would land in a building, another road or water is hidden
     const moveTree = (p, cr) => {
@@ -3444,7 +3477,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
     // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
     const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6) !== null });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6, true) !== null });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;

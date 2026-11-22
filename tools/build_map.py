@@ -561,6 +561,59 @@ def shift_roads(out, items, by, real, stats, st, final_w={}):
     return changed
 
 
+def width_anchors(r, e, stats):
+    """tools/roads.json 'ways' wat (see its _doc): a carriageway whose width changes along the way.
+    Anchors [x, z, w] are projected onto the way as it is now (after 'shift'); between them the width
+    is interpolated along the way, past the first / last one it holds. Extra vertices go in at the
+    anchors (own negative node ids) so a taper ends where it should, and r['wv'] gets the width at
+    every vertex (r['w'] stays the entry's w, set as for any 'ways' entry: everything that does not
+    look at wv uses it). Run before the widths are checked against the buildings."""
+    P = r['pts']
+    S = [0.0]
+    for a, b in zip(P, P[1:]):
+        S.append(S[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    A = []
+    for x, z, w in e['wat']:
+        best = None
+        for i, (a, b) in enumerate(zip(P, P[1:])):
+            dx, dz = b[0] - a[0], b[1] - a[1]; l2 = dx * dx + dz * dz or 1
+            t = max(0, min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2))
+            d = math.hypot(a[0] + dx * t - x, a[1] + dz * t - z)
+            if best is None or d < best[0]:
+                best = (d, S[i] + t * math.sqrt(l2))
+        if best[0] > max(r['w'], w) / 2 + 6:
+            stats['warn'].append('roads.json way %s: wat anchor (%s, %s) is %.1f m off the way' % (e['way'], x, z, best[0]))
+        A.append((best[1], w))
+    A.sort()
+    nodes = r.get('nodes') or []
+    NP, NN, NS = [P[0]], [nodes[0]] if len(nodes) == len(P) else None, [0.0]
+    k = 0
+    for i in range(1, len(P)):
+        for c, _ in A:
+            if S[i - 1] + 1 < c < S[i] - 1:
+                t = (c - S[i - 1]) / (S[i] - S[i - 1])
+                NP.append([round(P[i - 1][0] + (P[i][0] - P[i - 1][0]) * t, 2), round(P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t, 2)])
+                NS.append(c)
+                if NN is not None:
+                    k += 1; NN.append(-(e['way'] * 1000 + 500 + k))
+        NP.append(P[i]); NS.append(S[i])
+        if NN is not None:
+            NN.append(nodes[i])
+    r['pts'] = NP
+    if NN is not None:
+        r['nodes'] = NN
+
+    def w_at(s):
+        if s <= A[0][0]:
+            return A[0][1]
+        if s >= A[-1][0]:
+            return A[-1][1]
+        for (s0, w0), (s1, w1) in zip(A, A[1:]):
+            if s0 <= s <= s1:
+                return w0 + (w1 - w0) * (s - s0) / ((s1 - s0) or 1)
+    r['wv'] = [round(w_at(s), 2) for s in NS]
+
+
 def push_barriers(out, moved, stats, st):
     """An OSM wall / hedge running along a shifted road (shift_roads) that the new carriageway now
     covers or comes within its draw margin of (and that did not stand in the old one) moves
@@ -573,16 +626,18 @@ def push_barriers(out, moved, stats, st):
     segs = Grid(20)
     for r in moved:
         for a, b in zip(r['pts'], r['pts'][1:]):
-            segs.add(bbox_of([a, b], r['w'] / 2 + 2), (r, a, b))
+            segs.add(bbox_of([a, b], max(r.get('wv') or [r['w']]) / 2 + 2), (r, a, b))
 
     def near(x, z, P_of):
         best = None
         for r, _, _ in segs.query((x - 0.1, z - 0.1, x + 0.1, z + 0.1)):
             P = P_of(r)
-            for a, b in zip(P, P[1:]):
-                d = pt_seg(x, z, a[0], a[1], b[0], b[1]) - r['w'] / 2
+            wv = r.get('wv') if P is r['pts'] else None   # (roads.json wat: the width where it is)
+            for j, (a, b) in enumerate(zip(P, P[1:])):
+                hw = max(wv[j], wv[j + 1]) / 2 if wv else r['w'] / 2
+                d = pt_seg(x, z, a[0], a[1], b[0], b[1]) - hw
                 if best is None or d < best[0]:
-                    best = (d, r, a, b)
+                    best = (d, r, a, b, hw)
         return best
 
     def foot(x, z, a, b):
@@ -608,7 +663,7 @@ def push_barriers(out, moved, stats, st):
                 b0 = near(x, z, lambda r: r['osm']['pts'])
                 if b0 is None or b0[0] < -0.5 or b1[0] > b0[0] - 0.3:   # it stood in the old carriageway
                     out_pts.append([x, z]); continue                       # already / the shift barely nears it
-                _, r, a, b = b1
+                _, r, a, b, rhw = b1
                 dx, dz = b[0] - a[0], b[1] - a[1]; l = math.hypot(dx, dz) or 1
                 if abs(dx * (q[0] - p[0]) + dz * (q[1] - p[1])) < 0.9 * l * L:   # only along the road, not across it
                     out_pts.append([x, z]); continue
@@ -618,7 +673,7 @@ def push_barriers(out, moved, stats, st):
                 nx, nz = -dz / l, dx / l
                 if nx * sx + nz * sz < 0:
                     nx, nz = -nx, -nz
-                hw = r['w'] / 2 + pad
+                hw = rhw + pad
                 nxp, nzp = fx + nx * hw, fz + nz * hw
                 k = math.hypot(nxp - x, nzp - z)
                 if k > 2.5 or k < 0.05:   # (> 2.5: a junction mouth, not a kerb that moved past it)
@@ -681,6 +736,13 @@ def apply_roads(out, stats):
             stats['warn'].append('roads.json way %s: width from OSM is %s, survey saw %s' % (e['way'], r['w'], e['was']))
         side = SIDEWALK if r['type'] in ('primary', 'secondary', 'tertiary') and not (r.get('name') or '').startswith('中北路') else 0.3
         w = e['w']
+        if e.get('wat'):
+            width_anchors(r, e, stats)
+            # the stretches wider than w cut the 補建 behind their own kerb (only there)
+            for a, b, wa, wb in zip(r['pts'], r['pts'][1:], r['wv'], r['wv'][1:]):
+                if max(wa, wb) > w + 0.05:
+                    grown.append(({'pts': [a, b]}, max(wa, wb) / 2 + (side if side > 0.3 else 1.1)))
+            st['n'] += 1
         if w > r['w']:
             # the nearest OSM building / wall that the old road was clear of
             room = 1e9
@@ -932,6 +994,8 @@ def build_grade(out, items, stats):
         g = dict(id=it['id'], kind=it['kind'], name=it['name'], path=path, w=it['w'], prof=prof)
         if it.get('clearance'):
             g['clearance'] = it['clearance']
+        if it.get('cut0'):   # the path's first metres are not built (a building's stair is there): js/map.js gradeDeck
+            g['cut0'] = it['cut0']
         tun = [path_proj(path, *p)[0] for r in mine if r.get('tunnel') for p in r['pts']]
         if tun:
             g['roof'] = [round(min(tun), 1), round(max(tun), 1)]

@@ -461,7 +461,7 @@ export const FRIEND_CONTACTS = {
       ask: (g) => {
         const G = g.garry; if (!G?.mode) return { r: ['等我一下 手上在忙'] };
         if (G.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 蓋瑞在房間睡覺，明天早上 7 點會被鬧鐘叫醒', 'good', 2600) };
-        const r = { run: ['在體育園區跑步 🏃', '定位傳給你，要來一起跑嗎'], club: ['在活動中心的古箏社教室練琴 🎶', '定位傳給你了，門在南邊人行道那側'], desk: ['在房間啊 就你隔壁', '從你們 2 樓樓梯口那扇門過來'] }[G.mode];
+        const r = { run: ['在體育園區跑步 🏃', '定位傳給你，要來一起跑嗎'], club: ['在活動中心的古箏社教室練琴 🎶', '定位傳給你了，門在北邊新中北路的人行道那側'], desk: ['在房間啊 就你隔壁', '從你們 2 樓樓梯口那扇門過來'] }[G.mode];
         return { r, then: () => { if (g.nav.track(G)) g.hud.toast('🧭 已設定導航到黃蓋瑞身邊', 'good', 2400); } };
       },
     }],

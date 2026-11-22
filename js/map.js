@@ -740,6 +740,8 @@ const STYLE_BY_NAME = {
   '自強商學大樓': 'white', '商設館': 'white', '智信樓': 'brick', '莊敬大樓': 'white', '建築館': 'granite', '祐生建築中心': 'granite',
   '張靜愚紀念圖書館': 'granite', '學生活動中心': 'tan', '全人教育村': 'brick', '電學大樓': 'tan', '力行大樓': 'red', '篤信大樓': 'white',
   '信實樓': 'brick', '恩慈樓': 'brick', '良善樓': 'brick', '喜樂樓': 'brick', '陸華樓': 'white', '維澈樓': 'white', '校史館': 'white',
+  '行政大樓（含校史館）': 'white', // 行政大樓＝OSM 的「校史館」（js/zone_a.js 改名）
+  '商業設計館': 'white', // 商業設計館＝OSM 的「商設館」（js/zone_c.js 改名）
   '生物科技館': 'white', '真知教學大樓': 'white', '設計學院': 'granite', '室設系館': 'white', '景觀系館': 'tan', '恩惠堂': 'white', '恩惠堂副堂': 'white',
   '中原大學體育館': 'white', '中原大學室內游泳池': 'white', '薄膜中心': 'white', '熱誠樓A棟': 'brick', '熱誠樓B C棟': 'brick', '林森館': 'tan', '望樓': 'tan',
   '月老宮': 'temple', '桃園白沙屯天上聖母': 'temple', '普忠里福德祠': 'temple', '盧氏宗祠': 'temple', '土地公廟': 'temple', '普仁福德祠(土地公廟)': 'temple',
@@ -1234,17 +1236,36 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       // pair / pair-other: one of the two one-way ways OSM splits a two-way street into (no median, just
       // 雙黃線 between them): 'pair' paints the 雙黃線 along its edge that faces the other way, 'pair-other'
       // nothing there; neither gets a white edge line on that side
-      const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair ? pairSide(r) : 0;
-      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, e, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -e, 0.15, WHITE, G[-1], D); }
+      // inner: false on a 'median' one-way: no white edge line along the median side either (where the
+      // orthophoto shows none there). ev [vPos, vNeg]: the white edge lines at these offsets from the centreline
+      // (+ = (-uz, ux)) where they are painted well inside the kerbs, instead of 0.35 m in
+      const pair = M.centre === 'pair' || M.centre === 'pair-other', inner = pair || M.inner === false ? pairSide(r) : 0;
+      const eP = M.ev ? M.ev[0] : e, eN = M.ev ? -M.ev[1] : e;
+      if (M.edge) { if (inner !== 1) lineGaps(r, yAt, eP, 0.15, WHITE, G[1], D); if (inner !== -1) lineGaps(r, yAt, -eN, 0.15, WHITE, G[-1], D); }
       if (M.centre === 'pair' && inner) { const o = inner * (r.w / 2 - 0.15); lineGaps(r, yAt, o, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, o - inner * 0.3, 0.12, YELLOW, G[0], D); }
       // cv: the centre line off the middle of the carriageway (+ = (-uz, ux)), where one side is wider (kerbside parking)
       const cv = M.cv || 0;
-      if (M.centre === 'double-yellow') { lineGaps(r, yAt, cv + 0.15, 0.12, YELLOW, G[0], D); lineGaps(r, yAt, cv - 0.15, 0.12, YELLOW, G[0], D); }
-      else if (M.centre === 'yellow') lineGaps(r, yAt, cv, 0.15, YELLOW, G[0], D);
-      else if (M.centre === 'yellow-dash') lineGaps(r, yAt, cv, 0.15, YELLOW, G[0], D, Infinity, true);
-      else if (M.centre === 'white-dash') lineGaps(r, yAt, cv, 0.12, WHITE, G[0], D, Infinity, true);
-      if (two) for (const sd of [1, -1]) { const lw = (e - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, cv + sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
-      else { const lw = 2 * e / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -e + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      const centre = (style, gaps) => {
+        if (style === 'double-yellow') { lineGaps(r, yAt, cv + 0.15, 0.12, YELLOW, gaps, D); lineGaps(r, yAt, cv - 0.15, 0.12, YELLOW, gaps, D); }
+        else if (style === 'yellow') lineGaps(r, yAt, cv, 0.15, YELLOW, gaps, D);
+        else if (style === 'yellow-dash') lineGaps(r, yAt, cv, 0.15, YELLOW, gaps, D, Infinity, true);
+        else if (style === 'white-dash') lineGaps(r, yAt, cv, 0.12, WHITE, gaps, D, Infinity, true);
+      };
+      // segs [{from: [x, z], to: [x, z], centre}]: stretches of the way painted with another centre line
+      // (the ends projected onto the way as it is now, shifted or not); the rest keeps M.centre
+      const along = (x, z) => {
+        let best = Infinity, s = 0;
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const a = r.pts[i], b = r.pts[i + 1], c = closestOnSeg(x, z, a[0], a[1], b[0], b[1]), d = Math.hypot(c[0] - x, c[1] - z);
+          if (d < best) { best = d; s = D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]); }
+        }
+        return s;
+      };
+      const segs = (M.segs || []).map(g => { const a = along(...g.from), b = along(...g.to); return [Math.min(a, b), Math.max(a, b), g.centre]; });
+      centre(M.centre, G[0].concat(segs.map(([a, b]) => [a, b])));
+      for (const [a, b, st] of segs) centre(st, G[0].concat([[-Infinity, a], [b, Infinity]]));
+      if (two) for (const sd of [1, -1]) { const lw = ((sd > 0 ? eP : eN) - sd * cv) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, cv + sd * k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
+      else { const lw = (eP + eN) / n; for (let k = 1; k < n; k++) lineGaps(r, yAt, -eN + k * lw, 0.12, WHITE, G[0], D, Infinity, true); }
       return;
     }
     line(r, yAt, e, 0.15, WHITE, false); line(r, yAt, -e, 0.15, WHITE, false);
@@ -2504,7 +2525,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // rooftop clutter (AC condensers, vents) on flat roofs not already carrying sheds / stair houses
     // split.ac (overrides.json): the units the roof had before it was split, each on the block under it
     // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
-    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts, top, town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
+    if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0) acSpots.push({ r2: b.synthetic ? rnd2 : null, pts: b.acPts || pts, top, /* acPts：改過輪廓的建物用原本輪廓抽冷氣亂數（js/zone_a.js） */ town: b.kind === 'town', parts: b.parts && b.splitAc ? b.parts.map(V => [V.pts, base + V.h, V.holes]) : null, skip: !!L && (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0) });
     if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
@@ -2553,7 +2574,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const x = x0 + 1.5 + rnd2() * (x1 - x0 - 3), z = z0 + 1.5 + rnd2() * (z1 - z0 - 3);
         if (!pointInPoly(x, z, pts) || !pointInPoly(x + 1.2, z + 1.2, pts) || !pointInPoly(x - 1.2, z - 1.2, pts)) continue;
         // split roof: the block under the unit; a unit across a block edge is dropped (its draws stay)
-        const blk = parts && [[x, z], [x + 1.2, z + 1.2], [x - 1.2, z - 1.2]].map(([qx, qz]) => parts.find(([p]) => pointInPoly(qx, qz, p)));
+        const blk = parts && [[x, z], [x + 1.2, z + 1.2], [x - 1.2, z - 1.2]].map(([qx, qz]) => parts.find(([p, , hs]) => pointInPoly(qx, qz, p) && !(hs && hs.some(q => pointInPoly(qx, qz, q))))); // 天井（V.holes）上不放
         const top = !parts ? top0 : blk[0] && blk.every(q => q === blk[0]) ? blk[0][1] : null;
         if (rnd2() < 0.25) { const a = rnd2() * 3; if (top !== null && !skip) acGeo.box(x, z, a, 0.5, 0.5, top, top + 1.1, col('#8f9497')); }
         else if (top !== null && !skip) { acGeo.box(x, z, 0, 1.0, 0.7, top, top + 0.75, col('#e4e3de')); acGeo.box(x + 1.15, z, 0, 1.0, 0.7, top, top + 0.75, col('#dedcd6')); }
@@ -3067,6 +3088,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const f = buildFurniture(scene, world, data, { Geo, col, addFlat, obb, polyArea, low: !!opts.low, rnd: mulberry32(4401), keep: opts.keep || [] });
     world.signMats = f.signMats;
   }
+  // street furniture a reserved outline dropped (js/furniture.js ghosts): the lamps and trees below are laid out as if
+  // it still stood, in the same passes that leave the reserved outlines out, so it shifts none of their draws
+  const furnGhost = (x, z, r) => world.furnGhost.blocked(x, z, r);
 
   // ---------- street lamps ----------
   let lampSpots = [];
@@ -3123,7 +3147,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         rot = Math.atan2(-vx, -vz);
       }
       if (!laneClear(x, z)) { inLane++; continue; }
-      if (!collision.insideAny(x, z) && !collision.blocked(x, z, 0.3)) spots.push([x, z, rot]);
+      if (!collision.insideAny(x, z) && !collision.blocked(x, z, 0.3) && !furnGhost(x, z, 0.3)) spots.push([x, z, rot]);
     }
     const osmN = spots.length;
     const nearOsm = (x, z) => osm.some(f => (f.x - x) ** 2 + (f.z - z) ** 2 < 225);
@@ -3139,7 +3163,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           // the other kerb when this one is inside a junction / another road
           for (const side of [s0, -s0]) {
             const px = x + nx * side * (r.w / 2 + 0.6), pz = z + nz * side * (r.w / 2 + 0.6);
-            if (nearOsm(px, pz) || collision.blocked(px, pz, 0.5)) break;
+            if (nearOsm(px, pz) || collision.blocked(px, pz, 0.5) || furnGhost(px, pz, 0.5)) break;
             if (!laneClear(px, pz)) { if (side !== s0) inLane++; continue; }
             spots.push([px, pz, Math.atan2(-nx * side, -nz * side)]); break;
           }
@@ -3232,7 +3256,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // species from the visual-only stream, so layout and colliders don't depend on it
     // ghosts (trees / lamps a reserved outline dropped after their draws) count like the colliders they stand for, so a
     // reserved outline changes no species beyond the trees it drops (ghosts is declared below, before the first call)
-    const nearGhost = (x, z, r) => ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2);
+    const nearGhost = (x, z, r) => ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2) || furnGhost(x, z, r);
     const pickKind = (x, z, s) => {
       const r = rnd2(), campus = world.inCampus(x, z);
       let kind = campus || greenAt(x, z) ? (r < 0.3 ? 'rain' : r < 0.66 ? 'round' : r < 0.84 ? 'pine' : 'palm') : (r < 0.18 ? 'palm' : 'round');
@@ -3269,7 +3293,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // and shrubs off only in the final okSpot (a tree dropped there stays as a ghost of the same size), so adding or
     // changing a reserved outline no longer re-deals every tree and shrub after it in the shared rnd sequence.
     const okOsm = (x, z, r) => {
-      if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2)) return false;
+      if (ghosts.some(([gx, gz, gr]) => (gx - x) ** 2 + (gz - z) ** 2 < (gr + r) ** 2) || furnGhost(x, z, r)) return false;
       if (cutHouses.length && inCutHouse(x, z, r)) return false;
       collision.muted = gradeSegs; collision.noReserved = true;
       const ok = okSpot(x, z, r, osmRoads);
@@ -3372,7 +3396,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           const x0 = p0[0] + (p1[0] - p0[0]) * t / l, z0 = p0[1] + (p1[1] - p0[1]) * t / l;
           const d = Math.hypot(cx - x0, cz - z0) || 1, x = x0 + (cx - x0) / d * 5, z = z0 + (cz - z0) / d * 5;
           // reserved outlines only drop the tree after its draw (see okOsm), so they never shift rnd2
-          collision.noReserved = true; const hit = collision.blocked(x, z, 4); collision.noReserved = false;
+          collision.noReserved = true; const hit = collision.blocked(x, z, 4) || furnGhost(x, z, 4); collision.noReserved = false;
           if (!pointInPoly(x, z, pts) || roadGrid.nearest(x, z).d < 1.5 || hit) continue;
           const sc = 0.75 + rnd2() * 0.25;
           if (collision.blocked(x, z, 4)) continue;
@@ -3397,7 +3421,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     };
     // ... and nothing grows in sunk water or on its banks (sinkPlan; placement unchanged the same way)
     // ... and nothing grows in a pit (js/terrain.js addPit: 學活南面下沉舞台, placement unchanged the same way)
-    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null) return false; collision.removeCircleAt(x, z); return true; };
+    // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, js/zone_a.js 圖書館南面平台; placement unchanged the same way)
+    const treeHide = opts.treeHide || [], onPad = (x, z) => treeHide.some(p => pointInPoly(x, z, p));
+    const hideTree = (x, z) => { if (!onLevelEdge(x, z, 0.8) && !sink.inside(x, z, 0.8) && pitAt(x, z, 0.8) === null && !onPad(x, z)) return false; collision.removeCircleAt(x, z); return true; };
     // ... and trees a road widened by tools/roads.json now covers move out past its new kerb (same
     // order, same draws); one that would land in a building, another road or water is hidden
     const moveTree = (p, cr) => {
@@ -3414,7 +3440,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     // opts.vegHide: outlines of custom-built parts added after the placement (js/dorms.js stair tower, entrance steps):
     // shrubs there are only hidden, so the placement and its shared rnd draws stay as they were
     const vegHide = opts.vegHide || [], hidden = (x, z) => vegHide.some(p => pointInPoly(x, z, p));
-    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || pitAt(x, z, 0.6) !== null });
+    for (const [x, z, s] of shrubs) veg.push({ x, z, y: groundY(x, z) - 0.1, kind: 'shrub', s, hide: onLevelEdge(x, z, 0.6) || sink.inside(x, z, 0.6) || hidden(x, z) || onPad(x, z) || pitAt(x, z, 0.6) !== null });
     world.vegetation = plantVegetation(scene, veg, quality);
     world.treeCount = spots.length + palms.length;
     world.shrubCount = shrubs.length;
@@ -3504,6 +3530,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         for (let i = 0; i < n; i++) { const a = inner[i], b = inner[(i + 1) % n], ex = b[0] - a[0], ez = b[1] - a[1], l = Math.hypot(ex, ez) || 1; gHedge.quad([a[0], L.y, a[1]], [b[0], L.y, b[1]], [b[0], L.y + 0.55, b[1]], [a[0], L.y + 0.55, a[1]], HEDGE, [sgn * ez / l, 0, -sgn * ex / l]); }
       } else gTop.flatPoly(pts, L.y, col(d.top || '#e6e2da'));
       for (let i = 0; i < n; i++) {
+        // d.open: edges (pts[i] -> pts[i+1]) that meet a bridge deck at the same height (decks are not levels,
+        // so below() would see the ground under it): no wall, no seal there (js/zone_g.js 學活前庭、二樓門廊)
+        if (d.open && d.open.includes(i)) continue;
         const A = pts[i], Bp = pts[(i + 1) % n], ex = Bp[0] - A[0], ez = Bp[1] - A[1], l = Math.hypot(ex, ez) || 1;
         const nx = sgn * ez / l, nz = -sgn * ex / l;
         const drop = edge(L, A, Bp, nx, nz, () => L.y + 0.06, () => L.y, d.wall);
@@ -3569,8 +3598,8 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           const sa = s0 + (s1 - s0) * i / nb, sb = s0 + (s1 - s0) * (i + 1) / nb, q = XZ((sa + sb) / 2, sg * (hw - 0.65)), y = walk((sa + sb) / 2);
           gHedge.box(q[0], q[1], Math.atan2(uz, ux), sb - sa, 0.6, y - 0.05, y + 0.6, HEDGE);
         }
-      } else for (const sg of [1, -1]) for (const [k0, k1] of runsOf(sideDrop[sg], 0.45)) {
-        // guard rail where a stair side stands well above the ground
+      } else if (d.rail !== 'none') for (const sg of [1, -1]) for (const [k0, k1] of runsOf(sideDrop[sg], 0.45)) {
+        // guard rail where a stair side stands well above the ground ('none': the parapets are drawn elsewhere)
         const m = sideDrop[sg].length; railing(lineAt(sg * (hw - 0.12), len * k0 / m, len * k1 / m), rc, 0.9);
       }
     }

@@ -11,6 +11,7 @@
 //   terrain(data)        執行期地形修改（例如學活的下沉舞台）
 //   trees()              額外指定位置的樹
 //   vegHide(data)        蓋完植栽後才補的構件範圍，裡面的樹和灌木只隱藏不重抽
+//   treeHide(data)       可以走上去的平坦平台範圍，裡面的樹、棕櫚、灌木都隱藏、樹的碰撞拿掉（不重抽，js/map.js opts.treeHide）
 //   ownSign              自己掛店名的 POI 名稱（地圖就不再另外畫招牌）
 //   build(I, scene, data, collision)   自建的模型、碰撞、可走的地面、E 鍵動作
 //
@@ -30,8 +31,12 @@ import { applyZoneE, zoneEFootprints, buildZoneE } from './zone_e.js';
 import { zoneGLook, zoneGFootprints, zoneGTerrain, buildZoneG } from './zone_g.js';
 import { buildSacB1 } from './sac_b1.js';
 import { zoneHLook, zoneHAdd, buildZoneH } from './zone_h.js';
+import { zoneALook, zoneATerrain, zoneATreeHide, buildZoneA } from './zone_a.js';
+import { zoneDLook, zoneDTreeHide, buildZoneD } from './zone_d.js';
+import { zoneBLook, zoneBTerrain, zoneBTreeHide, buildZoneB } from './zone_b.js';
 import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
+import { zoneCLook, buildZoneC } from './zone_c.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -75,6 +80,18 @@ export const ZONES = [
       if (b.id === ENCI_ID) b.look = enciLook(b.look);
     },
   },
+  { // 行政大樓（含校史館）改名、懷恩樓門廊三拱、圖書館南面平台與兩段階梯（data.levels）、雙塔、折板、科學館樓梯塔與天文台、下沉廣場泉源之谷
+    name: 'A 區', look: zoneALook, terrain: zoneATerrain, treeHide: zoneATreeHide, build: buildZoneA,
+  },
+  { // 陸華樓大階梯與東端樓梯間、北側水池、真知屋頂 D 形地標與西南入口、篤信門廊與橘紅欄杆、電學長條 9F＋圓筒、中正樓拱形凹陽台、莊敬分段與舷窗、土木 7F 與南面入口
+    name: 'D 區', look: zoneDLook, treeHide: zoneDTreeHide, build: buildZoneD,
+  },
+  { // 管理大樓穿堂與柱廊、5F 框架層、紅瓦；自強ㄇ字中庭（parts）與東南入口；資管欄板紅邊、礫石庭園；商業設計館（原「商設館」）改輪廓；工學館拆 8F／4F／3F、懸挑樓梯平台、樓梯塔
+    name: 'C 區', look: zoneCLook, build: buildZoneC,
+  },
+  { // 理學大樓屋頂設備與南面大階梯入口（data.levels）、化學館白框架＋土黃牆與立管、恩惠堂門廊方塔與尖頂、副堂雙坡、林森館花磚、A6 步道與招牌
+    name: 'B 區', look: zoneBLook, terrain: zoneBTerrain, treeHide: zoneBTreeHide, build: buildZoneB,
+  },
   { // 力行宿舍室內：四層樓、兩個天井、樓梯、浴廁、276～281 六人房、沿新中北路的門房（外觀在 G 區）
     name: '力行宿舍室內', look: lixingLook, vegHide: lixingVegHide,
     build: (I, scene, data, collision) => buildLixing(I, scene, data, collision, Kit, regMat),
@@ -91,4 +108,5 @@ export const zoneFootprints = (data) => ZONES.flatMap(z => z.footprints?.(data) 
 export function zonesTerrain(data) { for (const z of ZONES) z.terrain?.(data); }
 export const zoneTrees = () => ZONES.flatMap(z => z.trees?.() || []);
 export const zoneVegHide = (data) => ZONES.flatMap(z => z.vegHide?.(data) || []);
+export const zoneTreeHide = (data) => ZONES.flatMap(z => z.treeHide?.(data) || []);
 export function buildZones(I, scene, data, collision) { for (const z of ZONES) z.build?.(I, scene, data, collision); }

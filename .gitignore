@@ -6,5 +6,5 @@ Thumbs.db
 tools/.cache/
 wasm/target/
 
-# 只放在本機、不上傳的素材（例如黃蓋瑞的起床鬧鐘影片 assets/private/garry_alarm.mp4）
+# 只放在本機、不上傳的素材（例如黃蓋瑞起床鬧鐘的原始影片；遊戲用的是抽出來的純音檔 assets/sfx/garry/alarm.m4a）
 assets/private/

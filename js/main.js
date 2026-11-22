@@ -7,7 +7,7 @@ import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { Audio, loadSettings, saveSettings } from './audio.js';
 import { buildInteriors, imFootprint, sacTrimmedPts, MCD_SPEC, GUARD_SPECS, guardFootprint, mainGateLawn, mainGateKeep, MAIN_GATE, IM_SPEC, YH_SPEC, yhFootprint, yhOutline } from './interiors.js';
-import { zoneDrops, zoneOwnSigns, zonesFix, zonesAdd, zonesLook, zoneFootprints, zonesTerrain, zoneTrees, zoneVegHide } from './zones.js';
+import { zoneDrops, zoneOwnSigns, zonesFix, zonesAdd, zonesLook, zoneFootprints, zonesTerrain, zoneTrees, zoneVegHide, zoneTreeHide } from './zones.js';
 import { GD_SPEC, gordonOutline } from './gordon_shop.js';
 import { HUD } from './hud.js';
 import { Missions, SPEECH } from './missions.js';
@@ -31,7 +31,7 @@ import { Market } from './stocks.js';
 import { Race } from './race.js';
 import { Friends } from './friends.js';
 import { TeaShop } from './teashop.js';
-import { GARRY_IDS, garryOutline } from './garryhome.js';
+import { garryOutline } from './garryhome.js';
 import { clubFootprint } from './clubroom.js';
 import { Concerts } from './concert.js';
 import { Garry } from './garry.js';
@@ -127,8 +127,7 @@ class Game {
       if (b.name === '學生活動中心') b.pts = sacTrimmedPts();
       zonesLook(b); // 各區只換外觀 look／分段高度，自建構件在各區的 build 裡（js/zones.js）
       if (b.id === YH_SPEC.id) { b.skip = true; b.pts = yhOutline(); } // 孫師傅牛肉拉麵 + 彥霖's old room (interiors.js builds it, 1.35x)
-      if (GARRY_IDS.includes(b.id)) { b.skip = true; if (b.id === GARRY_IDS[0]) b.pts = garryOutline(YH_SPEC); } // 黃蓋瑞家 (js/garryhome.js) replaces both
-      else if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
+      if (b.id === YH_SPEC.next) { // …so the town house next door gives up the 1.5 m the bigger house needs
         const c = Math.cos(YH_SPEC.ang), s = Math.sin(YH_SPEC.ang), ext = YH_SPEC.W * (YH_SPEC.k - 1);
         b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
       }
@@ -184,7 +183,7 @@ class Game {
         .map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
     featureTrees.push(...zoneTrees()); // 各區指定位置的樹，例如正門 P 字塔旁的大仁街行道樹（js/zones.js）
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: zoneVegHide(data) });
+    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), { reserved, keep, low: this.lowQ, quality: subQ(this.quality), featureTrees, mainGate: GUARD_SPECS(data)[0], vegHide: zoneVegHide(data), treeHide: zoneTreeHide(data) });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality(); // view distance / fog / shadows / skyline size for the chosen quality
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');

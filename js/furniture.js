@@ -2,7 +2,7 @@
 // poles, cabinets, parking bays, parked scooters and data-driven shop signs.
 // Static props share one vertex-coloured mesh; nothing here casts shadows.
 import * as THREE from 'three';
-import { pointInPoly, closestOnSeg } from './collision.js';
+import { pointInPoly, closestOnSeg, CollisionWorld } from './collision.js';
 import { Hmin, groundY, nearStair } from './terrain.js';
 
 const UP = [0, 1, 0], DOWN = [0, -1, 0];
@@ -200,10 +200,19 @@ export function buildFurniture(scene, world, data, ctx) {
     }
     return false;
   };
-  const clear = (x, z, pad = 0) => {
+  const keepClear = (x, z, pad = 0) => {
     for (const k of keepPts) if ((k.x - x) ** 2 + (k.z - z) ** 2 < (k.r + pad) ** 2) return false;
-    return !nearReserved(x, z, pad);
+    return true;
   };
+  // Reserved outlines (custom-built parts, js/main.js) are tested last: every placement is first decided as with no
+  // reserved outline at all, and only then dropped near one. A dropped item stays as a ghost: it keeps its poles /
+  // soft spacing, its rnd draws and its count against the caps, and its collider goes to world.furnGhost (js/map.js
+  // lays the lamps and trees out against those too), so adding or changing a reserved outline drops only what stands
+  // near it and moves nothing else (as the trees in js/map.js, see okOsm there).
+  // coll.noReserved: coll.blocked() leaves the reserved outlines to these explicit tests (restored at the end)
+  const ghost = world.furnGhost = new CollisionWorld(B);
+  const blk = (x, z, r) => coll.blocked(x, z, r) || ghost.blocked(x, z, r);
+  coll.noReserved = true;
   const tris0 = () => furn.tris;
 
   // ---------- 1. walls and hedges ----------
@@ -264,26 +273,40 @@ export function buildFurniture(scene, world, data, ctx) {
           if (ok && gates.some(g => (g.x - mx) ** 2 + (g.z - mz) ** 2 < 6.25)) ok = false;
           if (ok && nearStair(mx, mz, 1.5, 4)) ok = false; // outdoor stairs (terrain.js) pass through the wall
           if (ok && coll.insideAny(mx, mz)) ok = false;
-          if (ok && !clear(mx, mz, 3)) { ok = false; log.wallSkipped.push({ barrier: bi, x: +mx.toFixed(1), z: +mz.toFixed(1) }); }
-          st.push({ x0, z0, x1, z1, ok, road, brk: k === n - 1 });
+          if (ok && !keepClear(mx, mz, 3)) { ok = false; log.wallSkipped.push({ barrier: bi, x: +mx.toFixed(1), z: +mz.toFixed(1) }); }
+          // near a reserved outline: dropped, but still splits the runs as a kept step (ghost)
+          const gh = ok && nearReserved(mx, mz, 3);
+          if (gh) log.wallSkipped.push({ barrier: bi, x: +mx.toFixed(1), z: +mz.toFixed(1), reserved: true });
+          st.push({ x0, z0, x1, z1, ok, gh, road, brk: k === n - 1 });
         }
       }
       if (b.onArea) log.onArea.push({ barrier: bi, steps: st.length, kept: st.filter(s => s.ok).length });
       // widen road gaps by a step on each side
       const gap = st.map((s, i) => s.road || (st[i - 1] && st[i - 1].road) || (st[i + 1] && st[i + 1].road));
       const hj = hedge ? (bi % 3) * 0.08 : 0;
+      // a run (cut as with no reserved outline) emits its non-ghost pieces; its ghost steps block in world.furnGhost
+      const emitRun = (r, last) => {
+        let j = r.i0;
+        while (j <= r.i1) {
+          let k = j; while (k < r.i1 && st[k + 1].gh === st[j].gh) k++;
+          const a = st[j], b = st[k];
+          if (!a.gh) emit(a.x0, a.z0, b.x1, b.z1, hedge, j === r.i0 ? r.first : true, k === r.i1 ? last : true, hj, fence);
+          else if (inB(a.x0, a.z0) || inB(b.x1, b.z1)) ghost.addSegment(a.x0, a.z0, b.x1, b.z1);
+          j = k + 1;
+        }
+      };
       let run = null, cnt = 0;
-      const flush = (last) => { if (run) emit(run.x0, run.z0, run.x1, run.z1, hedge, run.first, last, hj, fence); run = null; cnt = 0; };
+      const flush = (last) => { if (run) emitRun(run, last); run = null; cnt = 0; };
       for (let i = 0; i < st.length; i++) {
         const s = st[i], ok = s.ok && !gap[i];
         if (!ok) { flush(true); continue; }
-        if (!run) run = { x0: s.x0, z0: s.z0, x1: s.x1, z1: s.z1, first: !st[i - 1] || !(st[i - 1].ok && !gap[i - 1]) };
-        else { run.x1 = s.x1; run.z1 = s.z1; }
+        if (!run) run = { i0: i, i1: i, first: !st[i - 1] || !(st[i - 1].ok && !gap[i - 1]) };
+        else run.i1 = i;
         cnt++;
         const nextOk = st[i + 1] && st[i + 1].ok && !gap[i + 1];
         // split every 8 m and at polyline corners so the wall follows the terrain
         if (!nextOk) flush(true);
-        else if (cnt >= 8 || s.brk) { emit(run.x0, run.z0, run.x1, run.z1, hedge, run.first, false, hj, fence); run = null; cnt = 0; }
+        else if (cnt >= 8 || s.brk) { emitRun(run, false); run = null; cnt = 0; }
       }
       flush(true);
     });
@@ -310,6 +333,8 @@ export function buildFurniture(scene, world, data, ctx) {
     }
     coll.addCircle(px, pz, 0.2); poles.add(px, pz, 0);
   };
+  // a pole that passed every test but a reserved outline's: not drawn, still spaces the others and blocks as a ghost
+  const ghostPole = (x, z, r) => { ghost.addCircle(x, z, r); poles.add(x, z, 0); };
   // crossings surveyed on the NLSC 2024 正射 (tools/roads.json features -> data.roadMarks; js/map.js paints them)
   // stand in for the one a signal junction would get on that arm:
   // a surveyed zebra (roads.json feature without osm) within 10 m that crosses the same street as this arm
@@ -393,7 +418,8 @@ export function buildFurniture(scene, world, data, ctx) {
       const [rx, rz] = right(a.ex, a.ez);
       for (const ds of [0, 3, 6]) {
         const px = a.x + a.ex * (s + ds) + rx * (a.w / 2 + 0.8), pz = a.z + a.ez * (s + ds) + rz * (a.w / 2 + 0.8);
-        if (!inB(px, pz) || coll.insideAny(px, pz) || !driveClear(px, pz, 0.3) || coll.blocked(px, pz, 0.4) || poles.near(px, pz, 4) || !clear(px, pz, 1.5)) continue;
+        if (!inB(px, pz) || coll.insideAny(px, pz) || !driveClear(px, pz, 0.3) || blk(px, pz, 0.4) || poles.near(px, pz, 4) || !keepClear(px, pz, 1.5)) continue;
+        if (nearReserved(px, pz, 1.5)) { ghostPole(px, pz, 0.2); break; }
         signalPole(px, pz, -rx, -rz, Math.min(a.w * 0.7, 7.5), [[-a.ex, -a.ez]], grp);
         break;
       }
@@ -410,7 +436,7 @@ export function buildFurniture(scene, world, data, ctx) {
       const r = roadAt(s.x, s.z); if (!r || r.d > 3) continue;
       const [rx, rz] = right(r.tx, r.tz), px = r.q[0] + rx * (r.w / 2 + 0.8), pz = r.q[1] + rz * (r.w / 2 + 0.8);
       zebra(r.q[0], r.q[1], r.tx, r.tz, r.w);
-      if (!coll.insideAny(px, pz) && !poles.near(px, pz, 4) && clear(px, pz, 1.5)) signalPole(px, pz, -rx, -rz, Math.min(r.w * 0.7, 7.5), [[-r.tx, -r.tz], [r.tx, r.tz]], 0);
+      if (!coll.insideAny(px, pz) && !poles.near(px, pz, 4) && keepClear(px, pz, 1.5)) nearReserved(px, pz, 1.5) ? ghostPole(px, pz, 0.2) : signalPole(px, pz, -rx, -rz, Math.min(r.w * 0.7, 7.5), [[-r.tx, -r.tz], [r.tx, r.tz]], 0);
     }
     stats.osmJunctions = chosen.length;
     // no data: big junctions (3+ primary/secondary arms from 2+ roads) get signals too
@@ -452,24 +478,29 @@ export function buildFurniture(scene, world, data, ctx) {
       vx /= l; vz /= l;
       const off = Math.max(r.w / 2 + 0.7, Math.min(l, r.w / 2 + 3));
       let px = r.q[0] + vx * off, pz = r.q[1] + vz * off;
-      if (coll.insideAny(px, pz) || !clear(px, pz, 1)) continue;
+      if (coll.insideAny(px, pz) || !keepClear(px, pz, 1)) continue;
+      // a stop near a reserved outline is a ghost (its atlas cell still taken, so the shop signs keep theirs)
+      const gs = nearReserved(px, pz, 1);
       const y = Hmin(px, pz, 0.3);
-      cyl(furn, px, y - 0.2, pz, 0.05, 0.05, 3.2, 6, POLE);
+      if (!gs) cyl(furn, px, y - 0.2, pz, 0.05, 0.05, 3.2, 6, POLE);
       const uv = atlas.cell((!low && signText(f.name || '')) || '公車站', '#1d4f9c', '#ffffff', false);
-      if (uv) signPanel(signs, px + r.tx * 0.04, y + 1.9, pz + r.tz * 0.04, r.tx, r.tz, 0.42, 1.15, 0.05, uv, false);
-      coll.addCircle(px, pz, 0.12); poles.add(px, pz, 0); n++;
+      if (gs) ghostPole(px, pz, 0.12);
+      else if (uv) signPanel(signs, px + r.tx * 0.04, y + 1.9, pz + r.tz * 0.04, r.tx, r.tz, 0.42, 1.15, 0.05, uv, false);
+      if (!gs) { coll.addCircle(px, pz, 0.12); poles.add(px, pz, 0); n++; }
       // shelter 2 m further from the road when the pavement allows it
       const sx = px + vx * 1.3 + r.tx * 2.6, sz = pz + vz * 1.3 + r.tz * 2.6, ry = Math.atan2(r.tx, r.tz);
       const pts = [];
       for (const a of [-1.9, 0, 1.9]) for (const b of [-0.75, 0.75]) pts.push([sx + r.tx * a + vx * b, sz + r.tz * a + vz * b]);
-      if (pts.every(([x, z]) => inB(x, z) && !coll.insideAny(x, z) && driveClear(x, z, 0.3) && !coll.blocked(x, z, 0.3) && clear(x, z, 1))) {
+      if (pts.every(([x, z]) => inB(x, z) && !coll.insideAny(x, z) && driveClear(x, z, 0.3) && !blk(x, z, 0.3) && keepClear(x, z, 1))) {
+        const bx0 = sx + vx * 0.65 - r.tx * 1.75, bz0 = sz + vz * 0.65 - r.tz * 1.75, bx1 = sx + vx * 0.65 + r.tx * 1.75, bz1 = sz + vz * 0.65 + r.tz * 1.75;
+        if (gs || pts.some(([x, z]) => nearReserved(x, z, 1))) { ghost.addSegment(bx0, bz0, bx1, bz1); continue; }
         const sy = Hmin(sx, sz, 1.8);
         for (const a of [-1.75, 1.75]) for (const b of [-0.6, 0.6]) box(furn, sx + r.tx * a + vx * b, sy - 0.2, sz + r.tz * a + vz * b, 0.08, 2.7, 0.08, ry, POLE);
         box(furn, sx, sy + 2.5, sz, 0.12, 0.1, 3.9, ry, ROOF, ROOF, true);
         box(furn, sx + vx * 0.65, sy + 0.4, sz + vz * 0.65, 0.04, 1.7, 3.5, ry, GLASS);
         box(furn, sx + vx * 0.4, sy + 0.42, sz + vz * 0.4, 0.4, 0.05, 2.6, ry, BENCH);
         // back panel blocks, the open front does not
-        coll.addSegment(sx + vx * 0.65 - r.tx * 1.75, sz + vz * 0.65 - r.tz * 1.75, sx + vx * 0.65 + r.tx * 1.75, sz + vz * 0.65 + r.tz * 1.75);
+        coll.addSegment(bx0, bz0, bx1, bz1);
         shelters++;
       }
     }
@@ -486,7 +517,8 @@ export function buildFurniture(scene, world, data, ctx) {
       let x = f.x, z = f.z;
       const r = roadAt(x, z);
       if (!tower && r && r.d < 0.4) { const [rx, rz] = right(r.tx, r.tz), s = ((x - r.q[0]) * rx + (z - r.q[1]) * rz) >= 0 ? 1 : -1; x = r.q[0] + rx * s * (r.w / 2 + 0.6); z = r.q[1] + rz * s * (r.w / 2 + 0.6); }
-      if (coll.insideAny(x, z) || !clear(x, z, 1)) continue;
+      if (coll.insideAny(x, z) || !keepClear(x, z, 1)) continue;
+      if (nearReserved(x, z, 1)) { ghostPole(x, z, cab ? (f.t === 'power:transformer' ? 0.9 : 0.5) : mirror ? 0.12 : 2.2); continue; }
       const ry = r ? Math.atan2(r.tx, r.tz) : 0, y = Hmin(x, z, 0.6);
       if (cab) {
         const big = f.t === 'power:transformer';
@@ -510,7 +542,9 @@ export function buildFurniture(scene, world, data, ctx) {
   {
     const PP = col('#bdb9af'), ARM = col('#6d6a66');
     const placed = []; // {x,z,y,ax,az}
+    // near a reserved outline the pole is a ghost: in placed (found, spaced, counted) but not drawn, no wires to it
     const pole = (x, z, dx, dz) => {
+      if (nearReserved(x, z, 1.5) || nearReserved(x, z, 2)) { ghostPole(x, z, 0.2); const p = { x, z, ghost: true }; placed.push(p); return p; }
       const l = Math.hypot(dx, dz) || 1, ax = -dz / l, az = dx / l, y = Hmin(x, z, 0.3);
       cyl(furn, x, y - 0.3, z, 0.17, 0.12, 10.3, 6, PP);
       box(furn, x, y + 9.15, z, 0.1, 0.1, 1.6, Math.atan2(ax, az), ARM, ARM, true);
@@ -519,7 +553,7 @@ export function buildFurniture(scene, world, data, ctx) {
     };
     // wires: two on the crossarm, one telecom cable lower down
     const span = (a, b) => {
-      if (!a || !b || low) return;
+      if (!a || !b || low || a.ghost || b.ghost) return;
       const l = Math.hypot(b.x - a.x, b.z - a.z); if (l < 2 || l > 70) return;
       const sg = a.ax * b.ax + a.az * b.az < 0 ? -1 : 1, sag = 0.1 + l * 0.015;
       for (const [o, hh] of [[0.7, 9.2], [-0.7, 9.2], [0, 7.2]]) {
@@ -531,7 +565,7 @@ export function buildFurniture(scene, world, data, ctx) {
         }
       }
     };
-    const okPole = (x, z) => inB(x, z, 60) && !coll.insideAny(x, z) && clear(x, z, 1.5) && !nearReserved(x, z, 2);
+    const okPole = (x, z) => inB(x, z, 60) && !coll.insideAny(x, z) && keepClear(x, z, 1.5);
     // snap a pole standing in a carriageway to its edge
     const snap = (x, z) => {
       const r = roadAt(x, z); if (!r || r.d > 0.3) return [x, z];
@@ -549,7 +583,7 @@ export function buildFurniture(scene, world, data, ctx) {
         for (const [x0, z0] of list) {
           const [x, z] = snap(x0, z0);
           let p = find(x, z, 3);
-          if (!p && okPole(x, z) && driveClear(x, z, 0.25) && !coll.blocked(x, z, 0.3)) p = pole(x, z, b[0] - pa[0], b[1] - pa[1]);
+          if (!p && okPole(x, z) && driveClear(x, z, 0.25) && !blk(x, z, 0.3)) p = pole(x, z, b[0] - pa[0], b[1] - pa[1]);
           else if (!p) log.poleSkipped++;
           span(prev, p); prev = p;
         }
@@ -559,10 +593,10 @@ export function buildFurniture(scene, world, data, ctx) {
       if (f.t !== 'power:pole') continue;
       const [x, z] = snap(f.x, f.z);
       if (find(x, z, 3)) continue;
-      if (!okPole(x, z) || !driveClear(x, z, 0.25) || coll.blocked(x, z, 0.3)) { log.poleSkipped++; continue; }
+      if (!okPole(x, z) || !driveClear(x, z, 0.25) || blk(x, z, 0.3)) { log.poleSkipped++; continue; }
       const r = roadAt(x, z); pole(x, z, r ? r.tx : 1, r ? r.tz : 0);
     }
-    stats.osmPoles = placed.length;
+    stats.osmPoles = placed.filter(p => !p.ghost).length;
     // procedural: lanes and residential streets outside campus
     const cap = low ? 120 : 400, step = low ? 48 : 32; let proc = 0;
     data.roads.forEach((r, ri) => {
@@ -577,7 +611,7 @@ export function buildFurniture(scene, world, data, ctx) {
         const [rx, rz] = right(dx / l, dz / l);
         for (let s = (step - acc % step) % step; s < l; s += step) {
           const x = a[0] + dx * s / l + rx * side * (r.w / 2 + 0.5), z = a[1] + dz * s / l + rz * side * (r.w / 2 + 0.5);
-          if (!inB(x, z, -5) || !okPole(x, z) || !driveClear(x, z, 0.25) || coll.blocked(x, z, 0.45) || poles.near(x, z, 12)) { prev = null; continue; }
+          if (!inB(x, z, -5) || !okPole(x, z) || !driveClear(x, z, 0.25) || blk(x, z, 0.45) || poles.near(x, z, 12)) { prev = null; continue; }
           const p = pole(x, z, dx, dz); proc++;
           if (prev && Math.hypot(prev.x - x, prev.z - z) < step * 1.6) span(prev, p);
           prev = p;
@@ -596,8 +630,10 @@ export function buildFurniture(scene, world, data, ctx) {
     const okMoto = (x, z, ex, ez) =>
       inB(x, z, -2) && !coll.insideAny(x, z) && !coll.insideAny(x + ex * 0.9, z + ez * 0.9) && !coll.insideAny(x - ex * 0.9, z - ez * 0.9) &&
       driveClear(x + ex * 0.95, z + ez * 0.95, 0.15) && driveClear(x - ex * 0.95, z - ez * 0.95, 0.15) &&
-      !coll.blocked(x, z, 0.45) && clear(x, z, 3) && !soft.near(x, z, 0.36);
-    const addMoto = (x, z, ry) => { motos.push([x, z, ry + (rnd() - 0.5) * 0.12]); soft.add(x, z, 0.35); };
+      !blk(x, z, 0.45) && keepClear(x, z, 3) && !soft.near(x, z, 0.36);
+    // near a reserved outline a scooter is a ghost: it takes its rnd draws, its place in soft (the trees in js/map.js
+    // avoid it too) and its count against the caps, and is only left out of the mesh
+    const addMoto = (x, z, ry) => { motos.push([x, z, ry + (rnd() - 0.5) * 0.12, nearReserved(x, z, 3)]); soft.add(x, z, 0.35); };
     const inAreaPts = (P, a) => P.every(([x, z]) => pointInPoly(x, z, a.pts) && !(a.holes && a.holes.some(h => pointInPoly(x, z, h))));
     for (const a of data.areas) {
       if (a.kind !== 'parking' || !inB(a.pts[0][0], a.pts[0][1], 20)) continue;
@@ -616,7 +652,7 @@ export function buildFurniture(scene, world, data, ctx) {
         }
       }
     }
-    stats.parkingMotos = motos.length;
+    stats.parkingMotos = motos.filter(m => !m[3]).length;
     // in front of ground floor shops (騎樓前), noses to the wall
     const walls = world.shopWalls || [];
     for (let wi = 0; wi < walls.length && motos.length < motoCap * 0.8; wi++) {
@@ -640,19 +676,23 @@ export function buildFurniture(scene, world, data, ctx) {
         if (okMoto(x, z, rx, rz)) addMoto(x, z, Math.atan2(rx * side, rz * side));
       }
     }
-    stats.motos = motos.length;
-    if (motos.length) {
+    const real = motos.filter(m => !m[3]);
+    stats.motos = real.length; stats.motoGhosts = motos.length - real.length;
+    world.motoSpots = real.map(([x, z, ry]) => [x, z, ry]);
+    if (real.length) {
       const { geo, tris } = scooterGeometry(Geo);
-      const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }), motos.length);
+      const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }), real.length);
       const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), C = new THREE.Color();
       const PAL = ['#e8e8e4', '#2a2a2c', '#b8bcc0', '#b8282a', '#2c5aa0', '#6b6e70', '#d8b440', '#5a8a5a', '#f2f0ea', '#3a3f48'];
-      motos.forEach(([x, z, ry], i) => {
+      let j = 0;
+      motos.forEach(([x, z, ry, gh], i) => {
+        const c = PAL[Math.floor(rnd() * PAL.length)]; if (gh) return; // ghosts keep their colour draw
         E.set(0, ry, (i % 2 ? 1 : -1) * 0.07, 'YXZ'); Q.setFromEuler(E); P.set(x, Hmin(x, z, 0.8), z); M.compose(P, Q, S);
-        im.setMatrixAt(i, M); im.setColorAt(i, C.set(PAL[Math.floor(rnd() * PAL.length)]));
+        im.setMatrixAt(j, M); im.setColorAt(j, C.set(c)); j++;
       });
       im.castShadow = false; im.receiveShadow = true;
       scene.add(im);
-      stats.motoTris = tris * motos.length;
+      stats.motoTris = tris * real.length;
     }
   }
 
@@ -758,5 +798,6 @@ export function buildFurniture(scene, world, data, ctx) {
   }
   stats.furnTris = furn.tris; stats.flatTris = flat.tris; stats.signTris = signs.tris; stats.wireSegs = wires.length / 6;
   world.tris.furniture = furn.tris + flat.tris + signs.tris + (stats.motoTris || 0) + heads.length * 36;
+  coll.noReserved = false;
   return { signMats: mats };
 }

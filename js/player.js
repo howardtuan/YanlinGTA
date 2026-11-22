@@ -70,6 +70,8 @@ export class Player {
     // walked off a ledge (viaduct edge, top of a cut): keep the height and fall
     const surf = surfaceAt(this.pos.x, this.pos.z, feet);
     if (surf < surf0 - 0.5) this.y += surf0 - surf;
+    // from an interior floor above the ground onto a deck at about that height (力行宿舍 2F -> 天橋): keep the height too
+    else if (surf > surf0 + 0.5 && this.y > 0.5) this.y = Math.max(0, this.y - (surf - surf0));
     // jump
     const ground = interiors ? interiors.groundAt(this.pos.x, this.pos.z, this.y) : 0;
     const onGround = this.y <= ground + 0.02;

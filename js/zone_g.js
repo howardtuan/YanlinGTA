@@ -802,7 +802,7 @@ export function buildZoneG(I, scene, data, collision = null) {
 
   // ===== 南面大階梯 → 二樓門廊 →（穿過學活）→ 新中北路天橋 → 力行男宿 =====
   // 大階梯與門廊平台是 data.levels（zoneGTerrain）；天橋是 tools/overrides.json 的 xinzhongbei_footbridge（LV_DECK）。
-  // 學活、力行都沒有室內：在門廊、橋頭、天橋北端（接進力行）、力行前院按 E 轉場。天橋兩側加有高度帶的欄杆碰撞。
+  // 學活沒有室內：在門廊、橋頭按 E 轉場；天橋北端直接走進力行宿舍二樓（js/lixing.js）。天橋兩側加有高度帶的欄杆碰撞。
   if (collision && landY !== null) {
     // 門廊平台三邊與大階梯兩側上段：map.js 的封邊線沒有高度帶，物理牆只到地面上 4 m，站在 3.8 m 的平台上
     // 角色控制器（腳上 0.35～1.6 m）會從牆頂上越過去，所以另外加只擋平台／上段樓梯高度的線
@@ -832,10 +832,6 @@ export function buildZoneG(I, scene, data, collision = null) {
         fn: (g) => tp(g, bx(-130.6), -130.6, deckY, Math.PI, '🚶 穿過學生活動中心，來到新中北路天橋') });
       I.actions.push({ x: bx(-129.9), z: -129.9, r: 1.6, y: 0, cond: near(deckY), label: () => '按 <kbd>E</kbd> 穿過學生活動中心，下到南面大階梯',
         fn: (g) => tp(g, S2.x, -93.3, landY, 0, '🚶 穿過學生活動中心，回到南面二樓門廊') });
-      I.actions.push({ x: bx(-163.6), z: -163.6, r: 1.6, y: 0, cond: near(deckY), label: () => '按 <kbd>E</kbd> 走進力行宿舍，從樓梯下到大門前院',
-        fn: (g) => tp(g, -166.5, -160.0, fz, 0, '🚶 從力行宿舍走下樓，到大門前院') });
-      I.actions.push({ x: -170.5, z: -163.4, r: 1.6, y: 0, cond: near(Hgrid(-170.5, -163.4)), label: () => '按 <kbd>E</kbd> 走力行宿舍的樓梯上二樓天橋',
-        fn: (g) => tp(g, bx(-163.4), -163.4, deckY, 0, '🚶 走上力行宿舍二樓，往天橋過去學活') });
     }
   }
 

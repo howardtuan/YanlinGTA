@@ -2232,6 +2232,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
       const tiers = sb > 0 ? [[rings, foot, yT], [rings.map(r => offsetRing(r, sb)), yT, top]]
         : sb < 0 ? [[rings.map(r => offsetRing(r, -sb)), foot, yT], [rings, yT, top]] : [[rings, foot, top]];
       for (const [rs, y0, y1] of tiers) for (const ring of rs) for (let i = 0; i < ring.length; i++) {
+        if (b.holeWalls === false && ring !== rs[0]) break; // courtyards whose walls are built elsewhere (js/lixing.js)
         const a = ring[i], c = ring[(i + 1) % ring.length], dx = c[0] - a[0], dz = c[1] - a[1], l = Math.hypot(dx, dz);
         if (l < 0.05) continue;
         const tx = dx / l, tz = dz / l, n = [tz, 0, -tx];
@@ -2243,6 +2244,25 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         const nb = l >= bayF * 0.6 ? Math.max(1, Math.round(l / bayF)) : l / bayF;
         const u0 = colAcc / 8, u1 = (colAcc + nb) / 8; colAcc += Math.ceil(nb);
         const ys = [y0, y1, ...lines.filter(y => y > y0 + 0.01 && y < y1 - 0.01)].sort((p, q) => p - q);
+        // door openings cut into this wall (b.wallDoors: [{ p, q, y0, y1 }], world coordinates; js/lixing.js):
+        // spans(ya, yb) = the stretches [t0, t1] along the edge with the heights left standing in ya..yb
+        const cuts = (b.wallDoors || []).map(d => {
+          const off = q => Math.abs((q[0] - a[0]) * tz - (q[1] - a[1]) * tx), at = q => (q[0] - a[0]) * tx + (q[1] - a[1]) * tz;
+          if (off(d.p) > 0.5 || off(d.q) > 0.5) return null;
+          const t0 = Math.max(0, Math.min(at(d.p), at(d.q))), t1 = Math.min(l, Math.max(at(d.p), at(d.q)));
+          return t1 - t0 > 0.02 ? { t0, t1, y0: d.y0, y1: d.y1 } : null;
+        }).filter(Boolean);
+        const cutTs = cuts.length ? [...new Set([0, l, ...cuts.flatMap(q => [q.t0, q.t1])])].sort((p, q) => p - q) : null;
+        const spans = (ya, yb) => {
+          const out = [];
+          for (let m = 0; m < cutTs.length - 1; m++) {
+            const s = cutTs[m], e = cutTs[m + 1], tm = (s + e) / 2; if (e - s < 1e-3) continue;
+            let y = ya;
+            for (const q of cuts.filter(q => tm > q.t0 && tm < q.t1).sort((p, q2) => p.y0 - q2.y0)) { if (q.y0 > y + 1e-3) out.push([s, e, y, Math.min(yb, q.y0)]); y = Math.max(y, q.y1); }
+            if (yb > y + 1e-3) out.push([s, e, y, yb]);
+          }
+          return out.filter(o => o[3] > o[2] + 1e-3);
+        };
         for (let j = 0; j < ys.length - 1; j++) {
           const ya = ys[j], yb = ys[j + 1], ym = (ya + yb) / 2;
           if (yb - ya < 0.01) continue;
@@ -2257,7 +2277,11 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           // shift each storey by 3 atlas columns so the lit / blind variants do not line up
           // into full-height stripes at night
           const us = k > 0 && k < vf ? (k * 3 % 8) / 8 : 0;
-          g.quad([a[0], ya, a[1]], [c[0], ya, c[1]], [c[0], yb, c[1]], [a[0], yb, a[1]], [ca, ca, cb, cb], n, [[u0 + us, v(ya)], [u1 + us, v(ya)], [u1 + us, v(yb)], [u0 + us, v(yb)]]);
+          if (!cutTs) g.quad([a[0], ya, a[1]], [c[0], ya, c[1]], [c[0], yb, c[1]], [a[0], yb, a[1]], [ca, ca, cb, cb], n, [[u0 + us, v(ya)], [u1 + us, v(ya)], [u1 + us, v(yb)], [u0 + us, v(yb)]]);
+          else for (const [s, e, p0, p1] of spans(ya, yb)) {
+            const A = [a[0] + tx * s, a[1] + tz * s], C = [a[0] + tx * e, a[1] + tz * e], U = t => u0 + us + (u1 - u0) * t / l, c0 = shade(tk, p0), c1 = shade(tk, p1);
+            g.quad([A[0], p0, A[1]], [C[0], p0, C[1]], [C[0], p1, C[1]], [A[0], p1, A[1]], [c0, c0, c1, c1], n, [[U(s), v(p0)], [U(e), v(p0)], [U(e), v(p1)], [U(s), v(p1)]]);
+          }
         }
         // floor bands / sunshades: { colour | colours (cycled per floor; grade: spread bottom to
         // top over all the bands of the wall instead), at (fraction of a storey above the slab, or
@@ -2272,7 +2296,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
           ys2.sort((p, q) => p[0] - q[0]).forEach(([y, j], m) => {
             if (y <= y0 + 0.15 || y >= Math.min(y1, top) - 0.1) return;
             const cs = bd.colours, ci = cs && (bd.grade ? Math.min(cs.length - 1, Math.floor(m * cs.length / ys2.length)) : j % cs.length);
-            ledge(a, c, n, l, y, bd.h ?? 0.22, bd.depth ?? 0.25, col(cs ? cs[ci] : bd.colour || '#e9e7e2'));
+            const lc = col(cs ? cs[ci] : bd.colour || '#e9e7e2'), lh = bd.h ?? 0.22;
+            if (!cutTs) ledge(a, c, n, l, y, lh, bd.depth ?? 0.25, lc);
+            else for (const [s, e, p0, p1] of spans(y - lh / 2 - 0.05, y + lh / 2 + 0.05)) if (p1 - p0 > lh + 0.09) ledge([a[0] + tx * s, a[1] + tz * s], [a[0] + tx * e, a[1] + tz * e], n, e - s, y, lh, bd.depth ?? 0.25, lc);
           });
         }
         // vertical fins / pilasters standing proud of the wall, from storey `from` up

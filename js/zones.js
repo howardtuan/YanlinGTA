@@ -30,6 +30,7 @@ import { applyZoneE, zoneEFootprints, buildZoneE } from './zone_e.js';
 import { zoneGLook, zoneGFootprints, zoneGTerrain, buildZoneG } from './zone_g.js';
 import { buildSacB1 } from './sac_b1.js';
 import { zoneHLook, zoneHAdd, buildZoneH } from './zone_h.js';
+import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
 
 export const ZONES = [
@@ -73,6 +74,10 @@ export const ZONES = [
       if (b.id === LIANGSHAN_ID) { b.look = liangshanLook(b.look); if (b.feature) b.feature = b.feature.filter(f => f !== 'roof_drum'); }
       if (b.id === ENCI_ID) b.look = enciLook(b.look);
     },
+  },
+  { // 力行宿舍室內：四層樓、兩個天井、樓梯、浴廁、276～281 六人房、沿新中北路的門房（外觀在 G 區）
+    name: '力行宿舍室內', look: lixingLook, vegHide: lixingVegHide,
+    build: (I, scene, data, collision) => buildLixing(I, scene, data, collision, Kit, regMat),
   },
 ];
 

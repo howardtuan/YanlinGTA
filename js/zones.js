@@ -35,6 +35,7 @@ import { zoneALook, zoneATerrain, zoneATreeHide, buildZoneA } from './zone_a.js'
 import { zoneDLook, zoneDTreeHide, buildZoneD } from './zone_d.js';
 import { zoneBLook, zoneBTerrain, zoneBTreeHide, buildZoneB } from './zone_b.js';
 import { lixingLook, lixingVegHide, buildLixing } from './lixing.js';
+import { sacLook, buildSac } from './sac.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from './dorms.js';
 import { zoneCLook, buildZoneC } from './zone_c.js';
 
@@ -95,6 +96,10 @@ export const ZONES = [
   { // 力行宿舍室內：四層樓、兩個天井、樓梯、浴廁、276～281 六人房、沿新中北路的門房（外觀在 G 區）
     name: '力行宿舍室內', look: lixingLook, vegHide: lixingVegHide,
     build: (I, scene, data, collision) => buildLixing(I, scene, data, collision, Kit, regMat),
+  },
+  { // 學生活動中心室內：一～四樓、培英廳、二樓中庭接新中北路天橋、三樓接往生科館的空橋、B1 旋轉梯上一樓（外觀在 G 區，B1 在「G 區：學活 B1」）
+    name: '學活室內', look: sacLook,
+    build: (I, scene, data, collision) => buildSac(I, scene, data, collision, Kit, regMat),
   },
 ];
 

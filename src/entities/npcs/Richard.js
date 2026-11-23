@@ -2,7 +2,7 @@
 // 推甄上「中字輩」電機所；大學期間發表過 3 篇 IEEE 頂級期刊。常常教同學寫程式。喜歡玩英雄聯盟 ARAM 大亂鬥，
 // 也是嘻哈研究社社員：有時候在宿舍跳舞，或是在資管系館跟羊明衫尬舞。這個遊戲主要負責地圖規劃與建築物建模。
 // 外型照使用者給的照片：小麥色皮膚、細框圓眼鏡、燙捲有點長的黑髮、深綠色漁夫帽、左右臉頰各一顆小痣、白 T。
-// 住力行宿舍 280 寢 1 號床（右手邊最裡面那張下舖，座位是右手邊最裡面的書桌）。
+// 住力行宿舍 280 寢 3 號床（右手邊最裡面那張下舖，座位是右手邊最裡面的書桌）。
 // 一天（遊戲時鐘）：
 //   03:00–10:00 睡覺；10:00–13:00、17:00–21:00、01:00–03:00 在書桌前開發這個遊戲（地圖與建模）；
 //   13:00–17:00 羊明衫在系館前練舞的時候去跟她尬舞（battle），她不在就在寢室自己練嘻哈；21:00–01:00 打 ARAM 大亂鬥。
@@ -58,12 +58,12 @@ export function createRichard() {
 export class Richard extends DevNPC {
   constructor(game) {
     super(game, {
-      id: 'richard', name: '理查', tag: '🕺 理查', tagColor: '#9fe3a3', look: RICHARD_LOOK, create: createRichard, room: 280, bed: 1,
+      id: 'richard', name: '理查', tag: '🕺 理查', tagColor: '#9fe3a3', look: RICHARD_LOOK, create: createRichard, room: 280, bed: 3,
       desk: (R) => R.desks.find(d => d.side === -1 && d.u === 0),
       file: 'MapBuilder.js — 校園建模', lines: CODE, games: { aram: ARAM, default: ARAM },
     });
     this.places = {
-      sleep: '在力行宿舍 280 寢睡覺（1 號床）', code: '在力行宿舍 280 寢開發遊戲（地圖・建模）💻', game: '在力行宿舍 280 寢打 ARAM 大亂鬥 🎮',
+      sleep: '在力行宿舍 280 寢睡覺（3 號床）', code: '在力行宿舍 280 寢開發遊戲（地圖・建模）💻', game: '在力行宿舍 280 寢打 ARAM 大亂鬥 🎮',
       dorm: '在力行宿舍 280 寢練嘻哈舞 🕺', battle: '在資管系館前跟羊明衫尬舞 🕺💃',
     };
   }
@@ -74,7 +74,7 @@ export class Richard extends DevNPC {
     return 'code';
   }
   doing() { return { code: '寫程式', game: '打 ARAM', dorm: '跳舞', battle: '尬舞' }[this.mode] || ''; }
-  sleepLines() { return [['理查', '（呼……呼……）'], ['彥霖', '（理查在 1 號床的下舖睡著了，漁夫帽蓋在臉上）']]; }
+  sleepLines() { return [['理查', '（呼……呼……）'], ['彥霖', '（理查在 3 號床的下舖睡著了，漁夫帽蓋在臉上）']]; }
   // dancing in the aisle of 280, facing the window
   dormSpot() { const c = this.home.center; return { x: c.x, z: c.z, y: c.y, h: this.home.k.heading(0) }; }
   dormTick(dt, at) {

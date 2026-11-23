@@ -2,7 +2,7 @@
 // 常常教同學會計學。晚餐後去健身房重訓（在體育館外看得到他）。這個遊戲主要負責任務開發、NPC 角色設計，
 // 和各種小應用（手機 App、電腦 App 幾乎都是他優化的）。
 // 外型照使用者給的照片：皮膚偏白、細框圓眼鏡、燙捲的短髮、粉色上衣。
-// 住力行宿舍 279 寢 1 號床（右手邊最裡面那張下舖，上舖 2 號是漢克；座位是右手邊最裡面的書桌）。
+// 住力行宿舍 279 寢 3 號床（右手邊最裡面那張下舖，上舖 2 號是漢克；座位是右手邊最裡面的書桌）。
 // 一天（遊戲時鐘）：
 //   02:00–09:00 睡覺；09:00–12:00、14:00–16:00、00:00–02:00 在書桌前開發這個遊戲（任務、NPC、手機 App）；
 //   12:00–14:00、21:00–22:00 在寢室練撲克牌魔術手法（牌在兩手之間飛）；16:00–19:00 打 LOL、22:00–00:00 打特戰英豪；
@@ -50,12 +50,12 @@ export function createHoward() {
 export class Howard extends DevNPC {
   constructor(game) {
     super(game, {
-      id: 'howard', name: '霍華德', tag: '🃏 霍華德', tagColor: '#ffb3c7', look: HOWARD_LOOK, create: createHoward, room: 279, bed: 1,
+      id: 'howard', name: '霍華德', tag: '🃏 霍華德', tagColor: '#ffb3c7', look: HOWARD_LOOK, create: createHoward, room: 279, bed: 3,
       desk: (R) => R.desks.find(d => d.side === -1 && d.u === 0),
       file: 'Chats.js — i-Piyan 訊息', lines: CODE, games: { lol: LOL, val: VAL, default: LOL },
     });
     this.places = {
-      sleep: '在力行宿舍 279 寢睡覺（1 號床）', code: '在力行宿舍 279 寢開發遊戲（任務・NPC・App）💻',
+      sleep: '在力行宿舍 279 寢睡覺（3 號床）', code: '在力行宿舍 279 寢開發遊戲（任務・NPC・App）💻',
       game: '在力行宿舍 279 寢打遊戲 🎮', dorm: '在力行宿舍 279 寢練撲克牌魔術 🃏', gym: '在體育館外重訓 💪',
     };
     const blk = new THREE.MeshStandardMaterial({ color: '#1d1f22', roughness: 0.5, metalness: 0.5 });
@@ -82,7 +82,7 @@ export class Howard extends DevNPC {
   }
   gameNow() { return minuteNow(this.g) >= M(22) ? 'val' : 'lol'; }
   doing() { return { code: '寫程式', game: this.gameNow() === 'val' ? '打特戰英豪' : '打 LOL', dorm: '練牌技', gym: '重訓' }[this.mode] || ''; }
-  sleepLines() { return [['霍華德', '（呼……呼……）'], ['彥霖', '（霍華德在 1 號床的下舖睡著了，手裡還握著一副撲克牌。上舖的漢克也睡了）']]; }
+  sleepLines() { return [['霍華德', '（呼……呼……）'], ['彥霖', '（霍華德在 3 號床的下舖睡著了，手裡還握著一副撲克牌。上舖的漢克也睡了）']]; }
   onMode(mode) {
     for (const b of this.bells) b.visible = mode === 'gym';
     this.deck.visible = mode === 'dorm';

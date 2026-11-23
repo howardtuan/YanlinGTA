@@ -536,7 +536,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         const X = (a, b2) => [Math.min(wx + s * a, wx + s * b2), Math.max(wx + s * a, wx + s * b2)];
         const Z = (t0, t1) => [zA + LEN - t1, zA + LEN - t0]; // t: distance from the window end (both walls: bunk by the window, loft bed by the door)
         const B3 = (a, b2, ya, yb, t0, t1, m) => { const [xa, xb] = X(a, b2), [za, zb] = Z(t0, t1); bx(xa, xb, ya, yb, za, zb, m); };
-        const face = s > 0 ? 'e' : 'w', nos = side < 0 ? [1, 2, 3] : [4, 5, 6];
+        const face = s > 0 ? 'e' : 'w', nos = side < 0 ? [3, 2, 1] : [6, 5, 4]; // [下舖, 上舖, 高架床]：進門右手邊（西牆）從門口往裡 1 高架、2 上舖、3 下舖，左手邊 4 高架、5 上舖、6 下舖（使用者指正）
         const plate = (n, yy, t) => { const nt = signs.get(`bed${  n}`) || signs.set(`bed${  n}`, signTex(String(n), '#2e8f86', '#ffffff', 64, 64, 46)).get(`bed${  n}`); plane(nt, 0.13, 0.13, wx + s * (DW + 0.006), yy, (Z(t, t)[0]), face, { emissive: 0.4 }); };
         const bed = (t0, t1, yy, n, gapAt0) => {                          // gapAt0: the gap in the side board (for the ladder) is at the t0 end                                  // deck + mattress + side board (with the number) + head / foot boards
           B3(0, DW, yy - 0.05, yy, t0, t1, MT.frame); B3(0.03, DW - 0.03, yy, yy + 0.12, t0 + 0.05, t1 - 0.05, MT.mattress);

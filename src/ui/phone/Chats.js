@@ -590,7 +590,7 @@ export const FRIEND_CONTACTS = {
       t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
       ask: (g) => {
         const H = g.houshe; if (!H?.mode) return { r: ['等我一下'] };
-        if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 侯舌在 276 寢的 6 號床睡覺，早上 9 點會起來寫程式', 'good', 2800) };
+        if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 侯舌在 276 寢的 4 號床睡覺，早上 9 點會起來寫程式', 'good', 2800) };
         if (H.mode === 'date') return { r: ['在約會啦 🤫', '晚點再找你'] };
         const r = { code: ['在 276 寫遊戲 💻', '定位傳你，進門左手邊第一個'], photo: ['在鐘塔幫學長姐拍畢業照 📷', '定位傳你'], volley: ['在體育館旁邊打排球 🏐', '來一起打'] }[H.mode] || ['在學校'];
         return { r, then: () => { if (trackFriend(g, 'houshe')) g.hud.toast('🧭 已設定導航到侯舌身邊', 'good', 2400); } };
@@ -628,7 +628,7 @@ export const FRIEND_CONTACTS = {
       t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
       ask: (g) => {
         const R = g.richard; if (!R?.mode) return { r: ['等我一下'] };
-        if (R.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 理查在 280 寢的 1 號床睡覺，早上 10 點會起來', 'good', 2800) };
+        if (R.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 理查在 280 寢的 3 號床睡覺，早上 10 點會起來', 'good', 2800) };
         const r = { code: ['在 280 寫地圖 💻', '定位傳你，右手邊最裡面'], game: ['在 280 打 ARAM 🎮', '來的話幫我看一下小地圖'], dorm: ['在 280 練舞 🕺', '進來小心不要踢到喇叭'], battle: ['在系館前面跟羊明衫尬舞 🔥', '快來當評審'] }[R.mode] || ['在學校'];
         return { r, then: () => { if (trackFriend(g, 'richard')) g.hud.toast('🧭 已設定導航到理查身邊', 'good', 2400); } };
       },
@@ -665,7 +665,7 @@ export const FRIEND_CONTACTS = {
       t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
       ask: (g) => {
         const H = g.howard; if (!H?.mode) return { r: ['等我一下'] };
-        if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 霍華德在 279 寢的 1 號床睡覺，早上 9 點會起來', 'good', 2800) };
+        if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 霍華德在 279 寢的 3 號床睡覺，早上 9 點會起來', 'good', 2800) };
         const r = { code: ['在 279 寫任務 💻', '定位傳你，右手邊最裡面'], game: ['在 279 打遊戲 🎮', '打完這場'], dorm: ['在 279 練牌 🃏', '來，我變一個給你看'], gym: ['在體育館外重訓 💪', '定位傳你'] }[H.mode] || ['在學校'];
         return { r, then: () => { if (trackFriend(g, 'howard')) g.hud.toast('🧭 已設定導航到霍華德身邊', 'good', 2400); } };
       },

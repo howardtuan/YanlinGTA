@@ -81,6 +81,17 @@ function drawEditor(x, W, H, file, lines, typed, blink) {
   if (blink) { x.fillStyle = '#aeafad'; x.fillRect(cx + 1, cy - 12, 2, 15); }
 }
 
+// the glow on the face: ONE point light shared by every laptop, always in the scene, moved to the nearest laptop that is on
+// (intensity 0 when none is). Each laptop used to carry its own light inside its group, so walking into 力行 the scene's light
+// count went 0 → 1 → 2 → 3 as the groups showed, and three.js recompiled every lit material for each new count (a freeze of
+// up to seconds on entering the dorm). A constant count compiles once. Kept on the 力行 build (L.glow), so a rebuilt world starts afresh.
+function pickGlow(G) {
+  let best = null;
+  for (const sp of G.spots) if (sp.on && (!best || sp.d < best.d)) best = sp;
+  const l = G.light;
+  if (best) { l.position.copy(best.pos); l.intensity = 0.6; } else l.intensity = 0;
+}
+
 // laptop on the desk, the screen drawn on a canvas; mode 'code' types the lines out, a game screen is drawn once
 export function buildLaptop(L, R, desk, { file, lines, games = {} }) {
   const { k, B, W } = L, s = Math.sign(-Math.sin(desk.face)) || 1; // s: from the desk towards the aisle
@@ -100,19 +111,22 @@ export function buildLaptop(L, R, desk, { file, lines, games = {} }) {
   // a mouse beside it and a can of coffee
   const mouse = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.1), body); at(mouse, s * 0.02, OZ - 0.3, 0.015);
   const can = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.12, 14), new THREE.MeshStandardMaterial({ color: '#7a4a2a', roughness: 0.4, metalness: 0.6 })); at(can, -s * 0.05, OZ + 0.3, 0.06);
-  // the glow on his face
-  const glow = new THREE.PointLight('#9cc7ff', 0.6, 2.2, 2); at(glow, s * 0.3, OZ, 0.25);
+  // the glow on his face (the shared light above; the caller adds it to the scene)
+  const spot = { pos: new THREE.Vector3(), on: false, d: Infinity };
+  { const o = new THREE.Object3D(); at(o, s * 0.3, OZ, 0.25); grp.remove(o); spot.pos.copy(o.position); } // where the old per-laptop light was
+  const G = (L.glow ||= { light: new THREE.PointLight('#9cc7ff', 0, 2.2, 2), spots: [] });
+  G.spots.push(spot);
   const all = lines.join('\n').length;
   let mode = null, typed = 0, hold = 0, t = 0, drawn = '';
   return {
-    group: grp,
+    group: grp, glow: G.light,
     seat: { ...world(desk.chair.x, desk.chair.z, R.y), h: k.heading(desk.face) },
-    // mode: 'code' | a key of games | 'off'; near: you are close enough to read it
-    tick(dt, m, near) {
-      grp.visible = near;
+    // mode: 'code' | a key of games | 'off'; dist: how far you are (metres); within 25 m you are close enough to read it
+    tick(dt, m, dist) {
+      const near = dist < 25;
+      grp.visible = near; spot.on = near && m !== 'off'; spot.d = dist; pickGlow(G);
       if (!near) return;
       if (m !== mode) { mode = m; drawn = ''; if (m === 'code') { typed = Math.floor(Math.random() * all * 0.6); hold = 0; } }
-      glow.intensity = m === 'off' ? 0 : 0.6;
       if (m === 'off') { if (drawn !== 'off') { x.fillStyle = '#050607'; x.fillRect(0, 0, 512, 320); tex.needsUpdate = true; drawn = 'off'; } return; }
       if (m !== 'code') { if (drawn !== m) { (games[m] || games.default)?.(x, 512, 320); tex.needsUpdate = true; drawn = m; } return; }
       t += dt;
@@ -166,7 +180,7 @@ export class DevNPC {
     if (!bed || !desk) { console.warn(`[${this.id}] 床位或書桌找不到`); return; }
     const [bx, bz] = L.W(bed.x, bed.z);
     this.lap = buildLaptop(L, R, desk, this.cfg);
-    this.g.scene.add(this.lap.group);
+    this.g.scene.add(this.lap.group, this.lap.glow);
     const [cx, cz] = L.W(R.center[0], R.center[1]);
     this.home = { bed: { x: bx, z: bz, y: L.B + bed.y + 0.12, h: L.k.heading(0) }, seat: this.lap.seat, center: { x: cx, z: cz, y: L.B + R.y }, k: L.k, L, R, bedL: bed };
   }
@@ -187,7 +201,7 @@ export class DevNPC {
     if (mode !== this.mode) { const was = this.mode; this.mode = mode; this.pause = 0; this.face = null; this.onMode?.(mode, was); }
     const p = g.player.pos, H = this.home;
     // the laptop shows code / the game while he is at it (and stays on, asleep: off)
-    if (this.lap) this.lap.tick(dt, mode === 'code' ? 'code' : mode === 'game' ? this.gameNow?.() || 'default' : 'off', !!H && Math.hypot(p.x - H.seat.x, p.z - H.seat.z) < 25);
+    if (this.lap) this.lap.tick(dt, mode === 'code' ? 'code' : mode === 'game' ? this.gameNow?.() || 'default' : 'off', H ? Math.hypot(p.x - H.seat.x, p.z - H.seat.z) : Infinity);
     if (DORM_MODES.has(mode)) {
       if (!H) { this.ch.root.visible = false; return; }
       const near = Math.hypot(p.x - H.seat.x, p.z - H.seat.z) < 60;

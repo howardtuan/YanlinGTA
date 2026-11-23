@@ -1,7 +1,7 @@
 // 劍玉：號稱「基隆航海王」，資管三甲班代、彥霖的同班同學。個性溫和，特戰英豪排位鑽石的高端玩家，家裡非常有錢 ——
 // 平常在學校看到的超跑，都是他借給別人開的；他自己的三台停在資訊管理學系館西邊的停車場。外型照使用者給的照片
 // （圓臉、胖胖的身材、黑色有瀏海的短髮、黑框眼鏡、灰藍色牛仔襯衫）。
-// 住力行宿舍 278 寢，進門右手邊第一個床位（西牆靠門那張高架床 3 號，和床下那張書桌，src/world/buildings/Lixing.js 的 rooms[278]）。
+// 住力行宿舍 278 寢，進門右手邊第一個床位（西牆靠門那張高架床 1 號，和床下那張書桌，src/world/buildings/Lixing.js 的 rooms[278]）。
 // 一天（遊戲時鐘）：02:00–10:00 在床上睡覺；10:00–17:00 在資管系館的停車場顧他的車；17:00–02:00 坐在書桌前打特戰英豪。
 // 支線「班費失竊案」：第一次跟他說話，他會說放在桌上的 2000 元班費不見了 —— 到 278 寢按 E 看他的書桌（空信封、刷卡門），
 // 用他的電競筆電查宿舍紀錄（偵探模式 src/systems/minigames/Detective.js 的 jianyu 案件）；破案後再找他，全班挺你 +10 票，還會把他最寶貝的藍寶堅尼借你。
@@ -110,9 +110,9 @@ export class Jianyu {
   // ---------------- room 278: his bed (3) and his desk under it, laptop and the empty envelope ----------------
   _room() {
     const L = this.g.interiors.lixing, R = L?.rooms?.[278]; if (!R) { console.warn('[jianyu] 力行 278 寢找不到'); return; }
-    const { k, B, W } = L, bed = R.beds[3];
+    const { k, B, W } = L, bed = R.beds[1];
     // the desk right under his loft bed (two desks reach under it: take the one whose middle is nearest the bed's)
-    const desk = R.desks.filter(d => d.bed === 3).sort((a, b) => Math.hypot(a.x - bed.x, a.z - bed.z) - Math.hypot(b.x - bed.x, b.z - bed.z))[0];
+    const desk = R.desks.filter(d => d.bed === 1).sort((a, b) => Math.hypot(a.x - bed.x, a.z - bed.z) - Math.hypot(b.x - bed.x, b.z - bed.z))[0];
     const world = (lx, lz, ly) => { const [x, z] = W(lx, lz); return { x, z, y: B + ly }; };
     this.home = {
       bed: { ...world(bed.x, bed.z, bed.y + 0.12), h: k.heading(0) },

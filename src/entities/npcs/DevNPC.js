@@ -239,5 +239,5 @@ export class DevNPC {
     ch.update(dt, { speed: 0, mode: 'foot', pose: this.pause > 0 ? 'talk' : pose, ...extra });
     return true;
   }
-  where() { return this.places?.[this.mode] || ''; }
+  where() { const p = this.places?.[this.mode]; return (typeof p === 'function' ? p() : p) || ''; }
 }

@@ -194,7 +194,8 @@ function faceGeo(jaw, chin = 0) {
 }
 
 // ---------- character ----------
-// opts: hero (bool), skin, shirt, shorts, pants(bool), hair, hairStyle ('bowl'|'short'|'long'|'pony'|'buzz'; anything else = bald),
+// opts: hero (bool), skin, shirt, shorts, pants(bool), hair, hairStyle ('bowl'|'short'|'long'|'pony'|'hime'|'bob'|'buzz'; anything else = bald;
+// 'hime': long straight hair with full blunt see-through bangs; 'bob': a chin-length bob with full bangs),
 // glasses, shoes, bag; build (override the per-person build), beard ('goatee'); skinned body only: hem (shorts
 // length, default -0.3 m below the hip), arm (upper-arm thickness);
 // jacket (colour: a leather biker jacket over the shirt: long sleeves, lapels, zip and snaps), brows ('thick'),
@@ -247,7 +248,7 @@ export function createCharacter(opts = {}) {
   const sockM = mat('#fafafa');
   const pants = !!opts.pants;
   const sk = opts.skinned ?? SKINNED;
-  const female = opts.hairStyle === 'long' || opts.hairStyle === 'pony';
+  const female = opts.hairStyle === 'long' || opts.hairStyle === 'pony' || opts.hairStyle === 'hime' || opts.hairStyle === 'bob';
   // face / build sliders (taipei-rush style), derived from the look so every NPC keeps its own face
   const id = [opts.skin, opts.shirt, opts.shorts, opts.hair, opts.hairStyle, opts.shoes, opts.bag].join('|');
   const fv = hero ? { eye: 1, gap: 1, jaw: 1, nose: 1, build: 1.04 } : {
@@ -364,7 +365,7 @@ export function createCharacter(opts = {}) {
     // matte, stubbly: no shine, the hairline high on the forehead, lower at the back
     const buzzM = mat(opts.hair || '#111111', { roughness: 1 });
     head.add(mesh(geo('buzzCap', () => { const g = new THREE.SphereGeometry(0.1172, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.36); g.rotateX(-0.22); g.scale(0.96, 1.09, 1.02); g.translate(0, 0.104, -0.003); return g; }), buzzM));
-  } else if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony' || hs === 'curly') {
+  } else if (hs === 'bowl' || hs === 'short' || hs === 'long' || hs === 'pony' || hs === 'curly' || hs === 'hime' || hs === 'bob') {
     // cap
     // SphereGeometry phi: front (+z) is phi = PI/2, back (-z) is 3PI/2
     head.add(mesh(geo('hairCap', () => { const g = new THREE.SphereGeometry(0.127, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.4); g.scale(1.0, 1.1, 1.04); g.translate(0, 0.108, -0.004); return g; }), hairM));
@@ -390,8 +391,21 @@ export function createCharacter(opts = {}) {
       head.add(mesh(geo('shortBk', () => { const g = new THREE.SphereGeometry(0.129, 20, 8, Math.PI * 0.9, Math.PI * 1.2, Math.PI * 0.25, Math.PI * 0.3); g.translate(0, 0.103, 0); return g; }), hairM));
     } else {
       // CylinderGeometry theta 0 is the front (+z): start at 0.25π so the 1.5π sheet wraps the back and sides and leaves the face open
-      head.add(mesh(geo('longBack', () => { const g = new THREE.CylinderGeometry(0.125, 0.11, 0.34, 18, 1, true, Math.PI * 0.25, Math.PI * 1.5); g.translate(0, 0.0, -0.01); return g; }), hairM));
-      if (hs !== 'curly') head.add(mesh(geo('longFr', () => { const g = new THREE.SphereGeometry(0.132, 20, 8, Math.PI * 0.05, Math.PI * 0.9, Math.PI * 0.2, Math.PI * 0.2); g.translate(0, 0.1, 0); return g; }), hairM));
+      if (hs !== 'hime' && hs !== 'bob') head.add(mesh(geo('longBack', () => { const g = new THREE.CylinderGeometry(0.125, 0.11, 0.34, 18, 1, true, Math.PI * 0.25, Math.PI * 1.5); g.translate(0, 0.0, -0.01); return g; }), hairM));
+      if (hs === 'hime' || hs === 'bob') {
+        // 齊瀏海長直髮 / 鮑伯頭: a longer straight sheet down past the shoulders and a full fringe to just above the brows,
+        // its ends cut into thin tips so it reads as light see-through bangs rather than a helmet
+        if (hs === 'bob') head.add(mesh(geo('bobSide', () => { const g = new THREE.CylinderGeometry(0.134, 0.14, 0.2, 22, 1, true, Math.PI * 0.22, Math.PI * 1.56); g.translate(0, 0.02, -0.008); return g; }), hairM));
+        else head.add(mesh(geo('himeBack', () => { const g = new THREE.CylinderGeometry(0.128, 0.122, 0.46, 20, 1, true, Math.PI * 0.27, Math.PI * 1.46); g.translate(0, -0.06, -0.012); return g; }), hairM));
+        head.add(mesh(geo('himeFr', () => { const g = new THREE.SphereGeometry(0.133, 28, 8, Math.PI * 0.12, Math.PI * 0.76, Math.PI * 0.2, Math.PI * 0.2); g.scale(1.01, 1.1, 1.06); g.translate(0, 0.1, 0); return g; }), hairM));
+        for (let i = -5; i <= 5; i++) {
+          const a = i * 0.12;
+          const tip = mesh(geo('himeTip', () => { const g = new THREE.ConeGeometry(0.011, 0.03, 4); g.rotateX(Math.PI); return g; }), hairM,
+            Math.sin(a) * 0.131, 0.142, Math.cos(a) * 0.131 + 0.002);
+          tip.rotation.y = a; tip.rotation.x = -0.2;
+          head.add(tip);
+        }
+      } else if (hs !== 'curly') head.add(mesh(geo('longFr', () => { const g = new THREE.SphereGeometry(0.132, 20, 8, Math.PI * 0.05, Math.PI * 0.9, Math.PI * 0.2, Math.PI * 0.2); g.translate(0, 0.1, 0); return g; }), hairM));
       if (hs === 'pony') head.add(mesh(geo('pony', () => { const g = new THREE.CapsuleGeometry(0.035, 0.16, 4, 8); return g; }), hairM, 0, 0.08, -0.15));
       if (hs === 'curly') {
         // 捲髮長髮 (漢克): the long dark sheet underneath plus one merged mesh of curls over the crown, the sides and the back, falling to the shoulders,

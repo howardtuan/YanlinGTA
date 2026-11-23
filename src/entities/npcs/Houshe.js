@@ -5,8 +5,7 @@
 // 住力行宿舍 276 寢 4 號床（進門左手邊第一個床位：靠門那張高架床，座位在床的正下方）。
 // 一天（遊戲時鐘）：
 //   02:00–09:00 睡覺（4 號床）；09:00–10:00、20:00–02:00 在書桌前開發這個遊戲（筆電上的程式碼一行一行打出來）；
-//   10:00–13:00 在二一鐘塔前幫穿畢業袍的畢業生拍畢業照；13:00–15:00、18:00–20:00 跟學妹約會（在你附近的步道上散步，
-//   每天是不同的學妹）；15:00–18:00 在體育館旁的排球場打排球（YeeMing 在對面）。
+//   10:00–13:00 在二一鐘塔前幫穿畢業袍的畢業生拍畢業照；13:00–15:00、18:00–20:00 輪流跟學妹張娜榮、楊子嫻、金采源約會（在你附近的步道上散步，每天換一位）；15:00–18:00 在體育館旁的排球場打排球（YeeMing 在對面）。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
@@ -18,14 +17,16 @@ export const HOUSHE_LOOK = {
   skin: '#c99a72', hair: '#121010', hairStyle: 'bowl', glasses: true, glassesColor: '#bfc3c8',
   shirt: '#141416', shorts: '#4a4d52', pants: true, shoes: '#f2f0ec', build: 1.12, belly: 0.55, jaw: 1.1, face: true,
 };
-// the girls he goes out with (a different one every day)
+// his juniors (學妹) he goes out with, taking turns day by day:
+//   張娜榮 — fair skin, long straight black hair with full see-through bangs, black top, white shorts
+//   楊子嫻 — fair skin, long black hair with bangs, white top, light-wash jeans
+//   金采源 — a chin-length black bob with full bangs, white sporty top, black shorts
 const DATES = [
-  { skin: '#f3d8c6', hair: '#2a1a14', hairStyle: 'long', shirt: '#f5e6d8', shorts: '#8fa9c9', pants: false, shoes: '#ffffff', bag: '#d9a7b0', face: true },
-  { skin: '#efd2bc', hair: '#5a3a28', hairStyle: 'pony', shirt: '#b7d3e8', shorts: '#2c2c34', pants: true, shoes: '#f4f4f1', face: true },
-  { skin: '#f6dccb', hair: '#151313', hairStyle: 'long', shirt: '#2b2b30', shorts: '#e8e2d6', pants: false, shoes: '#1c1c1c', glasses: true, face: true },
-  { skin: '#f0d0b8', hair: '#7a4a2a', hairStyle: 'pony', shirt: '#ffd6e0', shorts: '#f2efe8', pants: true, shoes: '#f6c1cf', face: true },
+  { skin: '#f6dfd0', hair: '#141012', hairStyle: 'hime', shirt: '#1b1a1e', shorts: '#f3f1ee', pants: false, hem: -0.22, shoes: '#ffffff', chin: 0.6, face: true },
+  { skin: '#f5dccb', hair: '#16110f', hairStyle: 'long', shirt: '#f6f4f0', shorts: '#9fb8d4', pants: true, shoes: '#f4f4f1', chin: 0.55, face: true },
+  { skin: '#f7e1d3', hair: '#121012', hairStyle: 'bob', shirt: '#f4f2ee', shorts: '#151517', pants: false, hem: -0.22, shoes: '#f4f4f1', chin: 0.65, face: true },
 ];
-const DATE_NAMES = ['學妹 小晴', '學妹 芊芊', '學妹 語彤', '學妹 安安'];
+const DATE_NAMES = ['張娜榮', '楊子嫻', '金采源'];
 const GAP = 0.85;
 
 const CODE = [
@@ -60,6 +61,56 @@ function buildCamera() {
   g.userData.flash = flash;
   return g;
 }
+// his own camera on the desk in 276: a Nikon Z50 body (126.5 × 93.5 × 60 mm, deep right-hand grip, the viewfinder hump
+// with the white Nikon logo, a red accent line on the grip, mode dial top left, command dial and shutter on the grip,
+// tilting screen on the back) with a NIKKOR Z 24-70mm f/4 S (Ø77.5 × 88.5 mm retracted: wide ribbed zoom ring,
+// smooth control ring at the front, white lettering). Built in metres, origin at the middle of the base, lens towards +z.
+function textTex(t, w, h, font, color = '#f2f2f2', bg = '#141416') {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0, 0, w, h); x.fillStyle = color; x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, w / 2, h / 2);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+}
+function buildZ50() {
+  const g = new THREE.Group();
+  const blk = new THREE.MeshStandardMaterial({ color: '#17181b', roughness: 0.55, metalness: 0.15 });
+  const grain = new THREE.MeshStandardMaterial({ color: '#111214', roughness: 0.9 }); // leatherette on the grip / rubber rings
+  const gloss = new THREE.MeshStandardMaterial({ color: '#202226', roughness: 0.3, metalness: 0.4 });
+  const box = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
+  const cyl = (r0, r1, len, m, x, y, z, seg = 28) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, len, seg).rotateX(Math.PI / 2), m); o.position.set(x, y, z); g.add(o); return o; };
+  const knob = (r, h, m, x, y, z) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24), m); o.position.set(x, y, z); g.add(o); return o; }; // upright, on the top plate
+  // body: the main slab, the deep grip on the right (seen from the front: -x), the hump with the EVF
+  box(0.1265, 0.072, 0.036, blk, 0, 0.036, 0);
+  box(0.03, 0.07, 0.016, grain, -0.047, 0.035, 0.026);
+  const front = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.07, 20, 1, false, Math.PI * 1.5, Math.PI), grain); // the rounded front of the grip
+  front.position.set(-0.047, 0.035, 0.034); g.add(front);
+  const hump = box(0.05, 0.022, 0.04, blk, 0, 0.083, -0.002); hump.geometry = new THREE.CylinderGeometry(0.018, 0.03, 0.022, 4, 1).rotateY(Math.PI / 4); hump.scale.set(1.15, 1, 0.95);
+  box(0.034, 0.02, 0.012, grain, 0, 0.079, -0.024); // eyepiece
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.009), new THREE.MeshBasicMaterial({ map: textTex('Nikon', 128, 38, 'italic 900 30px Arial') }));
+  logo.position.set(0, 0.083, 0.0145); logo.rotation.x = -0.32; g.add(logo);
+  box(0.002, 0.024, 0.004, new THREE.MeshStandardMaterial({ color: '#c8102e', roughness: 0.5 }), -0.0295, 0.058, 0.046); // red line on the grip
+  // top plate: mode dial (left), command dial and the shutter on the grip, the power lever
+  knob(0.011, 0.007, gloss, 0.04, 0.0755, -0.004);
+  knob(0.009, 0.005, gloss, -0.03, 0.0745, -0.006);
+  knob(0.0055, 0.004, gloss, -0.047, 0.073, 0.03);
+  knob(0.0075, 0.002, new THREE.MeshStandardMaterial({ color: '#8d9096', metalness: 0.8, roughness: 0.3 }), -0.047, 0.071, 0.03);
+  // back: the screen
+  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.05), new THREE.MeshStandardMaterial({ color: '#0b0d12', roughness: 0.15, metalness: 0.5 }));
+  lcd.position.set(0.012, 0.036, -0.0185); lcd.rotation.y = Math.PI; g.add(lcd);
+  // Z mount (silver ring) and the lens
+  const ay = 0.04;
+  cyl(0.031, 0.031, 0.004, new THREE.MeshStandardMaterial({ color: '#b8bbc0', metalness: 0.9, roughness: 0.25 }), 0.004, ay, 0.019);
+  cyl(0.0388, 0.0388, 0.02, blk, 0.004, ay, 0.031);                      // base of the barrel
+  cyl(0.0392, 0.0392, 0.036, grain, 0.004, ay, 0.058, 40);                // wide zoom ring
+  for (let i = 0; i < 7; i++) cyl(0.0396, 0.0396, 0.0018, grain, 0.004, ay, 0.043 + i * 0.005, 40); // its ribs
+  cyl(0.0384, 0.0384, 0.012, gloss, 0.004, ay, 0.082);                    // smooth control ring
+  cyl(0.0388, 0.0375, 0.008, blk, 0.004, ay, 0.092);                      // front of the barrel
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(0.03, 32), new THREE.MeshStandardMaterial({ color: '#1d2e45', roughness: 0.05, metalness: 0.9 }));
+  glass.position.set(0.004, ay, 0.0962); g.add(glass);
+  // the white lettering on top of the barrel
+  const txt = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.006), new THREE.MeshBasicMaterial({ map: textTex('24-70  4 S', 160, 32, '700 24px Arial') }));
+  txt.position.set(0.004, ay + 0.0391, 0.031); txt.rotation.x = -Math.PI / 2; txt.rotation.z = Math.PI / 2; g.add(txt);
+  return g;
+}
 // a graduate in a black gown (gold hood edge) and a square cap with a tassel
 function buildGraduate(look) {
   const ch = createCharacter({ ...look, shirt: '#151518', shorts: '#151518', pants: true });
@@ -82,7 +133,7 @@ export class Houshe extends DevNPC {
     });
     this.places = {
       sleep: '在力行宿舍 276 寢睡覺（4 號床）', code: '在力行宿舍 276 寢開發遊戲（建築物內部）💻',
-      photo: '在二一鐘塔前幫畢業生拍畢業照 📷', date: '跟學妹約會中 💕', volley: '在體育館旁的排球場打排球 🏐',
+      photo: '在二一鐘塔前幫畢業生拍畢業照 📷', date: () => `跟學妹${this.dateName}約會中 💕`, volley: '在體育館旁的排球場打排球 🏐',
     };
     // the camera, up at his face while he shoots
     this.cam = buildCamera(); this.cam.position.set(0.0, 0.07, 0.2); this.cam.visible = false; this.ch.head.add(this.cam);
@@ -104,10 +155,19 @@ export class Houshe extends DevNPC {
     if (C) { const [cx, cz] = courtP(C, 4.5, 0.6), [nx, nz] = courtP(C, 0, 0.6); this.court = { x: cx, z: cz, h: Math.atan2(nx - cx, nz - cz) }; }
     // the girl on today's date
     this.dates = DATES.map((look, i) => {
-      const c = createCharacter(look), t = makeLabel(`💕 ${DATE_NAMES[i]}`, { height: 0.22, size: 36, color: '#ffb3c7' });
+      const c = createCharacter(look), t = makeLabel(`💕 學妹 ${DATE_NAMES[i]}`, { height: 0.22, size: 36, color: '#ffb3c7' });
       t.position.set(0, 1.95, 0); c.root.add(t); c.root.visible = false; game.scene.add(c.root); return c;
     });
     this.walkOn = false; this.wait = 2; this.flashT = 2;
+  }
+  // the room: the laptop (DevNPC) plus his Z50 on the desk beside it, lens towards the aisle
+  _dorm() {
+    super._dorm();
+    if (!this.lap || this.z50) return;
+    const L = this.g.interiors.lixing, R = L.rooms[this.cfg.room], desk = this.cfg.desk(R), s = Math.sign(-Math.sin(desk.face)) || 1;
+    const [x, z] = L.W(desk.x + s * 0.06, desk.z - 0.36);
+    this.z50 = buildZ50(); this.z50.position.set(x, L.B + R.y + 0.76, z); this.z50.rotation.y = L.k.heading(desk.face + Math.PI) + Math.PI + 0.5;
+    this.lap.group.add(this.z50); // shown only when you are close, like the laptop
   }
   plan(m) {
     if (m >= M(2) && m < M(9)) return 'sleep';
@@ -118,7 +178,9 @@ export class Houshe extends DevNPC {
   }
   doing() { return { code: '寫程式', photo: '拍畢業照', date: '約會中', volley: '打排球' }[this.mode] || ''; }
   sleepLines() { return [['侯舌', '（呼……呼……）'], ['彥霖', '（侯舌在 4 號床上睡著了，枕頭邊擺著一整排韓團小卡……）']]; }
-  get date() { return this.dates[Math.floor(this.g.clock / 1440) % this.dates.length]; }
+  get dateIdx() { return Math.floor(this.g.clock / 1440) % this.dates.length; }
+  get date() { return this.dates[this.dateIdx]; }
+  get dateName() { return DATE_NAMES[this.dateIdx]; }
   onMode(mode, was) {
     this.cam.visible = mode === 'photo';
     if (was === 'photo') for (const c of this.grads) c.root.visible = false;

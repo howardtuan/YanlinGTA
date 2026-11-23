@@ -292,15 +292,39 @@ export const FRIENDS = {
     date: {
       intro: [
         ['侯舌', '欸……彥霖？好巧喔哈哈'],
-        ['彥霖', '又在約會？上次那個學妹跟今天的不一樣吧'],
-        ['侯舌', '噓！我只是幫學妹拍照啦，她們說我拍得好看 📷'],
+        ['彥霖', '又在約會？旁邊這位是……'],
+        ['侯舌', '噓！這是我學妹{date}，我在幫她拍照啦，她說我拍得好看 📷'],
+        ['{date}', '彥霖學長好～常聽侯舌學長提到你！'],
         ['侯舌', '選會長加油，學妹那邊的票我幫你拉 😎 我們互加一下？'],
       ],
       chat: [
         [['侯舌', '（小聲）我在約會，晚點再聊啦 🤫']],
         [['侯舌', '這個角度光線剛好，我幫她拍一張就走～']],
         [['侯舌', '別跟羊明衫說我又翹掉修圖出來約會 😂']],
+        [['侯舌', '{date}說想去中原夜市，等等要去吃大腸包小腸 🌭'], ['{date}', '學長說好要請客的喔～']],
+        [['侯舌', '剛剛幫{date}拍的這張，逆光再加一點柔焦，完美 📷'], ['彥霖', '你拍照比約會還認真吧'], ['侯舌', '拍照就是約會啊 😎']],
+        [['{date}', '學長，侯舌學長說你要選會長？我會投你一票！'], ['侯舌', '看吧，我說會幫你拉票 😎']],
+        [['侯舌', '（小聲）拜託別說昨天看到我跟另一個學妹出來……'], ['彥霖', '……我什麼都沒看到']],
+        [['{date}', '學長你也來散步？要不要一起拍一張？'], ['侯舌', '來來來，三、二、一～ 📷']],
       ],
+      // more lines with the girl he is out with today (Houshe.dateName), mixed into chat
+      byDate: {
+        張娜榮: [
+          [['張娜榮', '學長，熱音社下週有成發，你要來聽嗎？我負責鍵盤～ 🎹'], ['侯舌', '我會去拍照，前排位置幫你留好了']],
+          [['侯舌', '娜榮今天想拍「樂團成員」風格，我特地帶了 24-70 出來 📷'], ['張娜榮', '學長拍得比我們團的官方照還好看 ✨']],
+          [['張娜榮', '（小聲）學長……侯舌學長是不是很多學妹在約啊？'], ['彥霖', '呃……他就是很熱心幫大家拍照啦 😅']],
+        ],
+        楊子嫻: [
+          [['楊子嫻', '學長，我是新生，好多地方都還不知道在哪耶'], ['侯舌', '所以我在幫她導覽校園啦，順便拍照 😆']],
+          [['楊子嫻', '侯舌學長拍的照片，我 Peachgram 按讚數直接翻倍 ✨'], ['侯舌', '主要是模特兒好看啦']],
+          [['楊子嫻', '學長，資管系的計概會很難嗎？'], ['彥霖', '有問題可以問系學會，我們有開讀書會'], ['侯舌', '你看，候選人都這樣拉票的 😂']],
+        ],
+        金采源: [
+          [['金采源', '學長你也來散步？等等我們要去體育館打羽球！'], ['侯舌', '她超會打，我已經連輸三局了 😭']],
+          [['侯舌', '采源剪了新髮型，我要幫她拍一組鮑伯頭特輯 ✂️📷'], ['金采源', '學長不要把我閉眼那張傳出去喔！']],
+          [['金采源', '侯舌學長說你排球也打得不錯？下次一起來打！'], ['侯舌', '彥霖要選會長，沒空啦哈哈']],
+        ],
+      },
     },
     volley: {
       intro: [
@@ -528,8 +552,10 @@ export class Friends {
   // at: where you meet him ('shop' = 茶學苑, see FRIENDS[id].shop); cb runs when the talk is over
   talk(id, at, cb) {
     const f = FRIENDS[id], g = this.g, s = (at && f[at]) || f;
-    if (this.added.has(id)) { const c = s.chat || f.chat; g.dialog(c[Math.floor(Math.random() * c.length)], cb); return; }
-    g.dialog(this._met?.[id] ? (s.again || f.again) : (s.intro || f.intro), () => { (this._met ||= {})[id] = true; this._ask(id, cb); });
+    // {date}: the girl 侯舌 is out with today (src/entities/npcs/Houshe.js)
+    const dn = g.houshe?.dateName || '學妹', fill = (L) => L.map(([who, t]) => [who.replace('{date}', dn), t.replaceAll('{date}', dn)]);
+    if (this.added.has(id)) { const c = [...(s.chat || f.chat), ...(s.byDate?.[dn] || [])]; g.dialog(fill(c[Math.floor(Math.random() * c.length)]), cb); return; }
+    g.dialog(fill(this._met?.[id] ? (s.again || f.again) : (s.intro || f.intro)), () => { (this._met ||= {})[id] = true; this._ask(id, cb); });
   }
   // a shop asks after you pay: nothing if you are friends already
   offer(id) {

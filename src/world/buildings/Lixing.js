@@ -1889,41 +1889,43 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       tile: mat('extTile', std({ map: tileT, roughness: 0.7 })),
       band: mat('extBand', std({ color: '#e6e6e2', roughness: 0.8 })),
       frame: mat('extFrame', std({ color: '#5a4636', roughness: 0.6 })),
-      glass: mat(
-        'extGlass',
-        new THREE.MeshStandardMaterial({
-          color: '#4c5862',
-          roughness: 0.12,
-          metalness: 0.45,
-          envMapIntensity: 1.0,
-        })
-      ),
     };
-    // 晚上有些房間開燈：暖黃、日光燈白兩種，白天跟其他玻璃一樣（發光強度跟著 g.night）
-    const litM = [
-      ['extGlassWarm', '#ffd59a'],
-      ['extGlassCool', '#e9f1ff'],
-    ].map(([n, e]) => {
+    // 晚上有些房間開燈（使用者：每晚亮的房間不一樣）。窗戶合併成幾大塊畫，不能一扇一扇開關，所以用窗的位置把窗分成 NG 組，
+    // 每組一個材質；每晚（傍晚到隔天早上算同一晚）重新決定每組是關燈、暖黃燈還是日光燈白。白天發光強度 0，和一般玻璃一樣。
+    // 全用雜湊算，不動共用亂數。
+    const NG = 16;
+    const hash = (x) => {
+      const h = Math.sin(x) * 43758.5453;
+      return h - Math.floor(h);
+    };
+    const lit = Array.from({ length: NG }, (_, i) => {
       const m = new THREE.MeshStandardMaterial({
         color: '#4c5862',
         roughness: 0.12,
         metalness: 0.45,
         envMapIntensity: 1.0,
-        emissive: e,
+        emissive: '#000000',
         emissiveIntensity: 0,
       });
-      return { key: mat(n, m), m };
+      return { key: mat(`extGlassLit${i}`, m), m, on: 0 };
     });
+    const WARM = new THREE.Color('#ffd59a'),
+      COOL = new THREE.Color('#e9f1ff').multiplyScalar(0.8);
+    let nightKey = null;
     I.updaters.push((dt, g) => {
-      for (const { key, m } of litM)
-        m.emissiveIntensity = (g.night || 0) * (key === litM[0].key ? 0.95 : 0.75);
+      const nk = Math.floor(((g.clock ?? 0) - 12 * 60) / 1440); // 中午換日：同一晚不會半夜換一批
+      if (nk !== nightKey) {
+        nightKey = nk;
+        lit.forEach((o, i) => {
+          const r = hash(nk * 31.7 + i * 7.13 + 0.5);
+          o.on = r < 0.55 ? 0 : 1; // 每晚大約一半的組亮著
+          o.m.emissive.copy(r < 0.85 ? WARM : COOL);
+        });
+      }
+      const n = g.night || 0;
+      for (const o of lit) o.m.emissiveIntensity = n * o.on * 0.95;
     });
-    // 哪幾扇亮：用窗的位置算一個固定的雜湊（每晚都同一批，不動共用亂數）
-    const litOf = (u, y) => {
-      const h = Math.sin(u * 12.9898 + y * 78.233) * 43758.5453,
-        r = h - Math.floor(h);
-      return r < 0.3 ? litM[0].key : r < 0.45 ? litM[1].key : XM.glass;
-    };
+    const litOf = (u, y) => lit[Math.floor(hash(u * 12.9898 + y * 78.233) * NG)].key;
     const R = (a, c, n, kind = 'room') =>
       Array.from({ length: n }, (_, i) => [
         a + ((c - a) * i) / n,

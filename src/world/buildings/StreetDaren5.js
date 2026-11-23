@@ -29,6 +29,13 @@
 //     （獨立審查加的）face 的 A = 深灰色拱形花格、terraceSegs 第 4 個值 = 鐵花窗顏色、darkCol 深色凸窗的框色（寫了就加一片雨遮色的斜頂）、endSign [圖樣, 寬, 高, 底高, 離立面線] 貼在 s1 那一端山牆上的大招牌
 //   店面：slant 招牌做成上緣靠牆、下緣往外斜的帆布（外伸公尺）、annex 第 3 個值 = 各扇窗的位置、hang 第 4～5 個值 = 寬、高、hangArt／wallArt 吊牌與二樓橫招的圖樣、
 //     add 的 at + ang：一塊斜掛的箱型側招（at 中心離本間起點、w 寬、ang 與立面的夾角，0 = 平行立面、π/2 = 垂直）
+//   （第三輪東北側加的，不寫就沒有作用）量體：glassBay face 的 b（凸窗）畫成外凸的透明格子玻璃（不是不透明綠盒子）、terraceSegs 型式 'glass' = 三樓玻璃凸窗往下包到二樓露台、
+//     arcBal [外凸深度, 色] face 的 r 改畫成淺弧形貼磚女兒牆陽台（不寫照舊是半圓柱）、podWins [[s0, s1, 'dark' 深色鐵窗籠｜'alu' 整排外凸鋁窗, 框色]] 裙樓二樓窗照段指定（範圍內不畫預設的白格柵窗）、
+//     sideWins [離立面線深度…] plainBlock 在 s0 那一端（西北）側牆上每層的鐵窗小窗、duct [中心離立面線深度, 管寬] 貼著同一面側牆、從屋頂直通地面的粗灰色風管；
+//   店面：awnText [字, 字色] 印在雨棚前緣垂邊的字、bannerBox [寬, 高, 中心高度] 布條尺寸（不寫照舊）、art 'ipet' 骨頭 I 的 I PeT 招牌
+//   （西南側第三輪加的，不寫就沒有作用）店面：room 玻璃裡的室內貼圖（ROOM 表的名字，餐廳用，取代雜貨貨架）、astro [中心離本間起點, 寬, 高] g 'hatch' 的太空人改成貼牆的平板立牌、
+//     hood 'hatch' 招牌下那片雨遮的顏色、roll [色1, 色2, 外伸, 下垂, 捲軸高] 捲收式條紋帆布雨棚（斜面布加前緣波浪垂邊）；
+//     量體：band2Segs 型式 'alu' 小口磚牆上的白鋁框連續窗帶、arcs 第 5～6 個值 = 前緣比靠牆處低多少、靠牆處高度（圓弧採光罩，附白色骨架）
 // 這個檔案不 import src/world/Interiors.js；Kit、材質、貼圖工具由 src/world/zones/Zones.js 呼叫 buildDaren5Street 時從 X 傳進來，
 // Zones.js 另外 import D5_ST.drop、D5_ST.ownSign 與 d5Footprints() 來刪填充樓、保留空地。中北路口臨中北路的店面在 StreetZhongbei.js，這裡不重做。
 
@@ -200,6 +207,8 @@ export const D5_ST = {
       wall: '#8d897e',
       topBand: '#9291a0',
       sideWall: '#8f8e9c',
+      sideWins: [3.2, 6.6],
+      duct: [0.5, 0.6],
       roofCol: '#4a4c50',
       roofWall: '#a9cdb0',
       trees: [
@@ -258,6 +267,8 @@ export const D5_ST = {
       parapet: '#b39486',
       canopy: '#3f7a66',
       bayCol: '#6fa593',
+      glassBay: true,
+      arcBal: [0.9, '#c9ab9e'],
       band2: 'terrace',
       terraceWall: '#6e7672',
       terrace2: { par: 0.45, top: 1.8, wy: 1.05, wh: 1.1 },
@@ -282,14 +293,16 @@ export const D5_ST = {
       terraceSegs: [
         [34.5, 43.0, 'alu'],
         [43.0, 43.9, 'grille'],
-        [46, 53.2, 'alu'],
-        [53.2, 55.6, 'open'],
+        [46, 49.95, 'alu'],
+        [49.95, 55.25, 'glass'],
+        [55.25, 55.6, 'open'],
         [55.6, 59.3, 'grille', '#c9a85a'],
         [61.3, 65.8, 'grille', '#5a5a58'],
         [65.8, 71, 'open'],
         [71, 75, 'grille'],
-        [77.2, 84.2, 'alu'],
-        [84.2, 86.7, 'open'],
+        [77.2, 81.1, 'alu'],
+        [81.1, 86.4, 'glass'],
+        [86.4, 86.7, 'open'],
         [86.7, 90, 'grille', '#c9a85a'],
       ],
       stairs: [44.9, 60.3, 76.1, 91.4],
@@ -347,6 +360,7 @@ export const D5_ST = {
             signH: 1.3,
             lint: 0.5,
             sign: ['I PeT', '#f4f2ee', '#1a1a1a'],
+            art: 'ipet',
             awn: ['#efe9dc', '#efe9dc', '#c8322c', '#efe9dc', '#efe9dc', '#3f8a4a'],
             awnSlope: 0.5,
             side: ['●', '#f6f6f4', '#1f2f6a'],
@@ -447,6 +461,7 @@ export const D5_ST = {
             art: 'muse',
             slant: 0.6,
             banner: ['出售', '#d6282b', '#ffffff'],
+            bannerBox: [1.6, 0.9, 1.7],
             side: ['', '#f4f4f2', '#1a1a1a'],
             sh: '#c9c6be',
           },
@@ -462,6 +477,7 @@ export const D5_ST = {
             sd: 0.75,
             sign: ['SU닭', '#cfcdc8', '#7a5a48', 'SUDAK 春川辣炒雞 韓式火鍋烤肉'],
             awn: '#d8c8ae',
+            awnText: ['白飯／麥茶／咖啡／韓式小菜無限享用', '#5a3a2a'],
             sh: '#4a4a4c',
           },
         ],
@@ -537,7 +553,13 @@ export const D5_ST = {
       nf: 8,
       gf: 3.3,
       y2: 7.2,
-      bayWin: [145.5, 148.3],
+      glassBay: true,
+      arcBal: [0.85, '#e4e0d8'],
+      // 裙樓二樓窗（第三輪照街景）：MY HAIR、ZAZA、門廳上方是深色鐵窗籠；PINK CAKE 以東到車道上方是一整排外凸鋁窗（古銅色框）
+      podWins: [
+        [100.9, 108.7, 'dark'],
+        [122.9, 148.5, 'alu', '#6e5644'],
+      ],
       // 樓上各戶：這一棟不像哈佛林那麼規則，照街景大致排（由西北到東南 9 個開間，三樓到八樓）
       face: [
         'faooow',
@@ -855,7 +877,8 @@ export const D5_ST = {
       ],
     },
     // 九層長條大樓（淺灰白小口磚，一樓挑高約 4.5 m）：二樓整排加蓋帶，band2Segs = [s0, s1, 型式]：
-    //   lattice 貼齊牆面的米色花格磚｜win 外凸鋁窗加綠色雨遮｜cage 外凸灰色鐵格柵籠加綠浪板｜white 白框玻璃採光罩；s>92.1 沿用 band2Glass 之後的白框玻璃
+    //   lattice 貼齊牆面的米色花格磚｜win 外凸鋁窗加綠色雨遮｜cage 外凸灰色鐵格柵籠加綠浪板｜white 白框玻璃採光罩｜
+    //   alu（第三輪）小口磚牆上一整排微凸的白鋁框窗加淺色水平雨遮（嘉霏、樂野上方，照評論相片）
     {
       id: 'swA',
       kind: 'tower',
@@ -899,7 +922,7 @@ export const D5_ST = {
         [53.3, 75.5, 'cage'],
         [75.5, 83.2, 'win'],
         [83.2, 92.1, 'white'],
-        [92.1, 99.8, 'white'],
+        [92.1, 99.8, 'alu'],
       ],
       stairs: [44.55, 59.75, 75.85, 91.0],
       paving: '#d9d6cf',
@@ -924,6 +947,7 @@ export const D5_ST = {
             oh: 2.8,
             awn: '#4a4a4c',
             frame: '#3a3a3e',
+            room: 'qiuji',
           },
         ],
         [
@@ -936,6 +960,8 @@ export const D5_ST = {
             signH: 0.95,
             oh: 3.0,
             low: '#f1eee8',
+            hood: '#c4c7c9',
+            astro: [3.2, 1.5, 2.3],
           },
         ],
         [43.5, 45.6, { g: 'gate', awn: W }],
@@ -1125,6 +1151,8 @@ export const D5_ST = {
           {
             g: 'shop',
             sign: ['樂野', '#232323', '#ffffff', '和風洋食屋'],
+            art: 'leye',
+            room: 'leye',
             signH: 1.3,
             awn: '#6b5a4a',
             discs: [['樂野', '#232323', '#ffffff', 0.94, 3.0, 1.0, 3.4, undefined, true]],
@@ -1207,10 +1235,15 @@ export const D5_ST = {
             z: 2,
             noTile: true,
             pier: '#a9523a',
-            doorAt: 3.55,
+            doorAt: 3.3,
             add: [
-              { x: [3.8, 4.65], y: 0, h: 3.2, z: 0.05, sh: '#3f6a8a' },
-              { x: [4.65, 4.77], y: 0, h: 3.2, z: 0.1, out: 0.12, bg: '#2f3f8a' },
+              // 第三輪：s113.7～115.1 的藍色鐵捲門半開——退縮牆上只看到上面一截藍色橫帶（下緣一支壓條），下面是暗的室內，兩側導軌
+              { x: [4.2, 5.42], y: 0, h: 2.05, z: 2, out: 0.02, bg: '#1f1e1c' },
+              { x: [4.2, 5.42], y: 2.05, h: 1.2, z: 2, sh: '#3f6a8a' },
+              { x: [4.2, 5.42], y: 1.98, h: 0.09, z: 2, out: 0.07, bg: '#2f4a66' },
+              { x: [4.12, 4.2], y: 0, h: 3.25, z: 2, out: 0.08, bg: '#7a8a96' },
+              { x: [5.42, 5.5], y: 0, h: 3.25, z: 2, out: 0.08, bg: '#7a8a96' },
+              { x: [4.12, 5.5], y: 3.25, h: 0.3, z: 2, out: 0.25, bg: '#4a5a6a' },
               {
                 x: [0.4, 0.8],
                 y: 0.9,
@@ -1220,8 +1253,8 @@ export const D5_ST = {
                 fg: '#c8281e',
                 v: '本棟全新套房出租',
               },
-              { x: [1.75, 2.85], y: 0, h: 2.15, z: 1.75, out: 0.06, bg: '#c9cccf' },
-              { x: [1.85, 2.75], y: 1.0, h: 1.05, z: 1.69, out: 0.02, bg: '#7f8f96' },
+              { x: [1.3, 2.4], y: 0, h: 2.15, z: 1.75, out: 0.06, bg: '#c9cccf' },
+              { x: [1.4, 2.3], y: 1.0, h: 1.05, z: 1.69, out: 0.02, bg: '#7f8f96' },
             ],
           },
         ],
@@ -1248,7 +1281,8 @@ export const D5_ST = {
             bare: true,
             signH: 0.8,
             add: [
-              { x: [-0.5, 1.3], y: 2.9, h: 0.8, bg: '#262460', fg: '#ffffff', t: '嬌都美髮' },
+              { x: [-0.5, 1.3], y: 2.9, h: 0.8, bg: '#262460', art: 'jiaodu' },
+              { x: [1.36, 1.54], y: 2.55, h: 1.3, out: 0.16, bg: '#eef2f8' }, // 第三輪：招牌左側直條 LED 燈箱
               { x: [0.2, 1.5], y: 0, h: 2.3, z: 2, out: 0.05, bg: '#b9bcc0' },
             ],
           },
@@ -1444,8 +1478,7 @@ export const D5_ST = {
             sh: '#d9d2c4',
             bare: true,
             signH: 0.9,
-            awn: '#e6e2d6',
-            awnOut: 1.0,
+            roll: ['#f2f2ee', '#b3b5b0', 1.1, 0.6],
             add: [
               { x: [0, 2.6], y: 4.3, h: 1.2, out: 0.45, bg: '#e8e8e4' },
               { x: [0.2, 2.5], y: 0, h: 0.16, out: 1.1, bg: '#7a4a3c' },
@@ -1458,8 +1491,7 @@ export const D5_ST = {
           {
             g: 'shutter',
             noband: true,
-            awn: ['#e8e8e8', '#c9c9c4'],
-            awnOut: 1.0,
+            roll: ['#f2f2ee', '#b3b5b0', 1.1, 0.6],
             sh: '#4f8f9a',
             bare: true,
             signH: 0.9,
@@ -1814,6 +1846,28 @@ export function buildDaren5Street(I, scene, X) {
         for (let x = 2; x < 128; x += 9) g.fillRect(x, 0, 2.5, 128);
         for (const y of [0, 40, 84, 123]) g.fillRect(0, y, 128, 5);
       }
+    });
+  const glassGridTex = (cols, rows) =>
+    sg(`d5GlassGrid${cols}x${rows}`, 128, 128, (g) => {
+      // 第三輪東北側：透明格子玻璃（淡青綠半透明玻璃、灰白鋁框分格）
+      g.clearRect(0, 0, 128, 128);
+      g.fillStyle = 'rgba(112,162,152,0.46)';
+      g.fillRect(0, 0, 128, 128);
+      g.fillStyle = 'rgba(255,255,255,0.16)';
+      for (let i = 0; i < cols; i++) {
+        const x = (128 * i) / cols;
+        g.beginPath();
+        g.moveTo(x + 6, 128);
+        g.lineTo(x + 128 / cols - 4, 0);
+        g.lineTo(x + 128 / cols + 10, 0);
+        g.lineTo(x + 22, 128);
+        g.fill();
+      } // 斜的反光
+      g.fillStyle = '#c9d0cc';
+      for (let i = 0; i <= cols; i++)
+        g.fillRect(Math.min(124, Math.max(0, (128 * i) / cols - 2)), 0, 4, 128);
+      for (let j = 0; j <= rows; j++)
+        g.fillRect(0, Math.min(124, Math.max(0, (128 * j) / rows - 2)), 128, 4);
     });
   const darkTex = sg('d5Dark', 128, 96, (g) => {
     // 挑空／車道裡面
@@ -2379,18 +2433,64 @@ export function buildDaren5Street(I, scene, X) {
       g.fillText('MUSE EYELASH SALON', W / 2, H * 0.8);
     },
     spotlight: (g, W, H) => {
+      // 第三輪東北側：深咖啡色花體草寫字，下面一行小字網址
       g.fillStyle = '#f1efec';
       g.fillRect(0, 0, W, H);
       g.fillStyle = '#4a2f2a';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      let px = H * 0.6;
-      g.font = serif(px, true);
+      const script = (p) =>
+        `italic 700 ${p}px "Snell Roundhand","Segoe Script","Lucida Handwriting","Brush Script MT","Apple Chancery",cursive`;
+      let px = H * 0.72;
+      g.font = script(px);
       while (g.measureText('Spotlight').width > W * 0.6 && px > 10) {
         px -= 2;
-        g.font = serif(px, true);
+        g.font = script(px);
       }
-      g.fillText('Spotlight', W * 0.5, H * 0.5);
+      g.fillText('Spotlight', W * 0.5, H * 0.42);
+      g.font = `400 ${Math.round(H * 0.075)}px Georgia,serif`;
+      g.fillText('https://www.facebook.com/spotlightbody', W * 0.55, H * 0.82);
+    },
+    ipet: (g, W, H) => {
+      // 第三輪東北側：I PeT 的「I」是直立的骨頭、和 PeT 之間一顆淡粉愛心，下面一行小字
+      g.fillStyle = '#f4f2ee';
+      g.fillRect(0, 0, W, H);
+      const u = H * 0.52,
+        bx = W * 0.27,
+        by = H * 0.42;
+      g.fillStyle = '#1a1a1a';
+      g.fillRect(bx - u * 0.07, by - u * 0.36, u * 0.14, u * 0.72);
+      for (const sy of [-1, 1])
+        for (const sx of [-1, 1]) {
+          g.beginPath();
+          g.arc(bx + sx * u * 0.08, by + sy * u * 0.4, u * 0.1, 0, 7);
+          g.fill();
+        }
+      const hx = W * 0.36,
+        hy = H * 0.44,
+        hr = u * 0.17;
+      g.fillStyle = '#f2b8c6';
+      g.beginPath();
+      g.moveTo(hx, hy + hr * 1.1);
+      g.bezierCurveTo(
+        hx - hr * 1.6,
+        hy - hr * 0.1,
+        hx - hr * 0.7,
+        hy - hr * 1.3,
+        hx,
+        hy - hr * 0.4
+      );
+      g.bezierCurveTo(
+        hx + hr * 0.7,
+        hy - hr * 1.3,
+        hx + hr * 1.6,
+        hy - hr * 0.1,
+        hx,
+        hy + hr * 1.1
+      );
+      g.fill();
+      T(g, 'PeT', W * 0.43, by, u * 0.95, '#1a1a1a', W * 0.5, 'left');
+      T(g, 'DAMEN GUO PET SHOP', W * 0.5, H * 0.86, H * 0.1, '#3a3a3a', W * 0.7, 'center', 700);
     },
     butterfly: (g, W, H) => {
       // 白色吊牌上的黑色蝴蝶
@@ -2505,6 +2605,46 @@ export function buildDaren5Street(I, scene, X) {
       g.ellipse(W / 2, H * 0.45, W * 0.36, H * 0.34, 0, 0, 7);
       g.fill();
       bear(g, W / 2, H * 0.44, Math.min(W, H) * 0.2);
+    },
+    // 第三輪：嬌都美髮（左邊直排兩個小字「嬌都」，右邊大字「美髮」）
+    jiaodu: (g, W, H) => {
+      g.fillStyle = '#262460';
+      g.fillRect(0, 0, W, H);
+      g.fillStyle = 'rgba(255,255,255,.85)';
+      g.fillRect(W * 0.2, H * 0.14, Math.max(2, W * 0.008), H * 0.72);
+      T(g, '嬌', W * 0.11, H * 0.31, H * 0.33, '#ffffff');
+      T(g, '都', W * 0.11, H * 0.69, H * 0.33, '#ffffff');
+      T(g, '美髮', W * 0.6, H * 0.53, H * 0.78, '#ffffff', W * 0.72);
+    },
+    // 第三輪：樂野（左上圓形刀叉標誌、右上一盤餐點照片、左下一碗湯，中間「樂野」「和風洋食屋」，下面品項與電話）
+    leye: (g, W, H) => {
+      g.fillStyle = '#232323';
+      g.fillRect(0, 0, W, H);
+      g.strokeStyle = '#f2f2f2';
+      g.lineWidth = Math.max(2, H * 0.03);
+      g.strokeRect(H * 0.04, H * 0.04, W - H * 0.08, H * 0.92);
+      g.beginPath();
+      g.arc(W * 0.11, H * 0.3, H * 0.17, 0, 7);
+      g.stroke();
+      g.fillStyle = '#f2f2f2';
+      g.fillRect(W * 0.095, H * 0.18, W * 0.008, H * 0.2);
+      g.fillRect(W * 0.12, H * 0.18, W * 0.008, H * 0.2);
+      const dish = (x, y, r, c) => {
+        g.fillStyle = '#e8e2d6';
+        g.beginPath();
+        g.arc(x, y, r, 0, 7);
+        g.fill();
+        g.fillStyle = c;
+        g.beginPath();
+        g.arc(x, y, r * 0.72, 0, 7);
+        g.fill();
+      };
+      dish(W * 0.86, H * 0.26, H * 0.22, '#7a3a1a');
+      dish(W * 0.1, H * 0.74, H * 0.17, '#d8b04a');
+      T(g, '樂野', W * 0.38, H * 0.27, H * 0.38, '#ffffff', W * 0.3);
+      T(g, '和風洋食屋', W * 0.5, H * 0.56, H * 0.24, '#ffffff', W * 0.5);
+      T(g, '歐姆咖哩飯・義大利麵', W * 0.62, H * 0.74, H * 0.1, '#ffffff', W * 0.4, 'center', 700);
+      T(g, '03－4383788', W * 0.62, H * 0.88, H * 0.12, '#ffffff', W * 0.4, 'center', 700);
     },
   });
   const artTex = (name, wm, hm) => {
@@ -2690,6 +2830,30 @@ export function buildDaren5Street(I, scene, X) {
           { transparent: true, double: true }
         );
       k.box(x0 - 0.05, x1 + 0.05, yt + 0.05, yt + 0.13, -1.45, 0, '#8fae9c', NC);
+    } else if (type === 'alu') {
+      // 第三輪：嘉霏、樂野上方——小口磚牆面上一整排微凸的白鋁框窗（深色玻璃、部分霧面），上緣一條淺色水平雨遮
+      const wy0 = gf + 0.6,
+        wy1 = yt - 0.02,
+        dz = -0.28;
+      k.box(x0, x1, gf + 0.1, yt + 0.12, -0.05, 0, wallOf(B.wall), {
+        col: false,
+        tile: [0.6, 0.6],
+      });
+      k.box(x0 + 0.12, x1 - 0.12, wy0 - 0.06, wy1 + 0.06, dz, 0, '#efefeb', NC);
+      k.box(x0 + 0.06, x1 - 0.06, wy0 - 0.14, wy0 - 0.06, dz - 0.08, 0, '#d9d8d2', NC);
+      const n = Math.max(1, Math.round((L - 0.24) / 1.2)),
+        pw = (L - 0.24) / n;
+      for (let i = 0; i < n; i++)
+        k.plane(
+          aluBandTex((i * 7 + Math.round(x0 * 3)) % 5 === 1),
+          pw - 0.06,
+          wy1 - wy0 - 0.04,
+          x0 + 0.12 + (i + 0.5) * pw,
+          (wy0 + wy1) / 2,
+          dz - 0.01,
+          FRONT
+        );
+      k.box(x0 - 0.05, x1 + 0.05, yt + 0.12, yt + 0.2, -0.7, 0, '#e6e2d3', NC);
     } else {
       k.box(x0, x1, gf + 0.1, yt, -1.0, 0, '#cfe0e0', NC);
       for (let x = x0; x <= x1 + 0.01; x += L / Math.max(1, Math.round(L / 1.2)))
@@ -2731,6 +2895,176 @@ export function buildDaren5Street(I, scene, X) {
       });
     }
   };
+  const aluBandTex = (frost) =>
+    sg(`d5AluBand${frost ? 'f' : ''}`, 128, 128, (g) => {
+      // 第三輪：白鋁框橫拉窗（左右兩扇、上面一排氣窗）；frost = 霧面玻璃
+      g.fillStyle = '#f2f2ee';
+      g.fillRect(0, 0, 128, 128);
+      const gl = g.createLinearGradient(0, 0, 128, 128);
+      gl.addColorStop(0, frost ? '#c9ccca' : '#4d5a60');
+      gl.addColorStop(0.55, frost ? '#b7bbb9' : '#2f383d');
+      gl.addColorStop(1, frost ? '#c2c5c3' : '#46525a');
+      g.fillStyle = gl;
+      g.fillRect(6, 6, 116, 26);
+      g.fillRect(6, 38, 55, 84);
+      g.fillRect(67, 38, 55, 84);
+      g.fillStyle = 'rgba(255,255,255,.18)';
+      g.beginPath();
+      g.moveTo(14, 122);
+      g.lineTo(40, 38);
+      g.lineTo(52, 38);
+      g.lineTo(26, 122);
+      g.fill();
+    });
+  // 第三輪：捲收式條紋帆布雨棚的布面（沿街方向一條條，stripe 公尺寬）
+  const rollTex = (c1, c2, wm, stripe = 0.25) => {
+    const Wp = r16(wm * 64);
+    return sg(`d5Roll${c1}${c2}${Wp}`, Wp, 32, (g) => {
+      const sw = stripe * 64;
+      for (let x = 0, j = 0; x < Wp; x += sw, j++) {
+        g.fillStyle = j % 2 ? c2 : c1;
+        g.fillRect(x, 0, sw + 1, 32);
+      }
+    });
+  };
+  const valTex = (c1, c2, wm, stripe = 0.25) => {
+    const Wp = r16(wm * 64);
+    return sg(`d5Val${c1}${c2}${Wp}`, Wp, 32, (g) => {
+      // 前緣垂邊：同色條紋、下緣一個個半圓波浪
+      g.clearRect(0, 0, Wp, 32);
+      const sw = stripe * 64;
+      for (let x = 0, j = 0; x < Wp; x += sw, j++) {
+        g.fillStyle = j % 2 ? c2 : c1;
+        g.fillRect(x, 0, sw + 1, 18);
+        g.beginPath();
+        g.arc(x + sw / 2, 18, sw / 2, 0, Math.PI);
+        g.fill();
+      }
+    });
+  };
+  // 第三輪：餐廳店面玻璃裡面看到的室內（取代雜貨貨架貼圖）
+  const ROOM = {
+    qiuji: (g, W, H) => {
+      // 秋吉：黑色天花板加軌道燈、吊扇，白牆配淺木紋腰牆，左邊不鏽鋼工作台與冰箱，裡面一排高腳椅
+      g.fillStyle = '#e9e7e2';
+      g.fillRect(0, 0, W, H);
+      g.fillStyle = '#26282a';
+      g.fillRect(0, 0, W, H * 0.2);
+      g.fillStyle = '#d8b98a';
+      g.fillRect(0, H * 0.55, W, H * 0.45);
+      g.fillStyle = 'rgba(120,90,50,.25)';
+      for (let x = 0; x < W; x += 9) g.fillRect(x, H * 0.55, 2, H * 0.45);
+      g.fillStyle = '#d9cbb6';
+      g.fillRect(0, H * 0.86, W, H * 0.14);
+      g.fillStyle = '#fff6d8';
+      for (let x = W * 0.08; x < W; x += W * 0.14) {
+        g.beginPath();
+        g.arc(x, H * 0.165, H * 0.012, 0, 7);
+        g.fill();
+      }
+      g.fillStyle = '#e8e8e4';
+      g.fillRect(W * 0.38, H * 0.07, W * 0.24, H * 0.02);
+      g.fillStyle = '#b9bec2';
+      g.fillRect(W * 0.02, H * 0.3, W * 0.16, H * 0.6);
+      g.fillStyle = '#7f8a90';
+      g.fillRect(W * 0.04, H * 0.34, W * 0.12, H * 0.5);
+      g.fillStyle = '#c9ccce';
+      g.fillRect(W * 0.6, H * 0.6, W * 0.36, H * 0.06);
+      g.fillStyle = '#8a8e90';
+      g.fillRect(W * 0.62, H * 0.66, W * 0.02, H * 0.24);
+      g.fillRect(W * 0.92, H * 0.66, W * 0.02, H * 0.24);
+      g.fillStyle = '#5a7a3a';
+      g.fillRect(W * 0.7, H * 0.52, W * 0.05, H * 0.08);
+      g.fillStyle = '#2a2a2c';
+      for (const x of [0.28, 0.36, 0.44]) {
+        g.fillRect(W * x, H * 0.66, W * 0.05, H * 0.03);
+        g.fillRect(W * x + W * 0.02, H * 0.69, W * 0.01, H * 0.2);
+      }
+    },
+    leye: (g, W, H) => {
+      // 樂野：鮮黃牆配原木牆板，門楣內側一條藍底白字布條，一桌桌原木桌椅
+      g.fillStyle = '#efd94a';
+      g.fillRect(0, 0, W, H);
+      g.fillStyle = '#c99a62';
+      g.fillRect(W * 0.3, H * 0.12, W * 0.4, H * 0.75);
+      g.fillStyle = 'rgba(110,70,30,.25)';
+      for (let x = W * 0.3; x < W * 0.7; x += 10) g.fillRect(x, H * 0.12, 2, H * 0.75);
+      g.fillStyle = '#4a8a3a';
+      g.fillRect(W * 0.76, H * 0.28, W * 0.14, H * 0.12);
+      g.fillStyle = '#d9c3a0';
+      g.fillRect(0, H * 0.86, W, H * 0.14);
+      g.fillStyle = '#9cc9e8';
+      g.fillRect(0, 0, W, H * 0.13);
+      T(g, '樂野　和風洋食屋', W / 2, H * 0.066, H * 0.08, '#ffffff', W * 0.9);
+      for (const x of [0.12, 0.42, 0.72]) {
+        g.fillStyle = '#d8b07a';
+        g.fillRect(W * x, H * 0.62, W * 0.18, H * 0.04);
+        g.fillStyle = '#8a6a44';
+        g.fillRect(W * x + W * 0.02, H * 0.66, W * 0.015, H * 0.2);
+        g.fillRect(W * x + W * 0.145, H * 0.66, W * 0.015, H * 0.2);
+        g.fillStyle = '#3a3a40';
+        g.beginPath();
+        g.ellipse(W * x + W * 0.04, H * 0.56, W * 0.035, H * 0.1, 0, 0, 7);
+        g.fill();
+        g.beginPath();
+        g.arc(W * x + W * 0.04, H * 0.42, W * 0.025, 0, 7);
+        g.fill();
+      }
+    },
+  };
+  const roomTex = (name) => sg(`d5Room_${name}`, 320, 256, (g) => ROOM[name](g, 320, 256));
+  // 第三輪：PAPAFUN 門口的太空人立牌（透明底；深紫星空底座、黃色月球、白色太空人舉著黑底粉紅字小牌）
+  const astroTex = sg('d5Astro', 192, 288, (g) => {
+    g.clearRect(0, 0, 192, 288);
+    const fill = (c, f) => {
+      g.fillStyle = c;
+      g.beginPath();
+      f();
+      g.fill();
+    };
+    fill('#2a2140', () => g.ellipse(84, 270, 84, 16, 0, 0, 7));
+    g.fillStyle = '#ffffff';
+    for (const [x, y] of [
+      [30, 268],
+      [70, 276],
+      [120, 266],
+      [150, 274],
+    ])
+      g.fillRect(x, y, 3, 3);
+    fill('#f2c020', () => g.arc(62, 215, 60, 0, 7));
+    g.strokeStyle = '#3a2a5a';
+    g.lineWidth = 3;
+    g.stroke();
+    g.strokeStyle = '#c99410';
+    g.lineWidth = 5;
+    for (const [x, y, r] of [
+      [40, 205, 14],
+      [72, 238, 10],
+      [86, 196, 8],
+    ]) {
+      g.beginPath();
+      g.arc(x, y, r, Math.PI * 0.1, Math.PI * 1.1);
+      g.stroke();
+    }
+    g.strokeStyle = '#3a3a5a';
+    g.lineWidth = 3;
+    fill('#f4f4f6', () => g.ellipse(70, 150, 24, 14, 0, 0, 7));
+    g.stroke();
+    fill('#f4f4f6', () => g.ellipse(48, 160, 10, 24, 0.2, 0, 7));
+    g.stroke();
+    fill('#f4f4f6', () => g.ellipse(76, 112, 26, 30, 0, 0, 7));
+    g.stroke();
+    fill('#5a8ad8', () => g.rect(60, 104, 18, 12));
+    fill('#f4f4f6', () => g.ellipse(104, 98, 9, 22, -0.6, 0, 7));
+    g.stroke();
+    fill('#f4f4f6', () => g.arc(78, 58, 30, 0, 7));
+    g.stroke();
+    fill('#4a3a7a', () => g.arc(80, 60, 22, 0, 7));
+    fill('#e8e8ec', () => g.arc(80, 60, 15, 0, 7));
+    fill('#1c1c1e', () => g.rect(104, 52, 62, 46));
+    T(g, 'PAPA', 135, 66, 18, '#f08aa8', 54);
+    T(g, 'FUN', 135, 86, 16, '#f08aa8', 54);
+  });
   const clearTex = sg('d5Clear', 64, 64, (g) => {
     g.clearRect(0, 0, 64, 64);
     g.fillStyle = 'rgba(214,226,230,.5)';
@@ -3072,7 +3406,15 @@ export function buildDaren5Street(I, scene, X) {
       ); // SW1：招牌圖樣
     // 開口
     if (g === 'shop') {
-      shopGlass(k, x0 + 0.3, x1 - 0.3, sp.steps ? 0.8 : 0, gh, shopTex(i), z - 0.02);
+      shopGlass(
+        k,
+        x0 + 0.3,
+        x1 - 0.3,
+        sp.steps ? 0.8 : 0,
+        gh,
+        sp.room ? roomTex(sp.room) : shopTex(i),
+        z - 0.02
+      );
       if (sp.frame) {
         for (const x of [x0 + 0.22, x1 - 0.34, xc - 0.06])
           k.box(x, x + 0.12, 0, gh, z - 0.1, z, sp.frame, NC);
@@ -3119,7 +3461,7 @@ export function buildDaren5Street(I, scene, X) {
       // SW1：整面實牆加不鏽鋼圓舷窗與圓角艙門（PAPAFUN），門口太空人坐月球立牌
       const px = x0 + w * 0.6,
         dx = x0 + w * 0.17;
-      k.box(x0 + 0.16, x1 - 0.16, gh, gh + 0.12, z - 0.5, z, '#f4f2ee', NC);
+      k.box(x0 + 0.16, x1 - 0.16, gh, gh + 0.12, z - 0.5, z, sp.hood || '#f4f2ee', NC);
       k.plane(roundSign('', '#4a545c', '#d5d8da'), 1.2, 1.2, px, 1.55, z - 0.09, FRONT, {
         transparent: true,
       });
@@ -3129,11 +3471,18 @@ export function buildDaren5Street(I, scene, X) {
       });
       k.box(dx + 0.62, dx + 0.92, 1.05, 1.9, z - 0.07, z, '#f08aa8', NC);
       k.box(dx + 0.98, dx + 1.2, 1.2, 1.8, z - 0.07, z, '#fbfbf8', NC);
-      k.box(px + 0.1, px + 0.9, 0, 0.12, z - 1.75, z - 1.05, '#3a2a5a', NC);
-      sphere(k, px + 0.5, 0.5, z - 1.4, 0.48, '#e8dcb0');
-      sphere(k, px + 0.5, 1.12, z - 1.4, 0.3, '#f2f2f2');
-      sphere(k, px + 0.5, 1.55, z - 1.4, 0.24, '#f6f6f6');
-      k.box(px + 0.38, px + 0.62, 1.48, 1.62, z - 1.66, z - 1.6, '#2a2a3a', NC);
+      if (sp.astro) {
+        // 第三輪：太空人坐月球的平板立牌，貼著牆立在舷窗左前方（astro = [中心離本間起點, 寬, 高]）
+        const [ax, aw, ah] = sp.astro;
+        k.plane(astroTex, aw, ah, x0 + ax, ah / 2, z - 0.16, FRONT, { transparent: true });
+        k.box(x0 + ax - aw * 0.3, x0 + ax + aw * 0.3, 0, 0.05, z - 0.3, z - 0.05, '#2a2140', NC);
+      } else {
+        k.box(px + 0.1, px + 0.9, 0, 0.12, z - 1.75, z - 1.05, '#3a2a5a', NC);
+        sphere(k, px + 0.5, 0.5, z - 1.4, 0.48, '#e8dcb0');
+        sphere(k, px + 0.5, 1.12, z - 1.4, 0.3, '#f2f2f2');
+        sphere(k, px + 0.5, 1.55, z - 1.4, 0.24, '#f6f6f6');
+        k.box(px + 0.38, px + 0.62, 1.48, 1.62, z - 1.66, z - 1.6, '#2a2a3a', NC);
+      }
     } else if (g === 'wood') {
       // SW1：木門小店（深色木頭雙開門、木框小窗加木窗台、紅色小海報、直立白色小燈箱）
       const dx = x0 + w * sp.door,
@@ -3232,11 +3581,58 @@ export function buildDaren5Street(I, scene, X) {
             A[0],
             NC
           ); // 斜的帆布雨棚（階梯狀疊出斜面）
+      if (sp.awnText) {
+        const [at, ac2] = sp.awnText,
+          aw = w - 0.2;
+        k.box(x0 + 0.1, x1 - 0.1, y - 0.36, y, z - out - 0.03, z - out + 0.02, A[0], NC);
+        k.plane(
+          paint(at, A[0], ac2, null, aw, 0.3, 112),
+          aw,
+          0.3,
+          xc,
+          y - 0.18,
+          z - out - 0.04,
+          FRONT
+        );
+      } // 第三輪東北側：雨棚前緣垂下來的那一條印字
+    }
+    if (sp.roll) {
+      // 第三輪：捲收式條紋帆布雨棚（斜面布、前緣波浪垂邊、牆上捲軸盒）
+      const [c1, c2, out = 1.2, drop = 0.7, yTop = gf - sh - 0.05] = sp.roll,
+        aw = w - 0.2;
+      k.plane(
+        rollTex(c1, c2, aw),
+        aw,
+        Math.hypot(out, drop),
+        xc,
+        yTop - drop / 2,
+        z - out / 2,
+        FRONT,
+        { double: true }
+      ).rotation.x = Math.atan2(out, drop);
+      k.plane(valTex(c1, c2, aw), aw, 0.28, xc, yTop - drop - 0.12, z - out - 0.01, FRONT, {
+        transparent: true,
+        double: true,
+      });
+      k.box(x0 + 0.1, x1 - 0.1, yTop - 0.05, yTop + 0.09, z - 0.16, z, '#9a9c9a', NC);
+      for (const x of [x0 + 0.14, x1 - 0.18])
+        rbox(
+          k,
+          x + 0.02,
+          yTop - drop / 2,
+          z - out / 2,
+          0.04,
+          0.04,
+          Math.hypot(out, drop),
+          0,
+          '#8a8d90',
+          -Math.atan2(drop, out)
+        );
     }
     if (sp.banner) {
       const [bt, bb, bf] = sp.banner,
-        bw = Math.min(w - 0.6, 3);
-      k.plane(paint(bt, bb, bf, null, bw, 0.5, 96), bw, 0.5, xc, gf - sh - 0.5, z - 0.34, FRONT, {
+        [bw, bh, by] = sp.bannerBox || [Math.min(w - 0.6, 3), 0.5, gf - sh - 0.5];
+      k.plane(paint(bt, bb, bf, null, bw, bh, 96), bw, bh, xc, by, z - 0.34, FRONT, {
         emissive: 0.15,
       });
     }
@@ -3421,6 +3817,65 @@ export function buildDaren5Street(I, scene, X) {
     f: 'flat',
     A: 'archD',
   };
+  // 第三輪東北側：裙樓二樓窗照段指定（窗頂貼著屋簷 y2）。'dark' 深色鐵窗籠（外凸 0.4、密直條）｜'alu' 整排外凸鋁窗（框色 fc，外凸 0.5、下面一道窗台）
+  const podWins = (k, B, seg, y2) => {
+    const h = 1.6,
+      wy = y2 - 0.65,
+      ya = wy - h / 2,
+      yb = wy + h / 2;
+    for (const [a, b, type, fc] of B.podWins) {
+      const [x0, x1] = seg(a, b),
+        L = x1 - x0;
+      if (type === 'dark') {
+        const col = fc || '#34312e',
+          n = Math.max(1, Math.round(L / 1.3)),
+          pw = L / n,
+          o = { transparent: true, double: true };
+        k.plane(ROWT.alWin(), L - 0.2, h - 0.1, (x0 + x1) / 2, wy, -0.02, FRONT);
+        for (let j = 0; j < n; j++)
+          k.plane(barsTex(col), pw, h, x0 + (j + 0.5) * pw, wy, -0.4, FRONT, o);
+        k.box(x0, x1, ya - 0.1, ya, -0.44, 0, col, NC);
+        k.box(x0 - 0.05, x1 + 0.05, yb, yb + 0.1, -0.5, 0, col, NC);
+        for (const xx of [x0, x1 - 0.06]) k.box(xx, xx + 0.06, ya, yb, -0.42, 0, col, NC);
+      } else {
+        const col = fc || '#7a6450',
+          n = Math.max(1, Math.round(L / 1.25)),
+          pw = L / n;
+        k.box(x0, x1, ya - 0.1, yb + 0.02, -0.45, -0.05, '#3e4448', NC);
+        for (let j = 0; j < n; j++) {
+          k.plane(ROWT.alWin(), pw - 0.1, h - 0.12, x0 + (j + 0.5) * pw, wy, -0.47, FRONT);
+          k.box(x0 + j * pw - 0.04, x0 + j * pw + 0.04, ya, yb, -0.5, -0.45, col, NC);
+        }
+        k.box(x1 - 0.04, x1 + 0.04, ya, yb, -0.5, -0.45, col, NC);
+        for (const xx of [x0 - 0.04, x1 - 0.02]) k.box(xx, xx + 0.06, ya, yb, -0.5, 0, col, NC);
+        k.box(x0 - 0.05, x1 + 0.05, ya - 0.14, ya, -0.6, 0, '#d8d6cf', NC); // 窗台
+        k.box(x0 - 0.02, x1 + 0.02, yb, yb + 0.08, -0.52, 0, col, NC);
+        k.box(x0, x1, ya - 0.02, ya + 0.04, -0.5, -0.45, col, NC);
+      }
+    }
+  };
+  // 第三輪東北側：外凸的透明格子玻璃凸窗（正面＋兩側面），cap = 上緣加白色窗楣（往下包到二樓的那一段不加）
+  const glassBox = (k, xa, xb, ya, yb, z, out, cap = true) => {
+    const bw = xb - xa,
+      bh = yb - ya,
+      ym = (ya + yb) / 2,
+      rows = Math.max(1, Math.round(bh / 1.05)),
+      o = { transparent: true, double: true };
+    k.plane(
+      glassGridTex(Math.max(2, Math.round(bw / 1.2)), rows),
+      bw,
+      bh,
+      (xa + xb) / 2,
+      ym,
+      z - out,
+      FRONT,
+      o
+    );
+    for (const xx of [xa, xb])
+      k.plane(glassGridTex(1, rows), out, bh, xx, ym, z - out / 2, Math.PI / 2, o);
+    k.box(xa - 0.02, xb + 0.02, ya - 0.08, ya, z - out - 0.02, z, '#d8d6cf', NC);
+    if (cap) k.box(xa - 0.08, xb + 0.08, yb, yb + 0.08, z - out - 0.08, z, '#e9e9e6', NC);
+  };
   const towerFace = (k, B, F, xa, xb, y0, n, z, r) => {
     const fh = 3.0,
       sw = 2.2,
@@ -3493,7 +3948,9 @@ export function buildDaren5Street(I, scene, X) {
                   ? 'cageG'
                   : 'open');
         win(k, bc, y + 1.6, bw - 0.7, 1.7, z, r, false);
-        if (kind === 'bay' && (mid || !set)) {
+        if (kind === 'bay' && B.glassBay)
+          glassBox(k, b0 + 0.3, b1 - 0.3, y + 0.5, y + 2.6, z, mid ? 0.6 : 0.5); // 透明格子玻璃凸窗（第三輪東北側）
+        else if (kind === 'bay' && (mid || !set)) {
           k.box(b0 + 0.3, b1 - 0.3, y + 0.5, y + 2.6, z - 0.6, z, B.bayCol || '#4f7f6a', NC);
           for (const xx of [b0 + 0.5, bc - 0.04, b1 - 0.58])
             k.box(xx, xx + 0.08, y + 0.5, y + 2.6, z - 0.62, z - 0.6, '#e9e9e6', NC);
@@ -3503,6 +3960,36 @@ export function buildDaren5Street(I, scene, X) {
           k.plane(ROWT.alWin(), bw - 1.3, 1.45, bc, y + 1.58, z - 0.51, FRONT);
           k.box(b0 + 0.45, b1 - 0.45, y + 2.5, y + 2.57, z - 0.56, z, '#e9e9e6', NC);
         } // 窄開間的綠框玻璃凸窗
+        else if (kind === 'round' && B.arcBal) {
+          const [dep, col] = B.arcBal,
+            hw = bw / 2 - 0.25,
+            N = 9;
+          for (let j = 0; j < N; j++) {
+            const t = ((j + 0.5) / N) * 2 - 1,
+              zz = z - dep * (1 - t * t);
+            k.box(
+              bc + hw * (t - 1 / N),
+              bc + hw * (t + 1 / N),
+              y,
+              y + 1.05,
+              zz,
+              zz + 0.14,
+              wallOf(col),
+              NC
+            );
+            k.box(bc + hw * (t - 1 / N), bc + hw * (t + 1 / N), y - 0.12, y + 0.02, zz, z, col, NC);
+            k.box(
+              bc + hw * (t - 1 / N),
+              bc + hw * (t + 1 / N),
+              y + 1.05,
+              y + 1.11,
+              zz - 0.03,
+              zz + 0.17,
+              '#e9e7e2',
+              NC
+            );
+          }
+        } // 第三輪東北側：淺弧形外凸陽台（貼磚的弧形女兒牆，分 9 段拼出弧線）
         else if (kind === 'round')
           k.cyl(bc, z, Math.min(1.9, bw / 2 - 0.5), y, y + 1.05, wallOf(B.wall), { seg: 14 });
         else if (kind === 'dark') {
@@ -3742,7 +4229,11 @@ export function buildDaren5Street(I, scene, X) {
               );
               for (const xx of [x, x1 - 0.06])
                 k.box(xx, xx + 0.06, gf + T2.par, gf + T2.top, 0.06, 0.12, gc, NC);
-            } else {
+            } else if (type === 'glass') {
+              win(k, xm, gf + 1.3, Math.min(2.6, x1 - x - 0.6), 1.4, back, r, false);
+              glassBox(k, x + 0.3, x1 - 0.3, gf + T2.par, y2 + 0.5, back, 0.6, false);
+            } // 三樓的玻璃凸窗往下包到二樓露台（第三輪東北側）
+            else {
               win(k, xm, gf + 1.3, Math.min(2.6, x1 - x - 0.6), 1.4, back, r, false);
               sphere(k, x + 0.9, gf + T2.par + 0.45, 0.9, 0.6, '#2f5f33');
             }
@@ -3769,9 +4260,12 @@ export function buildDaren5Street(I, scene, X) {
       } else if (B.band2 === 'podium') {
         // 兩層裙樓：二樓連續橫窗加小瓦片斜屋簷
         k.box(0, w, gf, y2 + 0.2, 0, back + 0.01, wallOf(B.base), { tile: [0.6, 0.6] });
+        const podX = (B.podWins || []).map(([a, b]) => seg(a, b));
+        if (B.podWins) podWins(k, B, seg, y2);
         for (let x = 0.4; x < w - 1; x += 3.4) {
           const wx = Math.min(w - 1.9, x + 1.5),
             wy = B.y2 ? y2 - 0.65 : gf + 1.6;
+          if (podX.some(([p, q]) => wx > p - 1.6 && wx < q + 1.6)) continue; // podWins 指定的段落不畫預設白格柵窗
           k.plane(ROWT.alWin(), 3.0, 1.6, wx, wy, -0.02, FRONT);
           if (B.y2) {
             k.plane(barsTex('#d8d8d2'), 3.0, 1.6, wx, wy, -0.05, FRONT, {
@@ -3820,7 +4314,12 @@ export function buildDaren5Street(I, scene, X) {
         // 二樓整排外凸的加蓋帶
         const [c0, c1] = seg(B.s0, B.band2Glass),
           [q0, q1] = seg(B.band2Glass, B.s1);
-        k.box(0, w, gf - 0.05, gf + 0.1, -1.0, 0, '#9a9a94', NC);
+        const alu = (B.band2Segs || []).filter((q) => q[2] === 'alu').map((q) => seg(q[0], q[1]));
+        let lx = 0;
+        for (const [a0, a1] of [...alu.sort((p, q) => p[0] - q[0]), [w, w]]) {
+          if (a0 > lx) k.box(lx, a0, gf - 0.05, gf + 0.1, -1.0, 0, '#9a9a94', NC);
+          lx = Math.max(lx, a1);
+        } // 外凸 1 m 的樓板邊；alu 那幾段窗帶貼著牆，不畫
         if (B.band2Segs)
           for (const [a, b, type, bt] of B.band2Segs) {
             const [x0, x1] = seg(a, b);
@@ -4222,19 +4721,36 @@ export function buildDaren5Street(I, scene, X) {
         k.box(e0, e1, gf - 0.05, gf + 0.03, -B.eave, 0, '#a8aeb0', NC);
       } // 一樓上緣的浪板雨遮
       if (B.arcs)
-        for (const [a, b, col, out = 1.15] of B.arcs) {
-          // 圓弧採光罩雨遮：從牆面往外往下彎
+        for (const [a, b, col, out = 1.25, drop = 0.6, y0 = gf + 0.25] of B.arcs) {
+          // 圓弧採光罩雨遮：從牆面往外往下彎成四分之一圓（第三輪加深弧度：drop 前緣比靠牆處低多少、y0 靠牆處高度），
+          // 每隔約 1.2 m 一支白色弧形骨架，前緣一條白色集水槽
           const [c0, c1] = seg(a, b),
+            N = 8,
             P = (t) => [
               -out * Math.sin((t * Math.PI) / 2),
-              gf + 0.05 - 0.45 * (1 - Math.cos((t * Math.PI) / 2)),
+              y0 - drop * (1 - Math.cos((t * Math.PI) / 2)),
             ];
-          for (let j = 0; j < 5; j++) {
-            const [z0, y0] = P(j / 5),
-              [z1, y1] = P((j + 1) / 5);
-            k.box(c0, c1, y1 - 0.03, y0 + 0.03, z1, z0, col, NC);
+          const nr = Math.max(1, Math.round((c1 - c0) / 1.2));
+          for (let j = 0; j < N; j++) {
+            const [za, ya] = P(j / N),
+              [zb, yb] = P((j + 1) / N);
+            k.box(c0, c1, yb - 0.02, ya + 0.02, zb, za, col, NC);
+            for (let q = 0; q <= nr; q++) {
+              const x = Math.min(c0 + ((c1 - c0) * q) / nr, c1 - 0.06);
+              k.box(x, x + 0.06, yb - 0.01, ya + 0.06, zb - 0.02, za, '#eeeeea', NC);
+            }
           }
-          k.box(c0, c1, gf - 0.52, gf - 0.42, -out - 0.04, -out + 0.04, '#e6e6e0', NC);
+          k.box(
+            c0,
+            c1,
+            y0 - drop - 0.12,
+            y0 - drop + 0.02,
+            -out - 0.06,
+            -out + 0.06,
+            '#eeeeea',
+            NC
+          );
+          k.box(c0, c1, y0 - 0.04, y0 + 0.06, -0.08, 0, '#eeeeea', NC);
         }
       if (B.plants)
         for (const [s, off, ph] of B.plants) {
@@ -4359,6 +4875,32 @@ export function buildDaren5Street(I, scene, X) {
       k.box(0, w, -0.8, top, 0, d, B.plain ? B.wall : wm, { tile: [0.9, 0.9] });
       k.box(-0.02, w + 0.02, top, top + 0.12, -0.04, d, 'gray', NC);
       if (B.sideWall) k.box(-0.03, 0, 0, top, -0.03, d, B.sideWall, NC);
+      if (B.sideWins)
+        for (let f = 1; f < B.nf; f++)
+          for (const zq of B.sideWins) {
+            const yy = gf + (f - 1) * fh + 1.55;
+            k.plane(ROWT.alWin(), 0.9, 1.0, w + 0.05, yy, zq, Math.PI / 2);
+            k.plane(barsTex('#4a4a48'), 1.0, 1.1, w + 0.18, yy, zq, Math.PI / 2, {
+              transparent: true,
+              double: true,
+            });
+            k.box(w + 0.03, w + 0.2, yy - 0.62, yy - 0.55, zq - 0.55, zq + 0.55, '#7a7884', NC);
+          } // 第三輪東北側：s0 那一端（西北）側牆每層的鐵窗小窗
+      if (B.duct) {
+        const [dz, dw] = B.duct;
+        k.box(w, w + dw, 0, top + 0.4, dz - dw / 2, dz + dw / 2, '#8e9094', NC);
+        for (let y = 2.2; y < top; y += fh)
+          k.box(
+            w,
+            w + dw + 0.04,
+            y,
+            y + 0.08,
+            dz - dw / 2 - 0.04,
+            dz + dw / 2 + 0.04,
+            '#76787c',
+            NC
+          );
+      } // 第三輪東北側：西北側牆靠前角、從屋頂直通地面的粗灰色風管
       if (B.topBand) {
         k.box(0, w, top - fh, top, -0.03, 0, B.topBand, NC);
         k.box(w, w + 0.03, top - fh, top, 0, d, B.topBand, NC);

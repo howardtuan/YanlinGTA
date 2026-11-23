@@ -17,8 +17,12 @@ import SegX2 from './xzb/SegX2.js';
 import SegX3 from './xzb/SegX3.js';
 import SegX4 from './xzb/SegX4.js';
 import SegL3 from './xzb/SegL3.js';
+import SegX5 from './xzb/SegX5.js';
+import SegX6 from './xzb/SegX6.js';
+import SegX7 from './xzb/SegX7.js';
+import SegX8 from './xzb/SegX8.js';
 
-const SEGS = [SegL1, SegL2, SegX1, SegX2, SegX3, SegX4, SegL3];
+const SEGS = [SegL1, SegL2, SegX1, SegX2, SegX3, SegX4, SegL3, SegX5, SegX6, SegX7, SegX8];
 
 // 參考線（data/cycu.json 的道路中心線，遊戲座標 x 東、z 南）
 export const XZ_REF = {
@@ -57,6 +61,16 @@ export const XZ_REF = {
     [-46.3, -135.7],
     [-77.0, -141.1],
     [-89.5, -142.7],
+    [-96.6, -142.7],
+    [-103.7, -142.9],
+    [-144.9, -143.2],
+    [-179.0, -142.8],
+    [-213.2, -142.4],
+    [-220.2, -142.3],
+    [-227.4, -142.1],
+    [-231.5, -142.1],
+    [-249.0, -138.9],
+    [-264.1, -134.1],
   ],
   L: [
     [247.6, 15.7],

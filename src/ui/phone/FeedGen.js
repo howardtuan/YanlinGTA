@@ -73,6 +73,12 @@ const FRIENDS = [
   { img: 'mingshan_cat', who: '羊明衫', t: ['今天橘貓又來討肉了 🐱', '貓咪睡在我的筆記上，不敢動'] },
   { img: 'yeeming_walk', who: 'YeeMing', t: ['休假陪女朋友散步 💑 #戒菸還在努力', '收假前最後一頓，吃好吃滿'] },
   { img: 'yeeming_volley', who: 'YeeMing', t: ['回學校找吱吱打球，他還是被我打爆', '休假也要墊球 🏐'] },
+  { img: 'e_sunset', who: '侯舌', t: ['今天又接了三組畢業照 🎓', '鐘塔早上的光最漂亮'] },
+  { img: 'houshe', who: '侯舌', t: ['小卡又到貨了 💳', '幫學妹拍照而已，不要亂傳 🤫'] },
+  { img: 'richard', who: '理查', t: ['嘻研社練到半夜 🕺', 'ARAM 今晚手感超好'] },
+  { img: 'e_im', who: '理查', t: ['系館建模又更新了一版 🏗️', '在系館前跟羊明衫尬舞，平手'] },
+  { img: 'howard', who: '霍華德', t: ['新魔術練成了 🃏', '會計學期中考重點整理好了，要的私訊'] },
+  { img: 'e_gym', who: '霍華德', t: ['晚餐後重訓打卡 💪', '今天練背，引體向上 12 下'] },
 ];
 const LINES = [];
 for (const s of SCENES) for (const t of s.t) LINES.push({ img: G(s.img), who: s.who, t });

@@ -476,6 +476,96 @@
         "src/entities/Character.js",
         "src/entities/BodyMesh.js"
       ]
+    },
+    {
+      "id": "houshe",
+      "kind": "builtin",
+      "ref": "houshe",
+      "name": "侯舌",
+      "title": "開發者・系學會攝影長",
+      "gender": "男",
+      "dept": "資管系（彥霖的同班同學）",
+      "personality": "友好、愛開玩笑；學妹緣超好，平常不是在約會就是在約會的路上。",
+      "interests": [
+        "攝影（攝影社）",
+        "排球（常跟 YeeMing、吱吱一起打）",
+        "韓國女團（每團都認識，收集小卡）"
+      ],
+      "likes": "拍照、小卡",
+      "catchphrase": "選會長的宣傳照找我拍 📷",
+      "background": "資管系學會攝影長（羊明衫也是），兩人一起拍照修圖；外面謠傳他們關係不好，其實沒有。攝影很強，白天有時在鐘塔幫穿畢業袍的畢業生拍畢業照。這個遊戲主要負責建築物內部規劃與部分店家功能。",
+      "relations": "彥霖的同班同學；跟羊明衫是系學會攝影長搭檔；常跟 YeeMing、吱吱打排球。",
+      "where": "力行宿舍 276 寢 6 號床（進門左手邊第一個床位，座位在上舖正下方）／二一鐘塔／排球場／校園步道（約會）",
+      "schedule": "02:00–09:00 睡覺；09:00–10:00、20:00–02:00 在宿舍開發遊戲；10:00–13:00 在鐘塔拍畢業照；13:00–15:00、18:00–20:00 跟學妹約會；15:00–18:00 打排球",
+      "friend": true,
+      "sources": [
+        "src/entities/npcs/Houshe.js",
+        "src/entities/npcs/DevNPC.js",
+        "src/ui/phone/Friends.js",
+        "src/ui/phone/Chats.js",
+        "src/ui/phone/Feeds.js",
+        "src/world/buildings/Lixing.js"
+      ]
+    },
+    {
+      "id": "richard",
+      "kind": "builtin",
+      "ref": "richard",
+      "name": "理查",
+      "title": "開發者・嘻研社",
+      "gender": "男",
+      "dept": "資管系（彥霖的同班同學）",
+      "personality": "友好、謙虛，常常教同學寫程式。",
+      "interests": [
+        "英雄聯盟 ARAM 大亂鬥",
+        "跳舞（嘻哈研究社）"
+      ],
+      "likes": "ARAM、嘻哈",
+      "catchphrase": "程式卡住晚上來 280 💻",
+      "background": "程式非常優秀：大學就拿到知名科技公司的 offer，最後放棄去讀碩班，推甄上中字輩電機所；大學期間發表過 3 篇 IEEE 頂級期刊。有時在宿舍跳舞，或在資管系館跟羊明衫尬舞。這個遊戲主要負責地圖規劃與建築物建模。",
+      "relations": "彥霖的同班同學；常跟羊明衫尬舞。",
+      "where": "力行宿舍 280 寢 1 號床（右手邊最裡面的下舖，座位是右手邊最裡面的書桌）／資管系館前",
+      "schedule": "03:00–10:00 睡覺；10:00–13:00、17:00–21:00、01:00–03:00 在宿舍開發遊戲；13:00–17:00 羊明衫在系館練舞時去尬舞，不然在寢室練舞；21:00–01:00 打 ARAM",
+      "friend": true,
+      "sources": [
+        "src/entities/npcs/Richard.js",
+        "src/entities/npcs/DevNPC.js",
+        "src/ui/phone/Friends.js",
+        "src/ui/phone/Chats.js",
+        "src/ui/phone/Feeds.js",
+        "src/world/buildings/Lixing.js"
+      ]
+    },
+    {
+      "id": "howard",
+      "kind": "builtin",
+      "ref": "howard",
+      "name": "霍華德",
+      "title": "開發者・魔術社",
+      "gender": "男",
+      "dept": "資管系（彥霖的同班同學）",
+      "personality": "友好、幽默，常教同學會計學。",
+      "interests": [
+        "LOL（什麼模式都打）",
+        "特戰英豪",
+        "魔術（魔術社：玫瑰花、撲克牌）",
+        "重訓"
+      ],
+      "likes": "魔術、粉色上衣",
+      "catchphrase": "抽一張牌，記住它 🃏",
+      "background": "晚餐後去健身房重訓（在體育館外看得到他），偶爾在宿舍練撲克牌手法。這個遊戲主要負責任務開發、NPC 角色設計，以及手機 App、電腦 App 等各種小應用。",
+      "relations": "彥霖的同班同學；279 寢室友：漢克（睡他上舖）、女拳大帝。",
+      "where": "力行宿舍 279 寢 1 號床（右手邊最裡面的下舖，座位是右手邊最裡面的書桌）／體育館外",
+      "schedule": "02:00–09:00 睡覺；09:00–12:00、14:00–16:00、00:00–02:00 開發遊戲；12:00–14:00、21:00–22:00 練撲克牌魔術；16:00–19:00 打 LOL、22:00–00:00 打特戰英豪；19:00–21:00 在體育館外重訓",
+      "friend": true,
+      "sources": [
+        "src/entities/npcs/Howard.js",
+        "src/entities/npcs/DevNPC.js",
+        "src/ui/phone/Friends.js",
+        "src/ui/phone/Chats.js",
+        "src/ui/phone/Feeds.js",
+        "src/world/buildings/Lixing.js"
+      ]
     }
   ]
 }

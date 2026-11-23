@@ -523,7 +523,7 @@ export function createCharacter(opts = {}) {
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
-// st: {speed, air, mode:'foot'|'ride'|'drive'|'down', pose:'peace'|'cheer'|'wave'|'give'|'phone'|'talk'|'look'|null}
+// st: {speed, air, mode:'foot'|'ride'|'drive'|'down'|'sit', pose:'peace'|'cheer'|'wave'|'give'|'phone'|'talk'|'look'|'type'|'shoot'|'cards'|'curl'|'hiphop'|…|null}
 let camoTex = null; // the army helmet's camouflage (built once)
 function animate(ch, dt, st) {
   const sp = st.speed || 0;
@@ -644,6 +644,39 @@ function animate(ch, dt, st) {
   } else if (st.pose === 'look') {
     // looking around (waiting for someone)
     t.headY = Math.sin(ch.poseT * 0.8) * 0.75; t.headX = -0.05;
+  } else if (st.pose === 'type') {
+    // typing at a laptop on the desk (the developers in 力行, src/entities/npcs/DevNPC.js): forearms forward, fingers tapping
+    const a = Math.sin(ch.poseT * 17) * 0.05, b = Math.sin(ch.poseT * 13 + 1.3) * 0.05;
+    t.shR = [-0.62, 0.32, -0.12]; t.elR = -1.05 + a; t.shL = [-0.62, -0.32, 0.12]; t.elL = -1.05 + b;
+    t.headX = 0.16 + Math.sin(ch.poseT * 0.4) * 0.04; t.lean = 0.08;
+    ch.setHandPose('relaxed');
+  } else if (st.pose === 'shoot') {
+    // a camera up at the eye, both hands on it (侯舌 taking graduation photos, src/entities/npcs/Houshe.js)
+    t.shR = [-1.15, 0.62, -0.12]; t.elR = -1.95; t.shL = [-1.15, -0.62, 0.12]; t.elL = -1.95;
+    t.headX = 0.04; t.lean = 0.04 + Math.sin(ch.poseT * 0.7) * 0.03;
+    ch.setHandPose('grip');
+  } else if (st.pose === 'cards') {
+    // card flourishes in front of the chest (霍華德, src/entities/npcs/Howard.js): the left hand holds the deck, the right one
+    // springs and cuts it, the head bent over the cards
+    const f = Math.sin(ch.poseT * 5.5);
+    t.shL = [-0.55, -0.42, 0.12]; t.elL = -1.45; t.shR = [-0.6 + f * 0.1, 0.5, -0.1]; t.elR = -1.35 - f * 0.18;
+    t.headX = 0.32;
+    ch.setHandPose('grip');
+  } else if (st.pose === 'curl') {
+    // dumbbell curls, one arm after the other (霍華德 outside the gym)
+    const c1 = Math.max(0, Math.sin(ch.poseT * 2.4)), c2 = Math.max(0, -Math.sin(ch.poseT * 2.4));
+    t.shR = [-0.05, 0, -0.12]; t.elR = -0.15 - c1 * 2.0; t.shL = [-0.05, 0, 0.12]; t.elL = -0.15 - c2 * 2.0;
+    t.knR = t.knL = 0.08; t.headX = -0.04;
+    ch.setHandPose('grip');
+  } else if (st.pose === 'hiphop') {
+    // hip-hop groove (理查, 嘻哈研究社, src/entities/npcs/Richard.js): a heavy bounce on the beat, arms swinging low and wide,
+    // rocking shoulders; every other bar the arms cross and pop out
+    const bt = ch.poseT * 2.2, n = Math.floor(bt) % 8, f = bt - Math.floor(bt), bounce = Math.abs(Math.sin(bt * Math.PI));
+    t.hipsY = 0.9 - bounce * 0.1; t.knR = t.knL = 0.25 + bounce * 0.4; t.hpR = t.hpL = -0.2 - bounce * 0.2; t.lean = 0.12;
+    t.torsoY = Math.sin(bt * Math.PI * 0.5) * 0.35; t.headX = 0.1 - bounce * 0.15; t.bob = bounce * 0.02;
+    if (n < 4) { const w = Math.sin(bt * Math.PI); t.shR = [-0.6 - w * 0.5, 0, -0.5]; t.shL = [-0.6 + w * 0.5, 0, 0.5]; t.elR = t.elL = -0.9; }
+    else { const pop = Math.sin(f * Math.PI); t.shR = [-1.1, 0.7 - pop * 0.9, -0.2 - pop * 0.6]; t.shL = [-1.1, -0.7 + pop * 0.9, 0.2 + pop * 0.6]; t.elR = t.elL = -1.3 + pop; }
+    ch.setHandPose('relaxed');
   }
   ch.pose = st.pose || null;
 

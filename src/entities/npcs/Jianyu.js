@@ -131,8 +131,9 @@ export class Jianyu {
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.21), new THREE.MeshBasicMaterial({ map: tex }));
     const lid = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.23, 0.012), base.material);
-    const hinge = new THREE.Group(); at(hinge, s * 0.17, 0.05, 0.02);
-    lid.position.set(0, 0.115, 0); scr.position.set(0, 0.115, 0.007); hinge.add(lid, scr); hinge.rotation.x = -0.25;
+    const hinge = new THREE.Group(); at(hinge, -s * 0.075, 0.05, 0.02); // the back edge of the keyboard (the wall side)
+    lid.position.set(0, 0.115, 0); scr.position.set(0, 0.115, 0.007); hinge.add(lid, scr);
+    hinge.rotation.order = 'YXZ'; hinge.rotation.x = -0.25; // turn to face the chair first, then tip the lid back (the default XYZ order tips it sideways)
     const env = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.004, 0.2), new THREE.MeshStandardMaterial({ color: '#f3efe6', roughness: 0.9 }));
     at(env, -s * 0.12, -0.25, 0.004); env.rotation.y += 0.3;
     // his 班代 poster, on the end of the wardrobe under his loft bed, facing the door (you see it as you come in, on the right)

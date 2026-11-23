@@ -558,6 +558,119 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
+  // 三位開發者（src/entities/npcs/DevNPC.js）：「你在哪？」說他現在在哪、在做什麼（宿舍、鐘塔、排球場、體育館外……），並導航過去
+  houshe: {
+    id: 'houshe', name: '開發者 侯舌', sub: '攝影社・系學會攝影長・韓團小卡', avatar: '<img class="ph-avimg" src="assets/gram/houshe_av.jpg" alt="">', color: '#3a3a40', unread: 2,
+    history: [
+      { day: '今天' },
+      ['houshe', '侯舌報到 📷'],
+      ['houshe', '你的競選照我修好了，要的話晚上來 276 拿檔案'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '照片拍得超好！謝啦', r: ['小事 😎', '系學會攝影長不是當假的'], v: 1 },
+          { t: '你跟羊明衫真的不合嗎？', r: ['哈哈哈那是謠言啦', '我們每次活動都一起拍一起修圖 📷'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '今天又跟哪個學妹約會？', r: ['……只是幫學妹拍照啦 🤫', '不要跟別人說'] },
+          { t: '小卡收到第幾張了？', r: ['IVE、NewJeans、aespa 加起來 300 多張', '夾冊又要買新的了 💳'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['票投彥霖！我的追蹤者都會看到 📢'], v: 1 },
+          { t: '遊戲裡的店是你做的？', r: ['建築物裡面的規劃都是我排的', '麥當勞的櫃台跟內場動線我改了好幾版'] },
+        ],
+      },
+    ],
+    always: [{
+      t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+      ask: (g) => {
+        const H = g.houshe; if (!H?.mode) return { r: ['等我一下'] };
+        if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 侯舌在 276 寢的 6 號床睡覺，早上 9 點會起來寫程式', 'good', 2800) };
+        if (H.mode === 'date') return { r: ['在約會啦 🤫', '晚點再找你'] };
+        const r = { code: ['在 276 寫遊戲 💻', '定位傳你，進門左手邊第一個'], photo: ['在鐘塔幫學長姐拍畢業照 📷', '定位傳你'], volley: ['在體育館旁邊打排球 🏐', '來一起打'] }[H.mode] || ['在學校'];
+        return { r, then: () => { if (trackFriend(g, 'houshe')) g.hud.toast('🧭 已設定導航到侯舌身邊', 'good', 2400); } };
+      },
+    }],
+  },
+  richard: {
+    id: 'richard', name: '開發者 理查', sub: '嘻研社・ARAM・電機所準研究生', avatar: '<img class="ph-avimg" src="assets/gram/richard_av.jpg" alt="">', color: '#2f4a32', unread: 2,
+    history: [
+      { day: '今天' },
+      ['richard', '理查 🧢'],
+      ['richard', '程式卡住的同學都可以叫來 280，我幫大家看。順便幫你拉票 🗳️'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '大神帶我寫期末專題', r: ['沒問題', '晚上來 280，帶筆電就好 💻'], v: 1 },
+          { t: '聽說你推掉大公司的 offer？', r: ['對啊', '想先讀碩班，做研究比較有趣 🔬'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '今晚 ARAM？', r: ['9 點以後我都在', '隨機英雄，輸了不准怪我 🎮'] },
+          { t: '嘻研社成發什麼時候', r: ['下週！', '我有 solo 的段落 🕺'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['票投彥霖！班上我一個一個提醒'], v: 1 },
+          { t: '校園是你蓋的喔？', r: ['地圖跟建物都是我', '力行大樓的窗戶我數過 😂'] },
+        ],
+      },
+    ],
+    always: [{
+      t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+      ask: (g) => {
+        const R = g.richard; if (!R?.mode) return { r: ['等我一下'] };
+        if (R.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 理查在 280 寢的 1 號床睡覺，早上 10 點會起來', 'good', 2800) };
+        const r = { code: ['在 280 寫地圖 💻', '定位傳你，右手邊最裡面'], game: ['在 280 打 ARAM 🎮', '來的話幫我看一下小地圖'], dorm: ['在 280 練舞 🕺', '進來小心不要踢到喇叭'], battle: ['在系館前面跟羊明衫尬舞 🔥', '快來當評審'] }[R.mode] || ['在學校'];
+        return { r, then: () => { if (trackFriend(g, 'richard')) g.hud.toast('🧭 已設定導航到理查身邊', 'good', 2400); } };
+      },
+    }],
+  },
+  howard: {
+    id: 'howard', name: '開發者 霍華德', sub: '魔術社・LOL・會計小老師', avatar: '<img class="ph-avimg" src="assets/gram/howard_av.jpg" alt="">', color: '#c9677f', unread: 2,
+    history: [
+      { day: '今天' },
+      ['howard', '霍華德 🌹🃏'],
+      ['howard', '手機 App 有 bug 的話直接跟我說，我馬上修'],
+    ],
+    script: [
+      {
+        choices: [
+          { t: '會計學救我', r: ['借貸平衡就對了 😆', '晚上來 279，我畫 T 字帳給你看'], v: 1 },
+          { t: '那朵玫瑰到底怎麼變的', r: ['祕密 🌹', '魔術師不能說的'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '今晚雙排？', r: ['LOL 還是特戰？', '我都可以 🎮'] },
+          { t: '今天有去健身嗎', r: ['吃完晚餐就去', '體育館外面看得到我 💪'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['票投彥霖！任務我幫你設計好了 😏'], v: 1 },
+          { t: 'i-Piyan 是你做的？', r: ['大部分是', '定位跟訊息我改最多版'] },
+        ],
+      },
+    ],
+    always: [{
+      t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+      ask: (g) => {
+        const H = g.howard; if (!H?.mode) return { r: ['等我一下'] };
+        if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 霍華德在 279 寢的 1 號床睡覺，早上 9 點會起來', 'good', 2800) };
+        const r = { code: ['在 279 寫任務 💻', '定位傳你，右手邊最裡面'], game: ['在 279 打遊戲 🎮', '打完這場'], dorm: ['在 279 練牌 🃏', '來，我變一個給你看'], gym: ['在體育館外重訓 💪', '定位傳你'] }[H.mode] || ['在學校'];
+        return { r, then: () => { if (trackFriend(g, 'howard')) g.hud.toast('🧭 已設定導航到霍華德身邊', 'good', 2400); } };
+      },
+    }],
+  },
   // 黃蓋瑞（src/entities/npcs/Garry.js）：古箏社幹部，住彥霖隔壁。「你在哪？」每一輪都能問，他會說在跑道、活動中心還是房間，並設定導航跟著他
   garry: {
     id: 'garry', name: '古箏社 黃蓋瑞', sub: '古箏社幹部・住你隔壁', avatar: '<img class="ph-avimg" src="assets/gram/garry_av.jpg" alt="">', color: '#21486e', unread: 2,

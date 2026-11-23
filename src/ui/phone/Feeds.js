@@ -15,6 +15,9 @@ export const PEOPLE = {
   劍玉: { av: `<img class="ph-avimg" src="${G('jianyu_av')}" alt="">`, color: '#5d6b8a' },
   羊明衫: { av: `<img class="ph-avimg" src="${G('mingshan_av')}" alt="">`, color: '#c2414b' },
   YeeMing: { av: `<img class="ph-avimg" src="${G('yeeming_av')}" alt="">`, color: '#56643a' },
+  侯舌: { av: `<img class="ph-avimg" src="${G('houshe_av')}" alt="">`, color: '#3a3a40' },
+  理查: { av: `<img class="ph-avimg" src="${G('richard_av')}" alt="">`, color: '#2f4a32' },
+  霍華德: { av: `<img class="ph-avimg" src="${G('howard_av')}" alt="">`, color: '#c9677f' },
 };
 
 export const FEED = [
@@ -28,6 +31,19 @@ export const FEED = [
 ];
 // 加吱吱好友時，他過去的貼文一起出現在動態裡（ago = 幾分鐘前）
 export const FRIEND_POSTS = {
+  // 三位開發者（src/entities/npcs/DevNPC.js）；houshe / richard / howard 是用遊戲裡的 3D 角色算繪的，不是真人照片
+  houshe: [
+    { who: '侯舌', img: G('e_sunset'), cap: '今天幫學長姐在鐘塔拍畢業照 🎓 帽子丟上去那張連拍了二十張 #攝影社 #接案中', likes: 621, ago: 180 },
+    { who: '侯舌', img: G('houshe'), cap: '系學會攝影長上工 📷 修圖跟羊明衫一起修，謠言請停止 😂', likes: 404, ago: 1250 },
+  ],
+  richard: [
+    { who: '理查', img: G('e_im'), cap: '把資管系館的窗帶重新量了一次，這次跟真的一樣了 🏗️ #地圖規劃', likes: 233, ago: 320 },
+    { who: '理查', img: G('richard'), cap: '嘻研社成發倒數 🕺 下週來看我 solo', likes: 312, ago: 1400 },
+  ],
+  howard: [
+    { who: '霍華德', img: G('howard'), cap: '抽一張牌 🃏 魔術社下個月表演，玫瑰花的那招也會變 🌹', likes: 287, ago: 240 },
+    { who: '霍華德', img: G('e_gym'), cap: '晚餐後的重訓打卡 💪 坐著寫程式一整天，背要顧', likes: 158, ago: 1350 },
+  ],
   yeeming: [ // yeeming / yeeming_walk / yeeming_volley 是用遊戲裡的 3D 角色算繪的，不是真人照片
     { who: 'YeeMing', img: G('yeeming_walk'), cap: '放假第一件事：陪女朋友散步 💑 #宿營認識的 #戒菸第 200 天', likes: 486, ago: 340 },
     { who: 'YeeMing', img: G('yeeming_volley'), cap: '休假也要墊球 🏐 吱吱今天被我打爆（他會說不是）', likes: 233, ago: 1300 },
@@ -174,6 +190,34 @@ export const STORY_SETS = {
     { bg: GR('#0b1324', '#f59e0b'), t: 'ZMAX 換新輪胎\n過彎就是穩', s: '🏍️' },
     { img: G('e_im'), t: '專題第一名的獎狀掛在系辦了 謝謝組員', s: '🏆' },
   ],
+  // 三位開發者（加了好友才看得到）
+  侯舌: [
+    { img: G('e_sunset'), t: '鐘塔 畢業照 今天第 5 組', s: '🎓' },
+    { bg: GR('#141416', '#ffd1dc'), t: '小卡夾冊第 4 本\n又要買新的了', s: '💳' },
+    { img: G('houshe'), t: '攝影長上工', s: '📷' },
+    { bg: GR('#1f4fbf', '#ffd23f'), t: '排球場 跟 YeeMing 對打\n他扣球很痛', s: '🏐' },
+    { bg: GR('#2a1530', '#ff8fb1'), t: '今天的約會……\n（只是幫學妹拍照啦）', s: '🤫' },
+    { bg: GR('#1e1e1e', '#007acc'), t: '276 寢 深夜施工中\n麥當勞的座位排好了', s: '💻' },
+    { img: G('e_im'), t: '系館光線很好 誰要拍照', s: '✨' },
+    { bg: GR('#ff6fa3', '#7b5bff'), t: 'IVE 回歸 小卡我全都要', s: '💖' },
+  ],
+  理查: [
+    { bg: GR('#1e1e1e', '#2f4a32'), t: '280 寢 地圖施工中\n中北路又重畫一次', s: '🗺️' },
+    { bg: GR('#08131f', '#7fd3ff'), t: 'ARAM 連勝 5 場\n隨機到砲兵就是爽', s: '💥' },
+    { img: G('richard'), t: '嘻研社練舞 day 6', s: '🕺' },
+    { img: G('e_im'), t: '系館前 跟羊明衫尬舞', s: '🔥' },
+    { bg: GR('#0b3d91', '#9fd3ff'), t: '第三篇 IEEE 被引用了\n感謝指導教授', s: '📄' },
+    { bg: GR('#2d3138', '#c9a24e'), t: '班上誰程式卡住\n晚上來 280', s: '💻' },
+  ],
+  霍華德: [
+    { img: G('howard'), t: '抽一張牌吧 🃏', s: '🎩' },
+    { bg: GR('#b3202a', '#1d1d1f'), t: '飛牌練習 第 90 天\n手指又被割到', s: '🃏' },
+    { img: G('e_gym'), t: '晚餐後 二頭日', s: '💪' },
+    { bg: GR('#0a1a2f', '#c8aa6e'), t: 'LOL 積分 +18\n今晚再兩場', s: '🎮' },
+    { bg: GR('#f7f5ef', '#c9677f'), t: '會計學小老師開課\n借貸平衡就對了', s: '📒' },
+    { bg: GR('#1e1e1e', '#c9677f'), t: 'i-Piyan 更新中\n已讀要更像真的', s: '📱' },
+    { bg: GR('#ff8fb1', '#b3202a'), t: '玫瑰花魔術\n祕訣不能說 🌹', s: '🌹' },
+  ],
   // 戈登肉鋪店長（加了好友才看得到）。gd / gd_av 是遊戲裡的 3D 角色算繪，gd_shop 是遊戲裡的店內畫面
   YeeMing: [
     { img: G('yeeming_walk'), t: '休假 day 1 陪明衫散步', s: '💑' },
@@ -229,11 +273,13 @@ export const STORY_TIMES = {
   冠廷: [9 * 60 + 10, 20 * 60 + 45], 阿凱: [8 * 60 + 35, 18 * 60 + 10], 中原麥當勞: [6 * 60 + 30, 17 * 60],
   品妍: [11 * 60 + 15, 22 * 60 + 50], 阿哲: [13 * 60 + 40, 21 * 60 + 55], 中原大學: [8 * 60, 16 * 60 + 30],
   吱吱: [6 * 60 + 45, 22 * 60 + 20], 女拳大帝: [10 * 60 + 30, 23 * 60 + 35], 漢克: [14 * 60 + 10, 23 * 60 + 50], 黃蓋瑞: [7 * 60 + 35, 22 * 60 + 5], 劍玉: [11 * 60 + 20, 23 * 60 + 55], 羊明衫: [9 * 60 + 40, 22 * 60 + 30], YeeMing: [10 * 60 + 15, 21 * 60 + 40],
+  侯舌: [11 * 60 + 5, 23 * 60 + 25], 理查: [12 * 60 + 35, 22 * 60 + 45], 霍華德: [9 * 60 + 25, 20 * 60 + 20],
 };
 // 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 src/ui/phone/Friends.js）
-export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd', 漢克: 'hank', 黃蓋瑞: 'garry', 劍玉: 'jianyu', 羊明衫: 'mingshan', YeeMing: 'yeeming' };
+export const FRIEND_ONLY = { 吱吱: 'zz', 女拳大帝: 'gd', 漢克: 'hank', 黃蓋瑞: 'garry', 劍玉: 'jianyu', 羊明衫: 'mingshan', YeeMing: 'yeeming', 侯舌: 'houshe', 理查: 'richard', 霍華德: 'howard' };
 
 export const PCARD = [
+  { t: '資管系學會的兩個攝影長是不是不合？', b: '聽說侯舌跟羊明衫拍活動都分開站，是有什麼恩怨嗎', n: 58, c: ['B1 謠言啦 他們修圖都一起修', 'B2 侯舌本人：我們很好 😂', 'B3 侯舌比較忙著約會吧'], ago: 700 },
   { t: '資管系會長只有一組候選人，投票率會過嗎？', b: '如題，上屆好像差點沒過門檻，大家記得去投票啊', n: 42, c: ['B1 有看到彥霖在活動中心發傳單 很拚', 'B2 系烤升級我投了', 'B3 投票率一定要過啦'], ago: 90 },
   { t: '【心得】中原麥當勞的店員超有效率', b: '下午點餐 30 秒就出餐，戴眼鏡的那位好像是資管的', n: 31, c: ['B1 那是彥霖吧 哈哈', 'B2 他在打工賺競選經費嗎'], ago: 200 },
   { t: '有人看到一台白色 JET SL 車牌 PYL 開頭的嗎', b: '昨天在中原夜市被一台超帥的 JET SL 超車，車主還跟我揮手', n: 18, c: ['B1 PYL0803 彥霖的車啦', 'B2 車主本人好像正在選系會長'], ago: 600 },

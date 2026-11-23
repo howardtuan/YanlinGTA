@@ -1,0 +1,5 @@
+# Ignore pure Prettier formatting commits in git blame
+# Local setup: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style(codebase): 全面套用 Prettier 統一 src/ 與 tools/ 格式
+b7a7610981c6a7eefd999745de6688e2ac616032

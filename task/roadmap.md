@@ -88,7 +88,36 @@ gantt
 
 1. **GitHub Pages 發布來源**：issue howardtuan/YanlinGTA#81 還開著，`build_type` 仍是 `legacy`。每次推 main 兩種發布會比誰後跑完，線上版可能壞掉。等 howardtuan 處理；壞了就到 Actions 手動重跑「Deploy to GitHub Pages」。
 2. **世界內容繼續做**（進行中，各有自己的 session）：校內分區第二輪、學活與宿舍室內。流程不變：照街景與正射、一區一個 worktree、做完一條就出貨。
-3. **載入時間**：`quality-roadmap.md` 量到的大宗是建世界 13～22 秒，不是下載。效能那六輪都是畫面張數，這一塊從沒動過。要做的話先量建世界各步驟花多少時間，再決定要不要動。
+3. **載入時間**：`quality-roadmap.md` 量到的大宗是建世界 13～22 秒，不是下載。效能那六輪都是畫面張數，這一塊從沒動過。已量測（2026-11-23，見下面「載入時間量測」）：最大的一塊不是建世界，是標題畫面出現後第一張畫面的著色器編譯。
 4. **測試範圍**：8 個測試檔對 103 個原始檔，都是純邏輯。歷史上改最多的是 `Interiors`（62 筆）、`MapBuilder`、`Game`、手機，這幾個都沒有測試，現在靠通關機器人把關。可以補的是不需要畫面的部分（分區註冊表的資料一致性、`roads.json` 的格式）。
 5. **剩下的一處分層例外**：`world/Interiors.js` 匯入 `entities/Character.js`，列在 `tests/unit/import-graph.test.js` 的 `KNOWN_VIOLATIONS`。
 6. **小事**：`src/styles/style.css` 有 19 處註解寫舊路徑；`src/entities/Vehicles.js` 的 `console.warn` 文字寫 `js/vehicles.js`（是程式碼，改了會動到打包結果）。
+
+## 載入時間量測（2026-11-23，`e1ebb1c`）
+
+做法：建一份不壓縮的版本（`vite build --minify false`，放在 repo 外），用遠端 Chrome 的 CPU 取樣（每 1 ms）從開始載入錄到標題畫面，並記下載入畫面每次換文字的時間。畫質 low，各跑兩次。沒有改任何原始碼。
+
+| 步驟（載入畫面的文字） | oldpc 軟體繪圖 | olddesk GTX 1060 |
+| --- | --- | --- |
+| 載入地圖資料（下載、Rapier 與 WASM 初始化） | 0.1 秒 | 3.8～12.4 秒（走 SSH 通道下載，不算數） |
+| 搭建中原大學（`buildWorld`） | 3.1～3.5 秒 | 4.9 秒 |
+| 蓋資管系館、麥當勞、警衛室（`buildInteriors` 與物理世界） | 2.2～2.7 秒 | 5.0 秒 |
+| 召喚同學與機車 | 3.0～3.1 秒 | 0.8 秒 |
+| 準備出發（NPC、`compileAsync`） | 0.5 秒 | 5.6～5.7 秒 |
+| **標題畫面出現後畫面卡住** | **10.4～10.8 秒** | **27.0～27.6 秒** |
+| 合計（開始到能操作） | 15～19 秒 | 50 秒（扣掉下載約 43 秒） |
+
+看到的事：
+
+1. **最大的一塊在標題畫面之後**。`setLoad(1, '完成')` 之後第一張畫面要等著色器，主執行緒整個卡住。GTX 1060 上 `compileAsync` 只先編好 96 個程式，第一張畫面又多出 59 個沒預編到的，一個一個同步編，共 27 秒（three 的 `onFirstUse` 自身時間 25.7 秒）。軟體繪圖上同一段是 3.5～3.7 秒。
+2. **建世界本身是 5～10 秒**，`buildWorld` 與 `buildInteriors` 大約各半。`buildInteriors` 幾乎都在 `buildZones`（軟體繪圖 1.5 秒、olddesk 3.2 秒），其中中北路街屋 `buildZhongbeiStreet` 一項就佔 0.6～1.3 秒，主要是招牌文字縮放 `fit`。`buildWorld` 裡最大的是街道家具 `buildFurniture`（0.7～1.6 秒，多半在 `nearReserved`）。
+3. **只在軟體繪圖出現的**：機車輪胎貼圖 `heightToNormal` 2.6～2.8 秒、劍玉海報 `toDataURL` 5.6～5.7 秒、天空環境貼圖 `bakeEnv` 1.0 秒。這三項在顯示卡上都不到 0.1 秒，是從畫布讀回像素時等繪圖程序造成的，只影響沒有顯示卡的環境（通關機器人、GitHub 的機器）。
+4. 下載不是問題：區網內全部資源 0.2 秒內到齊。
+
+還不知道的：
+
+- 那 59 個沒預編到的著色器是哪些。猜測是 `compileAsync` 之後才設定的東西改變了材質的程式鍵（天空環境貼圖在第一張畫面的 `updateSky` 才烤、後製用的繪製目標、陰影），沒有驗證。
+- 只量了 low 畫質，也沒有在 Mac（Metal）或一般玩家的顯示卡上量。D3D11 編著色器特別慢，別的平台比例可能不同。
+- oldpc 的顯示卡這次拿不到 WebGL（context lost），所以顯示卡的數字只有 olddesk 一台，它的 CPU 也比 oldpc 慢。
+
+如果要動，建議順序（都還沒有人說要做）：先查清楚那 59 個著色器為什麼沒被預編、讓它們在載入畫面還在的時候編完；再看 `fit` 與 `nearReserved`。

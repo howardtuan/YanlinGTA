@@ -11,6 +11,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
+import { serviceWear } from './Service.js';
 
 export const M = (h, m = 0) => h * 60 + m;
 export const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -141,6 +142,8 @@ export class DevNPC {
     const ch = this.ch = cfg.create ? cfg.create() : createCharacter(cfg.look);
     const tag = this.tag = makeLabel(cfg.tag, { height: 0.26, size: 40, color: cfg.tagColor || '#ffffff' }); tag.position.set(0, 2.1, 0); ch.root.add(tag);
     ch.root.visible = false; game.scene.add(ch.root);
+    // 義務役 (src/entities/npcs/Service.js): weekdays in uniform, the name label with the prefix; props on ch.hideInUniform are put away
+    serviceWear(cfg.id, ch, cfg.look, { tag, hide: () => ch.hideInUniform || [] });
     this.pos = new THREE.Vector3();
     this._dorm();
     // talking (wherever he is): the action follows him; asleep, the bed says so

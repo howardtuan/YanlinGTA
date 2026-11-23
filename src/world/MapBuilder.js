@@ -688,7 +688,15 @@ export function makeLabel(text, opt = {}) {
   s.scale.set(h * aspect, h, 1);
   s.renderOrder = 10;
   s.layers.set(LABEL_LAYER); // the main camera shows this layer except while you take photos (src/ui/PhotoMode.js)
+  s.userData.label = { text, opt };
   return s;
+}
+// change the text of a label made by makeLabel (same sprite, same place; the style stays)
+export function relabel(s, text) {
+  const L = s.userData.label; if (!L || L.text === text) return;
+  const { tex, aspect } = labelTexture(text, L.opt), h = L.opt.height || 3;
+  s.material.map?.dispose(); s.material.map = tex; s.material.needsUpdate = true;
+  s.scale.set(h * aspect, h, 1); L.text = text;
 }
 export const LABEL_LAYER = 3;
 

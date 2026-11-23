@@ -47,8 +47,9 @@ function buildHat() {
 // his figure: the look plus the permed hair, the hat and the two little moles on his cheeks (also used by tools/npc-dashboard)
 export function createRichard() {
   const ch = createCharacter(RICHARD_LOOK);
-  addCurls(ch, RICHARD_LOOK.hair, { down: -0.55, n: 340, size: 1.1 }); // permed, a little long: over the ears to the nape
+  const curls = addCurls(ch, RICHARD_LOOK.hair, { down: -0.55, n: 340, size: 1.1 }); // permed, a little long: over the ears to the nape
   const hat = buildHat(); hat.position.set(0, 0.215, -0.008); hat.rotation.x = -0.1; ch.head.add(hat);
+  ch.hideInUniform = [hat, curls]; // under the army helmet (src/entities/npcs/Service.js)
   const mole = new THREE.MeshStandardMaterial({ color: '#3a2418', roughness: 0.8 });
   for (const s of [-1, 1]) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 8, 6), mole); d.position.set(0.062 * s, 0.035, 0.1); ch.head.add(d); }
   return ch;

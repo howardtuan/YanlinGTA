@@ -4,6 +4,7 @@
 import { createCharacter } from '../../entities/Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { ZZ_LOOK } from '../../entities/npcs/FriendLooks.js';
+import { serviceWear } from '../../entities/npcs/Service.js';
 import { TEA_BOARD } from '../../world/buildings/StreetTea.js';
 
 const EMOJI = { 珍珠奶茶: '🧋', 茉莉綠茶: '🍵', 四季春青茶: '🍵', 冬瓜檸檬: '🍋', 蜂蜜檸檬綠: '🍯', 鮮奶紅茶: '🥛' };
@@ -37,6 +38,7 @@ export class TeaShop {
     this.clerk = put(createCharacter(CLERK_LOOK), s.clerk);
     const zz = this.zz = put(createCharacter(ZZ_LOOK), s.zz);
     const tag = makeLabel('吱吱（打工中）', { height: 0.26, color: '#ffd23f' }); tag.position.set(0, 2.1, 0); zz.root.add(tag);
+    serviceWear('zz', zz, ZZ_LOOK, { tag }); // 義務役 from 2026/12/18 (src/entities/npcs/Service.js)
     this.mark = makeLabel('!', { height: 0.45, color: '#111', bg: '#ffd23f' }); this.mark.position.set(0, 2.7, 0); zz.root.add(this.mark);
     zz.root.visible = false;
     for (const c of [this.clerk, zz]) { c.workT = 1 + Math.random() * 2; c.reach = 0; }

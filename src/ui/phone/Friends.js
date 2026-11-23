@@ -12,6 +12,7 @@ import { HOWARD_LOOK } from '../../entities/npcs/Howard.js';
 import { GD_LOOK, ZZ_LOOK } from '../../entities/npcs/FriendLooks.js';
 import { FRIEND_CONTACTS } from './Chats.js';
 import { FRIEND_POSTS } from './Feeds.js';
+import { serviceWear } from '../../entities/npcs/Service.js';
 
 export { GD_LOOK, ZZ_LOOK };
 
@@ -514,6 +515,7 @@ export class Friends {
       const n = makeMissionNpc(game.scene, f.look, f.name, sp.x, sp.z, sp.h);
       if (sp.y != null) n.ch.root.position.y = sp.y; // indoors: stands on the shop floor
       game.npcs.push(n); this.npcs[id] = n;
+      serviceWear(id, n.ch, f.look, { tag: n.label }); // 義務役 (吱吱, src/entities/npcs/Service.js)
       if (f.noTalk) continue; // someone else (a shop counter) handles talking to them
       game.interiors.actions.push({
         x: sp.x, z: sp.z, r: 2.8, y: 0, anyY: true,

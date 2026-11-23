@@ -518,6 +518,28 @@ export function createCharacter(opts = {}) {
   ch.update = (dt, st) => animate(ch, dt, st);
   // free what belongs to this figure alone (the merged head parts, the skinned body); shared parts stay
   ch.dispose = () => { root.traverse(o => { if (o.isMesh && o.userData.merged) o.geometry.dispose(); }); if (bodyMesh) { bodyMesh.geometry.dispose(); bodyMesh.skeleton?.dispose(); } };
+  ch.own = new Set(); root.traverse(o => ch.own.add(o)); // what the figure is made of (restyle tells these from props added later)
+  return ch;
+}
+
+// the pivots of a figure in a fixed order, so two figures' parts can be paired up
+const pivots = (c) => [c.body, c.hips, c.torso, c.head, ...c.arms.flatMap(a => [a.sh, a.el, a.hand]), ...c.legs.flatMap(l => [l.hp, l.kn, l.ft])].filter(Boolean);
+// Change a figure's clothes in place (e.g. into an army uniform, src/entities/npcs/Service.js): the body is rebuilt from opts,
+// but ch and ch.root stay the same objects — position, rotation, scale, labels and every prop added to a part after the figure
+// was built (a camera on the head, dumbbells in the hands…) carry over to the matching part of the new body.
+export function restyle(ch, opts) {
+  const n = createCharacter(opts), op = pivots(ch), np = pivots(n);
+  op.forEach((p, i) => { for (const c of [...p.children]) if (!ch.own.has(c) && np[i]) np[i].add(c); });
+  for (const c of [...ch.root.children]) if (ch.own.has(c)) ch.root.remove(c);
+  for (const c of [...n.root.children]) ch.root.add(c);
+  ch.dispose();
+  const { root } = ch;
+  Object.assign(ch, n, { root, pose: null, poseT: 0 });
+  ch.own = new Set(); root.traverse(o => { if (n.own.has(o)) ch.own.add(o); });
+  ch.update = (dt, st) => animate(ch, dt, st);
+  ch.setDetail = (on) => { if (ch.detailOn === on) return; ch.detailOn = on; for (const d of ch.details) d.visible = on; };
+  ch.dispose = () => { root.traverse(o => { if (o.isMesh && o.userData.merged && ch.own.has(o)) o.geometry.dispose(); }); if (ch.bodyMesh) { ch.bodyMesh.geometry.dispose(); ch.bodyMesh.skeleton?.dispose(); } };
+  ch.detailOn = true;
   return ch;
 }
 

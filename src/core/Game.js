@@ -67,6 +67,7 @@ import { Jianyu } from '../entities/npcs/Jianyu.js';
 import { Houshe } from '../entities/npcs/Houshe.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
+import { serviceTick, serviceName } from '../entities/npcs/Service.js';
 import { Mingshan } from '../entities/npcs/Mingshan.js';
 import { YeeMing } from '../entities/npcs/Yeeming.js';
 import { Gordon } from '../entities/npcs/Gordon.js';
@@ -456,6 +457,7 @@ class Game {
     this.jianyu = new Jianyu(this);
     this.mingshan = new Mingshan(this);
     this.yeeming = new YeeMing(this);
+    this.serviceName = serviceName; // 義務役 name prefix, for the phone (src/world/Locate.js)
     // the three developers in 力行 (src/entities/npcs/DevNPC.js)
     this.houshe = new Houshe(this);
     this.richard = new Richard(this);
@@ -965,6 +967,7 @@ class Game {
     this.jianyu?.update(dt);
     this.mingshan?.update(dt);
     this.yeeming?.update(dt);
+    serviceTick(dt); // 義務役: uniforms on weekdays (src/entities/npcs/Service.js)
     this.houshe?.update(dt);
     this.richard?.update(dt);
     this.howard?.update(dt);

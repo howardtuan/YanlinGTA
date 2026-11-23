@@ -16,7 +16,7 @@ export function trackFriend(g, id) {
 // [{ id, name, av (html), color, x, z (or null), status }]
 export function friendLocations(g) {
   const out = [], F = g.friends, has = (id) => F?.added.has(id);
-  const add = (id, name, av, color, p, status) => out.push({ id, name, av, color, x: p ? p.x : null, z: p ? p.z : null, status });
+  const add = (id, name, av, color, p, status) => out.push({ id, name: g.serviceName ? g.serviceName(id, name) : name, av, color, x: p ? p.x : null, z: p ? p.z : null, status }); // 義務役: the prefix while serving (src/entities/npcs/Service.js, via Game)
   // 勞大: always (the pilot of 彥霖航空)
   const A = g.airdrop, w = A?.walker;
   if (A?.busy && A.H?.g) add('laoda', '勞大', '🚁', '#552583', A.H.g.position, '開直升機中（空運機車）');

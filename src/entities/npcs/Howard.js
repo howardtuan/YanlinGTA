@@ -43,7 +43,7 @@ const GYM = { x: -36.2, z: -183.6, h: Math.PI };
 // his figure: a short cut with a perm on top (also used by tools/npc-dashboard)
 export function createHoward() {
   const ch = createCharacter(HOWARD_LOOK);
-  addCurls(ch, HOWARD_LOOK.hair, { down: 0.05, n: 300, size: 1.05 });
+  ch.hideInUniform = [addCurls(ch, HOWARD_LOOK.hair, { down: 0.05, n: 300, size: 1.05 })]; // under the army helmet (src/entities/npcs/Service.js)
   return ch;
 }
 

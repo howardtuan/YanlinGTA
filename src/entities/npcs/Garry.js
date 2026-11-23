@@ -13,6 +13,7 @@ import { shellGeometry, section, onCloth, pe, HIPS, Y0, Y1, TW, TH } from '../..
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { pointInPoly } from '../../physics/Collision.js';
+import { serviceWear } from './Service.js';
 
 const BUILD = 0.92;
 export const GARRY_LOOK = {
@@ -105,7 +106,8 @@ export function createGarry() {
   ch.root.rotation.order = 'YXZ'; // turn first, then lie down (with XYZ the body would always fall toward the same world direction)
   ch.aloha = dressAloha(ch, GARRY_LOOK.skin);
   ch.setOutfit = (run) => {
-    for (const p of ch.aloha || []) p.visible = !run;
+    for (const p of ch.aloha || []) p.visible = !run && !ch.uniform;
+    if (ch.uniform) return; // 義務役 on a weekday: the army uniform (src/entities/npcs/Service.js)
     ch.bodyMesh?.userData.recolor({ shirt: run ? RUN_TEE : GARRY_LOOK.skin });
   };
   return ch;
@@ -132,6 +134,8 @@ export class Garry {
     this.g = game; const home = this.home = game.interiors.garry;
     this.ch = createGarry(); game.scene.add(this.ch.root);
     const tag = makeLabel('黃蓋瑞', { height: 0.26, color: '#ffd23f' }); tag.position.set(0, 2.02, 0); this.ch.root.add(tag);
+    // 義務役 from 2026/11/30 (src/entities/npcs/Service.js): weekdays in uniform; back in his own clothes the aloha shirt / running tee go back on
+    serviceWear('garry', this.ch, GARRY_LOOK, { tag, onChange: () => this.ch.setOutfit(this.mode === 'run') });
     this.mark = makeLabel('!', { height: 0.45, color: '#111', bg: '#ffd23f' }); this.mark.position.set(0, 2.6, 0); this.ch.root.add(this.mark);
     this.pos = new THREE.Vector3(); this.heading = 0; this.mode = null; this.pause = 0; this.face = null;
     this._trackPath(); this._clubSpot(); this._joggers();

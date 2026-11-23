@@ -48,6 +48,7 @@ export function applySave(g, d) {
   g.votes = d.votes | 0; g.hud.setVotes(g.votes);
   g.money = d.money ?? g.money; g.ledger = d.ledger || g.ledger; g.hud.setMoney(g.money);
   g.clock = d.clock ?? g.clock; g.playTime = d.playTime || 0; g.flyerVotes = d.flyerVotes || 0;
+  g.phone.syncFeeds?.(); // Peachgram / Pcard pick up from the loaded game time (before friends add their posts)
   for (const i of d.ballots || []) { const b = g.ballotList[i]; if (b) { b.got = true; b.taken = true; b.mesh.visible = false; b.respawn = 120; } }
   g.ballotsTaken = (d.ballots || []).length; g.hud.setBallots(g.ballotsTaken);
   for (const e of g.eggs) if ((d.eggs || []).includes(e.title)) e.found = true;

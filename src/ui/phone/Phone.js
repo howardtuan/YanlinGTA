@@ -6,7 +6,8 @@ import { locateUI } from '../../world/Locate.js';
 import { CONTACTS } from './Chats.js';
 import { Nano } from './Nano.js';
 import { dual } from '../Prompts.js';
-import { PEOPLE, FEED, FEED_POOL, STORY_SETS, STORY_TIMES, FRIEND_ONLY, PCARD, PCARD_POOL } from './Feeds.js';
+import { PEOPLE, FEED, STORY_SETS, STORY_TIMES, FRIEND_ONLY, PCARD } from './Feeds.js';
+import { START, slotAt, nextIndex, gramPost, pcardPost, postsUpTo } from './FeedGen.js';
 
 const PEACH = (fill = '#fff') => `<svg viewBox="0 0 64 64" class="peach-logo" aria-hidden="true">
   <path d="M32 19c-3-3-8-5-13-4C10 17 5 25 6 35c1 13 12 23 26 23s25-10 26-23c1-10-4-18-13-20-5-1-10 1-13 4z" fill="${fill}"/>
@@ -80,13 +81,11 @@ export class Phone {
     this.g = game; this.open = false; this.app = null; this.booted = false; this.sel = 0; this.homeSel = 0;
     this.photos = [];
     this.likes = new Set(); this.myPosts = []; this.bought = {}; this.orders = []; this.calcExpr = '';
-    // social feeds: timestamps are game-clock minutes; every 30 game minutes something new is posted (tick)
-    const now = game.clock;
-    this.feed = FEED.map((p, i) => ({ ...p, id: `f${  i}`, at: now - p.ago }));
-    this.pcard = PCARD.map((p, i) => ({ ...p, id: `c${  i}`, at: now - p.ago }));
+    // social feeds: timestamps are game-clock minutes; posts come on a fixed schedule (src/ui/phone/FeedGen.js, tick)
+    this.syncFeeds();
     this.storySeen = new Set(); // ids of stories already watched ('名字|日|0或1')
     this.friends = new Set();   // friend ids (src/ui/phone/Friends.js): their chats and Peachgram show up
-    this.poolI = { feed: 0, pcard: 0, story: 0 }; this.nextPost = now + 30; this.fresh = { gram: 0, pcard: 0 };
+    this.fresh = { gram: 0, pcard: 0 };
     this.page = 0;
     Nano.init();
     Nano.listeners.add(() => {
@@ -593,42 +592,54 @@ export class Phone {
       this._refreshing = false;
       if (!this.open || this.app !== app) return;
       const g = this.g, fresh = g.clock - (this._pulledAt ?? -1e9) >= 10;
-      if (fresh) { this._pulledAt = g.clock; this.nextPost = g.clock; } // tick() publishes and re-renders next frame
+      if (fresh) { this._pulledAt = g.clock; this._pull[app === 'gram' ? 'g' : 'p'] = true; } // tick() publishes and re-renders next frame
       if (app === 'gram') this._gram(this._gramTab || 'feed'); else this._pcard();
       if (!fresh) g.hud.toast('已經是最新的內容了', 'good', 1300);
     }, 700);
   }
-  // ---- something new every 30 game minutes (runs even with the phone in the pocket) ----
+  // ---- new Peachgram / Pcard posts on their schedule (src/ui/phone/FeedGen.js; runs even with the phone in the pocket) ----
   tick() {
     const g = this.g;
     // 靈感股 prices move while the app is on screen
     if (this.open && this.app === 'stock' && this._sk) { const n = performance.now(); if (n - (this._skT || 0) > 1000) { this._skT = n; this._sk.refresh(); } }
     if (this.open && this.app === 'news' && this._nw) this._nw.refresh(); // new articles show up while it's open
     if (this.open && this.app === 'locate' && this._lc) { const n = performance.now(); if (n - (this._lcT || 0) > 1000) { this._lcT = n; this._lc.refresh(); } } // friends move
-    if (g.clock < this.nextPost) return;
-    this.nextPost += 30;
-    for (const p of this.feed.slice(0, 6)) p.likes += 1 + Math.floor(Math.random() * 12);
-    for (const p of this.pcard.slice(0, 4)) p.n += Math.floor(Math.random() * 6);
-    let fp = { ...FEED_POOL[this.poolI.feed++ % FEED_POOL.length] };
-    while (this._hidden(fp.who)) fp = { ...FEED_POOL[this.poolI.feed++ % FEED_POOL.length] };
-    const cp = { ...PCARD_POOL[this.poolI.pcard++ % PCARD_POOL.length] };
-    const publish = () => {
-      this.feed.unshift({ ...fp, id: `f${  this.feed.length + this.poolI.feed * 100}`, at: g.clock, likes: 3 + Math.floor(Math.random() * 40) });
-      this.pcard.unshift({ ...cp, id: `c${  this.pcard.length + this.poolI.pcard * 100}`, at: g.clock, n: 1 + Math.floor(Math.random() * 15) });
-      this.feed.length = Math.min(this.feed.length, 40); this.pcard.length = Math.min(this.pcard.length, 40);
-      const viewing = this.open && !this.story && !this.cur;
-      if (!(viewing && this.app === 'gram')) this.fresh.gram++;
-      if (!(viewing && this.app === 'pcard')) this.fresh.pcard++;
-      g.hud.toast(`📸 Peachgram｜${fp.who} 發了新貼文`, 'good', 2200);
-      setTimeout(() => g.hud.toast(`🗨️ Pcard 新文章：${cp.t}`, 'good', 2200), 2400);
-      if (viewing && this.app === 'gram' && this._gramTab === 'feed') this._rerender(() => this._gram('feed'));
-      else if (viewing && this.app === 'pcard') this._rerender(() => this._pcard());
+    for (const k of ['g', 'p']) {
+      const items = [];
+      while (slotAt(k, this.next[k]) <= g.clock) items.push((k === 'g' ? gramPost : pcardPost)(this.next[k]++));
+      // pulled to refresh: the next scheduled post comes out now (a friends-only one doesn't count, take the one after)
+      if (this._pull[k]) {
+        this._pull[k] = false;
+        for (let t = 0; t < 6 && !items.some(p => !this._hidden(p.who)); t++) items.push({ ...(k === 'g' ? gramPost : pcardPost)(this.next[k]++), at: g.clock });
+      }
+      if (items.length) this._publish(k, items.slice(-12));
+    }
+  }
+  // the opening posts (Feeds.js FEED / PCARD, just before the game starts) + the scheduled ones up to the game clock.
+  // Called again by src/systems/SaveSystem.js after the clock is loaded.
+  syncFeeds() {
+    const c = this.g.clock;
+    this.feed = [...postsUpTo('g', c), ...FEED.map((p, i) => ({ ...p, id: `f${i}`, at: START - p.ago }))].slice(0, 40);
+    this.pcard = [...postsUpTo('p', c), ...PCARD.map((p, i) => ({ ...p, id: `c${i}`, at: START - p.ago }))].slice(0, 40);
+    this.next = { g: nextIndex('g', c), p: nextIndex('p', c) }; this._pull = {};
+  }
+  _publish(k, items) {
+    const g = this.g, gram = k === 'g', list = gram ? this.feed : this.pcard, last = items.filter(p => !this._hidden(p.who)).pop();
+    const done = () => {
+      for (const p of list.slice(0, 6)) if (gram) p.likes += 1 + Math.floor(Math.random() * 12); else p.n += Math.floor(Math.random() * 6);
+      list.unshift(...items.reverse()); list.sort((a, b) => b.at - a.at); list.length = Math.min(list.length, 40);
+      if (!last) return;
+      const viewing = this.open && !this.story && !this.cur, n = items.filter(p => !this._hidden(p.who)).length;
+      if (!(viewing && this.app === (gram ? 'gram' : 'pcard'))) this.fresh[gram ? 'gram' : 'pcard'] += n;
+      g.hud.toast(gram ? `📸 Peachgram｜${last.who} 發了新貼文` : `🗨️ Pcard 新文章：${last.t}`, 'good', 2200);
+      if (viewing && gram && this.app === 'gram' && this._gramTab === 'feed') this._rerender(() => this._gram('feed'));
+      else if (viewing && !gram && this.app === 'pcard') this._rerender(() => this._pcard());
       else if (this.open && !this.app) this.home();
     };
-    // Chrome + Gemini Nano: let the model write the new caption and forum post (falls back to the pool text)
-    if (Nano.on) {
-      Nano.write(fp.who, PEOPLE[fp.who] ? fp.cap : '', cp).then(r => { if (r.cap) fp.cap = r.cap; if (r.t) Object.assign(cp, { t: r.t, b: r.b || cp.b, c: r.c?.length ? r.c : cp.c }); }).catch(() => { }).finally(publish);
-    } else publish();
+    // Chrome + Gemini Nano: let the model rewrite the newest one (falls back to the scheduled text)
+    if (!last || !Nano.on) { done(); return; }
+    const req = gram ? Nano.write(last.who, PEOPLE[last.who] ? last.cap : '', { t: last.cap, b: '', c: [] }) : Nano.write('同學', '', last);
+    req.then(r => { if (gram) { if (r.cap) last.cap = r.cap; } else if (r.t) Object.assign(last, { t: r.t, b: r.b || last.b, c: r.c?.length ? r.c : last.c }); }).catch(() => { }).finally(done);
   }
   // ---------------- 桃寶購物 (shopping) ----------------
   _shop(tab = 'store') {

@@ -94,7 +94,8 @@ flowchart TD
    - 嚴禁 `var`、強制全等比較 `===` / `!==`（`== null` 除外）、嚴禁未宣告與未使用變數（未使用參數須加底線前綴如 `_e`）。
    - 特別設定允許中文字串與註解內的全形空白（`\u3000`）。
 2. **Prettier（`.prettierrc` / `.prettierignore`）**：
-   - `.prettierignore` 刻意保留 `src/`、`tools/`、`docs/` 與 `*.md` 不做全面重排，以維持 `git blame` 與多組並行分支相容性；`format:check` 主要保護設定檔與 `tests/` 測試檔。
+   - 納管 `src/`、`tests/`、`tools/`（JS/MJS/CSS/HTML）與專案設定檔，維持統一排版；僅排除建置產物、第三方套件、大型 JSON 圖資與 Markdown 文件。
+   - 首次統一重排之純格式 Commit 已登錄於 `.git-blame-ignore-revs`（GitHub 原生支援忽略該 Commit 的 `git blame`）。
 3. **檔案命名與註解語言**：
    - 核心類別與業務模組採 `PascalCase.js`（如 `GameLoop.js`）；`tools/` 腳本採 `snake_case`（如 `check_wasm.mjs`）。
    - 通用底層與演算法註解以英文為主；校園地景、典故與任務劇情可使用繁體中文註解（詳見 [AGENT.md](../../AGENT.md)）。

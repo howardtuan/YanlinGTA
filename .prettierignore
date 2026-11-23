@@ -3,14 +3,16 @@ vendor/
 data/
 assets/
 wasm/
-promo/
-tools/
 docs/
 package-lock.json
-src/
-js/
 *.md
-css/
 index.html
 .claude/
 .codegraph/
+
+# tools/ 底下之大型測繪資料與產出物（不重排）
+tools/*.json
+tools/.cache/
+tools/e2e/out/
+tools/npc-dashboard/photos/
+tools/wasm-kernels/target/

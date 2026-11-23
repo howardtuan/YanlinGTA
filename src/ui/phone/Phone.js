@@ -1744,7 +1744,11 @@ export class Phone {
   }
   // options for the next message: scripted rounds first; after those, Gemini Nano (Chrome) suggests two more forever
   // A contact's `always` options (勞大's 你在哪？) are offered on every turn, after the others.
+  // While a quest line is waiting for your answer (an `always` option with lock, e.g. 吱吱's 武嶺 invite) it is the only
+  // thing you can send: no other topics, no 你在哪？, no AI options or typing box.
   _options(st) {
+    const L = this._locked(st);
+    if (L) return L;
     const R = st.c.script[st.round],
       A = this._always(st);
     const base = R
@@ -1757,6 +1761,11 @@ export class Phone {
   // a contact's `always` options; one with when(game) is offered only while that holds (吱吱's quest lines, src/systems/quests/ZzInjury.js)
   _always(st) {
     return (st.c.always || []).filter((a) => !a.when || a.when(this.g));
+  }
+  // the quest options that lock the chat right now (see _options), or null
+  _locked(st) {
+    const L = this._always(st).filter((a) => a.lock);
+    return L.length ? L : null;
   }
   _renderCompose() {
     const st = this.cur;
@@ -1771,7 +1780,14 @@ export class Phone {
           : '';
     }
     // scripted topics used up: the AI opens a new one (also when only `always` options like 你在哪？ are left)
-    if (Nano.on && !st.c.script[st.round] && !st.aiOpts?.length && !st.busy && !st.optsPending)
+    if (
+      Nano.on &&
+      !this._locked(st) &&
+      !st.c.script[st.round] &&
+      !st.aiOpts?.length &&
+      !st.busy &&
+      !st.optsPending
+    )
       this._aiOpener(st);
     // with the on-device AI you can also type your own message; keep what you typed across re-renders
     const old = box.querySelector('.ph-type'),
@@ -1794,19 +1810,20 @@ export class Phone {
         box.innerHTML = `<div class="ph-done">目前沒有新的話題了${Nano.state === 'downloading' ? '<br><small>AI 模型下載完成後就能無限聊天</small>' : ''}</div>`;
       return;
     }
-    st.choice = Math.min(st.choice, opts.length - (Nano.on ? 0 : 1));
+    const free = this._typing(st); // the typing box (AI on, chat not locked by a quest line)
+    st.choice = Math.min(st.choice, opts.length - (free ? 0 : 1));
     box.innerHTML = `<div class="ph-choices">${opts.map((ch, i) => `<button class="ph-choice ${i === st.choice ? 'on' : ''}" data-i="${i}"><kbd>${i + 1}</kbd>${esc(ch.t)}</button>`).join('')}</div>
-      ${Nano.on ? typeRow('自己輸入，或點選項帶入…', st.choice === opts.length) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>${pausedRow}`}
-      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${Nano.on ? '　· ✨ AI 無限對話・點選項帶入輸入框' : ''}</div>`;
+      ${free ? typeRow('自己輸入，或點選項帶入…', st.choice === opts.length) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>${pausedRow}`}
+      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${free ? '　· ✨ AI 無限對話・點選項帶入輸入框' : ''}</div>`;
     // AI on: a click puts the option's words in the typing box; keyboard / pad still pick and send options directly
     box
       .querySelectorAll('.ph-choice')
       .forEach(
         (b) =>
           (b.onclick = () =>
-            Nano.on ? this._fillType(opts[+b.dataset.i].t) : this._pick(+b.dataset.i))
+            free ? this._fillType(opts[+b.dataset.i].t) : this._pick(+b.dataset.i))
       );
-    if (!Nano.on) box.querySelector('.ph-send').onclick = () => this._send();
+    if (!free) box.querySelector('.ph-send').onclick = () => this._send();
     this._bindType(box, typed, hadFocus);
     const t = this.view.querySelector('.ph-thread');
     if (t) t.scrollTop = t.scrollHeight; // compose height changed
@@ -1862,9 +1879,9 @@ export class Phone {
   _thinking(st) {
     return !!st.busy && st.aiWait != null && st.aiWait === st.tok;
   }
-  // the typing box is on (AI on, not paused)
+  // the typing box is on (AI on, not paused, chat not locked by a quest line)
   _typing(st) {
-    return Nano.on && !!st;
+    return Nano.on && !!st && !this._locked(st);
   }
   _focusType() {
     const el = this.view.querySelector('.ph-type');
@@ -1907,8 +1924,9 @@ export class Phone {
     const opts = this._options(st);
     if (!opts && !typed) return false;
     const g = this.g;
-    const ch = pickSent(opts, this._always(st), typed, st.choice);
-    if (!ch) return false;
+    const lock = this._locked(st);
+    const ch = pickSent(opts, lock || this._always(st), typed, st.choice);
+    if (!ch || (lock && !ch.lock)) return false; // locked: only the quest line goes out
     // the AI is still thinking (a reply or a new topic it opens): you don't have to wait, sending anything drops the
     // answer it was working on (the on-device model can take long or stall)
     if (think) {

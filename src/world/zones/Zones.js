@@ -23,6 +23,7 @@ import { CF_DROP, campusFix, campusAdd } from '../CampusFix.js';
 import { teaFootprint, teaRowFootprints, buildTeaShop, buildTeaRow } from '../buildings/StreetTea.js';
 import { darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, buildDarenCorner, buildDarenStreet, buildDarenGd } from '../buildings/StreetDaren.js';
 import { ZB_ST, zbFootprints, buildZhongbeiStreet } from '../buildings/StreetZhongbei.js';
+import { D1_ST, d1Footprints, buildDaren1Street } from '../buildings/StreetDaren1.js';
 import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
@@ -111,6 +112,10 @@ export const ZONES = [
   { // 環中東路（校園東南側）與環中東路708巷兩側街屋
     name: '環中東路街屋', drop: HZ_ST.drop, fix: hzFix, ownSign: HZ_ST.ownSign, footprints: hzFootprints,
     build: (I, scene) => buildHuanzhongStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 大仁一街兩側街屋
+    name: '大仁一街街屋', drop: D1_ST.drop, ownSign: D1_ST.ownSign, footprints: d1Footprints,
+    build: (I, scene) => buildDaren1Street(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

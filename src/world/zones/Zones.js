@@ -39,6 +39,7 @@ import { sacLook, buildSac } from '../buildings/Sac.js';
 import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildDorms } from '../buildings/Dorms.js';
 import { zoneCLook, zoneCVegHide, buildZoneC } from './ZoneC.js';
 import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
+import { HZ_ST, hzFootprints, buildHuanzhongStreet } from '../buildings/StreetHuanzhong.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -106,6 +107,10 @@ export const ZONES = [
   },
   { // 東側光電頂棚籃排球場、西側室外球場：籃架、球網、頂棚（鋪面與線在 src/world/MapBuilder.js 的 areas 圖層）
     name: '體育園區籃排球場', terrain: courtTerrain, treeHide: courtTreeHide, build: (I, scene) => buildCourts(I, scene, Kit, regMat),
+  },
+  { // 環中東路（校園東南側）與環中東路708巷兩側街屋
+    name: '環中東路街屋', drop: HZ_ST.drop, ownSign: HZ_ST.ownSign, footprints: hzFootprints,
+    build: (I, scene) => buildHuanzhongStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

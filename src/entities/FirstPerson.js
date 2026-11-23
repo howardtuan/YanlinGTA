@@ -190,7 +190,7 @@ export class FirstPerson {
     return v.kind === 'scooter' ? new THREE.Vector3(0, S.y + 1.56, S.z + 0.02) : new THREE.Vector3(S.x, S.y + (v.model ? 1.03 : 1.17), S.z + 0.08);
   }
   // ---------------- per frame (after the camera rig) ----------------
-  get active() { return this.on && !this.g.airdrop?.cinema && !this.g.drone?.active && !this.g.mingshan?.cinema && !this.g.job?.active && !this.g.gate?.active; }
+  get active() { return (this.on || this.photo) && !this.g.airdrop?.cinema && !this.g.drone?.active && !this.g.mingshan?.cinema && !this.g.job?.active && !this.g.gate?.active; }
   update(dt) {
     const g = this.g, pl = g.player, v = pl.vehicle, act = this.active;
     // the player's own figure: hidden on foot in first person (the concert does the same inside the venue)

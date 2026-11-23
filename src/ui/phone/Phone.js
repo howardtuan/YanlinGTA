@@ -719,7 +719,9 @@ export class Phone {
     clearTimeout(this._ckT); this._ckT = setTimeout(() => { if (this.open && this.app === 'clock') this._clock(); }, 1000);
     return c;
   }
+  // the camera app hands over to the handheld photo mode (src/ui/PhotoMode.js); the old screen below is the fallback
   _camera() {
+    if (this.g.photo && this.g.state === 'play') { this.g.photo.enter(); return; }
     const c = this._frame('相機', `<div class="ph-cam"><div class="ph-vf">${this.photos[0] ? `<img src="${this.photos[0]}">` : '<span>按下快門拍下眼前的畫面</span>'}</div>
       <div class="ph-cam-bar"><button class="ph-thumb">${this.photos[0] ? `<img src="${this.photos[0]}">` : ''}</button><button class="ph-shutter"></button><span></span></div></div>`, { cls: 'ph-dark' });
     c.querySelector('.ph-shutter').onclick = () => this.g.capture(url => {

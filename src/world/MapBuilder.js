@@ -687,8 +687,10 @@ export function makeLabel(text, opt = {}) {
   const h = opt.height || 3;
   s.scale.set(h * aspect, h, 1);
   s.renderOrder = 10;
+  s.layers.set(LABEL_LAYER); // the main camera shows this layer except while you take photos (src/ui/PhotoMode.js)
   return s;
 }
+export const LABEL_LAYER = 3;
 
 export function bannerTexture() {
   return canvasTex(1024, 512, (g) => {

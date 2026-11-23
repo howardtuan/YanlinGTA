@@ -113,7 +113,7 @@ export class MenuManager {
     });
     onClick('btnRestart', () => this.confirmClear(1, true));
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && game.state === 'play' && !game.hud.bigOpen && !game.input.touch && !game._modalOpen && !game._overlay && !game.videoOpen && !game.phone?.open && !game.job?.active && !game.pc?.isOpen && !game.wardrobe?.isOpen) {
+      if (!document.pointerLockElement && game.state === 'play' && !game.hud.bigOpen && !game.input.touch && !game._modalOpen && !game._overlay && !game.videoOpen && !game.phone?.open && !game.photo?.on && !game.job?.active && !game.pc?.isOpen && !game.wardrobe?.isOpen) {
         this.pause();
       }
     });

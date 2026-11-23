@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildWorld, buildSkyline, mulberry32 } from '../world/MapBuilder.js';
+import { buildWorld, buildSkyline, mulberry32, LABEL_LAYER } from '../world/MapBuilder.js';
 import { installShadowDepth } from '../graphics/ShadowFix.js';
 import { Vehicle, sameLevel, bodyGap } from '../entities/Vehicles.js';
 import { Traffic, Peds } from '../entities/NPC.js';
@@ -53,6 +53,7 @@ import { Wardrobe } from '../ui/Wardrobe.js';
 import { Nav } from '../systems/Navigation.js';
 import { Airdrop } from '../systems/minigames/Airdrop.js';
 import { Drone } from '../entities/Drone.js';
+import { PhotoMode } from '../ui/PhotoMode.js';
 import { Market } from '../systems/StockMarket.js';
 import { Race } from '../systems/minigames/Race.js';
 import { Friends } from '../ui/phone/Friends.js';
@@ -252,6 +253,7 @@ class Game {
     installShadowDepth(r, this.scene, () => this.quality !== 'high');
     this.scene.matrixAutoUpdate = false;
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 2600);
+    this.camera.layers.enable(LABEL_LAYER); // floating name labels (hidden in photo mode)
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.audio?.setEngine(false, 0);
@@ -356,6 +358,7 @@ class Game {
     this.nav = new Nav(this);
     this.airdrop = new Airdrop(this);
     this.drone = new Drone(this);
+    this.photo = new PhotoMode(this);
     this.market = new Market(this);
     this.news = new NewsDesk(this);
     this.library = new LibraryLink(this);
@@ -831,6 +834,7 @@ class Game {
       !this._modalOpen &&
       !this._overlay &&
       !this.phone?.open &&
+      !this.photo?.on &&
       !this.pc?.isOpen &&
       !this.videoOpen &&
       !this.airdrop.cinema &&
@@ -956,6 +960,7 @@ class Game {
     this.yeeming?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
+    this.photo.update(dt, inp); // 📷 holding the phone up: eats the shutter / back keys before anything else sees them
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) {
       if (hud.advanceDialog()) this.audio.talk();
       inp.pressed.clear();

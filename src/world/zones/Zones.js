@@ -85,6 +85,7 @@ import {
 import { PZ_ST, pzFootprints, buildPuzhongStreet } from '../buildings/StreetPuzhong.js';
 import { RX_ST, rxFootprints, buildRixinStreet } from '../buildings/StreetRixin.js';
 import { DF_ST, dfFootprints, buildDarenFill } from '../buildings/StreetDarenFill.js';
+import { pcLook, pcFootprints, buildPurenCenter } from '../buildings/PurenCenter.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -347,6 +348,20 @@ export const ZONES = [
     footprints: dfFootprints,
     build: (I, scene) =>
       buildDarenFill(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  {
+    // 中壢區普仁市民活動中心（日新路）：OSM 輪廓偏了，藏起來照實景重蓋
+    name: '普仁市民活動中心',
+    look: pcLook,
+    footprints: pcFootprints,
+    build: (I, scene, data, collision) =>
+      buildPurenCenter(
+        I,
+        scene,
+        { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS },
+        data,
+        collision
+      ),
   },
 ];
 

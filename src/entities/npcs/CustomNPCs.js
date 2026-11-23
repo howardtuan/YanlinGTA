@@ -6,16 +6,27 @@ import { makeMissionNpc } from '../NPC.js';
 
 export class CustomNpcs {
   constructor(game) {
-    this.g = game; this.list = [];
+    this.g = game;
+    this.list = [];
     this.ready = this.load().catch((e) => console.warn('[customnpcs] data/npcs.json 讀不到', e));
   }
   async load() {
-    const res = await fetch('data/npcs.json', { cache: 'no-cache' }); if (!res.ok) return;
-    const reg = await res.json(), places = reg.places || {};
+    const res = await fetch('data/npcs.json', { cache: 'no-cache' });
+    if (!res.ok) return;
+    const reg = await res.json(),
+      places = reg.places || {};
     for (const n of reg.npcs || []) {
       if (n.kind !== 'custom' || n.enabled === false) continue;
-      const p = places[n.place] || (n.spot && typeof n.spot.x === 'number' ? n.spot : null); if (!p) continue;
-      const npc = makeMissionNpc(this.g.scene, { face: true, ...n.look }, n.title ? `${n.title} ${n.name}` : n.name, p.x, p.z, p.h || 0);
+      const p = places[n.place] || (n.spot && typeof n.spot.x === 'number' ? n.spot : null);
+      if (!p) continue;
+      const npc = makeMissionNpc(
+        this.g.scene,
+        { face: true, ...n.look },
+        n.title ? `${n.title} ${n.name}` : n.name,
+        p.x,
+        p.z,
+        p.h || 0
+      );
       if (n.height && n.height !== 1) npc.ch.root.scale.y = n.height;
       npc.mark.visible = false; // not a story NPC: no "!" over the head
       this.g.npcs.push(npc);
@@ -23,9 +34,16 @@ export class CustomNpcs {
       this.list.push(me);
       if (!n.talks?.length) continue;
       this.g.interiors.actions.push({
-        x: p.x, z: p.z, r: 2.6, y: 0, anyY: true,
+        x: p.x,
+        z: p.z,
+        r: 2.6,
+        y: 0,
+        anyY: true,
         label: () => `按 <kbd>E</kbd> 和${n.name}聊天`,
-        fn: (g) => { const t = n.talks[me.i++ % n.talks.length]; g.dialog(t.map(([w, s]) => [w, s])); },
+        fn: (g) => {
+          const t = n.talks[me.i++ % n.talks.length];
+          g.dialog(t.map(([w, s]) => [w, s]));
+        },
       });
     }
   }

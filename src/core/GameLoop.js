@@ -5,14 +5,16 @@ import { kernelsReady } from '../graphics/wasm/kernels.js';
 import { saveSettings } from '../systems/AudioSystem.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
-const isTouch = () => matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
+const isTouch = () =>
+  matchMedia('(pointer: coarse)').matches ||
+  (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
 
 // quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high'. auto never goes above medium (high only when the
 // player picks it): integrated / mobile GPUs and 4-core machines -> low, everything else -> medium; it steps down
 // at runtime when the frame rate stays low (_autoQuality), as far as xlow (超低).
 // xlow is 'low' for the world, sky, post-processing and trees (subQ) plus its own, harsher profile here.
 export const QUALITY = ['xlow', 'low', 'medium', 'high'];
-export const subQ = q => (q === 'xlow' ? 'low' : q);
+export const subQ = (q) => (q === 'xlow' ? 'low' : q);
 
 // per quality: view distance (m), fog thickness, max pixel ratio, sun shadows
 export const QPROF = {
@@ -29,7 +31,9 @@ export function guessGpu() {
   let name = '';
   // same GPU the game will use: on dual-GPU laptops the default context may be the integrated one
   try {
-    const gl = document.createElement('canvas').getContext('webgl', { powerPreference: 'high-performance' });
+    const gl = document
+      .createElement('canvas')
+      .getContext('webgl', { powerPreference: 'high-performance' });
     const d = gl && gl.getExtension('WEBGL_debug_renderer_info');
     name = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : '';
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
@@ -40,14 +44,17 @@ export function guessGpu() {
     /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|radeon(\(tm\))? \d{3,4}m\b|vega \d|geforce mx|\bmx ?\d{3}\b/i.test(
       name
     );
-  const strong = !/geforce mx|\bmx ?\d{3}\b/i.test(name) && /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc(\(tm\))? a\d|apple m\d/i.test(name);
+  const strong =
+    !/geforce mx|\bmx ?\d{3}\b/i.test(name) &&
+    /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc(\(tm\))? a\d|apple m\d/i.test(name);
   const cores = navigator.hardwareConcurrency || 4;
   // a dedicated card (e.g. Intel Arc) is not 'weak' even though its name says Intel; auto stops at medium
   return (_gpuGuess = isTouch() ? 'low' : !strong && (weak || cores <= 4) ? 'low' : 'medium');
 }
 
 // 'auto': the level an earlier session stepped down to (settings.autoQ, _autoQuality) or the GPU guess
-export const resolveQuality = (q, s) => (QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu());
+export const resolveQuality = (q, s) =>
+  QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu();
 export const Q_NAME = { xlow: '超低', low: '低', medium: '中', high: '高（電影感）' };
 
 export class GameLoop {
@@ -91,11 +98,12 @@ export class GameLoop {
     if (sh.enabled !== P.shadows) {
       sh.enabled = P.shadows;
       game.skySys.sun.castShadow = P.shadows;
-      game.scene.traverse(o => {
+      game.scene.traverse((o) => {
         const m = o.material;
-        if (m) (Array.isArray(m) ? m : [m]).forEach(x => {
-          x.needsUpdate = true;
-        });
+        if (m)
+          (Array.isArray(m) ? m : [m]).forEach((x) => {
+            x.needsUpdate = true;
+          });
       });
     }
   }
@@ -103,7 +111,8 @@ export class GameLoop {
   // auto quality: after a warm-up, step down one level when the game keeps running under 28 fps
   autoQuality(frameMs) {
     const game = this.game;
-    if ((game.settings.quality || 'auto') !== 'auto' || game.quality === 'xlow' || document.hidden) return;
+    if ((game.settings.quality || 'auto') !== 'auto' || game.quality === 'xlow' || document.hidden)
+      return;
     if (frameMs > 250) return; // tab was in the background
     const A = game._aq || (game._aq = { t: 0, sum: 0, n: 0, warm: 0 });
     if ((A.warm += frameMs) < 8000) return;
@@ -120,7 +129,11 @@ export class GameLoop {
     // remember it: the next load starts at this level (with its lighter world, crowds and no MSAA)
     game.settings.autoQ = next;
     saveSettings(game.settings);
-    game.hud.toast(`偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，下次開啟會直接用這個畫質，可在設定更改`, 'good', 4200);
+    game.hud.toast(
+      `偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，下次開啟會直接用這個畫質，可在設定更改`,
+      'good',
+      4200
+    );
   }
 
   // live quality switch: pixel ratio, shadow map, post-processing and lamp lights
@@ -162,8 +175,11 @@ export class GameLoop {
     if ((this._lodT = (this._lodT || 0) + dt) < 0.25 || !game.traffic) return;
     this._lodT = 0;
     const c = game.camera.position;
-    const each = list => {
-      for (const v of list) v.lod?.(Math.hypot(v.mesh.position.x - c.x, v.mesh.position.y - c.y, v.mesh.position.z - c.z));
+    const each = (list) => {
+      for (const v of list)
+        v.lod?.(
+          Math.hypot(v.mesh.position.x - c.x, v.mesh.position.y - c.y, v.mesh.position.z - c.z)
+        );
     };
     each(game.vehicles);
     each(game.traffic.agents);
@@ -202,7 +218,7 @@ export class GameLoop {
       .slice(0, 60);
     game._perf = {
       begin: () => r.info.reset(),
-      end: now => {
+      end: (now) => {
         P.n++;
         P.calls = r.info.render.calls;
         P.tris = r.info.render.triangles;
@@ -226,7 +242,11 @@ export class GameLoop {
     const t = game.world.named['鐘塔'] || { x: 0, z: 100 };
     const a = game.titleT * 0.06,
       ty = t.base ?? surfaceAt(t.x, t.z);
-    game.camera.position.set(t.x + Math.sin(a) * 60, ty + 26 + Math.sin(a * 0.7) * 6, t.z + Math.cos(a) * 60);
+    game.camera.position.set(
+      t.x + Math.sin(a) * 60,
+      ty + 26 + Math.sin(a * 0.7) * 6,
+      t.z + Math.cos(a) * 60
+    );
     game.camera.lookAt(t.x - 10, ty + 14, t.z);
     game._titlePos = { x: t.x, z: t.z };
     game.clock = 17 * 60 + 35;
@@ -255,11 +275,17 @@ export class GameLoop {
       game.rig.update(dt, { mdx: 0, mdy: 0 }, game.player, game.world.collision, 1, game.interiors);
     }
     // physics (unless _update already stepped it for the vehicle you ride, see _stepPhysics)
-    if (!game._physStepped) game._stepPhysics(game.state === 'play' || game.state === 'title' ? dt : 0, null);
+    if (!game._physStepped)
+      game._stepPhysics(game.state === 'play' || game.state === 'title' ? dt : 0, null);
     game._physStepped = false;
     this.updateSky(dt);
     this.vehicleLod(dt);
-    game.world.update(game.time, game.night, game.clock, game.state === 'title' ? game._titlePos : game.player.worldPos());
+    game.world.update(
+      game.time,
+      game.night,
+      game.clock,
+      game.state === 'title' ? game._titlePos : game.player.worldPos()
+    );
     for (const b of game.ballotList) {
       if (!b.taken) {
         b.mesh.rotation.y = game.time * 2 + b.ph;
@@ -272,7 +298,12 @@ export class GameLoop {
     if (game._perf) game._perf.begin();
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
-    const yieldGpu = Nano.active > 0 && game.phone?.open && !game.player.vehicle && !game._shot && now - (game._drawnAt || 0) < 160;
+    const yieldGpu =
+      Nano.active > 0 &&
+      game.phone?.open &&
+      !game.player.vehicle &&
+      !game._shot &&
+      now - (game._drawnAt || 0) < 160;
     // the computer (src/ui/PC.js) and the PYL video cover the whole screen: don't draw the 3D scene behind them at all, so typing
     // in the terminal / notes stays smooth (drawing the campus took ~20 ms a frame and made the keys lag)
     const covered = (game.pc?.isOpen || game.videoOpen) && !game._shot;
@@ -280,7 +311,8 @@ export class GameLoop {
       game._drawnAt = now;
       game.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
       game.fpv?.renderMirrors(game.renderer); // rear view for the cockpit mirrors
-      if (game.zzQuest?.film.active) game.zzQuest.film.render(game.renderer); // 吱吱's 武嶺 film: its own little scene
+      if (game.zzQuest?.film.active)
+        game.zzQuest.film.render(game.renderer); // 吱吱's 武嶺 film: its own little scene
       else game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
     }
     if (game._perf) game._perf.end(now);

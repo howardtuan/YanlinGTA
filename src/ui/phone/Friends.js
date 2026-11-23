@@ -18,7 +18,9 @@ export { GD_LOOK, ZZ_LOOK };
 
 export const FRIENDS = {
   zz: {
-    name: '排球少年 吱吱', short: '吱吱', look: ZZ_LOOK,
+    name: '排球少年 吱吱',
+    short: '吱吱',
+    look: ZZ_LOOK,
     // 體育館南牆西段的入口雨遮（src/world/MapBuilder.js entrance_canopy）旁、體育館與游泳池之間的走道，面向走道西口
     spot: { x: -39.5, z: -182.2, h: -Math.PI / 2 },
     intro: [
@@ -30,12 +32,11 @@ export const FRIENDS = {
       ['彥霖', '選舉忙完一定陪你打！'],
       ['吱吱', '好啦，同屆的挺你，系排那邊我幫你拉票。欸，我們好像還沒互加耶？'],
     ],
-    again: [
-      ['吱吱', '又是你！想好了嗎？要不要互加？'],
-    ],
+    again: [['吱吱', '又是你！想好了嗎？要不要互加？']],
     yes: [['吱吱', '加到了！有空來體育館找我打球，晚上排位也揪你 🎮']],
     no: [['吱吱', '好喔，想加再來找我，我常在體育館這邊練球。']],
-    chat: [ // after you are friends: a random line each time you talk
+    chat: [
+      // after you are friends: a random line each time you talk
       [['吱吱', '今天練跳發 100 顆，肩膀在燒 🔥']],
       [['吱吱', '腿日剛結束，走路有點抖哈哈']],
       [['吱吱', '系排的都說要投你啦，放心 🗳️']],
@@ -54,7 +55,10 @@ export const FRIENDS = {
       again: [['吱吱', '又是你！想好了嗎？要不要互加？']],
       chat: [
         [['吱吱', '搖雪克杯也是重訓，今天搖了兩百杯 🔥']],
-        [['吱吱', '剛剛好幾個客人說要投你，我有幫你講好話'], ['彥霖', '感謝吱吱 🙏']],
+        [
+          ['吱吱', '剛剛好幾個客人說要投你，我有幫你講好話'],
+          ['彥霖', '感謝吱吱 🙏'],
+        ],
         [['吱吱', '偷偷推薦你冬瓜檸檬，練完球喝超爽']],
         [['吱吱', '下班要去健身房，練完回宿舍打排位 🎮']],
         [['吱吱', '店長說我搖的最均勻，跟我的托球一樣穩 🏐']],
@@ -68,19 +72,31 @@ export const FRIENDS = {
   // YeeMing（src/entities/npcs/Yeeming.js）：物理系、羊明衫的男朋友，正在當兵（迷彩軍服、鋼盔）。spot 為 null：人由 src/entities/npcs/Yeeming.js 放，
   // 聊天由 src/entities/npcs/Yeeming.js 呼叫 talk('yeeming', 'walk' | 'volley')；跟他們聊天彥霖每次都會問「要不要打麻將？」
   yeeming: {
-    name: 'YeeMing', short: 'YeeMing', look: YEEMING_LOOK, spot: () => null,
+    name: 'YeeMing',
+    short: 'YeeMing',
+    look: YEEMING_LOOK,
+    spot: () => null,
     intro: [
       ['YeeMing', '嗨彥霖！我是 YeeMing，物理系的，跟你同屆 🪖'],
       ['彥霖', '你怎麼穿迷彩？……對了，要不要打麻將？'],
       ['YeeMing', '哈哈哈我在當兵啦，今天放假。麻將等我下次休假，三缺一一定揪你 🀄'],
       ['YeeMing', '選會長我挺你！物理系那邊我幫你拉票。加個好友吧～'],
     ],
-    again: [['彥霖', '要不要打麻將？'], ['YeeMing', '等我休假啦哈哈。要不要先互加好友？']],
+    again: [
+      ['彥霖', '要不要打麻將？'],
+      ['YeeMing', '等我休假啦哈哈。要不要先互加好友？'],
+    ],
     yes: [['YeeMing', '加到了！休假的時候約打排球，或……打麻將 🀄😆']],
     no: [['YeeMing', '好喔～放假的時候常在學校，想加再找我']],
     chat: [
-      [['彥霖', '要不要打麻將？'], ['YeeMing', '收假前一晚可以！先說好不能放水 🀄']],
-      [['彥霖', '要不要打麻將？'], ['YeeMing', '你每次都問這個欸哈哈哈，好啦休假就打']],
+      [
+        ['彥霖', '要不要打麻將？'],
+        ['YeeMing', '收假前一晚可以！先說好不能放水 🀄'],
+      ],
+      [
+        ['彥霖', '要不要打麻將？'],
+        ['YeeMing', '你每次都問這個欸哈哈哈，好啦休假就打'],
+      ],
       [['YeeMing', '當兵每天五點半起床，回學校反而覺得好輕鬆 😂']],
       [['YeeMing', '投票那天我剛好休假，一定回來投你一票 🗳️']],
     ],
@@ -93,11 +109,24 @@ export const FRIENDS = {
         ['羊明衫', '我們是宿營的時候認識的，他還為了我把菸戒了 😌'],
         ['YeeMing', '戒菸比當兵還難好嗎……對了，我們加個好友吧！物理系的票我幫你拉。'],
       ],
-      again: [['彥霖', '所以……要不要打麻將？'], ['YeeMing', '哈哈哈休假再說！先互加好友？']],
+      again: [
+        ['彥霖', '所以……要不要打麻將？'],
+        ['YeeMing', '哈哈哈休假再說！先互加好友？'],
+      ],
       chat: [
-        [['彥霖', '要不要打麻將？'], ['羊明衫', '他會輸到脫褲子啦 😂'], ['YeeMing', '……我最近有在練好嗎']],
-        [['彥霖', '要不要打麻將？'], ['YeeMing', '收假前一晚可以！明衫負責算台 🀄']],
-        [['彥霖', '要不要打麻將？'], ['羊明衫', '先說好，我們只是在散步，不要拐他去打牌 😤']],
+        [
+          ['彥霖', '要不要打麻將？'],
+          ['羊明衫', '他會輸到脫褲子啦 😂'],
+          ['YeeMing', '……我最近有在練好嗎'],
+        ],
+        [
+          ['彥霖', '要不要打麻將？'],
+          ['YeeMing', '收假前一晚可以！明衫負責算台 🀄'],
+        ],
+        [
+          ['彥霖', '要不要打麻將？'],
+          ['羊明衫', '先說好，我們只是在散步，不要拐他去打牌 😤'],
+        ],
       ],
     },
     volley: {
@@ -108,23 +137,35 @@ export const FRIENDS = {
         ['YeeMing', '我們加個好友吧，選會長我挺你 🏐'],
       ],
       chat: [
-        [['彥霖', '要不要打麻將？'], ['YeeMing', '先陪我墊球 100 下再說 🏐']],
+        [
+          ['彥霖', '要不要打麻將？'],
+          ['YeeMing', '先陪我墊球 100 下再說 🏐'],
+        ],
         [['YeeMing', '吱吱等等也會來，三個人可以練傳球']],
-        [['彥霖', '要不要打麻將？'], ['YeeMing', '你這個人……好啦休假晚上 🀄']],
+        [
+          ['彥霖', '要不要打麻將？'],
+          ['YeeMing', '你這個人……好啦休假晚上 🀄'],
+        ],
       ],
     },
   },
   // 羊明衫（src/entities/npcs/Mingshan.js）：資管系的內捲王、舞蹈專家（想進 K-POP 女團），晚上是麥當勞的值班經理（外場櫃台）；
   // spot 為 null：人由 src/entities/npcs/Mingshan.js 放，聊天由 src/entities/npcs/Mingshan.js 呼叫 talk('mingshan', 'dance' | 'work')。
   mingshan: {
-    name: '羊明衫', short: '羊明衫', look: MINGSHAN_LOOK, spot: () => null,
+    name: '羊明衫',
+    short: '羊明衫',
+    look: MINGSHAN_LOOK,
+    spot: () => null,
     intro: [
       ['羊明衫', '彥霖！你也來系館喔～我在練宿營的舞 💃'],
       ['彥霖', '跳得超好！你是不是有在學舞？'],
       ['羊明衫', '從小學到現在啦，以後想去韓國當練習生，進女團 ✨'],
       ['彥霖', '然後你還是我們班第一名……你到底有什麼不會的？'],
       ['羊明衫', '哈哈哈沒有啦，只是比較早開始讀而已。期末考範圍我整理好筆記了，要的話傳給你。'],
-      ['羊明衫', '牠是我養的橘貓，練舞的時候都會跟著我。牠很挑嘴，只吃戈登肉鋪的肉 😂 摸頭倒是可以！'],
+      [
+        '羊明衫',
+        '牠是我養的橘貓，練舞的時候都會跟著我。牠很挑嘴，只吃戈登肉鋪的肉 😂 摸頭倒是可以！',
+      ],
       ['羊明衫', '我們好像還沒互加？加一下吧，選舉要幫忙拍宣傳舞蹈影片也可以找我 🎬'],
     ],
     again: [['羊明衫', '要互加嗎？期末筆記跟宿營的舞步影片都可以傳你 💃']],
@@ -139,7 +180,10 @@ export const FRIENDS = {
     ],
     dance: {
       chat: [
-        [['羊明衫', '（一邊數拍子）五、六、七、八——欸彥霖！'], ['羊明衫', '這段 8 拍是宿營的開場，看起來帥嗎？']],
+        [
+          ['羊明衫', '（一邊數拍子）五、六、七、八——欸彥霖！'],
+          ['羊明衫', '這段 8 拍是宿營的開場，看起來帥嗎？'],
+        ],
         [['羊明衫', '跳舞跟讀書一樣，每天練一點就會進步 😆']],
         [['羊明衫', '橘貓在旁邊當評審，跳錯牠會打哈欠 🐱']],
       ],
@@ -160,7 +204,11 @@ export const FRIENDS = {
     },
   },
   hank: {
-    name: '漢克', short: '漢克', look: HANK_LOOK, noTalk: true, spot: () => null,
+    name: '漢克',
+    short: '漢克',
+    look: HANK_LOOK,
+    noTalk: true,
+    spot: () => null,
     intro: [
       ['彥霖', '好好聽！這是什麼團的歌？'],
       ['漢克', '一個獨立樂團，下個月在 live house 有演出，我超想去 🎧'],
@@ -169,7 +217,10 @@ export const FRIENDS = {
       ['漢克', '運氣好啦哈哈。對了，我室友女拳大帝說你有去他那邊買肉？'],
       ['漢克', '同系這麼久，好像還沒互加耶。有程式問題、想聽團、想半夜騎車上山看夜景都可以找我 🏍️'],
     ],
-    again: [['漢克', '再彈一段給你聽 🎸'], ['漢克', '所以……要不要互加？']],
+    again: [
+      ['漢克', '再彈一段給你聽 🎸'],
+      ['漢克', '所以……要不要互加？'],
+    ],
     yes: [['漢克', '讚！晚點傳我最近在聽的歌單給你，還有今晚的夜景照 🌃']],
     no: [['漢克', 'OK 啊，想加再跟我說。晚上 6 點到 10 點我都在活動中心麥當勞。']],
     chat: [
@@ -194,7 +245,10 @@ export const FRIENDS = {
     },
   },
   gd: {
-    name: '戈登肉鋪店長 女拳大帝', short: '女拳大帝', look: GD_LOOK, noTalk: true,
+    name: '戈登肉鋪店長 女拳大帝',
+    short: '女拳大帝',
+    look: GD_LOOK,
+    noTalk: true,
     spot: (g) => g.interiors.gordon?.keeper,
     offer: [
       ['女拳大帝', '欸，等一下。你是那個在選系會長的彥霖吧？'],
@@ -210,7 +264,10 @@ export const FRIENDS = {
   // 劍玉（src/entities/npcs/Jianyu.js）：基隆航海王、資管三甲班代。住力行 278，白天在資管系館停車場顧他的超跑，晚上在寢室打特戰英豪；
   // spot 為 null：人由 src/entities/npcs/Jianyu.js 放，聊天由 src/entities/npcs/Jianyu.js 呼叫 talk('jianyu', 'car' | 'room')。第一次見面他會拜託你查班費失竊案。
   jianyu: {
-    name: '基隆航海王 劍玉', short: '劍玉', look: JIANYU_LOOK, spot: () => null,
+    name: '基隆航海王 劍玉',
+    short: '劍玉',
+    look: JIANYU_LOOK,
+    spot: () => null,
     intro: [
       ['劍玉', '欸彥霖，你怎麼跑來 278？我這局剛打完 🎧'],
       ['彥霖', '班代大人！又在打積分喔？'],
@@ -221,7 +278,12 @@ export const FRIENDS = {
       ['劍玉', '對了，我們好像還沒互加？加了的話，我停在系館的車借你開 🏎️'],
     ],
     again: [['劍玉', '要互加嗎？加了的話，系館那邊的車借你開 🏎️']],
-    yes: [['劍玉', '加到了！系館停車場的法拉利跟保時捷你想開就開，鑰匙都在車上。藍寶堅尼那台我比較寶貝……之後再說 😅']],
+    yes: [
+      [
+        '劍玉',
+        '加到了！系館停車場的法拉利跟保時捷你想開就開，鑰匙都在車上。藍寶堅尼那台我比較寶貝……之後再說 😅',
+      ],
+    ],
     no: [['劍玉', '好喔，想開車的時候再來找我']],
     chat: [
       [['劍玉', '今晚要不要雙排？我帶你上分 🎯']],
@@ -229,7 +291,8 @@ export const FRIENDS = {
       [['劍玉', '車子開完記得停回系館就好，油我會加 😂']],
       [['劍玉', '週末要回基隆，廟口的天婦羅要不要幫你帶？']],
     ],
-    car: { // 資管系館停車場
+    car: {
+      // 資管系館停車場
       intro: [
         ['劍玉', '彥霖！來看車喔？這三台都是我的。學校裡其他跑車……是我借給朋友開的啦 😂'],
         ['彥霖', '基隆航海王果然名不虛傳……'],
@@ -249,11 +312,17 @@ export const FRIENDS = {
   // 聊天由 DevNPC.talk 呼叫 talk(id, 他現在的模式)，各模式的開場白在下面（沒寫的用 intro）。
   // 侯舌（src/entities/npcs/Houshe.js）：攝影社、系學會攝影長、韓團小卡收藏家，學妹緣超好；負責建築物內部規劃與店家功能。
   houshe: {
-    name: '開發者 侯舌', short: '侯舌', look: HOUSHE_LOOK, spot: () => null,
+    name: '開發者 侯舌',
+    short: '侯舌',
+    look: HOUSHE_LOOK,
+    spot: () => null,
     intro: [
       ['侯舌', '欸彥霖！276 歡迎你～隨便坐，小卡不要碰就好 😆'],
       ['彥霖', '你又在寫遊戲？'],
-      ['侯舌', '對啊，在排麥當勞裡面的櫃台跟座位。你現在走進去的每一棟樓，裡面怎麼擺都是我規劃的。'],
+      [
+        '侯舌',
+        '對啊，在排麥當勞裡面的櫃台跟座位。你現在走進去的每一棟樓，裡面怎麼擺都是我規劃的。',
+      ],
       ['彥霖', '難怪麥當勞的動線那麼順。'],
       ['侯舌', '哈哈過獎。選會長的宣傳照要拍的話找我，系學會攝影長就是我（還有羊明衫）📷'],
       ['侯舌', '我們加個好友吧，拍好的照片直接傳你。'],
@@ -270,7 +339,10 @@ export const FRIENDS = {
     ],
     code: {
       chat: [
-        [['侯舌', '（盯著螢幕）這間店的櫃台再往左 30 公分……好，存檔。'], ['侯舌', '欸彥霖！你來得剛好，幫我看門口會不會卡到人？']],
+        [
+          ['侯舌', '（盯著螢幕）這間店的櫃台再往左 30 公分……好，存檔。'],
+          ['侯舌', '欸彥霖！你來得剛好，幫我看門口會不會卡到人？'],
+        ],
         [['侯舌', '建築物內部規劃最難的是樓梯，每一階都要算 😵']],
         [['侯舌', '理查把系館的外殼蓋好了，裡面就交給我排。']],
       ],
@@ -301,28 +373,72 @@ export const FRIENDS = {
         [['侯舌', '（小聲）我在約會，晚點再聊啦 🤫']],
         [['侯舌', '這個角度光線剛好，我幫她拍一張就走～']],
         [['侯舌', '別跟羊明衫說我又翹掉修圖出來約會 😂']],
-        [['侯舌', '{date}說想去中原夜市，等等要去吃大腸包小腸 🌭'], ['{date}', '學長說好要請客的喔～']],
-        [['侯舌', '剛剛幫{date}拍的這張，逆光再加一點柔焦，完美 📷'], ['彥霖', '你拍照比約會還認真吧'], ['侯舌', '拍照就是約會啊 😎']],
-        [['{date}', '學長，侯舌學長說你要選會長？我會投你一票！'], ['侯舌', '看吧，我說會幫你拉票 😎']],
-        [['侯舌', '（小聲）拜託別說昨天看到我跟另一個學妹出來……'], ['彥霖', '……我什麼都沒看到']],
-        [['{date}', '學長你也來散步？要不要一起拍一張？'], ['侯舌', '來來來，三、二、一～ 📷']],
+        [
+          ['侯舌', '{date}說想去中原夜市，等等要去吃大腸包小腸 🌭'],
+          ['{date}', '學長說好要請客的喔～'],
+        ],
+        [
+          ['侯舌', '剛剛幫{date}拍的這張，逆光再加一點柔焦，完美 📷'],
+          ['彥霖', '你拍照比約會還認真吧'],
+          ['侯舌', '拍照就是約會啊 😎'],
+        ],
+        [
+          ['{date}', '學長，侯舌學長說你要選會長？我會投你一票！'],
+          ['侯舌', '看吧，我說會幫你拉票 😎'],
+        ],
+        [
+          ['侯舌', '（小聲）拜託別說昨天看到我跟另一個學妹出來……'],
+          ['彥霖', '……我什麼都沒看到'],
+        ],
+        [
+          ['{date}', '學長你也來散步？要不要一起拍一張？'],
+          ['侯舌', '來來來，三、二、一～ 📷'],
+        ],
       ],
       // more lines with the girl he is out with today (Houshe.dateName), mixed into chat
       byDate: {
         張娜榮: [
-          [['張娜榮', '學長，熱音社下週有成發，你要來聽嗎？我負責鍵盤～ 🎹'], ['侯舌', '我會去拍照，前排位置幫你留好了']],
-          [['侯舌', '娜榮今天想拍「樂團成員」風格，我特地帶了 24-70 出來 📷'], ['張娜榮', '學長拍得比我們團的官方照還好看 ✨']],
-          [['張娜榮', '（小聲）學長……侯舌學長是不是很多學妹在約啊？'], ['彥霖', '呃……他就是很熱心幫大家拍照啦 😅']],
+          [
+            ['張娜榮', '學長，熱音社下週有成發，你要來聽嗎？我負責鍵盤～ 🎹'],
+            ['侯舌', '我會去拍照，前排位置幫你留好了'],
+          ],
+          [
+            ['侯舌', '娜榮今天想拍「樂團成員」風格，我特地帶了 24-70 出來 📷'],
+            ['張娜榮', '學長拍得比我們團的官方照還好看 ✨'],
+          ],
+          [
+            ['張娜榮', '（小聲）學長……侯舌學長是不是很多學妹在約啊？'],
+            ['彥霖', '呃……他就是很熱心幫大家拍照啦 😅'],
+          ],
         ],
         楊子嫻: [
-          [['楊子嫻', '學長，我是新生，好多地方都還不知道在哪耶'], ['侯舌', '所以我在幫她導覽校園啦，順便拍照 😆']],
-          [['楊子嫻', '侯舌學長拍的照片，我 Peachgram 按讚數直接翻倍 ✨'], ['侯舌', '主要是模特兒好看啦']],
-          [['楊子嫻', '學長，資管系的計概會很難嗎？'], ['彥霖', '有問題可以問系學會，我們有開讀書會'], ['侯舌', '你看，候選人都這樣拉票的 😂']],
+          [
+            ['楊子嫻', '學長，我是新生，好多地方都還不知道在哪耶'],
+            ['侯舌', '所以我在幫她導覽校園啦，順便拍照 😆'],
+          ],
+          [
+            ['楊子嫻', '侯舌學長拍的照片，我 Peachgram 按讚數直接翻倍 ✨'],
+            ['侯舌', '主要是模特兒好看啦'],
+          ],
+          [
+            ['楊子嫻', '學長，資管系的計概會很難嗎？'],
+            ['彥霖', '有問題可以問系學會，我們有開讀書會'],
+            ['侯舌', '你看，候選人都這樣拉票的 😂'],
+          ],
         ],
         金采源: [
-          [['金采源', '學長你也來散步？等等我們要去體育館打羽球！'], ['侯舌', '她超會打，我已經連輸三局了 😭']],
-          [['侯舌', '采源剪了新髮型，我要幫她拍一組鮑伯頭特輯 ✂️📷'], ['金采源', '學長不要把我閉眼那張傳出去喔！']],
-          [['金采源', '侯舌學長說你排球也打得不錯？下次一起來打！'], ['侯舌', '彥霖要選會長，沒空啦哈哈']],
+          [
+            ['金采源', '學長你也來散步？等等我們要去體育館打羽球！'],
+            ['侯舌', '她超會打，我已經連輸三局了 😭'],
+          ],
+          [
+            ['侯舌', '采源剪了新髮型，我要幫她拍一組鮑伯頭特輯 ✂️📷'],
+            ['金采源', '學長不要把我閉眼那張傳出去喔！'],
+          ],
+          [
+            ['金采源', '侯舌學長說你排球也打得不錯？下次一起來打！'],
+            ['侯舌', '彥霖要選會長，沒空啦哈哈'],
+          ],
         ],
       },
     },
@@ -340,13 +456,19 @@ export const FRIENDS = {
   },
   // 理查（src/entities/npcs/Richard.js）：程式超強、推甄上電機所、3 篇 IEEE；嘻哈研究社、ARAM 玩家；負責地圖規劃與建築建模。
   richard: {
-    name: '開發者 理查', short: '理查', look: RICHARD_LOOK, spot: () => null,
+    name: '開發者 理查',
+    short: '理查',
+    look: RICHARD_LOOK,
+    spot: () => null,
     intro: [
       ['理查', '喔彥霖！進來進來，280 很亂不要介意 🧢'],
       ['彥霖', '你在寫什麼？'],
       ['理查', '校園地圖。中北路的寬度我照街景量的，你騎車有沒有覺得很真實？'],
       ['彥霖', '這整個校園都是你蓋的喔！'],
-      ['理查', '建物建模跟地圖規劃是我，裡面的擺設是侯舌。程式有問題也可以問我，我常教班上的人寫程式。'],
+      [
+        '理查',
+        '建物建模跟地圖規劃是我，裡面的擺設是侯舌。程式有問題也可以問我，我常教班上的人寫程式。',
+      ],
       ['理查', '加個好友吧，期末專題卡關直接敲我。'],
     ],
     again: [['理查', '要互加嗎？程式卡住隨時問 💻']],
@@ -361,7 +483,10 @@ export const FRIENDS = {
     ],
     code: {
       chat: [
-        [['理查', '（敲鍵盤）這棟的屋頂斜度不對……等我一下。'], ['理查', '好了！你看，力行大樓的窗帶是不是跟真的一樣？']],
+        [
+          ['理查', '（敲鍵盤）這棟的屋頂斜度不對……等我一下。'],
+          ['理查', '好了！你看，力行大樓的窗帶是不是跟真的一樣？'],
+        ],
         [['理查', '要不要看我怎麼把 OpenStreetMap 的輪廓轉成 3D？很好玩喔']],
         [['理查', '期末專題卡住的話，晚上來 280，我幫你看 code']],
       ],
@@ -401,13 +526,19 @@ export const FRIENDS = {
       chat: [
         [['理查', '羊明衫的 K-pop 對上我的嘻哈，今天平手 🔥']],
         [['理查', '尬完舞要回去寫程式了，地圖還有一區沒蓋']],
-        [['羊明衫', '理查的 groove 真的很穩欸'], ['理查', '你的 wave 也是啦 😆']],
+        [
+          ['羊明衫', '理查的 groove 真的很穩欸'],
+          ['理查', '你的 wave 也是啦 😆'],
+        ],
       ],
     },
   },
   // 霍華德（src/entities/npcs/Howard.js）：魔術社（玫瑰花、撲克牌）、LOL＋特戰英豪、會教會計學、晚上重訓；負責任務、NPC、手機與電腦 App。
   howard: {
-    name: '開發者 霍華德', short: '霍華德', look: HOWARD_LOOK, spot: () => null,
+    name: '開發者 霍華德',
+    short: '霍華德',
+    look: HOWARD_LOOK,
+    spot: () => null,
     intro: [
       ['霍華德', '彥霖！你看——（手一揮，變出一朵玫瑰花）🌹'],
       ['彥霖', '哇！你怎麼變的？'],
@@ -428,7 +559,10 @@ export const FRIENDS = {
     ],
     code: {
       chat: [
-        [['霍華德', '（打字中）這個任務的提示再改短一點……好了。'], ['霍華德', '彥霖！你覺得「發傳單」那個任務太難嗎？']],
+        [
+          ['霍華德', '（打字中）這個任務的提示再改短一點……好了。'],
+          ['霍華德', '彥霖！你覺得「發傳單」那個任務太難嗎？'],
+        ],
         [['霍華德', '在幫 i-Piyan 加新功能，訊息的已讀要更像真的']],
         [['霍華德', '新 NPC 的對白我寫好了，等等放進遊戲']],
       ],
@@ -470,7 +604,9 @@ export const FRIENDS = {
     },
   },
   garry: {
-    name: '古箏社 黃蓋瑞', short: '黃蓋瑞', spot: () => null,
+    name: '古箏社 黃蓋瑞',
+    short: '黃蓋瑞',
+    spot: () => null,
     intro: [
       ['黃蓋瑞', '欸彥霖！你也住這附近對吧，我就住你隔壁啊'],
       ['彥霖', '蓋瑞！原來牆壁另一邊是你，難怪半夜都聽到古箏的聲音'],
@@ -487,7 +623,8 @@ export const FRIENDS = {
       [['黃蓋瑞', '早上的鬧鐘大家都說很吵……但不吵我起不來']],
       [['黃蓋瑞', '社團那邊大家都說要投你，放心 🗳️']],
     ],
-    run: { // on the track
+    run: {
+      // on the track
       intro: [
         ['黃蓋瑞', '（喘）……彥霖？你也來跑步喔'],
         ['彥霖', '蓋瑞！我是來拉票的啦，你每天都跑嗎？'],
@@ -500,7 +637,8 @@ export const FRIENDS = {
         [['黃蓋瑞', '跑完要去吃早餐，蛋餅加起司 🍳']],
       ],
     },
-    club: { // 古箏社教室 in 學生活動中心 (src/world/buildings/ClubRoom.js)
+    club: {
+      // 古箏社教室 in 學生活動中心 (src/world/buildings/ClubRoom.js)
       intro: [
         ['黃蓋瑞', '歡迎來古箏社教室～欸，彥霖！'],
         ['彥霖', '蓋瑞！原來你是古箏社的'],
@@ -515,7 +653,8 @@ export const FRIENDS = {
         [['黃蓋瑞', '要不要試彈一下？我教你 do re mi 的位置']],
       ],
     },
-    room: { // at home next door
+    room: {
+      // at home next door
       intro: [
         ['黃蓋瑞', '欸？彥霖，你怎麼跑來了，門沒鎖喔？'],
         ['彥霖', '哈哈路過，想說來看看鄰居'],
@@ -533,16 +672,24 @@ export const FRIENDS = {
 
 export class Friends {
   constructor(game) {
-    this.g = game; this.added = new Set(); this.npcs = {};
+    this.g = game;
+    this.added = new Set();
+    this.npcs = {};
     for (const [id, f] of Object.entries(FRIENDS)) {
-      const sp = typeof f.spot === 'function' ? f.spot(game) : f.spot; if (!sp) continue;
+      const sp = typeof f.spot === 'function' ? f.spot(game) : f.spot;
+      if (!sp) continue;
       const n = makeMissionNpc(game.scene, f.look, f.name, sp.x, sp.z, sp.h);
       if (sp.y != null) n.ch.root.position.y = sp.y; // indoors: stands on the shop floor
-      game.npcs.push(n); this.npcs[id] = n;
+      game.npcs.push(n);
+      this.npcs[id] = n;
       serviceWear(id, n.ch, f.look, { tag: n.label }); // 義務役 (吱吱, src/entities/npcs/Service.js)
       if (f.noTalk) continue; // someone else (a shop counter) handles talking to them
       game.interiors.actions.push({
-        x: sp.x, z: sp.z, r: 2.8, y: 0, anyY: true,
+        x: sp.x,
+        z: sp.z,
+        r: 2.8,
+        y: 0,
+        anyY: true,
         label: () => `按 <kbd>E</kbd> 和${f.name}聊天`,
         cond: () => n.ch.root.visible, // at work (src/systems/minigames/TeaShop.js) he isn't here
         fn: (g) => this.talk(id),
@@ -551,34 +698,59 @@ export class Friends {
   }
   // at: where you meet him ('shop' = 茶學苑, see FRIENDS[id].shop); cb runs when the talk is over
   talk(id, at, cb) {
-    const f = FRIENDS[id], g = this.g, s = (at && f[at]) || f;
+    const f = FRIENDS[id],
+      g = this.g,
+      s = (at && f[at]) || f;
     // {date}: the girl 侯舌 is out with today (src/entities/npcs/Houshe.js)
-    const dn = g.houshe?.dateName || '學妹', fill = (L) => L.map(([who, t]) => [who.replace('{date}', dn), t.replaceAll('{date}', dn)]);
-    if (this.added.has(id)) { const c = [...(s.chat || f.chat), ...(s.byDate?.[dn] || [])]; g.dialog(fill(c[Math.floor(Math.random() * c.length)]), cb); return; }
-    g.dialog(fill(this._met?.[id] ? (s.again || f.again) : (s.intro || f.intro)), () => { (this._met ||= {})[id] = true; this._ask(id, cb); });
+    const dn = g.houshe?.dateName || '學妹',
+      fill = (L) => L.map(([who, t]) => [who.replace('{date}', dn), t.replaceAll('{date}', dn)]);
+    if (this.added.has(id)) {
+      const c = [...(s.chat || f.chat), ...(s.byDate?.[dn] || [])];
+      g.dialog(fill(c[Math.floor(Math.random() * c.length)]), cb);
+      return;
+    }
+    g.dialog(fill(this._met?.[id] ? s.again || f.again : s.intro || f.intro), () => {
+      (this._met ||= {})[id] = true;
+      this._ask(id, cb);
+    });
   }
   // a shop asks after you pay: nothing if you are friends already
   offer(id) {
-    const f = FRIENDS[id]; if (!f || this.added.has(id)) return;
+    const f = FRIENDS[id];
+    if (!f || this.added.has(id)) return;
     this.g.dialog(f.offer || f.intro, () => this._ask(id));
   }
   // after the talk: add as friend (messages + Peachgram) or not
   _ask(id, cb) {
-    const f = FRIENDS[id], g = this.g;
+    const f = FRIENDS[id],
+      g = this.g;
     document.exitPointerLock?.();
-    g.modal(`要加 ${f.short} 好友嗎？`, `<p style="margin:0 0 12px;line-height:1.7">加入後 ${f.short} 會出現在 i-Piyan 的 <b>訊息</b>，Peachgram 也看得到他的 <b>貼文</b> 和 <b>限時動態</b>。</p>
+    g.modal(
+      `要加 ${f.short} 好友嗎？`,
+      `<p style="margin:0 0 12px;line-height:1.7">加入後 ${f.short} 會出現在 i-Piyan 的 <b>訊息</b>，Peachgram 也看得到他的 <b>貼文</b> 和 <b>限時動態</b>。</p>
       <div class="modal-btns"><button class="menu-btn primary" id="frYes"><span>🤝 加好友</span><small>訊息＋Peachgram</small></button>
-      <button class="menu-btn" id="frNo"><span>下次再說</span><small>NOT NOW</small></button></div>`);
+      <button class="menu-btn" id="frNo"><span>下次再說</span><small>NOT NOW</small></button></div>`
+    );
     const done = (yes) => {
       removeEventListener('keydown', key, true);
-      g.closeModal(); g.resume();
+      g.closeModal();
+      g.resume();
       if (yes) this.add(id);
       g.dialog(yes ? f.yes : f.no, cb);
     };
     // Enter / 1 = 加好友, Esc / 2 = 下次再說 (kept away from the game so Esc doesn't also pause)
     const key = (e) => {
-      if (!g._modalOpen) { removeEventListener('keydown', key, true); return; } // closed with ✕
-      const y = e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Digit1', n = e.code === 'Escape' || e.code === 'Digit2'; if (!y && !n) return; e.preventDefault(); e.stopPropagation(); done(y); };
+      if (!g._modalOpen) {
+        removeEventListener('keydown', key, true);
+        return;
+      } // closed with ✕
+      const y = e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Digit1',
+        n = e.code === 'Escape' || e.code === 'Digit2';
+      if (!y && !n) return;
+      e.preventDefault();
+      e.stopPropagation();
+      done(y);
+    };
     addEventListener('keydown', key, true);
     document.getElementById('frYes').onclick = () => done(true);
     document.getElementById('frNo').onclick = () => done(false);
@@ -587,13 +759,35 @@ export class Friends {
   add(id, silent = false) {
     if (this.added.has(id) || !FRIENDS[id]) return;
     this.added.add(id);
-    const g = this.g, ph = g.phone, c = FRIEND_CONTACTS[id];
+    const g = this.g,
+      ph = g.phone,
+      c = FRIEND_CONTACTS[id];
     ph.friends.add(id);
-    if (c) ph.chats.push({ c, round: 0, choice: 0, msgs: c.history.map(h => Array.isArray(h) ? { who: h[0], text: h[1], time: h[2] } : { day: h.day }), unread: silent ? 0 : c.unread || 0, busy: false, lastAt: silent ? undefined : g.clock });
-    for (const [i, p] of (FRIEND_POSTS[id] || []).entries()) ph.feed.push({ ...p, id: `fr-${id}-${i}`, at: g.clock - p.ago });
-    const n = this.npcs[id]; if (n) n.mark.visible = false;
-    if (!silent) { g.hud.toast(`🤝 已和 ${FRIENDS[id].short} 互加好友（訊息・Peachgram）`, 'good', 2600); g.audio.pickup?.(); }
+    if (c)
+      ph.chats.push({
+        c,
+        round: 0,
+        choice: 0,
+        msgs: c.history.map((h) =>
+          Array.isArray(h) ? { who: h[0], text: h[1], time: h[2] } : { day: h.day }
+        ),
+        unread: silent ? 0 : c.unread || 0,
+        busy: false,
+        lastAt: silent ? undefined : g.clock,
+      });
+    for (const [i, p] of (FRIEND_POSTS[id] || []).entries())
+      ph.feed.push({ ...p, id: `fr-${id}-${i}`, at: g.clock - p.ago });
+    const n = this.npcs[id];
+    if (n) n.mark.visible = false;
+    if (!silent) {
+      g.hud.toast(`🤝 已和 ${FRIENDS[id].short} 互加好友（訊息・Peachgram）`, 'good', 2600);
+      g.audio.pickup?.();
+    }
   }
-  toJSON() { return [...this.added]; }
-  load(list) { for (const id of list || []) this.add(id, true); }
+  toJSON() {
+    return [...this.added];
+  }
+  load(list) {
+    for (const id of list || []) this.add(id, true);
+  }
 }

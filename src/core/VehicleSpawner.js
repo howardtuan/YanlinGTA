@@ -5,7 +5,7 @@ import { pointInPoly } from '../physics/Collision.js';
 import { pitAt } from '../world/Terrain.js';
 
 // masses for vehicles thrown by physics (kg, without rider) and the restitution of those hits
-export const vmass = v => (v.kind === 'scooter' ? 110 : 1250);
+export const vmass = (v) => (v.kind === 'scooter' ? 110 : 1250);
 export const KNOCK_E = 0.3;
 
 export class VehicleSpawner {
@@ -75,9 +75,13 @@ export class VehicleSpawner {
     // OSM lots: until 60 vehicles exist. 補建 (synthetic) lots come last in data.areas, so each 補建 round
     // (blk < 2000: round 1, >= 2000: round 2) gets its own 20
     const synParked = [0, 0],
-      synRound = a => ((a.blk || 0) >= 2000 ? 1 : 0);
+      synRound = (a) => ((a.blk || 0) >= 2000 ? 1 : 0);
     for (const a of game.data.areas) {
-      if (a.kind !== 'parking' || (a.synthetic ? synParked[synRound(a)] >= 20 : game.vehicles.length > 60)) continue;
+      if (
+        a.kind !== 'parking' ||
+        (a.synthetic ? synParked[synRound(a)] >= 20 : game.vehicles.length > 60)
+      )
+        continue;
       let x0 = 1e9,
         z0 = 1e9,
         x1 = -1e9,
@@ -95,9 +99,21 @@ export class VehicleSpawner {
       for (let i = 0; i < n * 5 && placed < n; i++) {
         const x = x0 + rnd() * (x1 - x0),
           z = z0 + rnd() * (z1 - z0);
-        if (!pointInPoly(x, z, a.pts) || !w.isFree(x, z, moto ? 1 : 2.2) || pitAt(x, z, 2.5) !== null) continue; // not down in the 學活 pit (src/world/zones/ZoneG.js)
-        if (game.vehicles.some(v => Math.hypot(v.pos.x - x, v.pos.z - z) < (moto ? 1.6 : 5))) continue;
-        this.addVehicle(moto || rnd() < 0.5 ? 'scooter' : rnd() < 0.3 ? 'taxi' : 'car', x, z, moto ? Math.PI / 2 : rnd() * 6.28, rnd);
+        if (
+          !pointInPoly(x, z, a.pts) ||
+          !w.isFree(x, z, moto ? 1 : 2.2) ||
+          pitAt(x, z, 2.5) !== null
+        )
+          continue; // not down in the 學活 pit (src/world/zones/ZoneG.js)
+        if (game.vehicles.some((v) => Math.hypot(v.pos.x - x, v.pos.z - z) < (moto ? 1.6 : 5)))
+          continue;
+        this.addVehicle(
+          moto || rnd() < 0.5 ? 'scooter' : rnd() < 0.3 ? 'taxi' : 'car',
+          x,
+          z,
+          moto ? Math.PI / 2 : rnd() * 6.28,
+          rnd
+        );
         placed++;
         if (a.synthetic) synParked[synRound(a)]++;
       }
@@ -150,9 +166,19 @@ export class VehicleSpawner {
       dv = (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact;
     if (dv < 1.5) return;
     const [fx, fz] = o.forward();
-    if (!this.throwVehicle(o, fx * o.speed - nx * dv, fz * o.speed - nz * dv, dv, (p, up) => game.traffic.landed(o, p, up))) return;
+    if (
+      !this.throwVehicle(o, fx * o.speed - nx * dv, fz * o.speed - nz * dv, dv, (p, up) =>
+        game.traffic.landed(o, p, up)
+      )
+    )
+      return;
     // its rider goes on with the speed it had, thrown up and away from the hit
-    game.traffic.throwRider(o, fx * o.speed - nx * dv * 0.6, 2 + dv * 0.15, fz * o.speed - nz * dv * 0.6);
+    game.traffic.throwRider(
+      o,
+      fx * o.speed - nx * dv * 0.6,
+      2 + dv * 0.15,
+      fz * o.speed - nz * dv * 0.6
+    );
     if (by === game.player.vehicle) game.audio.bump(Math.min(3, dv / 3), by.kind);
   }
 
@@ -168,10 +194,12 @@ export class VehicleSpawner {
       dz = vz / l;
     // tip over the far side: spin about the horizontal axis across the push (stronger for a tall, light scooter)
     const sp = dv * (sc ? 1.1 : 0.12);
-    const shape = sc ? { shape: 'box', hx: 0.3, hy: 0.5, hz: 0.88 } : { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 };
+    const shape = sc
+      ? { shape: 'box', hx: 0.3, hy: 0.5, hz: 0.88 }
+      : { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 };
     P.dropMover(o); // its stand-in (parked next to a physics vehicle, traffic)
     const f = new THREE.Vector3();
-    const heading = q => {
+    const heading = (q) => {
       f.set(0, 0, 1).applyQuaternion(q);
       return Math.atan2(f.x, f.z);
     };

@@ -88,21 +88,22 @@ import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 
-const $ = id => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 const onClick = (id, fn) => {
   const el = $(id);
   if (el) el.onclick = fn;
-  else console.warn(`missing #${  id}`);
+  else console.warn(`missing #${id}`);
 };
 const setLoad = (p, t) => {
   const f = $('loadFill');
-  if (f) f.style.width = `${p * 100  }%`;
+  if (f) f.style.width = `${p * 100}%`;
   const tx = $('loadText');
   if (tx) tx.textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`;
 };
-const nextFrame = () => new Promise(r => {
-  requestAnimationFrame(() => r());
-});
+const nextFrame = () =>
+  new Promise((r) => {
+    requestAnimationFrame(() => r());
+  });
 
 class Game {
   async init() {
@@ -113,8 +114,10 @@ class Game {
     setLoad(0.02, '載入地圖資料');
     this.physics = new Physics();
     const [data, terrain] = await Promise.all([
-      fetch(`data/cycu.json${  window.__q || ''}`).then(r => r.json()),
-      fetch(`data/terrain.json${  window.__q || ''}`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`data/cycu.json${window.__q || ''}`).then((r) => r.json()),
+      fetch(`data/terrain.json${window.__q || ''}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
       initKernels(),
       this.physics.init(),
     ]);
@@ -126,11 +129,11 @@ class Game {
     this.xlowQ = this.quality === 'xlow';
 
     const fillOn = this.settings.fill !== 'off';
-    const keepSyn = o => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
+    const keepSyn = (o) => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
     for (const k of ['buildings', 'areas', 'barriers']) data[k] = data[k].filter(keepSyn);
 
     const DROP = new Set(zoneDrops());
-    data.buildings = data.buildings.filter(b => !DROP.has(b.id));
+    data.buildings = data.buildings.filter((b) => !DROP.has(b.id));
     zonesFix(data.buildings);
     zonesAdd(data.buildings);
 
@@ -150,16 +153,32 @@ class Game {
         const c = Math.cos(YH_SPEC.ang),
           s = Math.sin(YH_SPEC.ang),
           ext = YH_SPEC.W * (YH_SPEC.k - 1);
-        b.pts = b.pts.map(([x, z]) => ((x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5 ? [x + c * ext, z + s * ext] : [x, z]));
+        b.pts = b.pts.map(([x, z]) =>
+          (x - YH_SPEC.ox) * c + (z - YH_SPEC.oz) * s < YH_SPEC.W + 0.5
+            ? [x + c * ext, z + s * ext]
+            : [x, z]
+        );
       }
     }
 
     for (const w of data.barriers) {
-      if (w.type === 'wall' && w.pts.length < 8 && w.pts.some(([x, z]) => Math.abs(x + 62) < 1.5 && Math.abs(z - 271) < 1.5)) {
+      if (
+        w.type === 'wall' &&
+        w.pts.length < 8 &&
+        w.pts.some(([x, z]) => Math.abs(x + 62) < 1.5 && Math.abs(z - 271) < 1.5)
+      ) {
         w.skin = 'cycu-brick';
       }
     }
-    data.buildings.push({ id: 'gordon', name: '戈登肉鋪', kind: 'commercial', pts: gordonOutline(), h: GD_SPEC.FH + 1.9, floors: 1, skip: true });
+    data.buildings.push({
+      id: 'gordon',
+      name: '戈登肉鋪',
+      kind: 'commercial',
+      pts: gordonOutline(),
+      h: GD_SPEC.FH + 1.9,
+      floors: 1,
+      skip: true,
+    });
 
     const OWN_SIGN = new Set([
       '孫師傅牛肉拉麵',
@@ -242,11 +261,14 @@ class Game {
       keep.push({ ...w(4.2, 3.6), r: 3 }, { ...w(6.7, 3.6), r: 4.5 });
     }
     {
-      const g = data.pois.find(p => p.name === '舊校門') || { x: -231, z: 39 };
+      const g = data.pois.find((p) => p.name === '舊校門') || { x: -231, z: 39 };
       keep.push({ x: g.x, z: g.z, r: 18 });
     }
 
-    const r = (this.renderer = new THREE.WebGLRenderer({ antialias: !this.lowQ, powerPreference: 'high-performance' }));
+    const r = (this.renderer = new THREE.WebGLRenderer({
+      antialias: !this.lowQ,
+      powerPreference: 'high-performance',
+    }));
     r.setPixelRatio(this._pixelRatio());
     r.setSize(innerWidth, innerHeight);
     r.shadowMap.enabled = true;
@@ -290,7 +312,7 @@ class Game {
       ].map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
     featureTrees.push(...zoneTrees());
-    this.world = buildWorld(this.scene, data, p => setLoad(0.08 + p * 0.7, '搭建中原大學'), {
+    this.world = buildWorld(this.scene, data, (p) => setLoad(0.08 + p * 0.7, '搭建中原大學'), {
       reserved,
       keep,
       low: this.lowQ,
@@ -330,7 +352,7 @@ class Game {
 
     {
       const cf = new THREE.Vector3();
-      this.traffic.inView = p => {
+      this.traffic.inView = (p) => {
         const c = this.camera.position,
           dx = p.x - c.x,
           dz = p.z - c.z,
@@ -375,7 +397,7 @@ class Game {
     this.concerts = new Concerts(this);
     this.tea = new TeaShop(this);
 
-    this.hud.onPin = p => {
+    this.hud.onPin = (p) => {
       if (p) this.nav.set(p.x, p.z);
       else this.nav.clear();
       $('bmClear')?.classList.toggle('hidden', !this.nav.target);
@@ -388,21 +410,38 @@ class Game {
 
     this.input.padDriving = () => !!this.player.vehicle;
     this.input.padContext = () =>
-      this.race.state === 'results' ? 'race' : this.hud.bigOpen ? 'map' : this.phone.open ? 'phone' : this.gate.active ? 'gate' : this.job.active ? 'job' : 'play';
-    this.prompts = new Prompts(this.input, () => ({ ctx: this.input.padContext(), vehicle: !!this.player.vehicle }));
+      this.race.state === 'results'
+        ? 'race'
+        : this.hud.bigOpen
+          ? 'map'
+          : this.phone.open
+            ? 'phone'
+            : this.gate.active
+              ? 'gate'
+              : this.job.active
+                ? 'job'
+                : 'play';
+    this.prompts = new Prompts(this.input, () => ({
+      ctx: this.input.padContext(),
+      vehicle: !!this.player.vehicle,
+    }));
     this.hud.keyLabel = (kb, pad) => (this.prompts.pad ? this.prompts.label(pad) : kb);
     this.input.onDevice = (d, id) => this.prompts.setPad(d === 'pad', id);
     this.input.onPad = (on, id) => {
       if (on) {
         this.prompts.setPad(true, id);
-        this.hud.toast(`🎮 搖桿已連線：左搖桿移動、右搖桿視角、${this.prompts.label('A')} 互動／對話`, 'good', 3200);
+        this.hud.toast(
+          `🎮 搖桿已連線：左搖桿移動、右搖桿視角、${this.prompts.label('A')} 互動／對話`,
+          'good',
+          3200
+        );
       } else {
         this.input._use('kb');
         this.hud.toast('🎮 搖桿已中斷', 'bad', 3200);
       }
     };
 
-    this.eggs = (this.data.eggs || []).map(e => ({ ...e, found: false }));
+    this.eggs = (this.data.eggs || []).map((e) => ({ ...e, found: false }));
     for (const n of ['資訊管理學系', '鐘塔', '學生活動中心', '張靜愚紀念圖書館', '全人教育村']) {
       const it = this.world.named[n];
       if (!it) continue;
@@ -413,7 +452,12 @@ class Game {
         const x = rp.x + Math.cos(rp.dir) * half * side,
           z = rp.z - Math.sin(rp.dir) * half * side;
         if (this.world.isFree(x, z, 3.2)) {
-          this.world.addBoard(x, z, rp.dir + (side > 0 ? -Math.PI / 2 : Math.PI / 2) + Math.PI, 0.8);
+          this.world.addBoard(
+            x,
+            z,
+            rp.dir + (side > 0 ? -Math.PI / 2 : Math.PI / 2) + Math.PI,
+            0.8
+          );
           break;
         }
       }
@@ -424,10 +468,14 @@ class Game {
     }
 
     this.vehicleSpawner.spawnParked();
-    Vehicle.knock = (o, by, nx, nz, impact) => this.vehicleSpawner.knockVehicle(o, by, nx, nz, impact);
-    Vehicle.knockTraffic = (o, by, nx, nz, impact) => this.vehicleSpawner.knockTraffic(o, by, nx, nz, impact);
+    Vehicle.knock = (o, by, nx, nz, impact) =>
+      this.vehicleSpawner.knockVehicle(o, by, nx, nz, impact);
+    Vehicle.knockTraffic = (o, by, nx, nz, impact) =>
+      this.vehicleSpawner.knockTraffic(o, by, nx, nz, impact);
 
-    const rag = /[?&]noragdoll\b/.test(location.search) ? null : (ch, vel, spin, opt) => Ragdoll.start(this.physics, ch, vel, spin, opt);
+    const rag = /[?&]noragdoll\b/.test(location.search)
+      ? null
+      : (ch, vel, spin, opt) => Ragdoll.start(this.physics, ch, vel, spin, opt);
     this.player.ragdoll = this.peds.ragdoll = this.traffic.ragdoll = rag;
     this.player.walker = /[?&]oldwalk\b/.test(location.search) ? null : Walker.attach(this.physics);
     Vehicle.onRide = (v, on) => {
@@ -441,7 +489,7 @@ class Game {
     this._ballots();
     this._beam();
 
-    const gate = data.pois.find(p => p.name === '舊校門') || { x: -231, z: 39 };
+    const gate = data.pois.find((p) => p.name === '舊校門') || { x: -231, z: 39 };
     const im = this.world.named['資訊管理學系'];
     const near = this.world.nearestRoadPoint(gate.x + 6, gate.z + 2);
     const sx = near ? near.x : gate.x + 6,
@@ -585,7 +633,13 @@ class Game {
     g.fillText('票', 32, 42);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
-    const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: '#ffb300', emissiveIntensity: 0.5, metalness: 0.3, roughness: 0.4 });
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      emissive: '#ffb300',
+      emissiveIntensity: 0.5,
+      metalness: 0.3,
+      roughness: 0.4,
+    });
     const geo = new THREE.BoxGeometry(0.7, 0.9, 0.1);
     this.ballotList = [];
     const spots = [];
@@ -598,14 +652,19 @@ class Game {
     while (spots.length < 34) {
       const n = w.walkNodes[Math.floor(rnd() * w.walkNodes.length)];
       if (Math.hypot(n.x, n.z - 60) > 520) continue;
-      if (spots.some(s => Math.hypot(s[0] - n.x, s[1] - n.z) < 40)) continue;
+      if (spots.some((s) => Math.hypot(s[0] - n.x, s[1] - n.z) < 40)) continue;
       spots.push([n.x, n.z]);
     }
     const final = [];
-    for (const s of spots) if (!final.some(f => Math.hypot(f[0] - s[0], f[1] - s[1]) < 12)) final.push(s);
+    for (const s of spots)
+      if (!final.some((f) => Math.hypot(f[0] - s[0], f[1] - s[1]) < 12)) final.push(s);
     while (final.length < 34) {
       const n = w.walkNodes[Math.floor(rnd() * w.walkNodes.length)];
-      if (Math.hypot(n.x, n.z - 60) < 600 && !final.some(f => Math.hypot(f[0] - n.x, f[1] - n.z) < 25)) final.push([n.x, n.z]);
+      if (
+        Math.hypot(n.x, n.z - 60) < 600 &&
+        !final.some((f) => Math.hypot(f[0] - n.x, f[1] - n.z) < 25)
+      )
+        final.push([n.x, n.z]);
     }
     final.slice(0, 34).forEach(([x, z], i) => {
       const y0 = surfaceAt(x, z) + 1.3;
@@ -620,13 +679,30 @@ class Game {
   _beam() {
     const g = new THREE.CylinderGeometry(1, 1, 80, 24, 1, true);
     g.translate(0, 40, 0);
-    const m = new THREE.MeshBasicMaterial({ color: '#ffd23f', transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false });
+    const m = new THREE.MeshBasicMaterial({
+      color: '#ffd23f',
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      fog: false,
+    });
     this.beams = [];
     for (let i = 0; i < 6; i++) {
       const b = new THREE.Mesh(g, m);
       b.visible = false;
       this.scene.add(b);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ffd23f', transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.85, 1, 40).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({
+          color: '#ffd23f',
+          transparent: true,
+          opacity: 0.8,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        })
+      );
       ring.position.y = 0.25;
       b.add(ring);
       this.beams.push(b);
@@ -653,7 +729,7 @@ class Game {
   _tickTimers(dt) {
     if (!this.timers || !this.timers.length) return;
     const due = [];
-    this.timers = this.timers.filter(tm => {
+    this.timers = this.timers.filter((tm) => {
       tm.t -= dt;
       if (tm.t <= 0) {
         due.push(tm.fn);
@@ -661,7 +737,7 @@ class Game {
       }
       return true;
     });
-    due.forEach(f => f());
+    due.forEach((f) => f());
   }
 
   addVotes(n, msg) {
@@ -829,7 +905,8 @@ class Game {
     this.audio.ending();
     document.exitPointerLock?.();
     const t = Math.floor(this.playTime);
-    $('endStats').innerHTML = `得票數 <b style="color:#ffd23f;font-size:24px">${this.votes}</b> 票<br>金色選票 ${this.ballotsTaken} / 34　·　遊玩時間 ${Math.floor(t / 60)} 分 ${t % 60} 秒`;
+    $('endStats').innerHTML =
+      `得票數 <b style="color:#ffd23f;font-size:24px">${this.votes}</b> 票<br>金色選票 ${this.ballotsTaken} / 34　·　遊玩時間 ${Math.floor(t / 60)} 分 ${t % 60} 秒`;
     $('ending').classList.remove('hidden');
   }
 
@@ -867,7 +944,7 @@ class Game {
   _bump() {
     return (
       this._onBump ||
-      (this._onBump = imp => {
+      (this._onBump = (imp) => {
         this.audio.bump(imp / 3, this.player.vehicle?.kind);
         this.rig.cur.y += Math.min(0.3, imp * 0.02);
       })
@@ -890,7 +967,7 @@ class Game {
       wp = pl.worldPos(),
       list = [],
       pv = pl.vehicle;
-    const veh = v =>
+    const veh = (v) =>
       list.push({
         key: v,
         x: v.pos.x,
@@ -903,14 +980,33 @@ class Game {
       });
     if (pv) {
       if (!pv.body) veh(pv);
-    } else if (!pl.seat) list.push({ key: pl, x: pl.pos.x, y: pl.pos.y, z: pl.pos.z, yaw: 0, r: 0.3, hl: 0, cy: 0.9, group: G.CHAR });
+    } else if (!pl.seat)
+      list.push({
+        key: pl,
+        x: pl.pos.x,
+        y: pl.pos.y,
+        z: pl.pos.z,
+        yaw: 0,
+        r: 0.3,
+        hl: 0,
+        cy: 0.9,
+        group: G.CHAR,
+      });
     for (const v of [...this.traffic.vehicles(), ...this.race.vehicles()]) {
-      if (v !== pv && !v.knocked && Math.abs(v.pos.x - wp.x) < 60 && Math.abs(v.pos.z - wp.z) < 60 && v.mesh.visible !== false) veh(v);
+      if (
+        v !== pv &&
+        !v.knocked &&
+        Math.abs(v.pos.x - wp.x) < 60 &&
+        Math.abs(v.pos.z - wp.z) < 60 &&
+        v.mesh.visible !== false
+      )
+        veh(v);
     }
     if (pv?.body) {
       const near = [];
       for (const o of this.vehicles) {
-        if (o === pv || o.driver || o.knocked || o.ai || o.racer || o === this.airdrop.run?.v) continue;
+        if (o === pv || o.driver || o.knocked || o.ai || o.racer || o === this.airdrop.run?.v)
+          continue;
         const d = Math.hypot(o.pos.x - wp.x, o.pos.z - wp.z);
         if (d < 20) near.push([d, o]);
       }
@@ -994,7 +1090,8 @@ class Game {
       this.gate.update(dt, inp);
       inp.pressed.clear();
     } else if (this.phone.open) {
-      if (this.phone.update(dt, inp) === 'closed' && !this.input.touch && !hud.bigOpen) lockPointer(this.renderer.domElement);
+      if (this.phone.update(dt, inp) === 'closed' && !this.input.touch && !hud.bigOpen)
+        lockPointer(this.renderer.domElement);
       inp.pressed.clear();
     }
     if (inp.hit('KeyM') && !this.phone.open) {
@@ -1011,7 +1108,9 @@ class Game {
       if (inp.hit('Enter', 'NumpadEnter')) {
         const t = this.nav.target,
           k = hud._bigK || 1;
-        hud.onPin(t && Math.hypot((t.x - bv.cx) * k, (t.z - bv.cz) * k) < 14 ? null : { x: bv.cx, z: bv.cz });
+        hud.onPin(
+          t && Math.hypot((t.x - bv.cx) * k, (t.z - bv.cz) * k) < 14 ? null : { x: bv.cx, z: bv.cz }
+        );
       }
     }
     if (this.zzQuest?.busy) {
@@ -1046,7 +1145,11 @@ class Game {
       this.wardrobe.isOpen ||
       this._modalOpen;
     pl.frozen = busy || this.phone.open;
-    const phoneDrive = this.phone.open && !busy && !!pl.vehicle && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
+    const phoneDrive =
+      this.phone.open &&
+      !busy &&
+      !!pl.vehicle &&
+      !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
     this.drone.doors(dt);
 
     const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
@@ -1063,7 +1166,13 @@ class Game {
       inp.pressed.delete('KeyE');
     }
 
-    if (!pl.frozen && !pl.seat && !pl.tumble && (pl.vehicle || pl.y - (pl.ground || 0) < 1) && inp.hit('KeyF')) {
+    if (
+      !pl.frozen &&
+      !pl.seat &&
+      !pl.tumble &&
+      (pl.vehicle || pl.y - (pl.ground || 0) < 1) &&
+      inp.hit('KeyF')
+    ) {
       if (pl.vehicle) {
         if (Math.abs(pl.vehicle.speed) < 6) {
           this.audio.engineStop(pl.vehicle.kind);
@@ -1079,7 +1188,14 @@ class Game {
           if (v.ai !== null && v.ai !== undefined) {
             this.traffic.hijack(v);
             this.vehicles.push(v);
-            hud.toast(v.kind === 'scooter' ? '同學，機車借一下！' : v.model ? '這台超跑是劍玉借給同學的……借一下！' : '不好意思，借一下車！', 'bad');
+            hud.toast(
+              v.kind === 'scooter'
+                ? '同學，機車借一下！'
+                : v.model
+                  ? '這台超跑是劍玉借給同學的……借一下！'
+                  : '不好意思，借一下車！',
+              'bad'
+            );
           }
           pl.enter(v);
           this.audio.mount();
@@ -1101,8 +1217,21 @@ class Game {
 
     if (pl.vehicle) {
       const v = pl.vehicle;
-      const a = phoneDrive ? { x: (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0), y: (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0) } : pl.frozen ? { x: 0, y: 0 } : inp.axis();
-      const others = [...this.traffic.vehicles(), ...this.race.vehicles(), ...this.vehicles.filter(o => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10)];
+      const a = phoneDrive
+        ? {
+            x: (inp.down('KeyD') ? 1 : 0) - (inp.down('KeyA') ? 1 : 0),
+            y: (inp.down('KeyW') ? 1 : 0) - (inp.down('KeyS') ? 1 : 0),
+          }
+        : pl.frozen
+          ? { x: 0, y: 0 }
+          : inp.axis();
+      const others = [
+        ...this.traffic.vehicles(),
+        ...this.race.vehicles(),
+        ...this.vehicles.filter(
+          (o) => o !== v && Math.hypot(o.pos.x - v.pos.x, o.pos.z - v.pos.z) < 10
+        ),
+      ];
       const vin = { throttle: a.y, steer: -a.x, handbrake: !pl.frozen && inp.down('Space') };
       if (v.body) this._stepPhysics(dt, vin);
       else v.drive(dt, vin, w.collision, others, this._bump());
@@ -1144,19 +1273,27 @@ class Game {
       const [fx, fz] = v.forward();
       this.headlight.intensity = this.night * 60;
       this.headlight.position.set(v.pos.x + fx * 1.2, v.mesh.position.y + 1.1, v.pos.z + fz * 1.2);
-      this.headlight.target.position.set(v.pos.x + fx * 15, surfaceAt(v.pos.x + fx * 15, v.pos.z + fz * 15), v.pos.z + fz * 15);
+      this.headlight.target.position.set(
+        v.pos.x + fx * 15,
+        surfaceAt(v.pos.x + fx * 15, v.pos.z + fz * 15),
+        v.pos.z + fz * 15
+      );
     } else {
       pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors);
       if (pl.sfx) {
         const k = pl.sfx;
         pl.sfx = null;
-        if (k === 'step') pl.y > 0.3 || this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) ? this.audio.step('in', pl.speed > 6) : this.audio.step(w.greenAt?.(pl.pos.x, pl.pos.z) ? 'grass' : 'out', pl.speed > 6);
+        if (k === 'step')
+          pl.y > 0.3 || this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y)
+            ? this.audio.step('in', pl.speed > 6)
+            : this.audio.step(w.greenAt?.(pl.pos.x, pl.pos.z) ? 'grass' : 'out', pl.speed > 6);
         else if (k === 'jump') this.audio.jump();
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
       if (!pl.rag) {
         for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
-          if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1) continue;
+          if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1)
+            continue;
           const b = bodyGap(v, pl.pos.x, pl.pos.z),
             rr = v.hw + 0.35;
           if (b.gap < 0.35) {
@@ -1181,19 +1318,38 @@ class Game {
     }
     this.playerLight.intensity = this.night * 6;
     const wp = pl.worldPos();
-    this.playerLight.position.set(wp.x, (pl.vehicle ? pl.vehicle.mesh.position.y : surfaceAt(wp.x, wp.z) + pl.y) + 3, wp.z);
+    this.playerLight.position.set(
+      wp.x,
+      (pl.vehicle ? pl.vehicle.mesh.position.y : surfaceAt(wp.x, wp.z) + pl.y) + 3,
+      wp.z
+    );
 
     if (!pl.vehicle && !pl.frozen && !pl.tumble) {
       const v = pl.y - (pl.ground || 0) < 1 && !pl.seat ? this._nearestVehicle(3.2) : null;
       const p = this._nearestPed(3.5);
       if (act) hud.setPrompt(act.label(this));
-      else if (v) hud.setPrompt(v.lock?.() ? `🔒 ${v.label}` : `按 <kbd>F</kbd> ${v.ai ? '借用' : v.kind === 'scooter' ? '騎上' : '開'}${v.label}`);
-      else if (p && !p.voted) hud.setPrompt(`${this.input.touch ? '按 📄' : '<kbd>左鍵</kbd>'} 發傳單給同學`);
+      else if (v)
+        hud.setPrompt(
+          v.lock?.()
+            ? `🔒 ${v.label}`
+            : `按 <kbd>F</kbd> ${v.ai ? '借用' : v.kind === 'scooter' ? '騎上' : '開'}${v.label}`
+        );
+      else if (p && !p.voted)
+        hud.setPrompt(`${this.input.touch ? '按 📄' : '<kbd>左鍵</kbd>'} 發傳單給同學`);
       else hud.setPrompt(null);
     } else hud.setPrompt(null);
 
     const fw = this.drone.flying ? this.drone.pos : wp;
-    const info = { pos: fw, vehicle: pl.vehicle, extraObstacles: [...this.vehicles.filter(v => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25), ...this.race.vehicles()] };
+    const info = {
+      pos: fw,
+      vehicle: pl.vehicle,
+      extraObstacles: [
+        ...this.vehicles.filter(
+          (v) => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25
+        ),
+        ...this.race.vehicles(),
+      ],
+    };
     this.traffic.update(dt, info, this.audio);
     this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
@@ -1212,7 +1368,9 @@ class Game {
       n.ch.update(dt, { speed: 0, pose: n.pose });
       n.mark.position.y = 2.75 + Math.sin(this.time * 3) * 0.08;
     }
-    if (this.crowd) for (const c of this.crowd) c.update(dt, { speed: 0, pose: this.speechOn ? c.cheerPose : null });
+    if (this.crowd)
+      for (const c of this.crowd)
+        c.update(dt, { speed: 0, pose: this.speechOn ? c.cheerPose : null });
 
     for (const b of this.ballotList) {
       if (b.taken) {
@@ -1261,8 +1419,16 @@ class Game {
       this.audio.pickup();
     }
 
-    if (inp.hit('KeyV') && !this.phone.open && !hud.inDialog && !hud.bigOpen && !this._modalOpen) this.fpv.toggle();
-    this.rig.update(dt, hud.bigOpen ? { mdx: 0, mdy: 0 } : inp, pl, w.collision, this.settings.sens, this.interiors);
+    if (inp.hit('KeyV') && !this.phone.open && !hud.inDialog && !hud.bigOpen && !this._modalOpen)
+      this.fpv.toggle();
+    this.rig.update(
+      dt,
+      hud.bigOpen ? { mdx: 0, mdy: 0 } : inp,
+      pl,
+      w.collision,
+      this.settings.sens,
+      this.interiors
+    );
     this.fpv.update(dt);
     if (this.job.active) this.job.camera(this.camera, dt);
     else if (this.gate.active) this.gate.camera(this.camera, dt);
@@ -1275,11 +1441,25 @@ class Game {
     const markers = [...this.missions.markers, ...this.race.markers()];
     if (this.interiors.yh && !this.missions.hideHome) {
       const d = this.interiors.yh.door;
-      markers.push({ x: d[0], z: d[1], icon: '🏠', color: '#ff8fb1', label: '彥霖的家', near: 120 });
+      markers.push({
+        x: d[0],
+        z: d[1],
+        icon: '🏠',
+        color: '#ff8fb1',
+        label: '彥霖的家',
+        near: 120,
+      });
     }
     if (this.interiors.gordon) {
       const d = this.interiors.gordon.door;
-      markers.push({ x: d[0], z: d[1], icon: '🥩', color: '#c9a24e', label: '戈登肉鋪', near: 120 });
+      markers.push({
+        x: d[0],
+        z: d[1],
+        icon: '🥩',
+        color: '#c9a24e',
+        label: '戈登肉鋪',
+        near: 120,
+      });
     }
     if (!this.gate.active) {
       for (const gq of Object.values(this.interiors.gates || {})) {
@@ -1289,13 +1469,32 @@ class Game {
     }
     const range = pl.vehicle ? 170 : 110;
     const dn = this.drone.flying ? this.drone : null;
-    hud.drawMinimap(fw.x, fw.z, dn ? dn.yaw : this.rig.yaw, dn ? dn.yaw : pl.worldHeading(), dn ? 220 : range, markers, this.ballotList);
+    hud.drawMinimap(
+      fw.x,
+      fw.z,
+      dn ? dn.yaw : this.rig.yaw,
+      dn ? dn.yaw : pl.worldHeading(),
+      dn ? 220 : range,
+      markers,
+      this.ballotList
+    );
     hud.drawBig(fw.x, fw.z, dn ? dn.yaw : pl.worldHeading(), markers, this.ballotList);
     if ((this._locT = (this._locT || 0) - dt) <= 0) {
       this._locT = 0.5;
       const zn = !pl.vehicle && this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
-      hud.setLocation(dn ? `🛸 ${hud.locationName(fw.x, fw.z)}` : zn ? (zn.floorOf ? `${zn.name} ${zn.floorOf(pl.y)}F` : zn.name) : hud.locationName(wp.x, wp.z));
-      for (const v of this.vehicles) v.mesh.visible = v === pl.vehicle || Math.hypot(v.pos.x - fw.x, v.pos.z - fw.z) < (dn ? 260 : 160) * (this.viewK ?? 1);
+      hud.setLocation(
+        dn
+          ? `🛸 ${hud.locationName(fw.x, fw.z)}`
+          : zn
+            ? zn.floorOf
+              ? `${zn.name} ${zn.floorOf(pl.y)}F`
+              : zn.name
+            : hud.locationName(wp.x, wp.z)
+      );
+      for (const v of this.vehicles)
+        v.mesh.visible =
+          v === pl.vehicle ||
+          Math.hypot(v.pos.x - fw.x, v.pos.z - fw.z) < (dn ? 260 : 160) * (this.viewK ?? 1);
     }
     if (!pl.vehicle && !this.job.active && this._tipMode !== 'foot') {
       this._tipMode = 'foot';
@@ -1312,7 +1511,7 @@ class Game {
 }
 
 window.game = new Game();
-window.game.init().catch(e => {
+window.game.init().catch((e) => {
   console.error(e);
-  $('loadText').textContent = `載入失敗：${  e.message}`;
+  $('loadText').textContent = `載入失敗：${e.message}`;
 });

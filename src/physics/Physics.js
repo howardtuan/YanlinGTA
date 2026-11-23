@@ -49,31 +49,39 @@ export const groups = (g) => ((g & 0xffff) << 16) | (FILTER[g] & 0xffff);
 
 export const STEP = 1 / 60;
 const MAX_SUB = 4; // a frame slower than 15 fps drops the rest instead of spiralling
-const PROP_FAR = 150;    // props further than this from the player are disabled (m)
-const MOVER_JUMP = 6;    // a stand-in that moves further than this in one frame was teleported (place(), tow)
-const MOVER_GONE = 1;    // seconds a stand-in may go unused before its body is freed (it is switched off at once)
-const KNOCK_MAX_T = 10;  // a knocked body is handed back after this long even if it never sleeps (s)
+const PROP_FAR = 150; // props further than this from the player are disabled (m)
+const MOVER_JUMP = 6; // a stand-in that moves further than this in one frame was teleported (place(), tow)
+const MOVER_GONE = 1; // seconds a stand-in may go unused before its body is freed (it is switched off at once)
+const KNOCK_MAX_T = 10; // a knocked body is handed back after this long even if it never sleeps (s)
 
-const _q = new THREE.Quaternion(), _mq = new THREE.Quaternion();
+const _q = new THREE.Quaternion(),
+  _mq = new THREE.Quaternion();
 const _yaw = new THREE.Vector3(0, 1, 0);
 const yawQ = (h, q = _q) => q.setFromAxisAngle(_yaw, h);
 
 export class Physics {
   constructor() {
-    this.R = null; this.world = null; this.events = null;
-    this.acc = 0; this.alpha = 0; this.steps = 0;
+    this.R = null;
+    this.world = null;
+    this.events = null;
+    this.acc = 0;
+    this.alpha = 0;
+    this.steps = 0;
     this.before = []; // callbacks run before every physics step: fn(STEP, i, n) (i-th of the frame's n steps)
     this.after = []; // callbacks run after every physics step: fn(STEP, i, n)
     this.lastSteps = 0; // steps taken by the last update()
     this.owner = new Map(); // collider handle -> { kind: 'mover' | 'prop' | 'knock' | 'chassis', key }
     this.debug = null;
-    this.props = new Set();   // addProp records
+    this.props = new Set(); // addProp records
     this.knocked = new Set(); // knock records
-    this.rags = new Set();    // ragdolls flying (src/physics/Ragdoll.js)
+    this.rags = new Set(); // ragdolls flying (src/physics/Ragdoll.js)
     this.moverMap = new Map(); // key object -> { body, t, sig }
-    this.focus = null; this._farT = 0;
+    this.focus = null;
+    this._farT = 0;
   }
-  get ready() { return !!this.world; }
+  get ready() {
+    return !!this.world;
+  }
   // loads the engine; false (and the game runs without it) when WebAssembly is unavailable or ?nophysics
   async init() {
     try {
@@ -95,15 +103,25 @@ export class Physics {
   // (null without physics), so it can be removed again with physics.world.removeCollider(c, false)
   addStaticBox(x, y, z, hx, hy, hz, yaw = 0) {
     if (!this.world) return null;
-    const s = Math.sin(yaw / 2), c = Math.cos(yaw / 2);
-    return this.world.createCollider(this.R.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z)
-      .setRotation({ x: 0, y: s, z: 0, w: c }).setCollisionGroups(groups(G.WORLD)).setFriction(0.9));
+    const s = Math.sin(yaw / 2),
+      c = Math.cos(yaw / 2);
+    return this.world.createCollider(
+      this.R.ColliderDesc.cuboid(hx, hy, hz)
+        .setTranslation(x, y, z)
+        .setRotation({ x: 0, y: s, z: 0, w: c })
+        .setCollisionGroups(groups(G.WORLD))
+        .setFriction(0.9)
+    );
   }
   // y = the bottom, h = height
   addStaticCylinder(x, y, z, r, h) {
     if (!this.world) return null;
-    return this.world.createCollider(this.R.ColliderDesc.cylinder(h / 2, r).setTranslation(x, y + h / 2, z)
-      .setCollisionGroups(groups(G.WORLD)).setFriction(0.9));
+    return this.world.createCollider(
+      this.R.ColliderDesc.cylinder(h / 2, r)
+        .setTranslation(x, y + h / 2, z)
+        .setCollisionGroups(groups(G.WORLD))
+        .setFriction(0.9)
+    );
   }
 
   // ---------- props (P2): things that can be knocked over ----------
@@ -116,28 +134,63 @@ export class Physics {
   // returns { body, obj, remove(), hit } (hit: it has been moved more than 10 cm), or null without physics
   addProp(obj, opt = {}) {
     if (!this.world) return null;
-    const R = this.R, W = this.world;
+    const R = this.R,
+      W = this.world;
     obj.updateMatrix();
-    const p = obj.position, q = obj.quaternion;
+    const p = obj.position,
+      q = obj.quaternion;
     // dropped from 2 cm and left awake: it settles on the ground by itself and falls asleep a moment later.
     // (Put to sleep at once, a thin part resting exactly on the terrain mesh sinks through it when woken.)
-    const bd = R.RigidBodyDesc.dynamic().setTranslation(p.x, p.y + (opt.lift ?? 0.02), p.z).setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
-      .setLinearDamping(opt.damping ?? 0.1).setAngularDamping(opt.angularDamping ?? 0.4).setCcdEnabled(true);
+    const bd = R.RigidBodyDesc.dynamic()
+      .setTranslation(p.x, p.y + (opt.lift ?? 0.02), p.z)
+      .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
+      .setLinearDamping(opt.damping ?? 0.1)
+      .setAngularDamping(opt.angularDamping ?? 0.4)
+      .setCcdEnabled(true);
     const body = W.createRigidBody(bd);
     const parts = opt.parts || [{ ...opt, mass: opt.mass ?? 10 }];
-    const rec = { body, obj, x0: p.x, z0: p.z, maxSpeed: opt.maxSpeed || 0, hit: false, off: false, remove: () => this._removeProp(rec) };
-    for (const s of parts) this._own(W.createCollider(this._shape(s).setMass(s.mass ?? 10).setFriction(opt.friction ?? 0.7)
-      .setRestitution(opt.restitution ?? 0.2).setCollisionGroups(groups(opt.group ?? G.PROP)), body), 'prop', rec);
+    const rec = {
+      body,
+      obj,
+      x0: p.x,
+      z0: p.z,
+      maxSpeed: opt.maxSpeed || 0,
+      hit: false,
+      off: false,
+      remove: () => this._removeProp(rec),
+    };
+    for (const s of parts)
+      this._own(
+        W.createCollider(
+          this._shape(s)
+            .setMass(s.mass ?? 10)
+            .setFriction(opt.friction ?? 0.7)
+            .setRestitution(opt.restitution ?? 0.2)
+            .setCollisionGroups(groups(opt.group ?? G.PROP)),
+          body
+        ),
+        'prop',
+        rec
+      );
     this.props.add(rec);
     return rec;
   }
   _shape(s) {
     const D = this.R.ColliderDesc;
     let d, h;
-    if (s.shape === 'cylinder') { d = D.cylinder(s.hh, s.r); h = s.hh; }
-    else if (s.shape === 'cone') { d = D.cone(s.hh, s.r); h = s.hh; }
-    else if (s.shape === 'capsule') { d = D.capsule(s.hh, s.r); h = s.hh + s.r; }
-    else { d = D.cuboid(s.hx, s.hy, s.hz); h = s.hy; }
+    if (s.shape === 'cylinder') {
+      d = D.cylinder(s.hh, s.r);
+      h = s.hh;
+    } else if (s.shape === 'cone') {
+      d = D.cone(s.hh, s.r);
+      h = s.hh;
+    } else if (s.shape === 'capsule') {
+      d = D.capsule(s.hh, s.r);
+      h = s.hh + s.r;
+    } else {
+      d = D.cuboid(s.hx, s.hy, s.hz);
+      h = s.hy;
+    }
     return d.setTranslation(s.x || 0, s.y ?? s.cy ?? h, s.z || 0);
   }
   _removeProp(rec) {
@@ -146,8 +199,13 @@ export class Physics {
   }
   // who a collider belongs to (null: the static world, see physics.tags for its kinds). Handles are reused
   // by Rapier, so every path that removes a body goes through _drop()
-  _own(col, kind, key) { this.owner.set(col.handle, { kind, key }); return col; }
-  ownerOf(col) { return this.owner.get(col.handle) || null; }
+  _own(col, kind, key) {
+    this.owner.set(col.handle, { kind, key });
+    return col;
+  }
+  ownerOf(col) {
+    return this.owner.get(col.handle) || null;
+  }
   _drop(body) {
     for (let i = 0, n = body.numColliders(); i < n; i++) this.owner.delete(body.collider(i).handle);
     this.world.removeRigidBody(body);
@@ -156,7 +214,10 @@ export class Physics {
   // stand-ins do not cover, or to make a shoved prop tumble
   kick(rec, vx, vy, vz, sx = 0, sy = 0, sz = 0) {
     if (!rec || !this.world) return;
-    if (rec.off) { rec.body.setEnabled(true); rec.off = false; }
+    if (rec.off) {
+      rec.body.setEnabled(true);
+      rec.off = false;
+    }
     if (vx !== null) rec.body.setLinvel({ x: vx, y: vy, z: vz }, true);
     if (sx || sy || sz) rec.body.setAngvel({ x: sx, y: sy, z: sz }, true);
   }
@@ -168,7 +229,9 @@ export class Physics {
   // y + 2 cy) for a walking character. Keys not listed for MOVER_GONE seconds lose their body.
   movers(list, dt) {
     if (!this.world) return;
-    const R = this.R, W = this.world, seen = new Set();
+    const R = this.R,
+      W = this.world,
+      seen = new Set();
     // a stand-in moving faster than this in one frame was moved by the game, not driven (lane snap, place())
     const jump = Math.min(MOVER_JUMP, 0.5 + 40 * dt);
     for (const m of list) {
@@ -176,22 +239,46 @@ export class Physics {
       const up = m.hl <= m.r; // walking character: upright capsule
       const sig = `${m.r}|${m.hl}|${m.cy}|${m.hh}|${m.group}`;
       let rec = this.moverMap.get(m.key);
-      if (rec && rec.sig !== sig) { this.dropMover(m.key); rec = null; }
+      if (rec && rec.sig !== sig) {
+        this.dropMover(m.key);
+        rec = null;
+      }
       const rot = yawQ(m.yaw);
-      const pos = { x: m.x, y: m.y + m.cy, z: m.z }, r = { x: rot.x, y: rot.y, z: rot.z, w: rot.w };
+      const pos = { x: m.x, y: m.y + m.cy, z: m.z },
+        r = { x: rot.x, y: rot.y, z: rot.z, w: rot.w };
       if (!rec) {
-        const body = W.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(pos.x, pos.y, pos.z).setRotation(r));
-        const d = up ? R.ColliderDesc.capsule(Math.max(0.05, m.cy - m.r), m.r) : R.ColliderDesc.cuboid(m.r, m.hh ?? m.cy, m.hl);
+        const body = W.createRigidBody(
+          R.RigidBodyDesc.kinematicPositionBased()
+            .setTranslation(pos.x, pos.y, pos.z)
+            .setRotation(r)
+        );
+        const d = up
+          ? R.ColliderDesc.capsule(Math.max(0.05, m.cy - m.r), m.r)
+          : R.ColliderDesc.cuboid(m.r, m.hh ?? m.cy, m.hl);
         rec = { body, sig, t: 0, on: true, from: null, to: null };
-        this._own(W.createCollider(d.setCollisionGroups(groups(m.group ?? G.VEHICLE)).setFriction(0.5), body), 'mover', m.key);
+        this._own(
+          W.createCollider(
+            d.setCollisionGroups(groups(m.group ?? G.VEHICLE)).setFriction(0.5),
+            body
+          ),
+          'mover',
+          m.key
+        );
         this.moverMap.set(m.key, rec);
-      } else if (!rec.on) { // back in the list: switched on where it is now
-        rec.body.setEnabled(true); rec.on = true;
-        rec.body.setTranslation(pos, true); rec.body.setRotation(r, true); rec.from = rec.to = null;
+      } else if (!rec.on) {
+        // back in the list: switched on where it is now
+        rec.body.setEnabled(true);
+        rec.on = true;
+        rec.body.setTranslation(pos, true);
+        rec.body.setRotation(r, true);
+        rec.from = rec.to = null;
       } else {
         const c = rec.body.translation();
-        if (Math.hypot(c.x - pos.x, c.y - pos.y, c.z - pos.z) > jump) { rec.body.setTranslation(pos, true); rec.body.setRotation(r, true); rec.from = rec.to = null; }
-        else {
+        if (Math.hypot(c.x - pos.x, c.y - pos.y, c.z - pos.z) > jump) {
+          rec.body.setTranslation(pos, true);
+          rec.body.setRotation(r, true);
+          rec.from = rec.to = null;
+        } else {
           // spread the frame's motion over its physics steps (before hook): the whole frame in the first step
           // would give the stand-in twice its speed against what it touches
           const q = rec.body.rotation();
@@ -204,27 +291,41 @@ export class Physics {
     // not in the list this frame (you got on, a rival removed, out of range): no invisible block left behind
     for (const [k, rec] of this.moverMap) {
       if (seen.has(k)) continue;
-      if (rec.on) { rec.body.setEnabled(false); rec.on = false; rec.from = rec.to = null; }
+      if (rec.on) {
+        rec.body.setEnabled(false);
+        rec.on = false;
+        rec.from = rec.to = null;
+      }
       if ((rec.t += dt) > MOVER_GONE) this.dropMover(k);
     }
   }
   _moverSteps(i, n) {
-    const f = (i + 1) / n, p = {}, q = _mq;
+    const f = (i + 1) / n,
+      p = {},
+      q = _mq;
     for (const rec of this.moverMap.values()) {
       if (!rec.to) continue;
-      const a = rec.from.p, b = rec.to.p;
-      p.x = a.x + (b.x - a.x) * f; p.y = a.y + (b.y - a.y) * f; p.z = a.z + (b.z - a.z) * f;
+      const a = rec.from.p,
+        b = rec.to.p;
+      p.x = a.x + (b.x - a.x) * f;
+      p.y = a.y + (b.y - a.y) * f;
+      p.z = a.z + (b.z - a.z) * f;
       q.copy(rec.from.q).slerp(rec.to.q, f);
-      rec.body.setNextKinematicTranslation(p); rec.body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
+      rec.body.setNextKinematicTranslation(p);
+      rec.body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
       if (i === n - 1) rec.from = rec.to = null;
     }
   }
   dropMover(key) {
-    const rec = this.moverMap.get(key); if (!rec) return;
-    this.moverMap.delete(key); this._drop(rec.body);
+    const rec = this.moverMap.get(key);
+    if (!rec) return;
+    this.moverMap.delete(key);
+    this._drop(rec.body);
   }
   // a stand-in, or a vehicle that has a physics body of its own (src/physics/VehPhysics.js), already pushes what it touches
-  hasMover(key) { return !!this.moverMap.get(key)?.on || !!key?.body; }
+  hasMover(key) {
+    return !!this.moverMap.get(key)?.on || !!key?.body;
+  }
 
   // ---------- knocked loose: a dynamic body for an object the game normally places itself ----------
   // obj: the object's mesh (its position / quaternion are the start pose, physics writes them, and calls
@@ -233,12 +334,33 @@ export class Physics {
   // once it sleeps (or after KNOCK_MAX_T): the body is gone by then. Returns the record or null.
   knock(obj, shape, mass, v, w, onMove, onRest, key = obj) {
     if (!this.world) return null;
-    const R = this.R, W = this.world, p = obj.position, q = obj.quaternion;
-    const body = W.createRigidBody(R.RigidBodyDesc.dynamic().setTranslation(p.x, p.y, p.z).setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
-      .setLinearDamping(0.15).setAngularDamping(0.6).setCcdEnabled(true));
+    const R = this.R,
+      W = this.world,
+      p = obj.position,
+      q = obj.quaternion;
+    const body = W.createRigidBody(
+      R.RigidBodyDesc.dynamic()
+        .setTranslation(p.x, p.y, p.z)
+        .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
+        .setLinearDamping(0.15)
+        .setAngularDamping(0.6)
+        .setCcdEnabled(true)
+    );
     const rec = { body, obj, onMove, onRest, t: 0, key };
-    this._own(W.createCollider(this._shape(shape).setMass(mass).setFriction(0.8).setRestitution(0.15).setCollisionGroups(groups(G.DEBRIS)), body), 'knock', key);
-    body.setLinvel(v, true); if (w) body.setAngvel(w, true);
+    this._own(
+      W.createCollider(
+        this._shape(shape)
+          .setMass(mass)
+          .setFriction(0.8)
+          .setRestitution(0.15)
+          .setCollisionGroups(groups(G.DEBRIS)),
+        body
+      ),
+      'knock',
+      key
+    );
+    body.setLinvel(v, true);
+    if (w) body.setAngvel(w, true);
     this.knocked.add(rec);
     return rec;
   }
@@ -254,12 +376,19 @@ export class Physics {
       this._moverSteps(i, n);
       for (const f of this.before) f(STEP, i, n);
       this.world.step(this.events);
-      this.acc -= STEP; this.steps++;
+      this.acc -= STEP;
+      this.steps++;
       for (const f of this.after) f(STEP, i, n);
-      for (const p of this.props) if (p.maxSpeed && !p.body.isSleeping()) {
-        const v = p.body.linvel(), s = Math.hypot(v.x, v.z);
-        if (s > p.maxSpeed) p.body.setLinvel({ x: v.x * p.maxSpeed / s, y: v.y, z: v.z * p.maxSpeed / s }, true);
-      }
+      for (const p of this.props)
+        if (p.maxSpeed && !p.body.isSleeping()) {
+          const v = p.body.linvel(),
+            s = Math.hypot(v.x, v.z);
+          if (s > p.maxSpeed)
+            p.body.setLinvel(
+              { x: (v.x * p.maxSpeed) / s, y: v.y, z: (v.z * p.maxSpeed) / s },
+              true
+            );
+        }
     }
     this.acc = Math.max(0, this.acc);
     if (n === MAX_SUB) this.acc = Math.min(this.acc, STEP);
@@ -272,18 +401,23 @@ export class Physics {
     for (const r of this.rags) r.pose(dt); // (may end itself: Set iteration copes with deleting the current one)
     for (const p of this.props) {
       if (p.off || p.body.isSleeping()) continue;
-      const t = p.body.translation(), r = p.body.rotation();
+      const t = p.body.translation(),
+        r = p.body.rotation();
       if (!p.hit && Math.hypot(t.x - p.x0, t.z - p.z0) > 0.1) p.hit = true;
-      p.obj.position.set(t.x, t.y, t.z); p.obj.quaternion.set(r.x, r.y, r.z, r.w);
+      p.obj.position.set(t.x, t.y, t.z);
+      p.obj.quaternion.set(r.x, r.y, r.z, r.w);
       if (!p.obj.matrixAutoUpdate) p.obj.updateMatrix();
     }
     for (const k of this.knocked) {
-      const t = k.body.translation(), r = k.body.rotation();
-      k.obj.position.set(t.x, t.y, t.z); k.obj.quaternion.set(r.x, r.y, r.z, r.w);
+      const t = k.body.translation(),
+        r = k.body.rotation();
+      k.obj.position.set(t.x, t.y, t.z);
+      k.obj.quaternion.set(r.x, r.y, r.z, r.w);
       if (!k.obj.matrixAutoUpdate) k.obj.updateMatrix();
       k.onMove?.(k.obj.position, k.obj.quaternion);
       if (k.body.isSleeping() || (k.t += dt) > KNOCK_MAX_T) {
-        this.knocked.delete(k); this._drop(k.body);
+        this.knocked.delete(k);
+        this._drop(k.body);
         k.onRest?.(k.obj.position, k.obj.quaternion);
       }
     }
@@ -292,8 +426,12 @@ export class Physics {
       this._farT = 0.5;
       const { x, z } = this.focus;
       for (const p of this.props) {
-        const t = p.body.translation(), off = Math.hypot(t.x - x, t.z - z) > PROP_FAR;
-        if (off !== p.off) { p.off = off; p.body.setEnabled(!off); }
+        const t = p.body.translation(),
+          off = Math.hypot(t.x - x, t.z - z) > PROP_FAR;
+        if (off !== p.off) {
+          p.off = off;
+          p.body.setEnabled(!off);
+        }
       }
     }
   }
@@ -302,9 +440,15 @@ export class Physics {
   enableDebug(scene) {
     if (!this.world || this.debug) return;
     const geo = new THREE.BufferGeometry();
-    const mat = new THREE.LineBasicMaterial({ vertexColors: true, depthTest: true, transparent: true, opacity: 0.85 });
+    const mat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      depthTest: true,
+      transparent: true,
+      opacity: 0.85,
+    });
     const lines = new THREE.LineSegments(geo, mat);
-    lines.frustumCulled = false; lines.renderOrder = 999;
+    lines.frustumCulled = false;
+    lines.renderOrder = 999;
     scene.add(lines);
     this.debug = { lines, t: 0 };
   }

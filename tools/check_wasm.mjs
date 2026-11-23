@@ -40,11 +40,11 @@ function normalJS(hf, w, h, strength, d) {
   }
 }
 
-const ok = await initKernels(fs.readFileSync(root + '/src/graphics/wasm/kernels.wasm'));
+const ok = await initKernels(fs.readFileSync(`${root  }/src/graphics/wasm/kernels.wasm`));
 if (!ok) { console.error('kernels.wasm failed to load'); process.exit(2); }
 
 // fbm parameter sets used by the game: (size, P, oct, seed[, gain]); size S resolved per texture
-const src = fs.readFileSync(root + '/src/graphics/Textures.js', 'utf8');
+const src = fs.readFileSync(`${root  }/src/graphics/Textures.js`, 'utf8');
 const sets = new Set();
 for (const m of src.matchAll(/fbmField\(([^)]*)\)/g)) {
   const a = m[1].split(',').map(s => s.trim()); if (a[0] === 'size') continue;

@@ -178,10 +178,10 @@ flowchart TD
 ```
 
 1. **`ci.yml`（持續整合品質門禁）**：
-   - 針對 `main` 的 Push 或 Pull Request 自動執行 4 大 Job（並與倉庫 `protect-main-github-flow` Ruleset 綁定為必要通過檢查）。
-   - 包含 Prettier 排版檢查、ESLint 0 容忍檢查、Vitest 單元測試、WASM 抽樣整合測試、Vite 打包檢查（`check_dist.mjs`）與 Docker 建置驗證。
+   - 針對 `main` 的 Pull Request（與手動 `workflow_dispatch`）執行 4 大 Job，與倉庫 `protect-main-github-flow` Ruleset 綁定為必要通過檢查（合併至 `main` 後不再重複執行）。
+   - 包含 Prettier 排版檢查、ESLint 0 error / 0 warning 檢查、Vitest 單元測試、WASM 抽樣整合測試、Vite 打包檢查（`check_dist.mjs`）與平行執行的 Docker 建置＋`nginx -t` 驗證。
 2. **`deploy.yml`（持續交付發布管線）**：
-   - 專門負責構建 `dist/` 並推送至 GitHub Pages。
+   - 當程式碼合併至 `main` 且非純文件／測試異動（`paths-ignore` 略過 `docs/**`、`tests/**`、`*.md` 等）時，自動構建 `dist/` 並部署至 GitHub Pages。
    - 使用 `actions/configure-pages` 自動注入對應的儲存庫路徑 Base URL。
 3. **`e2e.yml`（端對端劇本走查）**：
    - 只支援手動觸發（`workflow_dispatch`，沒有排程），在虛擬無頭瀏覽器中自動跑完主線劇情。

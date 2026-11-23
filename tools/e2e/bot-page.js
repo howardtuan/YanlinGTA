@@ -474,7 +474,7 @@
     }
     stick(-steer, throttle);
     setHeld([]);
-    B.dbg = { m: 'drive', x: +x.toFixed(1), z: +z.toFixed(1), h: +v.heading.toFixed(2), sp: +sp.toFixed(1), tgt: +target.toFixed(1), a: +alpha.toFixed(2), st: +steer.toFixed(2), th: +throttle.toFixed(2), ob: (ob.veh ? 'v' + ob.veh.d.toFixed(1) : ob.ped ? 'p' + ob.ped.d.toFixed(1) : '') + (n.avoid ? (n.avoid.sgn > 0 ? '>' : n.avoid.sgn < 0 ? '<' : 'x') : ''), pd: +tr.d.toFixed(1), s: +tr.s.toFixed(0), L: +n.path.len.toFixed(0) };
+    B.dbg = { m: 'drive', x: +x.toFixed(1), z: +z.toFixed(1), h: +v.heading.toFixed(2), sp: +sp.toFixed(1), tgt: +target.toFixed(1), a: +alpha.toFixed(2), st: +steer.toFixed(2), th: +throttle.toFixed(2), ob: (ob.veh ? `v${  ob.veh.d.toFixed(1)}` : ob.ped ? `p${  ob.ped.d.toFixed(1)}` : '') + (n.avoid ? (n.avoid.sgn > 0 ? '>' : n.avoid.sgn < 0 ? '<' : 'x') : ''), pd: +tr.d.toFixed(1), s: +tr.s.toFixed(0), L: +n.path.len.toFixed(0) };
   }
 
   function footTick(dt, aimOverride) {

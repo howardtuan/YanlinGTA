@@ -16,7 +16,7 @@ const BUILTIN = {
   zz: async () => createCharacter((await import('../../src/ui/phone/Friends.js')).ZZ_LOOK),
   gd: async () => createCharacter((await import('../../src/ui/phone/Friends.js')).GD_LOOK),
   hank: async () => createCharacter((await import('../../src/entities/npcs/Hank.js')).HANK_LOOK),
-  ...Object.fromEntries(['qi', 'xuan', 'yu'].map(id => ['club_' + id, async () => (await import('../../src/entities/npcs/ClubMembers.js')).createMember(id)])), // 古箏社社員
+  ...Object.fromEntries(['qi', 'xuan', 'yu'].map(id => [`club_${  id}`, async () => (await import('../../src/entities/npcs/ClubMembers.js')).createMember(id)])), // 古箏社社員
   garry: async () => (await import('../../src/entities/npcs/Garry.js')).createGarry(),
   laoda: async () => (await import('../../src/entities/Pilot.js')).createPilot(),
   jianyu: async () => createCharacter((await import('../../src/entities/npcs/Jianyu.js')).JIANYU_LOOK),
@@ -100,7 +100,7 @@ async function shoot(n) {
 async function save() {
   if (!DEV) { toast('要在開發伺服器上才能存檔'); return false; }
   const res = await fetch('/__dev/npcs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(REG) });
-  const j = await res.json().catch(() => ({})); if (!res.ok) { toast('存檔失敗：' + (j.error || res.status)); return false; }
+  const j = await res.json().catch(() => ({})); if (!res.ok) { toast(`存檔失敗：${  j.error || res.status}`); return false; }
   return true;
 }
 
@@ -125,7 +125,7 @@ async function openDetail(n) {
   dView ||= new Viewer($('detailViewer')); dView.yaw = 0.35; dView.set(await buildNpc(n)); dView.start();
   const row = (k, v) => v && (Array.isArray(v) ? v.length : true) ? `<dt>${k}</dt><dd>${esc(Array.isArray(v) ? v.join('、') : v)}</dd>` : '';
   const talks = (n.talks || []).map(t => t.map(([w, s]) => `<div><b>${esc(w)}</b>：${esc(s)}</div>`).join('')).join('<hr>');
-  $('profile').innerHTML = `<h2>${esc(n.name)}</h2><div class="t">${esc(n.title)}${n.dept ? '・' + esc(n.dept) : ''}${n.gender ? '・' + esc(n.gender) : ''}</div>${badges(n)}
+  $('profile').innerHTML = `<h2>${esc(n.name)}</h2><div class="t">${esc(n.title)}${n.dept ? `・${  esc(n.dept)}` : ''}${n.gender ? `・${  esc(n.gender)}` : ''}</div>${badges(n)}
     <dl>${row('個性', n.personality)}${row('興趣', n.interests)}${row('喜歡', n.likes)}${row('口頭禪', n.catchphrase)}${row('背景', n.background)}${row('人際關係', n.relations)}
     ${row('出沒地點', n.kind === 'custom' ? n.place : n.where)}${row('作息', n.schedule)}</dl>
     ${talks ? `<h4>對話</h4><div class="talks">${talks}</div>` : ''}
@@ -147,7 +147,7 @@ addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(); });
 // a request sheet to paste to Claude (special behaviour needs code)
 function brief(n) {
   return `請幫我在「中原順起來」加入這個 NPC（資料已經在 data/npcs.json，id: ${n.id}）：
-名字：${n.name}（${n.title || ''}${n.dept ? '，' + n.dept : ''}）
+名字：${n.name}（${n.title || ''}${n.dept ? `，${  n.dept}` : ''}）
 個性：${n.personality || ''}
 興趣：${(n.interests || []).join('、')}；喜歡：${n.likes || ''}；口頭禪：${n.catchphrase || ''}
 背景：${n.background || ''}
@@ -161,7 +161,7 @@ ${n.photo ? `參考照片：${n.photo}\n` : ''}想要的特別行為：（在這
 let eView = null, cur = null, photoImg = null, pickTarget = 'hair', photoFile = null;
 const COLOR_KEYS = [['hair', '頭髮'], ['skin', '皮膚'], ['shirt', '上衣'], ['jacket', '外套'], ['shorts', '褲子'], ['shoes', '鞋子'], ['bag', '包包'], ['glassesColor', '鏡框']];
 function openEditor(n) {
-  cur = n ? JSON.parse(JSON.stringify(n)) : { id: 'npc_' + Date.now().toString(36), kind: 'custom', enabled: true, name: '', title: '', gender: '男', dept: '', look: { ...DEFAULT_LOOK }, height: 1, talks: [], place: Object.keys(REG.places)[0] };
+  cur = n ? JSON.parse(JSON.stringify(n)) : { id: `npc_${  Date.now().toString(36)}`, kind: 'custom', enabled: true, name: '', title: '', gender: '男', dept: '', look: { ...DEFAULT_LOOK }, height: 1, talks: [], place: Object.keys(REG.places)[0] };
   $('edTitle').textContent = n ? `編輯 ${n.name}` : '新增 NPC';
   $('editor').classList.remove('hidden');
   const v = (id, val) => { $(id).value = val ?? ''; };
@@ -173,7 +173,7 @@ function openEditor(n) {
   $('f_enabled').checked = cur.enabled !== false;
   $('parseLog').innerHTML = ''; $('edMsg').textContent = '';
   photoImg = null; photoFile = null; $('photoCv').classList.add('hidden'); $('photoEmpty').classList.remove('hidden');
-  if (cur.photo) { const im = new Image(); im.onload = () => showPhoto(im); im.src = '../../' + cur.photo + '?t=' + Date.now(); }
+  if (cur.photo) { const im = new Image(); im.onload = () => showPhoto(im); im.src = `../../${  cur.photo  }?t=${  Date.now()}`; }
   tab('basic'); sub('text');
   eView ||= new Viewer($('edViewer')); eView.yaw = 0.35; eView.start(); refresh();
 }
@@ -245,7 +245,7 @@ function parseDesc(text) {
   else if (/白皙|皮膚白|很白/.test(t)) set('skin', '#f3d6c0', '膚色：白皙');
   // hair style
   const hs = [[/光頭/, 'bald', '光頭'], [/平頭|寸頭|小平頭|短短的頭髮/, 'buzz', '平頭'], [/捲/, 'curly', '捲髮'], [/馬尾/, 'pony', '馬尾'], [/長髮|頭髮很長|長頭髮/, 'long', '長髮'], [/西瓜皮|妹妹頭|瀏海|香菇頭/, 'bowl', '有瀏海'], [/短髮/, 'short', '短髮']].find(([re]) => re.test(t));
-  if (hs) set('hairStyle', hs[1], '髮型：' + hs[2]); else if (/女生|女孩|女性/.test(t) && !L.hairStyle) set('hairStyle', 'long', '髮型：長髮（女生預設）');
+  if (hs) set('hairStyle', hs[1], `髮型：${  hs[2]}`); else if (/女生|女孩|女性/.test(t) && !L.hairStyle) set('hairStyle', 'long', '髮型：長髮（女生預設）');
   // glasses
   if (/黑框|粗框|膠框/.test(t)) { set('glasses', true, '黑粗框眼鏡'); L.glassesStyle = 'thick'; if (!L.glassesColor) L.glassesColor = '#141414'; }
   if (/眉框|半框|上框/.test(t)) { set('glasses', true, '眉框眼鏡'); L.glassesStyle = 'browline'; if (!L.glassesColor) L.glassesColor = '#2b1f1a'; }
@@ -305,7 +305,7 @@ function showPhoto(im) {
   cv.getContext('2d', { willReadFrequently: true }).drawImage(im, 0, 0, cv.width, cv.height);
   cv.classList.remove('hidden'); $('photoEmpty').classList.add('hidden');
 }
-const hex = (r, g, b) => '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+const hex = (r, g, b) => `#${  [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
 // median colour of a box of the photo (fractions of the size); keep(r,g,b) filters the pixels
 function sample(x0, y0, x1, y1, keep) {
   const cv = $('photoCv'), g = cv.getContext('2d', { willReadFrequently: true });
@@ -337,7 +337,7 @@ $('photoCv').onclick = (e) => {
   cur.look[pickTarget] = c; if (pickTarget === 'glassesColor') cur.look.glasses = true; refresh();
   toast(`${COLOR_KEYS.find(k => k[0] === pickTarget)?.[1] || pickTarget} → ${c}`);
 };
-$('btnJson').onclick = () => { try { cur.look = JSON.parse($('f_json').value); refresh(); toast('已套用'); } catch (e) { toast('JSON 格式不對：' + e.message); } };
+$('btnJson').onclick = () => { try { cur.look = JSON.parse($('f_json').value); refresh(); toast('已套用'); } catch (e) { toast(`JSON 格式不對：${  e.message}`); } };
 
 // ---- save
 function talksFrom(text, name) {
@@ -361,7 +361,7 @@ $('btnSave').onclick = async () => {
   const i = REG.npcs.findIndex(n => n.id === cur.id);
   if (i >= 0) REG.npcs[i] = cur; else REG.npcs.push(cur);
   if (!(await save())) return;
-  $('edMsg').textContent = '已存檔 ✓'; toast(`已存檔：${name}${cur.enabled ? '（重新整理遊戲就會出現在「' + cur.place + '」）' : ''}`);
+  $('edMsg').textContent = '已存檔 ✓'; toast(`已存檔：${name}${cur.enabled ? `（重新整理遊戲就會出現在「${  cur.place  }」）` : ''}`);
   const saved = cur; closeAll(); render(); await shoot(saved); openDetail(saved);
 };
 $('btnBrief').onclick = async () => { await navigator.clipboard.writeText(brief({ ...cur, name: $('f_name').value || cur.name, title: $('f_title').value, personality: $('f_personality').value, place: $('f_place').value })); toast('需求單已複製'); };

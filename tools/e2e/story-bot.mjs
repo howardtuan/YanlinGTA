@@ -92,7 +92,7 @@ function gitInfo(root) {
     const common = tryRead(path.join(gd, 'commondir'));
     const cd = common ? path.resolve(gd, common) : gd;
     if (!sha) sha = tryRead(path.join(cd, ref));
-    if (!sha) { const packed = tryRead(path.join(cd, 'packed-refs')) || ''; const m = packed.split('\n').find(l => l.endsWith(' ' + ref)); sha = m ? m.split(' ')[0] : null; }
+    if (!sha) { const packed = tryRead(path.join(cd, 'packed-refs')) || ''; const m = packed.split('\n').find(l => l.endsWith(` ${  ref}`)); sha = m ? m.split(' ')[0] : null; }
     return { branch: ref.replace('refs/heads/', ''), sha };
   } catch { return null; }
 }
@@ -122,7 +122,7 @@ async function main() {
     const ok = await openGame();
     if (ok === true) break;
     if (ai === MODES.length - 1) say('!! no usable WebGL renderer in any mode; continuing anyway (nothing will be drawn)');
-    else { say(`!! ${ok} -> ${MODES[ai + 1] === gpu ? 'retrying' : 'falling back to ' + MODES[ai + 1]}`); await closeBrowser(); }
+    else { say(`!! ${ok} -> ${MODES[ai + 1] === gpu ? 'retrying' : `falling back to ${  MODES[ai + 1]}`}`); await closeBrowser(); }
     if (ai === MODES.length - 1) break;
   }
   report.mode = gpu;
@@ -161,7 +161,7 @@ async function main() {
         else if (e.type === 'timer-stop') say(`   timer stopped with ${e.left.toFixed(1)}s left`);
         else if (e.type === 'leg') say(`   -> ${e.name} (${e.mode}/${e.route}, path ${e.pathLen} m${e.noPath ? ', NO PATH' : ''})`);
         else if (e.type === 'unreachable') say(`!! objective ${e.name} (${e.x}, ${e.z}) cannot be entered: nearest reachable point ${e.closestDist} m away > radius ${e.radius} m${e.insideCollision ? ', target is inside building collision' : ''}`);
-        else if (e.type === 'webgl-context-lost') { report.webglContextLost = true; say('!! WebGL context lost' + (e.atInstall ? ' (already at start)' : '') + ' - nothing is drawn; game logic keeps running'); }
+        else if (e.type === 'webgl-context-lost') { report.webglContextLost = true; say(`!! WebGL context lost${  e.atInstall ? ' (already at start)' : ''  } - nothing is drawn; game logic keeps running`); }
         else if (e.type === 'cp-order') say(`   order: ${e.plan.join(' → ')} (${e.pathM} m)`);
         else if (e.type === 'terminal') say(`   terminal> ${e.cmd}  (clues ${e.clues})`);
         else if (e.type === 'yh-walk') say(`   walking ${e.dir > 0 ? 'in to the desk' : 'out to the street'} from waypoint ${e.from}`);
@@ -172,10 +172,10 @@ async function main() {
         else if (e.type === 'ending') say(`ENDING reached: ${e.votes} votes, play time ${e.playTime.toFixed(1)}s`);
         else if (cfg.debug && ['reverse', 'replan', 'sidestep', 'mount', 'dismount', 'flyer', 'paused', 'close-phone'].includes(e.type)) say('   .', JSON.stringify(e));
       }
-      if (cfg.debug && st.dbg) say('   dbg', JSON.stringify(st.dbg), 't=' + st.playTime.toFixed(1));
+      if (cfg.debug && st.dbg) say('   dbg', JSON.stringify(st.dbg), `t=${  st.playTime.toFixed(1)}`);
       if (st.playTime !== lastPlay) { lastPlay = st.playTime; lastPlayReal = Date.now(); }
       if (st.done && !done) { done = true; report.ending = true; report.endingVotes = st.votes; report.playTimeSec = +st.playTime.toFixed(1); }
-      if (st.fatal && report.botErrors.length > 20) throw new Error('bot keeps failing: ' + st.fatal);
+      if (st.fatal && report.botErrors.length > 20) throw new Error(`bot keeps failing: ${  st.fatal}`);
     }
     while (shotsWanted.length) { const i = shotsWanted.shift(); await shot(i === 99 ? 'step-99-ending' : `step-${String(i).padStart(2, '0')}`, i); }
     const st = lastStatus;
@@ -228,10 +228,10 @@ async function openGame() {
     if (entry.source === 'network') report.networkErrors.push(rec); else report.consoleErrors.push(rec);
     say('LOG ERROR', entry.source, entry.text, entry.url || '');
   });
-  const initSrc = fs.readFileSync(path.join(here, 'page-init.js'), 'utf8').replace('const cfg = __E2E_CFG__;', 'const cfg = ' + JSON.stringify({
+  const initSrc = fs.readFileSync(path.join(here, 'page-init.js'), 'utf8').replace('const cfg = __E2E_CFG__;', `const cfg = ${  JSON.stringify({
     fixedDt: cfg.fixedDt, stepsPerFrame: cfg.stepsPerFrame, renderEvery: cfg.renderEvery, seed: cfg.seed,
     settings: { quality: cfg.quality, music: 'off' },
-  }));
+  })}`);
   await page.send('Page.addScriptToEvaluateOnNewDocument', { source: initSrc });
   await page.send('Page.navigate', { url: srv.url });
   // wait for the title screen
@@ -243,10 +243,10 @@ async function openGame() {
     if (/載入失敗/.test(err)) {
       // a WebGL failure in GPU mode is a renderer problem: let main() retry / fall back
       if (/WebGL/i.test(err) && report.gpuAttempts.length < MODES.length - 1) {
-        const att = { mode: gpu, renderer: null, ok: false, reason: 'game failed to load: ' + err, pageErrors: report.pageErrors.splice(mark.p), consoleErrors: report.consoleErrors.splice(mark.c), networkErrors: report.networkErrors.splice(mark.n) };
+        const att = { mode: gpu, renderer: null, ok: false, reason: `game failed to load: ${  err}`, pageErrors: report.pageErrors.splice(mark.p), consoleErrors: report.consoleErrors.splice(mark.c), networkErrors: report.networkErrors.splice(mark.n) };
         report.gpuAttempts.push(att); return att.reason;
       }
-      throw new Error('game failed to load: ' + err);
+      throw new Error(`game failed to load: ${  err}`);
     }
     if (Date.now() - tl > 10 * 60e3) throw new Error('title screen did not appear within 10 min');
     await sleep(500);
@@ -276,7 +276,7 @@ async function shot(name, idx) {
   if (!cfg.shots || !page) return;
   try {
     const { data } = await page.send('Page.captureScreenshot', { format: 'jpeg', quality: 70 }, 120000);
-    const file = path.join(cfg.out, name + '.jpg');
+    const file = path.join(cfg.out, `${name  }.jpg`);
     fs.writeFileSync(file, Buffer.from(data, 'base64'));
     (report.screenshots ||= []).push({ step: idx, file: path.relative(cfg.out, file) });
   } catch (e) { say('screenshot failed', e.message); }
@@ -321,13 +321,13 @@ function finish(err) {
 }
 function printSummary() {
   console.log('\n================ STORY BOT SUMMARY ================');
-  if (report.gpuAttempts?.length > 1) for (const a of report.gpuAttempts) console.log(`attempt  : ${a.mode} -> ${a.ok ? 'OK' : 'FAILED (' + a.reason + ')'} ${a.renderer || ''}`);
+  if (report.gpuAttempts?.length > 1) for (const a of report.gpuAttempts) console.log(`attempt  : ${a.mode} -> ${a.ok ? 'OK' : `FAILED (${  a.reason  })`} ${a.renderer || ''}`);
   console.log(`renderer : ${report.renderer?.contextLost ? 'WebGL CONTEXT LOST (no rendering; see consoleErrors)' : report.renderer?.renderer || '?'}`);
   console.log(`chrome   : ${report.chrome || '?'}   route: ${cfg.route}   mode: ${gpu}, fixed-dt ${cfg.fixedDt.toFixed(4)}s, steps/frame ${cfg.stepsPerFrame}, render-every ${cfg.renderEvery}, quality ${cfg.quality}`);
   console.log(`load     : ${report.loadSec}s   wall: ${report.wallSec}s`);
   if (report.renderStats) console.log(`drawing  : ${report.renderStats.framesDrawn} frames drawn for ${report.renderStats.gameFrames} game frames, avg ${report.renderStats.avgRenderMs} ms per drawn frame (${report.renderStats.renderFps} fps while drawing)`);
   const pad = (s, n) => { s = String(s ?? '-'); let w = 0; for (const ch of s) w += ch.charCodeAt(0) > 0x2e80 ? 2 : 1; return s + ' '.repeat(Math.max(0, n - w)); };
-  console.log(pad('step', 44) + pad('result', 7) + pad('game s', 9) + pad('timed/limit', 14) + pad('dist m', 8) + pad('fb', 4) + pad('err', 5) + pad('fps', 7) + 'render fps');
+  console.log(`${pad('step', 44) + pad('result', 7) + pad('game s', 9) + pad('timed/limit', 14) + pad('dist m', 8) + pad('fb', 4) + pad('err', 5) + pad('fps', 7)  }render fps`);
   for (const s of report.steps) {
     console.log(pad(`${s.idx} ${s.name}`, 44) + pad(s.pass ? 'PASS' : 'FAIL', 7) + pad(s.durationGameSec, 9)
       + pad(s.limitSec ? `${s.timedGameSec ?? '-'}/${s.limitSec}` : '-', 14) + pad(s.distanceM, 8) + pad(s.fallbacks.length, 4) + pad(s.pageErrors, 5)
@@ -339,7 +339,7 @@ function printSummary() {
 }
 
 const cleanup = async () => { await closeBrowser(); try { srv && await srv.close(); } catch { } };
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { finish(new Error('interrupted (' + sig + ')')); await cleanup(); process.exit(130); });
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, async () => { finish(new Error(`interrupted (${  sig  })`)); await cleanup(); process.exit(130); });
 try { await main(); finish(); } catch (e) {
   // salvage whatever the bot recorded
   try { const res = await page.eval('__storyBot.poll()', { timeoutMs: 20000 }); lastSteps = res.steps; report.events.push(...res.events); } catch { }

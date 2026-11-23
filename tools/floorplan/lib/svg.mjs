@@ -42,7 +42,7 @@ export function renderSvg({ sl, cells = [], zones = [], labels = [], frame, meta
   const W = Math.max(Math.ceil(planW + AX + 12), 640), X0 = AX + (W - AX - 12 - planW) / 2 + 0, Y0 = HEAD + AX;
   const P = (p) => { const r = R(p); return [(r[0] - bx0) * S + X0, (r[1] - bz0) * S + Y0]; };
   const V = (v) => R(v); // directions
-  const path = (poly) => poly.map((p, i) => { const s = P(p); return `${i ? 'L' : 'M'}${n(s[0])} ${n(s[1])}`; }).join('') + 'Z';
+  const path = (poly) => `${poly.map((p, i) => { const s = P(p); return `${i ? 'L' : 'M'}${n(s[0])} ${n(s[1])}`; }).join('')  }Z`;
   const sbox = (r) => { const c = [[r.x0, r.z0], [r.x1, r.z0], [r.x1, r.z1], [r.x0, r.z1]].map(P), xs = c.map(v => v[0]), ys = c.map(v => v[1]); return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; };
 
   const out = [], used = new Set();
@@ -122,7 +122,7 @@ export function renderSvg({ sl, cells = [], zones = [], labels = [], frame, meta
     if (l.leader) { const e = P(l.leader), lines = String(l.text).split('\n').length; if (Math.abs(e[1] - p[1]) >= Math.abs(e[0] - p[0])) py += (e[1] > p[1] ? -1 : 1) * (lines * size * 0.6 + 1); }
     out.push(text(px, py, l.text, { size, bold: l.bold, fill: l.color, vertical: l.vertical, rot: l.rot, anchor: l.anchor }));
   }
-  if (debug) for (const t of sl.texts) { const p = P([t.x, t.z]); out.push(`<circle cx="${n(p[0])}" cy="${n(p[1])}" r="1" fill="#e11"/>` + text(p[0], p[1] - 4, `${t.text}${t.door ? '▯' : ''}`, { size: 4.5, fill: '#c00', halo: false })); }
+  if (debug) for (const t of sl.texts) { const p = P([t.x, t.z]); out.push(`<circle cx="${n(p[0])}" cy="${n(p[1])}" r="1" fill="#e11"/>${  text(p[0], p[1] - 4, `${t.text}${t.door ? '▯' : ''}`, { size: 4.5, fill: '#c00', halo: false })}`); }
   out.push('</g>');
 
   // ---- local coordinates along the top and the left (every 10 m), for checking against the code

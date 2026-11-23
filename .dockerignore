@@ -1,5 +1,12 @@
 .git
+.github
 .claude
+.codegraph
+.vite
+node_modules
+dist
+docs
+tests
 tools
-README.md
+*.md
 docker-compose.yml

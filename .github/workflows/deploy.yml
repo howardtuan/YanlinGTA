@@ -2,7 +2,14 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ['main', 'master']
+    branches: ['main']
+    paths-ignore:
+      - 'docs/**'
+      - 'tests/**'
+      - '*.md'
+      - '.github/pull_request_template.md'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/e2e.yml'
   workflow_dispatch:
 
 permissions:

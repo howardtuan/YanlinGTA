@@ -1329,6 +1329,16 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     // 梯段那一段朝前院整個開口（看得到樓梯和欄杆）：清水混凝土只剩一樓地板以下和屋頂以上
     P(0, 0.05, gy - 0.4, FL[0] - 0.3, zn, za, MT.conc);
     P(0, 0.05, ROOF, TOP + 0.6, zn, za, MT.conc);
+    // 開口上一條一條的直條，藍、綠（青）相間（使用者指正 2026-11-23：比較符合實景照），縫裡看得到樓梯
+    {
+      const za0 = SW_RUN.z0 + 0.1,
+        zb0 = SW_RUN.z1 - 0.2,
+        m = Math.round((zb0 - za0) / 0.55);
+      for (let i = 0; i <= m; i++) {
+        const zc = za0 + ((zb0 - za0) * i) / m;
+        P(0.02, 0.24, FL[0] - 0.3, ROOF, zc - 0.07, zc + 0.07, i % 2 ? MT.teal : MT.blue);
+      }
+    }
     const xin = Math.abs(xi - xf); // from the face back to the stair's lining
     let yy = gy - 0.4;
     for (let i = 0; i < 3; i++) {

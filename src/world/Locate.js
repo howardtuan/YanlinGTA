@@ -194,6 +194,10 @@ export function friendLocations(g) {
     if (has(id) && D?.mode)
       add(id, name, av, color, D.mode === 'date' || D.mode === 'walk' ? null : D.pos, D.where()); // out on a date / a walk with his girlfriend: no pin
   }
+  // 吱吱's girlfriend (src/entities/npcs/Yulu.js): a pin only in front of 商設館
+  const Y = g.yulu;
+  if (has('yulu') && Y?.mode)
+    add('yulu', 'Yulu', '🎨', '#c9a24a', Y.mode === 'ssd' ? Y.navPos() : null, Y.where());
   return out;
 }
 
@@ -227,6 +231,7 @@ export function locateUI(root, g) {
         'houshe',
         'richard',
         'howard',
+        'yulu',
       ].some((id) => !g.friends.added.has(id))
         ? '<div class="lc-note">在校園裡認識新朋友、加好友，他們就會出現在這裡 📍</div>'
         : '';

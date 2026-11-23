@@ -5,6 +5,7 @@
 //   （src/ui/phone/Friends.js 的 zz 站點）；22:00–02:00 在 276 書桌打 LOL 或楓吱谷；
 //   23:00–23:40 大約每 10 天有 6 天跟女拳大帝各騎自己的 BW'S 在學校附近兜風（女拳大帝在前、吱吱在後），兜風那天
 //   女拳大帝 23:40 才回寢室（src/entities/npcs/Gordon.js 看 gdOut）。
+// 女朋友 Yulu（src/entities/npcs/Yulu.js）：有些晚上 19:00–21:00（沒打工、沒受傷的日子）跟她手牽手在校園散步，那段時間不在體育館。
 // 支線「吱吱武嶺跑山受傷」（src/systems/quests/ZzInjury.js）期間：不打工、不打球、不兜風，一直待在 276 養傷；
 //   受傷不好爬上舖，所以他睡 3 號床、彥霖睡 2 號床（座位不換）；晚上 8 點到 12 點還沒洗澡的話，他在力行二樓浴室等你。
 // 兩台 BW'S（src/entities/Vehicles.js buildBws）：吱吱的白紅舊款打工時停在茶學苑旁、女拳大帝的夜幕灰新款顧店時停在戈登肉鋪門口，
@@ -113,6 +114,7 @@ export class Zz {
     if (this.q?.waiting()) return 'bath'; // 20:00–24:00, not washed yet today: in the 2F bathroom (the quest draws him there)
     if (m >= M(2) && m < M(8)) return 'sleep';
     if (this.injured) return 'room';
+    if (this.g.yulu?.walkNow(clock)) return 'walk'; // with his girlfriend (she draws him, src/entities/npcs/Yulu.js)
     if (zzOnShift(clock)) return 'shop';
     if (m >= M(8) && m < M(22)) return 'gym';
     if (m >= RIDE0 && m < RIDE1 && this.rideDay(day) && (this.cruising || this._canRide()))
@@ -172,7 +174,9 @@ export class Zz {
       label: () =>
         this.mode === 'sleep'
           ? `按 <kbd>E</kbd> 看看 ${this.injured ? 3 : 2} 號床上的吱吱（睡著了）`
-          : '按 <kbd>E</kbd> 和吱吱聊天',
+          : g.yuluQuest?.ready
+            ? '按 <kbd>E</kbd> 把無糖茶交給吱吱（Yulu 請你送的）'
+            : '按 <kbd>E</kbd> 和吱吱聊天',
       fn: () => this.talk(),
     });
     // 彥霖's own laptop on the innermost desk (opens the same computer as at home)
@@ -260,6 +264,7 @@ export class Zz {
   }
   talk() {
     const g = this.g;
+    if (this.mode === 'room' && g.yuluQuest?.give()) return; // the unsweetened tea Yulu asked you to bring (src/systems/quests/YuluTea.js)
     if (this.mode === 'sleep') {
       g.dialog([
         ['吱吱', '（呼……呼……）'],
@@ -564,6 +569,16 @@ export class Zz {
       pose: sl ? null : talking ? 'talk' : 'type',
     });
   }
+  // a second figure of him for the walks with Yulu (src/entities/npcs/Yulu.js)
+  makeWalker() {
+    const ch = createCharacter(ZZ_LOOK),
+      tag = makeLabel('🏐 吱吱', { height: 0.24, size: 40, color: '#ffd23f' });
+    tag.position.set(0, 1.8, 0);
+    ch.root.add(tag);
+    serviceWear('zz', ch, ZZ_LOOK, { tag });
+    ch.root.visible = false;
+    return ch;
+  }
   // for the phone (定位 / 你在哪)
   where() {
     const m = this.mode;
@@ -572,6 +587,7 @@ export class Zz {
     if (this.injured) return '在力行宿舍 276 寢養傷（手指骨折）🩹';
     if (m === 'shop') return '在正門外的茶學苑打工';
     if (m === 'gym') return '在體育館門口';
+    if (m === 'walk') return '跟女朋友 Yulu 在校園散步 💕';
     if (m === 'ride') return "跟女拳大帝騎 BW'S 在學校附近兜風 🛵";
     return `在力行宿舍 276 寢打${Math.floor(this.g.clock / 30) % 2 ? '楓吱谷 🍁' : ' LOL 🎮'}`;
   }
@@ -582,6 +598,7 @@ export class Zz {
     if (m === 'bath') return this.q?.bathSpot || null;
     if (m === 'shop') return g.tea?.zz?.root.position || null;
     if (m === 'gym') return g.friends?.npcs?.zz?.ch.root.position || null;
+    if (m === 'walk') return null; // out with his girlfriend: no pin
     if (m === 'ride')
       return this.trailBike.mesh.visible
         ? this.trailBike.mesh.position

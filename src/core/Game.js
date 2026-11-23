@@ -69,6 +69,8 @@ import { Zz } from '../entities/npcs/Zz.js';
 import { ZzInjury } from '../systems/quests/ZzInjury.js';
 import { DormMahjong } from '../systems/mahjong/Mahjong.js';
 import { TzuyuWagyu } from '../systems/quests/TzuyuWagyu.js';
+import { YuluTea } from '../systems/quests/YuluTea.js';
+import { Yulu } from '../entities/npcs/Yulu.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
 import { serviceTick, serviceName } from '../entities/npcs/Service.js';
@@ -520,6 +522,9 @@ class Game {
     this.zzQuest = new ZzInjury(this);
     this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
     this.zz = new Zz(this);
+    // 吱吱's girlfriend Yulu (商設館 / after-dinner walks) and her errand (src/entities/npcs/Yulu.js, src/systems/quests/YuluTea.js)
+    this.yulu = new Yulu(this);
+    this.yuluQuest = new YuluTea(this);
     // 力行 277 寢的迷你麻將桌：揪力行的人打台式麻將（src/systems/mahjong/Mahjong.js）
     this.mahjong = new DormMahjong(this);
 
@@ -1092,6 +1097,8 @@ class Game {
     this.zz?.update(dt);
     this.zzQuest?.update(dt);
     this.tzuyuQuest?.update(dt);
+    this.yulu?.update(dt);
+    this.yuluQuest?.update(dt);
     this.mahjong?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;

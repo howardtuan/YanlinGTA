@@ -257,6 +257,7 @@ export class TeaShop {
       );
       g.audio.pickup?.();
       if (d.secret) return; // the 隱藏款 is just for the talk: no boost, no votes
+      g.yuluQuest?.onTea(d.name, SUGAR[sugar]); // Yulu's errand: an unsweetened one for 吱吱 (src/systems/quests/YuluTea.js)
       g.player.boost = 30;
       if (zz && !this.voted) {
         this.voted = true;

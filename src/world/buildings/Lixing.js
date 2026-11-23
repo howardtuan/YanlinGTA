@@ -46,7 +46,7 @@ const ROOM_SPOTS = {}; // 276～281: beds, desks and chairs in local metres (I.l
 const ST = 3.3; // storey height
 // 兩翼靠中段的樓梯（分布圖「樓梯」）：樓梯間在兩翼朝前院的那一面（使用者指正；街景 2026-05 拍到東棟那面是清水混凝土＋藍白格子、
 // 三個凸出的平台）。樓梯 z SW.z0..SW.z1，入口在南端：各樓南迴廊東端那段走道（一樓那段就是前院進來的通道，二樓以上的走道在它正上方；
-// 使用者指正），每層樓南端的樓梯平台朝前院開口。
+// 使用者指正）；二樓以上朝前院的開口在那段走道（對齊一樓挖空那格），不在樓梯平台（使用者指正 2026-11-23）。
 // 這兩座是剪刀梯（使用者指正：樓梯間兩邊都有樓梯，一樓到二樓從側面看像 X）：兩條梯道各一座直梯、方向相反，
 // 每層南北兩端都是整個井寬的樓層平台（下面的 scissor()），長 SW.ld。
 // 樓梯間從主走廊（CZ）一路到南迴廊（SG），旁邊沒有另外的走道（使用者指正 2026-11-23：原本的「樓梯＋北端走道」整段都是樓梯，
@@ -97,13 +97,13 @@ export function lixingLook(b) {
       y0: f1 - 0.3,
       y1: f1 + 3 * ST + 3.0,
     });
-  // the floor landings (2F up) of the two wing stairs are open to the forecourt
+  // 2F 以上：南迴廊東／西端那段走道（一樓挖空那格的正上方）朝前院開口，窗台高 SW.sill（使用者指正：開口對齊走道，不是樓梯平台）
   for (const x of [SW.fW, SW.fE])
     for (let i = 0; i < 3; i++) {
       const y = f1 + ST * (i + 1);
       b.wallDoors.push({
-        p: W(x, SW.z1 - SW.ld + 0.1),
-        q: W(x, SW.z1 - 0.1),
+        p: W(x, WD.z0 + 0.1),
+        q: W(x, WD.z1 - 0.1),
         y0: y + SW.sill,
         y1: y + SW.head,
       });
@@ -671,7 +671,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   // 北端（z0）是接回主走廊的走道（使用者確認有通）。open: -1 / +1 = 南端平台（二樓以上）朝 x 小／大那一側開口（朝前院）。
   // 兩條梯道中間不再是通到屋頂的實牆，只留跟著梯段斜上去的欄板，站在梯段上看得到另一條；碰撞仍是整面
   // （人一定站在自己那條梯段上，欄板永遠在身旁，所以不會有看不見的牆，也不會跨到另一條掉下去）。
-  const scissor = ({ x0, x1, z0, z1, ld, mid = 0, nl = 0, open = 0, wallM = MT.white }) => {
+  const scissor = ({ x0, x1, z0, z1, ld, mid = 0, nl = 0, wallM = MT.white }) => {
     const cm = (x0 + x1) / 2,
       lanes = [
         [x0 + 0.1, cm - 0.07],
@@ -798,26 +798,16 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     rail(zn, lo);
     rail(zs, ln);
     bx(x0, x1, ROOF, ROOF + 0.05, z0, z1, MT.ceil);
-    // 兩側：梯段那一段（zn..zs）沒有牆，只有梯段外緣的欄杆（上面），碰撞照舊整面；兩端平台旁邊才是牆，
-    // 朝前院那一側在南端平台（二樓以上）開口
+    // 兩側：梯段那一段（zn..zs）沒有牆，只有梯段外緣的欄杆（上面），碰撞照舊整面；兩端平台旁邊才是牆
+    // （二樓以上朝前院的開口在南迴廊端頭的走道，不在樓梯平台，使用者指正 2026-11-23）
     for (const [v, s] of [
       [x0, 1],
       [x1, -1],
     ]) {
       const side = (za, zb, ya, yb) =>
         bx(s > 0 ? v : v - 0.1, s > 0 ? v + 0.1 : v, ya, yb, za, zb, wallM);
-      if (open === -s) {
-        side(z0, zn, FL[0], ROOF);
-        let yy = FL[0];
-        for (let f = 1; f < 4; f++) {
-          side(zs, z1 - 0.14, yy, FL[f] + SW.sill);
-          yy = FL[f] + SW.head;
-        }
-        side(zs, z1 - 0.14, yy, ROOF);
-      } else {
-        side(z0, zn, FL[0], ROOF);
-        side(zs, z1 - 0.14, FL[0], ROOF);
-      }
+      side(z0, zn, FL[0], ROOF);
+      side(zs, z1 - 0.14, FL[0], ROOF);
       wl(v, z0, v, z1, FL[0], ROOF);
     }
     // 南北兩端：每層開一個樓層高的口，兩層之間封起來（北端直接開向主走廊）
@@ -1009,7 +999,14 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     wall(WW.x1, SW_RUN.z1, WW.x1, SG, y, c, MT.blue, 1);
     bx(WW.x1, WW.e, y + 2.3, c, SG - T, SG, MT.band);
     sign('樓梯 ↑↓', (WW.x1 + WW.e) / 2, y + 2.5, SW.z1 + 0.07, 's', '#2d3b4a', 1.2); // 樓梯口（朝南迴廊東端的走道；牌子掛在 scissor() 南端門楣的南面外，門楣厚到 z1 + 0.06）
-    if (f > 0) wall(WW.e, SG, WW.e, RC, y, c, MT.blue, 1); // (1F: open to the forecourt)
+    // 南迴廊端頭：1F 整個朝前院挖空；2F 以上是窗台高的開口（對齊外牆開口），碰撞整面
+    const galleryEnd = (x, s) => {
+      if (f === 0) return;
+      wall(x, SG, x, RC, y, y + SW.sill, MT.blue, s);
+      bx(s > 0 ? x : x - T, s > 0 ? x + T : x, y + SW.head, c, SG, RC, MT.band);
+      wl(x, SG, x, RC, y, c);
+    };
+    galleryEnd(WW.e, 1);
     // east wing (mirrored)
     for (const [z0, z1] of [
       [CZ, 16.4],
@@ -1023,7 +1020,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     wall(EW.x0, SW_RUN.z1, EW.x0, SG, y, c, MT.blue, -1);
     bx(EW.w, EW.x0, y + 2.3, c, SG - T, SG, MT.band);
     sign('樓梯 ↑↓', (EW.w + EW.x0) / 2, y + 2.5, SW.z1 + 0.07, 's', '#2d3b4a', 1.2);
-    if (f > 0) wall(EW.w, SG, EW.w, RC, y, c, MT.blue, -1);
+    galleryEnd(EW.w, -1);
     door(EW.x0 + 0.012, y, 18.7, 'e', '電梯', '#b4b8bc', 1.2);
     // corridor ends: doorways into the two 曬衣場
     bx(0.13, 0.25, y + 2.3, c, RA, CZ, MT.band);
@@ -1297,7 +1294,6 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     ld: SW.ld,
     mid: SW.mid,
     nl: 0,
-    open: 1,
   }); // 西棟靠中段（朝前院）：靠天井那條往北上
   scissor({
     x0: EW.w,
@@ -1307,16 +1303,15 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     ld: SW.ld,
     mid: SW.mid,
     nl: 1,
-    open: -1,
   }); // 東棟靠中段（朝前院），鏡像
-  // 樓梯間朝前院那一面：清水混凝土、藍白格子，二到四樓的樓梯平台往外凸出（實心混凝土欄板）、平台上方開口
+  // 樓梯間朝前院那一面：梯段那段是藍青直條；南迴廊端頭的走道二到四樓往外凸出（實心混凝土欄板）、欄板上方開口
   for (const [xf, xi, d] of [
     [SW.fW, WW.e, 1],
     [SW.fE, EW.w, -1],
   ]) {
     const X = (a, b2) => [Math.min(xf + d * a, xf + d * b2), Math.max(xf + d * a, xf + d * b2)],
-      za = SW.z1 - SW.ld,
-      zb = SW.z1 + 0.1,
+      za = WD.z0,
+      zb = WD.z1,
       zn = 19.55;
     const gy = (() => {
       const p = W(xf + d * 0.5, 22);
@@ -1339,12 +1334,13 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         P(0.02, 0.24, FL[0] - 0.3, ROOF, zc - 0.07, zc + 0.07, i % 2 ? MT.teal : MT.blue);
       }
     }
-    const xin = Math.abs(xi - xf); // from the face back to the stair's lining
-    let yy = gy - 0.4;
+    P(0, 0.05, gy - 0.4, TOP + 0.6, SW_RUN.z1 - 0.1, za, MT.conc); // 樓梯直條和走道開口之間那段
+    const xin = Math.abs(xi - xf); // from the face back to the gallery's end wall
+    let yy = FL[0] + ST - 0.3; // (一樓那格整個挖空)
     for (let i = 0; i < 3; i++) {
       const yl = FL[0] + ST * (i + 1);
-      P(-xin, 0.06, yy, yl - 0.25, za, zb, MT.conc); // wall up to the landing
-      P(-xin, 0.85, yl - 0.25, yl + SW.sill, za - 0.1, zb, MT.conc); // the landing's projecting parapet
+      P(-xin, 0.06, yy, yl - 0.25, za, zb, MT.conc); // wall up to the walkway floor
+      P(-xin, 0.85, yl - 0.25, yl + SW.sill, za - 0.1, zb, MT.conc); // the walkway's projecting parapet
       yy = yl + SW.head;
     }
     P(-xin, 0.06, yy, TOP + 0.6, za, zb, MT.conc);

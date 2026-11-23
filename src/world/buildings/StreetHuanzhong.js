@@ -951,6 +951,38 @@ export const HZ_ST = {
     // 南側 s 588～685：TOYOTA 環中保修廠（退在停車場後面）、夾子園（實踐路往南那條路的西側）
     ['HS', 588, 610, -1, { own: 'toyota', set: 24, d: 18, apron: 0 }],
     ['HS', 649, 685, -1, { own: 'jiazi', set: 8, d: 22, apron: 0 }],
+    // ---- I 段：環中東路南側 s 691～887（街景 2024-07，西端停車場 2022-06）----
+    // s 691～813 是一整棟 OSM 一樓商業建物 w1457393677、s 814～851 是 OSM w1457393689：不 drop、不改輪廓，hzFix 改高度，立面做成貼在北牆外的薄板（edgeKit）
+    ['HS', 691.3, 701.2, -1, { own: 'iYokohama', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 701.2, 714.5, -1, { own: 'iLuxur', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 714.5, 724.5, -1, { own: 'iShedG', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 724.5, 736.5, -1, { own: 'iBstone', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 736.5, 745, -1, { own: 'iWanhe', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 745, 751, -1, { own: 'iTin', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 751, 762, -1, { own: 'iPgate', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 762, 793.4, -1, { own: 'iOm', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 793.4, 802.5, -1, { own: 'iBed', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 802.5, 813.3, -1, { own: 'iTail', set: 6, d: 0.5, apron: 0 }],
+    ['HS', 814.2, 851.3, -1, { own: 'iShidai', set: 6, d: 0.5, apron: 0 }],
+    // 實景是空地停車場（街景 2022-06、2025-06），原本的填充樓照 HZ_HIDE 隱藏。保留範圍從那排填充樓的牆線（z 1.8）後面才開始：
+    // Furniture 會在它們的店面牆前 1.4 m 停機車，擋掉那幾台全圖的停放機車就會重排
+    [
+      'HS',
+      852,
+      886.5,
+      -1,
+      {
+        own: 'lotI',
+        set: 6.5,
+        d: 26,
+        fp: [
+          [-0.1, 1.9],
+          [34.6, 1.9],
+          [34.6, 26],
+          [-0.1, 26],
+        ],
+      },
+    ],
   ],
 };
 // OSM 真實建物只改高度（不 drop、不改 kind、不改輪廓，抽亂數的次數不變，快照已驗證）
@@ -985,6 +1017,12 @@ export function hzFix(b) {
   } else if (b.id === 'w587175193') {
     b.h = 14;
     b.floors = 4;
+  } else if (b.id === 'w1457393677') {
+    b.h = 7;
+    b.floors = 2;
+  } else if (b.id === 'w1457393689') {
+    b.h = 6.5;
+    b.floors = 2;
   } else if (HZ_ROW4.has(b.id)) {
     b.h = b.id === 'w1153472233' ? 17.1 : 13.8;
     b.floors = b.id === 'w1153472233' ? 5 : 4;
@@ -992,7 +1030,9 @@ export function hzFix(b) {
 }
 // 森林川家具、響叮噹兩棟 OSM 建物的北牆已經被自建立面板蓋住，但 MapBuilder 自動長出的一樓店面斜雨棚凸出牆面 1.25 m，會從立面板前面穿出一條橫線：
 // 照大仁二街 d2Look 的做法用 noShop 只是不畫店面與雨棚（共用亂數照抽），牆色照舊，只把牆面花紋設成平滑
-const HZ_NOSHOP = new Set(['w1034725687', 'w1034725686']);
+// I 段兩棟 OSM 建物（w1457393677、w1457393689）同理：北牆被立面板蓋住。
+// 環中東路南側那排鐵皮店面（w1457393677，街景 2024-07）實際兩層樓高約 7 m，OSM 只記一樓 3.9 m；w1457393689 實際是兩層樓高的車行，OSM 記 4 樓（hzFix）
+const HZ_NOSHOP = new Set(['w1034725687', 'w1034725686', 'w1457393677', 'w1457393689']);
 // G 段 708 巷往西那排填充樓不能 drop：它們的店面牆在 world.shopWalls 裡，Furniture 照 walls[(wi * 7919) % walls.length] 挑牆擺機車，
 // 牆數一變全圖的路邊機車、停車都會重排。照大仁二街的做法留著資料、只叫 MapBuilder 不畫牆和屋頂（look.open.bare＋noShop，亂數照抽），
 // 碰撞輪廓在 buildHuanzhongStreet 最後收成一個點（hzUncollide）
@@ -1019,8 +1059,20 @@ const HZ_HIDE = new Set([
   'f2_856',
   'f2_857',
   'f2_858',
-  'f2_859',
-]); // H 段
+  'f2_859', // H 段
+  'f552',
+  'f553',
+  'f554',
+  'f555',
+  'f556',
+  'f559',
+  'f560',
+  'f561',
+  'f562',
+  'f570',
+  'f571',
+  'f572',
+]); // I 段：s 852～886 實景是空地停車場
 export function hzLook(b) {
   if (HZ_NOSHOP.has(b.id)) {
     b.look = { ...(b.look || {}), wall: { base: 'smooth', ...(b.look?.wall || {}) } };
@@ -1035,6 +1087,9 @@ export function hzLook(b) {
       },
     };
   if (HZ_HIDE.has(b.id)) {
+    // 原本就 noShop、沒有 look 的填充樓（I 段 f552～f556）本來不產生店面牆；一加 look，MapBuilder 會把它當成「有店面但不畫」推進
+    // world.shopWalls，牆數一變全圖停放機車就重排。facade 設成 glass 只換樣式（rb() 照抽，填充樓的 rnd2 是各自的種子），店面牆照舊不產生
+    if (b.noShop && !b.look) b.facade = 'glass';
     b.look = {
       ...(b.look || {}),
       wall: { base: 'smooth', colour: '#d9d9d6' },
@@ -2977,6 +3032,21 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
   };
   const W87 = along([469.8, 196], 140.8, [437.4, 223], 182.9),
     W86 = along([429.5, 229.6], 193.2, [371, 274.1], 266.7);
+  // I 段：環中東路南側兩棟 OSM 建物的北牆（s 是 HS 參考線上的位置）
+  const WI0 = along([41, 541.5], 691.3, [33.3, 547.7], 701.2),
+    WI = along([32.7, 546.9], 701.2, [-56.1, 615.3], 813.3),
+    WJ = along([-57.3, 615.3], 814.2, [-86.1, 638.7], 851.3);
+  const iFace = (W, s0, s1) => edgeKit(W(s1), W(s0)); // x = 0 在西端（s1），往東增加
+  const iTruss = (q, x0, x1, y0, y1, z) => {
+    // 屋頂上的鋼架（看板的支架）：四根柱子＋橫桿
+    for (const x of [x0, x1])
+      for (const zz of [z, z + 1.6])
+        q.box(x - 0.08, x + 0.08, y0, y1, zz - 0.08, zz + 0.08, '#5a5d60', nb);
+    for (let y = y0 + 1.2; y < y1; y += 1.6) {
+      q.box(x0, x1, y, y + 0.08, z - 0.06, z + 0.06, '#5a5d60', nb);
+      q.box(x0, x1, y, y + 0.08, z + 1.54, z + 1.66, '#5a5d60', nb);
+    }
+  };
   const skin = (q, L, h, hex) => q.box(0, L, -0.3, h, -0.3, -0.05, hex, nb); // 貼在 OSM 北牆外 5 cm 的立面板
   // ---- E 段的貼圖：708 巷南側空地圍牆的彩色塗鴉（藍、橘、黑白）----
   const wallArt = (wm) =>
@@ -6370,6 +6440,317 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         k.box(x + 0.08, x + 0.92, 0.9, 1.75, 1.35, 1.4, '#dfeef4', nb);
       }
       k.plane(openTex, w - 0.4, 4.0, w / 2, 2.0, 2.97, FRONT, { emissive: 0.25 });
+    },
+    // ======== I 段：環中東路南側 s 691～887（街景 2024-07） ========
+    // IS1 YOKOHAMA 速安輪胎：兩層樓高的鐵皮廠房，簷口黑底白字 YOKOHAMA，一樓整排敞開的保修間；東端屋頂上一座鋼架塔、掛直立的黑色 YOKOHAMA 大看板
+    iYokohama() {
+      const L = 9.9,
+        q = iFace(WI0, 691.3, 701.2);
+      skin(q, L, 6.8, '#d8d8d4');
+      corr(q, '#c9cbcc', 0, L, 5.4, 6.8, -0.31);
+      q.box(0, L, 4.1, 5.4, -0.55, -0.3, '#1a1a1a', nb);
+      q.plane(
+        paint('YOKOHAMA', '#1a1a1a', '#ffffff', null, 5.2, 0.9, 128),
+        5.2,
+        0.9,
+        4.2,
+        4.75,
+        -0.57,
+        FRONT,
+        {
+          emissive: 0.3,
+        }
+      );
+      q.plane(
+        paint('速安', '#ffffff', '#c8102e', null, 1.6, 0.8, 128),
+        1.6,
+        0.8,
+        8.4,
+        4.75,
+        -0.57,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.plane(openTex, L - 0.6, 3.6, L / 2, 1.8, -0.33, FRONT, { emissive: 0.25 });
+      for (const x of [0.15, 4.9, L - 0.35]) q.box(x, x + 0.2, 0, 4.1, -0.5, -0.3, '#9a9c9c', nb);
+      iTruss(q, L - 2.2, L - 0.4, 6.8, 16, 1.5);
+      q.plane(
+        board('yokoV', 1.6, 7.5, (g, W, Hh) => {
+          fill(g, W, Hh, '#1a1a1a');
+          g.save();
+          g.translate(W / 2, Hh / 2);
+          g.rotate(Math.PI / 2);
+          fitText(g, 'YOKOHAMA', 0, 0, Hh * 0.9, W * 0.55, '#ffffff');
+          g.restore();
+        }),
+        1.6,
+        7.5,
+        L - 1.3,
+        12.4,
+        1.3,
+        FRONT,
+        { emissive: 0.3 }
+      );
+    },
+    // IS2 永義傢俱 蕾瑞思名床：一樓玻璃店面上方整面橘紅大招牌（Luxuriate. 蕾瑞思名床，下面紅底「永義傢俱」），屋頂上一座空的鋼架看板框
+    iLuxur() {
+      const L = 13.3,
+        q = iFace(WI, 701.2, 714.5);
+      skin(q, L, 6.0, '#bdbfbf');
+      q.plane(
+        board('luxur', 12.6, 2.9, (g, W, Hh) => {
+          fill(g, W, Hh, '#e2602c');
+          g.fillStyle = '#c8262a';
+          g.fillRect(0, Hh * 0.66, W, Hh * 0.34);
+          fitText(g, 'Luxuriate.', W * 0.55, Hh * 0.17, W * 0.3, Hh * 0.2, '#fff4d8', 700);
+          fitText(g, '蕾瑞思名床', W * 0.55, Hh * 0.44, W * 0.55, Hh * 0.32, '#fff4d8');
+          fitText(g, '永義傢俱', W * 0.55, Hh * 0.83, W * 0.4, Hh * 0.26, '#fff4d8');
+          g.fillStyle = '#d8d8d0';
+          g.fillRect(W * 0.03, Hh * 0.12, W * 0.14, Hh * 0.45);
+        }),
+        12.6,
+        2.9,
+        L / 2,
+        4.35,
+        -0.36,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.plane(openTex, L - 0.6, 2.9, L / 2, 1.45, -0.33, FRONT, { emissive: 0.25 });
+      for (let x = 0.5; x < L; x += 3.1) {
+        q.box(x - 0.06, x + 0.06, 6.0, 9.4, 0.4, 0.52, '#5a5d60', nb);
+        q.box(x - 0.06, x + 0.06, 6.0, 9.4, 1.6, 1.72, '#5a5d60', nb);
+      }
+      for (const y of [7.2, 9.3]) q.box(0.4, L - 0.4, y, y + 0.1, 0.4, 0.52, '#5a5d60', nb);
+    },
+    // IS3 灰色鐵皮店（拉下鐵捲門），門口立著藍色直立招牌（字看不清）
+    iShedG() {
+      const L = 10,
+        q = iFace(WI, 714.5, 724.5);
+      skin(q, L, 6.4, '#a4a6a4');
+      corr(q, '#a4a6a4', 0, L, 3.6, 6.4, -0.31);
+      q.box(0, L, 3.4, 3.6, -1.0, -0.3, '#8a8c8c', nb);
+      q.plane(shutterTex('#6a6c6e'), 4.4, 3.3, 2.6, 1.65, -0.33, FRONT);
+      q.plane(shutterTex('#6a6c6e'), 4.4, 3.3, 7.4, 1.65, -0.33, FRONT);
+      q.box(0.3, 1.0, 0, 5.4, -0.9, -0.75, '#1f4fa8', nb);
+    },
+    // IS4 BRIDGESTONE 輪胎行：山牆朝街的鐵皮屋，簷下深灰簷板白字 BRIDGESTONE，下面一條白底紅字 BRIDGESTONE（右端紅底白 B），一樓敞開
+    iBstone() {
+      const L = 12,
+        q = iFace(WI, 724.5, 736.5);
+      skin(q, L, 5.6, '#d8d8d4');
+      gable(q, 0, L, -0.35, 2.5, 5.6, 7.4, '#8a8d90', '#d8d8d4', 0.15);
+      q.box(0, L, 4.4, 5.6, -0.6, -0.3, '#3a3d42', nb);
+      q.plane(
+        paint('BRIDGESTONE', '#3a3d42', '#ffffff', null, 6, 0.8, 128),
+        6,
+        0.8,
+        L / 2,
+        5.0,
+        -0.62,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.plane(
+        paint('BRIDGESTONE', '#ffffff', '#c8102e', null, 7, 0.65, 128),
+        7,
+        0.65,
+        L / 2 + 0.5,
+        3.75,
+        -0.34,
+        FRONT,
+        {
+          emissive: 0.3,
+        }
+      );
+      q.plane(
+        paint('B', '#c8102e', '#ffffff', null, 0.65, 0.65, 128),
+        0.65,
+        0.65,
+        1.2,
+        3.75,
+        -0.34,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.plane(openTex, L - 0.6, 3.3, L / 2, 1.65, -0.33, FRONT, { emissive: 0.25 });
+      for (const x of [0.15, 6, L - 0.35]) q.box(x, x + 0.2, 0, 3.4, -0.5, -0.3, '#9a9c9c', nb);
+    },
+    // IS5 新萬和汽車：矮一點的鐵皮屋，簷下藍底白字招牌，西端一支藍色直立招牌
+    iWanhe() {
+      const L = 8.5,
+        q = iFace(WI, 736.5, 745);
+      skin(q, L, 5.0, '#cfd0cc');
+      corr(q, '#bfc1bf', 0, L, 3.8, 5.0, -0.31);
+      q.plane(
+        paint('新萬和汽車', '#1f4fa8', '#ffffff', null, 5, 0.7, 128),
+        5,
+        0.7,
+        L / 2,
+        3.3,
+        -0.34,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.plane(openTex, L - 0.6, 2.9, L / 2, 1.45, -0.33, FRONT, { emissive: 0.25 });
+      q.plane(vtex('新萬和汽車', '#1f4fa8', '#ffffff', 0.8, 3.8), 0.8, 3.8, 0.6, 5.4, -1.0, FRONT, {
+        emissive: 0.3,
+      });
+      q.box(0.55, 0.65, 0, 3.5, -1.05, -0.95, '#8a8d90', nb);
+    },
+    // IS6 米色鐵皮小店：黃色招牌（字看不清）、鐵捲門半開
+    iTin() {
+      const L = 6,
+        q = iFace(WI, 745, 751);
+      skin(q, L, 4.6, '#e0d8c4');
+      corr(q, '#d4ccb6', 0, L, 3.6, 4.6, -0.31);
+      q.box(0.3, L - 0.3, 2.9, 3.6, -0.45, -0.3, '#f2c83a', nb);
+      q.plane(shutterTex('#8a8c8c'), L - 1, 1.6, L / 2, 2.1, -0.33, FRONT);
+      q.plane(openTex, L - 1, 1.3, L / 2, 0.65, -0.33, FRONT, { emissive: 0.25 });
+    },
+    // IS7 停車場入口：紅色斜屋頂的雨棚通道，旁邊黃底「P 月租‧臨停」牌；屋頂上一座斜立的大看板鋼架（看板背面朝街，字看不清）
+    iPgate() {
+      const L = 11,
+        q = iFace(WI, 751, 762);
+      skin(q, L, 4.2, '#cfcfca');
+      q.plane(openTex, 6.4, 3.6, 4.4, 1.8, -0.33, FRONT, { emissive: 0.15 });
+      tiltX(q, 0.6, 8.4, 4.2, -2.2, 5.2, 1.0, 0.12, '#b8352c');
+      for (const x of [0.8, 8.2]) q.box(x - 0.08, x + 0.08, 0, 4.2, -2.1, -1.95, '#8a8d90', nb);
+      q.plane(
+        board('pgate', 1.9, 1.5, (g, W, Hh) => {
+          fill(g, W, Hh, '#f6d02a');
+          fitText(g, 'P', W * 0.2, Hh * 0.45, W * 0.3, Hh * 0.7, '#1f3f9a');
+          fitText(g, '月租', W * 0.65, Hh * 0.3, W * 0.6, Hh * 0.3, '#c8262a');
+          fitText(g, '臨停', W * 0.65, Hh * 0.68, W * 0.6, Hh * 0.3, '#c8262a');
+        }),
+        1.9,
+        1.5,
+        9.6,
+        2.6,
+        -1.2,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.box(9.55, 9.65, 0, 1.85, -1.25, -1.15, '#5a5d60', nb);
+      corr(q, '#c9c7b4', 8.5, L, 0, 4.2, -0.31);
+      iTruss(q, 1.5, 9, 4.2, 9.5, 2.5);
+      q.box(0.8, 9.7, 8.4, 13.2, 2.3, 2.5, '#2a3550', nb);
+    },
+    // IS8 歐美傢俱系統設計：兩層樓高的鐵皮大賣場，上半灰色浪板，簷口白底黑字橫招牌（下面一行 OM FURNITURE INTERIOR DESIGN），一樓整面玻璃；
+    // 門口掛紅底白字「結束營業」「全面出清」直幅布條
+    iOm() {
+      const L = 31.4,
+        q = iFace(WI, 762, 793.4);
+      skin(q, L, 7.4, '#e6e6e2');
+      corr(q, '#c4c6c6', 0, L, 5.6, 7.4, -0.31);
+      q.plane(
+        board('omFurn', 24, 2.0, (g, W, Hh) => {
+          fill(g, W, Hh, '#f2f2ee');
+          fitText(g, '歐美傢俱系統設計', W * 0.5, Hh * 0.33, W * 0.6, Hh * 0.48, '#2a2a2c');
+          fitText(
+            g,
+            'OM FURNITURE INTERIOR DESIGN',
+            W * 0.5,
+            Hh * 0.78,
+            W * 0.55,
+            Hh * 0.28,
+            '#2a2a2c',
+            700
+          );
+        }),
+        24,
+        2.0,
+        13,
+        4.5,
+        -0.36,
+        FRONT,
+        { emissive: 0.25 }
+      );
+      q.box(0, L, 3.3, 3.45, -1.1, -0.3, '#d8d8d2', nb);
+      q.plane(openTex, L - 0.8, 3.2, L / 2, 1.6, -0.33, FRONT, { emissive: 0.3 });
+      for (let x = 3; x < L - 2; x += 4.6) q.box(x, x + 0.5, 0, 3.3, -0.45, -0.3, '#6a9a5a', nb);
+      q.plane(vtex('結束營業', '#d8262a', '#ffffff', 1.1, 4.6), 1.1, 4.6, 22.6, 3.6, -0.6, FRONT, {
+        emissive: 0.3,
+      });
+      q.plane(vtex('全面出清', '#d8262a', '#ffffff', 1.1, 4.6), 1.1, 4.6, 23.8, 3.6, -0.6, FRONT, {
+        emissive: 0.3,
+      });
+      q.plane(vtex('全面出清', '#d8262a', '#ffffff', 1.4, 3.6), 1.4, 3.6, 29.6, 2.4, -0.6, FRONT, {
+        emissive: 0.3,
+      });
+    },
+    // IS9 床墊店：三層樓高的藍灰色鐵皮屋，二樓一排窗，一樓上方藍底招牌「5尺床頭箱＋5尺3分合板床底＋5尺經典獨立筒床墊 NT$4,999」
+    iBed() {
+      const L = 9.1,
+        q = iFace(WI, 793.4, 802.5);
+      skin(q, L, 10.2, '#9eabc2');
+      corr(q, '#9eabc2', 0, L, 5.6, 10.2, -0.31);
+      q.box(0, L, 7, 10.2, -0.3, 9, '#9eabc2');
+      q.box(0.6, L - 0.6, 6.4, 8.0, -0.36, -0.3, '#3a4a5e', nb);
+      for (let x = 1.4; x < L - 0.8; x += 1.6)
+        q.box(x, x + 0.06, 6.4, 8.0, -0.4, -0.36, '#d8d8d2', nb);
+      q.plane(
+        board('bed5', 8.6, 1.9, (g, W, Hh) => {
+          const gr = g.createLinearGradient(0, 0, 0, Hh);
+          gr.addColorStop(0, '#4a8ad8');
+          gr.addColorStop(1, '#1f5fb0');
+          g.fillStyle = gr;
+          g.fillRect(0, 0, W, Hh);
+          fitText(
+            g,
+            '5尺床頭箱＋5尺3分合板床底',
+            W * 0.38,
+            Hh * 0.2,
+            W * 0.7,
+            Hh * 0.24,
+            '#ffffff'
+          );
+          fitText(g, '＋5尺經典獨立筒床墊', W * 0.38, Hh * 0.48, W * 0.7, Hh * 0.24, '#ffffff');
+          fitText(g, 'NT$4,999', W * 0.38, Hh * 0.8, W * 0.4, Hh * 0.3, '#f6d02a');
+          g.fillStyle = '#e8eef4';
+          g.fillRect(W * 0.78, Hh * 0.15, W * 0.18, Hh * 0.7);
+        }),
+        8.6,
+        1.9,
+        L / 2,
+        4.4,
+        -0.36,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      q.plane(openTex, L - 0.6, 3.4, L / 2, 1.7, -0.33, FRONT, { emissive: 0.3 });
+    },
+    // IS10 西端：矮的車棚（鐵皮頂、裡面停車）和一間兩樓高的小屋
+    iTail() {
+      const L = 10.8,
+        q = iFace(WI, 802.5, 813.3);
+      skin(q, L, 3.8, '#c9c7b4');
+      q.plane(openTex, 5.4, 2.9, 3.2, 1.45, -0.33, FRONT, { emissive: 0.15 });
+      tiltX(q, 0.3, 6.2, 3.3, -1.6, 3.8, 0, 0.1, '#8a8d90');
+      q.box(7, L - 0.2, 0, 6.2, -0.3, -0.1, '#d6d0c0');
+      q.plane(shutterTex('#4a6a9a'), 3, 2.6, 8.7, 1.3, -0.33, FRONT);
+      q.box(7.4, L - 0.6, 4.2, 5.2, -0.36, -0.3, '#4a5560', nb);
+    },
+    // IS11 OSM w1457393689：兩層樓高的車行。東半灰色鐵皮、三扇鐵捲門；西半紅白簷帶、一樓敞開，門口一支紅色直立招牌（字看不清）
+    iShidai() {
+      const L = 37.1,
+        q = iFace(WJ, 814.2, 851.3);
+      skin(q, L, 6.3, '#c6c8c8');
+      corr(q, '#b4b6b6', 22, L, 3.6, 6.3, -0.31);
+      for (const x of [24.6, 29.2, 33.8])
+        q.plane(shutterTex('#7a7c7e'), 4, 3.3, x, 1.65, -0.33, FRONT);
+      q.box(0, 21.6, 4.6, 5.6, -0.6, -0.3, '#f2f2ee', nb);
+      q.box(0, 21.6, 4.35, 4.6, -0.6, -0.3, '#c8262a', nb);
+      q.plane(openTex, 20.6, 3.8, 10.8, 1.9, -0.33, FRONT, { emissive: 0.25 });
+      q.box(1.5, 2.4, 0, 8.4, -1.4, -1.2, '#c8262a', nb);
+    },
+    // I 段西端：空地停車場（柏油、停滿車），後面是雜草空地
+    lotI(k, w, d) {
+      rectG(k, 0, w, 0, 14, '#5c5e60', 0.03);
+      rectG(k, 0, w, 14, d, '#7a8a5a', 0.02);
+      const cc = ['#f2f2ee', '#2a2d33', '#8a8d90', '#c8302a', '#3a4a6a', '#f2f2ee', '#5a5c60'];
+      for (let j = 0; j < 11; j++) car(k, 1.2 + j * 3, 2.4, cc[j % 7]);
+      for (let j = 0; j < 6; j++) car(k, 4 + j * 4.6, 9.4, cc[(j + 3) % 7]);
     },
   };
 

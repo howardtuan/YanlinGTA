@@ -57,7 +57,7 @@ function paintPrint(g, w, h, seed, scale = 1) {
 }
 function alohaTexture(prof) {
   if (shirtTex) return shirtTex;
-  const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH; const g = cv.getContext('2d');
+  const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH; const g = cv.getContext('2d', { willReadFrequently: true }); // read back below: keep it on the CPU
   paintPrint(g, TW, TH, 77, 1.3);
   // buttons down the front centre (u = 0.5; the seam is at the back)
   for (let y = 120; y < TH; y += 90) { g.fillStyle = '#efe9dc'; g.beginPath(); g.arc(TW / 2 + 9, y, 6, 0, 7); g.fill(); g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1.5; g.stroke(); }

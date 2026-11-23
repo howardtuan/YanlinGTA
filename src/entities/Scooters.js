@@ -19,6 +19,9 @@ function canvasTex(w, h, draw, { srgb = true, repeat = false } = {}) {
   t.anisotropy = 8;
   return t;
 }
+// height canvases are only drawn once and read back: keep them on the CPU (no GPU readback, which stalls for seconds
+// under software rendering)
+const HEIGHT_CTX = { willReadFrequently: true };
 function heightToNormal(cv, strength = 2) {
   const w = cv.width, h = cv.height, src = cv.getContext('2d').getImageData(0, 0, w, h).data;
   const out = document.createElement('canvas'); out.width = w; out.height = h;
@@ -36,7 +39,7 @@ const rng = (s) => () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 1
 function seatTex() {
   return cached('seat', () => {
     const S = 256, r = rng(5);
-    const hc = document.createElement('canvas'); hc.width = hc.height = S; const h = hc.getContext('2d');
+    const hc = document.createElement('canvas'); hc.width = hc.height = S; const h = hc.getContext('2d', HEIGHT_CTX);
     h.fillStyle = '#808080'; h.fillRect(0, 0, S, S);
     for (let i = 0; i < 9000; i++) { const v = 100 + r() * 60; h.fillStyle = `rgb(${v},${v},${v})`; h.beginPath(); h.arc(r() * S, r() * S, 0.6 + r() * 1.6, 0, 7); h.fill(); }
     // diagonal quilting (carbon-look insert like the real seat)
@@ -48,7 +51,7 @@ function seatTex() {
 function tireTex() {
   return cached('tire', () => {
     const W = 512, H = 128;
-    const hc = document.createElement('canvas'); hc.width = W; hc.height = H; const h = hc.getContext('2d');
+    const hc = document.createElement('canvas'); hc.width = W; hc.height = H; const h = hc.getContext('2d', HEIGHT_CTX);
     h.fillStyle = '#909090'; h.fillRect(0, 0, W, H);
     // v runs across the tread (lathe profile), u around the tyre: sport-tyre grooves on the shoulders
     h.strokeStyle = '#2a2a2a'; h.lineWidth = 5;
@@ -61,14 +64,14 @@ function tireTex() {
 }
 function floorMatTex() {
   return cached('floormat', () => {
-    const S = 128; const hc = document.createElement('canvas'); hc.width = hc.height = S; const h = hc.getContext('2d');
+    const S = 128; const hc = document.createElement('canvas'); hc.width = hc.height = S; const h = hc.getContext('2d', HEIGHT_CTX);
     h.fillStyle = '#9a9a9a'; h.fillRect(0, 0, S, S); h.fillStyle = '#3a3a3a'; for (let y = 0; y < S; y += 16) h.fillRect(0, y, S, 6);
     const map = canvasTex(S, S, (g) => { g.fillStyle = '#1d1e20'; g.fillRect(0, 0, S, S); g.fillStyle = '#26272a'; for (let y = 0; y < S; y += 16) g.fillRect(0, y + 6, S, 10); }, { repeat: true });
     return { map, normalMap: heightToNormal(hc, 3) };
   });
 }
 function plasticTex() { // fine grain on matte black plastics
-  return cached('plastic', () => { const S = 128, r = rng(9); const hc = document.createElement('canvas'); hc.width = hc.height = S; const h = hc.getContext('2d'); h.fillStyle = '#808080'; h.fillRect(0, 0, S, S); for (let i = 0; i < 3000; i++) { const v = 110 + r() * 40; h.fillStyle = `rgb(${v},${v},${v})`; h.fillRect(r() * S, r() * S, 1.5, 1.5); } return heightToNormal(hc, 1.2); });
+  return cached('plastic', () => { const S = 128, r = rng(9); const hc = document.createElement('canvas'); hc.width = hc.height = S; const h = hc.getContext('2d', HEIGHT_CTX); h.fillStyle = '#808080'; h.fillRect(0, 0, S, S); for (let i = 0; i < 3000; i++) { const v = 110 + r() * 40; h.fillStyle = `rgb(${v},${v},${v})`; h.fillRect(r() * S, r() * S, 1.5, 1.5); } return heightToNormal(hc, 1.2); });
 }
 function plateTex(text) {
   return canvasTex(256, 128, (g, W, H) => {

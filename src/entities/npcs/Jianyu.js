@@ -138,14 +138,14 @@ export class Jianyu {
     // his 班代 poster, on the end of the wardrobe under his loft bed, facing the door (you see it as you come in, on the right)
     const sx = Math.sign(R.center[0] - bed.x) || 1, zA = bed.z - 1.0; // sx: from his wall towards the aisle; zA: the door end of his loft bed
     const ptex = new THREE.CanvasTexture(document.createElement('canvas')); ptex.colorSpace = THREE.SRGBColorSpace;
-    drawPoster((cv) => { ptex.image = cv; ptex.needsUpdate = true; this._posterUrl = cv.toDataURL('image/jpeg', 0.9); });
+    drawPoster((cv) => { ptex.image = cv; ptex.needsUpdate = true; this._posterCv = cv; }); // the JPEG for the modal is encoded when it opens, not at load
     const poster = new THREE.Mesh(new THREE.PlaneGeometry(0.43, 0.6), new THREE.MeshStandardMaterial({ map: ptex, roughness: 0.75 }));
     const pp = world(bed.x + sx * (0.3 - 0.475), zA - 0.006, R.y + 1.2); poster.position.set(pp.x, pp.y, pp.z); poster.rotation.y = k.heading(Math.PI);
     grp.add(poster); this.poster = poster;
     this.g.scene.add(grp);
     this.g.interiors.actions.push({
       x: pp.x, z: pp.z, y: R.y + B - surfaceAt(pp.x, pp.z), r: 1.0, label: () => '按 <kbd>E</kbd> 看劍玉的班代海報',
-      fn: () => this.g.modal('劍玉的班代競選海報', `<img src="${this._posterUrl || ''}" alt="" style="display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:6px">`, '資管四甲'),
+      fn: () => this.g.modal('劍玉的班代競選海報', `<img src="${this._posterCv ? this._posterCv.toDataURL('image/jpeg', 0.9) : ''}" alt="" style="display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:6px">`, '資管四甲'),
     });
     // his desk: the envelope, the card-locked door and his laptop (the 班費 case)
     const D = this.home.desk;

@@ -36,6 +36,8 @@ function fbmField(size, P, oct, seed, gain = 0.5) {
 const rng = (seed) => { let a = seed | 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
 
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+// canvases whose pixels are read back (getImageData) stay on the CPU: a GPU readback stalls for seconds under software rendering
+const READBACK = { willReadFrequently: true };
 function toTex(cv, { srgb = true, repeat = true, aniso = 8 } = {}) {
   const t = new THREE.CanvasTexture(cv);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
@@ -103,8 +105,8 @@ export const groundTex = {
   }),
   // interlocking concrete pavers (campus plazas, main gate)
   paving: () => cached('paving', () => {
-    const S = 512, cv = canvas(S, S), g = cv.getContext('2d'), r = rng(21);
-    const hc = canvas(S, S), hg = hc.getContext('2d');
+    const S = 512, cv = canvas(S, S), g = cv.getContext('2d', READBACK), r = rng(21);
+    const hc = canvas(S, S), hg = hc.getContext('2d', READBACK);
     g.fillStyle = '#6f6c66'; g.fillRect(0, 0, S, S); hg.fillStyle = '#000'; hg.fillRect(0, 0, S, S);
     const bw = 32, bh = 16;
     for (let row = 0; row < S / bh; row++) for (let c = -1; c < S / bw + 1; c++) {
@@ -126,8 +128,8 @@ export const groundTex = {
   }),
   // 30 cm square sidewalk tiles (town footways / 騎樓)
   sidewalk: () => cached('sidewalk', () => {
-    const S = 512, cv = canvas(S, S), g = cv.getContext('2d'), r = rng(41);
-    const hc = canvas(S, S), hg = hc.getContext('2d');
+    const S = 512, cv = canvas(S, S), g = cv.getContext('2d', READBACK), r = rng(41);
+    const hc = canvas(S, S), hg = hc.getContext('2d', READBACK);
     g.fillStyle = '#5a5250'; g.fillRect(0, 0, S, S); hg.fillStyle = '#000'; hg.fillRect(0, 0, S, S);
     const t = 32;
     for (let y = 0; y < S; y += t) for (let x = 0; x < S; x += t) {
@@ -189,14 +191,14 @@ export const groundTex = {
 // Returns { map, emi (lit windows at night), normalMap, rm (roughness in G, metalness in B) }.
 const N = 8;
 // canvas drawn in logical units but stored at k px per unit (low quality: k = 0.5)
-function scaled(w, h, k) { const c = canvas(Math.round(w * k), Math.round(h * k)), g = c.getContext('2d'); g.scale(k, k); return [c, g]; }
+function scaled(w, h, k, opts) { const c = canvas(Math.round(w * k), Math.round(h * k)), g = c.getContext('2d', opts); g.scale(k, k); return [c, g]; }
 // px: pixels per cell. The layout is drawn in 128-unit cells either way; low quality
 // stores it at 64 px (a quarter of the GPU memory per atlas)
 function facade(style, seed, px = 128) {
   return cached(`fac_${  style  }${px === 128 ? '' : `_${  px}`}`, () => {
     const S = 128; // cell size in drawing units
     const W = N * S, r = rng(seed), k = px / S;
-    const [col, g] = scaled(W, W, k), [hc, h] = scaled(W, W, k), [rm, m] = scaled(W, W, k), [em, e] = scaled(W, W, k);
+    const [col, g] = scaled(W, W, k), [hc, h] = scaled(W, W, k, READBACK), [rm, m] = scaled(W, W, k), [em, e] = scaled(W, W, k);
     e.fillStyle = '#000'; e.fillRect(0, 0, W, W);
     h.fillStyle = '#808080'; h.fillRect(0, 0, W, W);
     m.fillStyle = 'rgb(255,235,0)'; m.fillRect(0, 0, W, W);
@@ -341,7 +343,7 @@ export function facadeParam(base, px = 128) {
   return cached(`facp_${  base  }_${  px}`, () => {
     const S = 128, R = FACP_TYPES.length, W = N * S, HH = R * S, k = px / S;
     const r = rng({ tile: 53, smooth: 59, stone: 61 }[base] || 67);
-    const [col, g] = scaled(W, HH, k), [hc, h] = scaled(W, HH, k), [rm, m] = scaled(W, HH, k), [em, e] = scaled(W, HH, k / 2);
+    const [col, g] = scaled(W, HH, k), [hc, h] = scaled(W, HH, k, READBACK), [rm, m] = scaled(W, HH, k), [em, e] = scaled(W, HH, k / 2);
     e.fillStyle = '#000'; e.fillRect(0, 0, W, HH);
     h.fillStyle = '#808080'; h.fillRect(0, 0, W, HH);
     m.fillStyle = 'rgb(0,235,0)'; m.fillRect(0, 0, W, HH);
@@ -450,7 +452,7 @@ export function shopTex() {
     const g = canvas(W, H), c = g.getContext('2d');
     const em = canvas(W, H), e = em.getContext('2d'); e.fillStyle = '#000'; e.fillRect(0, 0, W, H);
     const rm = canvas(W, H), m = rm.getContext('2d'); m.fillStyle = 'rgb(255,230,0)'; m.fillRect(0, 0, W, H);
-    const hc = canvas(W, H), h = hc.getContext('2d'); h.fillStyle = '#808080'; h.fillRect(0, 0, W, H);
+    const hc = canvas(W, H), h = hc.getContext('2d', READBACK); h.fillStyle = '#808080'; h.fillRect(0, 0, W, H);
     const signCols = ['#c8102e', '#0a7d3b', '#f2b705', '#1a5fd1', '#ff7a00', '#7b2cbf', '#e9e9e9', '#d81b60', '#00838f', '#222'];
     for (let i = 0; i < 8; i++) {
       const x = i * S, kind = r();

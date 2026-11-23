@@ -1,6 +1,6 @@
 //! Numeric kernels for the game, compiled to WebAssembly (js/wasm/kernels.wasm).
 //!
-//! Every kernel reproduces the JS version in js/textures.js bit for bit (same f64 operation order,
+//! Every kernel reproduces the JS version in src/graphics/Textures.js bit for bit (same f64 operation order,
 //! same f32 rounding of the Float32Array stores, V8's Math.hypot, Uint8ClampedArray rounding), so
 //! the game looks exactly the same with or without WebAssembly. tools/check_wasm.mjs compares them.
 //!

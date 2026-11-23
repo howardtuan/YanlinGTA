@@ -22,7 +22,7 @@
 
 ```bash
 # 1. 複製專案庫
-git clone https://github.com/hank1224/YanlinGTA.git
+git clone https://github.com/howardtuan/YanlinGTA.git
 cd YanlinGTA
 
 # 2. 安裝所有依賴套件

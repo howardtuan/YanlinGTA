@@ -23,7 +23,7 @@
 需安裝 [Node.js (>= 22.0.0 LTS)](https://nodejs.org/)：
 ```bash
 # 1. 複製專案
-git clone https://github.com/hank1224/YanlinGTA.git
+git clone https://github.com/howardtuan/YanlinGTA.git
 cd YanlinGTA
 
 # 2. 安裝依賴

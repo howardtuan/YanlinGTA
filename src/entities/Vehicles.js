@@ -797,7 +797,7 @@ export class Vehicle {
     for (const o of L.near) {
       const s = L.snaps.get(o);
       if (o.visible === s.v && (L.skip.has(o) || !moved(o, s))) continue;
-      if (lodWarned++ < 5) console.warn(`[vehicles] 「${this.label}」的零件 ${o.name || o.geometry?.type || ''} 在建好之後被移動或切換顯示，但沒有標記成會動的零件。已自動改回逐格更新，並關閉這台車的遠處簡化模型。請在建模時設定 part.userData.dynamic = true（js/vehicles.js 檔頭有說明）。`);
+      if (lodWarned++ < 5) console.warn(`[vehicles] 「${this.label}」的零件 ${o.name || o.geometry?.type || ''} 在建好之後被移動或切換顯示，但沒有標記成會動的零件。已自動改回逐格更新，並關閉這台車的遠處簡化模型。請在建模時設定 part.userData.dynamic = true（src/entities/Vehicles.js 檔頭有說明）。`);
       // back to the plain behaviour for the whole vehicle: every part updates its own matrix, no far copy
       this.mesh.remove(L.far); this._lod = null;
       this.mesh.traverse(c => { if (c !== this.mesh) c.matrixAutoUpdate = true; });

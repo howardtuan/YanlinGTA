@@ -1,6 +1,6 @@
 // Check that js/wasm/kernels.wasm reproduces the JS texture kernels bit for bit, and time both.
 //   node tools/check_wasm.mjs
-// The reference code below is the JS fallback from js/textures.js (hash / vnoise / fbmField /
+// The reference code below is the JS fallback from src/graphics/Textures.js (hash / vnoise / fbmField /
 // normalFromHeight's pixel loop); the fbm parameter sets are read from the fbmField(...) calls there.
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';

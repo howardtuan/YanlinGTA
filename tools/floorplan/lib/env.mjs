@@ -95,7 +95,7 @@ export async function makeEnv() {
       return super._part(mat, g);
     }
   }
-  // a stand-in for js/collision.js's world: the building outlines, so builders that swap an outline for wall lines find theirs
+  // a stand-in for src/physics/Collision.js's world: the building outlines, so builders that swap an outline for wall lines find theirs
   const collision = { polys: [], segs: [], reserved: [], extra: null };
   // walls a builder puts in the world collision with a world-height band (rooms under a deck, where the ground is not the floor):
   // settings files that pass this to a builder get them as Interiors walls (heights above the local ground, like the others)

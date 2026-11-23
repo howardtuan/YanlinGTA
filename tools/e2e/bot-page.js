@@ -615,7 +615,7 @@
   }
 
   // ------------------------------------------------------------------ mission 5: 彥霖's old home + the detective terminal
-  // The house (js/interiors.js buildYanlinHome) is entered on foot through a fixed chain of waypoints in the
+  // The house (src/world/Interiors.js buildYanlinHome) is entered on foot through a fixed chain of waypoints in the
   // building's local frame: side door -> 1F hallway -> stair -> 2F landing -> corridor -> lobby -> room door -> desk.
   const YH_WP = [[3.52, -1.0], [3.52, 0.7], [3.52, 5.2], [3.3, 9.85], [2.33, 9.85], [2.33, 5.05], [3.62, 5.05], [3.62, 3.7], [2.05, 3.0], [1.99, 1.42]];
   const YH_UP = 3; // waypoints from this index on are on 2F
@@ -625,7 +625,7 @@
     const zn = game.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
     return !!zn && (zn.name === '彥霖以前住的地方' || zn.name.startsWith('孫師傅牛肉拉麵') || zn.name.startsWith('黃蓋瑞'));
   }
-  // 黃蓋瑞's flat next door opens off the 2F landing (js/garryhome.js): if we ever wander in, go back to the landing
+  // 黃蓋瑞's flat next door opens off the 2F landing (src/world/buildings/GarryHome.js): if we ever wander in, go back to the landing
   function inGarryFlat() { const pl = game.player, zn = game.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y); return !!zn && zn.name.startsWith('黃蓋瑞'); }
   // walk along the waypoint chain toward its end (dir +1, the desk) or its start (dir -1, the street)
   function yhWalk(dt, dir) {

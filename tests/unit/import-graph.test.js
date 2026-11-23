@@ -87,8 +87,7 @@ const FORBIDDEN = [
 ];
 // core/Game.js is the entry point that wires everything together
 const WIRING = new Set(['core/Game.js', 'core/GameLoop.js', 'core/MenuManager.js']);
-// world/Interiors.js puts the standing characters (McDonald's crew, classmates) into the rooms it builds
-const KNOWN_VIOLATIONS = ['world/Interiors.js -> entities/Character.js'];
+const KNOWN_VIOLATIONS = [];
 
 function violations() {
   const out = [];

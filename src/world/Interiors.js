@@ -7,7 +7,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { pointInPoly, closestOnSeg } from '../physics/Collision.js';
-import { createCharacter } from '../entities/Character.js';
 import { dressCrew, CREW_SHIRT } from '../systems/minigames/McUniform.js';
 import { H, Hgrid } from './Terrain.js';
 const Hterrain = H; // buildMcD shadows H with the store height
@@ -541,7 +540,7 @@ function mcdMaterials() {
     kglow: def('mcdKGlow', () => { const t = MCT.katlas(); return new THREE.MeshStandardMaterial({ map: t, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.85, roughness: 0.4 }); }),
   };
 }
-function buildMcD(I, scene) {
+function buildMcD(I, scene, createCharacter = null) {
   const S = MCD_SPEC; const k = new Kit(I, S.x1, S.z1, Math.PI); // turned 180°: shop x/z run west/north from the SE corner
   // the store is in the 活動中心's B1 (src/world/zones/ZoneG.js digs the pit: the shop and the sunken stage in front of it,
   // src/world/Terrain.js addPit), so the render base is the pit floor inside the shop, not the street at its corner;
@@ -721,12 +720,14 @@ function buildMcD(I, scene) {
   // crew in the real store's uniform (src/systems/minigames/McUniform.js): the counter girl at the middle register, and two in the
   // kitchen with hairnets — one on the first grill, one at the assembly island. They go through the motions
   // (reach / turn) while the player is close enough to see them.
-  const staff = createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' });
-  dressCrew(staff, { name: '小芸' });
-  const sp = k.w(14.6, mz(15.0)); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
-  staff.home = staff.root.position.clone(); staff.homeRot = staff.root.rotation.y; // the 值班 moves her to the fryers and back
-  scene.add(staff.root);
-  const crew = [
+  const staff = createCharacter ? createCharacter({ skin: '#efd0b5', shirt: CREW_SHIRT, shorts: '#1b1b1d', pants: true, hair: '#1a1410', hairStyle: 'pony', face: true, shoes: '#222' }) : null;
+  if (staff) {
+    dressCrew(staff, { name: '小芸' });
+    const sp = k.w(14.6, mz(15.0)); staff.root.position.set(sp[0], k.base, sp[1]); staff.root.rotation.y = k.heading(Math.PI / 2);
+    staff.home = staff.root.position.clone(); staff.homeRot = staff.root.rotation.y; // the 值班 moves her to the fryers and back
+    scene.add(staff.root);
+  }
+  const crew = createCharacter ? [
     [{ skin: '#d9ad88', hair: '#111', hairStyle: 'short' }, '阿凱', kitchen.crewGrill],
     [{ skin: '#f3d9c4', hair: '#2b1d14', hairStyle: 'pony' }, '佳穎', kitchen.crewAssembly],
   ].map(([look, name, [x, z]]) => {
@@ -735,19 +736,21 @@ function buildMcD(I, scene) {
     const p = k.w(x, z); c.root.position.set(p[0], k.base, p[1]); c.root.rotation.y = k.heading(-Math.PI / 2);
     c.homeRot = c.root.rotation.y; c.workT = 1 + Math.random() * 2; c.reach = 0;
     scene.add(c.root); return c;
-  });
+  }) : [];
   const mid = k.w(12, mz(15));
-  I.updaters.push((dt, game) => {
-    const pp = game?.player?.pos;
-    if (pp && (pp.x - mid[0]) ** 2 + (pp.z - mid[1]) ** 2 > 70 * 70) return; // nobody is watching
-    staff.update(dt, { speed: 0 });
-    for (const c of crew) {
-      if ((c.workT -= dt) <= 0) { c.workT = 1.6 + Math.random() * 2.6; c.reach = 0.7; c.turn = (Math.random() - 0.5) * 0.7; }
-      c.reach -= dt;
-      c.root.rotation.y += (c.homeRot + (c.reach > 0 ? c.turn : 0) - c.root.rotation.y) * Math.min(1, dt * 4);
-      c.update(dt, { speed: 0, pose: c.reach > 0 ? 'give' : null });
-    }
-  });
+  if (staff || crew.length) {
+    I.updaters.push((dt, game) => {
+      const pp = game?.player?.pos;
+      if (pp && (pp.x - mid[0]) ** 2 + (pp.z - mid[1]) ** 2 > 70 * 70) return; // nobody is watching
+      if (staff) staff.update(dt, { speed: 0 });
+      for (const c of crew) {
+        if ((c.workT -= dt) <= 0) { c.workT = 1.6 + Math.random() * 2.6; c.reach = 0.7; c.turn = (Math.random() - 0.5) * 0.7; }
+        c.reach -= dt;
+        c.root.rotation.y += (c.homeRot + (c.reach > 0 ? c.turn : 0) - c.root.rotation.y) * Math.min(1, dt * 4);
+        c.update(dt, { speed: 0, pose: c.reach > 0 ? 'give' : null });
+      }
+    });
+  }
   let ordered = false;
   const cp = k.w(17.0, mz(15.0));
   I.actions.push({
@@ -809,7 +812,7 @@ function buildMcD(I, scene) {
   const setClosed = (on) => {
     mcdState.closed = on; shutter.visible = sign.visible = on;
     for (const { c, base } of lit.values()) c.emissiveIntensity = on ? base * 0.06 : base;
-    for (const c of [staff, ...crew]) c.root.visible = !on;
+    for (const c of [staff, ...crew]) if (c) c.root.visible = !on;
   };
   I.updaters.push((dt, game) => {
     const m = ((game.clock % 1440) + 1440) % 1440, closed = m < OPEN0 || m >= OPEN1;
@@ -1623,10 +1626,10 @@ export function guardFootprint(s) {
   return [w(-0.6, -0.6), w(5, -0.6), w(5, 3.8), w(-0.6, 3.8)];
 }
 
-export function buildInteriors(scene, data, collision) {
+export function buildInteriors(scene, data, collision, { createCharacter } = {}) {
   const I = new Interiors(scene);
   const im = buildIM(I, scene);
-  const mcd = buildMcD(I, scene);
+  const mcd = buildMcD(I, scene, createCharacter);
   I.yh = buildYanlinHome(I, scene);
   I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC); // 黃蓋瑞家: next door to 彥霖's, same floor (src/world/buildings/GarryHome.js)
   buildClubCorner(I, scene, Kit); // outside of 活動中心's NW corner; the 3F 古箏社教室 in it (I.club) is built with src/world/buildings/Sac.js

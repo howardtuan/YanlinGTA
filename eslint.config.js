@@ -10,8 +10,6 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2024,
-        process: 'readonly',
-        Buffer: 'readonly',
       },
     },
     rules: {
@@ -55,8 +53,11 @@ export default [
     },
   },
   {
-    // tools/ 底下在 Node 執行的腳本（建置檢查、通關機器人的驅動端、平面圖產生器）
+    // Node 執行的設定檔、測試與工具腳本
     files: [
+      'vite.config.js',
+      'eslint.config.js',
+      'tests/**/*.js',
       'tools/*.mjs',
       'tools/e2e/serve.mjs',
       'tools/e2e/story-bot.mjs',

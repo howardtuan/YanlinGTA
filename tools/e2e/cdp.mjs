@@ -57,7 +57,7 @@ export async function launchChrome({ chrome, gpu = 'swiftshader', width = 1280, 
     try { const t = fs.readFileSync(portFile, 'utf8').split('\n'); if (t[0]) port = +t[0]; } catch { }
     if (!port) await sleep(100);
   }
-  if (!port) throw new Error('Chrome did not open a DevTools port:\n' + stderr.slice(-2000));
+  if (!port) throw new Error(`Chrome did not open a DevTools port:\n${  stderr.slice(-2000)}`);
   const kill = async () => {
     try { proc.kill(); } catch { }
     for (let i = 0; i < 30 && !exited; i++) await sleep(100);
@@ -83,7 +83,7 @@ export class CDP {
   }
   static async connect(url) {
     const ws = new WebSocket(url);
-    await new Promise((res, rej) => { ws.addEventListener('open', res, { once: true }); ws.addEventListener('error', () => rej(new Error('WebSocket error ' + url)), { once: true }); });
+    await new Promise((res, rej) => { ws.addEventListener('open', res, { once: true }); ws.addEventListener('error', () => rej(new Error(`WebSocket error ${  url}`)), { once: true }); });
     return new CDP(ws);
   }
   send(method, params = {}, timeoutMs = 60000) {
@@ -101,7 +101,7 @@ export class CDP {
     const r = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise }, timeoutMs);
     if (r.exceptionDetails) {
       const d = r.exceptionDetails;
-      throw new Error('page eval: ' + (d.exception?.description || d.text));
+      throw new Error(`page eval: ${  d.exception?.description || d.text}`);
     }
     return r.result.value;
   }

@@ -40,7 +40,14 @@ for (const ref of refs) {
 if (!entry) problems.push('index.html loads no script');
 
 // folders the game fetches at runtime by plain path (vite.config.js staticAssetsPlugin copies them)
-for (const need of ['data/cycu.json', 'data/npcs.json', 'manifest.webmanifest', 'assets/icon']) {
+for (const need of [
+  'data/cycu.json',
+  'data/npcs.json',
+  'data/terrain.json',
+  'vendor/rapier/rapier.wasm',
+  'manifest.webmanifest',
+  'assets/icon',
+]) {
   if (!fs.existsSync(path.join(dist, need))) problems.push(`${need} is missing from dist/`);
 }
 

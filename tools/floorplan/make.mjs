@@ -28,7 +28,7 @@ const args = process.argv.slice(2), opt = {}, pos = [];
 for (let i = 0; i < args.length; i++) { const a = args[i]; if (a.startsWith('--')) { const k = a.slice(2); if (['debug', 'list', 'help'].includes(k)) opt[k] = true; else opt[k] = args[++i]; } else pos.push(a); }
 if (opt.help || !pos.length) { console.log(HELP); process.exit(opt.help ? 0 : 1); }
 
-const cfgPath = existsSync(pos[0]) ? path.resolve(pos[0]) : path.join(ROOT, 'tools/floorplan/buildings', pos[0] + '.mjs');
+const cfgPath = existsSync(pos[0]) ? path.resolve(pos[0]) : path.join(ROOT, 'tools/floorplan/buildings', `${pos[0]  }.mjs`);
 if (!existsSync(cfgPath)) { console.error(`找不到設定檔 ${cfgPath}`); process.exit(1); }
 const cfg = (await import(pathToFileURL(cfgPath).href)).default;
 
@@ -46,8 +46,8 @@ if (opt.list) {
   console.log(`本地座標原點（世界座標）：${kit.ox}, ${kit.oz}　角度 ${(kit.ang * 180 / Math.PI).toFixed(2)}°　基準面 ${frame.base.toFixed(2)}`);
   console.log(`牆線 ${all.walls.length}、可走的面 ${all.surfaces.length}、門牌／招牌文字 ${all.texts.length}`);
   console.log('樓層：'); for (const f of floors) console.log(`  ${f.id}\t${f.name}\t地板 y=${f.y.toFixed(2)}\t到 ${(f.top ?? f.y + 3).toFixed(2)}`);
-  console.log('平的可走面的高度分布（建築基準面以上，公尺：面積 m²）：'); console.log('  ' + ctx.levels.filter(l => l.area >= 4).map(l => `${l.y.toFixed(1)}: ${Math.round(l.area)}`).join('　'));
-  for (const f of floors) { const sl = slice(all, f); console.log(`${f.id} 的文字（${sl.texts.length}）：` + sl.texts.map(t => `${t.text}${t.door ? '[門]' : ''}@${t.x.toFixed(1)},${t.z.toFixed(1)}`).join('　')); }
+  console.log('平的可走面的高度分布（建築基準面以上，公尺：面積 m²）：'); console.log(`  ${  ctx.levels.filter(l => l.area >= 4).map(l => `${l.y.toFixed(1)}: ${Math.round(l.area)}`).join('　')}`);
+  for (const f of floors) { const sl = slice(all, f); console.log(`${f.id} 的文字（${sl.texts.length}）：${  sl.texts.map(t => `${t.text}${t.door ? '[門]' : ''}@${t.x.toFixed(1)},${t.z.toFixed(1)}`).join('　')}`); }
   process.exit(0);
 }
 

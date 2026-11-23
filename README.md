@@ -2,7 +2,7 @@
 
 # 中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)
 
-[![CI](https://github.com/hank1224/YanlinGTA/actions/workflows/ci.yml/badge.svg)](https://github.com/hank1224/YanlinGTA/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/howardtuan/YanlinGTA/actions/workflows/deploy.yml/badge.svg)](https://github.com/howardtuan/YanlinGTA/actions/workflows/deploy.yml)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Three.js](https://img.shields.io/badge/Three.js-r160-black.svg?logo=three.js&logoColor=white)](https://threejs.org/)

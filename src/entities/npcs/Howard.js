@@ -209,10 +209,23 @@ export class Howard extends DevNPC {
       }[this.mode] || ''
     );
   }
+  // what the room is like while he sleeps (02:00–09:00): 漢克 (src/entities/npcs/Hank.js) is only asleep until 06:00,
+  // then he plays guitar or calls his girlfriend; 女拳大帝's alarm rings from 06:00 (src/entities/npcs/Gordon.js)
   sleepLines() {
+    const g = this.g,
+      H = g.hank,
+      room = g.gordon?.ringing
+        ? '女拳大帝的鬧鐘在旁邊一直響，他還是睡得很熟'
+        : H?.mode !== 'dorm'
+          ? '上舖的漢克不在'
+          : H.asleep
+            ? '上舖的漢克也睡了'
+            : H.call
+              ? '漢克在旁邊跟女朋友講電話，他完全沒被吵醒'
+              : '漢克在旁邊彈吉他，他完全沒被吵醒';
     return [
       ['霍華德', '（呼……呼……）'],
-      ['彥霖', '（霍華德在 3 號床的下舖睡著了，手裡還握著一副撲克牌。上舖的漢克也睡了）'],
+      ['彥霖', `（霍華德在 3 號床的下舖睡著了，手裡還握著一副撲克牌。${room}）`],
     ];
   }
   onMode(mode, was) {

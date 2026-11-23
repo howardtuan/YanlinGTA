@@ -1,12 +1,12 @@
 // 開發者 霍華德：彥霖的同班同學，個性友好。打 LOL（什麼模式都打）、打特戰英豪；魔術社社員，擅長變玫瑰花和撲克牌魔術。
-// 常常教同學會計學。晚餐後去健身房重訓（在體育館外看得到他）。這個遊戲主要負責任務開發、NPC 角色設計，
+// 常常教同學會計學。晚餐後去健身房重訓（在體育館西側正門外看得到他）。這個遊戲主要負責任務開發、NPC 角色設計，
 // 和各種小應用（手機 App、電腦 App 幾乎都是他優化的）。
 // 外型照使用者給的照片：皮膚偏白、細框圓眼鏡、燙捲的短髮、粉色上衣。
 // 住力行宿舍 279 寢 3 號床（右手邊最裡面那張下舖，上舖 2 號是漢克；座位是右手邊最裡面的書桌）。
 // 一天（遊戲時鐘）：
 //   02:00–09:00 睡覺；09:00–12:00、14:00–16:00、00:00–02:00 在書桌前開發這個遊戲（任務、NPC、手機 App）；
 //   12:00–14:00、21:00–22:00 在寢室練撲克牌魔術手法（牌在兩手之間飛）；16:00–19:00 打 LOL、22:00–00:00 打特戰英豪；
-//   19:00–21:00 晚餐後在體育館外重訓（啞鈴彎舉）。
+//   19:00–21:00 晚餐後在體育館西側正門外重訓（啞鈴彎舉）。
 import * as THREE from 'three';
 import { surfaceAt } from '../../world/Terrain.js';
 import { createCharacter } from '../Character.js';
@@ -37,8 +37,9 @@ const CODE = [
 const LOL = gameScreen('#0a1a2f', '#0d3b4f', '召喚峽谷', '積分對戰 ・ 中路 ・ 10 / 2 / 8', '#c8aa6e');
 const VAL = gameScreen('#0f1923', '#3b0d14', 'RANKED', '特戰英豪 ・ 13 : 11 ◆', '#ff4655');
 
-// gym spot: outside the gym's south entrance, a few metres east of 吱吱
-const GYM = { x: -36.2, z: -183.6, h: Math.PI };
+// gym spot: in front of the 體育館's main entrance (the orange portico on the west face, src/world/zones/ZoneG.js GYM.portA..portB),
+// past the granite steps, facing out to the west so you see him as you come up (使用者指正：原本在附屬棟南側和游泳池之間的暗巷、面向牆，從正門看不到)
+const GYM = { x: -39.3, z: -225.9, h: Math.atan2(-0.996, -0.088) };
 
 // his figure: a short cut with a perm on top (also used by tools/npc-dashboard)
 export function createHoward() {
@@ -56,7 +57,7 @@ export class Howard extends DevNPC {
     });
     this.places = {
       sleep: '在力行宿舍 279 寢睡覺（3 號床）', code: '在力行宿舍 279 寢開發遊戲（任務・NPC・App）💻',
-      game: '在力行宿舍 279 寢打遊戲 🎮', dorm: '在力行宿舍 279 寢練撲克牌魔術 🃏', gym: '在體育館外重訓 💪',
+      game: '在力行宿舍 279 寢打遊戲 🎮', dorm: '在力行宿舍 279 寢練撲克牌魔術 🃏', gym: '在體育館正門外重訓 💪',
     };
     const blk = new THREE.MeshStandardMaterial({ color: '#1d1f22', roughness: 0.5, metalness: 0.5 });
     // a hand point on each forearm (the cards fly between them) and a dumbbell in each hand

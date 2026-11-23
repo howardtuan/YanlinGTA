@@ -666,7 +666,7 @@ export const FRIEND_CONTACTS = {
       ask: (g) => {
         const H = g.howard; if (!H?.mode) return { r: ['等我一下'] };
         if (H.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast('😴 霍華德在 279 寢的 3 號床睡覺，早上 9 點會起來', 'good', 2800) };
-        const r = { code: ['在 279 寫任務 💻', '定位傳你，右手邊最裡面'], game: ['在 279 打遊戲 🎮', '打完這場'], dorm: ['在 279 練牌 🃏', '來，我變一個給你看'], gym: ['在體育館外重訓 💪', '定位傳你'] }[H.mode] || ['在學校'];
+        const r = { code: ['在 279 寫任務 💻', '定位傳你，右手邊最裡面'], game: ['在 279 打遊戲 🎮', '打完這場'], dorm: ['在 279 練牌 🃏', '來，我變一個給你看'], gym: ['在體育館正門外重訓 💪', '定位傳你'] }[H.mode] || ['在學校'];
         return { r, then: () => { if (trackFriend(g, 'howard')) g.hud.toast('🧭 已設定導航到霍華德身邊', 'good', 2400); } };
       },
     }],

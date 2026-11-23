@@ -1,6 +1,7 @@
 // 大仁二街 D 段：東南側 s 126～141（街景 2024-08；正射 2024）。s 140.9 以後到實踐路口的 7-ELEVEN 轉角樓由實踐路那邊蓋（shijian/S3.js），這裡不重複。
 // 實景兩棟：白色小方磚 5 樓（這一段只有啜麵那一開間，烏龍麵舖那一開間在 C 段）＋咖啡色磁磚 4 樓（這裡只做東北端的鐵捲門開間與樓梯門）。
 // 兩棟中間 0.2 m 的縫有一根不鏽鋼排風管。立面在離路中心線 4.7 m；白樓一樓是內縮 2 m 的騎樓，所以外殼設在 6.7、樓上用 custom 往前挑出來。
+import { grilleTex } from './corners.js';
 const F = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 const BROWN = '#83604f', TRIM = '#ded9cd', GREYW = '#c8c5bc', WHITE_T = '#d0cec7';
 const TL = { col: false, tile: [0.6, 0.6] }, NC = { col: false };
@@ -142,6 +143,25 @@ const customShutter = (k, T) => {
 // ---- D3 咖啡樓鐵窗開間（s 138～145.1）----
 // ---- D4 咖啡樓 7-Eleven 開間（s 145.1～152.2）----
 // ---- D5 轉角：45° 切角（7-Eleven 入口）＋實踐路面（s 152.2～155.7）----
+// ---- D3 東北半：樓梯／鐵窗那一開間（s 138～141.2；西南半在 7-ELEVEN 那一格的側面，見 ./corners.js）----
+const customStair = (k, T) => {
+  const { w, gf, fh } = T;
+  brownUpper(k, T, [[1.5, 2.0]], []);
+  k.box(0, w, 0, gf - 0.4, -0.12, 0, T.wallMat(GREYW), TL);                          // 一樓灰白水泥漆牆
+  k.plane(grilleTex(T.sg, 2), 1.6, 2.05, 1.0, 1.95, -0.13, T.FRONT);                // 白色鐵窗花（接 7-ELEVEN 那一格側面的另一半）
+  k.box(0.15, 1.85, 0, 0.3, -0.75, -0.12, '#a3a19b', NC);                               // 鐵窗前的水泥台
+  // 樓梯門：深色門框、灰鐵門、門上小氣窗，水泥踏階
+  k.box(1.65, 2.85, 0.15, 2.45, -0.16, -0.12, '#3b3834', NC); k.box(1.75, 2.75, 0.15, 2.3, -0.17, -0.16, '#6b6e70', NC); k.box(1.85, 2.65, 1.3, 2.1, -0.18, -0.17, '#55585a', NC);
+  k.box(1.6, 2.9, 0, 0.15, -0.6, -0.12, '#a3a19b', NC);
+  // 2 樓高度的平鐵皮雨遮，上面兩台舊的米白百葉外殼冷氣（跟側面那一排連成一線）
+  k.box(0, w, gf - 0.12, gf - 0.04, -1.1, 0, '#8f9394', NC);
+  for (const x of [0.6, 2.4]) k.box(x, x + 0.05, gf - 0.5, gf - 0.12, -0.9, 0, '#6f7374', NC);
+  for (const [x, h] of [[0.2, 1.1], [1.25, 0.55]]) { k.box(x, x + 0.85, gf - 0.04, gf - 0.04 + h, -0.85, -0.3, '#d3ceba', NC); for (let yy = gf + 0.06; yy < gf + h - 0.1; yy += 0.12) k.box(x + 0.06, x + 0.79, yy, yy + 0.04, -0.87, -0.85, '#a9a595', NC); }
+  acHood(k, T, 0.9, gf + fh * 2 + 0.2);
+  // 西南端接 7-ELEVEN 那一格：那邊的側面比這裡往街上凸出約 1.1 m，補一道咖啡色磚的轉折牆把縫蓋起來
+  k.box(-0.05, 0.15, 0, T.top + 0.9, -1.15, 0, T.wallMat(BROWN), TL);
+};
+
 const BR = { set: 4.7, d: 8.5, nf: 4, gf: GF, fh: FH, wall: BROWN, bal: 'plain', door: 0 };
 export default {
   ownSign: ['TSU MI：啜麵'],
@@ -150,6 +170,6 @@ export default {
     [126.4, 131.8, -1, { set: 6.7, d: 12, nf: 5, gf: 3.4, fh: 3.1, wall: WHITE_T, ground: 'shop', door: 0, noband: true, bal: 'glass', roof: 'none', custom: customTsumi }],
     [132, 138, -1, { ...BR, ground: 'shutter', sh: '#a8a9a7', roof: 'none', bikes: 1, custom: customShutter }],
     // s 138～140.9：同一棟咖啡樓的樓梯門那一小段，接到實踐路那邊蓋的 7-ELEVEN 轉角樓（shijian/S3.js，S 417.2～426.2，佔 s 140.9 以後）
-    [138, 140.9, -1, { ...BR, ground: 'open', door: 1, noband: true, roof: 'none', bikes: -1 }],
+    [138, 141.2, -1, { ...BR, ground: 'open', door: 0, noband: true, roof: 'none', bikes: -1, custom: customStair }],
   ],
 };

@@ -3054,6 +3054,9 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
         }
       }
     }
+    // 假攤販先不擺（使用者要求清掉，之後照街景重做真的店家）：上面的選點迴圈照跑，
+    // 共用亂數 rnd() 抽的次數不變，後面的路燈、樹、車位置才不會跟著動
+    spots.length = 0;
     // striped canopies glow from the bulbs underneath at night
     const stripe = canvasTex(64, 8, (g) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#ffffff' : '#d8d8d8'; g.fillRect(i * 8, 0, 8, 8); } });
     stripe.repeat.set(2, 1);
@@ -3093,7 +3096,7 @@ export function buildWorld(scene, data, onProgress = () => { }, opts = {}) {
     const lantern = new THREE.InstancedMesh(lanternG, new THREE.MeshStandardMaterial({ color: '#e8261c', emissive: '#ff3a1a', emissiveIntensity: 0.4, roughness: 0.55 }), spots.length * 2);
     world.stallBodyMat = body.material;
     // warm glow on the street
-    const gg = new Geo(true); gg.disc(nm.x, nm.z, 80, 0.07, [1, 1, 1], 40);
+    const gg = new Geo(true); if (spots.length) gg.disc(nm.x, nm.z, 80, 0.07, [1, 1, 1], 40);
     const glow = gg.mesh(new THREE.MeshBasicMaterial({ color: '#ff9a3c', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
     glow.renderOrder = layerOrder++; scene.add(glow);
     world.marketGlow = glow.material;

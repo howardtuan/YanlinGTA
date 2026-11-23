@@ -315,7 +315,7 @@ export class Race {
   close(again) {
     this._cleanup();
     if (again) { this.start(); return; }
-    if (!this.g.input.touch) this.g.input.canvas.requestPointerLock?.();
+    if (!this.g.input.touch) this.g.lockPointer(); // through the game, so the pause-on-unlock check knows it asked
   }
   _cleanup() {
     const g = this.g;

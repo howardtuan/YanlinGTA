@@ -10,7 +10,11 @@ const onClick = (id, fn) => {
   else console.warn(`missing #${  id}`);
 };
 
+// when the game last asked for the mouse back (closing the phone, a modal, the map...); see the pointerlockchange
+// handler below
+let lockReqAt = -1e9;
 export const lockPointer = el => {
+  lockReqAt = performance.now();
   try {
     const r = el.requestPointerLock?.();
     if (r && r.catch) r.catch(() => {});
@@ -112,8 +116,15 @@ export class MenuManager {
       if (!game.input.touch) lockPointer(game.renderer.domElement);
     });
     onClick('btnRestart', () => this.confirmClear(1, true));
+    // losing the mouse lock while playing means the player pressed Esc, so pause. But not when the loss comes right
+    // after the game itself asked for the lock back (e.g. phone → 直升機空投 / 無人機 / 任務 buttons close the phone and
+    // relock while a cut-scene starts: the browser can refuse or drop that fresh lock), and not during a cut-scene,
+    // where the player is frozen anyway and a real Esc still reaches the Escape handler in Game.js once unlocked.
     document.addEventListener('pointerlockchange', () => {
-      if (!document.pointerLockElement && game.state === 'play' && !game.hud.bigOpen && !game.input.touch && !game._modalOpen && !game._overlay && !game.videoOpen && !game.phone?.open && !game.photo?.on && !game.job?.active && !game.pc?.isOpen && !game.wardrobe?.isOpen) {
+      if (document.pointerLockElement) return;
+      const cine = game.airdrop?.cinema || game.drone?.cinema || game.mingshan?.cinema;
+      if (cine || performance.now() - lockReqAt < 1200) return;
+      if (game.state === 'play' && !game.hud.bigOpen && !game.input.touch && !game._modalOpen && !game._overlay && !game.videoOpen && !game.phone?.open && !game.photo?.on && !game.job?.active && !game.pc?.isOpen && !game.wardrobe?.isOpen) {
         this.pause();
       }
     });

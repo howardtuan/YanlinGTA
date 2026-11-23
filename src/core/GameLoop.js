@@ -311,7 +311,9 @@ export class GameLoop {
       game._drawnAt = now;
       game.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
       game.fpv?.renderMirrors(game.renderer); // rear view for the cockpit mirrors
-      if (game.zzQuest?.film.active)
+      if (game.mahjong?.playing)
+        game.mahjong.render(game.renderer); // 277 麻將: its own little scene (src/systems/mahjong/MahjongScene.js)
+      else if (game.zzQuest?.film.active)
         game.zzQuest.film.render(game.renderer); // 吱吱's 武嶺 film: its own little scene
       else game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
     }

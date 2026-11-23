@@ -67,6 +67,7 @@ import { Jianyu } from '../entities/npcs/Jianyu.js';
 import { Houshe } from '../entities/npcs/Houshe.js';
 import { Zz } from '../entities/npcs/Zz.js';
 import { ZzInjury } from '../systems/quests/ZzInjury.js';
+import { DormMahjong } from '../systems/mahjong/Mahjong.js';
 import { TzuyuWagyu } from '../systems/quests/TzuyuWagyu.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
@@ -421,7 +422,9 @@ class Game {
               ? 'gate'
               : this.job.active
                 ? 'job'
-                : 'play';
+                : this.mahjong?.playing
+                  ? 'mahjong'
+                  : 'play';
     this.prompts = new Prompts(this.input, () => ({
       ctx: this.input.padContext(),
       vehicle: !!this.player.vehicle,
@@ -517,6 +520,8 @@ class Game {
     this.zzQuest = new ZzInjury(this);
     this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
     this.zz = new Zz(this);
+    // 力行 277 寢的迷你麻將桌：揪力行的人打台式麻將（src/systems/mahjong/Mahjong.js）
+    this.mahjong = new DormMahjong(this);
 
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
     // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
@@ -771,6 +776,14 @@ class Game {
     }
   }
 
+  // like spend(), but the wallet may go below zero (277 麻將 losses, src/systems/mahjong/Mahjong.js)
+  pay(n, what) {
+    this.money -= n;
+    this.ledger.push({ what, n: -n, at: this.clock });
+    this.hud.setMoney(this.money);
+    this.audio.pay();
+  }
+
   spend(n, what) {
     if (this.money < n) return false;
     this.money -= n;
@@ -934,6 +947,7 @@ class Game {
       !this.drone?.cinema &&
       !this.mingshan?.cinema &&
       !this.zzQuest?.busy &&
+      !this.mahjong?.playing &&
       !this.job.active &&
       !this.gate.active &&
       !this._sleeping &&
@@ -1078,6 +1092,7 @@ class Game {
     this.zz?.update(dt);
     this.zzQuest?.update(dt);
     this.tzuyuQuest?.update(dt);
+    this.mahjong?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     this.photo.update(dt, inp); // 📷 holding the phone up: eats the shutter / back keys before anything else sees them
@@ -1116,7 +1131,11 @@ class Game {
         );
       }
     }
-    if (this.zzQuest?.busy) {
+    if (this.mahjong?.playing) {
+      // 277 麻將: the table has the keys (its own Esc to leave)
+      this.mahjong.play(dt, inp);
+      inp.pressed.clear();
+    } else if (this.zzQuest?.busy) {
       // 吱吱's 武嶺 film (Esc / E skips it) or the bath mini-game (its own keys): nothing else reacts
       if (this.zzQuest.film.active) this.zzQuest.film.update(dt, inp);
       inp.pressed.clear();
@@ -1138,6 +1157,7 @@ class Game {
       this.drone.active ||
       this.mingshan?.cinema ||
       this.zzQuest?.busy ||
+      this.mahjong?.playing ||
       this.speechOn ||
       hud.bigOpen ||
       this.videoOpen ||

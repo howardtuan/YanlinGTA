@@ -296,6 +296,13 @@ export class Hank {
   _dormTick(dt) {
     const D = this.dorm;
     if (!D) return;
+    if (this.mode === 'mahjong') {
+      D.gt.visible = D.phone.visible = false;
+      this.call = false;
+      this._gtT = 0;
+      this.g.mahjong.hold('hank', D.ch, dt);
+      return;
+    }
     const on = this.mode === 'dorm',
       p = this.g.player.pos,
       near = Math.hypot(p.x - D.seat.x, p.z - D.seat.z) < 60;
@@ -430,7 +437,7 @@ export class Hank {
   }
   update(dt) {
     const g = this.g,
-      mode = this._modeAt(g.clock);
+      mode = g.mahjong?.has('hank') ? 'mahjong' : this._modeAt(g.clock); // 被揪去 277 打麻將 (src/systems/mahjong/Mahjong.js)
     if (mode !== this.mode) {
       this.mode = mode;
       if (mode !== 'walk' && !this.playing) this._hideWalker();

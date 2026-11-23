@@ -40,6 +40,8 @@ export class MahjongEngine {
     this.result = null;
     this.calls = 0; // 有沒有人吃碰槓過（天胡／地胡／人胡要沒有）
     this.discardsMade = 0;
+    this.headTaken = 0; // tiles taken from the front / the back of the wall (for drawing it)
+    this.tailTaken = 0;
   }
   seatWind(s) {
     return (s - this.dealer + 4) % 4;
@@ -58,10 +60,13 @@ export class MahjongEngine {
   _take(s, tail) {
     const P = this.players[s];
     let t = tail ? this.wall.pop() : this.wall.shift();
+    if (tail) this.tailTaken++;
+    else this.headTaken++;
     while (isFlower(t)) {
       P.flowers.push(t);
       this.emit({ type: 'flower', seat: s, t });
       t = this.wall.pop();
+      this.tailTaken++;
     }
     P.hand.push(t);
     return t;
@@ -72,6 +77,7 @@ export class MahjongEngine {
       for (let k = 0; k < 4; k++) {
         const s = (this.dealer + k) % 4;
         for (let j = 0; j < 4; j++) this.players[s].hand.push(this.wall.shift());
+        this.headTaken += 4;
       }
     for (let k = 0; k < 4; k++) {
       const s = (this.dealer + k) % 4,
@@ -82,6 +88,7 @@ export class MahjongEngine {
         P.flowers.push(t);
         this.emit({ type: 'flower', seat: s, t });
         P.hand.push(this.wall.pop());
+        this.tailTaken++;
       }
       P.hand = sortTiles(P.hand);
     }

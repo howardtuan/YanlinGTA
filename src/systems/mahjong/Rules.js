@@ -3,6 +3,8 @@
 // 一副 144 張：34 種各 4 張 + 8 張花。胡牌 = 5 組（順子／刻子／槓）+ 1 對，手上 16 張再進 1 張。
 // 底 30、一台 10（src/systems/mahjong/Mahjong.js 用 settle() 算錢）。
 
+export const BASE = 30, // 底
+  PER_TAI = 10; // 一台
 export const KINDS = 34;
 export const FLOWER0 = 34;
 export const isFlower = (k) => k >= FLOWER0;
@@ -284,7 +286,7 @@ export function meldTiles(m) {
 // ---------------- 結算 ----------------
 // 每個付錢的人付 底 + 台 × 每台；莊家有關（莊家胡或莊家付錢）再加 1 台 + 連 N 拉 N（2N 台）
 // r: { winner, from: 放槍的人（自摸 = null）, tai, dealer, streak }；回傳 4 家的輸贏
-export function settle(r, base = 30, perTai = 10) {
+export function settle(r, base = BASE, perTai = PER_TAI) {
   const d = [0, 0, 0, 0];
   const payers = r.from == null ? [0, 1, 2, 3].filter((s) => s !== r.winner) : [r.from];
   for (const p of payers) {

@@ -330,6 +330,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     ladder: mat('ladder', std({ color: '#f1f1ee', roughness: 0.4 }, 0.25)),
     chair: mat('chair', std({ color: '#e0622f', roughness: 0.6 }, 0.2)),
     steel: mat('steel', std({ color: '#b4b8bc', metalness: 0.7, roughness: 0.3 }, 0.08)),
+    felt: mat('felt', std({ color: '#2f7a4b', roughness: 0.95 }, 0.18)), // 277 麻將桌的桌布
     mosaic: mat('mosaic', std({ map: mosaic, roughness: 0.4 }, 0.25)),
     tileW: mat('tileW', std({ map: tileW, roughness: 0.35 }, 0.3)),
     tileD: mat('tileD', std({ map: tileD, roughness: 0.5 }, 0.15)),
@@ -1552,6 +1553,67 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
             face: Math.atan2(-s, 0),
           });
         }
+      }
+      // 277：兩張下舖（3、6 號床）中間的迷你麻將桌，綠色桌布、四腳鋼管；靠門那頭、靠窗那頭各一張橘色小板凳，
+      // 另外兩家坐在下舖床邊（src/systems/mahjong/Mahjong.js；座位 0 靠門是彥霖，逆時針 1 西床、2 靠窗、3 東床）
+      if (no === 277) {
+        const tz = zA + LEN - 1.15,
+          hw = 0.33,
+          top = y + 0.6;
+        bx(cx - hw, cx + hw, top - 0.04, top, tz - hw, tz + hw, MT.desk);
+        bx(
+          cx - hw + 0.03,
+          cx + hw - 0.03,
+          top,
+          top + 0.006,
+          tz - hw + 0.03,
+          tz + hw - 0.03,
+          MT.felt
+        );
+        for (const [a, b2] of [
+          [-1, -1],
+          [-1, 1],
+          [1, -1],
+          [1, 1],
+        ])
+          bx(
+            cx + a * (hw - 0.05) - 0.015,
+            cx + a * (hw - 0.05) + 0.015,
+            y,
+            top - 0.04,
+            tz + b2 * (hw - 0.05) - 0.015,
+            tz + b2 * (hw - 0.05) + 0.015,
+            MT.steel
+          );
+        wlRect(cx - hw, cx + hw, tz - hw, tz + hw, y, top);
+        const stool = (sz) => {
+          bx(cx - 0.15, cx + 0.15, y + 0.39, y + 0.42, sz - 0.15, sz + 0.15, MT.chair);
+          for (const a of [-1, 1])
+            for (const b2 of [-1, 1])
+              bx(
+                cx + a * 0.11 - 0.012,
+                cx + a * 0.11 + 0.012,
+                y,
+                y + 0.39,
+                sz + b2 * 0.11 - 0.012,
+                sz + b2 * 0.11 + 0.012,
+                MT.chair
+              );
+        };
+        stool(tz - 0.62);
+        stool(tz + 0.62);
+        const seat = (sx, sz) => ({ x: sx, z: sz, face: Math.atan2(cx - sx, tz - sz) });
+        ROOM_SPOTS[277].mahjong = {
+          table: [cx, tz],
+          top,
+          y,
+          seats: [
+            seat(cx, tz - 0.62),
+            seat(ix0 + 0.72, tz),
+            seat(cx, tz + 0.62),
+            seat(ix1 - 0.72, tz),
+          ],
+        };
       }
       sign(`${no} 寢`, cx, y + 2.52, z0 - 0.02, 'n', '#59833a', 0.7);
     });

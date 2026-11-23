@@ -151,11 +151,17 @@ export class Gordon {
       anyY: true,
       cond: () => !S.closed,
       label: () =>
-        this.count
-          ? `按 <kbd>E</kbd> 跟${KEEPER}結帳（${this.count} 件・NT$ ${this.total}）`
-          : `按 <kbd>E</kbd> 和店長${KEEPER}說話`,
+        this.g.mahjong?.has('gd')
+          ? `店長${KEEPER}被揪去力行 277 打麻將了 🀄（等他回來再結帳）`
+          : this.count
+            ? `按 <kbd>E</kbd> 跟${KEEPER}結帳（${this.count} 件・NT$ ${this.total}）`
+            : `按 <kbd>E</kbd> 和店長${KEEPER}說話`,
       fn: () =>
-        this.count ? this.checkout() : this.g.dialog(IDLE[Math.floor(Math.random() * IDLE.length)]),
+        this.g.mahjong?.has('gd')
+          ? this.g.hud.toast(`🀄 ${KEEPER}去力行 277 打麻將了，櫃台沒人`, 'bad', 2200)
+          : this.count
+            ? this.checkout()
+            : this.g.dialog(IDLE[Math.floor(Math.random() * IDLE.length)]),
     });
   }
   get count() {
@@ -314,7 +320,9 @@ export class Gordon {
   // 06:00 until he leaves for work: his phone alarm on the desk, unless you turned it off today
   get ringing() {
     const m = ((this.g.clock % 1440) + 1440) % 1440;
-    return this.asleep && m >= ALARM_AT && this.alarmOff !== this._day;
+    return (
+      this.asleep && m >= ALARM_AT && this.alarmOff !== this._day && !this.g.mahjong?.has('gd')
+    );
   }
   get boughtAny() {
     return Object.values(this.bought).some((n) => n > 0);
@@ -441,7 +449,7 @@ export class Gordon {
       z: seat.z,
       y: R.y + B - surfaceAt(seat.x, seat.z),
       r: 1.6,
-      cond: () => this.night && !game.zz?.gdOut && !this.ringing,
+      cond: () => this.night && !game.zz?.gdOut && !this.ringing && !game.mahjong?.has('gd'),
       label: () =>
         this.asleep
           ? '按 <kbd>E</kbd> 看看 4 號床上的女拳大帝（睡著了）'
@@ -449,6 +457,7 @@ export class Gordon {
       fn: () => this.dormTalk(),
     });
     game.interiors.updaters.push((dt, gm) => {
+      if (gm.mahjong?.hold('gd', ch, dt)) return; // 被揪去 277 打麻將 (src/systems/mahjong/Mahjong.js)
       const on = this.night && !gm.zz?.gdOut,
         p = gm.player.pos,
         near = Math.hypot(p.x - seat.x, p.z - seat.z) < 60;

@@ -54,6 +54,18 @@ export const PAD_MAPS = {
     [3, 'KeyE'],
     [9, 'KeyE'],
   ],
+  // 277 麻將 (src/systems/mahjong/MahjongScene.js): D-pad picks a tile, A discards, Y 胡, X 碰, LB 吃, RB 槓, B 過, Start leaves
+  mahjong: [
+    [14, 'ArrowLeft'],
+    [15, 'ArrowRight'],
+    [0, 'Enter'],
+    [1, 'KeyX'],
+    [2, 'KeyP'],
+    [3, 'KeyH'],
+    [4, 'KeyC'],
+    [5, 'KeyK'],
+    [9, 'Escape'],
+  ],
   // McDonald's shift: D-pad up/right/down/left + X / Y pick items 1-6, A serve, B remove last, Start clock out
   job: [
     [12, 'Digit1'],
@@ -127,7 +139,8 @@ export class Input {
     canvas.addEventListener('mousedown', (e) => {
       if (!this.enabled || this.touch) return;
       this.pressed.add('Tap'); // any click on the game view (even the one that only grabs the mouse) can advance a dialog
-      if (!this.locked && !this.lockFailed) {
+      if (!this.locked && !this.lockFailed && this.padContext() !== 'mahjong') {
+        // (at the 277 mahjong table the mouse picks tiles: no grabbing it)
         this._lockPending = true;
         try {
           const r = canvas.requestPointerLock?.();

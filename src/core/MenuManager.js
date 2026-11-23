@@ -93,7 +93,8 @@ export class MenuManager {
           !game.phone.open &&
           !game.job.active &&
           !game.pc?.isOpen &&
-          !game.wardrobe?.isOpen
+          !game.wardrobe?.isOpen &&
+          !game.mahjong?.playing
         ) {
           lockPointer(game.renderer.domElement);
         }
@@ -145,7 +146,11 @@ export class MenuManager {
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement) return;
       const cine =
-        game.airdrop?.cinema || game.drone?.cinema || game.mingshan?.cinema || game.zzQuest?.busy;
+        game.airdrop?.cinema ||
+        game.drone?.cinema ||
+        game.mingshan?.cinema ||
+        game.zzQuest?.busy ||
+        game.mahjong?.playing;
       if (cine || performance.now() - lockReqAt < 1200) return;
       if (
         game.state === 'play' &&

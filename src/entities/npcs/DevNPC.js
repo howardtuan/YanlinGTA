@@ -330,7 +330,11 @@ export class DevNPC {
       r: 2.2,
       y: 0,
       anyY: true,
-      cond: () => ch.root.visible && !!this.mode && Math.abs(game.player.pos.y - this.pos.y) < 2.4,
+      cond: () =>
+        ch.root.visible &&
+        !!this.mode &&
+        this.mode !== 'mahjong' &&
+        Math.abs(game.player.pos.y - this.pos.y) < 2.4,
       label: () =>
         this.mode === 'sleep'
           ? `按 <kbd>E</kbd> 看看 ${cfg.bed} 號床上的${cfg.name}（睡著了）`
@@ -403,7 +407,7 @@ export class DevNPC {
 
   update(dt) {
     const g = this.g,
-      mode = this.plan(minuteOf(g.clock));
+      mode = g.mahjong?.has(this.id) ? 'mahjong' : this.plan(minuteOf(g.clock)); // 被揪去 277 打麻將 (src/systems/mahjong/Mahjong.js)
     if (mode !== this.mode) {
       const was = this.mode;
       this.mode = mode;
@@ -420,6 +424,11 @@ export class DevNPC {
         mode === 'code' ? 'code' : mode === 'game' ? this.gameNow?.() || 'default' : 'off',
         H ? Math.hypot(p.x - H.seat.x, p.z - H.seat.z) : Infinity
       );
+    if (mode === 'mahjong') {
+      this.tag.visible = true;
+      g.mahjong.hold(this.id, this.ch, dt, this.pos);
+      return;
+    }
     if (DORM_MODES.has(mode)) {
       if (!H) {
         this.ch.root.visible = false;

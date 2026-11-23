@@ -86,6 +86,7 @@ import { PZ_ST, pzFootprints, buildPuzhongStreet } from '../buildings/StreetPuzh
 import { RX_ST, rxFootprints, buildRixinStreet } from '../buildings/StreetRixin.js';
 import { DF_ST, dfFootprints, buildDarenFill } from '../buildings/StreetDarenFill.js';
 import { pcLook, pcFootprints, buildPurenCenter } from '../buildings/PurenCenter.js';
+import { nmAdd, nmFootprints } from '../buildings/NightMarketFill.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -362,6 +363,12 @@ export const ZONES = [
         data,
         collision
       ),
+  },
+  {
+    // 中原夜市一帶的街廓內部：照正射補透天和鐵皮屋的量體（tools/build_map.py 當初避開了夜市）
+    name: '夜市街廓補建',
+    add: nmAdd,
+    footprints: nmFootprints,
   },
 ];
 

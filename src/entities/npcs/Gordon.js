@@ -11,6 +11,7 @@ import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { GD_LOOK } from './FriendLooks.js';
+import { serviceWear } from './Service.js';
 
 export const GD_ZONES = {
   hotpot: {
@@ -322,6 +323,7 @@ export class Gordon {
     const tag = makeLabel('🎮 女拳大帝', { height: 0.24, size: 40, color: '#ff6b6b' });
     tag.position.set(0, 1.75, 0);
     ch.root.add(tag);
+    serviceWear('gd', ch, GD_LOOK, { tag }); // 義務役 from 2026/11/6 (src/entities/npcs/Service.js)
     ch.root.position.set(seat.x, seat.y, seat.z);
     ch.root.rotation.y = seat.h;
     ch.root.visible = false;

@@ -61,7 +61,7 @@ npm run ci
 
 ### 3. PR 策略與全自動合併 (Auto-merge)
 - **僅允許 Merge Commit**：上游鎖定 **Create a merge commit**（禁用 Squash / Rebase）。送出 PR 前請在分支內整理好乾淨、有意義的 Commit，避免把雜亂的 `wip` 歷史帶入 `main`。
-- **CI 必過才可合併**：須通過 [ci.yml](.github/workflows/ci.yml) 全部 4 項檢查（`Code Quality`、`Unit & Integration Tests`、`Production Build`、`Docker Build Verification`）。
+- **CI 必過才可合併**：須通過 [ci.yml](.github/workflows/ci.yml) 全部 2 項平行檢查（`Verify`、`Docker Build Verification`）。
 - **建立 PR 後立即啟用 Auto-merge**：上游已開放 Auto-merge（`Required approvals = 0`），建立 PR 後**務必立即設定自動合併**，讓 CI 全綠後直接合併，不需使用者手動同意：
 
 ```bash

@@ -140,4 +140,4 @@ chore(ci): add data consistency test suite
    ```bash
    gh pr merge --auto --merge
    ```
-4. 待 **4 項 CI Checks 全綠**（且所有討論串已標記為 **Resolved**）後，GitHub 會自動以 **Create a merge commit** 合併進 `main`，再刪除已合併分支與清理 Worktree。
+4. 待 **CI Checks 全綠**（`Verify`、`Docker Build Verification`，且所有討論串已標記為 **Resolved**）後，GitHub 會自動以 **Create a merge commit** 合併進 `main`，再刪除已合併分支與清理 Worktree。

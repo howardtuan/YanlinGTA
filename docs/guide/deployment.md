@@ -148,17 +148,14 @@ server {
 ```mermaid
 flowchart TD
     subgraph Trigger["觸發事件 (Triggers)"]
-        Push["git push"]
+        Push["git push (main)"]
         PR["Pull Request"]
         Dispatch["手動觸發 (workflow_dispatch)"]
     end
 
-    subgraph CI["ci.yml (品質門禁)"]
-        Job1["1. Code Quality (Prettier & ESLint)"]
-        Job2["2. Unit & Integration Tests (Vitest & WASM)"]
-        Job3["3. Production Build (Vite dist)"]
-        Job4["4. Docker Build Verification (多階段構建)"]
-        Job1 --> Job2 --> Job3 --> Job4
+    subgraph CI["ci.yml (品質門禁・雙軌平行)"]
+        Job1["1. Verify (Prettier + ESLint + Vitest/WASM + Vite Build + check_dist)"]
+        Job2["2. Docker Build Verification (Buildx GHA Cache + nginx -t)"]
     end
 
     subgraph Deploy["deploy.yml (發布管線)"]
@@ -171,15 +168,15 @@ flowchart TD
         Puppeteer["Headless Chrome 故事劇本測試"]
     end
 
-    Push --> CI
     PR --> CI
-    Push -->|僅限 main 分支| Deploy
+    Dispatch --> CI
+    Push -->|非純文件異動| Deploy
     Dispatch --> E2E
 ```
 
 1. **`ci.yml`（持續整合品質門禁）**：
-   - 針對 `main` 的 Pull Request（與手動 `workflow_dispatch`）執行 4 大 Job，與倉庫 `protect-main-github-flow` Ruleset 綁定為必要通過檢查（合併至 `main` 後不再重複執行）。
-   - 包含 Prettier 排版檢查、ESLint 0 error / 0 warning 檢查、Vitest 單元測試、WASM 抽樣整合測試、Vite 打包檢查（`check_dist.mjs`）與平行執行的 Docker 建置＋`nginx -t` 驗證。
+   - 針對 `main` 的 Pull Request（與手動 `workflow_dispatch`）平行執行 2 大 Job（`Verify`、`Docker Build Verification`），與倉庫 `protect-main-github-flow` Ruleset 綁定為必要通過檢查（合併至 `main` 後不再重複執行）。
+   - `Verify` 單次安裝依賴後依序執行 Prettier 全倉檢查、ESLint 0 error / 0 warning、Vitest 單元與 WASM 整合測試、Vite 打包與 `check_dist.mjs`；`Docker Build Verification` 平行執行多階段建置（搭配 Buildx GHA 層快取）並以 `nginx -t` 驗證設定。
 2. **`deploy.yml`（持續交付發布管線）**：
    - 當程式碼合併至 `main` 且非純文件／測試異動（`paths-ignore` 略過 `docs/**`、`tests/**`、`*.md` 等）時，自動構建 `dist/` 並部署至 GitHub Pages。
    - 使用 `actions/configure-pages` 自動注入對應的儲存庫路徑 Base URL。

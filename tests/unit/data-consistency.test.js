@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CASES } from '../../src/systems/minigames/Detective.js';
+import { ZONES } from '../../src/world/zones/Zones.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -69,5 +71,62 @@ describe('Game Data Consistency Tests', () => {
     expect(Number.isFinite(terrain.step) && terrain.step > 0).toBe(true);
     expect(Array.isArray(terrain.rows)).toBe(true);
     expect(terrain.rows.length).toBe(terrain.nz);
+  });
+
+  it('Detective CASES have valid SQL table seeds, clues, required clue ids, and culprits', () => {
+    const entries = Object.entries(CASES);
+    expect(entries.length).toBeGreaterThanOrEqual(3);
+
+    for (const [key, c] of entries) {
+      expect(c.id).toBe(key);
+      expect(c.title.length).toBeGreaterThan(0);
+      expect(c.culprit.length).toBeGreaterThan(0);
+      expect(c.solved.length).toBeGreaterThan(0);
+      expect(Array.isArray(c.hints) && c.hints.length).toBeGreaterThan(0);
+
+      for (const tbl of Object.keys(c.tables)) {
+        expect(c.seed).toMatch(new RegExp(`CREATE\\s+TABLE\\s+${tbl}\\b`, 'i'));
+      }
+
+      const clueIds = new Set(c.clues.map((cl) => cl.id));
+      expect(clueIds.size).toBe(c.clues.length);
+      for (const cl of c.clues) {
+        expect(typeof cl.test).toBe('function');
+        expect(cl.text.length).toBeGreaterThan(0);
+      }
+      for (const needId of c.need) {
+        expect(clueIds.has(needId)).toBe(true);
+      }
+    }
+  });
+
+  it('ZONES registry has unique zone names and valid hook signatures', () => {
+    expect(Array.isArray(ZONES)).toBe(true);
+    expect(ZONES.length).toBeGreaterThan(15);
+
+    const HOOKS = [
+      'fix',
+      'add',
+      'look',
+      'footprints',
+      'terrain',
+      'trees',
+      'vegHide',
+      'treeHide',
+      'build',
+    ];
+    const names = new Set();
+    for (const z of ZONES) {
+      expect(typeof z.name).toBe('string');
+      expect(z.name.length).toBeGreaterThan(0);
+      expect(names.has(z.name)).toBe(false);
+      names.add(z.name);
+
+      for (const h of HOOKS) {
+        if (z[h] !== undefined) expect(typeof z[h]).toBe('function');
+      }
+      if (z.drop !== undefined) expect(Array.isArray(z.drop)).toBe(true);
+      if (z.ownSign !== undefined) expect(Array.isArray(z.ownSign)).toBe(true);
+    }
   });
 });

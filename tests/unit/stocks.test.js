@@ -1,7 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { roundTick, fmtP, STOCKS } from '../../src/systems/StockMarket.js';
+import {
+  roundTick,
+  fmtP,
+  STOCKS,
+  Market,
+  isTradingDay,
+  OPEN,
+  ODD_OPEN,
+} from '../../src/systems/StockMarket.js';
 
-describe('Virtual Stocks System Tests (stocks.js)', () => {
+function makeMockGame(clock, money = 500000) {
+  return {
+    clock,
+    money,
+    _saveT: 0,
+    spend(amount) {
+      if (this.money < amount) return false;
+      this.money -= amount;
+      return true;
+    },
+    earn(amount) {
+      this.money += amount;
+    },
+  };
+}
+
+describe('Virtual Stocks System Tests (StockMarket.js)', () => {
   describe('roundTick price stepping rules', () => {
     it('should round to 0.01 for prices under 10', () => {
       expect(roundTick(5.123)).toBe(5.12);
@@ -44,7 +68,7 @@ describe('Virtual Stocks System Tests (stocks.js)', () => {
     });
   });
 
-  describe('STOCKS Listings', () => {
+  describe('STOCKS Listings & trading calendar', () => {
     it('should contain 100 listings starting with PYL', () => {
       expect(STOCKS.length).toBe(100);
       expect(STOCKS[0].code).toBe('PYL');
@@ -58,6 +82,79 @@ describe('Virtual Stocks System Tests (stocks.js)', () => {
         expect(stock.name).toBeTruthy();
         expect(stock.base).toBeGreaterThan(0);
       }
+    });
+
+    it('should classify weekdays as trading days and weekends as closed', () => {
+      expect(isTradingDay(0)).toBe(true); // Monday
+      expect(isTradingDay(4)).toBe(true); // Friday
+      expect(isTradingDay(5)).toBe(false); // Saturday
+      expect(isTradingDay(6)).toBe(false); // Sunday
+      expect(isTradingDay(-1)).toBe(false); // previous Sunday
+      expect(isTradingDay(-3)).toBe(true); // previous Friday
+    });
+  });
+
+  describe('Market trading & DCA rules', () => {
+    it('should reject invalid orders, closed sessions, and pre-09:10 odd lots', () => {
+      const g = makeMockGame(OPEN + 5, 1_000_000); // Monday 09:05 (lot open, odd not yet)
+      const market = new Market(g);
+
+      expect(market.order('NOPE', 'buy', 'odd', 10)).toContain('找不到');
+      expect(market.order('PYL', 'buy', 'odd', 0)).toContain('數量');
+      expect(market.order('PYL', 'buy', 'odd', 10)).toContain('09:10');
+
+      g.clock = ODD_OPEN + 5; // Monday 09:15
+      expect(market.order('PYL', 'buy', 'odd', 1000)).toContain('999');
+
+      g.clock = 5 * 1440 + OPEN + 30; // Saturday
+      expect(market.order('PYL', 'buy', 'lot', 1)).toContain('休市');
+    });
+
+    it('should execute buy and sell orders accurately with fees, tax, and cost basis', () => {
+      const g = makeMockGame(ODD_OPEN + 20, 50_000); // Monday 09:30
+      const market = new Market(g);
+      const price = market.price('PYL');
+
+      // Buy 10 odd shares
+      expect(market.order('PYL', 'buy', 'odd', 10)).toBeNull();
+      const buyAmount = Math.round(price * 10);
+      const buyFee = market.fee(buyAmount, true);
+      expect(market.holdings.PYL.sh).toBe(10);
+      expect(market.holdings.PYL.cost).toBe(buyAmount + buyFee);
+      expect(g.money).toBe(50_000 - (buyAmount + buyFee));
+      expect(market.trades.length).toBe(1);
+
+      // Cannot buy more than available balance
+      expect(market.order('PYL', 'buy', 'lot', 5)).toContain('錢不夠');
+      // Cannot sell more than owned shares
+      expect(market.order('PYL', 'sell', 'odd', 11)).toContain('庫存');
+
+      // Partial sell (4 shares) adjusts cost proportionally
+      const beforeSellMoney = g.money;
+      const beforeSellCost = market.holdings.PYL.cost;
+      expect(market.order('PYL', 'sell', 'odd', 4)).toBeNull();
+      const sellAmount = Math.round(price * 4);
+      const sellNet = sellAmount - market.fee(sellAmount, true) - Math.round(sellAmount * 0.003);
+      expect(g.money).toBe(beforeSellMoney + sellNet);
+      expect(market.holdings.PYL.sh).toBe(6);
+      expect(market.holdings.PYL.cost).toBe(Math.round((beforeSellCost * 6) / 10));
+
+      // Selling remaining 6 shares removes holding entry cleanly
+      expect(market.order('PYL', 'sell', 'odd', 6)).toBeNull();
+      expect(market.holdings.PYL).toBeUndefined();
+    });
+
+    it('should validate DCA minimum amount and register valid plans', () => {
+      const g = makeMockGame(ODD_OPEN + 20, 50_000);
+      const market = new Market(g);
+
+      expect(market.addDca('NOPE', 1000, 'daily')).toContain('找不到');
+      expect(market.addDca('PYL', 50, 'daily')).toContain('NT$100');
+      expect(market.addDca('PYL', 200, 'daily')).toContain('買到 1 股');
+
+      expect(market.addDca('PYL', 5000, 'daily')).toBeNull();
+      expect(market.dca.length).toBe(1);
+      expect(market.dca[0].code).toBe('PYL');
     });
   });
 });

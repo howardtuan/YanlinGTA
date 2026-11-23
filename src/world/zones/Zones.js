@@ -41,6 +41,7 @@ import { LIANGSHAN_ID, ENCI_ID, liangshanLook, enciLook, dormsFootprints, buildD
 import { zoneCLook, zoneCVegHide, buildZoneC } from './ZoneC.js';
 import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
 import { HZ_ST, hzFix, hzFootprints, buildHuanzhongStreet } from '../buildings/StreetHuanzhong.js';
+import { PZ_ST, pzFootprints, buildPuzhongStreet } from '../buildings/StreetPuzhong.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -116,6 +117,10 @@ export const ZONES = [
   { // 大仁一街兩側街屋
     name: '大仁一街街屋', drop: D1_ST.drop, ownSign: D1_ST.ownSign, footprints: d1Footprints,
     build: (I, scene) => buildDaren1Street(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 普忠路兩側街屋（鐵路地下道口到新中北路口）
+    name: '普忠路街屋', drop: PZ_ST.drop, ownSign: PZ_ST.ownSign, footprints: pzFootprints,
+    build: (I, scene) => buildPuzhongStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

@@ -57,6 +57,7 @@ const WD = { z0: 25.0, z1: 27.25 };
 const SW = { z0: 9.92, z1: 24.9, ld: 1.3, mid: 2.4, fW: 37.5, fE: 85.53, sill: 1.1, head: 2.5 }; // fW / fE: the two faces on the forecourt (outline x)
 // 剪刀梯梯段那一段（兩端平台之間）：兩側沒有牆，迴廊和前院都看得到樓梯（使用者指正 2026-11-23，介紹影片的照片）
 const SW_RUN = { z0: SW.z0 + SW.ld, z1: SW.z1 - SW.ld, elev0: 17.9, elev1: 19.5 }; // elev: 東棟電梯門那一小段牆墩
+const MID_Z = 19.45; // 中段南面外牆（外框 z 19.34～19.47）
 const FB_ID = 'xinzhongbei_footbridge',
   FB_CUT = 5.7; // the footbridge's first metres are the outside stair (data.grade cut0)
 const ANNEX = { z0: 29.6, z1: 34.3, x0: 38.3, x1: 84.7, gate0: 56.2, gate1: 61.4, h: 3.3 };
@@ -79,6 +80,7 @@ export function lixingLook(b) {
     return Math.sign(area2(r)) === out ? r.reverse() : r;
   });
   b.holeWalls = false; // src/world/MapBuilder.js: no walls round the courtyards (the galleries are built here), roof and parapet as usual
+  b.outerWalls = false; // 外牆也自己蓋（buildLixing 最後的「外牆」），窗戶才對得上室內的樓層和房間
   // door openings in the south wall of the middle block: 1F 大門, 2F 天橋門 at the 2F floor (world heights)
   const { f1 } = lxLevels(),
     p = W(MID.door0, 19.4),
@@ -671,7 +673,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   // 北端（z0）是接回主走廊的走道（使用者確認有通）。open: -1 / +1 = 南端平台（二樓以上）朝 x 小／大那一側開口（朝前院）。
   // 兩條梯道中間不再是通到屋頂的實牆，只留跟著梯段斜上去的欄板，站在梯段上看得到另一條；碰撞仍是整面
   // （人一定站在自己那條梯段上，欄板永遠在身旁，所以不會有看不見的牆，也不會跨到另一條掉下去）。
-  const scissor = ({ x0, x1, z0, z1, ld, mid = 0, nl = 0, wallM = MT.white }) => {
+  const scissor = ({ x0, x1, z0, z1, ld, mid = 0, nl = 0, midS = 0, wallM = MT.white }) => {
     const cm = (x0 + x1) / 2,
       lanes = [
         [x0 + 0.1, cm - 0.07],
@@ -806,7 +808,9 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     ]) {
       const side = (za, zb, ya, yb) =>
         bx(s > 0 ? v : v - 0.1, s > 0 ? v + 0.1 : v, ya, yb, za, zb, wallM);
-      side(z0, zn, FL[0], ROOF);
+      // 靠中段那一側：中段（主走廊南邊那排房間）一直到 MID_Z 都貼著樓梯間，那段要有牆（後面是關著的房間，不然看得到空的）；
+      // 過了中段南面才是前院（藍青直條）
+      side(z0, s === midS ? MID_Z : zn, FL[0], ROOF);
       side(zs, z1 - 0.14, FL[0], ROOF);
       wl(v, z0, v, z1, FL[0], ROOF);
     }
@@ -1294,6 +1298,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     ld: SW.ld,
     mid: SW.mid,
     nl: 0,
+    midS: -1,
   }); // 西棟靠中段（朝前院）：靠天井那條往北上
   scissor({
     x0: EW.w,
@@ -1303,6 +1308,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     ld: SW.ld,
     mid: SW.mid,
     nl: 1,
+    midS: 1,
   }); // 東棟靠中段（朝前院），鏡像
   // 樓梯間朝前院那一面：梯段那段是藍青直條；南迴廊端頭的走道二到四樓往外凸出（實心混凝土欄板）、欄板上方開口
   for (const [xf, xi, d] of [
@@ -1326,7 +1332,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     P(0, 0.05, ROOF, TOP + 0.6, zn, za, MT.conc);
     // 開口上一條一條的直條，藍、綠（青）相間（使用者指正 2026-11-23：比較符合實景照），縫裡看得到樓梯
     {
-      const za0 = SW_RUN.z0 + 0.1,
+      const za0 = MID_Z + 0.15, // (前院那面從中段南面才開始)
         zb0 = SW_RUN.z1 - 0.2,
         m = Math.round((zb0 - za0) / 0.55);
       for (let i = 0; i <= m; i++) {
@@ -1860,6 +1866,212 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   }
 
   doorTex.needsUpdate = true;
+
+  // ---------------- 外牆（使用者指正 2026-11-23：外殼的樓層、窗戶和室內對不上）----------------
+  // src/world/MapBuilder.js 不畫外牆（b.outerWalls = false，屋頂和女兒牆照舊），這裡照平面圖沿外框每一面自己蓋：
+  // 一到四樓每間房在它實際的位置開一扇窗（浴廁、洗衣間高窗，曬衣場大窗，樓梯窄窗），第五層是頂樓（不住人，素牆）。
+  // 窗玻璃是不透明的深色玻璃，看不進去，所以關著的房間不用做室內。b.wallDoors 的開口（大門、天橋門、走道、樓梯）照舊留空。
+  {
+    const tileT = rep(
+      canvasTex(64, 64, (g) => {
+        g.fillStyle = '#8a93ad';
+        g.fillRect(0, 0, 64, 64);
+        for (let x = 0; x < 4; x++)
+          for (let y = 0; y < 8; y++) {
+            const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453,
+              d = (v - Math.floor(v) - 0.5) * 14;
+            g.fillStyle = `rgb(${91 + d},${111 + d},${166 + d})`;
+            g.fillRect(x * 16 + 1, y * 8 + 1, 14, 6);
+          }
+      })
+    );
+    const XM = {
+      tile: mat('extTile', std({ map: tileT, roughness: 0.7 })),
+      band: mat('extBand', std({ color: '#e6e6e2', roughness: 0.8 })),
+      frame: mat('extFrame', std({ color: '#5a4636', roughness: 0.6 })),
+      glass: mat(
+        'extGlass',
+        new THREE.MeshStandardMaterial({
+          color: '#4c5862',
+          roughness: 0.12,
+          metalness: 0.45,
+          envMapIntensity: 1.0,
+        })
+      ),
+    };
+    const R = (a, c, n, kind = 'room') =>
+      Array.from({ length: n }, (_, i) => [
+        a + ((c - a) * i) / n,
+        a + ((c - a) * (i + 1)) / n,
+        kind,
+      ]);
+    const lx = sx + 3.3 + 5 * mA;
+    const FACES = {
+      north: [
+        ...R(0.25, 34.9, 7),
+        [34.9, MID.x0, 'svc'],
+        [MID.x0, MID.x0 + 5.5, 'svc'],
+        ...R(MID.x0 + 5.5, sx, 6),
+        [sx, sx + 3.3, 'stair'],
+        ...R(sx + 3.3, lx, 5),
+        [lx, lx + 2.5, 'svc'],
+        [lx + 2.5, MID.x1, 'svc'],
+        ...R(MID.x1, NX - 0.25, 8),
+      ],
+      south: [...R(ROWC_W.x0, ROWC_W.x1, 11), ...R(ROWC_E.x0, ROWC_E.x1, 11)],
+      mid: [...R(MID.x0, MID.hall0, 8), [MID.hall0, MID.hall1, 'hall'], ...R(MID.hall1, MID.x1, 8)],
+      bumpN: [
+        [BW.x0, BW.x1, 'laundry'],
+        [BE.x0, BE.x1, 'laundry'],
+      ],
+      bumpW: [[BW.z0, BW.zA, 'laundry'], ...R(BW.zA, BW.zB, 3, 'svc'), [BW.zB, BW.z1, 'stair']],
+      bumpE: [[BE.z0, BE.zA, 'laundry'], ...R(BE.zA, BE.zB, 3, 'svc'), [BE.zB, BE.z1, 'stair']],
+    };
+    // 哪一面：沿 x 的邊看 z，沿 z 的邊看 x
+    const faceOf = (alongX, v) =>
+      alongX
+        ? v < 1
+          ? 'north'
+          : v > 33
+            ? 'south'
+            : Math.abs(v - MID_Z) < 0.5
+              ? 'mid'
+              : v < 9
+                ? 'bumpN'
+                : null
+        : v < -3
+          ? 'bumpW'
+          : v > 125
+            ? 'bumpE'
+            : null;
+    // 窗（u 寬、離樓板的高度）
+    const winOf = (kind, cw, f) =>
+      kind === 'room'
+        ? [Math.min(2.0, cw - 0.9), 0.9, 2.3]
+        : kind === 'svc'
+          ? [Math.min(1.2, cw - 0.6), 1.6, 2.3]
+          : kind === 'laundry'
+            ? [cw - 1.2, 0.9, 2.5]
+            : kind === 'stair'
+              ? [1.0, 0.9, 2.3]
+              : kind === 'hall' && f >= 2
+                ? [Math.min(2.0, cw - 0.6), 0.9, 2.3]
+                : null;
+    const pts = b.pts.map(([x, z]) => k.l(x, z));
+    const inside = (x, z) => {
+      let c = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, zi] = pts[i],
+          [xj, zj] = pts[j];
+        if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
+      }
+      return c;
+    };
+    const DEPTH = 0.2; // 牆往內的厚度：房間都從外框往內 0.25 起算，外牆要退在房間自己那面牆後面
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i],
+        c = pts[(i + 1) % pts.length],
+        alongX = Math.abs(c[0] - a[0]) > Math.abs(c[1] - a[1]),
+        u0 = Math.min(alongX ? a[0] : a[1], alongX ? c[0] : c[1]),
+        u1 = Math.max(alongX ? a[0] : a[1], alongX ? c[0] : c[1]);
+      if (u1 - u0 < 0.3) continue;
+      const v = alongX ? (a[1] + c[1]) / 2 : (a[0] + c[0]) / 2,
+        um = (u0 + u1) / 2,
+        o = (alongX ? inside(um, v + 0.5) : inside(v + 0.5, um)) ? -1 : 1; // 朝外是 +v 還是 -v
+      // 這一面座標系裡的方塊：u、高度、離外框往外的距離 da..db
+      const BX = (ua, ub, ya, yb, da, db, m, tile) => {
+        const p0 = v + o * da,
+          p1 = v + o * db,
+          w0 = Math.min(p0, p1),
+          w1 = Math.max(p0, p1),
+          op = tile ? { tile } : undefined;
+        if (alongX) bx(ua, ub, ya, yb, w0, w1, m, op);
+        else bx(w0, w1, ya, yb, ua, ub, m, op);
+      };
+      let gy = Infinity;
+      for (let t = 0; t <= 1.0001; t += 0.1) {
+        const u = u0 + (u1 - u0) * t,
+          [wx, wz] = alongX ? W(u, v) : W(v, u);
+        gy = Math.min(gy, H(wx, wz) - B);
+      }
+      gy -= 0.5;
+      const holes = (b.wallDoors || [])
+        .map((d) => {
+          const P = k.l(d.p[0], d.p[1]),
+            Q = k.l(d.q[0], d.q[1]),
+            off = (q) => Math.abs((alongX ? q[1] : q[0]) - v);
+          if (off(P) > 0.5 || off(Q) > 0.5) return null;
+          const pu = alongX ? P[0] : P[1],
+            qu = alongX ? Q[0] : Q[1],
+            ua = Math.max(u0, Math.min(pu, qu)),
+            ub = Math.min(u1, Math.max(pu, qu));
+          return ub - ua > 0.02 ? { ua, ub, ya: d.y0 - B, yb: d.y1 - B } : null;
+        })
+        .filter(Boolean);
+      // 橫的一條（腰帶、遮陽板）：碰到開口的地方斷開
+      const hspan = (ya, yb, da, db, m) => {
+        const cut = holes.filter((h) => h.ya < yb && h.yb > ya).sort((p, q) => p.ua - q.ua);
+        let s0 = u0 - DEPTH;
+        for (const h of cut) {
+          if (h.ua > s0) BX(s0, h.ua, ya, yb, da, db, m);
+          s0 = Math.max(s0, h.ub);
+        }
+        if (u1 + DEPTH > s0) BX(s0, u1 + DEPTH, ya, yb, da, db, m);
+      };
+      // 牆：每兩個斷點之間一段，扣掉蓋住它的開口
+      const us = [...new Set([u0 - DEPTH, u1 + DEPTH, ...holes.flatMap((h) => [h.ua, h.ub])])].sort(
+        (p, q) => p - q
+      );
+      for (let j = 0; j < us.length - 1; j++) {
+        const s0 = us[j],
+          s1 = us[j + 1];
+        if (s1 - s0 < 1e-3) continue;
+        const tm = (s0 + s1) / 2,
+          cut = holes.filter((h) => h.ua <= tm && h.ub >= tm).sort((p, q) => p.ya - q.ya);
+        let y = gy;
+        for (const h of cut) {
+          if (h.ya > y) BX(s0, s1, y, h.ya, -DEPTH, 0.02, XM.tile, [0.64, 0.64]);
+          y = Math.max(y, h.yb);
+        }
+        if (TOP > y) BX(s0, s1, y, TOP, -DEPTH, 0.02, XM.tile, [0.64, 0.64]);
+      }
+      // 樓板處的白腰帶、每層的遮陽板（外觀資料 tools/looks.json 那兩條）、牆頂壓條
+      for (let f = 1; f <= 4; f++) {
+        const y = FL[0] + f * ST;
+        hspan(y - 0.15, y + 0.15, 0, 0.08, XM.band);
+      }
+      for (let f = 0; f <= 4; f++) {
+        const y = FL[0] + f * ST + 0.22 * ST;
+        hspan(y - 0.06, y + 0.06, 0, 0.6, XM.band);
+      }
+      hspan(TOP - 0.3, TOP, 0, 0.25, XM.band);
+      // 窗：一到四樓，每間房一扇
+      const face = faceOf(alongX, v);
+      if (!face) continue;
+      for (const [ca, cb, kind] of FACES[face]) {
+        if (cb <= u0 + 0.2 || ca >= u1 - 0.2) continue;
+        for (let f = 0; f < 4; f++) {
+          const wd = winOf(kind, cb - ca, f);
+          if (!wd || wd[0] < 0.5) continue;
+          const [ww, h0, h1] = wd,
+            cu = (ca + cb) / 2,
+            ua = cu - ww / 2,
+            ub = cu + ww / 2,
+            ya = FL[f] + h0,
+            yb = FL[f] + h1;
+          if (holes.some((h) => h.ua < ub + 0.1 && h.ub > ua - 0.1 && h.ya < yb && h.yb > ya))
+            continue;
+          BX(ua, ub, ya, yb, 0, 0.03, XM.glass);
+          const fr = 0.06;
+          BX(ua - fr, ub + fr, yb, yb + fr, 0, 0.07, XM.frame);
+          BX(ua - fr, ub + fr, ya - fr, ya, 0, 0.09, XM.frame);
+          BX(ua - fr, ua, ya, yb, 0, 0.07, XM.frame);
+          BX(ub, ub + fr, ya, yb, 0, 0.07, XM.frame);
+          if (ww > 1.4) BX(cu - 0.025, cu + 0.025, ya, yb, 0, 0.06, XM.frame); // 中間的窗框
+        }
+      }
+    }
+  }
   k.finish(scene);
   // bathW: the west end block's 浴廁 (each floor; 2F is the one nearest 276, src/systems/quests/ZzInjury.js); park: a spot on the
   // forecourt by the 1F 大門 where 吱吱 and 女拳大帝 leave their BW'S at night (src/entities/npcs/Zz.js)

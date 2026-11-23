@@ -4945,6 +4945,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         for (const ring of rs)
           for (let i = 0; i < ring.length; i++) {
             if (b.holeWalls === false && ring !== rs[0]) break; // courtyards whose walls are built elsewhere (src/world/buildings/Lixing.js)
+            if (b.outerWalls === false && ring === rs[0]) break; // outer walls built elsewhere too (力行：窗戶要對齊室內，src/world/buildings/Lixing.js)；只是不畫，不抽亂數
             const a = ring[i],
               c = ring[(i + 1) % ring.length],
               dx = c[0] - a[0],

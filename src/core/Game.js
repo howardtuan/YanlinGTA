@@ -451,6 +451,9 @@ class Game {
     this.mingshan = new Mingshan(this);
     this.yeeming = new YeeMing(this);
 
+    // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
+    // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
+    this.gameLoop.updateSky(0);
     try {
       await this.renderer.compileAsync(this.scene, this.camera);
     } catch (_e) {

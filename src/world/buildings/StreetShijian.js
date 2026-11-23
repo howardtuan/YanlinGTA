@@ -47,8 +47,8 @@ export function sjLotFrame([road, s0, s1, side, sp]) {
   return { ox: m.x + nx * set - ax * w / 2, oz: m.z + nz * set - az * w / 2, ang: Math.atan2(az, ax), w, apron: Math.max(0.6, set - Rd.half) };
 }
 export function sjFootprints() {
-  const fp = SJ_ST.fences.map(([road, s0, s1, side]) => {
-    const { ox, oz, ang, w, apron } = sjLotFrame([road, s0, s1, side, { set: SJ_ROADS[road].set + 0.35 }]), c = Math.cos(ang), s = Math.sin(ang), p = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
+  const fp = SJ_ST.fences.map(([road, s0, s1, side, fs]) => {
+    const { ox, oz, ang, w, apron } = sjLotFrame([road, s0, s1, side, { set: (fs && fs.set) || SJ_ROADS[road].set + 0.35 }]), c = Math.cos(ang), s = Math.sin(ang), p = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
     return [p(-0.1, -apron - 0.2), p(w + 0.1, -apron - 0.2), p(w + 0.1, 1.8), p(-0.1, 1.8)];
   });
   return fp.concat(SJ_ST.lots.map((L) => {
@@ -270,18 +270,58 @@ export function buildShijianStreet(I, scene, X) {
     k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
   });
 
-  // ---- 圍牆（寫法照中北路的中原國小圍牆，外觀等街景調查後再改）：花台、灌木、紅磚方柱加黑色鐵欄杆、行道大樹 ----
-  SJ_ST.fences.forEach(([road, s0, s1, side], i) => {
-    const { ox, oz, ang, w, apron } = sjLotFrame([road, s0, s1, side, { set: SJ_ROADS[road].set + 0.35 }]), r = lcg(4000 + i);
+  // ---- 圍牆 [road, s0, s1, side, spec?]：洗石子矮牆、紅磚方柱加黑色花式鐵欄杆、牆內整排大樹（照街景 2026-05 的中原國小圍牆）----
+  // spec（都可以不給）：set 牆離路中心線、bay 柱距（預設 4）、shrub 0 不種灌木、tall 牆內是 10 m 以上的大樹、bikes 牆外停一排機車、
+  //   mesh 整段改成花台加綠色菱形網圍籬（底下一條藍底彩繪板，沒有紅磚柱）、mural [[s0, s1], …] 這幾段牆外多一道綠網圍籬加彩繪花台、cones [[s0, s1], …] 這幾段牆外不停機車只放交通錐
+  const bars2 = sg('sjBars2', 128, 64, (g) => { // 黑色花式鐵欄杆：上緣圓弧、中間一個圓形花飾
+    g.clearRect(0, 0, 128, 64); g.fillStyle = '#1c1c1e'; g.strokeStyle = '#1c1c1e'; g.lineWidth = 3;
+    for (let x = 3; x < 128; x += 9) { const top = 6 + 10 * Math.pow((x - 64) / 64, 2) * 1.6; if (Math.abs(x - 64) > 15) g.fillRect(x, top, 2.5, 64 - top); else { g.fillRect(x, top, 2.5, 14 - top + 6); g.fillRect(x, 50, 2.5, 14); } }
+    g.beginPath(); g.moveTo(0, 22); g.quadraticCurveTo(64, -8, 128, 22); g.stroke(); g.fillRect(0, 57, 128, 4);
+    g.beginPath(); g.arc(64, 35, 15, 0, 7); g.stroke(); g.beginPath(); g.arc(64, 35, 6, 0, 7); g.stroke();
+    for (let a = 0; a < 6.3; a += Math.PI / 4) { g.beginPath(); g.moveTo(64 + Math.cos(a) * 6, 35 + Math.sin(a) * 6); g.lineTo(64 + Math.cos(a) * 15, 35 + Math.sin(a) * 15); g.stroke(); }
+  });
+  const meshTex = sg('sjMesh', 128, 96, (g) => { // 綠色菱形網圍籬（一片 2 m），底下藍底彩繪板：綠色山丘、白雲
+    g.clearRect(0, 0, 128, 96); g.strokeStyle = 'rgba(47,122,82,.9)'; g.lineWidth = 1.2;
+    for (let x = -64; x < 128; x += 8) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 64, 64); g.stroke(); g.beginPath(); g.moveTo(x + 64, 0); g.lineTo(x, 64); g.stroke(); }
+    g.fillStyle = '#2f7a52'; g.fillRect(0, 0, 128, 3); g.fillRect(0, 0, 4, 96); g.fillRect(124, 0, 4, 96);
+    g.fillStyle = '#2f6fc0'; g.fillRect(0, 64, 128, 32);
+    g.fillStyle = '#5fb04a'; g.beginPath(); g.moveTo(0, 96); g.quadraticCurveTo(30, 62, 64, 96); g.quadraticCurveTo(98, 70, 128, 96); g.fill();
+    g.fillStyle = '#ffffff'; for (const [x, y] of [[26, 74], [84, 72]]) { g.beginPath(); g.arc(x, y, 5, 0, 7); g.arc(x + 7, y - 2, 6, 0, 7); g.arc(x + 14, y, 5, 0, 7); g.fill(); }
+  });
+  SJ_ST.fences.forEach((F, i) => {
+    const [road, s0, s1, side] = F, fs = F[4] || {};
+    const { ox, oz, ang, w, apron } = sjLotFrame([road, s0, s1, side, { set: fs.set || SJ_ROADS[road].set + 0.35 }]), r = lcg(4000 + Math.round(s0 * 10) * 7 + ROAD_KEYS.indexOf(road) * 100003);
+    void i;
     const k = vcKit(new Kit(I, ox, oz, ang)); kits.push(k);
-    k.box(0, w, -0.4, 0.55, 0.2, 1.3, '#c9c5ba');                                                          // 花台
-    k.box(0.1, w - 0.1, 0.55, 1.1, 0.35, 1.15, '#3f7a3a', { col: false });                                  // 灌木
-    const n = Math.max(1, Math.round(w / 4)), bay = w / n;
-    for (let j = 0; j <= n; j++) { const x = Math.min(w - 0.24, Math.max(0, j * bay - 0.12)); k.box(x, x + 0.24, 0.55, 2.0, 0.1, 0.4, '#a0523a', { col: false }); k.box(x - 0.03, x + 0.27, 2.0, 2.08, 0.07, 0.43, '#e8e6e0', { col: false }); }
-    for (let j = 0; j < n; j++) k.plane(bars, bay - 0.34, 1.0, (j + 0.5) * bay, 1.35, 0.25, FRONT, { transparent: true, double: true });
-    for (let x = 4 + r() * 3; x < w - 3; x += 9 + r() * 5) {                                              // 大樹：樹幹加兩三團樹冠
-      const h = 5 + r() * 2.5, s = 1.2 + r() * 0.6; k.cyl(x, 0.85, 0.22, 0, h, '#6a4a30', { seg: 6 });
-      for (const [dx, dy, dz, q] of [[0, h + 0.6, 0, 1], [-1.2, h - 0.6, 0.4, 0.8], [1.3, h - 0.3, -0.2, 0.85]]) { const g = new THREE.SphereGeometry(s * q, 7, 5); g.translate(x + dx, dy, 0.85 + dz); k._part(VC, paintGeo(g, r() < 0.5 ? '#3f7a3a' : '#4b8a3e')); }
+    const meshRun = (x0, x1, z, y0) => { const n = Math.max(1, Math.round((x1 - x0) / 2)), bw = (x1 - x0) / n; for (let j = 0; j < n; j++) k.plane(meshTex, bw, 1.5, x0 + (j + 0.5) * bw, y0 + 0.75, z, FRONT, { transparent: true, double: true }); for (let j = 0; j <= n; j++) k.box(x0 + j * bw - 0.03, x0 + j * bw + 0.03, y0, y0 + 1.55, z - 0.03, z + 0.03, '#2f7a52', { col: false }); };
+    if (fs.mesh) {
+      k.box(0, w, -0.4, 0.35, 0.1, 1.5, '#c9c5ba');                                                        // 花台
+      k.box(0.1, w - 0.1, 0.35, 0.7, 0.5, 1.4, '#3f7a3a', { col: false });
+      meshRun(0, w, 0.2, 0.35);
+    } else {
+      k.box(0, w, -0.4, 0.55, 0.2, fs.shrub === 0 ? 0.5 : 1.3, '#c9c5ba');                                 // 洗石子矮牆（有灌木時是花台）
+      if (fs.shrub !== 0) k.box(0.1, w - 0.1, 0.55, 1.1, 0.35, 1.15, '#3f7a3a', { col: false });           // 灌木
+      const n = Math.max(1, Math.round(w / (fs.bay || 4))), bay = w / n, ph = fs.bay ? 1.9 : 2.0, pw = fs.bay ? 0.45 : 0.24;
+      for (let j = 0; j <= n; j++) { const x = Math.min(w - pw, Math.max(0, j * bay - pw / 2)); k.box(x, x + pw, 0.55, ph, 0.1, 0.1 + Math.max(0.3, pw), '#a0523a', { col: false }); k.box(x - 0.03, x + pw + 0.03, ph, ph + 0.08, 0.07, 0.13 + Math.max(0.3, pw), '#e8e6e0', { col: false }); }
+      for (let j = 0; j < n; j++) k.plane(fs.bay ? bars2 : bars, bay - pw - 0.1, fs.bay ? 1.15 : 1.0, (j + 0.5) * bay, fs.bay ? 1.15 : 1.35, 0.3, FRONT, { transparent: true, double: true });
+    }
+    for (const [a, b] of fs.mural || []) {                                                                  // 牆外的綠網圍籬加彩繪花台
+      const x0 = side > 0 ? a - s0 : s1 - b, x1 = side > 0 ? b - s0 : s1 - a;
+      k.box(x0, x1, 0, 0.3, -1.0, -0.4, '#2f6fc0'); meshRun(x0, x1, -0.95, 0.3);
+    }
+    const inRange = (R, x, m = 0.6) => (R || []).some(([a, b]) => { const s = side > 0 ? s0 + x : s1 - x; return s > a - m && s < b + m; });
+    const cone = (x, z) => { k.box(x - 0.2, x + 0.2, 0.05, 0.1, z - 0.2, z + 0.2, '#e8651f', { col: false }); k.cyl(x, z, 0.1, 0.1, 0.7, '#e8651f', { seg: 8 }); k.cyl(x, z, 0.105, 0.4, 0.5, '#f4f4f0', { seg: 8 }); };
+    if (fs.bikes) for (let x = 0.6 + r() * 1.5; x < w - 0.8; x += 0.75 + (r() < 0.12 ? 1.2 + r() * 2 : r() * 0.15)) {    // 牆外垂直停的一排機車，偶爾空一格放交通錐
+      if (inRange(fs.cones, x)) { if (r() < 0.35) cone(x, -1.6); continue; }                             // cones [[s0, s1], …]：這幾段不停車，只放交通錐
+      const zf = inRange(fs.mural, x) ? -2.75 : -1.9;                                                      // 有綠網圍籬的地方機車停在網子外面
+      if (r() < 0.06) { cone(x, zf + 1.0); continue; }
+      bike(k, x, zf - r() * 0.2, 1, bikeCols[(r() * 6) | 0]);
+    }
+    const zt = fs.tall ? 2.2 : 0.85;
+    for (let x = 4 + r() * 3; x < w - 3; x += (fs.tall ? 5 : 9) + r() * (fs.tall ? 3.5 : 5)) {                              // 大樹：樹幹加幾團樹冠
+      const h = fs.tall ? 7 + r() * 2.5 : 5 + r() * 2.5, s = fs.tall ? 2.6 + r() * 0.9 : 1.2 + r() * 0.6; k.cyl(x, zt, fs.tall ? 0.32 : 0.22, 0, h, '#6a4a30', { seg: 6 });
+      const crowns = fs.tall ? [[0, h + 1.4, 0, 1], [-2.4, h - 0.2, 0.8, 0.8], [2.5, h + 0.2, 0.4, 0.85], [0.4, h + 0.4, -2.2, 0.8], [-0.6, h + 0.2, 2.6, 0.75]] : [[0, h + 0.6, 0, 1], [-1.2, h - 0.6, 0.4, 0.8], [1.3, h - 0.3, -0.2, 0.85]];
+      for (const [dx, dy, dz, q] of crowns) { const g = new THREE.SphereGeometry(s * q, 7, 5); g.translate(x + dx, dy, zt + dz); k._part(VC, paintGeo(g, r() < 0.5 ? '#3f7a3a' : '#4b8a3e')); }
     }
     k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
   });

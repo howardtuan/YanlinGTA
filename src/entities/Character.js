@@ -542,11 +542,13 @@ export function createCharacter(opts = {}) {
   const sockM = mat('#fafafa');
   const pants = !!opts.pants;
   const sk = opts.skinned ?? SKINNED;
+  // female build: from the hair, or opts.female for a girl with a short cut (Yulu, src/entities/npcs/Yulu.js)
   const female =
-    opts.hairStyle === 'long' ||
-    opts.hairStyle === 'pony' ||
-    opts.hairStyle === 'hime' ||
-    opts.hairStyle === 'bob';
+    opts.female ??
+    (opts.hairStyle === 'long' ||
+      opts.hairStyle === 'pony' ||
+      opts.hairStyle === 'hime' ||
+      opts.hairStyle === 'bob');
   // face / build sliders (taipei-rush style), derived from the look so every NPC keeps its own face
   const id = [
     opts.skin,

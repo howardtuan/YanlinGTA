@@ -302,7 +302,7 @@ class Game {
     this._applyQuality();
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
-    this.interiors = buildInteriors(this.scene, data, this.world.collision);
+    this.interiors = buildInteriors(this.scene, data, this.world.collision, { createCharacter });
 
     try {
       this.physStats = buildPhysicsWorld(this.physics, this.world.collision, this.interiors);

@@ -126,10 +126,11 @@ function staticAssetsPlugin() {
   return {
     name: 'static-assets-copy',
     closeBundle() {
-      const copyDir = (src, dest) => {
+      const copyDir = (src, dest, skip = null) => {
         if (!fs.existsSync(src)) return;
         fs.mkdirSync(dest, { recursive: true });
         for (const item of fs.readdirSync(src)) {
+          if (skip?.has(item)) continue;
           const s = path.join(src, item);
           const d = path.join(dest, item);
           if (fs.statSync(s).isDirectory()) {
@@ -142,7 +143,7 @@ function staticAssetsPlugin() {
 
       const outDir = path.resolve(ROOT, 'dist');
       copyDir(path.resolve(ROOT, 'data'), path.resolve(outDir, 'data'));
-      copyDir(path.resolve(ROOT, 'assets'), path.resolve(outDir, 'assets'));
+      copyDir(path.resolve(ROOT, 'assets'), path.resolve(outDir, 'assets'), new Set(['private']));
       copyDir(path.resolve(ROOT, 'vendor'), path.resolve(outDir, 'vendor'));
       if (fs.existsSync(path.resolve(ROOT, 'manifest.webmanifest'))) {
         fs.copyFileSync(

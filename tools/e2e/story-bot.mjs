@@ -62,7 +62,7 @@ const cfg = {
 };
 // Chrome-generated log errors that are expected probes, not failures (use --strict to count them)
 const KNOWN_NOISE = [
-  { re: /Unsupported LanguageModel API languages/, why: 'js/nano.js probes Gemini Nano with languages:["zh"] first and falls back to "en" on purpose; Chrome logs the rejected probe as an error' },
+  { re: /Unsupported LanguageModel API languages/, why: 'src/ui/phone/Nano.js probes Gemini Nano with languages:["zh"] first and falls back to "en" on purpose; Chrome logs the rejected probe as an error' },
 ];
 const STORY = ['序章 · 投票前一天（走到系館）', '任務一 · 傳單大作戰（5 個公布欄 + 回報）', '任務二 · 早餐補給（夜市那條街來回）', '任務三 · 掃街拉票（15 張傳單票）', '任務四 · 布條保衛戰（6 站依序）', '任務五 · 布條失竊案（舊家電腦 SQL 破案）', '終章 · 政見發表會', '結局'];
 

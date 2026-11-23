@@ -126,9 +126,9 @@ server {
   gzip_min_length 1024;
   gzip_types application/javascript application/json text/css text/plain application/wasm;
 
-  # 3. 帶有 Content Hash 之靜態資源長期快取 (1 年)
+  # 3. 靜態圖片、音訊與影片資源快取（7 天）
   location /assets/ {
-    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header Cache-Control "public, max-age=604800";
   }
 
   # 4. 入口 HTML、清單與設定檔不進行快取 (確保即時更新)

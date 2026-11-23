@@ -8,5 +8,6 @@ dist
 docs
 tests
 tools
+assets/private
 *.md
 docker-compose.yml

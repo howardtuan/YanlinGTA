@@ -27,6 +27,7 @@ import { D1_ST, d1Footprints, buildDaren1Street } from '../buildings/StreetDaren
 import { D5_ST, d5Footprints, buildDaren5Street } from '../buildings/StreetDaren5.js';
 import { SJ_ST, sjFootprints, buildShijianStreet } from '../buildings/StreetShijian.js';
 import { D2_ST, d2Footprints, d2Look, buildDaren2Street } from '../buildings/StreetDaren2.js';
+import { XZ_ST, xzFootprints, buildXinzhongbeiStreet } from '../buildings/StreetXinzhongbei.js';
 import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
@@ -61,6 +62,10 @@ export const ZONES = [
   { // 中北路兩側街屋
     name: '中北路街屋', drop: ZB_ST.drop, ownSign: ZB_ST.ownSign, footprints: zbFootprints,
     build: (I, scene) => buildZhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 新中北路（校園西南側）與新中北路469巷兩側街屋、圍牆
+    name: '新中北路街屋', drop: XZ_ST.drop, ownSign: XZ_ST.ownSign, footprints: xzFootprints,
+    build: (I, scene) => buildXinzhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
   { name: '戈登肉鋪', footprints: () => [gordonFootprint()], build: (I, scene) => { I.gordon = buildGordon(I, scene); } }, // 校史館西南側草坪
   { name: '林口體育館（地圖外，演唱會）', build: (I, scene) => { I.arena = buildArena(I, scene, Kit, regMat); } }, // src/systems/minigames/Concert.js

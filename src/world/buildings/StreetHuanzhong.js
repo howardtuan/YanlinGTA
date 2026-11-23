@@ -24,9 +24,10 @@ const HALF = { HN: 3.7, HS: 3.7, L8: 2.5 };
 const SET = { HN: 9.5, HS: 9.5, L8: 4.0 };
 
 export const HZ_ST = {
-  ownSign: ['YAMAHA', '19house炙燒牛排', '有魚兩棲爬蟲專賣店', '鳳味坊養生烏骨雞', '振宇五金'], // 街屋自己掛招牌的店名，POI 不再另外掛
+  ownSign: ['YAMAHA', '19house炙燒牛排', '有魚兩棲爬蟲專賣店', '鳳味坊養生烏骨雞', '振宇五金', 'Garden hair salon'], // 街屋自己掛招牌的店名，POI 不再另外掛
   drop: [
     'f2_5', 'f2_6', 'f2_7', 'f2_8', 'f2_9', 'f2_10', 'f2_11', 'f2_12', 'f2_13', 'f2_14', 'f2_15', 'f2_16', 'f2_17', 'f2_18', 'f2_19', 'f2_20', 'f2_21', 'f2_22', 'f2_23', 'f2_24', 'f2_25', 'f2_46', 'f2_50', 'f2_53', 'f2_76', 'f2_77', 'f2_78', // A 段
+    'f2_79', 'f2_80', 'f2_81', 'f2_82', 'f2_83', 'f2_101', 'f2_114', 'f2_117', 'f2_118', // B 段（f2_101、f2_114、f2_117、f2_118 是後排：實際在車棚屋頂下、美髮店後面與工地裡）
   ],    // 被自建街屋取代的填充樓（全部是 synthetic，各自用自己的亂數，刪掉不影響別的東西）
   lots: [
     // ---- A 段：環中東路北側（靠校園側），708巷口往西到 s≈512（街景 2026-05，少數 2024-07；國土測繪 2024 正射）----
@@ -44,8 +45,16 @@ export const HZ_ST = {
     ['HN', 474, 490.5, 1, { own: 'zhenyu', set: 12.5, d: 17, pave: 1, trees: [4.0, 15.0], mc: [[9.5, 13.5]] }],
     ['HN', 490.5, 503.5, 1, { own: 'a13', set: 12.5, d: 21, pave: 1, trees: [10.5], poles: [9.4], mc: [[0.3, 8.6]] }],
     ['HN', 503.5, 511.5, 1, { own: 'jiayu', set: 13, d: 7.5, pave: 1, poles: [3.5], mc: [[4.5, 7.8]] }],
+    // ---- B 段：環中東路北側 s 511.5～600（街景 2026-05；國土測繪 2024 正射）----
+    // 實際是紅鐵皮大車棚、退到後面的 Garden 花園美髮店、太陽帝國大廈（OSM 建物 w1113208995，保留不動）、圍著白色圍籬的工地（2026-05 蓋到 3～4 層、包著藍色防護網）
+    ['HN', 511.5, 527, 1, { own: 'carport', set: 11, d: 23.4, pave: 1, trees: [2.5], mc: [[0.3, 5.0]] }],
+    ['HN', 527, 536.5, 1, { own: 'garden', set: 11, d: 16.5, pave: 1, trees: [1.0] }],
+    ['HN', 563.5, 600, 1, { own: 'site', set: 10, d: 24, pave: 1, trees: [1.5, 13.5, 30.5], poles: [11] }],
   ],
 };
+// OSM 真實建物只改高度（不 drop、不改 kind、不改輪廓，抽亂數的次數不變，快照已驗證）
+// 太陽帝國大廈（門牌 772，街景 2026-05）：實際 13 層＋屋頂冠帶約 49.5 m，OSM 只記 5 樓
+export function hzFix(b) { if (b.id === 'w1113208995') { b.h = 49.5; b.floors = 13; } }
 export function hzAt(ref, s) {
   const R = HZ_REF[ref]; let acc = 0;
   for (let i = 0; i < R.length - 1; i++) {
@@ -417,6 +426,51 @@ export function buildHuanzhongStreet(I, scene, X) {
       k.box(0, 3.5, 0, 2.2, 0, 0.08, '#9db59a'); k.box(3.6, w - 0.1, -0.8, 3.0, 1, 7, '#d8d8d2'); k.box(3.5, w, 3.0, 3.08, 0.9, 7.1, '#b7bcbf', nb);
       k.plane(shutterTex('#3f5f8f'), 3.4, 2.5, 5.75, 1.25, 0.98, FRONT); k.box(3.5, w, 2.86, 2.96, -0.5, 1.0, '#4f9a6a', nb); k.box(3.5, w, 2.7, 2.88, -1.0, -0.45, '#4f9a6a', nb); k.box(3.5, w, 2.45, 2.72, -1.3, -0.95, '#4f9a6a', nb);
       k.plane(jyBoard, 5.0, 1.7, w - 2.5, 4.2, 0.9, FRONT, { emissive: 0.3, double: true }); for (const x of [w - 4.8, w - 0.3]) k.box(x, x + 0.08, 3.0, 5.05, 0.92, 1.0, '#55585c', nb);
+    },
+    // B3 紅鐵皮大車棚（2026-05）：人行道邊一排藍盆矮綠籬（中間留車道開口）、水泥前庭、鋼柱撐起的紅色鐵皮屋頂（簷口 3.2 m，深灰封板），沒有招牌
+    carport(k, w, d, r) {
+      k.box(0, w, -0.5, 0.05, 0, d, '#b5b2aa', { col: false, surface: true });
+      for (const [x0, x1] of [[1.5, 6.0], [9.5, 13.5]]) { k.box(x0, x1, 0, 0.35, 0.05, 0.5, '#2f6fb5'); k.box(x0 + 0.05, x1 - 0.05, 0.35, 0.85, 0.08, 0.47, '#3f7a3a', nb); }
+      for (const [x, z, sz] of [[14.0, 1.2, 1.1], [14.8, 3.0, 1.2], [14.3, 4.6, 0.9]]) blob(k, x, sz * 0.8, z, sz, '#3f7a3a');
+      for (const x of [1.7, 7.0, 12.3]) for (const z of [3.4, 9.2, 15.0, 20.8]) k.box(x - 0.08, x + 0.08, 0, 3.2, z - 0.08, z + 0.08, '#8a8d90', nb);
+      k.box(1.3, 12.7, 3.2, 3.6, 2.9, 3.1, '#3a3d3d', nb); k.box(1.3, 12.7, 3.5, 3.62, 3.0, 21.3, '#d9534a', nb);
+      for (const x of [4.6, 9.2]) k.box(x, x + 0.9, 3.62, 3.64, 4, 20, '#7a3a36', nb);                         // 屋頂上兩條深色採光帶
+      k.box(1.5, 12.5, 0, 3.2, 21.0, 21.2, '#77797c');                                                       // 車棚後牆
+      car(k, 2.6, 6.0, '#c9c9c4'); car(k, 8.4, 5.6, '#2a2d33'); car(k, 5.4, 13.0, '#5a6a7a');
+    },
+    // B4 Garden 花園 Hair Salon（2026-05）：水泥車道一路通到退縮約 9 m 的 1 層白色店面，整面落地玻璃、白色平雨庇、招牌帶黑字
+    garden(k, w, d) {
+      k.box(0, w, -0.5, 0.05, 0, d, '#b5b2aa', { col: false, surface: true });
+      k.box(0.5, 9.0, 0, 5.0, 9, 16, '#f0f0ee'); k.box(0.4, 9.1, 5.0, 5.12, 8.9, 16.1, '#dcdcd8', nb);
+      shopGlass(k, 1.0, 7.5, 0, 3.0, ROWT.shop('hzGarden', '#f4efe6', '#8a8580', 77), 8.98);
+      k.box(0.5, 9.0, 3.0, 3.15, 8.0, 9.0, '#f4f4f2', nb);                                                   // 白色平雨庇
+      k.plane(board('garden', 5.0, 1.4, (g, W, Hh) => { g.fillStyle = '#f0f0ee'; g.fillRect(0, 0, W, Hh); fitText(g, 'Garden 花園', W / 2, Hh * 0.4, W * 0.92, Hh * 0.5, '#1a1a1a'); fitText(g, 'Hair Salon', W / 2, Hh * 0.8, W * 0.6, Hh * 0.24, '#1a1a1a', 500); }), 5.0, 1.4, 3.3, 4.1, 8.97, FRONT, { emissive: 0.25 });
+      car(k, 2.2, 3.6, '#1c1c1e'); car(k, 5.4, 3.8, '#1c1c1e');
+    },
+    // B6 工地（2026-05）：臨街白色浪板圍籬、6 片白鐵門、往西是混凝土基座上的圍籬板（白浪板與灰綠彩繪帆布交替，帆布上的字「打造中原新商圈　再創城市永恆新頁」）、
+    // 圍籬頂往人行道外挑的白色防護棚與紅色警示燈；後面是包著藍色鷹架防護網、蓋到 3～4 層的 RC 結構體。完工後的樣子不知道，照現況做成興建中
+    site(k, w, d) {
+      k.box(0, w, -0.5, 0.03, 0, d, '#a89a78', { col: false, surface: true });                               // 整過地的黃土
+      k.box(0, 12.5, 0, 2.6, 0, 0.1, '#dcdcd8');                                                             // 白色浪板圍籬
+      for (let x = 0.6; x < 12.5; x += 0.6) k.box(x, x + 0.03, 0, 2.6, -0.02, 0, '#c4c4c0', nb);
+      for (let j = 0; j < 6; j++) { const x = 12.5 + j * 2.33; k.box(x + 0.04, x + 2.29, 0.1, 2.5, 0, 0.08, '#e2e2de'); k.box(x, x + 0.06, 0, 2.6, -0.03, 0.1, '#8a8d90', nb); }
+      k.box(26.5, w, 0, 0.5, -0.05, 0.25, '#9a9892');                                                        // 混凝土基座
+      const mural = board('siteMural', 8.5, 2.3, (g, W, Hh) => { g.fillStyle = '#9aa596'; g.fillRect(0, 0, W, Hh); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3; g.beginPath(); for (let i = 0; i < 9; i++) { const x = W * (0.05 + i * 0.11); g.rect(x, Hh * (0.25 + (i % 3) * 0.08), W * 0.07, Hh * (0.45 - (i % 3) * 0.08)); } g.moveTo(0, Hh * 0.72); g.lineTo(W, Hh * 0.72); g.stroke(); fitText(g, '打造中原新商圈　再創城市永恆新頁', W / 2, Hh * 0.86, W * 0.9, Hh * 0.14, '#ffffff', 700); });
+      k.box(26.5, 29.0, 0.5, 2.8, 0, 0.08, '#dcdcd8'); k.box(29.0, w, 0.5, 2.8, 0, 0.08, '#9aa596'); k.plane(mural, w - 29.1, 2.3, (29 + w) / 2, 1.65, -0.02, FRONT);
+      k.box(0, w, 2.95, 3.03, -1.5, 0.1, '#ececea', nb); for (let x = 0.2; x < w; x += 3) k.box(x, x + 0.06, 2.6, 3.0, -1.45, 0.1, '#b9bcbf', nb);   // 外挑防護棚
+      for (let x = 3; x < w; x += 6) k.box(x - 0.08, x + 0.08, 3.03, 3.2, -1.5, -1.34, '#e0352b', nb);
+      // 興建中的結構體：灰色清水混凝土梁柱＋藍色防護網，頂端高低不齊
+      const x0 = 4, x1 = w, z0 = 6.5, z1 = d - 1;
+      k.box(x0 + 0.3, x1, 0, 11.2, z0 + 0.3, z1, '#8a8d8c');
+      for (const [a, b, h] of [[x0 + 6, x0 + 10, 13.6], [x0 + 20, x0 + 25, 13.9]]) k.box(a, b, 11.2, h, z0 + 0.3, z0 + 6, '#8a8d8c', nb);
+      for (let f = 0; f < 3; f++) for (let x = x0 + 1.2; x < x1 - 3; x += 4.6) k.box(x, x + 3.2, 0.9 + f * 3.6, 3.2 + f * 3.6, z0 + 0.24, z0 + 0.32, '#3a3d40', nb);   // 樓層開口
+      const netAt = (a, b, y0, y1) => { // 半透明藍網＋鷹架格線，一格 1.8 m
+        const wm = b - a, hm = y1 - y0, ppm = Math.min(24, 1536 / wm), W = r16(wm * ppm), Hh = r16(hm * ppm);
+        const t = sg(`hzNet${W}x${Hh}`, W, Hh, (g) => { g.clearRect(0, 0, W, Hh); g.fillStyle = 'rgba(70,130,205,0.5)'; g.fillRect(0, 0, W, Hh); g.strokeStyle = 'rgba(40,90,170,0.95)'; g.lineWidth = 2; g.beginPath(); for (let x = 0; x <= wm; x += 1.8) { g.moveTo(x * W / wm, 0); g.lineTo(x * W / wm, Hh); } for (let y = 0; y <= hm; y += 1.8) { g.moveTo(0, Hh - y * Hh / hm); g.lineTo(W, Hh - y * Hh / hm); } g.stroke(); });
+        k.plane(t, wm, hm, (a + b) / 2, (y0 + y1) / 2, z0 - 0.08, FRONT, { transparent: true, double: true });
+      };
+      netAt(x0, x1, 0.3, 11.8); for (const [a, b, h] of [[x0 + 5.7, x0 + 10.3, 14.0], [x0 + 19.7, x0 + 25.3, 14.3]]) netAt(a, b, 11.8, h);   // 藍色鷹架防護網（半透明，看得到後面的梁柱）
+      for (const x of [x0 + 1.5, x0 + 3.2]) k.box(x, x + 0.12, 0, 3.4, z0 + 0.4, z0 + 0.52, '#d8572a', nb);                              // 東端一樓的橘紅鋼支撐
     },
   };
 

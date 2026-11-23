@@ -47,6 +47,7 @@ import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
 import { HZ_ST, hzFix, hzLook, hzFootprints, buildHuanzhongStreet } from '../buildings/StreetHuanzhong.js';
 import { PZ_ST, pzFootprints, buildPuzhongStreet } from '../buildings/StreetPuzhong.js';
 import { RX_ST, rxFootprints, buildRixinStreet } from '../buildings/StreetRixin.js';
+import { DF_ST, dfFootprints, buildDarenFill } from '../buildings/StreetDarenFill.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -146,6 +147,10 @@ export const ZONES = [
   { // 日新路兩側街屋（中原夜市，中山東路口到實踐路口；實踐路口兩個轉角在實踐路街屋）
     name: '日新路街屋', drop: RX_ST.drop, ownSign: RX_ST.ownSign, footprints: rxFootprints,
     build: (I, scene) => buildRixinStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 大仁街一帶補建：從大仁街看得到的通用填充樓換成實景（目前是大仁四街口那棟五層公寓）
+    name: '大仁街補建', drop: DF_ST.drop, ownSign: DF_ST.ownSign, footprints: dfFootprints,
+    build: (I, scene) => buildDarenFill(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

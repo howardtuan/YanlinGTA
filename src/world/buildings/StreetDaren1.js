@@ -23,9 +23,12 @@
 //   discs [字, 底, 圓牌色, 外框色, 字色] 圓牌橫招、villa 仿洋樓的樓上立面、canopy 屋頂浪板棚色、acRack [起 x, 迄 x, 層數, 放大倍率] 冷氣室外機排（也可以給好幾組）、plate [字, 底, 字色] 一樓牆上的直立名牌、
 //   alley [門色, 雨棚色] 兩棟之間的側門巷（鋪面、格柵鐵門、圓弧小雨棚）、nook [x0, x1, 門色] 一樓這一段改成磚牆＋鑄鐵花窗＋木門、lattice 包住一二樓的橫木條格柵色、
 //   bannerN [[每行字], 底, 字色] 多行帆布、wdoor [x, 色] 加兩階踏步的小鐵門、cabs [[x0, x1, 高, 色]] 門前路邊的電信／電力箱、垃圾子車
+//   site 工地（gate [s0, s1] 白色鋼板大門、bld [s0, s1, z0, z1, 樓層] 包藍網的興建中結構體、trucks 工程車）
 //   C 段加的：factory 的 cx {rust 牆腳鏽水痕色, wins [[s, 寬]] 綠色橫窗, props [['pipe'|'box'|'ac'|'door'|'notice'|'duct', s]], rowBikes [s0, s1] 沿牆垂直停的一排機車}、
 //   cageCol 鐵窗籠顏色、roof 'cover' 屋頂浪板加蓋（顏色用 roofCol）、cx 另有 dull 灰綠舊窗、props 'vent'|'rpipe'|'pole'；bal 'tiny' 每層一扇小鐵窗、para2 [色, 板色] 二樓窗下女兒牆帶、sdoor [x] 鐵捲門旁的不鏽鋼門、couplets [x, …] 門上的紅春聯
 // 每一格自成一個 Kit，立面對著街道；收尾用 finishRow 一次合併。src/world/zones/Zones.js import D1_ST 與 d1Footprints() 來刪填充樓、保留空地。
+
+import { H } from '../Terrain.js';
 
 export const D1_ROAD = [[74.2, 297.9], [81.8, 310.3], [100.5, 337.2], [104.1, 342.4], [108.7, 349.6], [114.8, 358.8], [87.6, 388.3], [21.2, 460.4]];
 const HALF = 2.5; // 路寬 5 m 的一半（data/cycu.json）
@@ -47,11 +50,15 @@ export const D1_ST = {
     [34.5, 37.3, -1, { set: 4.6, nf: 5, gf: 3.5, wall: '#9fb0c2', bands: '#c9a59c', ground: 'shutter', sh: '#9a7a5c', fineSh: true, noband: true, door: 0, entry: 1.2, bal: 'plain', eave: ['#2e2e30', 3.66, 0.7], roof: 'flat', d: 15 }],                                   // 60／58 號樓梯間：生鏽的舊信箱門板與鐵柵門
     [37.3, 40.3, -1, { set: 4.6, nf: 5, gf: 3.5, wall: '#9a9a98', ground: 'gate', sh: '#2f6fb5', awn: '#9cc8a0', noband: true, door: 0, bal: 'plain', balF: { 2: 'cage' }, roof: 'shack', side0: '#e8e8e4', d: 15 }],                            // 灰色窄樓：藍浪板門、綠色雨遮、3F 鐵窗籠，面停車場的山牆漆白
     [40.3, 44.9, -1, { carport: true, set: 4.9, gf: 2.6, sh: '#8aa690', roofCol: '#7a5a44', posts: [[0.3, 0.7, 'gate', 3]], d: 18 }],                                                                                                                                         // 停車場的鐵皮車棚與臨街綠色浪板圍籬（s 45～51 是出入口的通道，留空；黃色柵欄機立在車棚角落）
-    // side +1（西南側，門牌 69 → 65）：三棟 3F 透天。再往南的 63、61 號實際存在（s 26.5～38.5），但位置被 data/cycu.json 的紅樓輪廓（從 s≈28.5 起）佔住，沒有放
+    // side +1（西南側，門牌 69 → 65）：三棟 3F 透天，再往南是 63、61 號兩棟矮房子，然後才是紅樓（s 38.5 起）
     [7.5, 17, 1, { set: 4.2, nf: 3, gf: 3.5, wall: '#e6e6e4', ground: 'shutter', sh: '#6f7275', fineSh: true, bays: [0.3, 0.8, 1.3, 4.75, 8.7, 9.2], lintel: '#74777a', noband: true, door: 0, bal: 'small', noac: true, gable: true, hedge: [0.02, 0.98], nobikes: true, side0sh: ['#6f7275', [0.9, 3.9], [4.6, 7.6]], roof: 'flat', d: 9 }], // 白色二丁掛透天：兩道深灰車庫門、小窗、山牆形女兒牆、門前花台
     // 67、65 號的樓房本體退在 7.4 m，前面 3.2 m 是鐵皮加蓋的前院（臨街矮牆跟隔壁立面切齊）：從 s22.3 的街景看得到隔壁透天的整面側牆露在鐵皮頂後面
     [17, 21.7, 1, { set: 7.4, nf: 3, wall: '#ecebe6', ground: 'gate', noband: true, door: 0, bal: 'wcage', cageHood: '#b5483a', balF: { 1: 'fan' }, noac: true, tileCap: '#b5483a', roof: 'shack', fyard: { d: 3.2, open: [[0.3, 2.4, 'sh', '#8a8780'], [2.8, 3.7, 'door']], pots: [4.2], bikes: 1 }, d: 8.8 }],             // 67 號：前院鐵捲門＋不鏽鋼門，2F 綠色扇形拱窗，3F 白鐵窗籠陽台＋紅瓦小山牆
     [21.7, 26.5, 1, { set: 7.4, nf: 3, wall: '#ecebe6', ground: 'gate', noband: true, door: 0, bal: 'wcage', cageHood: '#b5483a', balF: { 1: 'barred' }, noac: true, tileCap: '#b5483a', roof: 'shack', fyard: { d: 3.2, open: [[0.1, 0.9, 'red'], [1.3, 3.7, 'sh', '#8a8780']], pots: [1.1, 4.3], bikes: 2 }, d: 8.8 }], // 65 號：貼春聯的不鏽鋼門＋「庫」字鐵捲門，2F 一扇鐵窗
+    [38.6, 71, 1, { pave: '#b9b6ae', set: 2.6, d: 1.6 }], [79.5, 90.3, 1, { pave: '#b9b6ae', set: 2.6, d: 3.0 }], // 紅樓（OSM 建物，見下面 d1Fix／d1Look）門前到路邊的水泥前埕
+    // 63、61 號（2024-08 街景）：紅樓輪廓照實景收到 s 38.5 之後才放得下
+    [26.5, 30.9, 1, { set: 4.2, nf: 2, gf: 3.2, wall: '#e9e8e3', ground: 'shutter', sh: '#7d7a72', fineSh: true, tin: true, bal: 'glass', noband: true, door: 0.9, noac: true, roof: 'shack', d: 12 }], // 63 號：北端一扇格子鐵門＋「車庫」鐵捲門，2F 整面白鋁框玻璃陽光屋
+    [30.9, 38.3, 1, { set: 4.2, nf: 2, gf: 3.2, wall: '#d9a898', ground: 'gate', sh: '#8a6a4a', awn: '#a8cdb0', bal: 'plain', noband: true, door: 1.1, roof: 'flat', d: 10 }],                          // 61 號：粉橘小方磚 2F，古銅色落地玻璃拉門、淺綠圓弧採光罩雨遮
     // B 段 s 46～73.4 與轉角外側（2024-08 街景）：side -1 只有大仁一街 50 號與退在格子地磚前庭後面的米色套房大樓；side +1 整段是紅樓，不補
     // 大仁一街 50 號：褐色磁磚套房大樓，前棟 6F 凹陽台、後棟 8F；一樓米黃鐵捲門車庫，住宅大門在東南端，前埕停機車
     [50.3, 58.7, -1, { nf: 6, gf: 3.6, wall: '#b5a088', face: '#9c7f6a', ground: 'shutter', sh: '#d6c394', awn: '#4a4038', bal: 'recess', belt: '#a59a8e', noband: true, door: 0, entry: 2.4, noac: true, bikes: 4, rear: { nf: 2, from: 8, wall: '#8c7262', out: 0.3 }, sideAt: [[], []], board: [-0.5, -3.0, '小花羊花藝', '#f4f2ec', '#3a3a36', 'Goatflower workshop'], roof: 'flat', set: 6.8, d: 14 }],
@@ -66,11 +73,13 @@ export const D1_ST = {
     // side -1（東南側）：一整面老鐵皮廠房的沿街牆（跟 D 段 s 135 以後是同一棟）。s<112 是白漆鐵皮板、牆腳大片鏽水痕、配電箱與封死的鏽鐵門；
     // s>112 是斑駁粉刷牆配綠色鐵絲網玻璃橫窗；沿牆一整排垂直停的機車。轉角外側 s 73.4～78.5 是無名支路，留空
     // 正射上這棟廠房從 s≈97 起往後深約 47 m（跟 D 段同一片屋頂），s<97 只是沿街的一條窄棚：所以在 s 100 切開，後兩格跟 D 段一樣做 44 m 深（屋頂斜率相同）
-    [78.5, 100, -1, { factory: true, set: 3.0, d: 20, h: 6.4, rise: 2.67, wall: '#d9d6cc', roofCol: '#d8d2c6', cx: { dull: true, rust: '#a5673f', props: [['pole', 88.5], ['rpipe', 92.0], ['rpipe', 93.0], ['vent', 95.6], ['pipe', 79.4], ['box', 80.6], ['box', 81.7], ['box', 82.8], ['pipe', 84.2]], rowBikes: [90, 99.9] } }],
-    [100, 112, -1, { factory: true, set: 3.0, d: 35, h: 6.4, rise: 4.67, wall: '#d9d6cc', roofCol: '#d8d2c6', cx: { dull: true, rust: '#a5673f', wins: [[109.6, 2.6]], props: [['pole', 100.5], ['ac', 102.7], ['door', 103.5], ['notice', 104.7], ['door', 105.6], ['duct', 107.4]], rowBikes: [100.1, 111.5] } }],
-    [112, 135, -1, { factory: true, set: 3.0, d: 35, h: 6.4, rise: 4.67, wall: '#d9d6cc', roofCol: '#d8d2c6', vents: [127.6, 132.6], cx: { dull: true, wins: [[112.9, 2.6], [115.9, 2.8], [120.0, 2.8], [124.0, 3.0], [129.6, 2.8]], props: [['pole', 112.2], ['door', 126.6], ['notice', 133.6]], rowBikes: [112.5, 134.5] } }],
+    // side -1（東南側）s 78.5～204.5：2024-08 街景還是舊鐵皮廠房與停車空地；Google 街景 2026-05（實踐路口往裡看）整塊已拆成「鼎藏中原匯」工地。
+    // 臨街是灰色鍍鋅網片圍籬，靠實踐路口是白色鋼板大門；裡面是整平的水泥地、停著泵浦車與吊車，靠實踐路那一棟蓋到 4～5 層、整棟包藍色鷹架防護網（面實踐路的那一半在 src/world/buildings/shijian/S4.js）。
+    // 靠環中東路那一棟在 src/world/buildings/StreetHuanzhong.js（HN s 563.5～600）；這裡的深度都留在它前面。s<100 後面有沒 drop 的 f2_104、f2_105，深度只到 20
+    [78.5, 100, -1, { site: true, set: 3.0, d: 20 }],
+    [100, 150, -1, { site: true, set: 3.0, d: 33, stacks: [[128, 14, 4, 2.5, 1.1, '#7f8386'], [120, 10, 2.4, 4, 0.8, '#a9865c']] }],
+    [150, 204.5, -1, { site: true, set: 3.0, d: 47, gate: [197.5, 204.5], bld: [157, 187.2, 21, 45, 5], trucks: [[160, 6, 9.5, '#c23a2e', '#b5362b', '#c9453a'], [166, 7, 8, '#e0b02a', '#d6a624', '#e0b02a'], [172, 8, 5.5, '#ecece8', '#dcdcd6', null]] }],  // bld 接在實踐路那一半（S4.js siteFence：這條街的 s 187.4～201.5、離中心線 24～50 m）後面，兩塊合起來是轉角那一棟
     // side +1（西北側，門牌 43 → 27）：紅樓尾段之後是一排 3F 透天住家，中間隔著大仁一街35巷口（s 107～115.5 留空）
-    [87.2, 90.5, 1, { nf: 9, gf: 3.6, fh: 3.3, wall: '#a5523f', ground: 'open', bal: 'plain', door: 0, noband: true, noac: true, roof: 'flat', set: 5.6, d: 10 }],                                                         // 紅樓尾段（data/cycu.json 的紅樓輪廓只到 s 86.7，實景到 s 90）：一樓挑空
     [90.5, 95.3, 1, { nf: 3, wall: '#cdb98a', ground: 'shutter', sh: '#b9bcbe', bal: 'cage', cageCol: '#c9cbc8', para2: ['#cdb98a', '#eeeeea'], tin: true, noband: true, roof: 'cover', roofCol: '#5f9a72', set: 4.3, d: 11 }],                                              // 43 號：米黃馬賽克、銀色鐵捲門、兩層鐵窗籠、綠浪板加蓋
     [95.3, 100.7, 1, { nf: 3, wall: '#eeeeea', low: '#9db594', ground: 'wall', awn: '#2f8a63', bal: 'plain', noband: true, roof: 'cover', roofCol: '#5f9a72', bikes: 3, set: 4.3, d: 11 }],                              // 41 號：白牆、一樓淺綠磁磚配小窗與鐵門、綠帆布雨棚、2F 大觀景窗
     [100.7, 107, 1, { nf: 3, wall: '#aea591', ground: 'shutter', sh: '#b4b7b9', bal: 'cage', cageCol: '#5a5048', para2: ['#a89878'], door: 0, sdoor: [0.62], noband: true, roof: 'shack', set: 4.3, d: 11 }],                                                         // 39 號（35 巷口東北角）：灰小口磚、寬鐵捲門、深色直條鐵窗籠
@@ -98,10 +107,6 @@ export const D1_ST = {
     [180.7, 184.7, 1, { set: 5.6, d: 15, nf: 7, wall: '#f4f4ee', low: '#060000', lattice: '#3b2a22', sign2: ['中原福邸', '#3b2a22', '#d9b45f'], bannerN: [['中原福邸 套房出租', '電梯大樓 設備齊全', '間間有窗 洗衣免費'], '#c9252c', '#f5e04a'], ground: 'gate', sh: '#3b2a22', noband: true, bal: 'slots', slots: [2, '#7fdcae'], balF: { 1: 'plain', 2: 'grille' }, door: 0, noac: true, roof: 'flat' }],
     [184.7, 195.2, 1, { set: 5.6, d: 15, nf: 7, wall: '#f4f4ee', ground: 'shutter', sh: '#c8ccd0', noband: true, bal: 'slots', slots: [4, '#7fdcae'], balF: { 1: 'wins' }, acRack: [[0.9, 2.1, 1, 1.3], [2.5, 6.6, 2], [7.7, 10.4, 2, 1.3]], wdoor: [3.4, '#eeeeea'], cabs: [[0.1, 1.3, 1.5], [1.4, 2.15, 1.25], [2.25, 3.0, 1.25]], noac: true, roof: 'flat' }],
     [195.2, 205.1, 1, { set: 5.6, d: 15, nf: 7, wall: '#f4f4ee', sign2: ['中壢中原店', '#2b2fb5', '#ffffff'], ground: 'shutter', sh: '#c8ccd0', noband: true, bal: 'slots', slots: [4, '#7fdcae'], balF: { 1: 'wins' }, door: 0, cabs: [[1.5, 2.7, 1.9, '#b9c4b0'], [3.1, 4.2, 1.1, '#4f8a5a']], noac: true, roof: 'flat' }],
-    // side -1（東南側）：沒有一般樓房。s 135～177 是一整棟老鐵皮廠房的沿街牆（牆往北一路連到 s≈95），南端屋頂凸出紅色錐頂塔樓、面空地的山牆掛紅色大帆布；
-    // s 177～204.5 是矮花台圍起來的停車空地（入口鐵網門在 s 178.5～183）
-    [135, 177, -1, { factory: true, set: 3.0, d: 44, h: 6.4, rise: 5.87, wall: '#d9d6cc', roofCol: '#d8d2c6', fwins: [137.0, 143.55, 149.55, 155.65, 161.75, 167.65], fwinDull: true, cx: { props: [['pole', 139.4], ['pole', 164.6]] }, vents: [140.3, 152.6, 164.7, 170.9], board: [171.8, 174.6, '#d9b53a'], swin: 175.8, turret: [174.6, 0.2, 4.6, 9.4, 1.8], endBanner: 177, bikes: 9 }],
-    [177, 204.5, -1, { yard: true, set: 3.0, d: 18, gate: [178.5, 183], poles: [199.2, 199.9], board: [200.4, 203.2, '美居房屋', '#f1efe8', '#3f8a4a'], bikes: 6 }],
   ],
 };
 export function d1At(s) {
@@ -119,6 +124,25 @@ export function d1LotFrame([s0, s1, side, sp]) {
   const set = (sp && sp.set) || setAt((s0 + s1) / 2);
   const sl = (sp && sp.slide) || 0; // B 段：整格沿切線往 s 變大的方向平移
   return { ox: m.x + nx * set - ax * w / 2 + m.ux * sl, oz: m.z + nz * set - az * w / 2 + m.uz * sl, ang: Math.atan2(az, ax), w, apron: (sp && sp.apron) || Math.max(0.6, set - halfAt((s0 + s1) / 2)) };
+}
+// 紅樓（OSM w1361166181，kind town 的真建物：不 drop、不改 kind，仍是四個邊、每邊都超過 4 m、臨街的還是兩個邊，全圖共用亂數的抽取次數不變）
+// 輪廓照 2024-08 街景與國土測繪 2024 正射重畫：原本北端從 s≈28.5 就開始、臨街邊離中心線只有 1.6～3.0 m（壓到路面）；
+// 實際北山牆在 s≈38.5、立面離中心線 4.2 m，繞過轉角後沿南段到 s≈90.5（立面 5.6 m）。冷氣用原輪廓抽亂數（acPts）
+const RED_ID = 'w1361166181', RED_PTS = [[78.1, 342.1], [92, 332.4], [108.8, 357.1], [99.3, 367.4]];
+export function d1Fix(b) { if (b.id === RED_ID) { b.acPts = b.pts; b.pts = RED_PTS.map((q) => q.slice()); } }
+// 外觀：整棟紅褐色二丁掛、每層窗下一圈凸出的磚砌窗台、鋁窗；一樓是灰色鐵捲門（沒有店面）；北側山牆漆白
+export function d1Look(b) {
+  if (b.id !== RED_ID) return;
+  b.noShop = true;
+  b.look = {
+    wall: { base: 'tile', colour: '#9a5142' },
+    windows: { type: 'pair', ground: 'louver', bay: 4.2, accent: '#b4b7b8', glass: '#7f9a9c' },
+    faces: [{ on: ['n', 'nw'], colour: '#e6e3dc', windows: 'none' }],
+    bands: [{ colour: '#8a4638', at: 0.02, h: 0.95, depth: 0.4, on: ['ne', 'e', 'se', 's'] }],
+    plinth: { h: 3.4, colour: '#8f8c86' },
+    parapet: { h: 1.0, colour: '#8a4638' },
+    roof: { colour: '#b9b6ae', extras: false },
+  };
 }
 export function d1Footprints() {
   return D1_ST.lots.map((L) => {
@@ -424,6 +448,50 @@ export function buildDaren1Street(I, scene, X) {
     if (sp.board) { const [a, b] = [sx(sp.board[0]), sx(sp.board[1])].sort((p, q) => p - q); k.box(a, b, 1.3, 2.9, 0.26, 0.31, '#f1efe8', { col: false }); if (sp.board[2]) k.plane(paint(sp.board[2], sp.board[3] || '#f1efe8', sp.board[4] || '#333333', null, b - a - 0.3, 0.6, 96), b - a - 0.3, 0.6, (a + b) / 2, 2.45, 0.25, FRONT); for (const x of [a + 0.2, b - 0.26]) k.box(x, x + 0.06, 1.1, 1.3, 0.26, 0.31, '#6f7377', { col: false }); }
     for (let j = 0; j < (sp.bikes || 0); j++) bike(k, 1.2 + j * ((w - 3.4) / Math.max(1, sp.bikes - 1)), -0.32, 0, bikeCols[(j + 2) % 6]);
   };
+  // 工地（2026-05）：整平的水泥地、臨街鍍鋅網片圍籬、gate [s0, s1] 白色鋼板大門、bld [s0, s1, z0, z1, 樓層] 包藍色防護網的興建中結構體、trucks [[s, z, 長, 車頭色, 車斗色, 臂架色]] 工程車、stacks [[s, z, 寬, 深, 高, 色]] 堆料；pave 色：只鋪一條水泥前埕
+  const netTex = (wm, hm) => { const ppm = Math.min(24, 1536 / wm), W = r16(wm * ppm), Hh = r16(hm * ppm); return sg(`d1Net${W}x${Hh}`, W, Hh, (g) => { g.clearRect(0, 0, W, Hh); g.fillStyle = 'rgba(44,112,190,0.64)'; g.fillRect(0, 0, W, Hh); g.strokeStyle = 'rgba(215,220,224,0.7)'; g.lineWidth = 2; g.beginPath(); for (let x = 0; x <= wm; x += 1.8) { g.moveTo(x * W / wm, 0); g.lineTo(x * W / wm, Hh); } for (let y = 0; y <= hm; y += 1.8) { g.moveTo(0, Hh - y * Hh / hm); g.lineTo(W, Hh - y * Hh / hm); } g.stroke(); }); };
+  const meshTex = sg('d1SiteMesh', 128, 96, (g) => { g.clearRect(0, 0, 128, 96); g.fillStyle = 'rgba(170,176,180,0.35)'; g.fillRect(0, 0, 128, 96); g.strokeStyle = 'rgba(120,126,130,0.95)'; g.lineWidth = 1.5; g.beginPath(); for (let x = 0; x <= 128; x += 8) { g.moveTo(x, 0); g.lineTo(x, 96); } for (let y = 0; y <= 96; y += 12) { g.moveTo(0, y); g.lineTo(128, y); } g.stroke(); g.lineWidth = 5; g.strokeRect(0, 0, 128, 96); });
+  const site = (k, L, w, sp) => {
+    const d = sp.d || 30, sx = (s) => sOf(L, s), NC = { col: false }, TR = { transparent: true, double: true };
+    const gy = (x, z) => { const q = k.w(x, z); return H(q[0], q[1]) - k.base; };   // 這一點的地面比這格原點高多少：地是斜的，圍籬與鋪面一片一片貼著地走
+    const bx = (x0, x1, y0, y1, z0, z1, c, o = NC) => { const g = gy((x0 + x1) / 2, (z0 + z1) / 2); return k.box(x0, x1, y0 + g, y1 + g, z0, z1, c, o); };
+    const [ga, gb] = sp.gate ? sp.gate.map(sx).sort((a, b) => a - b) : [-1, -1];
+    for (let x = 0; x < w - 0.01; x += 4) for (let z = 0.3; z < d - 0.01; z += 4) bx(x, Math.min(w, x + 4), -0.6, 0.07, z, Math.min(d, z + 4), '#b3b0a6');   // 整平的水泥地
+    // 臨街：混凝土矮基座＋鍍鋅網片（一片 2.4 m）；大門那一段是白色鋼板＋上面一截鋼管欄杆
+    for (let x = 0; x < w - 0.01; x += 2.4) {
+      const x1 = Math.min(w, x + 2.4), xc = (x + x1) / 2, g = gy(xc, 0.13);
+      if (xc > ga && xc < gb) { bx(x + 0.04, x1 - 0.04, 0.08, 1.75, 0.1, 0.16, '#e9e9e6'); bx(x + 0.04, x1 - 0.04, 2.08, 2.14, 0.1, 0.16, '#e9e9e6'); for (const xx of [x + 0.04, xc - 0.03, x1 - 0.1]) k.box(xx, xx + 0.06, 1.75 + g, 2.1 + g, 0.1, 0.16, '#e9e9e6', NC); continue; }
+      k.plane(meshTex, x1 - x, 1.7, xc, 1.15 + g, 0.12, FRONT, TR); k.box(x, x + 0.06, g - 0.3, 2.05 + g, 0.09, 0.15, '#8f959a', NC); bx(x, x1, -0.6, 0.3, 0.02, 0.24, '#a09d96');
+    }
+    k.wallLine(0, 0.13, w, 0.13, -1, 3);
+    if (sp.gate) { // 面實踐路的那一端：轉角白色鋼板門，再過去接實踐路那邊的圍籬（src/world/buildings/shijian/S4.js）
+      for (let z = 0.2; z < 9.8; z += 2.4) { const g = gy(0.05, z + 1.2); k.box(0.02, 0.08, 0.08 + g, 1.75 + g, z + 0.04, z + 2.36, '#e9e9e6', NC); k.box(0.02, 0.08, 2.08 + g, 2.14 + g, z + 0.04, z + 2.36, '#e9e9e6', NC); k.box(0.02, 0.08, 1.75 + g, 2.1 + g, z, z + 0.06, '#e9e9e6', NC); }
+      k.wallLine(0.05, 0, 0.05, 9.8, -1, 3);
+    }
+    if (sp.bld) { // 興建中的 RC 結構體：灰色梁柱、每層深色開口、頂層棕色模板與往上伸的鷹架，四面包半透明藍網（樓高與顏色跟實踐路那一半一致）
+      const [s0, s1, z0, z1, nf] = sp.bld, x0 = sx(s1), x1 = sx(s0), fh = 3.1, g = gy((x0 + x1) / 2, (z0 + z1) / 2), H1 = nf * fh + g;
+      k.box(x0 + 0.7, x1 - 0.7, g - 1.5, H1, z0 + 0.7, z1 - 0.7, '#b9b6ae');
+      for (let f = 0; f < nf; f++) k.box(x0 + 0.68, x1 - 0.68, g + f * fh + 0.5, g + f * fh + 2.7, z0 + 0.68, z1 - 0.68, '#77756f', NC);
+      k.box(x0 + 0.5, x1 - 0.5, H1, H1 + 0.9, z0 + 0.5, z1 - 0.5, '#b08a5a', NC);                                   // 最上層的木模板
+      for (const z of [z0, z1 - 0.05]) { for (const y of [H1 + 0.9, H1 + 1.8]) k.box(x0, x1, y, y + 0.05, z, z + 0.05, '#b9bcbe', NC); for (let x = x0; x <= x1; x += 1.8) k.box(x, x + 0.05, H1, H1 + 1.8, z, z + 0.05, '#b9bcbe', NC); }
+      for (const x of [x0, x1 - 0.05]) for (const y of [H1 + 0.9, H1 + 1.8]) k.box(x, x + 0.05, y, y + 0.05, z0, z1, '#b9bcbe', NC);
+      const hh = nf * fh, yc = g + hh / 2, lw = x1 - x0, ld = z1 - z0;
+      k.plane(netTex(lw, hh), lw, hh, (x0 + x1) / 2, yc, z0 - 0.03, FRONT, TR); k.plane(netTex(lw, hh), lw, hh, (x0 + x1) / 2, yc, z1 + 0.03, 0, TR);
+      k.plane(netTex(ld, hh), ld, hh, x0 - 0.03, yc, (z0 + z1) / 2, -Math.PI / 2, TR); k.plane(netTex(ld, hh), ld, hh, x1 + 0.03, yc, (z0 + z1) / 2, Math.PI / 2, TR);
+      for (let x = x0 + 4; x < x1 - 2; x += 9) { bx(x, x + 2.4, 0.04, 0.9, z0 - 3.2, z0 - 2.0, '#a9865c', {}); bx(x + 3, x + 5.4, 0.04, 0.5, z0 - 3.0, z0 - 1.8, '#7f8386', {}); } // 堆在樓前的模板與鋼筋
+    }
+    if (sp.trucks) { // 停在空地上的工程車：紅色泵浦車（收起來的臂架）、黃色吊車、白色小貨車；位置照 2026-05 街景裡看到的那一區
+      const truck = (x, z, len, cab, body, boom) => {
+        const g = gy(x + 1.1, z + len / 2);
+        k.box(x, x + 2.3, 0.5 + g, 2.6 + g, z, z + 2.0, cab); k.box(x + 0.15, x + 2.15, 1.5 + g, 2.3 + g, z - 0.02, z, '#2a3038', NC);
+        k.box(x + 0.1, x + 2.2, 0.5 + g, 1.5 + g, z + 2.0, z + len, body);
+        for (const zz of [z + 0.5, z + len - 1.2]) for (const xx of [x - 0.05, x + 1.95]) k.box(xx, xx + 0.4, 0.04 + g, 0.95 + g, zz, zz + 0.9, '#1c1c1e', NC);
+        if (boom) k.box(x + 0.8, x + 1.5, 2.2 + g, 2.9 + g, z + 0.3, z + len + 1.5, boom, NC);
+      };
+      for (const [s, z, len, cab, body, boom] of sp.trucks) truck(sx(s), z, len, cab, body, boom);
+    }
+    for (const [s, z, ww, dd, hh, c] of sp.stacks || []) bx(sx(s), sx(s) + ww, 0.04, hh, z, z + dd, c, {});   // 堆放的模板、鋼筋
+  };
   const alley = (k, w, sp, apron) => { // D 段：兩棟之間的側門巷：水泥鋪面、退進去一點的格柵鐵門、巷口的半透明圓弧小雨棚
     const [gc, cc] = sp.alley, d = sp.d || 10, zg = 1.3;
     k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, d, MR.concrete, { col: false, surface: true });
@@ -441,6 +509,8 @@ export function buildDaren1Street(I, scene, X) {
     if (sp.carport) { carport(k, w, sp, apron); posts(k, sp.posts); return; }                                                  // A 段：停車場車棚
     if (sp.factory) { factory(k, L, w, sp, apron); return; }                                               // D 段：鐵皮廠房
     if (sp.yard) { yard(k, L, w, sp, r); return; }
+    if (sp.site) { site(k, L, w, sp); return; }
+    if (sp.pave) { for (let x = 0; x < w - 0.01; x += 3) { const x1 = Math.min(w, x + 3), q = k.w((x + x1) / 2, (sp.d || 2) / 2), g = H(q[0], q[1]) - k.base; k.box(x, x1, g - 0.6, g + 0.06, 0, sp.d || 2, sp.pave, { col: false }); } return; } // 只鋪一條貼著地形的水泥前埕（紅樓門前）
     if (sp.alley) { alley(k, w, sp, apron); return; }                                                      // D 段：側門巷                                                         // D 段：矮花台停車空地
     const win2 = (x, y, ww, h, gr = true) => (r() < 0.2 ? k.plane(litWin(gr), ww, h, x, y, -0.02, FRONT, { emissive: 0.5 }) : win(k, x, y, ww, h, gr)); // 兩成的窗亮著燈
     const nf = sp.nf || 4, fh = sp.fh || 3.0, gf = sp.gf || (nf === 1 ? 3.2 : 3.3), top = gf + (nf - 1) * fh, d = sp.d || 10;

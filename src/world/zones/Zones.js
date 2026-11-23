@@ -118,7 +118,7 @@ export const ZONES = [
   },
   { // 環中東路（校園東南側）與環中東路708巷兩側街屋
     name: '環中東路街屋', drop: HZ_ST.drop, fix: hzFix, look: hzLook, ownSign: HZ_ST.ownSign, footprints: hzFootprints,
-    build: (I, scene) => buildHuanzhongStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+    build: (I, scene, data, collision) => buildHuanzhongStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }, data, collision),
   },
   { // 大仁一街兩側街屋
     name: '大仁一街街屋', drop: D1_ST.drop, fix: d1Fix, look: d1Look, ownSign: D1_ST.ownSign, footprints: d1Footprints,

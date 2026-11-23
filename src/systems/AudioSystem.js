@@ -584,7 +584,7 @@ export class Audio {
   }
   // streamed ambience bed: <audio> → gain → pan → dest; .ready once it can play
   _stream(name, dest) {
-    const el = new window.Audio(`assets/sfx/${name}.m4a`);
+    const el = new window.Audio(name.includes('.') ? name : `assets/sfx/${name}.m4a`);
     el.loop = true;
     el.preload = 'auto';
     const g = this.ctx.createGain();
@@ -604,6 +604,14 @@ export class Audio {
         return el.readyState >= 2 && !el.error;
       },
     };
+  }
+  // a looping recording somewhere in the world, kept at level v every frame (0: fades out, pauses after 2 s);
+  // e.g. 女拳大帝's phone alarm ringing on his desk (src/entities/npcs/Gordon.js)
+  loopAt(key, src, v, dt, pan = 0) {
+    if (!this.ctx || !this.sfx) return;
+    const L = (this._loops ||= {});
+    const b = (L[key] ||= this._stream(src, this.sfx));
+    this._streamLevel(b, v, dt, pan);
   }
   // keep a stream at level v (fades out by itself when not called); pauses after 2 s of silence
   _streamLevel(b, v, dt, pan = 0) {

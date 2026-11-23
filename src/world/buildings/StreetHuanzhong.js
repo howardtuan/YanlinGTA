@@ -130,6 +130,11 @@ export const HZ_ST = {
     'Garden hair salon',
     'Mr.May義式百匯',
     '台灣中油',
+    '吳二哥花雕雞',
+    '極限專賣 EXSHOP',
+    '世國汽車輪胎電機行',
+    '賀眾牌',
+    '大輪車業',
   ], // 街屋自己掛招牌的店名，POI 不再另外掛
   drop: [
     'f2_5',
@@ -770,12 +775,206 @@ export const HZ_ST = {
     ['L8', 264.5, 271.5, -1, { own: 'no26', set: 3, d: 10, apron: 0 }],
     ['L8', 272, 282, -1, { own: 'yuanqi', set: 3, d: 0.5, apron: 0 }],
     ['L8', 289, 297, -1, { own: 'site708', set: 3, d: 0.5, apron: 0 }],
+    // ---- H 段：環中東路 實踐路口以西（街景 2026-05，少數 2024-07；OSM 店名與輪廓）----
+    // 北側 s 697～757：實踐路 S4 的轉角樓以西到振興街口，一排 4～7 樓透天；s 761～833 是 OSM 那排三樓街屋（w1153472233～263，只改高度、前面掛招牌）；
+    // s 837～913：大輪車業、世國汽車、一整排米色 4 樓長公寓（普仁地政士事務所、電池）、賀眾牌、紅磚 6 樓、7 樓窄樓。後面的填充樓照 HZ_HIDE 隱藏（不 drop）
+    ['HN', 697, 703.5, 1, { nf: 4, wall: '#9a5a48', bal: 'rail', ground: 'shop', d: 14, set: 9.6 }],
+    [
+      'HN',
+      703.5,
+      711,
+      1,
+      { nf: 7, wall: '#e6e5e0', ground: 'shutter', sh: '#5a5c60', d: 14, set: 9.6 },
+    ],
+    [
+      'HN',
+      711,
+      717.5,
+      1,
+      {
+        nf: 5,
+        wall: '#8e8f8c',
+        ground: 'shop',
+        sign: ['吳二哥', '#2a2a2c', '#f0c04a'],
+        d: 14,
+        set: 9.6,
+      },
+    ],
+    ['HN', 717.5, 723, 1, { nf: 5, wall: 'beige', ground: 'shop', d: 14, set: 9.6 }],
+    ['HN', 723, 728, 1, { nf: 5, wall: 'beige', ground: 'shutter', d: 14, set: 9.6 }],
+    ['HN', 728, 733, 1, { nf: 5, wall: '#6f7072', ground: 'shop', d: 14, set: 9.6 }],
+    ['HN', 733, 738, 1, { nf: 5, wall: 'beige', ground: 'shutter', d: 14, set: 9.6 }],
+    ['HN', 738, 743, 1, { nf: 5, wall: 'beige', ground: 'shop', awn: '#e0902a', d: 14, set: 9.6 }],
+    ['HN', 743, 748, 1, { nf: 5, wall: 'beige', ground: 'shop', d: 14, set: 9.6 }],
+    ['HN', 748, 752.5, 1, { nf: 4, wall: 'beige', ground: 'shop', d: 14, set: 9.6 }],
+    [
+      'HN',
+      752.5,
+      756.5,
+      1,
+      {
+        nf: 4,
+        wall: 'grey',
+        ground: 'shop',
+        sign2: ['CARIN', '#f4f0ee', '#3a3a3a'],
+        d: 14,
+        set: 9.6,
+      },
+    ], // 振興街口東側的弧形轉角樓
+    ['HN', 820, 836.5, 1, { own: 'hzSignsN', set: 9.3, d: 0.3, apron: 0 }], // OSM 那排街屋前面的招牌（中信房屋、有巢氏房屋）與 7 樓窄樓的直立「極限專賣」
+    [
+      'HN',
+      834.2,
+      837.5,
+      1,
+      {
+        nf: 7,
+        wall: '#b3a89c',
+        ground: 'shop',
+        sign: ['EXSHOP', '#1a1a1a', '#f2d23a'],
+        d: 14,
+        set: 9.6,
+      },
+    ], // OSM 那排西端與大輪車業之間的 7 樓窄樓（一樓極限專賣 EXSHOP）
+    [
+      'HN',
+      837.5,
+      843,
+      1,
+      {
+        nf: 4,
+        wall: '#c9c4c0',
+        ground: 'open',
+        sign: ['大輪車業', '#f2c8c8', '#2a2a2a'],
+        d: 14,
+        set: 9.6,
+      },
+    ],
+    [
+      'HN',
+      843,
+      848.5,
+      1,
+      { nf: 4, wall: '#d8cbb0', ground: 'shutter', sh: '#3d6ea8', d: 14, set: 9.6 },
+    ],
+    [
+      'HN',
+      848.5,
+      853.5,
+      1,
+      {
+        nf: 5,
+        wall: '#cfc6b0',
+        ground: 'shop',
+        sign: ['世國汽車', '#1f6f5a', '#ffffff'],
+        d: 14,
+        set: 9.6,
+      },
+    ],
+    ['HN', 853.5, 859, 1, { nf: 4, wall: '#d9cba8', bal: 'rail', ground: 'shop', d: 14, set: 9.6 }],
+    [
+      'HN',
+      859,
+      864.5,
+      1,
+      {
+        nf: 4,
+        wall: '#d9cba8',
+        bal: 'rail',
+        ground: 'shop',
+        sign: ['普仁地政士事務所', '#1f4f9a', '#ffffff'],
+        d: 14,
+        set: 9.6,
+      },
+    ],
+    [
+      'HN',
+      864.5,
+      870,
+      1,
+      {
+        nf: 4,
+        wall: '#d9cba8',
+        bal: 'rail',
+        ground: 'shop',
+        sign: ['電池', '#f2d23a', '#1f3f9a'],
+        d: 14,
+        set: 9.6,
+      },
+    ],
+    [
+      'HN',
+      870,
+      875.5,
+      1,
+      { nf: 4, wall: '#d9cba8', bal: 'rail', ground: 'shutter', sh: '#3d6ea8', d: 14, set: 9.6 },
+    ],
+    [
+      'HN',
+      875.5,
+      880.5,
+      1,
+      { nf: 4, wall: '#d9cba8', bal: 'rail', ground: 'shop', d: 14, set: 9.6 },
+    ],
+    [
+      'HN',
+      880.5,
+      885,
+      1,
+      { nf: 4, wall: '#d9cba8', bal: 'rail', ground: 'shutter', d: 14, set: 9.6 },
+    ],
+    [
+      'HN',
+      885,
+      890,
+      1,
+      {
+        nf: 4,
+        wall: '#ecebe6',
+        ground: 'shop',
+        sign: ['賀眾牌', '#2a2a2c', '#ffffff'],
+        d: 14,
+        set: 9.6,
+      },
+    ],
+    ['HN', 890, 896.5, 1, { nf: 4, wall: '#e6e4de', ground: 'shop', d: 14, set: 9.6 }],
+    [
+      'HN',
+      896.5,
+      901.5,
+      1,
+      { nf: 6, wall: '#9a4a3a', bal: 'grille', ground: 'shop', d: 14, set: 9.6 },
+    ],
+    ['HN', 901.5, 907, 1, { nf: 6, wall: '#b9bcbc', ground: 'shop', d: 14, set: 9.6 }],
+    ['HN', 907, 911, 1, { nf: 7, wall: '#d8d6cf', ground: 'shutter', d: 14, set: 9.6 }],
+    ['HN', 911, 913.5, 1, { nf: 5, wall: '#e3d9c4', ground: 'shutter', d: 14, set: 9.6 }],
+    // 南側 s 588～685：TOYOTA 環中保修廠（退在停車場後面）、夾子園（實踐路往南那條路的西側）
+    ['HS', 588, 610, -1, { own: 'toyota', set: 24, d: 18, apron: 0 }],
+    ['HS', 649, 685, -1, { own: 'jiazi', set: 8, d: 22, apron: 0 }],
   ],
 };
 // OSM 真實建物只改高度（不 drop、不改 kind、不改輪廓，抽亂數的次數不變，快照已驗證）
 // 太陽帝國大廈（門牌 772，街景 2026-05）：實際 13 層＋屋頂冠帶約 49.5 m，OSM 只記 5 樓
 // 景觀系館（OSM w587175193，708 巷紅磚圍牆後面，街景 2024-08）：實際 4 層樓，OSM 記得太矮
 // 響叮噹五金百貨（OSM w1034725686，街景 2026-05）：實際是兩層樓高的鐵皮賣場（尚揚、森棲棲 7.2～7.6 m），OSM 只記 3.9 m
+// 振興街口以西那排 OSM 街屋（w1153472233～263，街景 2026-05）：實際 4 樓（轉角那棟 5 樓），OSM 只記 3 樓；牆面是米色、灰色磁磚（hzLook 換色）
+const HZ_ROW4 = new Set([
+  'w1153472233',
+  'w1153472234',
+  'w1153472235',
+  'w1153472236',
+  'w1153472237',
+  'w1153472253',
+  'w1153472254',
+  'w1153472255',
+  'w1153472256',
+  'w1153472257',
+  'w1153472258',
+  'w1153472259',
+  'w1153472260',
+  'w1153472262',
+  'w1153472263',
+]);
 export function hzFix(b) {
   if (b.id === 'w1113208995') {
     b.h = 49.5;
@@ -786,6 +985,9 @@ export function hzFix(b) {
   } else if (b.id === 'w587175193') {
     b.h = 14;
     b.floors = 4;
+  } else if (HZ_ROW4.has(b.id)) {
+    b.h = b.id === 'w1153472233' ? 17.1 : 13.8;
+    b.floors = b.id === 'w1153472233' ? 5 : 4;
   }
 }
 // 森林川家具、響叮噹兩棟 OSM 建物的北牆已經被自建立面板蓋住，但 MapBuilder 自動長出的一樓店面斜雨棚凸出牆面 1.25 m，會從立面板前面穿出一條橫線：
@@ -794,12 +996,44 @@ const HZ_NOSHOP = new Set(['w1034725687', 'w1034725686']);
 // G 段 708 巷往西那排填充樓不能 drop：它們的店面牆在 world.shopWalls 裡，Furniture 照 walls[(wi * 7919) % walls.length] 挑牆擺機車，
 // 牆數一變全圖的路邊機車、停車都會重排。照大仁二街的做法留著資料、只叫 MapBuilder 不畫牆和屋頂（look.open.bare＋noShop，亂數照抽），
 // 碰撞輪廓在 buildHuanzhongStreet 最後收成一個點（hzUncollide）
-const HZ_HIDE = new Set(['f2_26', 'f2_27', 'f2_28', 'f2_29', 'f2_30']);
+const HZ_HIDE = new Set([
+  'f2_26',
+  'f2_27',
+  'f2_28',
+  'f2_29',
+  'f2_30', // G 段
+  'f1269',
+  'f1320',
+  'f1321',
+  'f2_845',
+  'f2_846',
+  'f2_847',
+  'f2_848',
+  'f2_849',
+  'f2_850',
+  'f2_851',
+  'f2_852',
+  'f2_853',
+  'f2_854',
+  'f2_855',
+  'f2_856',
+  'f2_857',
+  'f2_858',
+  'f2_859',
+]); // H 段
 export function hzLook(b) {
   if (HZ_NOSHOP.has(b.id)) {
     b.look = { ...(b.look || {}), wall: { base: 'smooth', ...(b.look?.wall || {}) } };
     b.noShop = true;
   }
+  if (HZ_ROW4.has(b.id) && !b.look)
+    b.look = {
+      wall: {
+        colour: ['#cdc5b5', '#b4b3ad', '#d8cdb6', '#9a9c9c', '#c3b9a6'][
+          [...HZ_ROW4].indexOf(b.id) % 5
+        ],
+      },
+    };
   if (HZ_HIDE.has(b.id)) {
     b.look = {
       ...(b.look || {}),
@@ -6027,6 +6261,115 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         24
       );
       q.plane(net, L, 13, L / 2, 10.6, -0.4, FRONT, { transparent: true, double: true });
+    },
+    // ======== H 段：環中東路 實踐路口以西（街景 2026-05／2024-07） ========
+    // OSM 那排三樓街屋（只改高度）前面掛的招牌：中信房屋（綠底白字）、有巢氏房屋（綠底白字）、EXSHOP（黑底黃字，旁邊直立「極限專賣」）
+    hzSignsN(k) {
+      const hb = (t, bg, fg, x0, x1) => {
+        k.box(x0, x1, 3.3, 4.1, -0.1, 0.25, bg, nb);
+        k.plane(
+          paint(t, bg, fg, null, x1 - x0 - 0.1, 0.75, 128),
+          x1 - x0 - 0.1,
+          0.75,
+          (x0 + x1) / 2,
+          3.7,
+          -0.11,
+          FRONT,
+          { emissive: 0.35 }
+        );
+      };
+      hb('中信房屋', '#2a7a50', '#ffffff', 3.4, 7.8);
+      hb('有巢氏房屋', '#1f8a4a', '#ffffff', 8.4, 13.8);
+      k.plane(vtex('極限專賣', '#1a1a1a', '#f2d23a', 0.7, 2.6), 0.7, 2.6, 16.0, 6.0, -0.35, FRONT, {
+        emissive: 0.3,
+      });
+    },
+    // TOYOTA 環中保修廠：退在停車場後面的白色兩層樓高廠房，山牆朝街（紅色簷帶），正面白底紅字 TOYOTA、右邊「環中保修廠」，一樓整排保修工作間；前面柏油停車場停滿車
+    toyota(k, w, d, r) {
+      k.box(0, w, -0.8, 7.2, 0, d, '#f0efea');
+      gable(k, 0, w, 0, d, 7.2, 9.6, '#c8302a', '#f0efea', 0.4);
+      k.box(-0.05, w + 0.05, 7.0, 7.3, -0.45, d, '#c8302a', nb);
+      k.plane(
+        paint('TOYOTA', '#ffffff', '#c8102e', null, 6, 1.1, 128),
+        6,
+        1.1,
+        w / 2 - 2,
+        5.4,
+        -0.03,
+        FRONT,
+        { emissive: 0.2 }
+      );
+      k.plane(
+        paint('環中保修廠', '#ffffff', '#2a2a2a', null, 4, 0.8, 128),
+        4,
+        0.8,
+        w / 2 + 4.5,
+        5.4,
+        -0.03,
+        FRONT,
+        { emissive: 0.2 }
+      );
+      for (let j = 0; j < 4; j++) {
+        const x = 1.5 + j * 5;
+        k.plane(openTex, 4.0, 3.8, x + 2, 1.9, -0.03, FRONT, { emissive: 0.25 });
+      }
+      rectG(k, 4, w, -19.8, 0, '#5a5c5e', 0.03);
+      for (let j = 0; j < 6; j++)
+        car(
+          k,
+          5 + j * 2.6,
+          -9 - (j % 2) * 5,
+          ['#f2f2ee', '#2a2d33', '#8a8d90', '#c8302a', '#3a4a6a', '#f2f2ee'][j]
+        );
+    },
+    // 夾子園：一層樓高的大鐵皮棚（夾娃娃機店），簷口整面黃底卡通大招牌、藍字「夾子園」，一樓整面敞開、裡面一排排彩色夾娃娃機
+    jiazi(k, w, d) {
+      // 本體退後 3 m，前面是整排敞開的騎樓（柱子＋雨遮），簷口整面招牌掛在雨遮前緣
+      k.box(0, w, -0.8, 6.6, 3, d, '#c9cdd0');
+      k.box(-0.2, w + 0.2, 4.2, 4.45, -1.6, 3, '#e6e4de', nb);
+      k.box(-0.2, w + 0.2, 4.45, 6.6, -1.6, -1.35, '#e6e4de', nb);
+      k.plane(
+        board('jiazi', w, 2.15, (g, W, Hh) => {
+          fill(g, W, Hh, '#f6d44a');
+          for (let j = 0; j < 9; j++) {
+            g.fillStyle = ['#f29ab8', '#8fd0f0', '#fff4c0'][j % 3];
+            g.beginPath();
+            g.ellipse(
+              W * (0.05 + j * 0.11),
+              Hh * (0.3 + (j % 2) * 0.35),
+              Hh * 0.22,
+              Hh * 0.2,
+              0,
+              0,
+              7
+            );
+            g.fill();
+          }
+          fitText(g, '夾子園', W * 0.62, Hh * 0.5, W * 0.3, Hh * 0.7, '#1f3f9a');
+        }),
+        w,
+        2.15,
+        w / 2,
+        5.52,
+        -1.62,
+        FRONT,
+        { emissive: 0.3 }
+      );
+      for (let x = 0.3; x < w - 0.2; x += 6) k.box(x, x + 0.25, 0, 4.2, -1.45, -1.2, '#d6d4ce', nb);
+      for (let x = 0.6; x < w - 1; x += 1.25) {
+        k.box(
+          x,
+          x + 1.0,
+          0,
+          1.9,
+          1.4,
+          2.5,
+          ['#f29ab8', '#8fd0f0', '#f6d44a', '#9ad08a'][Math.floor(x) % 4],
+          nb
+        );
+        k.box(x + 0.08, x + 0.92, 0.9, 1.75, 1.35, 1.4, '#dfeef4', nb);
+      }
+      k.plane(openTex, w - 0.4, 4.0, w / 2, 2.0, 2.97, FRONT, { emissive: 0.25 });
     },
   };
 

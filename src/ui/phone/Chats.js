@@ -593,6 +593,7 @@ export const FRIEND_CONTACTS = {
     always: [
       {
         t: '選舉快到了要拜票，這次先不去了 🙏',
+        match: /不去|不行|沒辦法|沒空|拜票|下次|改天/,
         when: (g) => g.zzQuest?.state.stage === 'invited',
         ask: (g) => g.zzQuest.decline(),
       },

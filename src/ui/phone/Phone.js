@@ -190,6 +190,19 @@ const withTimeout = (p, ms) =>
 const hhmm = (m) =>
   `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 
+// What a chat message you send counts as (Phone._send): a picked option, or your own words (typed: AI chats only).
+// Typed words that are exactly an option's (with the AI on, picking an option only puts its words in the typing box)
+// are that option: a scripted one keeps its written reply, votes and moves the script on, and an `always` option
+// with ask() still acts (吱吱's 回絕 starts the 武嶺 quest's call, src/systems/quests/ZzInjury.js). Otherwise an
+// `always` option whose `match` fits answers them, else they go to the AI. null: nothing to send.
+export function pickSent(opts, always, typed, choice) {
+  if (!typed) return opts?.[choice] || null; // (choice may be the typing box: nothing to send)
+  const same = (opts || []).find((o) => !o.ai && (o.r || o.ask) && o.t.trim() === typed.trim());
+  if (same) return same;
+  const m = (always || []).find((a) => a.match?.test(typed));
+  return m ? { ...m, t: typed } : { t: typed, ai: true, typed: true };
+}
+
 export class Phone {
   constructor(game) {
     this.g = game;
@@ -1894,15 +1907,7 @@ export class Phone {
     const opts = this._options(st);
     if (!opts && !typed) return false;
     const g = this.g;
-    let ch = typed ? this._always(st).find((a) => a.match?.test(typed)) : opts[st.choice]; // (st.choice may be the typing box: nothing to send)
-    // a scripted option sent through the typing box (picking an option puts its words there) is still that option:
-    // it keeps its written reply, its votes and moves the script on
-    const same =
-      typed && !ch
-        ? (opts || []).find((o) => !o.ai && !o.ask && o.r && o.t.trim() === typed.trim())
-        : null;
-    if (same) ch = same;
-    else if (typed) ch = ch ? { ...ch, t: typed } : { t: typed, ai: true, typed: true };
+    const ch = pickSent(opts, this._always(st), typed, st.choice);
     if (!ch) return false;
     // the AI is still thinking (a reply or a new topic it opens): you don't have to wait, sending anything drops the
     // answer it was working on (the on-device model can take long or stall)

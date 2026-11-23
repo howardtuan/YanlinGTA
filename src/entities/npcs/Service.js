@@ -23,20 +23,27 @@ export const SERVICE_TAG = '義務役服役中';
 
 // "now" for the service calendar: the real date, or ?date=YYYY-MM-DD while testing
 function today() {
-  const q = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('date') : null;
+  const q =
+    typeof location !== 'undefined' ? new URLSearchParams(location.search).get('date') : null;
   const m = q && /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(q);
-  if (m) { const d = new Date(); d.setFullYear(+m[1], +m[2] - 1, +m[3]); return d; }
+  if (m) {
+    const d = new Date();
+    d.setFullYear(+m[1], +m[2] - 1, +m[3]);
+    return d;
+  }
   return new Date();
 }
 // the service period, [入伍日 00:00, 退伍日 00:00) in local time
 export function servicePeriod(id) {
-  const s = SERVICE[id]; if (!s) return null;
+  const s = SERVICE[id];
+  if (!s) return null;
   const day = ([y, mo, d]) => new Date(y, mo - 1, d);
   return { from: day(s.start), to: day(s.end) };
 }
 // null: not serving (before or after); 'duty': a weekday in the service (uniform); 'leave': a weekend in the service (own clothes)
 export function serviceState(id, now = today()) {
-  const P = servicePeriod(id); if (!P || now < P.from || now >= P.to) return null;
+  const P = servicePeriod(id);
+  if (!P || now < P.from || now >= P.to) return null;
   const wd = now.getDay();
   return wd === 0 || wd === 6 ? 'leave' : 'duty';
 }
@@ -47,13 +54,26 @@ export const serviceName = (id, name) => (inService(id) ? `${SERVICE_TAG} ${name
 // the army uniform over someone's own look: same face, hair, glasses and build; camouflage shirt and long trousers, boots, helmet
 export function uniformLook(look) {
   return {
-    ...look, shirt: '#56643a', shorts: '#56643a', pants: true, camo: true, helmet: 'camo', shoes: '#2a2620',
-    jacket: undefined, polo: false, imTee: false, bag: undefined, hem: undefined,
+    ...look,
+    shirt: '#56643a',
+    shorts: '#56643a',
+    pants: true,
+    camo: true,
+    helmet: 'camo',
+    shoes: '#2a2620',
+    jacket: undefined,
+    polo: false,
+    imTee: false,
+    bag: undefined,
+    hem: undefined,
   };
 }
 
 // a label with the prefix in front of the name, after a leading emoji ('📷 侯舌' → '📷 義務役服役中 侯舌')
-const withTag = (t) => { const m = /^(\p{Extended_Pictographic}\S*\s)(.*)$/u.exec(t); return m ? `${m[1]}${SERVICE_TAG} ${m[2]}` : `${SERVICE_TAG} ${t}`; };
+const withTag = (t) => {
+  const m = /^(\p{Extended_Pictographic}\S*\s)(.*)$/u.exec(t);
+  return m ? `${m[1]}${SERVICE_TAG} ${m[2]}` : `${SERVICE_TAG} ${t}`;
+};
 
 // ---------------------------------------------------------------- the people being watched
 const list = [];
@@ -63,13 +83,24 @@ let wait = 0;
 // onChange(state): after changing clothes (e.g. 黃蓋瑞 puts his running tee back on)
 export function serviceWear(id, ch, look, { tag, tagText, hide = [], onChange } = {}) {
   if (!SERVICE[id] || !ch) return;
-  const e = { id, ch, look, tag, tagText: tagText ?? tag?.userData.label?.text, hide, onChange, state: undefined };
-  list.push(e); apply(e);
+  const e = {
+    id,
+    ch,
+    look,
+    tag,
+    tagText: tagText ?? tag?.userData.label?.text,
+    hide,
+    onChange,
+    state: undefined,
+  };
+  list.push(e);
+  apply(e);
 }
 function apply(e) {
   const st = serviceState(e.id);
   if (st === e.state) return;
-  const was = e.state; e.state = st;
+  const was = e.state;
+  e.state = st;
   const uni = st === 'duty';
   if (uni !== (was === 'duty')) {
     restyle(e.ch, uni ? uniformLook(e.look) : e.look);

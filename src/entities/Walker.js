@@ -16,43 +16,76 @@
 import { G } from '../physics/Physics.js';
 import { WALL_T } from '../physics/PhysWorld.js';
 
-export const RADIUS = 0.38;                      // as src/entities/Player.js without a walker (against a wall line)
-const SKIN = 0.02;                               // the controller's gap to what it touches (m)
-const CR = RADIUS - WALL_T - SKIN;               // capsule radius
-const LOW = 0.35, HIGH = 1.6;                    // the band above the feet that walls block
-const HALF = (HIGH - LOW) / 2 - CR;              // capsule half height without its caps
-const CY = LOW + CR + HALF;                      // capsule centre above the feet
+export const RADIUS = 0.38; // as src/entities/Player.js without a walker (against a wall line)
+const SKIN = 0.02; // the controller's gap to what it touches (m)
+const CR = RADIUS - WALL_T - SKIN; // capsule radius
+const LOW = 0.35,
+  HIGH = 1.6; // the band above the feet that walls block
+const HALF = (HIGH - LOW) / 2 - CR; // capsule half height without its caps
+const CY = LOW + CR + HALF; // capsule centre above the feet
 
 export class Walker {
   static attach(P) {
     if (!P?.ready) return null;
-    try { return new Walker(P); } catch (e) { console.warn('[walker] 角色控制器建立失敗，走路改用原本的碰撞', e); return null; }
+    try {
+      return new Walker(P);
+    } catch (e) {
+      console.warn('[walker] 角色控制器建立失敗，走路改用原本的碰撞', e);
+      return null;
+    }
   }
   constructor(P) {
-    const R = P.R, W = P.world;
+    const R = P.R,
+      W = P.world;
     this.P = P;
     this.ctrl = W.createCharacterController(SKIN);
     this.ctrl.setUp({ x: 0, y: 1, z: 0 });
     this.ctrl.setSlideEnabled(true);
-    this.ctrl.disableAutostep?.(); this.ctrl.disableSnapToGround?.(); this.ctrl.setApplyImpulsesToDynamicBodies(false);
-    this.col = W.createCollider(R.ColliderDesc.capsule(HALF, CR).setCollisionGroups(0).setTranslation(0, -1000, 0));
+    this.ctrl.disableAutostep?.();
+    this.ctrl.disableSnapToGround?.();
+    this.ctrl.setApplyImpulsesToDynamicBodies(false);
+    this.col = W.createCollider(
+      R.ColliderDesc.capsule(HALF, CR).setCollisionGroups(0).setTranslation(0, -1000, 0)
+    );
     const tags = P.tags || {};
-    this.isWall = c => !!(tags.walls?.has(c.handle) || tags.trunks?.has(c.handle));
+    this.isWall = (c) => !!(tags.walls?.has(c.handle) || tags.trunks?.has(c.handle));
     this.groups = ((G.CHAR & 0xffff) << 16) | (G.WORLD & 0xffff);
     this.out = { x: 0, y: 0, z: 0 };
   }
   // move pos (the feet; pos.y is their height) by (mx, mz), sliding along walls: pos.x / pos.z are updated
   move(pos, mx, mz) {
     this.col.setTranslation({ x: pos.x, y: pos.y + CY, z: pos.z });
-    this.ctrl.computeColliderMovement(this.col, { x: mx, y: 0, z: mz }, undefined, this.groups, this.isWall);
+    this.ctrl.computeColliderMovement(
+      this.col,
+      { x: mx, y: 0, z: mz },
+      undefined,
+      this.groups,
+      this.isWall
+    );
     const m = this.ctrl.computedMovement(this.out);
-    if (Number.isFinite(m.x) && Number.isFinite(m.z)) { pos.x += m.x; pos.z += m.z; }
+    if (Number.isFinite(m.x) && Number.isFinite(m.z)) {
+      pos.x += m.x;
+      pos.z += m.z;
+    }
   }
   // whether the capsule at pos would stand inside a wall (tests, the story bot's teleports)
   blocked(pos) {
     this.col.setTranslation({ x: pos.x, y: pos.y + CY, z: pos.z });
     let hit = false;
-    this.P.world.intersectionsWithShape(this.col.translation(), this.col.rotation(), this.col.shape, c => { if (this.isWall(c)) { hit = true; return false; } return true; }, undefined, this.groups);
+    this.P.world.intersectionsWithShape(
+      this.col.translation(),
+      this.col.rotation(),
+      this.col.shape,
+      (c) => {
+        if (this.isWall(c)) {
+          hit = true;
+          return false;
+        }
+        return true;
+      },
+      undefined,
+      this.groups
+    );
     return hit;
   }
 }

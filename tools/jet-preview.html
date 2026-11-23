@@ -1,80 +1,194 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JET SL 預覽</title>
-<style>
-  html, body { margin: 0; height: 100%; background: #c9d3dc; overflow: hidden; font-family: system-ui, "Microsoft JhengHei", sans-serif; }
-  #ui { position: fixed; left: 12px; top: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
-  #ui button { border: 0; border-radius: 6px; padding: 6px 10px; background: #1d2230; color: #fff; cursor: pointer; font-size: 13px; }
-  #ui button.on { background: #ff2d7a; }
-  #hint { position: fixed; left: 12px; bottom: 10px; color: #333; font-size: 12px; }
-</style>
-<script type="importmap">
-{ "imports": { "three": "../vendor/three.module.js" } }
-</script>
-</head>
-<body>
-<div id="ui"></div>
-<div id="hint">拖曳旋轉 · 滾輪縮放 · 開發用預覽頁（不影響遊戲）</div>
-<script type="module">
-import * as THREE from 'three';
-import { buildJetSL } from '../src/entities/Vehicles.js';
-import { SkySystem } from '../src/graphics/SkySystem.js';
-import { createCharacter } from '../src/entities/Character.js';
-import { YANLIN_LOOK } from '../src/entities/Player.js';
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JET SL 預覽</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #c9d3dc;
+        overflow: hidden;
+        font-family: system-ui, 'Microsoft JhengHei', sans-serif;
+      }
+      #ui {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      #ui button {
+        border: 0;
+        border-radius: 6px;
+        padding: 6px 10px;
+        background: #1d2230;
+        color: #fff;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      #ui button.on {
+        background: #ff2d7a;
+      }
+      #hint {
+        position: fixed;
+        left: 12px;
+        bottom: 10px;
+        color: #333;
+        font-size: 12px;
+      }
+    </style>
+    <script type="importmap">
+      { "imports": { "three": "../vendor/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <div id="ui"></div>
+    <div id="hint">拖曳旋轉 · 滾輪縮放 · 開發用預覽頁（不影響遊戲）</div>
+    <script type="module">
+      import * as THREE from 'three';
+      import { buildJetSL } from '../src/entities/Vehicles.js';
+      import { SkySystem } from '../src/graphics/SkySystem.js';
+      import { createCharacter } from '../src/entities/Character.js';
+      import { YANLIN_LOOK } from '../src/entities/Player.js';
 
-const r = new THREE.WebGLRenderer({ antialias: true });
-r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.setSize(innerWidth, innerHeight);
-r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-r.toneMapping = THREE.ACESFilmicToneMapping;
-document.body.prepend(r.domElement);
-const scene = new THREE.Scene();
-const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 3000);
-const sky = new SkySystem(scene, r, 'high');
-scene.fog.density = 0.0004;
-const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 64).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#9aa2aa', roughness: 0.8 }));
-floor.receiveShadow = true; scene.add(floor);
-const bike = buildJetSL(); bike.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); scene.add(bike);
+      const r = new THREE.WebGLRenderer({ antialias: true });
+      r.setPixelRatio(Math.min(devicePixelRatio, 2));
+      r.setSize(innerWidth, innerHeight);
+      r.shadowMap.enabled = true;
+      r.shadowMap.type = THREE.PCFSoftShadowMap;
+      r.toneMapping = THREE.ACESFilmicToneMapping;
+      document.body.prepend(r.domElement);
+      const scene = new THREE.Scene();
+      const cam = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 3000);
+      const sky = new SkySystem(scene, r, 'high');
+      scene.fog.density = 0.0004;
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(6, 64).rotateX(-Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: '#9aa2aa', roughness: 0.8 })
+      );
+      floor.receiveShadow = true;
+      scene.add(floor);
+      const bike = buildJetSL();
+      bike.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+        }
+      });
+      scene.add(bike);
 
-let yaw = -1.2, pitch = 0.18, dist = 3.2, spin = 0;
-const VIEWS = { '左側': [Math.PI / 2, 0.05, 3.0], '右側': [-Math.PI / 2, 0.05, 3.0], '前 3/4': [0.75, 0.15, 3.0], '後 3/4': [2.4, 0.2, 3.0], '正前': [0, 0.08, 2.6], '正後': [Math.PI, 0.1, 2.6], '俯視': [-1.2, 1.1, 3.2] };
-const ui = document.getElementById('ui');
-for (const [k, v] of Object.entries(VIEWS)) { const b = document.createElement('button'); b.textContent = k; b.onclick = () => { [yaw, pitch, dist] = v; }; ui.append(b); }
-const sp = document.createElement('button'); sp.textContent = '輪子轉動'; sp.onclick = () => { spin = spin ? 0 : 6; sp.classList.toggle('on', !!spin); }; ui.append(sp);
-// rider exactly as the game seats him (Vehicle seat offset for the JET: 0, 0.08, -0.3)
-const rider = createCharacter(YANLIN_LOOK); rider.root.position.set(0, 0.08, -0.3); rider.root.visible = false; bike.add(rider.root);
-for (let i = 0; i < 10; i++) rider.update(0.2, { mode: 'ride' });
-const rb = document.createElement('button'); rb.textContent = '彥霖騎上去'; rb.onclick = () => { rider.root.visible = !rider.root.visible; rb.classList.toggle('on', rider.root.visible); }; ui.append(rb);
-window.showRider = (on) => { rider.root.visible = on; };
-let clock = 14 * 60;
-const nt = document.createElement('button'); nt.textContent = '夜晚'; nt.onclick = () => { clock = clock === 14 * 60 ? 21 * 60 : 14 * 60; nt.classList.toggle('on', clock !== 14 * 60); }; ui.append(nt);
-window.setView = (y, p, d) => { yaw = y; pitch = p; dist = d; };
+      let yaw = -1.2,
+        pitch = 0.18,
+        dist = 3.2,
+        spin = 0;
+      const VIEWS = {
+        左側: [Math.PI / 2, 0.05, 3.0],
+        右側: [-Math.PI / 2, 0.05, 3.0],
+        '前 3/4': [0.75, 0.15, 3.0],
+        '後 3/4': [2.4, 0.2, 3.0],
+        正前: [0, 0.08, 2.6],
+        正後: [Math.PI, 0.1, 2.6],
+        俯視: [-1.2, 1.1, 3.2],
+      };
+      const ui = document.getElementById('ui');
+      for (const [k, v] of Object.entries(VIEWS)) {
+        const b = document.createElement('button');
+        b.textContent = k;
+        b.onclick = () => {
+          [yaw, pitch, dist] = v;
+        };
+        ui.append(b);
+      }
+      const sp = document.createElement('button');
+      sp.textContent = '輪子轉動';
+      sp.onclick = () => {
+        spin = spin ? 0 : 6;
+        sp.classList.toggle('on', !!spin);
+      };
+      ui.append(sp);
+      // rider exactly as the game seats him (Vehicle seat offset for the JET: 0, 0.08, -0.3)
+      const rider = createCharacter(YANLIN_LOOK);
+      rider.root.position.set(0, 0.08, -0.3);
+      rider.root.visible = false;
+      bike.add(rider.root);
+      for (let i = 0; i < 10; i++) rider.update(0.2, { mode: 'ride' });
+      const rb = document.createElement('button');
+      rb.textContent = '彥霖騎上去';
+      rb.onclick = () => {
+        rider.root.visible = !rider.root.visible;
+        rb.classList.toggle('on', rider.root.visible);
+      };
+      ui.append(rb);
+      window.showRider = (on) => {
+        rider.root.visible = on;
+      };
+      let clock = 14 * 60;
+      const nt = document.createElement('button');
+      nt.textContent = '夜晚';
+      nt.onclick = () => {
+        clock = clock === 14 * 60 ? 21 * 60 : 14 * 60;
+        nt.classList.toggle('on', clock !== 14 * 60);
+      };
+      ui.append(nt);
+      window.setView = (y, p, d) => {
+        yaw = y;
+        pitch = p;
+        dist = d;
+      };
 
-let drag = null;
-r.domElement.onpointerdown = e => { drag = [e.clientX, e.clientY]; };
-addEventListener('pointerup', () => { drag = null; });
-addEventListener('pointermove', e => { if (!drag) return; yaw -= (e.clientX - drag[0]) * 0.008; pitch = Math.max(-0.2, Math.min(1.4, pitch + (e.clientY - drag[1]) * 0.006)); drag = [e.clientX, e.clientY]; });
-addEventListener('wheel', e => { dist = Math.max(1.2, Math.min(8, dist * (1 + Math.sign(e.deltaY) * 0.1))); });
-addEventListener('resize', () => { r.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+      let drag = null;
+      r.domElement.onpointerdown = (e) => {
+        drag = [e.clientX, e.clientY];
+      };
+      addEventListener('pointerup', () => {
+        drag = null;
+      });
+      addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        yaw -= (e.clientX - drag[0]) * 0.008;
+        pitch = Math.max(-0.2, Math.min(1.4, pitch + (e.clientY - drag[1]) * 0.006));
+        drag = [e.clientX, e.clientY];
+      });
+      addEventListener('wheel', (e) => {
+        dist = Math.max(1.2, Math.min(8, dist * (1 + Math.sign(e.deltaY) * 0.1)));
+      });
+      addEventListener('resize', () => {
+        r.setSize(innerWidth, innerHeight);
+        cam.aspect = innerWidth / innerHeight;
+        cam.updateProjectionMatrix();
+      });
 
-let last = performance.now(), rot = 0;
-(function loop(now) {
-  requestAnimationFrame(loop);
-  const dt = Math.min(0.05, ((now || last) - last) / 1000); last = now || last;
-  // the side pane can resize without a window resize event
-  const sz = r.getSize(new THREE.Vector2());
-  if (sz.x !== innerWidth || sz.y !== innerHeight) { r.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); }
-  sky.update(dt, clock, { x: 0, y: 0, z: 0 }, (now || 0) / 1000);
-  r.toneMappingExposure = clock === 14 * 60 ? 1 : 1.3;
-  rot += spin * dt; for (const w of bike.userData.wheels) w.rotation.x = rot;
-  if (rider.root.visible) rider.update(dt, { mode: 'ride' });
-  const t = new THREE.Vector3(0, 0.62, 0);
-  cam.position.set(t.x + Math.sin(yaw) * Math.cos(pitch) * dist, t.y + Math.sin(pitch) * dist, t.z + Math.cos(yaw) * Math.cos(pitch) * dist);
-  cam.lookAt(t);
-  r.render(scene, cam);
-})();
-</script>
-</body>
+      let last = performance.now(),
+        rot = 0;
+      (function loop(now) {
+        requestAnimationFrame(loop);
+        const dt = Math.min(0.05, ((now || last) - last) / 1000);
+        last = now || last;
+        // the side pane can resize without a window resize event
+        const sz = r.getSize(new THREE.Vector2());
+        if (sz.x !== innerWidth || sz.y !== innerHeight) {
+          r.setSize(innerWidth, innerHeight);
+          cam.aspect = innerWidth / innerHeight;
+          cam.updateProjectionMatrix();
+        }
+        sky.update(dt, clock, { x: 0, y: 0, z: 0 }, (now || 0) / 1000);
+        r.toneMappingExposure = clock === 14 * 60 ? 1 : 1.3;
+        rot += spin * dt;
+        for (const w of bike.userData.wheels) w.rotation.x = rot;
+        if (rider.root.visible) rider.update(dt, { mode: 'ride' });
+        const t = new THREE.Vector3(0, 0.62, 0);
+        cam.position.set(
+          t.x + Math.sin(yaw) * Math.cos(pitch) * dist,
+          t.y + Math.sin(pitch) * dist,
+          t.z + Math.cos(yaw) * Math.cos(pitch) * dist
+        );
+        cam.lookAt(t);
+        r.render(scene, cam);
+      })();
+    </script>
+  </body>
 </html>

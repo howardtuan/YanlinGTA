@@ -629,6 +629,7 @@ export const FRIEND_CONTACTS = {
             bath: ['在力行二樓浴室等你啦 🛁', '快來 侯舌已經到了'],
             shop: ['在茶學苑打工 🧋', '來喝飲料啊'],
             gym: ['在體育館門口 🏐', '定位傳你'],
+            walk: ['在跟 Yulu 散步 💕', '晚點再回你'],
             ride: ["跟女拳大帝騎 BW'S 兜風中 🛵", '等等回宿舍'],
             room: Z.injured ? ['在 276 養傷 🩹', '手指還在痛'] : ['在 276 打遊戲 🎮', '要來雙排嗎'],
           }[Z.mode] || ['在學校啊'];
@@ -757,7 +758,7 @@ export const FRIEND_CONTACTS = {
       {
         choices: [
           { t: '你跟明衫怎麼認識的？', r: ['宿營的時候同一小隊', '她跳舞超帥，我就……戒菸了 😂'] },
-          { t: '最近有在打排球嗎', r: ['休假都在體育館旁邊打', '吱吱也常來'] },
+          { t: '最近有在打排球嗎', r: ['休假都在體育館旁邊打', '侯舌也常來'] },
         ],
       },
     ],
@@ -1174,6 +1175,52 @@ export const FRIEND_CONTACTS = {
           g.howard?.mode === 'walk'
             ? { r: ['在學校跟霍華德散步 💕', '晚點再聊～'] }
             : { r: ['在首爾 🇰🇷', '晚餐後我會跟霍華德在學校散步，有空來找我們'] },
+      },
+    ],
+  },
+  // Yulu（src/entities/npcs/Yulu.js）：商設系、吱吱的女朋友。「你在哪？」：商設館前、跟吱吱散步，或回宿舍了；
+  // 加好友後她請你買無糖茶送去男生宿舍給吱吱（src/systems/quests/YuluTea.js 傳訊息）
+  yulu: {
+    id: 'yulu',
+    name: '商設系 Yulu',
+    sub: '商業設計系・吱吱的女朋友',
+    avatar: '<img class="ph-avimg" src="assets/gram/yulu_av.jpg" alt="">',
+    color: '#e3c068',
+    unread: 1,
+    history: [{ day: '今天' }, ['yulu', '我是 Yulu～加到了 😊']],
+    script: [
+      {
+        choices: [
+          { t: '妳跟吱吱怎麼認識的？', r: ['打排球認識的 🏐', '他跳發的時候超帥（不要跟他說）'] },
+          { t: '商設的作業很多嗎', r: ['超多 😵', '這週要交兩份作品集'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '商設的票拜託了！', r: ['包在我身上 🗳️', '我們班群我會發'], v: 1 },
+          { t: '下次一起打排球', r: ['好呀！', '叫吱吱教你跳發 🏐'] },
+        ],
+      },
+    ],
+    always: [
+      {
+        t: '你在哪？',
+        match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) => {
+          const Y = g.yulu;
+          if (Y?.mode === 'walk') return { r: ['在跟吱吱散步 💕', '晚點再聊～'] };
+          if (Y?.mode !== 'ssd') return { r: ['回宿舍了～', '白天我都在商設館前面'] };
+          const at = Y.navPos();
+          return {
+            r: ['在商設館前面 🎨', '等同學一起交作業'],
+            then: () => {
+              if (at && g.nav?.set) {
+                g.nav.set(at.x, at.z);
+                g.hud.toast('🧭 已設定導航到 Yulu 那裡', 'good', 2400);
+              }
+            },
+          };
+        },
       },
     ],
   },

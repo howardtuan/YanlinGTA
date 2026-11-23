@@ -68,6 +68,8 @@ import { Houshe } from '../entities/npcs/Houshe.js';
 import { Zz } from '../entities/npcs/Zz.js';
 import { ZzInjury } from '../systems/quests/ZzInjury.js';
 import { TzuyuWagyu } from '../systems/quests/TzuyuWagyu.js';
+import { YuluTea } from '../systems/quests/YuluTea.js';
+import { Yulu } from '../entities/npcs/Yulu.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
 import { serviceTick, serviceName } from '../entities/npcs/Service.js';
@@ -517,6 +519,9 @@ class Game {
     this.zzQuest = new ZzInjury(this);
     this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
     this.zz = new Zz(this);
+    // 吱吱's girlfriend Yulu (商設館 / after-dinner walks) and her errand (src/entities/npcs/Yulu.js, src/systems/quests/YuluTea.js)
+    this.yulu = new Yulu(this);
+    this.yuluQuest = new YuluTea(this);
 
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
     // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
@@ -1078,6 +1083,8 @@ class Game {
     this.zz?.update(dt);
     this.zzQuest?.update(dt);
     this.tzuyuQuest?.update(dt);
+    this.yulu?.update(dt);
+    this.yuluQuest?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     this.photo.update(dt, inp); // 📷 holding the phone up: eats the shutter / back keys before anything else sees them

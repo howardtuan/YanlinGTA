@@ -9,6 +9,7 @@ import { JIANYU_LOOK } from '../../entities/npcs/Jianyu.js';
 import { HOUSHE_LOOK } from '../../entities/npcs/Houshe.js';
 import { RICHARD_LOOK } from '../../entities/npcs/Richard.js';
 import { HOWARD_LOOK, TZUYU_LOOK } from '../../entities/npcs/Howard.js';
+import { YULU_LOOK } from '../../entities/npcs/Yulu.js';
 import { GD_LOOK, ZZ_LOOK } from '../../entities/npcs/FriendLooks.js';
 import { FRIEND_CONTACTS } from './Chats.js';
 import { FRIEND_POSTS } from './Feeds.js';
@@ -134,6 +135,12 @@ export const FRIENDS = {
         ['YeeMing', '欸彥霖！來打排球嗎？明衫在忙，我先來練一下。'],
         ['彥霖', '你排球打得不錯欸……對了，要不要打麻將？'],
         ['YeeMing', '哈哈哈哈怎麼又是麻將，等我休假！吱吱常跟我在這邊打球，下次一起來。'],
+        ['YeeMing', '我們加個好友吧，選會長我挺你 🏐'],
+      ],
+      introHurt: [
+        ['YeeMing', '欸彥霖！來打排球嗎？明衫在忙，我先來練一下。'],
+        ['彥霖', '你排球打得不錯欸……對了，要不要打麻將？'],
+        ['YeeMing', '哈哈哈哈等我休假！吱吱手受傷不能打，最近都只剩我一個人練。'],
         ['YeeMing', '我們加個好友吧，選會長我挺你 🏐'],
       ],
       chat: [
@@ -448,6 +455,11 @@ export const FRIENDS = {
         ['彥霖', '你拍照那麼強，排球也打？'],
         ['侯舌', '攝影要穩、排球也要穩嘛哈哈。加個好友，下次揪你一起打！'],
       ],
+      introHurt: [
+        ['侯舌', '彥霖！要來打嗎？YeeMing 在對面，吱吱手受傷這陣子都不能來 🏐'],
+        ['彥霖', '你拍照那麼強，排球也打？'],
+        ['侯舌', '攝影要穩、排球也要穩嘛哈哈。加個好友，下次揪你一起打！'],
+      ],
       chat: [
         [['侯舌', '剛剛 YeeMing 一個扣球差點打到我臉 😵']],
         [['侯舌', '打完球要回去修圖，今天畢業照拍了 300 張']],
@@ -648,6 +660,54 @@ export const FRIENDS = {
       [['Tzuyu', '霍華德說要變一個新魔術給我看，結果牌掉滿地 😂']],
     ],
   },
+  // Yulu（src/entities/npcs/Yulu.js）：商業設計系，吱吱的女朋友，個性友好、喜歡打排球。白天在商業設計館前走來走去，
+  // 有些晚上跟吱吱手牽手散步。spot 為 null：人由 Yulu.js 放。加好友後的支線「幫 Yulu 送無糖茶給吱吱」在 src/systems/quests/YuluTea.js。
+  yulu: {
+    name: '商設系 Yulu',
+    short: 'Yulu',
+    look: YULU_LOOK,
+    spot: () => null,
+    intro: [
+      ['Yulu', '嗨～你是彥霖對吧？吱吱常常提到你 😊'],
+      ['彥霖', '對！妳是……？'],
+      ['Yulu', '我是 Yulu，商設系的，吱吱的女朋友～'],
+      ['彥霖', '原來吱吱的女朋友是商設的！'],
+      ['Yulu', '對呀，我們是打排球認識的 🏐 我也很喜歡打排球喔'],
+      ['Yulu', '選會長加油！我們加個好友吧，商設那邊我幫你拉票～'],
+    ],
+    again: [['Yulu', '要加好友嗎？商設的同學我幫你拉票 😊']],
+    yes: [['Yulu', '加到了！我晚點傳訊息給你～']],
+    no: [['Yulu', '好喔～我常在商設館前面，想加再來找我']],
+    chat: [
+      [['Yulu', '在等同學一起交作品集，熬了兩個晚上 😵']],
+      [['Yulu', '你的競選海報要不要我幫你排版？商設的專業喔 🎨']],
+      [['Yulu', '週末想去打排球，吱吱說要教我跳發 🏐']],
+      [['Yulu', '商設的同學說要投你，我有幫你講好話 🗳️']],
+    ],
+    hurt: [
+      [['Yulu', '吱吱手受傷，這陣子都不能打排球，悶到快長香菇了 😢']],
+      [['Yulu', '謝謝你一直幫吱吱洗澡……我進不去男生宿舍 🙏']],
+    ],
+    walk: {
+      // 晚餐後跟吱吱散步（src/entities/npcs/Yulu.js）
+      intro: [
+        ['吱吱', '欸！彥霖！這是我女朋友 Yulu 😆'],
+        ['Yulu', '嗨～我是商設系的 Yulu，吱吱常常講到你 😊'],
+        ['彥霖', '吱吱你居然偷偷交女朋友！'],
+        ['吱吱', '哪有偷偷，我們打排球認識的啦 🏐'],
+        ['Yulu', '選會長加油！我們加個好友吧～'],
+      ],
+      again: [['Yulu', '要加好友嗎？商設那邊我幫你拉票 😊']],
+      chat: [
+        [
+          ['Yulu', '他剛剛又在講跳發，講了半小時 😂'],
+          ['吱吱', '那是很重要的技術好嗎 🏐'],
+        ],
+        [['吱吱', '吃完晚餐散個步，等等回宿舍打排位 🎮']],
+        [['Yulu', '下次一起打排球嘛，四個人剛好 🏐']],
+      ],
+    },
+  },
   garry: {
     name: '古箏社 黃蓋瑞',
     short: '黃蓋瑞',
@@ -750,14 +810,23 @@ export class Friends {
     const dn = g.houshe?.dateName || '學妹',
       fill = (L) => L.map(([who, t]) => [who.replace('{date}', dn), t.replaceAll('{date}', dn)]);
     if (this.added.has(id)) {
-      const c = [...(s.chat || f.chat), ...(s.byDate?.[dn] || [])];
+      let c = [...(s.chat || f.chat), ...(s.byDate?.[dn] || [])];
+      // 吱吱 hurt (src/systems/quests/ZzInjury.js): nobody says he's coming to play volleyball or training at the gym
+      if (g.zz?.injured && id !== 'zz') {
+        const ok = c.filter((L) => !L.some(([, t]) => t.includes('吱吱')));
+        c = [...(ok.length ? ok : c), ...((at ? f[at]?.hurt : null) || f.hurt || [])];
+      }
       g.dialog(fill(c[Math.floor(Math.random() * c.length)]), cb);
       return;
     }
-    g.dialog(fill(this._met?.[id] ? s.again || f.again : s.intro || f.intro), () => {
-      (this._met ||= {})[id] = true;
-      this._ask(id, cb);
-    });
+    const hurt = g.zz?.injured;
+    g.dialog(
+      fill(this._met?.[id] ? s.again || f.again : (hurt && s.introHurt) || s.intro || f.intro),
+      () => {
+        (this._met ||= {})[id] = true;
+        this._ask(id, cb);
+      }
+    );
   }
   // a shop asks after you pay: nothing if you are friends already
   offer(id) {

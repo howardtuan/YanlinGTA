@@ -50,11 +50,10 @@ export class TeaShop {
     game.interiors.updaters.push((dt) => this.update(dt));
   }
   update(dt) {
-    const g = this.g, on = zzOnShift(g.clock);
-    if (on !== this.on) {
-      this.on = on; this.zz.root.visible = on;
-      const gym = g.friends?.npcs.zz; if (gym) gym.ch.root.visible = !on; // he can't be at the 體育館 and the shop at once
-    }
+    // on shift unless his day says otherwise (hurt, in the bathroom waiting for you: src/entities/npcs/Zz.js, which also shows /
+    // hides him at the 體育館)
+    const g = this.g, on = g.zz ? g.zz.mode === 'shop' : zzOnShift(g.clock);
+    if (on !== this.on) { this.on = on; this.zz.root.visible = on; }
     this.mark.visible = !g.friends?.added.has('zz');
     if (on) this.mark.position.y = 2.7 + Math.sin(g.time * 3) * 0.08;
     const p = g.player.pos, [cx, cz] = this.spec.counter;

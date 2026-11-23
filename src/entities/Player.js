@@ -198,7 +198,7 @@ export class Player {
     // anything else is a plain tee in the shirt colour
     this.look = { shirt: look.shirt, shorts: look.shorts, pants: !!look.pants, top: look.top || null };
     const old = this.ch, parent = old.root.parent;
-    const ch = createCharacter({ ...YANLIN_LOOK, ...this.look, polo: this.look.top === 'polo', imTee: this.look.top === 'im' });
+    const ch = createCharacter({ ...YANLIN_LOOK, ...this.look, polo: this.look.top === 'polo', imTee: this.look.top === 'im', volleyTee: this.look.top === 'volley' });
     ch.root.position.copy(old.root.position); ch.root.rotation.copy(old.root.rotation); ch.root.visible = old.root.visible;
     if (parent) { parent.remove(old.root); parent.add(ch.root); }
     old.dispose?.();

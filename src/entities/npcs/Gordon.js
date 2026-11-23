@@ -5,6 +5,7 @@
 // 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 4 號床（高架床），
 // 其他時間在 4 號床下的書桌打 LOL。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
+// 有些晚上 23:00–23:40 他跟吱吱各騎自己的 BW'S 去兜風（src/entities/npcs/Zz.js 的 gdOut），那段時間不在寢室。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
@@ -168,10 +169,10 @@ export class Gordon {
     const lap = new THREE.Group(); lap.add(base); hinge.position.set(0, 0.01, -0.11); lap.add(hinge);
     lap.position.set(D.x, D.y + 0.01, D.z); lap.rotation.y = k.heading(desk.face + Math.PI); game.scene.add(lap);
     this.dorm = { seat, ch, lap, bed: bedAt };
-    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - surfaceAt(seat.x, seat.z), r: 1.6, cond: () => this.night,
+    game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - surfaceAt(seat.x, seat.z), r: 1.6, cond: () => this.night && !game.zz?.gdOut,
       label: () => this.asleep ? '按 <kbd>E</kbd> 看看 4 號床上的女拳大帝（睡著了）' : '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話', fn: () => this.dormTalk() });
     game.interiors.updaters.push((dt, gm) => {
-      const on = this.night, p = gm.player.pos, near = Math.hypot(p.x - seat.x, p.z - seat.z) < 60;
+      const on = this.night && !gm.zz?.gdOut, p = gm.player.pos, near = Math.hypot(p.x - seat.x, p.z - seat.z) < 60;
       ch.root.visible = on && near;
       const sl = this.asleep, at = sl ? bedAt : seat;
       ch.root.position.set(at.x, at.y, at.z); ch.root.rotation.y = at.h;

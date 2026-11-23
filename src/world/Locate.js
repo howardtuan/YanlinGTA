@@ -22,13 +22,12 @@ export function friendLocations(g) {
   if (A?.busy && A.H?.g) add('laoda', '勞大', '🚁', '#552583', A.H.g.position, '開直升機中（空運機車）');
   else if (w?.on) add('laoda', '勞大', w.mode === 'court' ? '🏀' : '🚁', '#552583', w.pos, w.mode === 'court' ? '在體育園區籃球場打球' : '在校園散步');
   else add('laoda', '勞大', '🚁', '#552583', null, '不在校園（可能在停機坪）');
-  if (has('zz')) {
-    const shop = g.tea?.on && g.tea.zz?.root;
-    const gym = F.npcs.zz?.ch.root;
-    if (shop) add('zz', '吱吱', '🏐', '#7a1f2c', shop.position, '在正門外的茶學苑打工');
-    else if (gym) add('zz', '吱吱', '🏐', '#7a1f2c', gym.position, '在體育館門口');
+  if (has('zz')) { // his day: src/entities/npcs/Zz.js
+    const Z = g.zz;
+    if (Z) add('zz', '吱吱', '🏐', '#7a1f2c', Z.pos(), Z.where());
+    else { const gym = F.npcs.zz?.ch.root; if (gym) add('zz', '吱吱', '🏐', '#7a1f2c', gym.position, '在體育館門口'); }
   }
-  if (has('gd')) { const k = F.npcs.gd?.ch.root, Gd = g.gordon; if (Gd?.night) add('gd', '女拳大帝', '🎮', '#1d1d1f', Gd.dorm?.seat, Gd.asleep ? '在力行宿舍 279 寢睡覺（4 號床，戈登肉鋪 08:00 才開）' : '在力行宿舍 279 寢打 LOL（戈登肉鋪 08:00 才開）'); else add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）'); }
+  if (has('gd')) { const k = F.npcs.gd?.ch.root, Gd = g.gordon; if (g.zz?.gdOut) add('gd', '女拳大帝', '🛵', '#1d1d1f', g.zz.cruiser && !g.zz.cruiser.ai.dormant ? g.zz.cruiser.pos : null, "跟吱吱騎 BW'S 在學校附近兜風"); else if (Gd?.night) add('gd', '女拳大帝', '🎮', '#1d1d1f', Gd.dorm?.seat, Gd.asleep ? '在力行宿舍 279 寢睡覺（4 號床，戈登肉鋪 08:00 才開）' : '在力行宿舍 279 寢打 LOL（戈登肉鋪 08:00 才開）'); else add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）'); }
   if (has('hank')) {
     const H = g.hank;
     if (H) {

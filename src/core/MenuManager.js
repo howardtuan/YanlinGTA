@@ -122,7 +122,7 @@ export class MenuManager {
     // where the player is frozen anyway and a real Esc still reaches the Escape handler in Game.js once unlocked.
     document.addEventListener('pointerlockchange', () => {
       if (document.pointerLockElement) return;
-      const cine = game.airdrop?.cinema || game.drone?.cinema || game.mingshan?.cinema;
+      const cine = game.airdrop?.cinema || game.drone?.cinema || game.mingshan?.cinema || game.zzQuest?.busy;
       if (cine || performance.now() - lockReqAt < 1200) return;
       if (game.state === 'play' && !game.hud.bigOpen && !game.input.touch && !game._modalOpen && !game._overlay && !game.videoOpen && !game.phone?.open && !game.photo?.on && !game.job?.active && !game.pc?.isOpen && !game.wardrobe?.isOpen) {
         this.pause();

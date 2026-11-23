@@ -87,6 +87,22 @@ function imBackTexture() {
 }
 // a print that follows the torso's curve: a plane bent round the superellipse cross-section at the given height
 // (rx, rz: the cloth's radii there; back = on the back, facing -z; ox: where its centre sits across the body)
+// 排球 T（吱吱送的，src/systems/quests/ZzInjury.js）：胸前「CYCU VOLLEYBALL」與排球圖案，背後「中原排球」與背號 7
+const VTEX = {};
+function volleyTexture(back) {
+  const k = back ? 'b' : 'f'; if (VTEX[k]) return VTEX[k];
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = back ? 512 : 256; const g = cv.getContext('2d');
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (back) {
+    g.font = '900 64px "Noto Sans TC","Microsoft JhengHei",sans-serif'; g.fillText('中原排球', 256, 86);
+    g.font = '900 300px Arial,sans-serif'; g.fillText('7', 256, 320);
+  } else {
+    g.lineWidth = 8; g.beginPath(); g.arc(90, 128, 62, 0, Math.PI * 2); g.stroke();
+    for (const a of [0.3, 2.4, 4.5]) { g.beginPath(); g.arc(90 + Math.cos(a) * 62, 128 + Math.sin(a) * 62, 62, a + 2.2, a + 4.1); g.stroke(); }
+    g.textAlign = 'left'; g.font = '900 80px Arial,sans-serif'; g.fillText('CYCU', 175, 92); g.font = '800 46px Arial,sans-serif'; g.fillText('VOLLEYBALL', 175, 168);
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; VTEX[k] = t; return t;
+}
 function curvedPrint(w, h, rx, rz, back, segs = 18, ox = 0) {
   const g = new THREE.PlaneGeometry(w, h, segs, 1), P = g.attributes.position;
   for (let i = 0; i < P.count; i++) {
@@ -268,7 +284,7 @@ export function createCharacter(opts = {}) {
   if (!sk) torso.add(mesh(torsoG, shirt));
   // tee hem
   if (!sk) torso.add(mesh(geo('hem', () => new THREE.CylinderGeometry(0.205, 0.215, 0.07, 16).scale(1, 1, 0.8)), shirt, 0, 0.05, 0));
-  if (hero && !opts.polo && !opts.imTee) {
+  if (hero && !opts.polo && !opts.imTee && !opts.volleyTee) {
     const patch = new THREE.Mesh(geo('patch', () => new THREE.PlaneGeometry(0.06, 0.06)), new THREE.MeshStandardMaterial({ map: logoTexture(), roughness: 0.8 }));
     patch.position.set(0.075, 0.43, 0.137); patch.rotation.y = 0.12; torso.add(patch);
   }
@@ -294,6 +310,13 @@ export function createCharacter(opts = {}) {
     front.position.set(0.075, 1.37 + y0, 0.009); torso.add(front);
     const backP = new THREE.Mesh(geo(`imBack${  bw.toFixed(2)}`, () => curvedPrint(0.3, 0.225, 0.19 * bw + 0.004, 0.124 * dz + 0.006, true)), new THREE.MeshStandardMaterial({ map: imBackTexture(), transparent: true, alphaTest: 0.3, roughness: 0.85 }));
     backP.position.set(0, 1.28 + y0, -0.009); torso.add(backP);
+  }
+  if (opts.volleyTee) {
+    const y0 = -0.93, bw = fv.build, dz = 0.5 + bw / 2;
+    const front = new THREE.Mesh(geo(`vtF${  bw.toFixed(2)}`, () => curvedPrint(0.22, 0.11, 0.205 * bw + 0.004, 0.128 * dz + 0.006, false)), new THREE.MeshStandardMaterial({ map: volleyTexture(false), transparent: true, alphaTest: 0.3, roughness: 0.85 }));
+    front.position.set(0, 1.36 + y0, 0.009); torso.add(front);
+    const backP = new THREE.Mesh(geo(`vtB${  bw.toFixed(2)}`, () => curvedPrint(0.24, 0.24, 0.19 * bw + 0.004, 0.124 * dz + 0.006, true)), new THREE.MeshStandardMaterial({ map: volleyTexture(true), transparent: true, alphaTest: 0.3, roughness: 0.85 }));
+    backP.position.set(0, 1.3 + y0, -0.009); torso.add(backP);
   }
   // leather biker jacket (opts.jacket colour; the sleeves come from the skinned body): open front over the tee,
   // wide lapels with silver snaps, a stand collar round the back of the neck, a slanted silver zip and pocket zips.

@@ -717,6 +717,8 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
 
   doorTex.needsUpdate = true;
   k.finish(scene);
-  I.lixing = { k, FL, DL, B, W, stairY, rooms: ROOM_SPOTS, setFeet: (v) => { feet = v; } };
+  // bathW: the west end block's 浴廁 (each floor; 2F is the one nearest 276, src/systems/quests/ZzInjury.js); park: a spot on the
+  // forecourt by the 1F 大門 where 吱吱 and 女拳大帝 leave their BW'S at night (src/entities/npcs/Zz.js)
+  I.lixing = { k, FL, DL, B, W, stairY, rooms: ROOM_SPOTS, setFeet: (v) => { feet = v; }, bathW: { x0: BW.x0, x1: BW.x1, z0: BW.zA, z1: BW.zB }, park: { x: MID.door1 + 4.5, z: 26.2 } };
   return I.lixing;
 }

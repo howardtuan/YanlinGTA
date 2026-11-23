@@ -823,7 +823,7 @@ export function buildGordon(I, scene) {
       closed = m < OPEN0 || m >= OPEN1;
     if (closed !== gdState.closed) setClosed(closed);
     const keeperNpc = game.friends?.npcs?.gd;
-    if (keeperNpc) keeperNpc.ch.root.visible = !closed; // at the counter only while open
+    if (keeperNpc) keeperNpc.ch.root.visible = !closed && !game.mahjong?.has('gd'); // at the counter only while open (and not off playing 277 麻將)
     const p = game.player.pos,
       inside = pointInPoly(p.x, p.z, inShop);
     shutWall[4] = closed && !inside ? wallY[0] : -100;

@@ -225,7 +225,8 @@ export class Jianyu {
       r: 2.2,
       y: 0,
       anyY: true,
-      cond: () => !!this.mode && this.mode !== 'sleep' && ch.root.visible, // asleep he is up on the loft bed over his desk: the desk action says so
+      cond: () =>
+        !!this.mode && this.mode !== 'sleep' && this.mode !== 'mahjong' && ch.root.visible, // asleep he is up on the loft bed over his desk: the desk action says so
       label: () => `按 <kbd>E</kbd> 和${NAME}聊天`,
       fn: () => this.talk(),
     });
@@ -503,8 +504,12 @@ export class Jianyu {
     this._cruise();
     const g = this.g,
       ch = this.ch,
-      plan = jianyuPlan(g.clock);
+      plan = g.mahjong?.has('jianyu') ? 'mahjong' : jianyuPlan(g.clock); // 被揪去 277 打麻將 (src/systems/mahjong/Mahjong.js)
     if (plan !== this.mode) this._enter(plan);
+    if (plan === 'mahjong') {
+      g.mahjong.hold('jianyu', ch, dt); // this.pos is ch.root.position: the table sets it
+      return;
+    }
     const p = g.player.worldPos(),
       near = (x, z, r) => Math.hypot(x - p.x, z - p.z) < r;
     let mode = 'foot';

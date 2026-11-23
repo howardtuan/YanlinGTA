@@ -26,7 +26,11 @@ export function friendLocations(g) {
   const out = [],
     F = g.friends,
     has = (id) => F?.added.has(id);
-  const add = (id, name, av, color, p, status) =>
+  const add = (id, name, av, color, p0, status0) => {
+    // 在 277 打麻將（src/systems/mahjong/Mahjong.js）：不管作息怎麼說，人在牌桌
+    const mj = g.mahjong?.where(id),
+      p = mj ? mj.pos : p0,
+      status = mj ? mj.status : status0;
     out.push({
       id,
       name: g.serviceName ? g.serviceName(id, name) : name,
@@ -36,6 +40,7 @@ export function friendLocations(g) {
       z: p ? p.z : null,
       status,
     }); // 義務役: the prefix while serving (src/entities/npcs/Service.js, via Game)
+  };
   // 勞大: always (the pilot of 彥霖航空)
   const A = g.airdrop,
     w = A?.walker;

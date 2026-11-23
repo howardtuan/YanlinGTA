@@ -486,6 +486,7 @@ export class HUD {
   }
   setMoney(n) {
     $('moneyNum').textContent = n.toLocaleString('en-US');
+    $('money').classList.toggle('neg', n < 0); // in the red (277 麻將 losses): red figures
   }
   setClock(min) {
     const h = Math.floor(min / 60) % 24,

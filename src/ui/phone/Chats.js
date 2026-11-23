@@ -1295,3 +1295,20 @@ export const FRIEND_CONTACTS = {
     ],
   },
 };
+
+// 在 277 打麻將的人（src/systems/mahjong/Mahjong.js）：「你在哪？」先說在牌桌，不照平常的作息回答
+for (const [id, c] of Object.entries(FRIEND_CONTACTS))
+  for (const o of c.always || [])
+    if (o.t === '你在哪？') {
+      const ask = o.ask;
+      o.ask = (g) => {
+        const mj = g.mahjong?.where(id);
+        if (!mj) return ask(g);
+        return {
+          r: mj.reply,
+          then: () => {
+            if (mj.pos && g.nav?.set) g.nav.set(mj.pos.x, mj.pos.z);
+          },
+        };
+      };
+    }

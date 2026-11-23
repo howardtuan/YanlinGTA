@@ -110,6 +110,7 @@ export class Zz {
   plan(clock) {
     const m = minuteOf(clock),
       day = Math.floor(clock / 1440);
+    if (this.g.mahjong?.has('zz')) return 'mahjong'; // 被揪去 277 打麻將 (src/systems/mahjong/Mahjong.js)
     if (this.q?.waiting()) return 'bath'; // 20:00–24:00, not washed yet today: in the 2F bathroom (the quest draws him there)
     if (m >= M(2) && m < M(8)) return 'sleep';
     if (this.injured) return 'room';
@@ -545,8 +546,13 @@ export class Zz {
       mode === 'room' ? (Math.floor(g.clock / 30) % 2 ? 'maple' : 'lol') : 'off',
       dist
     );
-    this.ch.root.visible = inRoom && dist < 60;
     this.hurt.set(this.injured);
+    if (mode === 'mahjong') {
+      this.tag.visible = true;
+      g.mahjong.hold('zz', this.ch, dt);
+      return;
+    }
+    this.ch.root.visible = inRoom && dist < 60;
     if (!this.ch.root.visible) return;
     const sl = mode === 'sleep',
       at = sl ? (this.injured ? H.bed3 : H.bed2) : H.seat;

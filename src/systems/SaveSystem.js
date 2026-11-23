@@ -55,6 +55,7 @@ export function writeSave(g) {
     zzQuest: g.zzQuest?.toJSON() || null,
     tzuyuQuest: g.tzuyuQuest?.toJSON() || null,
     yuluQuest: g.yuluQuest?.toJSON() || null,
+    mahjong: g.mahjong?.toJSON() || null, // 277 麻將戰績 (src/systems/mahjong/Mahjong.js)
     eggs: g.eggs.filter((e) => e.found).map((e) => e.title),
     pos: g.concerts?.savePos() || {
       x: wp.x,
@@ -163,6 +164,7 @@ export function applySave(g, d) {
   g.zzQuest?.load(d.zzQuest);
   g.tzuyuQuest?.load(d.tzuyuQuest);
   g.yuluQuest?.load(d.yuluQuest);
+  g.mahjong?.load(d.mahjong);
   const M = g.missions;
   M.rewarded = new Set(d.mission?.rewarded || []);
   const m = d.mission || { idx: -1 };

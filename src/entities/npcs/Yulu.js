@@ -129,6 +129,7 @@ export class Yulu {
       day = Math.floor(clock / 1440),
       Z = this.g.zz;
     if (m < WALK0 || m >= WALK1 || !this.walkDay(day) || !Z || Z.injured) return false;
+    if (this.g.mahjong?.has('zz')) return false; // 吱吱 got called to 277 麻將: she heads home on her own
     return !zzOnShift(day * 1440 + WALK0) && !zzOnShift(day * 1440 + WALK1 - 1);
   }
   plan(clock) {

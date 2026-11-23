@@ -8028,3 +8028,164 @@ body.touch #droneHud .dh-keys {
 body.photo-mode #hud > :not(#toast):not(#bigToast):not(#dialog) {
   visibility: hidden;
 }
+
+/* ---------------- 277 麻將 (src/systems/mahjong/MahjongScene.js) ---------------- */
+#money.neg {
+  color: #ff6b6b;
+}
+body.mahjong #hud,
+body.mahjong #touch,
+body.mahjong #prompt,
+body.mahjong #aim {
+  visibility: hidden;
+}
+body.mahjong #dialog,
+body.mahjong #toast {
+  visibility: visible; /* story lines and toasts still show over the table */
+}
+body.mahjong #dialog {
+  top: 52px; /* above the table, not over your hand */
+  bottom: auto;
+}
+#mjUI {
+  position: fixed;
+  inset: 0;
+  z-index: 56;
+  pointer-events: none;
+  color: #fff;
+  font:
+    600 14px/1.4 'Noto Sans TC',
+    'Microsoft JhengHei',
+    sans-serif;
+  text-shadow: 0 1px 3px #000;
+}
+#mjUI.hidden,
+#mjUI .hidden {
+  display: none;
+}
+#mjUI .mj-top {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  max-width: 96vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#mjUI .neg {
+  color: #ff6b6b;
+}
+#mjUI .mj-tag {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+#mjUI .mj-tag.on {
+  background: #e0622f;
+}
+#mjUI .mj-tag.me {
+  transform: translate(-100%, -50%);
+}
+#mjUI .mj-acts {
+  position: absolute;
+  bottom: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: max-content;
+  max-width: 96vw;
+  gap: 8px;
+  pointer-events: auto;
+}
+#mjUI button {
+  font: inherit;
+  font-size: 16px;
+  color: #fff;
+  background: #2f7a4b;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+#mjUI button.hu,
+#mjUI button.tsumo {
+  background: #c8272d;
+}
+#mjUI button.pass {
+  background: #555;
+}
+#mjUI kbd {
+  display: inline-block;
+  min-width: 1.3em;
+  padding: 0 4px;
+  margin-right: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #222;
+  font-size: 12px;
+  text-shadow: none;
+}
+#mjUI .mj-hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  max-width: 94vw;
+  width: max-content;
+  text-align: center;
+}
+#mjUI .mj-hint:empty {
+  display: none;
+}
+#mjUI .mj-res {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 300px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 18px 22px;
+  border-radius: 14px;
+  background: rgba(20, 24, 22, 0.92);
+  pointer-events: auto;
+  text-align: center;
+}
+#mjUI .mj-res h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+#mjUI .mj-res ul {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+#mjUI .mj-money {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  margin: 10px 0;
+}
+#mjUI .mj-money .me {
+  color: #ffd166;
+}
+#mjUI .mj-btns {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}

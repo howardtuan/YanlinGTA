@@ -3,11 +3,13 @@
 //   2. 回絕後遊戲時間 10 分鐘，吱吱打電話求救（手機自動拿出來響）：不接的話，再過遊戲時間 10 分鐘又打來，直到接為止。
 //      接通後是語音訊息對話；掛斷後他把影片傳到聊天室，點開是 21:9 的武嶺翻車影片（src/systems/quests/WulingFilm.js）。
 //   3. 吱吱手指骨折、手臂和小腿擦傷：要幫他洗「殘廢澡」10 次。每個遊戲天 20:00–24:00 一次，地點是離 276 最近的
-//      力行二樓西側浴廁，侯舌在旁邊扶，你負責上肥皂和潑水（小遊戲）。這段時間還沒洗的話吱吱會一直私訊你。漏洗不會怎樣。
+//      力行二樓西側浴廁，侯舌在旁邊扶，你負責上肥皂和潑水（小遊戲）。洗滿前每天晚上 8 點吱吱會私訊問你要不要幫他洗
+//      （一晚問一次）。漏洗不會怎樣。
 //      受傷期間他睡 3 號床、彥霖睡 2 號床（src/entities/npcs/Zz.js）。
 //   4. 洗滿 10 次：吱吱康復，送你一件排球 T（衣櫃，src/ui/Wardrobe.js）。
 //   5. 之後在聊天室問「你之前受傷還好嗎？」（每個遊戲天一次）：他先把影片再傳一次，80% 說復發了要你當晚再幫他洗一次
-//      （洗完給 NT$100），20% 說現在好很多了。
+//      （洗完給 NT$100），20% 說現在好很多了。復發那晚他一樣 20:00–24:00 在浴室等你；你沒去的話，隔天他就做回自己的事，
+//      不用再洗（之後可以再問一次）。
 // 進度存在 src/systems/SaveSystem.js 的 zzQuest。
 import { createCharacter } from '../../entities/Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
@@ -22,8 +24,7 @@ const minuteOf = (clock) => ((clock % 1440) + 1440) % 1440;
 const dayOf = (clock) => Math.floor(clock / 1440);
 const BATH0 = M(20),
   WASHES = 10,
-  CALL_GAP = 10,
-  DM_GAP = 60;
+  CALL_GAP = 10;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const VIDEO = { video: 'wuling', text: '[影片] 武嶺 台14甲・行車紀錄' };
 const CALL = [
@@ -49,11 +50,13 @@ export class ZzInjury {
     this.state = {
       stage: 'none',
       callAt: null,
+      inviteAt: null, // when 吱吱 last asked about 武嶺 (unanswered: he asks again every 10 game minutes)
       washes: 0,
       washDay: null,
       dmAt: null,
       askDay: null,
       relapse: false,
+      relapseDay: null, // the day the relapse came up: he waits in the bathroom that night only
       tee: false,
     };
     this.film = new WulingFilm(game);
@@ -130,6 +133,7 @@ export class ZzInjury {
     if (S.stage === 'none') {
       if (F?.added.has('zz') && F.added.has('gd') && this._chat() && !this._chat().busy) {
         S.stage = 'invited';
+        S.inviteAt = g.clock;
         g._saveT = 9.5;
         this._say([
           '欸彥霖！你也加女拳大帝好友了喔 😆',
@@ -139,9 +143,28 @@ export class ZzInjury {
       }
       return;
     }
+    if (S.stage === 'invited') this._reinvite();
+    if (S.relapse && this._relapseOver()) S.relapse = false; // you didn't come: the next day he goes on with his life
     if (S.stage === 'declined' && g.clock >= S.callAt && this._free()) this._ring();
     if (this.waiting()) this._nag();
     this._bathTick(dt);
+  }
+  // the invite is still unanswered (the chat only offers the 回絕 line until then): 10 game minutes later he asks again
+  _reinvite() {
+    const g = this.g,
+      S = this.state;
+    if (S.inviteAt == null) S.inviteAt = g.clock; // a save from before this was kept
+    const st = this._chat();
+    if (g.clock - S.inviteAt < CALL_GAP || !st || st.busy) return;
+    S.inviteAt = g.clock;
+    g._saveT = 9.5;
+    this._say([
+      pick([
+        '欸 武嶺到底要不要去啦 🏔️ 回我一下',
+        '彥霖～跑山的事你還沒回我欸 🛵',
+        "女拳大帝在問你要不要一起騎 BW'S 上武嶺 😆",
+      ]),
+    ]);
   }
   _ring() {
     const g = this.g,
@@ -179,11 +202,18 @@ export class ZzInjury {
       '我這陣子先睡你的 3 號床喔，上舖我爬不上去……你先睡 2 號 🙏',
     ]);
   }
-  // 20:00–24:00 until the bath is done: a message when the evening starts, then one every game hour
+  // a relapse lasts for the day it came up (an older save without relapseDay: from now)
+  _relapseOver() {
+    const S = this.state,
+      day = dayOf(this.g.clock);
+    if (S.relapseDay == null) S.relapseDay = day;
+    return day > S.relapseDay;
+  }
+  // a bath is due tonight: he asks once, at 20:00 (or as soon as the evening is under way and he can text)
   _nag() {
     const g = this.g,
       S = this.state;
-    if (S.dmAt != null && g.clock - S.dmAt < DM_GAP && dayOf(S.dmAt) === dayOf(g.clock)) return;
+    if (S.dmAt != null && dayOf(S.dmAt) === dayOf(g.clock)) return; // already asked tonight
     const st = this._chat();
     if (!st || st.busy) return;
     S.dmAt = g.clock;
@@ -210,7 +240,9 @@ export class ZzInjury {
     g._saveT = 9.5;
     if (Math.random() < 0.8) {
       S.relapse = true;
-      S.dmAt = null;
+      S.relapseDay = dayOf(g.clock);
+      // he asks for tonight's bath in this answer: no 20:00 message on top if it is already evening
+      S.dmAt = minuteOf(g.clock) >= BATH0 ? g.clock : null;
       return {
         r: [
           VIDEO,

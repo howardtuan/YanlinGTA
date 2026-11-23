@@ -589,11 +589,14 @@ export const FRIEND_CONTACTS = {
         ],
       },
     ],
-    // 支線「吱吱武嶺跑山受傷」（src/systems/quests/ZzInjury.js）：when() 成立時才會出現的選項；你在哪？一直都在
+    // 支線「吱吱武嶺跑山受傷」（src/systems/quests/ZzInjury.js）：when() 成立時才會出現的選項；你在哪？一直都在。
+    // lock：任務在等你回這一句時，聊天室只剩這個選項（不能開別的話題、不能自己打字），回完才恢復（Phone._options）
+
     always: [
       {
         t: '選舉快到了要拜票，這次先不去了 🙏',
         match: /不去|不行|沒辦法|沒空|拜票|下次|改天/,
+        lock: true,
         when: (g) => g.zzQuest?.state.stage === 'invited',
         ask: (g) => g.zzQuest.decline(),
       },

@@ -46,6 +46,7 @@ import { zoneCLook, zoneCVegHide, buildZoneC } from './ZoneC.js';
 import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
 import { HZ_ST, hzFix, hzLook, hzFootprints, buildHuanzhongStreet } from '../buildings/StreetHuanzhong.js';
 import { PZ_ST, pzFootprints, buildPuzhongStreet } from '../buildings/StreetPuzhong.js';
+import { RX_ST, rxFootprints, buildRixinStreet } from '../buildings/StreetRixin.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -141,6 +142,10 @@ export const ZONES = [
   { // 新中北路（校園西南側）與新中北路469巷兩側街屋、圍牆
     name: '新中北路街屋', drop: XZ_ST.drop, ownSign: XZ_ST.ownSign, footprints: xzFootprints,
     build: (I, scene) => buildXinzhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 日新路兩側街屋（中原夜市，中山東路口到實踐路口；實踐路口兩個轉角在實踐路街屋）
+    name: '日新路街屋', drop: RX_ST.drop, ownSign: RX_ST.ownSign, footprints: rxFootprints,
+    build: (I, scene) => buildRixinStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

@@ -2,8 +2,8 @@
 // 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
 // 結完帳如果還不是好友，他會問要不要互加（src/ui/phone/Friends.js，訊息＋Peachgram）。
 // 購物籃與買過的東西會存檔（src/systems/SaveSystem.js 的 gordon）。
-// 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 6 號床（高架床），
-// 其他時間在 6 號床下的書桌打 LOL。
+// 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 4 號床（高架床），
+// 其他時間在 4 號床下的書桌打 LOL。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
@@ -148,8 +148,8 @@ export class Gordon {
   get boughtAny() { return Object.values(this.bought).some(n => n > 0); }
   _dorm(game) {
     const L = game.interiors.lixing, R = L?.rooms?.[279]; if (!R) return;
-    const { k, B, W } = L, bed = R.beds[6];
-    const desk = R.desks.filter(d => d.bed === 6).sort((a, b) => Math.hypot(a.x - bed.x, a.z - bed.z) - Math.hypot(b.x - bed.x, b.z - bed.z))[0];
+    const { k, B, W } = L, bed = R.beds[4];
+    const desk = R.desks.filter(d => d.bed === 4).sort((a, b) => Math.hypot(a.x - bed.x, a.z - bed.z) - Math.hypot(b.x - bed.x, b.z - bed.z))[0];
     if (!desk) return;
     const world = (lx, lz, ly) => { const [x, z] = W(lx, lz); return { x, z, y: B + ly }; };
     const seat = { ...world(desk.chair.x, desk.chair.z, R.y), h: k.heading(desk.face) }, D = world(desk.x, desk.z, R.y + 0.76);
@@ -169,7 +169,7 @@ export class Gordon {
     lap.position.set(D.x, D.y + 0.01, D.z); lap.rotation.y = k.heading(desk.face + Math.PI); game.scene.add(lap);
     this.dorm = { seat, ch, lap, bed: bedAt };
     game.interiors.actions.push({ x: seat.x, z: seat.z, y: R.y + B - surfaceAt(seat.x, seat.z), r: 1.6, cond: () => this.night,
-      label: () => this.asleep ? '按 <kbd>E</kbd> 看看 6 號床上的女拳大帝（睡著了）' : '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話', fn: () => this.dormTalk() });
+      label: () => this.asleep ? '按 <kbd>E</kbd> 看看 4 號床上的女拳大帝（睡著了）' : '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話', fn: () => this.dormTalk() });
     game.interiors.updaters.push((dt, gm) => {
       const on = this.night, p = gm.player.pos, near = Math.hypot(p.x - seat.x, p.z - seat.z) < 60;
       ch.root.visible = on && near;
@@ -181,7 +181,7 @@ export class Gordon {
   // not a customer and not a friend: he won't even look up
   dormTalk() {
     const g = this.g;
-    if (this.asleep) { g.dialog([[KEEPER, '（呼……呼……）'], ['彥霖', '（女拳大帝在 6 號床上睡得很熟，手還握著滑鼠的姿勢……）']]); return; }
+    if (this.asleep) { g.dialog([[KEEPER, '（呼……呼……）'], ['彥霖', '（女拳大帝在 4 號床上睡得很熟，手還握著滑鼠的姿勢……）']]); return; }
     if (!g.friends?.added.has('gd') && !this.boughtAny) { g.dialog([[KEEPER, '在打遊戲，別吵 😤']]); return; }
     if (!g.friends?.added.has('gd')) { g.friends?.offer('gd'); return; }
     const L = [

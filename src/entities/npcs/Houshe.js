@@ -2,9 +2,9 @@
 // 外面傳說他們關係不好，其實沒有）。喜歡打排球（常跟 YeeMing、吱吱一起打），喜歡韓國女團（每一團都認識，也收集小卡）。
 // 很會拍照，很多學妹喜歡他：平常不是在跟學妹約會，就是在約會的路上。這個遊戲主要負責建築物內部規劃與部分店家功能。
 // 外型照使用者給的照片：有一點肉肉、小麥色皮膚、細框眼鏡、黑色妹妹頭短髮、黑色寬版 T、深灰寬褲、白底紅色球鞋、銀項鍊。
-// 住力行宿舍 276 寢 6 號床（進門左手邊第一個床位：靠門那張高架床，座位在床的正下方）。
+// 住力行宿舍 276 寢 4 號床（進門左手邊第一個床位：靠門那張高架床，座位在床的正下方）。
 // 一天（遊戲時鐘）：
-//   02:00–09:00 睡覺（6 號床）；09:00–10:00、20:00–02:00 在書桌前開發這個遊戲（筆電上的程式碼一行一行打出來）；
+//   02:00–09:00 睡覺（4 號床）；09:00–10:00、20:00–02:00 在書桌前開發這個遊戲（筆電上的程式碼一行一行打出來）；
 //   10:00–13:00 在二一鐘塔前幫穿畢業袍的畢業生拍畢業照；13:00–15:00、18:00–20:00 跟學妹約會（在你附近的步道上散步，
 //   每天是不同的學妹）；15:00–18:00 在體育館旁的排球場打排球（YeeMing 在對面）。
 import * as THREE from 'three';
@@ -76,12 +76,12 @@ function buildGraduate(look) {
 export class Houshe extends DevNPC {
   constructor(game) {
     super(game, {
-      id: 'houshe', name: '侯舌', tag: '📷 侯舌', tagColor: '#ffd1dc', look: HOUSHE_LOOK, room: 276, bed: 6,
-      desk: (R) => { const b = R.beds[6]; return R.desks.filter(d => d.bed === 6).sort((a, c) => Math.hypot(a.x - b.x, a.z - b.z) - Math.hypot(c.x - b.x, c.z - b.z))[0]; },
+      id: 'houshe', name: '侯舌', tag: '📷 侯舌', tagColor: '#ffd1dc', look: HOUSHE_LOOK, room: 276, bed: 4,
+      desk: (R) => { const b = R.beds[4]; return R.desks.filter(d => d.bed === 4).sort((a, c) => Math.hypot(a.x - b.x, a.z - b.z) - Math.hypot(c.x - b.x, c.z - b.z))[0]; },
       file: 'Interiors.js — 麥當勞 中原店', lines: CODE,
     });
     this.places = {
-      sleep: '在力行宿舍 276 寢睡覺（6 號床）', code: '在力行宿舍 276 寢開發遊戲（建築物內部）💻',
+      sleep: '在力行宿舍 276 寢睡覺（4 號床）', code: '在力行宿舍 276 寢開發遊戲（建築物內部）💻',
       photo: '在二一鐘塔前幫畢業生拍畢業照 📷', date: '跟學妹約會中 💕', volley: '在體育館旁的排球場打排球 🏐',
     };
     // the camera, up at his face while he shoots
@@ -117,7 +117,7 @@ export class Houshe extends DevNPC {
     return 'code';
   }
   doing() { return { code: '寫程式', photo: '拍畢業照', date: '約會中', volley: '打排球' }[this.mode] || ''; }
-  sleepLines() { return [['侯舌', '（呼……呼……）'], ['彥霖', '（侯舌在 6 號床上睡著了，枕頭邊擺著一整排韓團小卡……）']]; }
+  sleepLines() { return [['侯舌', '（呼……呼……）'], ['彥霖', '（侯舌在 4 號床上睡著了，枕頭邊擺著一整排韓團小卡……）']]; }
   get date() { return this.dates[Math.floor(this.g.clock / 1440) % this.dates.length]; }
   onMode(mode, was) {
     this.cam.visible = mode === 'photo';

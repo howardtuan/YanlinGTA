@@ -28,7 +28,7 @@ export function friendLocations(g) {
     if (shop) add('zz', '吱吱', '🏐', '#7a1f2c', shop.position, '在正門外的茶學苑打工');
     else if (gym) add('zz', '吱吱', '🏐', '#7a1f2c', gym.position, '在體育館門口');
   }
-  if (has('gd')) { const k = F.npcs.gd?.ch.root, Gd = g.gordon; if (Gd?.night) add('gd', '女拳大帝', '🎮', '#1d1d1f', Gd.dorm?.seat, Gd.asleep ? '在力行宿舍 279 寢睡覺（6 號床，戈登肉鋪 08:00 才開）' : '在力行宿舍 279 寢打 LOL（戈登肉鋪 08:00 才開）'); else add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）'); }
+  if (has('gd')) { const k = F.npcs.gd?.ch.root, Gd = g.gordon; if (Gd?.night) add('gd', '女拳大帝', '🎮', '#1d1d1f', Gd.dorm?.seat, Gd.asleep ? '在力行宿舍 279 寢睡覺（4 號床，戈登肉鋪 08:00 才開）' : '在力行宿舍 279 寢打 LOL（戈登肉鋪 08:00 才開）'); else add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）'); }
   if (has('hank')) {
     const H = g.hank;
     if (H) {

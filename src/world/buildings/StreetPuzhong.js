@@ -3,24 +3,26 @@
 //   s = 沿 PZ_ROAD（普忠路往東南那條車道的中心線）從鐵路地下道口往新中北路口量的公尺數；
 //   side +1 = 西南側（往東南走的右手邊，中原大學這一側），-1 = 東北側（隔著往西北的車道）
 //   spec：nf 樓層、gf 一樓高、fh 樓高、d 深度、wall（WALL 鍵或 #hex）、low 一樓外牆 #hex、sign [字, 底, 字色, 小字, 樣式（'seven' 7-ELEVEN 色條、'cols' 用空白分欄的直書、由右到左）]、
-//   ground 'shop'|'shutter'|'gate'|'open'|'stall'|'dark' 深色玻璃門面加古銅大門、sh 鐵捲門顏色、awn 雨棚 #hex 或 [色1, 色2] 條紋、
-//   bal 'cage'|'grille'|'open'|'rail'|'glass'|'arch'|'plain'|'band' 磁磚牆上的綠玻璃橫帶窗、glass 帷幕／橫帶窗玻璃色、hood 窗罩色、
+//   ground 'shop'|'shutter'|'gate'|'open'|'stall'|'dark' 深色玻璃門面加古銅大門|'stripe' 整面直條紋封板（gs 顏色輪流）、sh 鐵捲門顏色、awn 雨棚 #hex 或 [色1, 色2] 條紋、
+//   bal 'cage'|'grille'|'open'|'rail'|'glass'|'arch'|'plain'|'band' 磁磚牆上的綠玻璃橫帶窗、glass 帷幕／橫帶窗玻璃色、mull 帷幕窗框色、hood 窗罩色、
 //   vert [字, 底, 字色] 直立招牌（vertAt [下緣高, 長, 寬, z] 指定位置大小）、side [字, 底, 字色, 寬, 高, 下緣高] 垂直立面的箱型側招（字可用 \n 分行；flip 同 vert）、round [字, 底, 字色, 直徑] 圓形側招、banner [字, 底, 字色] 布條、
 //   roof 'shack'|'tank'|'bill'、bill [字, 底, 字色, 寬, 高]、tin 鐵皮雨遮、arch 粉紅拱形女兒牆、fins 直條鰭板色、
 //   big [字, 底, 字色] 樓上整面帆布（bigFrom 從第幾樓、bigW 寬度、bigAt 水平位置）、sign2 二樓橫招、noband 不畫一樓招牌帶、roofCol 鐵皮屋頂色、door 0 沒有樓梯門、tower {nf, back, wall, balc} 裙樓上方的退縮住宅塔、bikes 騎樓機車數、
 //   set 立面離 PZ_ROAD 中心線的距離（預設：西南側 7.1、東北側 17.1，跟原本的填充街屋同一條線）、apron 門前鋪面深度上限
 //   porch 一樓前簷深度（招牌改掛在前簷前緣；porchKind 'flat'|'arch' 半圓筒採光罩|'frame' 淺弧採光罩|'room' 凸出來的鐵皮前屋（整面鐵捲門，awn 變成門楣上方的條紋遮陽棚）、porchH 簷高、porchCol 簷色）、
-//   signH 招牌高（預設 0.8）、signY 招牌下緣高度、band 沒有招牌時那條帶子的顏色、flip 直立招牌換到左邊／圓招換到右邊、roof 'pent' 退縮的水泥頂樓
+//   signH 招牌高（預設 0.8）、signY 招牌下緣高度、band 沒有招牌時那條帶子的顏色、flip 直立招牌換到左邊／圓招換到右邊、roof 'pent' 退縮的水泥頂樓|'flat' 平屋頂什麼都不放、pave 門前鋪面色
+//   招牌的字色都可以寫成 '#字色/#描邊色'（書法字加白框那種）
 // kind（不寫就是上面的標準街屋）：
 //   'shed' 單層鐵皮屋／展示間：h 簷高、bd 屋身深度（預設 d）、wall 浪板色、front 正面另一個顏色、low [色, 高] 下半段顏色、roof 屋頂色、gable 山牆朝街的屋脊高、
-//          bays [[s0, s1, 'open'|'shutter'|'glass', 色]] 正面的開口、wins [下緣高, 上緣高] 正面上半一排橫拉窗、door 開口高、posts 門框色、lip 開口上方出挑平簷的深度（lipCol 簷色）、
+//          bays [[s0, s1, 'open'|'shutter'|'glass'|'dark' 深色玻璃|'blank' 封起來的素面板, 色]] 正面的開口、wins [下緣高, 上緣高] 正面上半一排橫拉窗、door 開口高、posts 門框色、lip 開口上方出挑平簷的深度（lipCol 簷色）、
 //          sign [字, 底, 字色, 小字] 全寬橫招 或 signs [[s0, s1, 字, 底, 字色, 小字]] 分段橫招（signH／signY 同上）
 //   'site' 沒有臨路建物的場地（車行露天車場、加油站、空地）：pave 鋪面色（0 = 不鋪）、d 只當保留範圍
 //   兩種都可以帶 items（位置一律用「里程 s、離 PZ_ROAD 中心線的距離 off」）：
 //     ['cars', s0, s1, off, {skip}] 一排車頭朝街的待售車（off 是車頭）、['pylon', s, off, {h, col, truss, top [字, 底, 字色, 寬, 高, 小字], frame 頂牌外框色, vert／low [字, 底, 字色, 寬, 長], out 1 = 直立燈箱掛在靠車道那一側}] 招牌鐵柱（看板面垂直道路，兩面可讀）、
 //     ['canopy', s0, s1, off0, off1, {h, roof, post, rail}] 平頂鋼棚、['gas', s0, s1, off0, off1, {h}] 中油加油棚（含加油島、屋頂圓標）、['stack', s, off, {h, rows [[字, 底, 字色]]}] 油價牌塔、['roundel', s, off, {h 圓心高, d 直徑}] 立桿上的中油圓標（面向沿路兩個方向）、
 //     ['panel', sA, offA, sB, offB, {y, h, text, bg, fg, sub, posts, solid, both, th}] 一面看板／布條（站在讀得到字的那一側，A 是左手邊）、
-//     ['fence', sA, offA, sB, offB, {h, col}] 浪板圍籬、['box', s0, s1, off0, off1, {y0, y1, col, solid, win 窗的排數}] 素面量體、['tree', s, off, 高]、['tank', s, off, 底高] 不鏽鋼水塔
+//     ['fence', sA, offA, sB, offB, {h, col}] 浪板圍籬、['box', s0, s1, off0, off1, {y0, y1, col, solid, win 窗的排數}] 素面量體、['tree', s, off, 高]、['tank', s, off, 底高] 不鏽鋼水塔、
+//     ['awning', s0, s1, off0, off1, {y, cols [色1, 色2], drop 垂邊高}] 條紋布雨棚、['tires', s0, s1, off, {col, r}] 牆腳一排半埋的彩色輪胎；'stack' 可加 rh 每格高；'panel' 可加 style、em 發光量；'pylon' 的 top 第 7 個是樣式（'cols' 直書分欄，字色可寫 '#色1,#色2' 一欄一色），第 8、9 個是另一面（朝 s 變小那一側看到的面）改用的字與字色
 // 普忠路是斜坡（s 120～270 地面高了 3 m）：每一格的基準高度取立面中點的地面；'site'／'shed' 的鋪面貼著地形鋪，items 裡的每個物件各自落在自己那一點的地面上。
 // 每一格自成一個 Kit，立面對著街道；收尾用 finishRow 一次合併。
 // 這個檔案不 import src/world/Interiors.js（Kit、材質、貼圖工具由 src/world/zones/Zones.js 呼叫 buildPuzhongStreet 時從 X 傳進來），
@@ -34,7 +36,7 @@ const setAt = (side) => (side > 0 ? 7.1 : 17.1);
 
 export const PZ_ST = {
   ownSign: ['7-Eleven'], // 街屋自己掛招牌的店名，POI 不再另外掛
-  drop: ['f119', 'f120', 'f121', 'f176', 'f177', 'f178', 'f179', 'f180', 'f181', 'f182', 'f352', 'f353', 'f354', 'f355', 'f356', 'f357', 'f358', 'f371', 'f372', 'f373', 'f374', 'f375', 'f376', 'f377', 'f378', 'f379', 'f380', 'f381', 'f382', 'f383', 'f410', 'f419', 'f420', 'f421'], // 這些格子蓋掉的通用填充樓（檢查腳本算出來的）
+  drop: ['f119', 'f120', 'f121', 'f146', 'f147', 'f148', 'f149', 'f150', 'f151', 'f152', 'f153', 'f154', 'f155', 'f156', 'f157', 'f158', 'f159', 'f160', 'f161', 'f162', 'f163', 'f164', 'f165', 'f166', 'f167', 'f168', 'f169', 'f170', 'f171', 'f172', 'f173', 'f174', 'f175', 'f176', 'f177', 'f178', 'f179', 'f180', 'f181', 'f182', 'f201', 'f202', 'f203', 'f204', 'f207', 'f208', 'f209', 'f210', 'f352', 'f353', 'f354', 'f355', 'f356', 'f357', 'f358', 'f364', 'f371', 'f372', 'f373', 'f374', 'f375', 'f376', 'f377', 'f378', 'f379', 'f380', 'f381', 'f382', 'f383', 'f384', 'f385', 'f386', 'f387', 'f388', 'f389', 'f390', 'f391', 'f392', 'f393', 'f394', 'f395', 'f396', 'f397', 'f398', 'f399', 'f400', 'f401', 'f402', 'f403', 'f404', 'f405', 'f406', 'f407', 'f408', 'f409', 'f410', 'f415', 'f416', 'f419', 'f420', 'f421', 'f424', 'f425', 'f426', 'f427', 'f428', 'f429', 'f430', 'f431', 'f432', 'f433', 'f434'], // 這些格子蓋掉的通用填充樓（檢查腳本算出來的）
   fences: [], // 沿路圍牆 [s0, s1, side]
   lots: [
     // ---- s 120～270 西南側（中原大學這一側；街景 2026-05、正射 2024）：整段沒有連棟透天，依序是圍籬雜木空地、中原側門車道、欣格汽車、伯利馬車庫、中油祥益站、洗車看板空地、霖龍、樂福車業、柴犬車庫 ----
@@ -89,6 +91,142 @@ export const PZ_ST = {
     [241.5, 249.5, -1, { kind: 'shed', set: 14.5, d: 10, h: 6.4, wall: '#9aa0a4', bays: [[242, 249, 'open']], door: 4.3, posts: '#2f4aa0', sign: ['全盛車業保修廠', '#6f9fc8', '#ffd21f'], signH: 1.5, signY: 4.75 }],
     [249.5, 259, -1, { nf: 3, gf: 3.8, fh: 3.45, set: 17.8, d: 15, wall: '#e4e1d8', low: '#a9a9a4', porch: 3.3, porchH: 3.7, porchCol: '#b9b6ae', sign: ['東熱', '#e4dfd0', '#8fa0b4'], signH: 1.9, signY: 4.6, ground: 'open', bal: 'plain', hood: '#4f9a6a', roof: 'shack' }], // 東熱：橫招已經褪色；三層樓，二樓的窗從對面看被架高的橫招擋住
     [259, 270, -1, { nf: 5, gf: 3.8, fh: 3.6, set: 17.8, d: 26, wall: '#cfcabf', bal: 'band', glass: '#6fb5a8', band: '#2f3238', ground: 'dark', door: 0, roof: 'pent' }], // 247 號綠玻璃樓：臨路面五層（四樓頂約 14.6 m），上面再一層退縮的塔屋（東南端 s 270～273.5 屬下一段）
+    // ---- s 270～430 西南側（門牌 246～334 號；街景 2026-05、正射 2024）：整段沒有連棟透天，依序是柴犬車庫車場、環愛幼兒園（T 霸看板、入口車道、園舍、黃色大門、照片圍牆）、黑色鐵皮屋、開放停車場（後面是創鼎設計）、環南啤酒屋、好鄰居傢俱、彩弘汽車棚架車場、兩間鐵皮小屋；s 423.3 以後是月老宮（OSM 原有建物，不動） ----
+    [270, 281, 1, { kind: 'site', set: 4.8, d: 26, pave: '#9a9a96', items: [ // 柴犬車庫車場的東南半邊：門型橫幅的另一半、三排待售車、第一排車後面的深灰小鐵皮屋（原本的填充樓 f384／f385／f364 拿掉）
+      ['panel', 281, 6, 270, 6, { y: 3.2, h: 1.3, posts: 2, both: 1, text: '中壢最便宜\n專營20萬內優質代步車', bg: '#e2502a', fg: '#ffffff' }],
+      ['cars', 270.5, 280.5, 6.4], ['cars', 270.5, 275.7, 12.6], ['cars', 270.5, 280.5, 19.5, { skip: 0.15 }],
+      ['box', 276, 281, 11, 15, { y1: 3.2, col: '#4a4f55', solid: 1 }],
+    ] }],
+    [281, 285, 1, { kind: 'site', set: 4.8, d: 9, pave: '#6f7a55', items: [ // 車場和幼兒園車道之間的綠帶：垂直道路的 T 霸看板（兩面都是環愛幼兒園的廣告）＋旁邊柴犬車庫的紅色直招
+      ['pylon', 281.2, 5, { h: 11, col: '#6a6d70', vert: ['柴犬車庫', '#c8322a', '#ffffff', 1.5, 7] }],
+      ['panel', 282, 15, 282, 5.8, { y: 4.3, h: 5.7, posts: 3, text: '陽光.大樹\n草地.沙坑', bg: '#a9d4a0', fg: '#2f7fd0/#ffffff' }],
+      ['panel', 281.75, 5.8, 281.75, 15, { y: 4.3, h: 5.7, text: '以學習者為中心、透過社會互動\n引導幼兒整合性的學習發展', bg: '#5fa04a', fg: '#ffffff' }],
+      ['tree', 283.6, 9, 4.5],
+    ] }],
+    [285, 299, 1, { kind: 'site', set: 4.8, d: 9.2, pave: '#5c5e60', items: [ // 環愛幼兒園入口車道：柏油、路口的綠籬圓環、柵欄機、西北邊的黃色矮欄杆與大樹
+      ['box', 289.3, 294.3, 5.3, 7.7, { y1: 0.4, col: '#e8c84a', solid: 1 }], ['box', 289.7, 293.9, 5.7, 7.3, { y0: 0.3, y1: 1.15, col: '#4b8a3e' }],
+      ['box', 285.3, 285.8, 6.2, 6.7, { y1: 1.1, col: '#e8862a', solid: 1 }], ['box', 285.48, 285.62, 6.7, 6.84, { y1: 5.5, col: '#ece8e0' }],
+      ['fence', 285.4, 7.2, 288.6, 13.9, { h: 0.7, col: '#f2c81e' }],
+      ['tree', 284.6, 12, 9], ['tree', 283.3, 16.5, 10], ['tree', 286.6, 16, 10],
+    ] }],
+    [289, 299, 1, { kind: 'shed', set: 14.2, d: 16, bd: 13, apron: 0.6, h: 3.7, wall: '#b9b6ae', roof: '#e9e9e4', bays: [[289.6, 293.6, 'glass'], [294.6, 298.4, 'glass']], door: 2.5, posts: '#e8c21f', signs: [[294.3, 299, '環愛幼兒園', '#f2d21f', '#1a1a1a', 'HUAN AI']], signH: 0.8, signY: 2.75, items: [ // 園舍臨車道這一棟：單層、黃色門窗框，門楣黃底橫招，屋頂上一面大看板（後面斜放的主建物被樹擋住，不做）
+      ['panel', 298.9, 14.9, 294.4, 14.9, { y: 6.6, h: 0.9, text: '陽光 大樹 草地 沙坑', bg: '#bfe0f2', fg: '#2f6fd0' }],
+      ['panel', 298.9, 14.9, 294.4, 14.9, { y: 3.75, h: 2.85, posts: 2, bg: '#6fae5a' }],
+    ] }],
+    [299, 303, 1, { kind: 'site', set: 4.8, d: 12, pave: '#7c8263', items: [ // 幼兒園黃色大門（斜對著車道）＋路邊的招牌柱（下段黃色，上面掛黃底黑字直招「環愛幼兒園」，垂直道路、兩面可讀；頂端園徽與底下電話不放）＋門後的大樹
+      ['fence', 299.2, 13.6, 302.2, 7.8, { h: 2, col: '#f2c81e' }],
+      ['box', 298.95, 299.45, 13.4, 13.9, { y1: 2.4, col: '#f2c81e', solid: 1 }], ['box', 302, 302.5, 7.5, 8, { y1: 2.4, col: '#f2c81e', solid: 1 }],
+      ['box', 302.6, 302.9, 6.15, 6.45, { y1: 4.5, col: '#e8c21f', solid: 1 }], ['pylon', 302.75, 6.3, { h: 10.5, col: '#4a4038', out: 1, vert: ['環愛幼兒園', '#f2d21f', '#1a1a1a', 1.5, 5.6] }],
+      ['tree', 300.8, 15.5, 10], ['tree', 302, 19.5, 11],
+    ] }],
+    [303, 317.5, 1, { kind: 'site', set: 5.4, d: 2.2, pave: 0, items: [ // 幼兒園的照片圍牆：藍底大圖輸出＋牆腳一排黃輪胎
+      ['panel', 317.5, 6, 303.3, 6, { y: 0.3, h: 2.2, solid: 1, bg: '#2f7fd0' }],
+      ['panel', 315.4, 6, 310.2, 6, { y: 1.2, h: 1.15, th: 0.3, text: '環愛森林幼兒園', sub: '充滿歡笑與愛的學習園地', bg: '#2f7fd0', fg: '#ffffff' }],
+      ['tires', 303.5, 317.3, 5.5],
+    ] }],
+    [306.5, 318, 1, { kind: 'shed', set: 8, d: 13, h: 6, wall: '#3a3d40', roof: '#2e3033', items: [ // 圍牆後面的黑色浪板鐵皮屋：臨路面沒有門窗，朝停車場那面有木紋板和深灰平頂雨遮
+      ['box', 318, 318.12, 10, 17, { y0: 2.9, y1: 5.6, col: '#9a6a48' }], ['canopy', 318.1, 321, 9, 20.5, { h: 3, roof: '#4a4d50', post: '#2e3033' }],
+    ] }],
+    [318, 344, 1, { kind: 'site', set: 4.8, d: 20, pave: '#9c9a94', items: [ // 對普忠路敞開的水泥停車場；東南角是環南啤酒屋的招牌桿
+      ['cars', 320.5, 334, 19.5, { skip: 0.25 }],
+      ['pylon', 343.4, 5.6, { h: 8, col: '#8a8d90', top: ['環南\n啤酒屋', '#2456b8', '#e0342a/#ffffff', 3, 1.3], vert: ['環南啤酒屋', '#2456b8', '#f0c8a0', 0.8, 3.6] }],
+    ] }],
+    [319, 334, 1, { nf: 2, gf: 3.8, fh: 3.7, set: 25, d: 10, apron: 0.6, bal: 'glass', glass: '#c4cccc', mull: '#1c1c1e', ground: 'dark', door: 0, roof: 'flat', noband: 1 }], // 停車場底端創鼎設計的兩層黑框玻璃盒
+    [334, 345.5, 1, { kind: 'shed', set: 25.3, d: 10, apron: 0.6, h: 4.5, wall: '#2a2c2e', roof: '#2e3033', bays: [[334.5, 338, 'glass']], door: 2.4, posts: '#6a6d70', signs: [[336, 339.6, '創鼎', '#2a2c2e', '#f2f2ee', '設計']], signH: 1.4, signY: 2.8 }], // 創鼎設計的黑色浪板單層（一半被啤酒屋擋住）
+    [344, 358.3, 1, { kind: 'shed', set: 6.5, d: 18, h: 5.8, wall: '#b8bcb9', roof: '#e9e9e4', bays: [[344.3, 350.4, 'dark'], [350.6, 352.2, 'blank', '#cfccc2'], [352.5, 358, 'blank', '#e9e9e6']], door: 3, posts: '#33363a', items: [ // 環南啤酒屋：單層鐵皮，上半銀灰浪板；正面沒有橫招，藍色大看板架在西北側（朝停車場）那排深色棚子的簷口上，店名只在靠裡面那一端（靠路那一大段是啤酒圖與品牌字，只做藍底）
+      ['canopy', 339.9, 343.9, 7.2, 22, { h: 3, roof: '#2a3040', post: '#33363a' }],
+      ['panel', 342, 5.5, 339.35, 17.2, { y: 3.15, h: 2.4, bg: '#2456b8' }], ['panel', 339.35, 17.2, 338.6, 20.5, { y: 3.15, h: 2.4, text: '環南\n啤酒屋', bg: '#2456b8', fg: '#e0342a/#ffffff' }],
+    ] }],
+    [360.3, 366, 1, { kind: 'shed', set: 6.2, d: 28, h: 8.4, wall: '#b5b8b6', front: '#3b3652', roof: '#5f7fb0', bays: [[361.3, 364.8, 'shutter', '#5f87a8'], [360.6, 361.1, 'blank', '#e8e6e0']], door: 2.7, posts: '#3b3652', sign: ['EMOSA 愛夢莎名床', '#3b3652', '#ffffff'], signH: 1, signY: 3.5, items: [ // 好鄰居傢俱西北端「愛夢莎」那一格（貼著路）＋生鏽的鋼構招牌塔
+      ['awning', 360.5, 365.6, 5.3, 6.2, { y: 3.0, cols: ['#5a8a6a'], drop: 0.15 }],
+      ['panel', 365.7, 6.12, 360.6, 6.12, { y: 4.7, h: 1.9, bg: '#8f93ad' }], ['box', 360.3, 366, 6.1, 6.2, { y0: 6.9, y1: 8.4, col: '#c6c8c6' }],
+      ['pylon', 359.3, 6.2, { h: 12.9, truss: 1, out: 1, col: '#8a5a40', top: ['家具床墊', '#2a2f5a', '#ffffff', 3, 1.4], vert: ['好鄰居傢俱', '#2a2f5a', '#ffffff', 1.4, 6.6] }], // 三個街景點交會量到：塔頂約 12.8 m、直招下緣約 4.8 m，直招掛在靠車道那一側
+    ] }],
+    [366, 390, 1, { kind: 'shed', set: 10, d: 24, apron: 5.5, h: 8.4, wall: '#b5b8b6', front: '#3b3652', roof: '#5f7fb0', pave: '#b9b6ae', bays: [[366.4, 370.5, 'dark'], [371.9, 376.8, 'dark'], [378.2, 383.3, 'dark'], [383.9, 389.4, 'dark']], door: 3.1, posts: '#3b3652', items: [ // 好鄰居傢俱主體：一樓玻璃店面退在裡面，二樓整面深藍紫招牌牆外挑到路邊（3.5～6.9 m），最上面一條銀灰色女兒牆帶（到 8.4 m），下面是紅白條紋雨棚、紫色柱子、正中的階梯入口
+      ['box', 366, 390, 6.2, 10, { y0: 3.5, y1: 6.9, col: '#3b3652' }], ['box', 366, 390, 6.1, 10, { y0: 6.9, y1: 8.4, col: '#c6c8c6' }],
+      ['box', 366, 366.5, 6.3, 6.8, { y1: 3.5, col: '#3b3652', solid: 1 }], ['box', 370.7, 371.7, 6.3, 6.8, { y1: 3.5, col: '#3b3652', solid: 1 }], ['box', 377, 378, 6.3, 6.8, { y1: 3.5, col: '#3b3652', solid: 1 }], ['box', 383.3, 383.8, 6.3, 6.8, { y1: 3.5, col: '#3b3652', solid: 1 }], ['box', 389.4, 389.9, 6.3, 6.8, { y1: 3.5, col: '#3b3652', solid: 1 }],
+      ['panel', 382.9, 6.12, 366.1, 6.12, { y: 3.55, h: 0.95, text: 'GOOD NEIGHBORS　客製傢俱｜辦公傢俱｜系統規劃', bg: '#3b3652', fg: '#f0a050' }],
+      ['panel', 379.3, 6.12, 369.4, 6.12, { y: 4.7, h: 2, text: '好鄰居傢俱', bg: '#3b3652', fg: '#f4f4f0', em: 0.15 }],
+      ['panel', 389.9, 6.12, 383.1, 6.12, { y: 3.55, h: 0.95, text: 'SIMMONS 席夢思名床', bg: '#3b3652', fg: '#ffffff' }],
+      ['panel', 389.2, 6.12, 383.6, 6.12, { y: 4.7, h: 1.9, bg: '#d9c9c2' }],
+      ['awning', 366.5, 370.7, 5.4, 7, { y: 3.1 }], ['awning', 378, 389.4, 5.4, 7, { y: 3.1 }],
+      ['panel', 371.55, 6.24, 370.85, 6.24, { y: 0.3, h: 2.9, text: '美\n國\n席\n夢\n思', bg: '#3b3652', fg: '#ffffff' }], ['panel', 377.85, 6.24, 377.15, 6.24, { y: 0.3, h: 2.9, text: '美\n國\n席\n夢\n思', bg: '#3b3652', fg: '#ffffff' }],
+      ['box', 366.3, 389.6, 8.9, 10, { y1: 0.9, col: '#9a5a4a', solid: 1 }], ['box', 371.9, 376.8, 7.4, 8.9, { y1: 0.45, col: '#c4c1b8', solid: 1 }],
+      ['cars', 384, 389.4, 5.3], ['cars', 366.6, 370.6, 5.3],
+    ] }],
+    [390.5, 414.3, 1, { kind: 'site', set: 4.8, d: 22, pave: '#8f8d88', items: [ // 彩弘汽車：黑色鋼柱撐起的大棚架車場，棚頂前緣是一條深灰浪板，上面白色立體字「彩弘汽車 Rainbow CAR」（只有一組）；西北角棚下是藍色浪板辦公室
+      ['canopy', 390.7, 414.1, 5.6, 26.5, { h: 3.7, roof: '#3a3d40', post: '#222426' }],
+      ['box', 390.6, 414.2, 5.5, 26.6, { y0: 3.75, y1: 5.5, col: '#4a4e52' }], ['box', 390.8, 414, 5.7, 26.4, { y0: 5.5, y1: 5.56, col: '#b9d0b4' }],
+      ['panel', 408.1, 5.42, 402.7, 5.42, { y: 4, h: 1.3, text: '彩弘汽車', bg: '#262b31', fg: '#f4f4f0', em: 0.15 }],
+      ['panel', 402.3, 5.42, 399.25, 5.42, { y: 4.15, h: 1, text: 'Rainbow', bg: '#262b31', fg: '#f4f4f0', em: 0.15 }], ['panel', 399.2, 5.42, 397.1, 5.42, { y: 4.15, h: 1, text: 'CAR', bg: '#262b31', fg: '#f0a030', em: 0.15 }],
+      ['fence', 390.6, 6.5, 390.6, 12, { h: 3, col: '#2f6fc0' }],
+      ['box', 391, 396.4, 12, 16, { y1: 3, col: '#2f6fc0', solid: 1 }],
+      ['panel', 396.3, 11.92, 393.6, 11.92, { y: 2.2, h: 0.7, text: 'SAVE認證車聯盟', bg: '#2f6fc0', fg: '#ffd21f' }], ['panel', 393.6, 11.92, 391.1, 11.92, { y: 2.2, h: 0.7, text: '彩弘汽車', bg: '#f4f4f0', fg: '#1f4fb0' }],
+      ['panel', 402.8, 6.2, 401.5, 6.2, { y: 0.5, h: 3.1, text: '高\n價\n估\n車', bg: '#1a1a1a', fg: '#ffffff' }],
+      ['pylon', 401.6, 5.1, { h: 10, col: '#8a8d90', vert: ['彩弘汽車', '#5f7f9a', '#ffffff', 1.2, 4.3] }],
+      ['cars', 403.5, 413.5, 6.8, { skip: 0.15 }], ['cars', 391.5, 396, 7], ['cars', 397.5, 413.5, 13.5, { skip: 0.2 }], ['cars', 391.5, 413.5, 20.5, { skip: 0.2 }],
+      ['fence', 390.6, 26.6, 414.2, 26.6, { h: 2.6, col: '#d6cfb4' }],
+    ] }],
+    [416, 419.3, 1, { kind: 'shed', set: 6, d: 8, h: 3, wall: '#d6cfb4', roof: '#cfc8b0', items: [['box', 415, 419.3, 14.2, 18.5, { y1: 4.5, col: '#d9d3ba', solid: 1 }], ['fence', 414.4, 6.6, 416, 6.6, { h: 1.8, col: '#8a8d90' }], ['fence', 416, 6.1, 416, 14, { h: 3, col: '#8a9aa8' }]] }], // 低矮的米黃鐵皮小屋（沒有門窗）；它和彩弘棚架之間是一條圍籬縫，後面是較高那間的延伸
+    [419.3, 423.2, 1, { kind: 'shed', set: 6.5, d: 12, h: 4.5, wall: '#d9d3ba', roof: '#cfc8b0', bays: [[419.8, 421, 'blank', '#3a3d40']], door: 2.3, posts: '#6a6d70' }], // 較高的米黃鐵皮屋：一道深色鐵柵門，貼著月老宮
+    // ---- s 270～430 東北側（門牌 247～331 號；街景 2026-05、正射 2024）：綠玻璃樓的東南端、249 號粉紅磁磚透天、水族寵物店、榮立重車 SUZUKI 展示間、普中汽車代檢場、SUM 國富保修、敞開的保養棚、達運汽車、鐵皮小屋、混凝土廠車道空地、慶隆混凝土廠沿路高牆。立面多半退到離線 19～24 m，高度是用街景仰角對出來的 ----
+    [270, 273.5, -1, { nf: 5, gf: 3.8, fh: 3.6, set: 17.8, d: 26, wall: '#cfcabf', bal: 'band', glass: '#6fb5a8', band: '#2f3238', ground: 'dark', door: 0, roof: 'pent' }], // 247 號綠玻璃樓的東南端
+    [274, 282, -1, { nf: 3, gf: 6.9, fh: 3.7, set: 20, d: 16, wall: '#c79a96', porch: 5.5, porchH: 5, porchCol: '#d9d2c0', porchPost: '#4a4d50', sign: [' ', '#4a4d50', '#4a4d50'], signH: 0.9, signY: 5, ground: 'stripe', gs: ['#4a4a4a', '#e6e6e6', '#4a4a4a', '#e6e6e6', '#9a2a3a', '#e6e6e6'], door: 0, bal: 'plain', roof: 'flat', pave: '#5f9a6a' }], // 249 號：退縮的粉紅磁磚透天（雨棚上面看得到兩排窗，窗心約 8.4、12.1 m；再上去是一截沒有窗的高女兒牆到 16.2 m，做在隔壁水族店那一格的 items 裡），一樓整面直條紋封板，前面是鐵皮雨棚（前緣一條深灰鋼樑，沒有字）和綠色地坪；沒有招牌
+    [282, 297.5, -1, { kind: 'shed', set: 20, d: 16, h: 13.5, wall: '#c2c6c4', roof: '#5a5e62', bays: [[282.3, 284.8, 'blank', '#e6e3da'], [285.2, 297.2, 'open']], door: 4, posts: '#e6e6e2', items: [ // 255 號水族寵物店：很高的鐵皮大店，一樓全開，前面整面寬的採光雨棚；招牌只寫品類（現場讀不到店名）；浪板下面是一條深藍牆帶加三組白框窗；東南角雨棚上方架高的鐵架立體字（兩個街景點交會在離線約 17 m、高 12～16 m）朝西（斜對著往東南的來車），左欄藍字「水族」、右欄紅字「寵物」
+      ['canopy', 282.2, 297.3, 14.2, 20, { h: 4.6, roof: '#cfd6c0', post: '#e6e3da' }],
+      ['box', 282, 297.5, 19.9, 20, { y0: 7.2, y1: 9.3, col: '#2f3f6a' }], ['box', 283.6, 287.6, 19.86, 20, { y0: 7.75, y1: 8.85, col: '#dfe6e8' }], ['box', 288.6, 291.6, 19.86, 20, { y0: 7.75, y1: 8.85, col: '#dfe6e8' }], ['box', 292.6, 296.6, 19.86, 20, { y0: 7.75, y1: 8.85, col: '#dfe6e8' }],
+      ['box', 274, 282, 20, 36, { y0: 14.3, y1: 16.2, col: '#d3b0ad' }], ['box', 274.2, 281.8, 20.2, 35.8, { y0: 16.2, y1: 16.26, col: '#b9b7af' }], // 隔壁 249 號頂端那截沒有窗的高女兒牆
+      ['box', 285.8, 289.3, 19.9, 20, { y0: 10.3, y1: 11.8, col: '#eeeeea' }], ['box', 289.9, 293.4, 19.9, 20, { y0: 10.3, y1: 11.8, col: '#eeeeea' }],
+      ['pylon', 283, 14.3, { h: 9.5, col: '#5a5d60', top: ['水族 寵物', '#1a1a1a', '#f0a030,#f4f4f0', 2.2, 3, null, 'cols', '寵物 水族', '#f4f4f0,#f0a030'] }], // 兩面的欄位順序相反：橘字「水族」那一欄永遠在靠店面那一側
+      ['panel', 294.82, 17.91, 296.3, 16.8, { y: 12.2, h: 3.4, posts: 1, text: '水\n族', bg: '#8f999e', fg: '#2f5fc0' }], ['panel', 296.3, 16.8, 297.78, 15.69, { y: 12.2, h: 3.4, posts: 1, text: '寵\n物', bg: '#8f999e', fg: '#c8404a' }],
+      ['cars', 287, 293, 15],
+    ] }],
+    [297.5, 318.9, -1, { kind: 'site', set: 14.5, d: 9.3, pave: '#c98f86', items: [ // 榮立重車的紅磚前院：三層招牌架、西北邊的木格柵牆（SUZUKI 字與重機海報）、東南邊接展示間的灰色斜牆（紅框窗、底下是維修車道入口）
+      ['stack', 298.6, 16.2, { h: 3.3, w: 2.4, rh: 0.9, rows: [['榮立國際', '#f2f2ee', '#2a2c2e'], ['aprilia', '#c8202a', '#ffffff'], ['BRIXTON MOTORCYCLES', '#3a3d40', '#ffffff']] }],
+      ['panel', 298.2, 17.6, 298.2, 20.5, { y: 0, h: 3.2, solid: 1, bg: '#7a5a44' }], ['panel', 298.2, 20.5, 298.2, 23.9, { y: 0, h: 6.4, solid: 1, bg: '#7a5a44' }],
+      ['panel', 298.2, 20.8, 298.2, 23.6, { y: 4.9, h: 0.9, th: 0.3, text: 'SUZUKI', bg: '#7a5a44', fg: '#1f3f8a/#ffffff' }],
+      ['panel', 298.2, 18.2, 298.2, 22.6, { y: 0.5, h: 2.5, th: 0.3, bg: '#27303a' }],
+      ['panel', 313.5, 24, 318.9, 20.6, { y: 0, h: 10.3, solid: 1, bg: '#c9c9c6' }],
+      ['panel', 315.2, 22.93, 317.6, 21.42, { y: 5.6, h: 2.2, th: 0.3, bg: '#c0303a' }], ['panel', 315.45, 22.77, 317.35, 21.58, { y: 5.9, h: 1.6, th: 0.4, bg: '#5f6f73' }],
+      ['panel', 315.6, 22.68, 318.6, 20.79, { y: 0, h: 3.2, th: 0.3, bg: '#2a2724' }],
+      ['cars', 300, 306, 16.5, { skip: 0.3 }],
+    ] }],
+    [298.5, 313.5, -1, { nf: 2, gf: 5.6, fh: 4.7, set: 24, d: 14, apron: 0.6, wall: '#c9c9c6', sign: ['SUZUKI　　榮立重車', '#a9abad', '#1f3f8a'], signH: 1.1, signY: 4.4, ground: 'shop', door: 0, bal: 'band', glass: '#5f6f73', roof: 'flat' }], // 榮立重車 SUZUKI 重機展示間：退到最裡面的兩層灰色板材樓
+    [318.9, 321.5, -1, { kind: 'shed', set: 15.5, d: 20, h: 12, wall: '#7f776e', low: ['#7a5a44', 4.8], roof: '#4a4d50', items: [ // 展示間東南端凸到路邊的木格柵方塔，朝前院那面有直排立體字，臨路面有 Service 牌
+      ['panel', 318.84, 19.6, 318.84, 17.8, { y: 5, h: 5.5, text: '榮\n立\n國\n際', bg: '#7f776e', fg: '#c9a070', em: 0.12 }],
+      ['panel', 319, 15.43, 320.4, 15.43, { y: 2.1, h: 0.5, text: 'Service', bg: '#7a5a44', fg: '#ffffff', em: 0.15 }],
+    ] }],
+    [321.5, 339.5, -1, { kind: 'shed', set: 19, d: 17, h: 5.9, wall: '#d8d8d4', roof: '#9a9a96', bays: [[322.2, 330, 'open'], [330.8, 339, 'shutter', '#b8b8b4']], door: 5, posts: '#c9c9c4', signs: [[321.7, 324.2, '入口', '#27306a', '#ffffff'], [324.2, 330.6, '輪胎全新特價　快速保養', '#f4f4f0', '#1a1a1a', '台灣湯淺電池'], [330.6, 336.4, '汽車・機車保險投保處', '#f4f4f0', '#1f4fb0', '富邦產物保險　明台產物保險'], [336.4, 338.9, '出口', '#27306a', '#ffffff']], signH: 1.6, signY: 5.9, items: [ // 普中汽車代檢場：單層兩車道穿越式檢驗棚，屋簷上一整排橫幅看板（電話不放）
+      ['box', 331, 333.5, 17.6, 19, { y1: 2.4, col: '#9fc8b8', solid: 1 }],
+      ['panel', 330.05, 18.9, 330.75, 18.9, { y: 1.7, h: 4.1, text: '普\n中\n汽\n車\n代\n檢\n場', bg: '#eeeeea', fg: '#4a6a8a' }], // 兩個車道中間柱子上的白底直招
+      ['pylon', 322, 14.3, { h: 8.5, col: '#5a5d60', vert: ['驗車', '#eeeeea', '#5f7f9a', 1.5, 6.5] }],
+    ] }],
+    [339.5, 354.5, -1, { kind: 'shed', set: 20.5, d: 10, h: 7.4, wall: '#55585a', roof: '#8a8d8f', bays: [[344.8, 349.8, 'open']], door: 4, posts: '#8a8680', items: [ // SUM 汽車保修聯盟 國富保修：路邊加油站式的平頂大雨棚（紅色飾帶），後面是兩層深灰磚樓（屋頂上還有第二層紅色看板），西北端一棟窄的三層樓（電話被 Google 模糊，不放）
+      ['canopy', 340, 354.4, 15.5, 20.4, { h: 5.2, roof: '#e9e9e4', post: '#8a8d90' }],
+      ['box', 339.9, 354.5, 15.4, 20.4, { y0: 5.3, y1: 6.5, col: '#c8392f' }], ['box', 339.9, 354.5, 15.4, 20.4, { y0: 6.5, y1: 6.56, col: '#d9d9d4' }],
+      ['panel', 340, 20.38, 354.4, 20.38, { y: 7.5, h: 2, text: 'SUM 汽車保修聯盟　　國富保修', bg: '#c8392f', fg: '#ffffff' }], // 後面磚樓屋頂上的第二層紅色看板（底下那排小字與電話不放）
+      ['panel', 340.2, 15.33, 354.3, 15.33, { y: 5.35, h: 1.1, text: 'SUM 汽車保修聯盟　　國富保修', bg: '#c8392f', fg: '#ffffff' }],
+      ['panel', 354.57, 15.7, 354.57, 20.2, { y: 5.35, h: 1.1, text: '國富保修', bg: '#c8392f', fg: '#ffffff' }],
+      ['pylon', 339.3, 14.3, { h: 8, col: '#8a8d90', top: ['SUM', '#f4f4f0', '#c8392f', 1.3, 0.9], vert: ['國富保修', '#c8392f', '#ffffff', 1.2, 5] }],
+      ['box', 339.6, 344.4, 20.6, 30.4, { y0: 7, y1: 13.5, col: '#7d7f80', win: 1 }],
+    ] }],
+    [354.5, 365.5, -1, { kind: 'shed', set: 16, d: 15, h: 6.2, wall: '#c9c9c4', roof: '#4f5a66', bays: [[355, 365, 'open']], door: 5.3, posts: '#c9c9c4', items: [
+      ['pylon', 366, 14.9, { h: 11, col: '#8a8d90', vert: ['達運汽車', '#f2f2ee', '#1f4fb0', 1.1, 3.5] }], // 達運汽車的直式側招：立在雨棚西北角外的鐵柱上，垂直道路
+      ['panel', 365.44, 33.8, 365.44, 19.8, { y: 0, h: 15.1, bg: '#e6e2d6' }], ['box', 365.5, 376.5, 19.8, 33.8, { y0: 14.7, y1: 15.1, col: '#b07e77' }], ['box', 365.7, 376.3, 20, 33.6, { y0: 15.1, y1: 15.16, col: '#cfcdc4' }], // 達運那棟的西北側牆是米白粉刷；頂端一截女兒牆
+    ] }], // 321 號旁敞開的保養工作棚（沒有招牌）
+    [365.5, 376.5, -1, { nf: 3, gf: 7.1, fh: 3.8, set: 19.8, d: 14, wall: '#9a5a50', porch: 3.7, porchH: 5.2, porchCol: '#c9c6bd', sign: ['Mobil 1 車養護　　達運汽車', '#e9e9e6', '#1f4fb0'], signH: 1, signY: 5.35, ground: 'open', bal: 'plain', door: 0, roof: 'flat' }], // 達運汽車：紅磚樓＋前雨棚，棚前緣整條橫招（5.35～6.35 m）；橫招上面看得到兩排窗（窗心約 8.6、12.4 m）。西北角路邊鐵柱上的直式側招、兩側的米白側牆、頂端的女兒牆做在左右兩格的 items 裡
+    [376.5, 382.5, -1, { kind: 'shed', set: 16.5, d: 10.5, h: 3.8, wall: '#9aa0a3', roof: '#e9e9e4', bays: [[377.2, 382.2, 'shutter', '#7f8c94']], door: 3.2, items: [['panel', 376.56, 19.8, 376.56, 33.8, { y: 0, h: 15.1, bg: '#e6e2d6' }]] }], // 單層鐵皮小屋：整面藍灰鐵捲門，沒有招牌（items 是隔壁達運那棟米白色的東南側牆）
+    [382.5, 393, -1, { kind: 'site', set: 13.4, d: 20.5, pave: '#9a9892', items: [['cars', 389.6, 392.6, 15.5], ['cars', 389.6, 392.6, 21], ['cars', 389.6, 392.6, 26.5], ['box', 383, 392.8, 33, 33.9, { y1: 2.5, col: '#9a9a96', solid: 1 }]] }], // 混凝土廠的車道兼停車空地：底端是水泥塊擋牆，沿東南邊的廠房牆停一排車
+    [393, 410, -1, { kind: 'shed', set: 15.5, d: 20, h: 7.1, wall: '#aeaca6', low: ['#b2b0a8', 4.6], roof: '#55595e', items: [ // 慶隆混凝土廠沿路高牆 A：下半清水混凝土、上半灰浪板；牆上掛的是有日期的宮廟活動帆布，只做成沒有字的色塊
+      ['panel', 397, 15.42, 409.2, 15.42, { y: 1.75, h: 2.85, bg: '#ece4d0' }], ['panel', 397, 15.42, 409.2, 15.42, { y: 1, h: 0.75, bg: '#c8322a' }],
+    ] }],
+    [410, 430, -1, { kind: 'shed', set: 15.6, d: 3.5, h: 7.1, wall: '#d6d8d4', low: ['#3f8fc4', 2.1], roof: '#b9c4a8', items: [ // 沿路高牆 B：下半水藍、上半淺灰浪板，上面是紅藍方框標誌、一字一字分開的藍色立體字和紅色電話（實際一路到 s 435；字塊底色比牆色深一階，是為了抵銷貼圖平面比頂點色牆面亮的差異）
+      ['box', 410.6, 411.9, 15.5, 15.6, { y0: 4.9, y1: 6, col: '#c8403a' }], ['box', 411.4, 412.8, 15.45, 15.6, { y0: 4.5, y1: 5.6, col: '#2f4f9a' }],
+      ['panel', 413.3, 15.52, 414.9, 15.52, { y: 4.3, h: 1.6, text: '慶', bg: '#a2a9ae', fg: '#2f4f9a', em: 0 }], ['panel', 416.15, 15.52, 417.75, 15.52, { y: 4.3, h: 1.6, text: '隆', bg: '#a2a9ae', fg: '#2f4f9a', em: 0 }], ['panel', 419.0, 15.52, 420.6, 15.52, { y: 4.3, h: 1.6, text: '混', bg: '#a2a9ae', fg: '#2f4f9a', em: 0 }],
+      ['panel', 421.85, 15.52, 423.45, 15.52, { y: 4.3, h: 1.6, text: '凝', bg: '#a2a9ae', fg: '#2f4f9a', em: 0 }], ['panel', 424.7, 15.52, 426.3, 15.52, { y: 4.3, h: 1.6, text: '土', bg: '#a2a9ae', fg: '#2f4f9a', em: 0 }], ['panel', 427.55, 15.52, 429.15, 15.52, { y: 4.3, h: 1.6, text: '廠', bg: '#a2a9ae', fg: '#2f4f9a', em: 0 }],
+      ['panel', 416.8, 15.52, 423.2, 15.52, { y: 2.95, h: 0.85, text: '453-4258', bg: '#a2a9ae', fg: '#c8403a', em: 0 }],
+    ] }],
+    [410, 430, -1, { kind: 'site', set: 19.3, d: 16, apron: 0, pave: '#8f8d88' }], // 牆後的廠區水泥地（原本那排填充透天拿掉）
   ],
 };
 export function pzAt(s) {
@@ -159,18 +297,20 @@ export function buildPuzhongStreet(I, scene, X) {
       }
       if (style === 'cols') { // 直書分欄，由右到左
         const cols = String(text).split(' '), cw = W / cols.length, px = Math.min(cw * 0.8, Hh * 0.9 / Math.max(...cols.map((c) => [...c].length)));
-        g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = font(px);
-        cols.forEach((c, i) => { const ch = [...c]; ch.forEach((q, j) => g.fillText(q, W - cw * (i + 0.5), Hh / 2 + (j - (ch.length - 1) / 2) * px * 1.04)); }); return;
+        const fcs = String(fg).split(','); g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = font(px); // 字色可用逗號分開，一欄一色
+        cols.forEach((c, i) => { const ch = [...c]; g.fillStyle = fcs[i % fcs.length]; ch.forEach((q, j) => g.fillText(q, W - cw * (i + 0.5), Hh / 2 + (j - (ch.length - 1) / 2) * px * 1.04)); }); return;
       }
       if (style === 'fam') { g.fillStyle = '#00a0e0'; g.fillRect(0, 0, W, Hh * 0.16); g.fillStyle = '#2fb34a'; g.fillRect(0, Hh * 0.16, W, Hh * 0.1); }
-      if (style === 'frame') { g.strokeStyle = fg; g.lineWidth = Math.max(3, Hh * 0.04); g.strokeRect(Hh * 0.06, Hh * 0.06, W - Hh * 0.12, Hh * 0.88); }
-      g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const [fc, oc] = String(fg).split('/'); // '#字色/#描邊色'：書法字加白框那種招牌
+      if (style === 'frame') { g.strokeStyle = fc; g.lineWidth = Math.max(3, Hh * 0.04); g.strokeRect(Hh * 0.06, Hh * 0.06, W - Hh * 0.12, Hh * 0.88); }
+      g.fillStyle = fc; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+      const put = (s, x, y) => { if (oc) { g.strokeStyle = oc; g.lineWidth = Math.max(3, parseFloat(g.font.split('px')[0].split(' ').pop()) * 0.16); g.strokeText(s, x, y); } g.fillText(s, x, y); };
       const lines = String(text).split('\n'), n = lines.length, avail = Hh * (sub ? 0.64 : 0.86) / n;
       const px = Math.min(avail * 0.92, W * 0.5);
       const fit = (t) => { let p = px; g.font = font(p); while (g.measureText(t).width > W * 0.94 && p > 10) { p -= 2; g.font = font(p); } return p; };
       const cy = sub ? Hh * 0.38 : Hh * 0.5;
-      lines.forEach((t, i) => { fit(t); g.fillText(t, W / 2, cy + (i - (n - 1) / 2) * avail); });
-      if (sub) { let p = Hh * 0.2; g.font = font(p, 700); while (g.measureText(sub).width > W * 0.94 && p > 9) { p -= 2; g.font = font(p, 700); } g.fillText(sub, W / 2, Hh * 0.82); }
+      lines.forEach((t, i) => { fit(t); put(t, W / 2, cy + (i - (n - 1) / 2) * avail); });
+      if (sub) { let p = Hh * 0.2; g.font = font(p, 700); while (g.measureText(sub).width > W * 0.94 && p > 9) { p -= 2; g.font = font(p, 700); } put(sub, W / 2, Hh * 0.82); }
     });
   };
   const roundSign = (text, bg, fg) => sg(`pzR_${text}|${bg}|${fg}`, 128, 128, (g) => {
@@ -268,16 +408,16 @@ export function buildPuzhongStreet(I, scene, X) {
   const panel = (k, ax, az, bx, bz, o) => {
     const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz), th = Math.atan2(dz, dx), nx = -dz / len, nz = dx / len, cx = (ax + bx) / 2, cz = (az + bz) / 2, y0 = o.y || 0, h = o.h || 1.2, t = o.th || 0.12;
     paintGeo(k.slab(ax, az, bx, bz, t, y0 || -0.4, y0 + h, VC, { col: !!o.solid }), o.bg);
-    if (o.text) for (const sd of o.both ? [1, -1] : [1]) k.plane(paint(o.text, o.bg, o.fg, o.sub, len - 0.1, h - 0.08, 96), len - 0.1, h - 0.08, cx + sd * nx * (t / 2 + 0.02), y0 + h / 2, cz + sd * nz * (t / 2 + 0.02), -th + (sd < 0 ? Math.PI : 0), { emissive: o.em ?? 0.3 });
+    if (o.text) for (const sd of o.both ? [1, -1] : [1]) k.plane(paint(o.text, o.bg, o.fg, o.sub, len - 0.1, h - 0.08, 96, o.style), len - 0.1, h - 0.08, cx + sd * nx * (t / 2 + 0.02), y0 + h / 2, cz + sd * nz * (t / 2 + 0.02), -th + (sd < 0 ? Math.PI : 0), { emissive: o.em ?? 0.3 });
     for (let j = 0; j < (o.posts || 0); j++) { const u = o.posts === 1 ? 0.5 : j / (o.posts - 1), px = ax + dx * u - nx * (t / 2 + 0.1), pz = az + dz * u - nz * (t / 2 + 0.1); k.box(px - 0.09, px + 0.09, -0.6, y0 + h, pz - 0.09, pz + 0.09, '#4a4d50'); }
   };
   const pylon = (k, x, z, o) => { // 招牌鐵柱：頂端橫向箱型看板＋下面一兩支直立燈箱，看板面垂直道路
     const h = o.h || 10, pc = o.col || '#6a4a3a';
     for (const q of o.truss ? [-0.45, 0.45] : [0]) k.box(x - 0.13, x + 0.13, -0.6, h - 0.2, z + q - 0.13, z + q + 0.13, pc);
     if (o.truss) for (let y = 0.9; y < h - 1; y += 1.1) k.box(x - 0.04, x + 0.04, y, y + 0.08, z - 0.45, z + 0.45, pc, { col: false });
-    const face = (tex, w, hh, yc, zc) => { for (const sd of [-1, 1]) k.plane(tex, w, hh, x + sd * 0.2, yc, zc, sd * Math.PI / 2, { emissive: 0.35 }); };
+    const face = (tex, w, hh, yc, zc, tex2) => { for (const sd of [-1, 1]) k.plane(sd > 0 && tex2 ? tex2 : tex, w, hh, x + sd * 0.2, yc, zc, sd * Math.PI / 2, { emissive: 0.35 }); };
     let y = h;
-    if (o.top) { const [t, bg, fg, w, hh, sub] = o.top, m = o.frame ? 0.36 : 0.1; k.box(x - 0.18, x + 0.18, h - hh, h, z - w / 2, z + w / 2, o.frame || bg, { col: false }); face(paint(t, bg, fg, sub, w - m, hh - m, 96), w - m, hh - m, h - hh / 2, z); y = h - hh - 0.25; }
+    if (o.top) { const [t, bg, fg, w, hh, sub, style, t2, fg2] = o.top, m = o.frame ? 0.36 : 0.1; k.box(x - 0.18, x + 0.18, h - hh, h, z - w / 2, z + w / 2, o.frame || bg, { col: false }); face(paint(t, bg, fg, sub, w - m, hh - m, 96, style), w - m, hh - m, h - hh / 2, z, t2 ? paint(t2, bg, fg2 || fg, sub, w - m, hh - m, 96, style) : null); y = h - hh - 0.25; }
     for (const v of [o.vert, o.low]) if (v) { const [t, bg, fg, w, len] = v, zc = z + (o.out ? -1 : 1) * ((o.truss ? 0.6 : 0.2) + w / 2); k.box(x - 0.18, x + 0.18, y - len, y, zc - w / 2, zc + w / 2, bg, { col: false }); face(ROWT.vert(`pzP${  t  }${bg}`, bg, fg, t), w - 0.08, len - 0.08, y - len / 2, zc); y -= len + 0.2; }
   };
   const canopy = (k, x0, x1, z0, z1, o) => { // 平頂鋼棚：只有柱子有碰撞，底下可以停車
@@ -319,6 +459,8 @@ export function buildPuzhongStreet(I, scene, X) {
         const [xa, xb] = span(sa, sb), bw = xb - xa;
         if (kind === 'open') { const n = Math.max(1, Math.round(bw / 5)); for (let j = 0; j < n; j++) k.plane(openTex, bw / n, dh, xa + bw * (j + 0.5) / n, dh / 2, -0.07, FRONT, { emissive: 0.3 }); }
         else if (kind === 'glass') k.plane(shopTex(i), bw, dh, xa + bw / 2, dh / 2, -0.07, FRONT, { emissive: 0.5 });
+        else if (kind === 'dark') { const n = Math.max(2, Math.round(bw / 1.5)); k.box(xa, xb, 0, dh, -0.07, 0, col || '#27343a', { col: false }); for (let j = 1; j < n; j++) k.box(xa + bw * j / n - 0.04, xa + bw * j / n + 0.04, 0, dh, -0.1, 0, pc, { col: false }); }
+        else if (kind === 'blank') { const n = Math.max(1, Math.round(bw / 1.6)); k.box(xa, xb, 0, dh, -0.07, 0, col || '#e6e6e2', { col: false }); for (let j = 1; j < n; j++) k.box(xa + bw * j / n - 0.04, xa + bw * j / n + 0.04, 0, dh, -0.1, 0, pc, { col: false }); }
         else k.plane(shutterFine(col || '#8a8d90'), bw, dh, xa + bw / 2, dh / 2, -0.07, FRONT);
         for (const x of [xa - 0.12, xb]) k.box(x, x + 0.12, 0, dh, -0.14, 0, pc, { col: false });
         k.box(xa - 0.12, xb + 0.12, dh, dh + 0.14, -0.14, 0, pc, { col: false });
@@ -331,7 +473,7 @@ export function buildPuzhongStreet(I, scene, X) {
         k.box(xa, xb, sy, sy + sh, sz - 0.2, sz, bg, { col: false });
         k.plane(paint(text, bg, fg, sub, xb - xa - 0.1, sh - 0.06, 96, style), xb - xa - 0.1, sh - 0.06, (xa + xb) / 2, sy + sh / 2, sz - 0.21, FRONT, { emissive: 0.35 });
       }
-      drape(k, 0, w, -ap, 0, '#a3a19b');
+      drape(k, 0, w, -ap, 0, sp.pave || '#a3a19b');
     } else if (sp.pave !== 0) drape(k, 0, w, -ap, d, sp.pave || '#8f8d88');
     for (const [t, a, b, c, e, f] of sp.items || []) {
       if (t === 'cars') { const [x0, x1] = span(a, b), o = e || {}, n = Math.floor((x1 - x0) / 2.7); for (let j = 0; j < n; j++) { const q = r(), col = carCols[r() * carCols.length | 0], x = x0 + (x1 - x0 - n * 2.7) / 2 + 2.7 * (j + 0.5), z = lz(c) + r() * 0.5; if (q >= (o.skip || 0)) car(sub(k, x, z + 2.15), x, z, col); } }
@@ -344,9 +486,15 @@ export function buildPuzhongStreet(I, scene, X) {
         for (let j = 0; j < n; j++) { const u0 = j / n, u1 = (j + 1) / n, p = [xa + (xb - xa) * u0, za + (zb - za) * u0, xa + (xb - xa) * u1, za + (zb - za) * u1]; paintGeo(sub(k, (p[0] + p[2]) / 2, (p[1] + p[3]) / 2).slab(p[0], p[1], p[2], p[3], 0.08, -0.4, o.h || 2, VC), o.col || '#8fa593'); }
       } else if (t === 'tree') tree(sub(k, lx(a), lz(b)), lx(a), lz(b), c || 8, r);
       else if (t === 'tank') { const x = lx(a), z = lz(b), y = c || 0; for (const [qx, qz] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]) k.box(x + qx - 0.04, x + qx + 0.04, y, y + 1.0, z + qz - 0.04, z + qz + 0.04, '#a03a2a', { col: false }); k.cyl(x, z, 0.62, y + 1.0, y + 2.4, '#c9ccd0', { seg: 12 }); }
-      else if (t === 'stack') { const x = lx(a), z = lz(b), o = c || {}, bw = o.w || 2.2, q = sub(k, x, z); let y = o.h || 7; q.box(x - 0.1, x + 0.1, -0.6, y, z - 0.1, z + 0.1, '#8a8d90'); for (const [text, bg, fg] of o.rows || []) { y -= 0.6; q.box(x - 0.14, x + 0.14, y, y + 0.54, z - bw / 2, z + bw / 2, bg, { col: false }); if (text) for (const sd of [-1, 1]) q.plane(paint(text, bg, fg, null, bw - 0.1, 0.48, 96), bw - 0.1, 0.48, x + sd * 0.16, y + 0.27, z, sd * Math.PI / 2, { emissive: 0.4 }); } }
+      else if (t === 'stack') { const x = lx(a), z = lz(b), o = c || {}, bw = o.w || 2.2, q = sub(k, x, z); let y = o.h || 7; q.box(x - 0.1, x + 0.1, -0.6, y, z - 0.1, z + 0.1, '#8a8d90'); const rh = o.rh || 0.6; for (const [text, bg, fg] of o.rows || []) { y -= rh; q.box(x - 0.14, x + 0.14, y, y + rh - 0.06, z - bw / 2, z + bw / 2, bg, { col: false }); if (text) for (const sd of [-1, 1]) q.plane(paint(text, bg, fg, null, bw - 0.1, rh - 0.12, 96), bw - 0.1, rh - 0.12, x + sd * 0.16, y + rh / 2 - 0.03, z, sd * Math.PI / 2, { emissive: 0.4 }); } }
       else if (t === 'box') { const [x0, x1] = span(a, b), o = f || {}, z0 = lz(c), y1 = o.y1 || 3, q = sub(k, (x0 + x1) / 2, (z0 + lz(e)) / 2); q.box(x0, x1, o.y0 ?? -1.2, y1, z0, lz(e), o.col || '#c9c8c2', { col: !!o.solid }); for (let j = 0; j < (o.win || 0); j++) for (const u of [0.28, 0.72]) q.plane(YHT.win(), 1.6, 1.2, x0 + (x1 - x0) * u, y1 - 1.7 - j * 3.3, z0 - 0.03, FRONT); }
-      else if (t === 'roundel') { const x = lx(a), z = lz(b), o = c || {}, hc = o.h || 7, dd = o.d || 2, q = sub(k, x, z); q.box(x - 0.07, x + 0.07, -0.6, hc + dd / 2, z + dd / 2 + 0.05, z + dd / 2 + 0.19, '#7d7f82'); q.box(x - 0.05, x + 0.05, hc - 0.05, hc + 0.05, z, z + dd / 2 + 0.1, '#7d7f82', { col: false }); for (const sd of [-1, 1]) q.plane(cpcLogo, dd, dd, x + sd * 0.06, hc, z, sd * Math.PI / 2, { transparent: true, emissive: 0.35 }); }
+      else if (t === 'awning') { // 條紋布雨棚：平頂加前緣垂邊
+        const [x0, x1] = span(a, b), o = f || {}, C = o.cols || ['#c8473a', '#f0ece4'], y = o.y || 3.3, n = C.length > 1 ? Math.max(2, Math.round((x1 - x0) / 0.55)) : 1, bw = (x1 - x0) / n, z0 = lz(c), z1 = lz(e), q = sub(k, (x0 + x1) / 2, (z0 + z1) / 2);
+        for (let j = 0; j < n; j++) { q.box(x0 + j * bw, x0 + (j + 1) * bw + 0.01, y, y + 0.07, z0, z1, C[j % C.length], { col: false }); q.box(x0 + j * bw, x0 + (j + 1) * bw + 0.01, y - (o.drop ?? 0.35), y, z0 - 0.05, z0, C[j % C.length], { col: false }); }
+      } else if (t === 'tires') { // 牆腳一排半埋的彩色輪胎
+        const [x0, x1] = span(a, b), o = e || {}, rr = o.r || 0.36, n = Math.max(1, Math.floor((x1 - x0) / (rr * 2 + 0.06)));
+        for (let j = 0; j < n; j++) { const x = x0 + (x1 - x0) * (j + 0.5) / n, z = lz(c), [wx, wz] = k.w(x, z), g = new THREE.TorusGeometry(rr * 0.72, rr * 0.28, 6, 12); g.translate(x, hAt(wx, wz) - k.base + rr * 0.6, z); k._part(VC, paintGeo(g, o.col || '#f2c81e')); }
+      } else if (t === 'roundel') { const x = lx(a), z = lz(b), o = c || {}, hc = o.h || 7, dd = o.d || 2, q = sub(k, x, z); q.box(x - 0.07, x + 0.07, -0.6, hc + dd / 2, z + dd / 2 + 0.05, z + dd / 2 + 0.19, '#7d7f82'); q.box(x - 0.05, x + 0.05, hc - 0.05, hc + 0.05, z, z + dd / 2 + 0.1, '#7d7f82', { col: false }); for (const sd of [-1, 1]) q.plane(cpcLogo, dd, dd, x + sd * 0.06, hc, z, sd * Math.PI / 2, { transparent: true, emissive: 0.35 }); }
     }
   };
 
@@ -403,6 +551,9 @@ export function buildPuzhongStreet(I, scene, X) {
       k.box(0.15, bodyW - 0.15, 0, gh, -0.04, 0, '#27343a', { col: false });
       for (let x = 0.15; x <= bodyW - 0.2; x += (bodyW - 0.38) / Math.max(2, Math.round(bodyW / 1.8))) k.box(x, x + 0.08, 0, gh, -0.07, 0, '#15191c', { col: false });
       k.box(bodyW / 2 - 0.9, bodyW / 2 + 0.9, 0, gh - 0.3, -0.09, 0, '#7a6a55', { col: false }); k.box(bodyW / 2 - 0.02, bodyW / 2 + 0.02, 0, gh - 0.3, -0.1, 0, '#4a3f33', { col: false });
+    } else if (gk === 'stripe') {                                                                        // 整面封起來的直條紋飾板（gs 顏色輪流）
+      const C = sp.gs || ['#4a4a4a', '#e6e6e6'], n = Math.max(2, Math.round((bodyW - 0.3) / 0.55)), bw = (bodyW - 0.3) / n;
+      for (let j = 0; j < n; j++) k.box(0.15 + j * bw, 0.15 + (j + 1) * bw + 0.005, 0, gh, -0.04, 0, C[j % C.length], { col: false });
     } else if (gk === 'open') {
       k.plane(openTex, bodyW - 0.4, gh, bodyW / 2, gh / 2, -0.03, FRONT, { emissive: 0.3 });
       for (const x of [0.12, bodyW - 0.22]) k.box(x, x + 0.1, 0, gh, -0.1, 0, '#8a8680', { col: false });
@@ -424,9 +575,10 @@ export function buildPuzhongStreet(I, scene, X) {
     for (let f = 1; f < nf; f++) {
       const y = gf + (f - 1) * fh, ww = w - 1.0;
       if (glassWall) {                                                                                     // 玻璃帷幕：一格一格的窗與白色分隔
-        k.box(0.05, w - 0.05, y, y + 0.4, -0.08, -0.02, '#e9e9e6', { col: false });
-        for (let x = 0.05; x <= w - 0.04; x += 1.4) k.box(x, x + 0.07, y, y + fh, -0.1, -0.02, '#e9e9e6', { col: false });
-        if (f === 1) k.box(0.05, w - 0.05, y + fh - 0.06, y + fh, -0.18, -0.02, '#e9e9e6', { col: false });
+        const mc = sp.mull || '#e9e9e6';
+        k.box(0.05, w - 0.05, y, y + 0.4, -0.08, -0.02, mc, { col: false });
+        for (let x = 0.05; x <= w - 0.04; x += 1.4) k.box(x, x + 0.07, y, y + fh, -0.1, -0.02, mc, { col: false });
+        if (f === 1) k.box(0.05, w - 0.05, y + fh - 0.06, y + fh, -0.18, -0.02, mc, { col: false });
         continue;
       }
       const bk = sp.bal || 'grille';
@@ -493,7 +645,7 @@ export function buildPuzhongStreet(I, scene, X) {
     if (nf === 1) { // 一樓鐵皮屋：浪板屋頂往後傾
       k.box(-0.15, w + 0.15, top - 0.12, top, -0.4, d, sp.roofCol || MR.roof, { col: false });
     }
-    drape(k, 0, w, -apron, 0, '#a3a19b'); // 門前鋪面貼著地形鋪
+    drape(k, 0, w, -apron, 0, sp.pave || '#a3a19b'); // 門前鋪面貼著地形鋪
   });
 
   // ---- 沿路圍牆（PZ_ST.fences）：低矮花台、灌木、紅磚方柱加黑色鐵欄杆、行道大樹 ----

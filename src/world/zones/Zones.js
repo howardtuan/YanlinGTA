@@ -63,10 +63,6 @@ export const ZONES = [
     name: '中北路街屋', drop: ZB_ST.drop, ownSign: ZB_ST.ownSign, footprints: zbFootprints,
     build: (I, scene) => buildZhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
-  { // 新中北路（校園西南側）與新中北路469巷兩側街屋、圍牆
-    name: '新中北路街屋', drop: XZ_ST.drop, ownSign: XZ_ST.ownSign, footprints: xzFootprints,
-    build: (I, scene) => buildXinzhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
-  },
   { name: '戈登肉鋪', footprints: () => [gordonFootprint()], build: (I, scene) => { I.gordon = buildGordon(I, scene); } }, // 校史館西南側草坪
   { name: '林口體育館（地圖外，演唱會）', build: (I, scene) => { I.arena = buildArena(I, scene, Kit, regMat); } }, // src/systems/minigames/Concert.js
   // ---------------- 校內各區 ----------------
@@ -141,6 +137,10 @@ export const ZONES = [
   { // 大仁二街兩側街屋（恩慈小門到實踐路口）
     name: '大仁二街街屋', drop: D2_ST.drop, look: d2Look, ownSign: D2_ST.ownSign, footprints: d2Footprints,
     build: (I, scene, data, collision) => buildDaren2Street(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }, data, collision),
+  },
+  { // 新中北路（校園西南側）與新中北路469巷兩側街屋、圍牆
+    name: '新中北路街屋', drop: XZ_ST.drop, ownSign: XZ_ST.ownSign, footprints: xzFootprints,
+    build: (I, scene) => buildXinzhongbeiStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

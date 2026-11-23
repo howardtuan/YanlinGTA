@@ -25,6 +25,7 @@ import { darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, bu
 import { ZB_ST, zbFootprints, buildZhongbeiStreet } from '../buildings/StreetZhongbei.js';
 import { D1_ST, d1Footprints, buildDaren1Street } from '../buildings/StreetDaren1.js';
 import { D5_ST, d5Footprints, buildDaren5Street } from '../buildings/StreetDaren5.js';
+import { SJ_ST, sjFootprints, buildShijianStreet } from '../buildings/StreetShijian.js';
 import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
@@ -126,6 +127,10 @@ export const ZONES = [
   { // 大仁五街兩側：長條集合住宅大樓的一樓店面與幾棟較矮的房子
     name: '大仁五街街屋', drop: D5_ST.drop, ownSign: D5_ST.ownSign, footprints: d5Footprints,
     build: (I, scene) => buildDaren5Street(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 實踐路兩側街屋（中北路口那幾棟在中北路街屋）
+    name: '實踐路街屋', drop: SJ_ST.drop, ownSign: SJ_ST.ownSign, footprints: sjFootprints,
+    build: (I, scene) => buildShijianStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

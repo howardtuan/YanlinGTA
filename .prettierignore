@@ -9,7 +9,6 @@ docs/
 package-lock.json
 src/
 js/
-task/
 *.md
 css/
 index.html

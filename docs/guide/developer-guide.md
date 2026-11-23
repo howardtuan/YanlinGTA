@@ -2,7 +2,7 @@
 
 本文件提供「中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)」專案的本機環境建置、日常指令、測試執行、程式碼檢查工具與 GitHub Flow 操作手冊。
 
-> **規範單一真實來源（SSOT）**：所有協作規則、分支命名白名單、變更分級（Tier 1 / Tier 2）、領域 SOP 與架構依賴紅線，統一以 [AGENT.md](../AGENT.md) 為準。
+> **規範單一真實來源（SSOT）**：所有開發原則、分支命名白名單、PR 自動合併規則與專案命名規範，統一以 [AGENT.md](../../AGENT.md) 為準。
 
 ---
 
@@ -54,7 +54,7 @@ npm run dev
 | `npm run format` | 使用 Prettier 自動排版受納管檔案。 | 存檔或提交前美化測試與設定檔。 |
 | `npm run format:check` | 檢查受納管檔案（`.prettierignore` 以外）是否符合 Prettier 標準。 | CI 靜態品質門禁。 |
 | `npm run ci` | 一鍵串聯：`format:check && lint && test && build && check:dist`。 | **Push / 送 PR 前必跑**，模擬 CI 完整門禁。 |
-| `node tools/floorplan/make.mjs` | 依建模程式重新產生 [docs/floorplans/](floorplans/README.md) 室內 SVG 平面圖。 | 調整可進入室內建築與牆線後同步驗圖。 |
+| `node tools/floorplan/make.mjs` | 依建模程式重新產生 [docs/references/floorplans/](../references/floorplans/README.md) 室內 SVG 平面圖。 | 調整可進入室內建築與牆線後同步驗圖。 |
 
 ---
 
@@ -97,7 +97,7 @@ flowchart TD
    - `.prettierignore` 刻意保留 `src/`、`tools/`、`docs/` 與 `*.md` 不做全面重排，以維持 `git blame` 與多組並行分支相容性；`format:check` 主要保護設定檔與 `tests/` 測試檔。
 3. **檔案命名與註解語言**：
    - 核心類別與業務模組採 `PascalCase.js`（如 `GameLoop.js`）；`tools/` 腳本採 `snake_case`（如 `check_wasm.mjs`）。
-   - 通用底層與演算法註解以英文為主；校園地景、典故與任務劇情可使用繁體中文註解（詳見 [AGENT.md](../AGENT.md)）。
+   - 通用底層與演算法註解以英文為主；校園地景、典故與任務劇情可使用繁體中文註解（詳見 [AGENT.md](../../AGENT.md)）。
 
 ---
 
@@ -129,11 +129,14 @@ docs(guide): align developer workflow with GitHub Flow
 chore(ci): add data consistency test suite
 ```
 
-### 3. 本地驗證、開 PR 與合併
+### 3. 本地驗證、開 PR 與自動合併
 1. Push 前務必在本機執行：
    ```bash
    npm run ci
    ```
 2. 推送分支並在 GitHub 建立 Pull Request（依 PR Template 勾選對應領域驗證項目）。
-3. 確認 **4 項 CI Checks 全綠**、取得 Review Approve 並將所有討論串標記為 **Resolved** 後，使用 **Create a merge commit** 合併進 `main`，並刪除已合併分支與清理 Worktree。
-   > **提醒**：Review 後若有新 Push 會自動作廢既有 Approve，請改完一次再推。
+3. **啟用 Auto-merge**：上游目前設定為 `Required approvals = 0` 且開啟 **Allow auto-merge**；發完 PR 後請於網頁點擊 **Enable auto-merge**，或執行：
+   ```bash
+   gh pr merge --auto --merge
+   ```
+4. 待 **4 項 CI Checks 全綠**（且所有討論串已標記為 **Resolved**）後，GitHub 會自動以 **Create a merge commit** 合併進 `main`，再刪除已合併分支與清理 Worktree。

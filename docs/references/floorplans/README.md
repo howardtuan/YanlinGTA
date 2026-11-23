@@ -1,6 +1,6 @@
 # 建築平面圖
 
-`docs/floorplans/` 放建築室內的平面圖（SVG），依建築物分資料夾。圖不含外部字型和腳本，GitHub 上可以直接看：
+`docs/references/floorplans/` 放建築室內的平面圖（SVG），依建築物分資料夾。圖不含外部字型和腳本，GitHub 上可以直接看：
 
 | 資料夾 | 建築 | 圖 | 狀態 |
 | --- | --- | --- | --- |
@@ -66,7 +66,7 @@
 在 repo 根目錄執行（在 node 22 測過）。遊戲程式的 `three` 來自 `node_modules`，第一次要先跑 `npm ci`：
 
 ```bash
-# 重產力行某一層到 docs/floorplans/lixing/
+# 重產力行某一層到 docs/references/floorplans/lixing/
 node tools/floorplan/make.mjs lixing 1f
 node tools/floorplan/make.mjs lixing 2f
 
@@ -83,7 +83,7 @@ node tools/floorplan/make.mjs lixing --list
 
 ```bash
 # Quick Look 的縮圖是正方形，寬的圖直接丟進去只會看到左半邊；先做一份把畫布補成正方形的暫存副本
-sed -E '1s/width="([0-9.]+)" height="[0-9.]+" viewBox="0 0 [0-9.]+ [0-9.]+"/width="\1" height="\1" viewBox="0 0 \1 \1"/' docs/floorplans/lixing/lixing-1f.svg > /tmp/lixing-1f-full.svg
+sed -E '1s/width="([0-9.]+)" height="[0-9.]+" viewBox="0 0 [0-9.]+ [0-9.]+"/width="\1" height="\1" viewBox="0 0 \1 \1"/' docs/references/floorplans/lixing/lixing-1f.svg > /tmp/lixing-1f-full.svg
 qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
 ```
 
@@ -117,7 +117,7 @@ qlmanage -t -s 2400 -o /tmp /tmp/lixing-1f-full.svg
    - `zoneNames`：`{ open: '可以走進去的寢室' }` 這樣改圖例上各種 `style` 的名稱（預設名稱在 `tools/floorplan/lib/svg.mjs` 的 `ZONE_STYLES`）。`bounds`：`{ x0, x1, z0, z1 }`，指定圖要畫的範圍；不給就自動包住所有牆、地板和標籤。
    - `plan()` 的參數裡有 `sl.texts`（這一層讀到的門牌和招牌，含位置）和 `find()`，可以拿來定位。
 6. 核對：加 `--debug` 看紅字和自己標的名稱有沒有對上；挑十個以上的位置（牆的位置、門口缺口、樓梯起點、房間隔間），拿 `--json` 存下來的數字和 js 檔的常數比；再開開發伺服器 `npm run dev`，瀏覽器開 `http://localhost:5173/` 進遊戲走一趟那一層確認。
-7. 確認沒問題再把 SVG 產出來（不給 `--out` 就是 `docs/floorplans/<名稱>/<名稱>-<樓層>.svg`，每棟建築自己一個資料夾），並在這份文件最上面的表格補一列、下面補上各層的圖。
+7. 確認沒問題再把 SVG 產出來（不給 `--out` 就是 `docs/references/floorplans/<名稱>/<名稱>-<樓層>.svg`，每棟建築自己一個資料夾），並在這份文件最上面的表格補一列、下面補上各層的圖。
 
 第二棟是學生活動中心（`src/world/buildings/Sac.js`，`Kit` 原點 0,0、不旋轉），設定檔 `tools/floorplan/buildings/sac.mjs` 可以當另一個範例：
 

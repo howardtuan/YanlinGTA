@@ -211,7 +211,7 @@ classDiagram
 - 專屬語音對白、特殊音效（如漢克彈吉他、黃蓋瑞鬧鐘）。
 
 請參考既有典範模組：
-- **作息與騎乘**：[`src/entities/npcs/Hank.js`](file:///home/hank/Desktop/YanlinGTA/src/entities/npcs/Hank.js)
-- **跳舞與寵物互動**：[`src/entities/npcs/Mingshan.js`](file:///home/hank/Desktop/YanlinGTA/src/entities/npcs/Mingshan.js)
-- **車庫與跑車出借**：[`src/entities/npcs/Jianyu.js`](file:///home/hank/Desktop/YanlinGTA/src/entities/npcs/Jianyu.js)
-- **手搖飲店打工互動**：[`src/systems/minigames/TeaShop.js`](file:///home/hank/Desktop/YanlinGTA/src/systems/minigames/TeaShop.js)
+- **作息與騎乘**：[`src/entities/npcs/Hank.js`](../../src/entities/npcs/Hank.js)
+- **跳舞與寵物互動**：[`src/entities/npcs/Mingshan.js`](../../src/entities/npcs/Mingshan.js)
+- **車庫與跑車出借**：[`src/entities/npcs/Jianyu.js`](../../src/entities/npcs/Jianyu.js)
+- **手搖飲店打工互動**：[`src/systems/minigames/TeaShop.js`](../../src/systems/minigames/TeaShop.js)

@@ -145,6 +145,28 @@ export const HZ_ST = {
     ['L8', 166, 169.5, -1, { own: 'tailor1', set: 6, d: 9, apron: 0 }],
     ['L8', 170, 177.5, -1, { own: 'no50', set: 4.5, d: 8, apron: 0 }],
     ['L8', 178, 182, -1, { own: 'no48', set: 4, d: 10, apron: 0 }],
+    // ---- G 段：環中東路708巷 內段 s≈183～306（街景 2024-08；國土測繪 2024 正射）----
+    // 巷子有兩個直角彎：往北（46 號）、往西（一整排貼著巷子的 2～4 樓街屋：42 號、40 號阿來、荏苒古著、大觀園巷口乾麵、複合式速食、圓招店、30 號影印）、
+    // 再往南（米白住家、26 號、元氣影印店那棟鐵皮屋、巷尾施工中的大樓）。北側／西側是校內機車棚、彩繪擋土牆與建築館，不蓋街屋。
+    // 46 號（w587178600）、元氣影印店（w587179838）、巷尾大樓（w587179834）都是 OSM 真實建物：不 drop、不改名稱，只把招牌立面做成貼在牆外的薄板
+    ['L8', 184, 198, 1, { own: 'cpRow', set: 5, d: 6, apron: 0, wall: 1, fp: [[-0.1, -0.2], [14.1, -0.2], [14.1, 6], [6.3, 6], [6.3, 2.8], [4.7, 2.8], [4.7, 6], [-0.1, 6]] }], // 保留範圍在 (5.5, 3.6) 挖一個缺口：校內機車停車場原本就在那裡生一台機車，擋住會讓全圖停車的亂數順序整個位移
+    ['L8', 202, 215.5, 1, { own: 'muralWall', set: 2.6, d: 3, apron: 0 }],
+    ['L8', 216.5, 224.6, 1, { own: 'muralWall', set: 2.6, d: 3, apron: 0 }],
+    ['L8', 226, 241, 1, { own: 'muralWall', set: 2.6, d: 3, apron: 0, vine: 1 }],
+    ['L8', 183, 199, -1, { own: 'no46', set: 3.8, d: 0.5, apron: 0 }],
+    ['L8', 201.5, 206.5, -1, { own: 'blueShed', set: 2.8, d: 2.5, apron: 0 }],
+    ['L8', 206.5, 216, -1, { own: 'no42', set: 2.8, d: 8, apron: 0 }],
+    ['L8', 216.5, 224, -1, { own: 'alai', set: 2.8, d: 9, apron: 0 }],
+    ['L8', 224, 228, -1, { own: 'renran', set: 2.8, d: 8, apron: 0 }],
+    ['L8', 228, 232.5, -1, { own: 'dagy', set: 2.8, d: 9, apron: 0 }],
+    ['L8', 232.5, 237.5, -1, { own: 'fastfood', set: 2.8, d: 9, apron: 0 }],
+    ['L8', 237.5, 241.5, -1, { own: 'roundShop', set: 2.8, d: 9, apron: 0 }],
+    ['L8', 241.5, 245, -1, { own: 'no30', set: 2.8, d: 10, apron: 0 }],
+    ['L8', 250, 257, -1, { own: 'no30w', set: 2.5, d: 5.5, apron: 0 }],
+    ['L8', 257, 264.5, -1, { own: 'home4', set: 3, d: 10, apron: 0 }],
+    ['L8', 264.5, 271.5, -1, { own: 'no26', set: 3, d: 10, apron: 0 }],
+    ['L8', 272, 282, -1, { own: 'yuanqi', set: 3, d: 0.5, apron: 0 }],
+    ['L8', 289, 297, -1, { own: 'site708', set: 3, d: 0.5, apron: 0 }],
   ],
 };
 // OSM 真實建物只改高度（不 drop、不改 kind、不改輪廓，抽亂數的次數不變，快照已驗證）
@@ -155,7 +177,25 @@ export function hzFix(b) { if (b.id === 'w1113208995') { b.h = 49.5; b.floors = 
 // 森林川家具、響叮噹兩棟 OSM 建物的北牆已經被自建立面板蓋住，但 MapBuilder 自動長出的一樓店面斜雨棚凸出牆面 1.25 m，會從立面板前面穿出一條橫線：
 // 照大仁二街 d2Look 的做法用 noShop 只是不畫店面與雨棚（共用亂數照抽），牆色照舊，只把牆面花紋設成平滑
 const HZ_NOSHOP = new Set(['w1034725687', 'w1034725686']);
-export function hzLook(b) { if (HZ_NOSHOP.has(b.id)) { b.look = { ...(b.look || {}), wall: { base: 'smooth', ...(b.look?.wall || {}) } }; b.noShop = true; } }
+// G 段 708 巷往西那排填充樓不能 drop：它們的店面牆在 world.shopWalls 裡，Furniture 照 walls[(wi * 7919) % walls.length] 挑牆擺機車，
+// 牆數一變全圖的路邊機車、停車都會重排。照大仁二街的做法留著資料、只叫 MapBuilder 不畫牆和屋頂（look.open.bare＋noShop，亂數照抽），
+// 碰撞輪廓在 buildHuanzhongStreet 最後收成一個點（hzUncollide）
+const HZ_HIDE = new Set(['f2_26', 'f2_27', 'f2_28', 'f2_29', 'f2_30']);
+export function hzLook(b) {
+  if (HZ_NOSHOP.has(b.id)) { b.look = { ...(b.look || {}), wall: { base: 'smooth', ...(b.look?.wall || {}) } }; b.noShop = true; }
+  if (HZ_HIDE.has(b.id)) { b.look = { ...(b.look || {}), wall: { base: 'smooth', colour: '#d9d9d6' }, open: { bare: true }, roof: { ac: false, extras: false } }; b.noShop = true; }
+}
+function hzUncollide(data, collision) {
+  if (!data || !collision || !collision.polys) return;
+  for (const b of data.buildings) {
+    if (!HZ_HIDE.has(b.id)) continue;
+    const pi = collision.polys.findIndex((q) => q.pts === b.pts);
+    if (pi < 0) { console.warn(`[huanzhong] 找不到 ${b.id} 的碰撞輪廓`); continue; }
+    const Q = collision.polys[pi], n = b.pts.length, c0 = b.pts[0];
+    Q.pts = b.pts.map(() => [c0[0], c0[1]]); Q.top = -Infinity;
+    for (let k = 0; k < n; k++) collision.segs[Q.s0 + k] = [c0[0], c0[1], c0[0], c0[1], 1e8, 1e8 + 1];
+  }
+}
 export function hzAt(ref, s) {
   const R = HZ_REF[ref]; let acc = 0;
   for (let i = 0; i < R.length - 1; i++) {
@@ -183,7 +223,7 @@ export function hzFootprints() {
 const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 const r16 = (v) => Math.max(16, Math.ceil(v / 16) * 16);
 
-export function buildHuanzhongStreet(I, scene, X) {
+export function buildHuanzhongStreet(I, scene, X, data, collision) {
   const { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS } = X;
   const { MR, FRONT, shopGlass, ac, win, shell } = rowTools();
   const def = (key, f) => { if (!MATS[key]) MATS[key] = f(); return key; };
@@ -1354,6 +1394,115 @@ export function buildHuanzhongStreet(I, scene, X) {
       for (let f = 1; f < 4; f++) { const y = 3.3 + (f - 1) * 3; k.plane(f === 2 ? ROWT.alWin() : YHT.win(), 2.0, 1.4, w / 2, y + 1.6, -0.03, FRONT); if (f === 2) k.box(w / 2 - 1.1, w / 2 + 1.1, y + 0.8, y + 2.4, -0.06, -0.03, '#2f9a6a', nb); k.box(w / 2 - 1.1, w / 2 + 1.1, y + 0.6, y + 0.75, -0.4, 0, '#f2f2ee', nb); }
       k.cyl(0.5, -0.6, 0.35, 0, 0.5, '#8a5a3a', { seg: 8 }); blob(k, 0.5, 1.0, -0.6, 0.55, '#3f7a3a');
     },
+    // ======== G 段：環中東路708巷 內段（街景 2024-08） ========
+    // 校內擋土牆（高約 1.8 m，整面藍、綠、橘彩繪塗鴉），牆頂與牆後是大樹；vine = 牆後爬藤覆蓋的建物牆面
+    muralWall(k, w, d, r, sp) { k.box(0, w, -0.6, 1.8, 0, 0.35, '#8f8b82'); k.plane(wallArt(w), w, 1.8, w / 2, 0.9, -0.02, FRONT); for (let x = 1; x < w; x += 2.6) blob(k, x, 2.4 + r() * 0.6, 0.9, 1.0 + r() * 0.4, r() < 0.5 ? '#3f7a3a' : '#4b8a3e'); if (sp.vine) for (let x = 1.5; x < w; x += 3) tree(k, x, 2.2, 4.5, 2.6, r); },
+    // 46 號（OSM w587178600，名稱照舊）：一樓灰色文化石，二樓整排深色大玻璃，屋頂紅色鐵皮與往巷子外挑的大屋簷（紅色簷帶、白色簷底）；
+    // 一樓由南到北：電表箱與白色鐵格柵樓梯門、玻璃店面（橫招「24小時 輸贏啦 自助桌遊」、紅色鳳梨吊飾、門牌 46）、藍色鐵捲門上黑格柵與墨綠圓牌（字看不清不寫）、藍色鐵捲門上的小字「麻辣臭豆腐」
+    no46() {
+      const A = [154.1, 264], B = [155.7, 277.2], q = edgeKit(A, B), L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      q.box(-1.5, 0, -0.8, 7.2, 0, 7, '#9a9da0'); skin(q, L, 7.2, '#9a9da0'); q.plane(board('cultStone', 6, 3.6, (g, W, Hh) => { fill(g, W, Hh, '#9a9da0'); for (let y = 0; y < Hh; y += Hh / 24) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(0, y, W, 2); } }, 24), L + 1.5, 3.6, (L - 1.5) / 2, 1.8, -0.32, FRONT);
+      q.plane(darkGl, L + 1.5, 2.8, (L - 1.5) / 2, 5.0, -0.33, FRONT); for (let x = -1.5; x < L; x += 3) q.box(x, x + 0.08, 3.6, 6.4, -0.36, -0.3, '#d8d8d4', nb);
+      q.box(-1.7, L + 0.2, 6.6, 7.2, -1.8, -0.3, '#b3262a', nb); q.box(-1.7, L + 0.2, 6.55, 6.6, -1.8, -0.3, '#d8d4cc', nb);
+      q.box(L - 1.2, L - 0.4, 0.8, 1.8, -0.5, -0.3, '#8a8d90', nb); q.box(L - 0.4, L, 0, 2.4, -0.34, -0.3, '#f2f2ee', nb);
+      shopGlass(q, L - 6.2, L - 1.3, 0, 2.6, ROWT.shop('hz46', '#eef0f4', '#7f858c', 46), -0.33);
+      q.plane(board('shuyingla', 5, 0.9, (g, W, Hh) => { fill(g, W, Hh, '#eef0f4'); g.strokeStyle = '#8fb0d8'; g.lineWidth = 3; g.strokeRect(2, 2, W - 4, Hh - 4); const tile = (t, x, c) => { g.fillStyle = '#f4f4f0'; g.fillRect(x - Hh * 0.28, Hh * 0.14, Hh * 0.56, Hh * 0.72); g.strokeStyle = '#2f7a5a'; g.strokeRect(x - Hh * 0.28, Hh * 0.14, Hh * 0.56, Hh * 0.72); fitText(g, t, x, Hh / 2, Hh * 0.5, Hh * 0.46, c); };
+        ['24', '小', '時'].forEach((t, j) => tile(t, W * (0.07 + j * 0.09), j ? '#2f7a5a' : '#c8202a')); g.fillStyle = '#2a5fc0'; g.beginPath(); g.ellipse(W * 0.5, Hh * 0.52, W * 0.12, Hh * 0.36, 0, 0, 7); g.fill(); fitText(g, '輸贏啦', W * 0.5, Hh * 0.55, W * 0.2, Hh * 0.4, '#ffffff'); g.fillStyle = '#4fae5a'; g.beginPath(); g.arc(W * 0.5, Hh * 0.14, Hh * 0.12, 0, 7); g.fill();
+        [...'自助桌遊'].forEach((t, j) => tile(t, W * (0.68 + j * 0.09), '#2a3f7a')); }), 5, 0.9, L - 3.75, 3.1, -0.36, FRONT, { emissive: 0.35 });
+      q.plane(paint('46', '#2a5fc0', '#ffffff', null, 0.3, 0.2, 128), 0.3, 0.2, L - 6.4, 2.2, -0.35, FRONT); blob(q, L - 1.6, 2.3, -0.6, 0.18, '#d8322a');
+      q.plane(shutterTex('#3f6fc0'), 5.2, 2.8, 3.4, 1.4, -0.33, FRONT); q.box(0.8, 6.0, 2.8, 3.5, -0.36, -0.3, '#2a2a2a', nb); q.plane(roundSign('', '#1f3a34', '#f2f2ee'), 0.9, 0.9, 3.4, 3.15, -0.37, FRONT, { transparent: true });
+      q.plane(shutterTex('#3f6fc0'), 1.4, 2.8, -0.75, 1.4, -0.33, FRONT); q.plane(board('mala', 1.4, 0.3, (g, W, Hh) => { fill(g, W, Hh, '#9a9da0'); [...'麻辣臭豆腐'].forEach((c, j) => { fitText(g, c, W * (0.1 + j * 0.2), Hh / 2, W * 0.16, Hh * 0.8, '#222222'); if (j) { g.fillStyle = '#222222'; g.fillRect(W * j * 0.2, Hh * 0.15, 1, Hh * 0.7); } }); }), 1.4, 0.3, -0.75, 3.05, -0.34, FRONT);
+    },
+    // 深藍鐵皮小棚屋（貼在 46 號北牆外）：單斜鐵皮頂，紫褐色小捲門與褐色木門
+    blueShed(k, w, d) { k.box(0, w, -0.6, 2.8, 0, d, '#26306a'); tiltX(k, -0.1, w + 0.1, 2.9, -0.3, 2.6, d + 0.1, 0.05, '#4a5070'); k.plane(shutterTex('#8a6a70'), 1.5, 2.2, 1.2, 1.1, -0.03, FRONT); k.box(3.2, 4.1, 0, 2.1, -0.05, 0, '#6a4a30', nb); },
+    // 42 號：一樓白色小口磚（東端黃底紅字斜掛燈箱「□華麵飯館」，第一個字被擋住，只寫看得清的「華麵飯館」）、門牌 42、兩片銀色鐵捲門與收起的咖啡色捲簾雨遮、深色鋁窗與冷氣；
+    // 一樓頂灰色小披簷上一個不鏽鋼水塔；二樓是水泥柱＋淺綠鐵皮斜屋頂的開放棚架、局部深色木板牆
+    no42(k, w, d) {
+      k.box(0, w, -0.6, 3.2, 0, d, 'wall#dcdcd6', { tile: [0.3, 0.3] }); k.plane(shutterTex('#b9b9b4'), 4.0, 2.7, w - 5.5, 1.35, -0.03, FRONT); k.box(w - 7.6, w - 3.4, 2.8, 3.05, -0.35, 0, '#7a5a45', nb); k.plane(paint('42', '#2a5fc0', '#ffffff', null, 0.3, 0.2, 128), 0.3, 0.2, w - 3.2, 2.3, -0.04, FRONT);
+      for (const x of [1.0, 2.6]) k.plane(ROWT.alWin(), 1.2, 1.3, x, 1.7, -0.03, FRONT); ac(k, 0.4, 0.4);
+      k.box(-0.1, w + 0.1, 3.2, 3.35, -0.8, 0, '#8c8f8a', nb); k.cyl(w - 1.5, -0.3, 0.5, 3.35, 4.4, '#cfd2d4', { seg: 10 });
+      for (const x of [0.2, w / 2, w - 0.2]) k.box(x - 0.15, x + 0.15, 3.2, 6.0, 0.2, 0.5, '#9a9890', nb); tiltX(k, -0.2, w + 0.2, 6.3, -0.2, 5.8, d, 0.06, '#b9c9a0'); k.box(0.3, 3.5, 3.2, 5.8, 3, 3.1, '#4a4038', nb);
+      k.box(w - 0.3, w - 0.2, 3.3, 5.0, -0.6, -0.5, '#55585c', nb); k.plane(paint('華麵飯館', '#f2c21a', '#c8302a', null, 3.5, 0.9, 96), 3.5, 0.9, w - 2.0, 4.4, -0.62, FRONT, { emissive: 0.35 });
+    },
+    // 40 號 阿來：4 樓白色小方磚，一樓東 2.5 m 鐵窗牆、西 5 m 深色鋁框玻璃店門（紅黃菜單）；白底橫招「阿來 炒飯／炒麵 香 好料 Q 吃 飽」，上方垂白色小花藤蔓；
+    // 樓上每層一組凸出的白色拱頂花格鐵窗＋冷氣，二樓晾衣服
+    alai(k, w, d, r) {
+      k.box(0, w, -0.6, 12.2, 0, d, 'wall#d9d8d0', { tile: [0.3, 0.3] }); k.box(-0.02, w + 0.02, 12.2, 12.32, -0.04, d, 'gray', nb);
+      k.plane(YHT.win(), 2.0, 1.6, w - 1.3, 1.6, -0.03, FRONT); shopGlass(k, 0.3, 5.0, 0, 2.6, ROWT.shop('hzAlai', '#f6ead2', '#a07a4a', 40));
+      k.plane(board('alai', 4.5, 0.7, (g, W, Hh) => { fill(g, W, Hh, '#f2efe6'); fitText(g, '阿來', W * 0.22, Hh / 2, W * 0.3, Hh * 0.8, '#d02a22'); fitText(g, '炒飯', W * 0.53, Hh * 0.3, W * 0.2, Hh * 0.4, '#2540a0'); fitText(g, '炒麵', W * 0.53, Hh * 0.72, W * 0.2, Hh * 0.4, '#2540a0'); fitText(g, '香 好料', W * 0.82, Hh * 0.3, W * 0.25, Hh * 0.34, '#d02a22', 700); fitText(g, 'Q 吃 飽', W * 0.82, Hh * 0.72, W * 0.25, Hh * 0.34, '#2540a0', 700); }), 4.5, 0.7, 2.6, 2.95, -0.05, FRONT, { emissive: 0.3 });
+      for (let x = 0.4; x < 5; x += 0.5) blob(k, x, 3.4, -0.15, 0.18, '#e8efe0');
+      for (let f = 1; f < 4; f++) { const y = 3.2 + (f - 1) * 3; k.box(0.6, w - 0.6, y + 0.5, y + 2.6, -0.6, 0, '#f2f2ee', nb); k.plane(archWin, w - 1.4, 1.9, w / 2, y + 1.55, -0.62, FRONT); ac(k, 0.1, y + 0.2, -0.9); if (f === 1) for (let x = 1.5; x < w - 1.5; x += 0.6) k.box(x, x + 0.4, y + 1.2, y + 1.9, -0.45, -0.42, ['#c84a4a', '#4a6fb0', '#f2f2ee'][(x * 2 | 0) % 3], nb); }
+    },
+    // 荏苒古著：米黃小磁磚 3 樓，一樓米灰鐵捲門兩片、鐵皮披簷下黑底白字橫招（左邊白色小印章），樓上整排外凸白鐵窗與冷氣，頂部外挑屋簷
+    renran(k, w, d) {
+      k.box(0, w, -0.6, 9.2, 0, d, 'wall#cfc49a', { tile: [0.3, 0.3] }); k.box(-0.3, w + 0.3, 9.2, 9.4, -0.6, d, '#8f8c84', nb);
+      k.plane(shutterTex('#a89f8e'), w - 0.4, 2.6, w / 2, 1.3, -0.03, FRONT); k.box(-0.1, w + 0.1, 3.4, 3.5, -0.8, 0, '#9a9c98', nb);
+      k.plane(board('renran', 3.5, 0.6, (g, W, Hh) => { fill(g, W, Hh, '#1c1c1c'); g.strokeStyle = '#f0f0f0'; g.lineWidth = 3; g.strokeRect(W * 0.04, Hh * 0.2, Hh * 0.6, Hh * 0.6); fitText(g, '荏苒古著', W * 0.56, Hh / 2, W * 0.74, Hh * 0.7, '#f0f0f0'); }), 3.5, 0.6, w / 2, 2.95, -0.05, FRONT, { emissive: 0.3 });
+      for (let f = 1; f < 3; f++) { const y = 3.2 + (f - 1) * 3; k.box(0.3, w - 0.3, y + 0.5, y + 2.5, -0.45, 0, '#f2f2ee', nb); k.plane(YHT.win(), w - 0.8, 1.8, w / 2, y + 1.5, -0.47, FRONT); }
+    },
+    // 大觀園巷口乾麵：白磁磚 4 樓＋屋頂鐵皮棚，一樓開放式攤位用藍白條紋帆布圍住，簷下米白底黑書法字橫幅「大觀園巷口乾麵」（右端碗麵照片）、白底紅字小牌「水餃」；
+    // 二樓窗下那塊紅字招牌只看得清「金園」兩字，不寫字
+    dagy(k, w, d) {
+      k.box(0, w, -0.6, 12.2, 0, d, 'wall#dedbd2', { tile: [0.3, 0.3] }); for (const x of [0.2, w - 0.2]) for (const z of [0.5, d - 0.5]) k.box(x - 0.05, x + 0.05, 12.2, 14.4, z - 0.05, z + 0.05, '#6a6d70', nb); k.box(-0.2, w + 0.2, 14.4, 14.5, 0.2, d, '#9a9c98', nb);
+      k.plane(board('blueStripe', w, 2.3, (g, W, Hh) => { for (let j = 0; j < 16; j++) { g.fillStyle = j % 2 ? '#e8e8e8' : '#3f6fb0'; g.fillRect(W * j / 16, 0, W / 16 + 1, Hh); } }, 32), w - 0.3, 2.3, w / 2, 1.15, -0.4, FRONT); k.box(0, w, 2.5, 2.6, -0.9, 0, '#8c8f8a', nb);
+      k.plane(board('dagy', 4, 0.7, (g, W, Hh) => { fill(g, W, Hh, '#e8e2cf'); fitText(g, '大觀園巷口乾麵', W * 0.42, Hh / 2, W * 0.78, Hh * 0.7, '#1a1a1a', 700); g.fillStyle = '#d8552a'; g.beginPath(); g.arc(W * 0.9, Hh / 2, Hh * 0.36, 0, 7); g.fill(); }), 4, 0.7, w / 2, 2.95, -0.06, FRONT, { emissive: 0.25 });
+      k.plane(vtex('水餃', '#f4f4f0', '#c8302a', 0.35, 0.9), 0.35, 0.9, 0.4, 1.2, -0.45, FRONT); k.box(0.3, w - 0.3, 3.9, 4.7, -0.12, 0, '#f2efe6', nb);
+      for (let f = 1; f < 4; f++) { const y = 3.2 + (f - 1) * 3; k.plane(YHT.win(), w - 1.0, 1.4, w / 2, y + 1.7, -0.03, FRONT); ac(k, 0.2, y + 0.3); }
+    },
+    // 複合式速食：白色橫紋磁磚 4 樓，一樓深灰鐵捲門、上方橘紅橫帶與黑褐底金色書法字橫招；二樓起每層鐵欄杆陽台＋淺綠半透明浪板遮雨棚，陽台上冷氣
+    fastfood(k, w, d) {
+      k.box(0, w, -0.6, 12.2, 0, d, 'wall#e6e4dc', { tile: [0.6, 0.3] }); k.plane(shutterTex('#6a6660'), w - 0.5, 2.5, w / 2, 1.25, -0.03, FRONT); k.box(0, w, 3.15, 3.4, -0.1, 0, '#d8552a', nb);
+      k.plane(paint('複合式速食', '#2a2019', '#d9b25a', null, 4.5, 0.5, 128), 4.5, 0.5, w / 2, 2.85, -0.05, FRONT, { emissive: 0.3 });
+      for (let f = 1; f < 4; f++) { const y = 3.2 + (f - 1) * 3; k.box(0.1, w - 0.1, y, y + 0.1, -1, 0, '#9a9890', nb); k.box(0.1, w - 0.1, y + 1.0, y + 1.05, -1, -0.95, '#2a2a2a', nb); for (let x = 0.1; x < w; x += 0.3) k.box(x, x + 0.025, y + 0.1, y + 1.0, -0.99, -0.96, '#2a2a2a', nb); k.plane(ROWT.alWin(), w - 1.2, 1.5, w / 2, y + 1.6, -0.03, FRONT); k.box(-0.1, w + 0.1, y + 2.6, y + 2.66, -1.1, 0, '#9fc7a8', nb); k.box(0.4, 1.2, y + 0.1, y + 0.6, -0.8, -0.3, MR.ac, nb); }
+    },
+    // 圓形招牌店：深灰褐小磁磚 3 樓，一樓米灰鐵捲門、門邊電表與白色保麗龍箱，捲門上方凸出圓形燈箱（字看不清，不寫字）、西側牆角空白的白色直立燈箱、小綠遮雨棚
+    roundShop(k, w, d) {
+      k.box(0, w, -0.6, 9.2, 0, d, 'wall#6b5f52', { tile: [0.3, 0.3] }); k.plane(shutterTex('#a89f8e'), w - 0.8, 2.6, w / 2 + 0.2, 1.3, -0.03, FRONT); k.box(0.2, 0.7, 0, 0.6, -0.5, -0.1, '#f2f2f0', nb);
+      k.box(w / 2 - 0.05, w / 2 + 0.05, 2.9, 3.6, -0.7, 0, '#55585c', nb); for (const sd of [-1, 1]) k.plane(roundSign('', '#f4f4f0', '#c8202a'), 0.7, 0.7, w / 2 + sd * 0.07, 3.25, -0.7, sd * Math.PI / 2, { transparent: true, emissive: 0.3 });
+      k.box(0.05, 0.65, 0, 1.6, -0.35, -0.05, '#f4f4f2', nb); k.box(1, w - 0.2, 2.75, 2.85, -0.6, 0, '#5f9a6a', nb);
+      for (let f = 1; f < 3; f++) { const y = 3.2 + (f - 1) * 3; k.plane(YHT.win(), w - 1.0, 1.4, w / 2, y + 1.6, -0.03, FRONT); ac(k, 0.2, y + 0.2); }
+    },
+    // 30 號 轉角 4 樓：北立面米白橫紋二丁掛，一樓深灰鐵捲門（上方紅字小橫牌看不清不寫）、門牌 30、轉角斜切的水泥外挑簷；樓上白色凸窗鐵窗與冷氣；
+    // 二～三樓一塊向外斜掛的藍底黃邊大看板，黃色大字直排「影印」（上面一行小字看不清不寫）
+    no30(k, w, d) {
+      k.box(0, w, -0.6, 12.4, 0, d, 'wall#d8d2c0', { tile: [0.6, 0.3] }); k.box(-0.02, w + 0.02, 12.4, 12.5, -0.04, d, 'gray', nb); k.plane(shutterTex('#5a5754'), 4, 2.7, w / 2 + 0.4, 1.35, -0.03, FRONT); k.plane(paint('30', '#c8202a', '#ffffff', null, 0.3, 0.2, 128), 0.3, 0.2, 0.4, 2.2, -0.04, FRONT);
+      k.box(-0.4, w, 3.4, 3.8, -0.8, 0, '#a9a69e', nb); k.box(-0.4, 0, 3.4, 3.8, 0, d, '#a9a69e', nb);
+      for (let f = 1; f < 4; f++) { const y = 3.4 + (f - 1) * 3; k.box(0.5, w - 0.5, y + 0.6, y + 2.4, -0.5, 0, '#f2f2ee', nb); k.plane(YHT.win(), w - 1.2, 1.6, w / 2, y + 1.5, -0.52, FRONT); ac(k, w - 1.0, y + 0.1, -0.9); }
+      k.box(0.6, 0.7, 4.0, 9.0, -1.6, -0.2, '#55585c', nb); k.plane(board('yinyin', 2.5, 4, (g, W, Hh) => { fill(g, W, Hh, '#f0a020'); g.fillStyle = '#2a4fb0'; g.fillRect(W * 0.06, Hh * 0.04, W * 0.88, Hh * 0.92); fitText(g, '影', W / 2, Hh * 0.38, W * 0.7, Hh * 0.3, '#f6d23a'); fitText(g, '印', W / 2, Hh * 0.72, W * 0.7, Hh * 0.3, '#f6d23a'); }), 2.5, 4, 0.65, 6.5, -1.6, Math.PI / 2, { emissive: 0.3, double: true });
+    },
+    // 30 號的西側牆（沿往南那段巷子）：整面沒有窗的水泥粉光牆，牆腳 2 m 彩色塗鴉
+    no30w(k, w, d) { k.box(0, w, -0.6, 12.4, 0, d, '#9a958c'); k.box(-0.02, w + 0.02, 12.4, 12.5, -0.04, d, 'gray', nb); k.plane(wallArt(w), w, 2, w / 2, 1.0, -0.02, FRONT); },
+    // 米白橫紋磁磚 4 樓住家：一樓北半白磁磚牆與電表箱、南半深色鋁框玻璃拉門＋生鏽鐵架撐的灰浪板雨遮；樓上每層兩組白色凸出鐵窗與窗型冷氣
+    home4(k, w, d) {
+      k.box(0, w, -0.6, 12.2, 0, d, 'wall#d6d0be', { tile: [0.6, 0.3] }); k.box(-0.02, w + 0.02, 12.2, 12.32, -0.04, d, 'gray', nb); k.box(w - 1.4, w - 0.6, 0.8, 1.8, -0.25, 0, '#8a8d90', nb); shopGlass(k, 0.3, 3.8, 0, 2.5, darkShop); tiltX(k, 0, 4, 2.8, -1.1, 3.0, 0, 0.05, '#9a9c98');
+      for (let f = 1; f < 4; f++) { const y = 3.2 + (f - 1) * 3; for (const x of [1.9, w - 1.9]) { k.box(x - 1.3, x + 1.3, y + 0.6, y + 2.4, -0.5, 0, '#f2f2ee', nb); k.plane(YHT.win(), 2.4, 1.6, x, y + 1.5, -0.52, FRONT); } k.box(w / 2 - 0.35, w / 2 + 0.35, y + 0.9, y + 1.4, -0.5, 0, MR.ac, nb); }
+    },
+    // 26 號：白色平滑塗料 4 樓（頂樓是鋁窗加蓋），一樓兩片深灰鐵捲門、門牌 26 與綠色信箱；二樓鐵窗陽台與遮陽板、三樓兩扇直立半圓拱窗
+    no26(k, w, d) {
+      k.box(0, w, -0.6, 12.2, 0, d, '#e9e6df'); k.box(-0.02, w + 0.02, 12.2, 12.32, -0.04, d, 'gray', nb); k.plane(shutterTex('#5a5754'), 6, 2.7, w / 2, 1.35, -0.03, FRONT); k.plane(paint('26', '#2a5fc0', '#ffffff', null, 0.3, 0.2, 128), 0.3, 0.2, 0.3, 2.2, -0.04, FRONT); k.box(0.1, 0.45, 1.0, 1.4, -0.25, 0, '#3f8a4c', nb);
+      k.box(0.2, w - 0.2, 3.2, 3.3, -0.9, 0, '#9a9890', nb); k.plane(YHT.win(), w - 1.2, 1.4, w / 2, 4.6, -0.03, FRONT); k.box(0.1, w - 0.1, 5.9, 5.98, -0.7, 0, '#cfcfcb', nb);
+      const arch = board('archTall', 0.6, 1.5, (g, W, Hh) => { fill(g, W, Hh, '#e9e6df'); g.fillStyle = '#4a5a64'; g.beginPath(); g.moveTo(W * 0.1, Hh); g.lineTo(W * 0.1, W * 0.5); g.arc(W / 2, W * 0.5, W * 0.4, Math.PI, 0); g.lineTo(W * 0.9, Hh); g.closePath(); g.fill(); });
+      for (const x of [2.6, w - 2.6]) k.plane(arch, 0.6, 1.5, x, 7.6, -0.03, FRONT); k.plane(ROWT.alWin(), w - 1, 1.6, w / 2, 10.8, -0.03, FRONT);
+    },
+    // 元氣影印店那棟鐵皮屋（OSM w587179838，名稱照舊）：一樓北半紅磚／水泥、南半紅磚，二樓米色直紋鐵皮、白格方鐵窗與窗型冷氣＋淺綠小雨遮；
+    // 北半影印店敞開店面與綠色帆布雨遮、門口彩色價目牌（店名沒拍到不寫）；南半早餐店藍色鐵捲門、灰白條紋帆布雨棚，雨棚下黃橘底橫招只寫看得到的下排「漢堡／三明治／蛋餅／奶茶／咖啡」；
+    // 南山牆橘紅牆面上白底深藍字直式招牌「素食」
+    yuanqi() {
+      const A = [99.6, 279.3], B = [103.8, 271], q = edgeKit(A, B), L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      skin(q, L, 3.2, '#a8452f'); q.plane(board('tinBeige', L, 4, (g, W, Hh) => { fill(g, W, Hh, '#cfc9a8'); for (let x = 0; x < W; x += W / 40) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(x, 0, 2, Hh); } }, 24), L, 4, L / 2, 5.2, -0.32, FRONT);
+      for (const x of [1.5, 4.5, 7.5]) { q.plane(YHT.win(), 1.2, 1.1, x, 4.9, -0.34, FRONT); q.box(x - 0.6, x + 0.6, 5.5, 5.58, -0.9, -0.3, '#9fc7a8', nb); }
+      q.plane(openTex, 4.2, 2.8, L - 2.4, 1.4, -0.33, FRONT, { emissive: 0.35 }); q.box(L - 4.6, L, 2.9, 3.0, -1.5, -0.3, '#3f9a5a', nb); q.box(L - 1.2, L - 0.4, 0, 1.6, -1.2, -1.1, '#f4f4f0', nb); for (let j = 0; j < 4; j++) q.box(L - 1.15, L - 0.45, 0.3 + j * 0.32, 0.55 + j * 0.32, -1.21, -1.2, ['#e8c93a', '#c84a4a', '#4a8fd0', '#4fae5a'][j], nb);
+      q.plane(shutterTex('#2f5fa8'), 4.4, 2.5, 2.6, 1.25, -0.33, FRONT); for (let x = 0.3; x < 5; x += 0.4) q.box(x, x + 0.2, 3.0, 3.1, -1.3, -0.3, x % 0.8 < 0.4 ? '#6e6a60' : '#d8d4c8', nb);
+      q.plane(board('breakfast', 4.6, 0.9, (g, W, Hh) => { fill(g, W, Hh, '#f5b21e'); fitText(g, '漢堡／三明治／蛋餅／奶茶／咖啡', W / 2, Hh * 0.74, W * 0.94, Hh * 0.34, '#111111', 800); }), 4.6, 0.9, 2.6, 2.75, -0.34, FRONT, { emissive: 0.3 });
+      const s = edgeKit([105.3, 281.6], A), LS = Math.hypot(A[0] - 105.3, A[1] - 281.6); skin(s, LS, 3.2, '#d8552f'); s.plane(vtex('素食', '#f4f4f2', '#1f2f6a', 0.9, 1.4), 0.9, 1.4, LS / 2, 1.8, -0.33, FRONT, { emissive: 0.3 });
+    },
+    // 巷尾施工中的大樓（OSM w587179834，名稱照舊）：2024-08 整棟包著鷹架與藍色防護網，一樓清水混凝土柱梁、淺綠鐵板工地圍籬與綠色鐵管大門、生鏽鋼板防護棚、灰色配電箱。完工外觀不知道，照現況做成興建中
+    site708() {
+      const A = [90.7, 292.8], B = [95.8, 289.7], q = edgeKit(A, B), L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      q.box(0, L, -0.5, 2, -1.2, -1.1, '#6fae8f'); q.box(L * 0.55, L * 0.55 + 2.2, 0.1, 1.9, -1.25, -1.2, '#3f8a4c', nb); q.box(-0.3, L + 0.3, 3.9, 4.05, -2.3, -0.3, '#7a4a2c', nb); for (const x of [0.5, 1.4, 2.3]) q.box(x - 0.4, x + 0.4, 0, 1.4, -1.8, -1.3, '#9a9d9f', nb);
+      const net = board('net708', 6, 17, (g, W, Hh) => { g.clearRect(0, 0, W, Hh); g.fillStyle = 'rgba(47,98,200,0.75)'; g.fillRect(0, 0, W, Hh); g.strokeStyle = 'rgba(30,60,140,0.95)'; g.lineWidth = 2; for (let y = 0; y < Hh; y += Hh / 9.5) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); } for (let x = 0; x < W; x += W / 3.3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, Hh); g.stroke(); } }, 24);
+      q.plane(net, L, 13, L / 2, 10.6, -0.4, FRONT, { transparent: true, double: true });
+    },
   };
 
   const exposed = (L, lo) => !HZ_ST.lots.some((M) => M !== L && M[0] === L[0] && M[3] === L[3] && (lo ? Math.abs(M[2] - L[1]) < 1.2 : Math.abs(M[1] - L[2]) < 1.2)); // 這一側有沒有鄰居
@@ -1477,4 +1626,5 @@ export function buildHuanzhongStreet(I, scene, X) {
     street(k, w, apron, set, sp, r);
   });
   finishRow(scene, kits);
+  hzUncollide(data, collision);
 }

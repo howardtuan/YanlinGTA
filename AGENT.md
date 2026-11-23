@@ -1,111 +1,142 @@
-# YanlinGTA 開發規範與 Agent 作業指南 (Agent Development Guidelines)
+# YanlinGTA 開發規範與協作憲法 (AGENT.md — Single Source of Truth)
 
-本文件定義「中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)」專案的長期統一開發規範、架構分層準則、品質門檻與協作流程。所有參與專案開發與維護的 AI Agent 及開發者均須嚴格遵守。
+本文件為「中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)」專案開發流程、協作紀律、架構規範與品質門檻的**單一真實來源（SSOT）**。所有人類開發者與 AI Agent（Antigravity、Claude Code 等）均須嚴格遵守。
+
+> 環境建置教學與指令詳解請參閱 [docs/developer-guide.md](docs/developer-guide.md)；系統分層架構詳見 [docs/architecture.md](docs/architecture.md)。
 
 ---
 
-## 一、 專案核心原則與承諾
+## 一、 核心原則 (Core Principles)
 
 1. **專案定位**：
-   - 3D 開放世界校園網頁冒險遊戲（採用 Three.js + Rapier 3D WASM 物理引擎 + Rust 程序化貼圖核心）。
-   - 專案由 `howardtuan/YanlinGTA` fork 而來，所有變更最終將以 Pull Request 形式合併回源專案。
+   - 3D 開放世界校園網頁冒險遊戲（Three.js + Rapier 3D WASM + Rust WASM 貼圖核心），由多組團隊與 AI Session 共同維護，並持續部署至 GitHub Pages。
 2. **零功能破壞原則 (Zero Regression)**：
-   - 嚴格維持既有遊戲性、對白劇情、角色模型、物理數值與彩蛋機制不變。
-   - 任何效能最佳化、模組重構或新功能擴充，均不得破壞 Three.js 渲染管線與 Rapier 物理世界的數值穩定性。
-3. **先討論後動工原則 (Discussion Before Execution)**：
-   - 除非接獲明確的開工指令，否則不可自行開始重大開發或實作工作。
-   - 任何架構調整或新功能，須先仔細討論具體方案，並在 `task/` 目錄撰寫完整的規格規劃與驗收標準（Acceptance Criteria, AC）經確認後方可執行。
+   - 嚴格維持既有遊戲性、劇情對白、角色模型、物理數值與彩蛋機制不變。
+   - 任何效能最佳化、重構或新內容擴充，均不得破壞 Three.js 渲染穩定性與 Rapier 物理世界。
+3. **SSOT 原則**：
+   - 流程與規範以本文件為準；`docs/` 文件不得定義與本文件衝突之規則。
 
 ---
 
-## 二、 開發環境與標準工作流 (Workflow & Toolchain)
+## 二、 變更分級與先討論原則 (Change Tiers & `task/`)
 
-專案使用現代化前端工程管線，所有相依套件均由 NPM 管理，建置管線由 Vite 驅動。
+為避免繁瑣流程卡住日常內容迭代，同時守住核心架構品質，所有開發採**兩級制**：
 
-### 1. 常用命令清單
+| 分級 | 適用範圍 | 動工前規範 |
+| :--- | :--- | :--- |
+| **Tier 1：內容／局部變更** | 單一路段街景、單棟建築外觀補完、`data/npcs.json` 自訂 NPC、純文案或局部明確修補 | 免撰寫新規格書；直接依「第五節 領域 SOP」開分支實作、自檢並發 PR（完成校內待做項須更新 [task/campus-pending.md](task/campus-pending.md)）。 |
+| **Tier 2：架構／系統／核心變更** | 跨模組重構、物理/渲染/存檔/任務狀態機調整、新小遊戲或新系統、WASM 核心與工具鏈規範變更 | **先討論後動工**：須先對齊方案，並在 `task/` 依 [task/TEMPLATE.md](task/TEMPLATE.md) 建立規格與驗收標準（AC）經確認後方可實作。 |
 
-| 指令 | 目的與說明 |
-| :--- | :--- |
-| `npm run dev` | 啟動本機開發伺服器（預設埠號 5173，支援 HMR 與 WASM） |
-| `npm run lint` | 執行 ESLint 靜態代碼檢查 |
-| `npm run lint -- --fix` | 自動修復符合 ESLint 規範的格式與代碼問題 |
-| `npm run format:check` | 檢查代碼是否符合 Prettier 排版規範 |
-| `npm run format` | 執行 Prettier 自動排版 |
-| `npm test` | 執行 Vitest 單元測試與整合測試套件 |
-| `npm run test:wasm` | 執行 Rust WASM 噪聲與法線計算之逐位元（bit-for-bit）一致性檢驗 |
-| `npm run test:e2e` | 執行無頭 E2E Story Bot 故事通關驗證 |
-| `npm run build` | 執行 Vite 生產環境打包（產物輸出至 `dist/`，含資源 Content Hash） |
-| `npm run preview` | 本機預覽生產環境打包產物 |
-| `npm run ci` | **本地交付前完整驗證門檻**（格式檢查 + Lint + 測試 + Vite 打包） |
-| `docker compose up --build` | 啟動 Docker 容器化生產環境驗證（Nginx） |
-
-### 2. 交付驗收標準
-- 在向遠端推送代碼前，必須在本機執行 `npm run ci`，確保 **Zero Errors / All Tests Passed**。
-- GitHub Actions CI 工作流（代碼品質、單元測試、生產打包、Docker 驗證）必須維持 **全數綠燈**。
+- **`task/` 生命週期**：活躍規格集中於 `task/`；結案時須於文件頂部標註 `狀態：已結案（YYYY-MM-DD）`。跨系統踩坑紀錄沉澱至 [task/MEMORY.md](task/MEMORY.md)。
 
 ---
 
-## 三、 架構分層與目錄職責規範 (`src/`)
+## 三、 GitHub Flow 與協作規範 (對齊上游 Repository Rulesets)
 
-程式碼嚴格依循 7 大領域分層架構，所有前端業務邏輯均收納於 `src/` 目錄內，**嚴禁在專案根目錄散落業務腳本或隨意新建資料夾**。
+本專案全面採用 **GitHub Flow**，並已於上游主倉庫啟用 `protect-main-github-flow` 與 `enforce-branch-naming` 兩條 Rulesets 硬性把關：
+
+### 1. 主幹與雙倉同步規則
+- **唯一權威主幹 `main`**：禁止任何人或 Agent 直接在 `main` 上進行開發 commit 或 `git push origin main`。
+- **乾淨同步**：本機 `main` 僅用於接收遠端更新（建議 `git fetch && git merge --ff-only`），嚴禁在 `main` 留下未合併的實驗改動。
+- **Fork 協作**：若使用個人 Fork 開發，請保持 Fork 的 `main` 與上游 `main` 單向 fast-forward 同步，並一律透過功能分支向上游發起 Pull Request。
+
+### 2. 分支命名白名單 (`enforce-branch-naming`)
+所有工作分支必須以短生命週期（Short-lived，建議 1～3 天內合流即刪）建立於最新 `main` 之上，且**必須**符合下列前綴之一（未符合者將於 `git push` 時直接被 GitHub 拒絕）：
+
+- `feat/<scope>-<topic>`：新功能、街景路段、建築室內、NPC 角色
+- `fix/<scope>-<topic>`：Bug 修復
+- `hotfix/<scope>-<topic>`：線上緊急修復
+- `refactor/<scope>-<topic>`：無功能破壞的架構重構或效能最佳化
+- `docs/<scope>-<topic>`：文件、規範與 `task/` 規格整理
+- `chore/<scope>-<topic>`：CI/CD、設定檔、工具腳本、相依套件與測試補強
+
+> **注意**：禁用不在白名單內的前綴（如 `perf/*`、`test/*`、`claude/*`、`wip/*`）；效能優化請使用 `refactor/*` 或 `feat/*`，補測試請使用 `chore/*` 或併入對應功能分支。
+
+### 3. Worktree 多線並行守則
+- 建議於 repo 外部建立平行 Worktree 目錄（例如 `../YanlinGTA-wt/<branch-name>`）。
+- **一個 Worktree = 一個分支 = 一個明確責任範圍**（例如單一分區、單一路段或單一系統），避免多線同時改動 `MapBuilder.js`、`Zones.js` 或 `Game.js` 導致衝突。
+- PR 合併後立即移除對應 Worktree 與刪除已合併分支。
+
+### 4. PR 合併與 Code Review 紀律 (`protect-main-github-flow`)
+- **鎖定 Merge 策略**：主幹僅允許 **Create a merge commit**（禁用 Squash 與 Rebase Merge）。因此**送出 PR 前請在分支內維持乾淨、有意義的 Commit**，避免將大量 `wip`、`fix typo` 帶入 `main` 歷史。
+- **CI Status Checks 必過**：必須通過 [ci.yml](.github/workflows/ci.yml) 的全部 4 項檢查（`Code Quality`、`Unit & Integration Tests`、`Production Build`、`Docker Build Verification`）。
+- **Review 節奏**：必須取得指定人數的 Approve、將所有 Review 討論串標記為 **Resolved** 才可合併；且**任何新的 Push 都會自動作廢既有 Approve**。請先在本機跑完 `npm run ci` 再請求 Review，收到修改建議後亦集中改完再一次 Push。
+- 發起 PR 時須完整填寫 [.github/pull_request_template.md](.github/pull_request_template.md)。
+
+### 5. Commit Message 規範（雙語 Conventional Commits）
+所有 Commit 訊息必須遵守 `<type>(<scope>): <簡述>` 格式（禁止無前綴提交）：
+
+- **`<type>`**：`feat` | `fix` | `refactor` | `perf` | `docs` | `test` | `chore` | `style`
+- **`<scope>`**：對應分層或領域，如 `core`, `physics`, `graphics`, `world`, `entities`, `systems`, `ui`, `npc`, `e2e`, `ci`, `docs`, `build`, `task`
+- **語言**：`<type>(<scope>): ` 前綴須使用英文；`<簡述>` 可使用**繁體中文**（校園地景、劇情、NPC 推薦使用）或英文。
+  - 範例：`feat(world): 補齊恩慈樓北翼東端實景量體`、`fix(save): handle corrupted localStorage gracefully`
+
+---
+
+## 四、 架構分層與依賴守則 (`src/`)
+
+所有前端遊戲邏輯統一收納於 `src/` 的 7 大領域分層，嚴禁在專案根目錄散落業務腳本：
 
 ```
 src/
-├── core/               # 引擎調度層：主循環 (GameLoop)、選單與對話 (MenuManager)、載具調度 (VehicleSpawner)、輸入 (Input)
-├── physics/            # 物理運算層：Rapier 3D 世界封裝 (PhysWorld, Physics)、車輛底盤物理 (VehPhysics)、布娃娃 (Ragdoll)、碰撞 (Collision)
-├── graphics/           # 渲染與圖形層：Three.js 著色器修復 (ShadowFix)、日夜天空 (SkySystem)、後製處理 (PostFX)、程序貼圖與 WASM 橋接
-├── world/              # 世界與建築生成：校園拼裝 (MapBuilder)、地形高程 (Terrain)、室內場景 (Interiors)、分區細節 (zones/)
-├── entities/           # 實體與角色控制：玩家與相機 (Player)、角色網格 (Character)、車輛 (Vehicles)、無人機 (Drone)、NPC 與行人 AI
-├── systems/            # 遊戲業務系統：任務狀態機 (MissionSystem)、存讀檔 (SaveSystem)、Web Audio 音效 (AudioSystem)、股市 (StockMarket)、小遊戲
-├── ui/                 # 使用者介面層：HUD、小地圖、手機系統 (Phone)、提示系統 (Prompts)、PC 介面
-└── styles/             # 樣式表：遊戲全域 CSS 樣式 (style.css)
+├── core/       # 引擎調度層：Game, GameLoop, MenuManager, VehicleSpawner, Input, Controls, KeyHints
+├── physics/    # 物理運算層：PhysWorld, Physics, VehPhysics, Ragdoll, Collision
+├── graphics/   # 渲染與圖形層：ShadowFix, Textures, SkySystem, PostFX, wasm/
+├── world/      # 世界與建築生成：MapBuilder, Terrain, Interiors, Kit, zones/, buildings/
+├── entities/   # 實體與角色控制：Player, FirstPerson, Character, BodyMesh, Vehicles, Scooters, Drone, NPC, npcs/
+├── systems/    # 遊戲業務系統：MissionSystem, SaveSystem, AudioSystem, StockMarket, Navigation, minigames/
+├── ui/         # 使用者介面層：HUD, PC, Prompts, Wardrobe, Jersey, PhotoMode, phone/
+└── styles/     # 樣式表：style.css
 ```
 
-### 依賴流向守則 (Dependency Rules)：
-1. **單向流向**：低層級核心（`core/`, `physics/`, `graphics/`）不得依賴高層級業務與介面（`systems/`, `ui/`）。
-2. **世界與實體分離**：`world/` 專注於靜態場景構建與碰撞拓撲，動態活動角色一律由 `entities/` 實例化。
-3. **介面被動渲染**：`ui/` 主要監聽並反映遊戲狀態，業務邏輯決策保留於 `systems/` 或 `core/`。
+### 依賴拓撲硬性規則（由 `tests/unit/import-graph.test.js` 自動把關）
+1. **單向無環**：`src/` 內不得出現新的循環匯入（目前基準為 0 組）。
+2. **禁止反向依賴**：
+   - `core/`、`physics/`、`graphics/` 不得依賴 `systems/` 或 `ui/`（`core/Game.js`、`core/GameLoop.js`、`core/MenuManager.js` 作為頂層裝配例外）。
+   - `world/` 不得依賴 `entities/`（僅存 `world/Interiors.js -> entities/Character.js` 一處已知例外，只許移除、不許新增）。
+   - `systems/` 不得依賴 `ui/`。
+3. **UI 被動渲染**：`ui/` 僅監聽與渲染遊戲狀態，業務決策保留於 `systems/` 或 `core/`。
 
 ---
 
-## 四、 程式碼風格與命名規範 (Coding Standards)
+## 五、 四大領域開發 SOP 與驗收對照
 
-1. **語言區分**：
-   - **專案文檔與規格書**：一律使用**繁體中文（繁體中文）**撰寫。
-   - **程式碼註解與 Git Commit**：程式碼內部註解、變數、類別、函式命名一律使用**英文**；Git Commit 訊息遵守 Conventional Commits 格式。
-   - **遊戲介面文案**：遊戲內對話、標題、HUD、提示文字使用繁體中文。
-2. **語法規範**：
-   - 採用標準 ES Module（`import` / `export`）。
-   - 宣告變數一律使用 `const` 或 `let`，**嚴格禁止使用 `var`**。
-   - 條件判斷一律使用全等運算子（`===` 與 `!==`），禁止隱式型別轉換。
-   - 物件字面量優先使用屬性縮寫（`object-shorthand`）。
-   - 未使用的參數或變數一律加上底線前綴（如 `_e`, `_opt`），否則 ESLint 將報錯。
-3. **樣式規範**：
-   - 所有 CSS 樣式集中於 `src/styles/style.css`。
-   - HTML 結構維持語意化，避免直接撰寫 inline style。
+改動特定領域時，除基本 `npm run ci` 外，須同步執行對應檢查：
+
+| 領域 | 觸發條件 | 開發規範與必做驗證 |
+| :--- | :--- | :--- |
+| **1. 世界與街景** | 修改 `src/world/zones/`、`buildings/`、`MapBuilder.js`、`Terrain.js` | • 新分區／街屋註冊於 [src/world/zones/Zones.js](src/world/zones/Zones.js)，**嚴禁隨意更動既有 `ZONES` 陣列順序**（影響共用 LCG 亂數與植栽位置）。<br>• 確認建物碰撞、地形高低與道路不相衝突。<br>• 完成校內未完項目時，同步更新 [task/campus-pending.md](task/campus-pending.md) 並寫進 commit 訊息。 |
+| **2. 建築室內** | 修改 `Interiors.js` 或含可進入室內之建築（如 `Lixing.js`、`Sac.js`、`SacB1.js`） | • 牆線走 `Interiors.addWall`、地板與樓梯走 `Interiors.addSurface`。<br>• 改動完成後執行 `node tools/floorplan/make.mjs` 重新產生並檢視 [docs/floorplans/](docs/floorplans/README.md) SVG 確認無穿牆或隔間錯誤。 |
+| **3. NPC 與資料** | 新增或調整 NPC、[data/npcs.json](data/npcs.json)、`src/entities/npcs/` | • 通用定點 NPC（`kind: "custom"`）請透過 `tools/npc-dashboard`（`http://localhost:5173/tools/npc-dashboard/`）視覺化編輯與存檔。<br>• 專屬劇情 NPC（`kind: "builtin"`）須於 `data/npcs.json` 登記設定與 `sources`，且遵守 `src/` 分層規範。<br>• 須通過 `tests/unit/data-consistency.test.js` 資料結構檢查。 |
+| **4. 核心、UI、WASM 與主線** | 修改 `index.html`、`ui/`、`Textures.js`、`wasm-kernels/`、`MissionSystem.js`、`physics/` | • 改動 DOM ID 須通過 `tests/unit/dom-ids.test.js`。<br>• 改動貼圖噪聲或法線計算核心，必跑 `npm run test:wasm` 確保 `0 mismatched`。<br>• 影響主線任務、導航、碰撞或物理手感之變更，交付前須在具顯示環境執行 `npm run test:e2e` 確認可正常通關。 |
 
 ---
 
-## 五、 Git 協作與提交規範
+## 六、 程式碼風格、語言規範與品質門檻
 
-1. **分支策略**：
-   - 主重構/特性分支為 `refactor`，所有提交均在此分支進行驗證。
-   - 避免直接推送到未經測試的遠端分支。
-2. **Commit Message 格式**：
-   遵守 Conventional Commits 規範：
-   - `feat(...)`: 新功能實作
-   - `fix(...)`: 修復缺陷或異常
-   - `refactor(...)`: 程式架構重構（無功能變更）
-   - `test(...)`: 新增或調整測試案例
-   - `docs(...)`: 文件或註解新增修改
-   - `chore(...)`: 工具、設定或相依套件調整
+### 1. 語言區分
+- **文件、規格書與遊戲內介面文案**：使用**繁體中文**。
+- **識別字命名**（變數、函式、類別）：使用**英文**；核心模組與重要業務檔建議補上簡潔英文檔名慣例（`PascalCase.js` 對應類別/業務模組，`snake_case` 對應 `tools/` 腳本）。
+- **程式碼註解**：**通用底層邏輯、引擎演算法與 API 介面使用英文註解；涉及到中原大學校園地景、典故、劇情與任務邏輯可使用繁體中文註解**。
+
+### 2. 語法與工具邊界
+- 採用標準 ES Module（`import` / `export`），嚴禁使用 `var`；優先使用 `const` 與全等比較（`===` / `!==`）；未使用參數須加底線前綴（`_e`）。
+- **ESLint（`npm run lint` / `npm run lint:fix`）**：涵蓋 `src/`、`tests/` 與 `tools/`，維持 **0 errors** 門檻（已配置略過中文字串與註解內的全形空白 `\u3000`）。
+- **Prettier（`npm run format:check` / `npm run format`）**：依 [.prettierignore](.prettierignore) 刻意排除 `src/`（保留既有代碼與 `git blame` 歷史）、`tools/`、`docs/`、`*.md` 等，僅對納入範圍之設定與測試檔執行格式檢查；`src/` 風格一致性由 ESLint 把關。
+- CSS 樣式集中於 [src/styles/style.css](src/styles/style.css)，避免於 HTML 撰寫 inline style。
+
+### 3. 本地交付必跑指令 (`Node.js >= 22`)
+Push 或請求 PR Review 前，必須在本機執行並確認全數通過：
+
+```bash
+npm run ci
+# 等同依序執行：format:check -> lint -> test -> build -> check:dist
+```
+
+其他常用指令：`npm run dev`（本機 5173 開發）、`npm run lint:fix`、`npm run test:wasm`、`npm run test:e2e`、`node tools/floorplan/make.mjs`、`docker compose up --build`。
 
 ---
 
-## 六、 避坑手冊與記憶沉澱 (Lessons Learned)
+## 七、 實戰避坑與記憶沉澱
 
-在進行底層系統修改或環境操作時，務必參照 [task/MEMORY.md](file:///home/hank/Desktop/YanlinGTA/task/MEMORY.md) 的實戰踩坑紀錄：
-1. **沙盒環境邊界**：網路操作（`git push`, `npm install`）與直接修改 `.git` 須於提權環境執行；其餘測試、建置、代碼編輯一律於沙盒內執行。
-2. **WASM 逐位元精度保證**：修改貼圖核心時，必須執行 `npm run test:wasm` 確保 67 組 FBM 與 502 張 Normal Maps 達到 `0 mismatched`。
-3. **全形空格與 ESLint**：宣傳標語含有中文字元全形空白（`\u3000`），ESLint 已配置略過字串與註解內的特殊空白，切勿誤刪配置。
-4. **Rapier 物理世界生命週期**：場景重置或載具生成時， stand-in movers 必須先被 drop，避免剛體重疊穿透。
+修改底層物理、渲染預編、存檔遷移或環境設定前，務必先查閱 [task/MEMORY.md](task/MEMORY.md)。

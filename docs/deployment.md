@@ -41,8 +41,8 @@ sequenceDiagram
 
 ### 倉庫設定步驟：
 1. 進入 GitHub 倉庫頁面 $\rightarrow$ **Settings** $\rightarrow$ **Pages**。
-2. 在 **Build and deployment** $\rightarrow$ **Source** 選項中，選擇 **GitHub Actions**。
-3. 推送或合併程式碼至 `main` 分支，即可在 **Actions** 分頁觀察部署進度。
+2. 在 **Build and deployment** $\rightarrow$ **Source** 選項中，**務必選擇 GitHub Actions**（切勿保留 `legacy`，避免與 `deploy.yml` 互相覆蓋線上版本）。
+3. 透過 Pull Request 合併程式碼至受保護的 `main` 分支，即可在 **Actions** 分頁觀察部署進度。
 
 ---
 
@@ -178,8 +178,8 @@ flowchart TD
 ```
 
 1. **`ci.yml`（持續整合品質門禁）**：
-   - 每次 Push 或 PR 自動執行 4 大 Job。
-   - 包含 Prettier 排版檢查、ESLint 0 容忍檢查、Vitest 單元測試、WASM 零誤差驗收與 Docker 建置驗證。
+   - 針對 `main` 的 Push 或 Pull Request 自動執行 4 大 Job（並與倉庫 `protect-main-github-flow` Ruleset 綁定為必要通過檢查）。
+   - 包含 Prettier 排版檢查、ESLint 0 容忍檢查、Vitest 單元測試、WASM 抽樣整合測試、Vite 打包檢查（`check_dist.mjs`）與 Docker 建置驗證。
 2. **`deploy.yml`（持續交付發布管線）**：
    - 專門負責構建 `dist/` 並推送至 GitHub Pages。
    - 使用 `actions/configure-pages` 自動注入對應的儲存庫路徑 Base URL。

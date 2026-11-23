@@ -3,11 +3,11 @@
 # 中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)
 
 [![CI](https://github.com/hank1224/YanlinGTA/actions/workflows/ci.yml/badge.svg)](https://github.com/hank1224/YanlinGTA/actions/workflows/ci.yml)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.19.0-brightgreen.svg)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Three.js](https://img.shields.io/badge/Three.js-r160-black.svg?logo=three.js&logoColor=white)](https://threejs.org/)
 [![Rapier 3D WASM](https://img.shields.io/badge/Physics-Rapier_3D_WASM-orange.svg)](https://rapier.rs/)
-[![Vitest](https://img.shields.io/badge/Vitest-32_tests_passing-729B1B.svg?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-Automated_Tests-729B1B.svg?logo=vitest&logoColor=white)](https://vitest.dev/)
 
 第 34 屆中原大學資訊管理學系 系學會會長候選人 **彥霖（Yanlin）** 的競選宣傳 3D 開放世界網頁遊戲！
 
@@ -20,7 +20,7 @@
 專案已全方位工程化重構，採用標準的 **Vite** 建置管線與模組化體系：
 
 ### 推薦方式：Node.js 與 Vite（本機開發熱更新）
-需安裝 [Node.js (>= 20.19.0 LTS)](https://nodejs.org/)：
+需安裝 [Node.js (>= 22.0.0 LTS)](https://nodejs.org/)：
 ```bash
 # 1. 複製專案
 git clone https://github.com/hank1224/YanlinGTA.git
@@ -97,7 +97,7 @@ flowchart LR
     end
 
     subgraph Defense["自動化品質守護"]
-        Vitest["Vitest 32 單元測試"]
+        Vitest["Vitest 單元與架構測試"]
         ESLint["ESLint 嚴格門禁 (0 error)"]
         CI["GitHub Actions CI/CD"]
     end
@@ -111,7 +111,7 @@ flowchart LR
    - 物理：`@dimforge/rapier3d-compat` WASM 處理真實剛體與懸吊物理。
    - 圖形：Rust 撰寫之 `tools/wasm-kernels/`，FBM 噪聲計算加速 **18.1 倍**，且維持純 JS Fallback 零誤差雙保險。
 3. **主循環雙時鐘模型**：物理固定 60Hz 步進（Fixed Timestep）與螢幕刷新率（RAF）解耦，兼備動態畫質自動升降頻。
-4. **測試金字塔保護**：涵蓋碰撞檢測、A* 路網尋路、存讀檔自癒、股市運算與任務狀態機等 32 個自動化測試。
+4. **測試金字塔保護**：涵蓋碰撞檢測、A* 路網尋路、存讀檔自癒、股市運算、任務狀態機、DOM 接線、架構分層依賴與資料一致性等自動化測試。
 
 ---
 
@@ -143,11 +143,11 @@ YanlinGTA/
 
 若需進一步了解系統底層設計或參與貢獻，請參閱專題手冊：
 
-- 🏛️ **[系統架構手冊 (Architecture Guide)](file:///home/hank/Desktop/YanlinGTA/docs/architecture.md)**：深入了解 7 大分層邊界、依賴拓撲規範、GameLoop 調度機制與雙 WASM 子系統。
-- 💻 **[開發者與貢獻指南 (Developer Guide)](file:///home/hank/Desktop/YanlinGTA/docs/developer-guide.md)**：本機開發工作流、npm 指令清冊、測試金字塔執行與嚴格 ESLint 規範。
-- 🧑‍🤝‍🧑 **[NPC 創作與自訂指南 (NPC Creation Guide)](file:///home/hank/Desktop/YanlinGTA/docs/npc-creation-guide.md)**：視覺化儀表板使用手冊、`npcs.json` 綱要規格與手把手自訂 NPC 教學。
-- 🚢 **[部署與運維手冊 (Deployment & Operations Guide)](file:///home/hank/Desktop/YanlinGTA/docs/deployment.md)**：GitHub Pages 自動發布流程、Docker / Compose 容器化部署與 Nginx 快取策略。
-- 🤖 **[AI 代理開發規範 (AGENT.md)](file:///home/hank/Desktop/YanlinGTA/AGENT.md)**：專案長期開發準則與工程規範單一真實來源。
+- 🏛️ **[系統架構手冊 (Architecture Guide)](docs/architecture.md)**：深入了解 7 大分層邊界、依賴拓撲規範、GameLoop 調度機制與雙 WASM 子系統。
+- 💻 **[開發者與貢獻指南 (Developer Guide)](docs/developer-guide.md)**：本機開發工作流、npm 指令清冊、測試金字塔執行與 GitHub Flow 操作步驟。
+- 🧑‍🤝‍🧑 **[NPC 創作與自訂指南 (NPC Creation Guide)](docs/npc-creation-guide.md)**：視覺化儀表板使用手冊、`data/npcs.json` 綱要規格與手把手自訂 NPC 教學。
+- 🚢 **[部署與運維手冊 (Deployment & Operations Guide)](docs/deployment.md)**：GitHub Pages 自動發布流程、Docker / Compose 容器化部署與 Nginx 快取策略。
+- 🤖 **[開發規範與協作憲法 (AGENT.md)](AGENT.md)**：專案開發流程、變更分級、領域 SOP 與工程規範單一真實來源（SSOT）。
 
 ---
 

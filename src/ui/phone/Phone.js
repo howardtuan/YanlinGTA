@@ -122,10 +122,12 @@ export class Phone {
     }
     // pick up where you left off: the app (and chat) that was on screen when the phone went away
     const last = this._last; this._last = null;
+    if (this.call) { this._callView(); return; }
     if (last && last.app && last.app !== 'map') { this.openApp(last.app); if (last.cur && last.app === 'messages') this.openChat(last.cur); }
     else this.home();
   }
   close() {
+    if (this.call && !this._ending) this._callEnd(this.call.state === 'ring'); // put away while it rings = declined; mid-call = hung up
     if (this.open) this.g.audio.phone?.(false);
     if (this.story) this._storyClose();
     this._last = this.app ? { app: this.app, cur: this.cur } : null;
@@ -135,6 +137,7 @@ export class Phone {
   // keyboard while open; returns nothing, the game freezes the player meanwhile
   update(dt, inp) {
     this.el.querySelector('.ph-time').textContent = hhmm(this.g.clock);
+    if (this.call) return this._callKeys(inp);
     if (inp.hit('KeyE')) { this.close(); return 'closed'; }
     if (this.story) {
       if (inp.hit('Escape', 'Backspace')) { this._storyClose(); return null; }
@@ -600,6 +603,10 @@ export class Phone {
   // ---- new Peachgram / Pcard posts on their schedule (src/ui/phone/FeedGen.js; runs even with the phone in the pocket) ----
   tick() {
     const g = this.g;
+    if (this.call?.state === 'ring') { // ringtone, and a missed call after 25 s
+      const n = performance.now(); if (n - (this._ringT || 0) > 1300) { this._ringT = n; g.audio.notify?.(); }
+      if (n - this.call.at > 25000) this._callEnd(true);
+    }
     // 靈感股 prices move while the app is on screen
     if (this.open && this.app === 'stock' && this._sk) { const n = performance.now(); if (n - (this._skT || 0) > 1000) { this._skT = n; this._sk.refresh(); } }
     if (this.open && this.app === 'news' && this._nw) this._nw.refresh(); // new articles show up while it's open
@@ -737,6 +744,55 @@ export class Phone {
     for (const im of c.querySelectorAll('.ph-photos img')) im.onclick = () => this._frame('照片', `<img class="ph-full" src="${im.src}">`, { back: '照片', onBack: () => this.openApp('photos'), cls: 'ph-dark' });
   }
 
+  // ---------------- incoming call (src/systems/quests/ZzInjury.js) ----------------
+  // opts: { id, name, avatar, color, lines: [[who, text], ...] (voice messages after you answer), onDecline(), onEnd() }
+  // The phone comes out by itself and rings; 接聽 shows the voice messages one by one, then 掛斷. Declined, put away
+  // or not answered within 25 s: onDecline. Hung up (also halfway through): onEnd.
+  ring(opts) {
+    if (this.call) return;
+    this.call = { ...opts, state: 'ring', at: performance.now(), shown: 0 };
+    if (!this.open) this.g.openPhone(); else this._callView();
+    this.g.audio.notify?.(); this._ringT = performance.now();
+  }
+  _callView() {
+    const c = this.call; if (!c) return;
+    this.app = 'call'; this.cur = null; this._frameKey = null;
+    const ring = c.state === 'ring', done = c.state === 'talk' && c.shown >= c.lines.length;
+    const lines = c.lines.slice(0, c.shown).map(([who, text]) => `<div class="ph-vm ${who === 'me' ? 'me' : ''}"><span class="ph-vmw"><i>▶</i>${'<b></b>'.repeat(9)}<small>0:0${2 + (text.length % 7)}</small></span><p>${esc(text)}</p></div>`).join('');
+    this.view.innerHTML = `<div class="ph-call${ring ? ' ring' : ''}"><div class="ph-callhead"><span class="ph-av ph-callav" style="background:${c.color}">${c.avatar}</span>
+      <b>${esc(c.name)}</b><small>${ring ? '來電中…' : done ? '語音訊息播完了，可以掛斷' : '通話中・語音訊息'}</small></div>
+      ${ring ? '' : `<div class="ph-vms">${lines}${!done ? '<div class="ph-vm"><span class="ph-typing"><i></i><i></i><i></i></span></div>' : ''}</div>`}
+      <div class="ph-callbtns">${ring ? '<button class="ph-cb no" data-c="no"><i>✆</i><small>拒絕 <kbd>2</kbd></small></button><button class="ph-cb yes" data-c="yes"><i>✆</i><small>接聽 <kbd>1</kbd></small></button>'
+        : `<button class="ph-cb no" data-c="end" ${done ? '' : 'disabled'}><i>✆</i><small>掛斷 <kbd>1</kbd></small></button>`}</div></div>`;
+    this.view.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const k = b.dataset.c; if (k === 'yes') this._callAnswer(); else if (k === 'no') this._callEnd(true); else this._callEnd(false); });
+    const v = this.view.querySelector('.ph-vms'); if (v) v.scrollTop = v.scrollHeight;
+  }
+  _callAnswer() {
+    const c = this.call; if (!c || c.state !== 'ring') return;
+    c.state = 'talk'; this.g.audio.pickup?.(); this._callView();
+    const next = () => {
+      if (this.call !== c || c.shown >= c.lines.length) return;
+      c.shown++; this.g.audio.pop?.(); if (this.open) this._callView();
+      if (c.shown < c.lines.length) setTimeout(next, 900 + Math.min(1600, c.lines[c.shown - 1][1].length * 45));
+    };
+    setTimeout(next, 700);
+  }
+  _callKeys(inp) {
+    const c = this.call, done = c.state === 'talk' && c.shown >= c.lines.length;
+    if (c.state === 'ring') {
+      if (inp.hit('Digit1', 'Numpad1', 'Enter', 'Space')) this._callAnswer();
+      else if (inp.hit('Digit2', 'Numpad2', 'Escape', 'Backspace', 'KeyE')) { this._callEnd(true); return this.open ? null : 'closed'; }
+    } else if (done && inp.hit('Digit1', 'Numpad1', 'Enter', 'Space', 'Escape', 'KeyE')) { this._callEnd(false); return this.open ? null : 'closed'; }
+    return null;
+  }
+  _callEnd(declined) {
+    const c = this.call; if (!c) return;
+    this.call = null; this._ending = true;
+    if (this.open) this.close();
+    this._ending = false; this._last = null;
+    if (declined) { this.g.hud.toast(`📵 未接來電：${c.name}`, 'bad', 2400); c.onDecline?.(); } else c.onEnd?.();
+  }
+
   // ---------------- messages ----------------
   // game minute of a chat's newest message: stamped when a message arrives (st.lastAt, saved); chats that only have
   // their scripted history are placed by its last day separator and HH:MM, all before the game's first minute (the
@@ -799,6 +855,7 @@ export class Phone {
     if (m.day) return `<div class="ph-day">${esc(m.day)}</div>`;
     if (m.typing) return `<div class="ph-msg them"><span class="ph-typing"><i></i><i></i><i></i></span></div>`;
     const me = m.who === 'me', name = st.c.group && !me ? `<small class="ph-from">${esc(m.who)}</small>` : '';
+    if (m.video) return `<div class="ph-msg ${me ? 'me' : 'them'}">${name}<button class="ph-video" data-video="${esc(m.video)}"><i>▶</i><b>${esc(m.text.replace(/^\[影片\]\s*/, ''))}</b><small>點一下播放</small></button>${m.time ? `<small class="ph-t">${m.time}</small>` : ''}</div>`;
     const file = /^\[(檔案|圖片)\]/.test(m.text);
     return `<div class="ph-msg ${me ? 'me' : 'them'}">${name}<span class="${file ? 'file' : ''}">${esc(m.text)}</span>${m.time ? `<small class="ph-t">${m.time}</small>` : ''}</div>`;
   }
@@ -806,15 +863,18 @@ export class Phone {
     const st = this.cur; if (!st) return;
     const t = this.view.querySelector('.ph-thread');
     t.innerHTML = st.msgs.map(m => this._bubble(m, st)).join('') + (st.read ? '<div class="ph-read">已讀</div>' : '');
+    t.querySelectorAll('.ph-video').forEach(b => b.onclick = () => { this.g.audio.tap?.(); this.g.zzQuest?.playVideo(b.dataset.video); });
     t.scrollTop = t.scrollHeight;
   }
   // options for the next message: scripted rounds first; after those, Gemini Nano (Chrome) suggests two more forever
   // A contact's `always` options (勞大's 你在哪？) are offered on every turn, after the others.
   _options(st) {
-    const R = st.c.script[st.round], A = st.c.always || [];
+    const R = st.c.script[st.round], A = this._always(st);
     const base = R ? R.choices : Nano.on && st.aiOpts?.length ? st.aiOpts.map(t => ({ t, ai: true })) : [];
     return base.length || A.length ? [...base, ...A] : null;
   }
+  // a contact's `always` options; one with when(game) is offered only while that holds (吱吱's quest lines, src/systems/quests/ZzInjury.js)
+  _always(st) { return (st.c.always || []).filter(a => !a.when || a.when(this.g)); }
   _renderCompose() {
     const st = this.cur; if (!st) return;
     const box = this.view.querySelector('.ph-compose');
@@ -903,7 +963,7 @@ export class Phone {
     const think = this._thinking(st); if (st.busy && !think) return false;
     const opts = this._options(st); if (!opts && !typed) return false;
     const g = this.g;
-    let ch = typed ? (st.c.always || []).find(a => a.match?.test(typed)) : opts[st.choice]; // (st.choice may be the typing box: nothing to send)
+    let ch = typed ? this._always(st).find(a => a.match?.test(typed)) : opts[st.choice]; // (st.choice may be the typing box: nothing to send)
     // a scripted option sent through the typing box (picking an option puts its words there) is still that option:
     // it keeps its written reply, its votes and moves the script on
     const same = typed && !ch ? (opts || []).find(o => !o.ai && !o.ask && o.r && o.t.trim() === typed.trim()) : null;
@@ -923,7 +983,7 @@ export class Phone {
       st.choice = 0; g.audio.send?.(); this._renderThread(); this._renderCompose();
       setTimeout(() => { st.read = true; if (this.cur === st) this._renderThread(); }, 350);
       const out = ch.ask(g);
-      this._deliver(st, out.r.map(text => ({ who: st.c.id, text })), 0, 650, out.then);
+      this._deliver(st, out.r.map(x => (typeof x === 'string' ? { who: st.c.id, text: x } : { who: st.c.id, ...x })), 0, 650, out.then); // an object: a video message (吱吱)
       return;
     }
     if (!ch.ai) st.round++;

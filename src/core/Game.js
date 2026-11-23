@@ -65,6 +65,8 @@ import { Concerts } from '../systems/minigames/Concert.js';
 import { Garry } from '../entities/npcs/Garry.js';
 import { Jianyu } from '../entities/npcs/Jianyu.js';
 import { Houshe } from '../entities/npcs/Houshe.js';
+import { Zz } from '../entities/npcs/Zz.js';
+import { ZzInjury } from '../systems/quests/ZzInjury.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
 import { serviceTick, serviceName } from '../entities/npcs/Service.js';
@@ -462,6 +464,9 @@ class Game {
     this.houshe = new Houshe(this);
     this.richard = new Richard(this);
     this.howard = new Howard(this);
+    // 吱吱's day in 力行 276 / the two BW'S, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
+    this.zzQuest = new ZzInjury(this);
+    this.zz = new Zz(this);
 
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
     // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
@@ -849,6 +854,7 @@ class Game {
       !this.airdrop.cinema &&
       !this.drone?.cinema &&
       !this.mingshan?.cinema &&
+      !this.zzQuest?.busy &&
       !this.job.active &&
       !this.gate.active &&
       !this._sleeping &&
@@ -971,6 +977,8 @@ class Game {
     this.houshe?.update(dt);
     this.richard?.update(dt);
     this.howard?.update(dt);
+    this.zz?.update(dt);
+    this.zzQuest?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     this.photo.update(dt, inp); // 📷 holding the phone up: eats the shutter / back keys before anything else sees them
@@ -1006,7 +1014,11 @@ class Game {
         hud.onPin(t && Math.hypot((t.x - bv.cx) * k, (t.z - bv.cz) * k) < 14 ? null : { x: bv.cx, z: bv.cz });
       }
     }
-    if (this.videoOpen) {
+    if (this.zzQuest?.busy) {
+      // 吱吱's 武嶺 film (Esc / E skips it) or the bath mini-game (its own keys): nothing else reacts
+      if (this.zzQuest.film.active) this.zzQuest.film.update(dt, inp);
+      inp.pressed.clear();
+    } else if (this.videoOpen) {
       if (inp.hit('Escape', 'KeyE')) this.closeVideo();
       inp.pressed.clear();
     } else if (inp.hit('Escape')) {
@@ -1023,6 +1035,7 @@ class Game {
       this.airdrop.cinema ||
       this.drone.active ||
       this.mingshan?.cinema ||
+      this.zzQuest?.busy ||
       this.speechOn ||
       hud.bigOpen ||
       this.videoOpen ||

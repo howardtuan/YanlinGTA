@@ -280,7 +280,8 @@ export class GameLoop {
       game._drawnAt = now;
       game.concerts?.frame(); // YouTube player over the arena's main screen, after the camera has moved
       game.fpv?.renderMirrors(game.renderer); // rear view for the cockpit mirrors
-      game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
+      if (game.zzQuest?.film.active) game.zzQuest.film.render(game.renderer); // 吱吱's 武嶺 film: its own little scene
+      else game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
     }
     if (game._perf) game._perf.end(now);
     if (game._shot) {

@@ -378,6 +378,21 @@ export const FRIEND_CONTACTS = {
         ],
       },
     ],
+    // 支線「吱吱武嶺跑山受傷」（src/systems/quests/ZzInjury.js）：when() 成立時才會出現的選項；你在哪？一直都在
+    always: [
+      { t: '選舉快到了要拜票，這次先不去了 🙏', when: (g) => g.zzQuest?.state.stage === 'invited', ask: (g) => g.zzQuest.decline() },
+      { t: '你之前受傷還好嗎？', match: /受傷|還好嗎|手指/, when: (g) => { const S = g.zzQuest?.state; return S?.stage === 'done' && !S.relapse && S.askDay !== Math.floor(g.clock / 1440); }, ask: (g) => g.zzQuest.review() },
+      {
+        t: '你在哪？', match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) => {
+          const Z = g.zz; if (!Z?.mode) return { r: ['等我一下'] };
+          if (Z.mode === 'sleep') return { r: ['（已讀不回）'], then: () => g.hud.toast(`😴 吱吱在 276 寢的 ${Z.injured ? 3 : 2} 號床睡覺，早上 8 點會起來`, 'good', 2800) };
+          const r = { bath: ['在力行二樓浴室等你啦 🛁', '快來 侯舌已經到了'], shop: ['在茶學苑打工 🧋', '來喝飲料啊'], gym: ['在體育館門口 🏐', '定位傳你'], ride: ["跟女拳大帝騎 BW'S 兜風中 🛵", '等等回宿舍'], room: Z.injured ? ['在 276 養傷 🩹', '手指還在痛'] : ['在 276 打遊戲 🎮', '要來雙排嗎'] }[Z.mode] || ['在學校啊'];
+          const at = Z.pos();
+          return { r, then: () => { if (at && g.nav?.set) { g.nav.set(at.x, at.z); g.hud.toast('🧭 已設定導航到吱吱那裡', 'good', 2400); } } };
+        },
+      },
+    ],
   },
   gd: {
     id: 'gd', name: '女拳大帝', sub: '戈登肉鋪店長・LOL 鑽石', avatar: '<img class="ph-avimg" src="assets/gram/gd_av.jpg" alt="">', color: '#1d1d1f', unread: 2,

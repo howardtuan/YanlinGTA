@@ -579,6 +579,79 @@ export function buildZmax(color = '#0e0f11') {
   return g;
 }
 
+// Yamaha BW'S（使用者附圖）：方正直立的車頭面板、高平把手、平底踏板、長平座墊、後扶手、12 吋越野胎。z 向前、y 向上，單位公尺。
+//  'gd'：女拳大帝的新款 BW'S —— 夜幕灰（深灰藍消光側板、霧黑外殼），黑色面罩裡左右並排兩顆圓燈，黑框輪圈、塊狀越野胎；
+//  'zz'：吱吱的舊款 BW'S —— 白色車殼、紅色車頭上蓋、上小下大兩顆燈、紅色輪框與紅色後避震、黑座墊、管狀後扶手。
+export function buildBws(style = 'gd') {
+  const g = new THREE.Group(), gd = style === 'gd';
+  const body = gd ? m('#3a4253', { roughness: 0.62, metalness: 0.25 }) : paint('#f1f1ee');
+  const matte = m('#1b1c1f', { roughness: 0.82 }), seatM = m('#1e1f22', { roughness: 0.92 });
+  const accent = gd ? m('#2a2d33', { roughness: 0.7 }) : paint('#cf1f2b');
+  const rimM = gd ? m('#16171a', { roughness: 0.5, metalness: 0.4 }) : paint('#c8202c');
+  const shockM = gd ? m('#2b2d31', { metalness: 0.6, roughness: 0.35 }) : paint('#d0202c');
+  const hlm = new THREE.MeshStandardMaterial({ color: '#fff', emissive: '#fff4d8', emissiveIntensity: 1.1 });
+  const tlm = new THREE.MeshStandardMaterial({ color: '#700', emissive: '#ff1a1a', emissiveIntensity: 0.9 });
+  const ZF = 0.66, ZR = -0.6, R = 0.27;
+  // fat knobby tyres: the tyre, a ring of tread blocks and the rim / hub in the bike's colour
+  const knobby = (z, w) => {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(R, R, w, 16).rotateZ(Math.PI / 2), m('#141414', { roughness: 0.95 })); t.position.set(0, R, z); t.castShadow = true;
+    for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, b = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.035, 0.05), m('#101010', { roughness: 1 })); b.position.set(0, Math.sin(a) * (R - 0.005), Math.cos(a) * (R - 0.005)); b.rotation.x = -a; t.add(b); }
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.6, R * 0.6, w + 0.012, 14).rotateZ(Math.PI / 2), rimM); t.add(rim);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.2, R * 0.2, w + 0.03, 10).rotateZ(Math.PI / 2), m('#9aa0a6', { metalness: 0.7, roughness: 0.3 })); t.add(hub);
+    return t;
+  };
+  const wheels = [knobby(ZF, 0.15), knobby(ZR, 0.17)];
+  g.add(...wheels);
+  // front: tall upright shield (in the body colour), dark mask with the lamps, high front fender, fork
+  g.add(panel([[0.9, 0.55], [0.94, 1.12], [0.82, 1.2], [0.6, 1.18], [0.52, 0.62], [0.62, 0.45]], 0.5, body, { bevel: 0.03 }));
+  g.add(panel([[0.95, 0.78], [0.97, 1.1], [0.92, 1.12], [0.9, 0.78]], 0.42, matte, { bevel: 0.01 })); // the mask round the lamps
+  if (gd) {
+    for (const s of [-1, 1]) {
+      const l = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.04, 18).rotateX(Math.PI / 2), hlm); l.position.set(0.085 * s, 0.98, 0.98); g.add(l);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 6, 18), m('#8a8f96', { metalness: 0.7, roughness: 0.3 })); ring.position.set(0.085 * s, 0.98, 0.995); g.add(ring);
+    }
+  } else {
+    const big = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.04, 18).rotateX(Math.PI / 2), hlm); big.position.set(0.05, 0.9, 0.98); g.add(big);
+    const small = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 16).rotateX(Math.PI / 2), hlm); small.position.set(-0.03, 1.05, 0.97); g.add(small);
+  }
+  g.add(panel([[0.62, 1.18], [0.86, 1.22], [0.94, 1.12], [0.6, 1.12]], 0.48, accent, { bevel: 0.02 })); // top cover (red on 吱吱's)
+  g.add(panel([[0.98, 0.56], [0.92, 0.66], [0.52, 0.66], [0.46, 0.56]], 0.22, gd ? matte : body, { bevel: 0.015 })); // high front fender
+  for (const s of [-1, 1]) g.add(tube([0.09 * s, 0.86, 0.58], [0.09 * s, R, ZF], 0.026, matte));
+  // floorboard, black lower body, side panels in the body colour, BW'S lettering
+  g.add(box(0.42, 0.06, 0.6, matte, 0, 0.38, 0.14));
+  g.add(panel([[0.5, 0.4], [0.44, 0.28], [-0.2, 0.26], [-0.26, 0.42]], 0.46, matte, { bevel: 0.02 }));
+  g.add(panel([[0.12, 0.44], [0.06, 0.74], [-0.4, 0.84], [-0.86, 0.9], [-0.96, 0.84], [-0.86, 0.58], [-0.4, 0.44]], 0.46, body, { bevel: 0.03 }));
+  g.add(panel([[0.1, 0.42], [-0.5, 0.4], [-0.86, 0.56], [-0.76, 0.62], [-0.4, 0.52], [0.08, 0.58]], 0.48, matte, { bevel: 0.02 }));
+  const badge = decalTex((c, w, h) => { c.fillStyle = gd ? '#d9dde3' : '#cf1f2b'; c.font = 'italic 900 66px Arial,sans-serif'; c.textBaseline = 'middle'; c.fillText("BW'S", 24, h / 2); }, 256, 96);
+  for (const s of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), new THREE.MeshBasicMaterial({ map: badge, transparent: true, depthWrite: false }));
+    b.position.set(0.245 * s, 0.7, -0.5); b.rotation.y = s * Math.PI / 2; g.add(b);
+  }
+  // long flat seat and the rear grab rail (a bent tube on 吱吱's, a flat rack on the new one)
+  g.add(panel([[0.14, 0.86], [0.08, 0.95], [-0.86, 0.97], [-0.9, 0.9], [0.14, 0.82]], 0.34, seatM, { bevel: 0.035 }));
+  if (gd) { g.add(box(0.34, 0.03, 0.34, matte, 0, 0.96, -0.98)); for (const s of [-1, 1]) g.add(tube([0.16 * s, 0.9, -0.78], [0.16 * s, 0.96, -1.12], 0.016, matte)); }
+  else { for (const s of [-1, 1]) g.add(tube([0.19 * s, 0.86, -0.4], [0.19 * s, 1.0, -0.98], 0.016, matte)); g.add(tube([-0.19, 1.0, -0.98], [0.19, 1.0, -0.98], 0.016, matte)); }
+  // tall flat handlebar on a riser, round mirrors, the speedo pod
+  g.add(tube([0, 1.12, 0.6], [0, 1.24, 0.55], 0.03, matte));
+  g.add(tube([-0.36, 1.25, 0.52], [0.36, 1.25, 0.52], 0.017, matte));
+  g.add(box(0.16, 0.08, 0.1, matte, 0, 1.3, 0.58));
+  for (const s of [-1, 1]) {
+    g.add(tube([0.26 * s, 1.25, 0.52], [0.3 * s, 1.5, 0.5], 0.009, matte));
+    const mir = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 14).rotateX(Math.PI / 2), matte); mir.position.set(0.31 * s, 1.53, 0.5); g.add(mir);
+    g.add(box(0.04, 0.03, 0.03, m('#ffb000', { emissive: '#ff9000', emissiveIntensity: 0.5 }), 0.17 * s, 1.0, 0.95));
+  }
+  // engine / CVT case on the right (-x), exhaust, rear shocks (red on 吱吱's), hugger with the plate, tail lamp
+  g.add(box(0.16, 0.24, 0.6, m('#2a2c30', { metalness: 0.45, roughness: 0.45 }), -0.17, 0.36, -0.42));
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.42, 12).rotateX(Math.PI / 2 - 0.25), matte).translateX(-0.21).translateY(0.42).translateZ(-0.82));
+  for (const s of [-1, 1]) g.add(tube([0.13 * s, 0.36, -0.6], [0.13 * s, 0.72, -0.74], 0.024, shockM));
+  g.add(box(0.06, 0.18, 0.2, matte, 0, 0.62, -1.02));
+  g.add(box(0.16, 0.05, 0.05, tlm, 0, 0.84, -1.0));
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.09), new THREE.MeshBasicMaterial({ map: plateTex(gd ? 'GDN-125' : 'ZZW-168') }));
+  plate.position.set(0, 0.58, -1.13); plate.rotation.y = Math.PI; g.add(plate);
+  g.userData.wheels = wheels;
+  return g;
+}
+
 const SCOOTER_COLORS = ['#e8e8e8', '#c1121f', '#1d3557', '#ffb703', '#2a9d8f', '#111111', '#8ecae6', '#f28482', '#7b8a8b'];
 const CAR_COLORS = ['#f0f0f0', '#222222', '#9aa3ab', '#b5121b', '#1e3a8a', '#6b7280', '#d1d5db', '#14532d'];
 
@@ -728,6 +801,10 @@ export class Vehicle {
     if (kind === 'scooter' && opt.model === 'zmax') { // 漢克的 ZMAX (src/entities/npcs/Hank.js): a 155cc maxi-scooter, a bit quicker and longer than a commuter
       this.mesh = buildZmax(); this.model = 'zmax';
       Object.assign(this, { wb: 1.34, radius: 0.8, hl: 1.05, hw: 0.38, maxSpeed: 25, accel: 11, brake: 18, turn: 2.5, grip: 9, seat: new THREE.Vector3(0, 0.1, -0.3), exitSide: 1.0, label: '漢克的 ZMAX' });
+    } else if (kind === 'scooter' && (opt.model === 'bws_gd' || opt.model === 'bws_zz')) { // 女拳大帝／吱吱的 BW'S (src/entities/npcs/Zz.js)
+      const gd = opt.model === 'bws_gd';
+      this.mesh = buildBws(gd ? 'gd' : 'zz'); this.model = opt.model;
+      Object.assign(this, { wb: 1.26, radius: 0.76, hl: 0.95, hw: 0.37, maxSpeed: 21, accel: 10, brake: 18, turn: 2.6, grip: 9, seat: new THREE.Vector3(0, 0.08, -0.32), exitSide: 1.0, label: gd ? "女拳大帝的 BW'S" : "吱吱的 BW'S" });
     } else if (kind === 'scooter' && BIKES[opt.model]) { // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
       const B = BIKES[opt.model];
       this.mesh = buildBike(opt.model, pick(B.colors)); this.model = opt.model;

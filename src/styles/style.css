@@ -309,6 +309,35 @@ body.touch #dialog{width:min(560px,70vw);bottom:auto;top:70px}
 .ph-msg.them{align-self:flex-start}.ph-msg.them span{background:#e9e9eb;color:#111;border-bottom-left-radius:5px}
 .ph-msg.me{align-self:flex-end;align-items:flex-end}.ph-msg.me span{background:#0a84ff;color:#fff;border-bottom-right-radius:5px}
 .ph-msg span.file{font-weight:600;font-style:italic}
+/* video message (吱吱的武嶺影片, src/systems/quests/ZzInjury.js) */
+.ph-video{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:190px;padding:52px 12px 9px;border:0;border-radius:16px;cursor:pointer;text-align:left;color:#fff;background:linear-gradient(160deg,#3b4a3a,#1b2128 60%,#0d0f12);position:relative;font:inherit}
+.ph-video i{position:absolute;left:50%;top:16px;transform:translateX(-50%);width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.88);color:#111;font-style:normal;display:flex;align-items:center;justify-content:center;font-size:14px;padding-left:3px}
+.ph-video b{font-size:13px}.ph-video small{font-size:10px;opacity:.7}.ph-video:hover i{background:#fff}
+/* incoming call */
+.ph-call{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:46px 14px 22px;color:#fff;background:linear-gradient(180deg,#2c3e50,#0f1418)}
+.ph-call.ring{background:linear-gradient(180deg,#1f6f43,#0f2a1c)}
+.ph-callhead{display:flex;flex-direction:column;align-items:center;gap:4px}.ph-callhead b{font-size:20px}.ph-callhead small{opacity:.75;font-size:12px}
+.ph-callav{width:84px;height:84px;font-size:40px;overflow:hidden}.ph-call.ring .ph-callav{animation:phRing 1.1s ease-in-out infinite}
+@keyframes phRing{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.45)}50%{box-shadow:0 0 0 14px rgba(255,255,255,0)}}
+.ph-vms{flex:1;width:100%;overflow-y:auto;margin:14px 0;display:flex;flex-direction:column;gap:8px;scrollbar-width:none}
+.ph-vm{align-self:flex-start;max-width:86%}.ph-vm.me{align-self:flex-end}
+.ph-vmw{display:inline-flex;align-items:center;gap:3px;padding:6px 10px;border-radius:14px;background:rgba(255,255,255,.16)}
+.ph-vmw i{font-style:normal;font-size:10px;margin-right:4px}.ph-vmw b{width:3px;height:12px;border-radius:2px;background:#fff;opacity:.8}.ph-vmw b:nth-child(odd){height:7px}.ph-vmw small{font-size:10px;margin-left:5px;opacity:.75}
+.ph-vm p{margin:3px 4px 0;font-size:12.5px;line-height:1.4;opacity:.92}
+.ph-callbtns{margin-top:auto;display:flex;gap:56px}.ph-cb{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:none;color:#fff;cursor:pointer;font:inherit}
+.ph-cb i{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:26px}
+.ph-cb.yes i{background:#30d158}.ph-cb.no i{background:#ff453a;transform:rotate(135deg)}.ph-cb small{font-size:11px;opacity:.85}.ph-cb[disabled]{opacity:.35;cursor:default}
+/* 殘廢澡 (bath mini-game) */
+#zzBath{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(10,20,28,.55)}
+#zzBath.hidden{display:none}
+.zb-card{width:min(560px,94vw);background:#f4fbff;color:#123;border-radius:16px;padding:14px 16px 12px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.zb-head{display:flex;justify-content:space-between;align-items:baseline}.zb-head b{font-size:18px}.zb-head small{opacity:.65}
+.zb-tools{display:flex;gap:8px;margin:8px 0}.zb-tool{flex:1;padding:8px;border:2px solid #b9d6e6;border-radius:10px;background:#fff;cursor:pointer;font:inherit;font-weight:700}
+.zb-tool.on{border-color:#1e88e5;background:#e3f2fd}
+.zb-stage{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:linear-gradient(#dbeef7,#c6dde8);cursor:crosshair;touch-action:none}
+.zb-stage canvas{width:100%;height:100%;display:block}
+.zb-say{min-height:2.6em;margin-top:8px;font-size:14px;line-height:1.35}.zb-say b{color:#c62828}
+.zb-foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;opacity:.75}
 .ph-from{font-size:10px;color:#8e8e93;margin:4px 0 1px 10px}
 .ph-t{font-size:9px;color:#b0b0b5;margin:1px 8px 0}
 .ph-read{align-self:flex-end;font-size:10px;color:#8e8e93;margin-right:6px}
@@ -729,6 +758,9 @@ kbd.pb-nin.pb-face{background:#3b3d44}
 #cinema.side .cb-a{left:0;transform:translateX(-100%)}#cinema.side .cb-b{right:0;transform:translateX(100%)}
 body.cinema #cinema .cb{transform:none}
 body.cinema #hud,body.cinema #touch,body.cinema #prompt{visibility:hidden}
+#zzFilmCap{position:fixed;inset:0;z-index:57;pointer-events:none;color:#fff;font:600 15px/1.4 "Noto Sans TC","Microsoft JhengHei",sans-serif;text-shadow:0 1px 3px #000}
+#zzFilmCap .rec{position:absolute;left:4%;top:calc(var(--bar,0px) + 14px);font-family:Consolas,monospace;font-size:13px}#zzFilmCap .rec i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff3b30;margin-right:6px;animation:phRing 1s infinite}
+#zzFilmCap .sub{position:absolute;left:0;right:0;bottom:calc(var(--bar,0px) + 18px);text-align:center;font-size:17px}#zzFilmCap .skip{position:absolute;right:4%;top:calc(var(--bar,0px) + 14px);font-size:12px;opacity:.75}
 
 /* ---- 靈感股 (src/ui/phone/StockUI.js): phone app (.sk-compact) and desktop window (.sk-wide) ---- */
 .ph-stock .ph-content{background:#12141c;padding:0}

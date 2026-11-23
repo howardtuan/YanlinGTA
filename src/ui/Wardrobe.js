@@ -5,7 +5,10 @@ const TOPS = [
   ['海軍藍 T', '#2f3e5c'], ['卡其襯衫', '#d8c9a8'], ['灰色帽 T', '#5b5d63'], ['森林綠 T', '#2f5d46'],
   ['系學會幹部T', '#1d2340', 'Polo', 'polo'], // 深藍 polo，左胸白色獅子（34TH、CYIMSA）
   // 資管系服：深綠短袖，左胸幾何線條獅子頭，背後 Information Management 程式碼印花（Since.1988）
+  ['排球 T', '#c8102e', '吱吱送的', 'volley', 'volleyTee'], // 胸前 CYCU VOLLEYBALL、背後「中原排球」7 號；幫吱吱洗完 10 次殘廢澡才有（src/systems/quests/ZzInjury.js）
 ];
+// [名稱, 顏色, 標籤, 款式, 解鎖條件]：有解鎖條件的上衣要拿到才會出現在衣櫃
+const owned = (g, key) => !key || (key === 'volleyTee' && !!g.zzQuest?.state.tee);
 const BOTTOMS = [
   ['白色短褲', '#f3f2ec', false, '預設'], ['卡其短褲', '#c9b48a', false], ['黑色短褲', '#202022', false],
   ['牛仔長褲', '#3d5a80', true], ['黑色長褲', '#1c1c1e', true], ['灰色運動褲', '#7c7f86', true],
@@ -32,7 +35,7 @@ export class Wardrobe {
   _render() {
     const L = this._look();
     const item = (name, col, on, tag, data) => `<button class="wd-item${on ? ' on' : ''}" ${data}><i style="background:${col}"></i><span>${name}</span>${tag ? `<small>${tag}</small>` : ''}</button>`;
-    $('wdTops').innerHTML = TOPS.map(([n, c, t, top]) => item(n, c, c === L.shirt && (top || null) === L.top, t, `data-shirt="${c}" data-top="${top || ''}"`)).join('');
+    $('wdTops').innerHTML = TOPS.filter(t => owned(this.g, t[4])).map(([n, c, t, top]) => item(n, c, c === L.shirt && (top || null) === L.top, t, `data-shirt="${c}" data-top="${top || ''}"`)).join('');
     $('wdBottoms').innerHTML = BOTTOMS.map(([n, c, p, t]) => item(n, c, c === L.shorts && p === L.pants, t || (p ? '長褲' : '短褲'), `data-bottom="${c}" data-pants="${p ? 1 : 0}"`)).join('');
     for (const b of this.el.querySelectorAll('[data-shirt]')) b.onclick = () => this._wear({ shirt: b.dataset.shirt, top: b.dataset.top || null });
     for (const b of this.el.querySelectorAll('[data-bottom]')) b.onclick = () => this._wear({ shorts: b.dataset.bottom, pants: b.dataset.pants === '1' });

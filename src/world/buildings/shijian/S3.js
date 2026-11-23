@@ -1,6 +1,7 @@
 // 實踐路街屋資料：S 段 s 330～450，兩側。格式見 src/world/buildings/StreetShijian.js 檔頭。
 // 照 Google 街景 2026-05 與國土測繪 2024 正射建模。這一段是夜市主街：三和一街口、實踐路58巷、52巷、弘揚路／大仁二街口。
 // 區域座標提醒：站在街上面對立面時，x = 0 在右手邊、x = w 在左手邊（兩側都一樣）；z < 0 是立面前方（往街上），z > 0 往屋後。
+import { sevenDaren2Face, adiDaren2Face } from '../d2/corners.js';
 
 const H = Math.PI / 2;
 // ---- 這一段共用的小構件（都在各格的 extra 裡呼叫；c 是 StreetShijian.js 傳進來的 ctx）----
@@ -191,6 +192,7 @@ export default {
     // 永祿小吃：深褐木板牆的鐵皮矮屋（凸出，set 5.2），後面是同一戶的 4 樓白磁磚紅瓦屋；屋簷舊看板看不清楚不放字
     ['S', 399.5, 406.5, -1, { nf: 1, gf: 3.0, d: 14.5, set: 5.2, wall: '#8a7256', ground: 'open', door: 0, noband: true, roofCol: '#8f9290', bikes: 1, extra: (k, c) => {
       backHouse(k, c, 6.5, 4, '#efede8', { redRoof: true, arch: true, bay: (f, j) => f === 2 && j !== 1 });
+      adiDaren2Face(k, c);                                                                                                      // 後棟面大仁二街那一面：阿迪早點、1 號大門（src/world/buildings/d2/corners.js）
       slab(k, c, -0.2, c.w + 0.2, -1.3, 2.55, 0.2, 3.0, '#8f9290');                                                            // 鏽鐵皮浪板屋簷
       k.box(0.3, c.w - 0.3, 3.0, 3.55, -0.25, -0.15, '#d9dcd8', { col: false });                                                // 屋簷上褪色的舊看板
       k.box(0.25, 4.3, 0, 2.5, -0.1, 0, '#8a7256', { col: false });                                                            // 右半木板牆
@@ -204,9 +206,7 @@ export default {
     ['S', 417.2, 426.2, -1, { nf: 4, wall: '#8a6a55', ground: 'shop', bal: 'plain', d: 14, set: 7.0, door: 0, noband: true, extra: (k, c) => {
       bands(k, c, '#d9d2c4');
       k.box(0.05, c.w, c.gf - 0.95, c.gf - 0.03, -0.28, 0, '#ffffff', { col: false }); flat(k, c, sevenBand(c, c.w), c.w - 0.1, 0.9, c.w / 2, c.gf - 0.49, -0.29, 0.35);
-      k.box(c.w, c.w + 0.28, c.gf - 0.95, c.gf - 0.03, -0.28, 12, '#ffffff', { col: false });
-      k.plane(sevenBand(c, 12), 12, 0.9, c.w + 0.29, c.gf - 0.49, 6, H, { emissive: 0.35 });
-      k.plane(c.YHT.win(), 9, c.gf - 1.2, c.w + 0.03, (c.gf - 1.0) / 2, 5.5, H, { emissive: 0.3 });                              // 大仁二街那面的玻璃
+      sevenDaren2Face(k, c);                                                                                                    // 面大仁二街那一面（src/world/buildings/d2/corners.js）
       hang(k, c, sevenLogo(c), 1.5, 1.5, c.w - 0.1, c.gf + c.fh + 1.6, 1.0);                                                   // 轉角 3 樓的直立招牌
       k.box(1.0, c.w - 1.0, c.top + 0.12, c.top + 2.2, 3, 11, '#6f7478', { col: false });                                      // 屋頂鐵架
     } }],

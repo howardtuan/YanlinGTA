@@ -309,7 +309,7 @@ function meixie(k, T) {
 // ---------------- 轉角一層木造小屋「永祿小吃」----------------
 const base = (H, d, set, wall, roofCol, custom) => ({ nf: 1, gf: H, d, set, wall, ground: 'open', door: 0, noband: true, bikes: -1, roofCol, custom });
 export default {
-  ownSign: ['芙蒂絲Fadeos保養美學'],
+  ownSign: ['芙蒂絲Fadeos保養美學', '阿迪早點'], // 阿迪早點的圓形燈箱畫在 ./corners.js（轉角白磁磚樓的側面）
   drop: [],
   lots: [
     [121.2, 128.3, 1, base(13, 12.4, 5.6, '#8e8e8b', '#9a9a96', house11)],

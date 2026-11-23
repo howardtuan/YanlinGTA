@@ -1899,6 +1899,31 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         })
       ),
     };
+    // 晚上有些房間開燈：暖黃、日光燈白兩種，白天跟其他玻璃一樣（發光強度跟著 g.night）
+    const litM = [
+      ['extGlassWarm', '#ffd59a'],
+      ['extGlassCool', '#e9f1ff'],
+    ].map(([n, e]) => {
+      const m = new THREE.MeshStandardMaterial({
+        color: '#4c5862',
+        roughness: 0.12,
+        metalness: 0.45,
+        envMapIntensity: 1.0,
+        emissive: e,
+        emissiveIntensity: 0,
+      });
+      return { key: mat(n, m), m };
+    });
+    I.updaters.push((dt, g) => {
+      for (const { key, m } of litM)
+        m.emissiveIntensity = (g.night || 0) * (key === litM[0].key ? 0.95 : 0.75);
+    });
+    // 哪幾扇亮：用窗的位置算一個固定的雜湊（每晚都同一批，不動共用亂數）
+    const litOf = (u, y) => {
+      const h = Math.sin(u * 12.9898 + y * 78.233) * 43758.5453,
+        r = h - Math.floor(h);
+      return r < 0.3 ? litM[0].key : r < 0.45 ? litM[1].key : XM.glass;
+    };
     const R = (a, c, n, kind = 'room') =>
       Array.from({ length: n }, (_, i) => [
         a + ((c - a) * i) / n,
@@ -2061,7 +2086,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
             yb = FL[f] + h1;
           if (holes.some((h) => h.ua < ub + 0.1 && h.ub > ua - 0.1 && h.ya < yb && h.yb > ya))
             continue;
-          BX(ua, ub, ya, yb, 0, 0.03, XM.glass);
+          BX(ua, ub, ya, yb, 0, 0.03, litOf(alongX ? cu : cu + 500, ya + v * 0.37));
           const fr = 0.06;
           BX(ua - fr, ub + fr, yb, yb + fr, 0, 0.07, XM.frame);
           BX(ua - fr, ub + fr, ya - fr, ya, 0, 0.09, XM.frame);

@@ -24,6 +24,7 @@ import { teaFootprint, teaRowFootprints, buildTeaShop, buildTeaRow } from '../bu
 import { darenFootprints, darenStreetFootprints, darenGdFootprints, DAREN_ST, buildDarenCorner, buildDarenStreet, buildDarenGd } from '../buildings/StreetDaren.js';
 import { ZB_ST, zbFootprints, buildZhongbeiStreet } from '../buildings/StreetZhongbei.js';
 import { D1_ST, d1Footprints, buildDaren1Street } from '../buildings/StreetDaren1.js';
+import { D5_ST, d5Footprints, buildDaren5Street } from '../buildings/StreetDaren5.js';
 import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
@@ -121,6 +122,10 @@ export const ZONES = [
   { // 普忠路兩側街屋（鐵路地下道口到新中北路口）
     name: '普忠路街屋', drop: PZ_ST.drop, ownSign: PZ_ST.ownSign, footprints: pzFootprints,
     build: (I, scene) => buildPuzhongStreet(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
+  },
+  { // 大仁五街兩側：長條集合住宅大樓的一樓店面與幾棟較矮的房子
+    name: '大仁五街街屋', drop: D5_ST.drop, ownSign: D5_ST.ownSign, footprints: d5Footprints,
+    build: (I, scene) => buildDaren5Street(I, scene, { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS }),
   },
 ];
 

@@ -67,6 +67,7 @@ import { Jianyu } from '../entities/npcs/Jianyu.js';
 import { Houshe } from '../entities/npcs/Houshe.js';
 import { Zz } from '../entities/npcs/Zz.js';
 import { ZzInjury } from '../systems/quests/ZzInjury.js';
+import { TzuyuWagyu } from '../systems/quests/TzuyuWagyu.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
 import { serviceTick, serviceName } from '../entities/npcs/Service.js';
@@ -514,6 +515,7 @@ class Game {
     this.howard = new Howard(this);
     // 吱吱's day in 力行 276 / the two BW'S, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
     this.zzQuest = new ZzInjury(this);
+    this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
     this.zz = new Zz(this);
 
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
@@ -1075,6 +1077,7 @@ class Game {
     this.howard?.update(dt);
     this.zz?.update(dt);
     this.zzQuest?.update(dt);
+    this.tzuyuQuest?.update(dt);
     hud.update(dt);
     const inDialog = hud.inDialog;
     this.photo.update(dt, inp); // 📷 holding the phone up: eats the shutter / back keys before anything else sees them

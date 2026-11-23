@@ -460,31 +460,7 @@ export class Houshe extends DevNPC {
       if (this.flashT <= 0) this.flashT = 2.2 + Math.random() * 1.8;
     }
   }
-  // ---- out on a date: walking a footpath near you, side by side (like YeeMing and 羊明衫) ----
-  _appear() {
-    const w = this.g.world,
-      p = this.g.player.worldPos();
-    const near = w.walkNodes.filter((n) => {
-      const d = Math.hypot(n.x - p.x, n.z - p.z);
-      return d > 30 && d < 90 && w.inCampus(n.x, n.z);
-    });
-    if (!near.length) return false;
-    const n = near[Math.floor(Math.random() * near.length)];
-    this.from = n;
-    this.to = this._pick(n, null);
-    this.d = 0;
-    this.len = Math.hypot(this.to.x - n.x, this.to.z - n.z) || 1;
-    this.pos.set(n.x, surfaceAt(n.x, n.z), n.z);
-    this.heading = Math.atan2(this.to.x - n.x, this.to.z - n.z);
-    this.pause = 0;
-    this.walkOn = true;
-    return true;
-  }
-  _pick(n, from) {
-    let opts = n.adj.filter((e) => e.to !== from && this.g.world.inCampus(e.to.x, e.to.z));
-    if (!opts.length) opts = n.adj;
-    return opts[Math.floor(Math.random() * opts.length)].to;
-  }
+  // ---- out on a date: walking a footpath near you, side by side (like YeeMing and 羊明衫; _appear / _pick in DevNPC) ----
   _date(dt) {
     const g = this.g,
       p = g.player.worldPos(),

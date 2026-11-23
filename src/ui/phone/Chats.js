@@ -1127,7 +1127,9 @@ export const FRIEND_CONTACTS = {
             game: ['在 279 打遊戲 🎮', '打完這場'],
             dorm: ['在 279 練牌 🃏', '來，我變一個給你看'],
             gym: ['在體育館正門外重訓 💪', '定位傳你'],
+            walk: ['跟女朋友在學校散步 💕', '散完就去健身房'],
           }[H.mode] || ['在學校'];
+          if (H.mode === 'walk') return { r }; // out with his girlfriend: no pin
           return {
             r,
             then: () => {
@@ -1135,6 +1137,40 @@ export const FRIEND_CONTACTS = {
             },
           };
         },
+      },
+    ],
+  },
+  // Tzuyu（src/entities/npcs/Howard.js）：兔瓦斯成員、霍華德的女朋友，平常在韓國。「你在哪？」：晚餐後在學校跟霍華德散步，不然在首爾
+  tzuyu: {
+    id: 'tzuyu',
+    name: '兔瓦斯 Tzuyu',
+    sub: '兔瓦斯・霍華德的女朋友・首爾',
+    avatar: '<img class="ph-avimg" src="assets/gram/tzuyu_av.jpg" alt="">',
+    color: '#e8a0b4',
+    unread: 1,
+    history: [{ day: '今天' }, ['tzuyu', '我是 Tzuyu～加到了 😊']],
+    script: [
+      {
+        choices: [
+          { t: 'Winter 最近好嗎？', r: ['她很好喔～每天都在練舞', '一休息就在講你的事 💙'] },
+          { t: '霍華德對妳好嗎', r: ['很好呀 😊', '就是魔術常常失敗 😂'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['票投彥霖！兔瓦斯也幫你應援 🗳️'], v: 1 },
+          { t: '什麼時候回韓國？', r: ['過幾天就要回去了', '有要帶給 Winter 的東西跟我說～'] },
+        ],
+      },
+    ],
+    always: [
+      {
+        t: '你在哪？',
+        match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) =>
+          g.howard?.mode === 'walk'
+            ? { r: ['在學校跟霍華德散步 💕', '晚點再聊～'] }
+            : { r: ['在首爾 🇰🇷', '晚餐後我會跟霍華德在學校散步，有空來找我們'] },
       },
     ],
   },

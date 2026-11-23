@@ -184,7 +184,8 @@ export function friendLocations(g) {
     ['howard', '霍華德', '🃏', '#c9677f'],
   ]) {
     const D = g[id];
-    if (has(id) && D?.mode) add(id, name, av, color, D.mode === 'date' ? null : D.pos, D.where());
+    if (has(id) && D?.mode)
+      add(id, name, av, color, D.mode === 'date' || D.mode === 'walk' ? null : D.pos, D.where()); // out on a date / a walk with his girlfriend: no pin
   }
   return out;
 }

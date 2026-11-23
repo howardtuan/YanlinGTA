@@ -557,9 +557,9 @@
       "likes": "魔術、粉色上衣",
       "catchphrase": "抽一張牌，記住它 🃏",
       "background": "晚餐後去健身房重訓（在體育館外看得到他），偶爾在宿舍練撲克牌手法。這個遊戲主要負責任務開發、NPC 角色設計，以及手機 App、電腦 App 等各種小應用。",
-      "relations": "彥霖的同班同學；279 寢室友：漢克（睡他上舖）、女拳大帝。",
+      "relations": "彥霖的同班同學；279 寢室友：漢克（睡他上舖）、女拳大帝；女朋友 Tzuyu。",
       "where": "力行宿舍 279 寢 3 號床（右手邊最裡面的下舖，座位是右手邊最裡面的書桌）／體育館西側正門外",
-      "schedule": "02:00–09:00 睡覺；09:00–12:00、14:00–16:00、00:00–02:00 開發遊戲；12:00–14:00、21:00–22:00 練撲克牌魔術；16:00–19:00 打 LOL、22:00–00:00 打特戰英豪；19:00–21:00 在體育館外重訓",
+      "schedule": "02:00–09:00 睡覺；09:00–12:00、14:00–16:00 開發遊戲；12:00–14:00 練撲克牌魔術；16:00–18:30 打 LOL；18:30–22:30 跟女朋友 Tzuyu 在校園散步；22:30–24:00 在體育館外重訓；00:00–02:00 打特戰英豪",
       "friend": true,
       "sources": [
         "src/entities/npcs/Howard.js",
@@ -568,6 +568,33 @@
         "src/ui/phone/Chats.js",
         "src/ui/phone/Feeds.js",
         "src/world/buildings/Lixing.js"
+      ]
+    },
+    {
+      "id": "tzuyu",
+      "kind": "builtin",
+      "ref": "tzuyu",
+      "name": "Tzuyu",
+      "title": "兔瓦斯成員・霍華德的女朋友",
+      "gender": "女",
+      "personality": "溫柔、親切，很支持霍華德；跟 Winter 是好朋友。",
+      "interests": [
+        "跳舞（女團兔瓦斯）",
+        "跟霍華德散步",
+        "看他變魔術"
+      ],
+      "likes": "玫瑰花",
+      "catchphrase": "你好～常聽他說你在選系會長，加油！",
+      "background": "韓國女團「兔瓦斯」的成員，平常都在韓國，只有晚餐後跟霍華德散步的時候才會出現在學校。認識彥霖的女朋友 aespo Winter。加好友後觸發支線「幫 Winter 帶和牛」：買戈登肉鋪的和牛請她帶回首爾。外型：高挑、皮膚白皙、黑色長直髮，白色上衣配淺色牛仔褲。",
+      "relations": "霍華德的女朋友；aespo Winter 的好朋友。",
+      "where": "平常在韓國；晚餐後跟霍華德在校園步道散步",
+      "schedule": "18:30–22:30 跟霍華德手牽手在校園散步",
+      "friend": true,
+      "sources": [
+        "src/entities/npcs/Howard.js",
+        "src/ui/phone/Friends.js",
+        "src/ui/phone/Chats.js",
+        "src/systems/quests/TzuyuWagyu.js"
       ]
     }
   ]

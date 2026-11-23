@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Code Quality
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -32,51 +32,17 @@ jobs:
       - name: Lint code
         run: npm run lint
 
-  test:
-    name: Unit & Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run Vitest & WASM Parity Tests
+      - name: Run unit & integration tests
         run: npm test
-
-  build:
-    name: Production Build
-    needs: [quality, test]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build production bundle
         run: npm run build
 
       - name: Verify build outputs
-        run: node tools/check_dist.mjs
+        run: npm run check:dist
 
   docker-verify:
     name: Docker Build Verification
-    needs: [quality, test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -86,7 +52,13 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        run: docker build -t yanlin-gta:ci .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: yanlin-gta:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Verify Nginx configuration
         run: docker run --rm yanlin-gta:ci nginx -t

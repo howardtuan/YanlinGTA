@@ -30,11 +30,8 @@ function vnoise(x, y, P, seed) {
     d = hash(x1, y1, seed);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
-// fbm over a size x size texture, P = lattice cells across the texture at the first octave
-// (WebAssembly version in wasm/kernels: same numbers, several times faster; this JS one is the fallback)
-function fbmField(size, P, oct, seed, gain = 0.5) {
-  const w = fbmWasm(size, P, oct, seed, gain);
-  if (w) return w;
+// pure JS fallback for fbmField (exported for bit-for-bit WASM parity testing)
+export function fbmFieldJS(size, P, oct, seed, gain = 0.5) {
   const f = new Float32Array(size * size);
   let amp = 1,
     norm = 0,
@@ -50,6 +47,13 @@ function fbmField(size, P, oct, seed, gain = 0.5) {
   }
   for (let i = 0; i < f.length; i++) f[i] /= norm;
   return f;
+}
+// fbm over a size x size texture, P = lattice cells across the texture at the first octave
+// (WebAssembly version in wasm/kernels: same numbers, several times faster; fbmFieldJS is the fallback)
+function fbmField(size, P, oct, seed, gain = 0.5) {
+  const w = fbmWasm(size, P, oct, seed, gain);
+  if (w) return w;
+  return fbmFieldJS(size, P, oct, seed, gain);
 }
 const rng = (seed) => {
   let a = seed | 0;
@@ -76,28 +80,31 @@ function toTex(cv, { srgb = true, repeat = true, aniso = 8 } = {}) {
   t.anisotropy = aniso;
   return t;
 }
+// pure JS fallback for normalFromHeight (exported for byte-for-byte WASM parity testing)
+export function normalFromHeightJS(hf, w, h, strength, d) {
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const xl = (x - 1 + w) % w,
+        xr = (x + 1) % w,
+        yu = (y - 1 + h) % h,
+        yd = (y + 1) % h;
+      const dx = (hf[y * w + xr] - hf[y * w + xl]) * strength,
+        dy = (hf[yd * w + x] - hf[yu * w + x]) * strength;
+      const l = Math.hypot(dx, dy, 1),
+        i = (y * w + x) * 4;
+      d[i] = ((-dx / l) * 0.5 + 0.5) * 255;
+      d[i + 1] = ((dy / l) * 0.5 + 0.5) * 255;
+      d[i + 2] = ((1 / l) * 0.5 + 0.5) * 255;
+      d[i + 3] = 255;
+    }
+}
 // height (Float32Array 0..1) -> tangent-space normal map canvas
 function normalFromHeight(hf, w, h, strength) {
   const cv = canvas(w, h),
     g = cv.getContext('2d'),
     img = g.createImageData(w, h),
     d = img.data;
-  if (!normalWasm(hf, w, h, strength, d))
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
-        const xl = (x - 1 + w) % w,
-          xr = (x + 1) % w,
-          yu = (y - 1 + h) % h,
-          yd = (y + 1) % h;
-        const dx = (hf[y * w + xr] - hf[y * w + xl]) * strength,
-          dy = (hf[yd * w + x] - hf[yu * w + x]) * strength;
-        const l = Math.hypot(dx, dy, 1),
-          i = (y * w + x) * 4;
-        d[i] = ((-dx / l) * 0.5 + 0.5) * 255;
-        d[i + 1] = ((dy / l) * 0.5 + 0.5) * 255;
-        d[i + 2] = ((1 / l) * 0.5 + 0.5) * 255;
-        d[i + 3] = 255;
-      }
+  if (!normalWasm(hf, w, h, strength, d)) normalFromHeightJS(hf, w, h, strength, d);
   g.putImageData(img, 0, 0);
   return cv;
 }

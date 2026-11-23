@@ -485,6 +485,33 @@ export class DevNPC {
     ch.update(dt, { speed: 0, mode: 'foot', pose: this.pause > 0 ? 'talk' : pose, ...extra });
     return true;
   }
+  // ---- walking the campus footpaths near you (侯舌's dates, 霍華德 with his girlfriend) ----
+  // start on a footpath node 30–90 m from you, on campus; false if there is none
+  _appear() {
+    const w = this.g.world,
+      p = this.g.player.worldPos();
+    const near = w.walkNodes.filter((n) => {
+      const d = Math.hypot(n.x - p.x, n.z - p.z);
+      return d > 30 && d < 90 && w.inCampus(n.x, n.z);
+    });
+    if (!near.length) return false;
+    const n = near[Math.floor(Math.random() * near.length)];
+    this.from = n;
+    this.to = this._pick(n, null);
+    this.d = 0;
+    this.len = Math.hypot(this.to.x - n.x, this.to.z - n.z) || 1;
+    this.pos.set(n.x, surfaceAt(n.x, n.z), n.z);
+    this.heading = Math.atan2(this.to.x - n.x, this.to.z - n.z);
+    this.pause = 0;
+    this.walkOn = true;
+    return true;
+  }
+  // the next node along the path (not back where he came from, staying on campus)
+  _pick(n, from) {
+    let opts = n.adj.filter((e) => e.to !== from && this.g.world.inCampus(e.to.x, e.to.z));
+    if (!opts.length) opts = n.adj;
+    return opts[Math.floor(Math.random() * opts.length)].to;
+  }
   where() {
     const p = this.places?.[this.mode];
     return (typeof p === 'function' ? p() : p) || '';

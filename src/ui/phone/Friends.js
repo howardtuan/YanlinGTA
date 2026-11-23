@@ -8,7 +8,7 @@ import { YEEMING_LOOK } from '../../entities/npcs/Yeeming.js';
 import { JIANYU_LOOK } from '../../entities/npcs/Jianyu.js';
 import { HOUSHE_LOOK } from '../../entities/npcs/Houshe.js';
 import { RICHARD_LOOK } from '../../entities/npcs/Richard.js';
-import { HOWARD_LOOK } from '../../entities/npcs/Howard.js';
+import { HOWARD_LOOK, TZUYU_LOOK } from '../../entities/npcs/Howard.js';
 import { GD_LOOK, ZZ_LOOK } from '../../entities/npcs/FriendLooks.js';
 import { FRIEND_CONTACTS } from './Chats.js';
 import { FRIEND_POSTS } from './Feeds.js';
@@ -593,7 +593,7 @@ export const FRIENDS = {
     gym: {
       intro: [
         ['霍華德', '（舉著啞鈴）……十一、十二！呼——彥霖！'],
-        ['霍華德', '吃完晚餐都會來練一下，坐太久寫程式背會痛。'],
+        ['霍華德', '陪女朋友散完步都會來練一下，坐太久寫程式背會痛。'],
         ['彥霖', '寫程式、魔術、健身，你時間怎麼排的？'],
         ['霍華德', '跟會計一樣，排好預算就好 😆 加個好友吧！'],
       ],
@@ -602,6 +602,51 @@ export const FRIENDS = {
         [['霍華德', '吱吱剛剛也在，他練腿練到走路在抖 😂']],
       ],
     },
+    walk: {
+      // 晚餐後跟女朋友 Tzuyu 散步（src/entities/npcs/Howard.js）
+      intro: [
+        ['霍華德', '欸彥霖！這是我女朋友 Tzuyu 😊'],
+        ['Tzuyu', '你好～我是兔瓦斯的 Tzuyu！常聽他說你在選系會長，加油！'],
+        ['彥霖', '兔瓦斯！？霍華德，你女朋友是女團成員你都沒說……'],
+        ['霍華德', '她平常都在韓國，難得回來，吃完晚餐陪她散個步再去健身房 😆'],
+        ['Tzuyu', '對了，我跟 Winter 很熟喔，她常常跟我說你的事 💙'],
+        ['霍華德', '我們加個好友吧！'],
+      ],
+      again: [['霍華德', '要互加嗎？Tzuyu 說她也會幫你應援 🗳️']],
+      chat: [
+        [
+          ['Tzuyu', '他剛剛又在變魔術，從我耳朵後面變出一朵玫瑰 🌹'],
+          ['霍華德', '那是真本事好嗎'],
+        ],
+        [['霍華德', '散完步我就去練二頭了，她說要在旁邊監督 💪']],
+        [['Tzuyu', '回韓國之前想多陪他走走 😊']],
+        [['霍華德', '（小聲）她說我變撲克牌的時候最帥 😎']],
+      ],
+    },
+  },
+  // Tzuyu（src/entities/npcs/Howard.js）：韓國女團「兔瓦斯」的成員、霍華德的女朋友，平常在韓國，只有晚餐後跟霍華德散步時
+  // 才會出現在學校；也認識彥霖的女朋友 aespo Winter。spot 為 null：人由 Howard.js 放，聊天由 Howard.js 呼叫 talk('tzuyu', 'walk')。
+  // 加好友後的支線「幫 Winter 帶和牛」在 src/systems/quests/TzuyuWagyu.js。
+  tzuyu: {
+    name: '兔瓦斯 Tzuyu',
+    short: 'Tzuyu',
+    look: TZUYU_LOOK,
+    spot: () => null,
+    intro: [
+      ['Tzuyu', '彥霖！你就是 Winter 的男朋友對吧 😊'],
+      ['彥霖', '對……妳怎麼知道？'],
+      ['Tzuyu', '我們在韓國常一起吃飯，她三句話不離你 💙'],
+      ['霍華德', '她們兩個超好的，我都插不上話 😂'],
+      ['Tzuyu', '我們加個好友吧！有什麼要帶給 Winter 的，我回韓國可以幫你帶～'],
+    ],
+    again: [['Tzuyu', '要加好友嗎？之後我回韓國可以幫你帶東西給 Winter 😊']],
+    yes: [['Tzuyu', '加到了！我晚點傳訊息給你～']],
+    no: [['Tzuyu', '好喔～想加再跟我說，晚上我都跟霍華德在學校散步']],
+    chat: [
+      [['Tzuyu', 'Winter 叫我跟你說：選舉加油 💙']],
+      [['Tzuyu', '台灣的晚上好舒服，比首爾溫暖多了']],
+      [['Tzuyu', '霍華德說要變一個新魔術給我看，結果牌掉滿地 😂']],
+    ],
   },
   garry: {
     name: '古箏社 黃蓋瑞',

@@ -213,11 +213,15 @@ export class Zz {
     lap.position.set(ox, D.y + 0.01, oz);
     lap.rotation.y = k.heading(myDesk.face + Math.PI);
     g.scene.add(lap);
+    // the action sits on his chair, not the desk: the desk / wardrobe block is solid, so from the aisle you never get
+    // within a metre of the desk's middle (the prompt never came up)
+    const C = world(myDesk.chair.x, myDesk.chair.z, R.y);
+    this.myDeskAt = C;
     g.interiors.actions.push({
-      x: D.x,
-      z: D.z,
-      r: 1.0,
-      y: floorY(D.x, D.z),
+      x: C.x,
+      z: C.z,
+      r: 1.1,
+      y: floorY(C.x, C.z),
       label: () => '按 <kbd>E</kbd> 使用自己的筆電',
       fn: (gm) => gm.pc?.open('彥霖的筆電'),
     });

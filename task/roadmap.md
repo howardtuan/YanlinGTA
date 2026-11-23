@@ -111,7 +111,7 @@ gantt
 
 1. **最大的一塊在標題畫面之後**。`setLoad(1, '完成')` 之後第一張畫面要等著色器，主執行緒整個卡住。GTX 1060 上 `compileAsync` 只先編好 96 個程式，第一張畫面又多出 59 個沒預編到的，一個一個同步編，共 27 秒（three 的 `onFirstUse` 自身時間 25.7 秒）。軟體繪圖上同一段是 3.5～3.7 秒。
 2. **建世界本身是 5～10 秒**，`buildWorld` 與 `buildInteriors` 大約各半。`buildInteriors` 幾乎都在 `buildZones`（軟體繪圖 1.5 秒、olddesk 3.2 秒），其中中北路街屋 `buildZhongbeiStreet` 一項就佔 0.6～1.3 秒，主要是招牌文字縮放 `fit`。`buildWorld` 裡最大的是街道家具 `buildFurniture`（0.7～1.6 秒，多半在 `nearReserved`）。
-3. **只在軟體繪圖出現的**：機車輪胎貼圖 `heightToNormal` 2.6～2.8 秒、劍玉海報 `toDataURL` 5.6～5.7 秒、天空環境貼圖 `bakeEnv` 1.0 秒。這三項在顯示卡上都不到 0.1 秒，是從畫布讀回像素時等繪圖程序造成的，只影響沒有顯示卡的環境（通關機器人、GitHub 的機器）。
+3. **只在軟體繪圖出現的**：機車輪胎貼圖 `heightToNormal` 2.6～2.8 秒、劍玉海報 `toDataURL` 5.6～5.7 秒、天空環境貼圖 `bakeEnv` 1.0 秒。在顯示卡上前兩項小到取樣看不到、`bakeEnv` 是 0.35 秒；前兩項是從畫布讀回像素時等繪圖程序造成的，只影響沒有顯示卡的環境（通關機器人、GitHub 的機器）。
 4. 下載不是問題：區網內全部資源 0.2 秒內到齊。
 
 還不知道的：

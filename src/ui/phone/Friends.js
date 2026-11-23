@@ -682,7 +682,7 @@ export class Friends {
       if (sp.y != null) n.ch.root.position.y = sp.y; // indoors: stands on the shop floor
       game.npcs.push(n);
       this.npcs[id] = n;
-      serviceWear(id, n.ch, f.look, { tag: n.label }); // 義務役 (吱吱, src/entities/npcs/Service.js)
+      serviceWear(id, n.ch, f.look, { tag: n.label }); // 義務役 (吱吱、女拳大帝, src/entities/npcs/Service.js)
       if (f.noTalk) continue; // someone else (a shop counter) handles talking to them
       game.interiors.actions.push({
         x: sp.x,

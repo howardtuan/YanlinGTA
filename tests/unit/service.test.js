@@ -8,6 +8,13 @@ const at = (s) => {
 };
 
 describe('義務役 calendar (src/entities/npcs/Service.js)', () => {
+  it('女拳大帝: serves from 2026/11/6, discharged on 2027/3/6', () => {
+    expect(serviceState('gd', at('2026-11-05'))).toBe(null);
+    expect(serviceState('gd', at('2026-11-06'))).toBe('duty'); // a Friday
+    expect(serviceState('gd', at('2026-11-07'))).toBe('leave'); // Saturday
+    expect(serviceState('gd', at('2027-03-05'))).toBe('duty'); // the last day, a Friday
+    expect(serviceState('gd', at('2027-03-06'))).toBe(null); // 退伍日
+  });
   it('11/30 group: serves from 2026/11/30, discharged on 2027/3/30', () => {
     for (const id of ['garry', 'howard']) {
       expect(serviceState(id, at('2026-11-29'))).toBe(null);

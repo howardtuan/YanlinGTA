@@ -348,6 +348,7 @@ export class Zz {
       gt = makeLabel('🛵 女拳大帝（兜風中）', { height: 0.26, size: 40, color: '#ff9a9a' });
     gt.position.set(0, 2.1, 0);
     gr.root.add(gt);
+    serviceWear('gd', gr, GD_LOOK, { tag: gt }); // 義務役 (src/entities/npcs/Service.js)
     this.cruiser = g.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'bws_gd' }), gr);
     if (this.cruiser) {
       this.cruiser.ai.hold = true;

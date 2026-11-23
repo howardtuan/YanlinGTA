@@ -2,8 +2,10 @@
 // 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
 // 結完帳如果還不是好友，他會問要不要互加（src/ui/phone/Friends.js，訊息＋Peachgram）。
 // 購物籃與買過的東西會存檔（src/systems/SaveSystem.js 的 gordon）。
-// 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–06:00 睡在 4 號床（高架床），
-// 其他時間在 4 號床下的書桌打 LOL。
+// 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–08:00 睡在 4 號床（高架床），
+// 23:00–24:00 在 4 號床下的書桌打 LOL。
+// 起床鬧鐘：06:00 起他放在床下書桌上的手機一直響（assets/sfx/gd/alarm.mp3，越靠近越大聲），他自己從來不關，響到 08:00 去上班；
+// 你可以走到書桌前按 E 幫他關掉（也可以不管它）。室友漢克、霍華德很困擾，但大家都習慣了。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
 // 有些晚上 23:00–23:40 他跟吱吱各騎自己的 BW'S 去兜風（src/entities/npcs/Zz.js 的 gdOut），那段時間不在寢室。
 import * as THREE from 'three';
@@ -66,6 +68,9 @@ const esc = (s) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
   );
 const KEEPER = '女拳大帝';
+const ALARM_SRC = 'assets/sfx/gd/alarm.mp3';
+const ALARM_AT = 6 * 60; // 06:00, rings until he gets up for work at 08:00
+const ALARM_R = 22; // metres: how far down the corridor you can still hear it
 // 店長的個性：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞
 const IDLE = [
   [[KEEPER, '要買就快點挑，我等等還要排位！🔥']],
@@ -129,7 +134,13 @@ export class Gordon {
         cond: () => S.closed,
         label: () => '戈登肉鋪已打烊（營業時間 08:00–23:00）',
         fn: (g) =>
-          g.hud.toast('🥩 戈登肉鋪已打烊，店長回宿舍打 LOL 了，早上 8 點再來吧', 'good', 2400),
+          g.hud.toast(
+            this.asleep
+              ? '🥩 戈登肉鋪已打烊，店長還在宿舍睡覺，早上 8 點再來吧'
+              : '🥩 戈登肉鋪已打烊，店長回宿舍打 LOL 了，早上 8 點再來吧',
+            'good',
+            2400
+          ),
       });
     this._dorm(game);
     A.push({
@@ -289,14 +300,22 @@ export class Gordon {
     // thanks, then (if you're not friends yet) the add-friend question
     g.dialog(PAID[Math.floor(Math.random() * PAID.length)], () => g.friends?.offer('gd'));
   }
-  // ---- 23:00–08:00: 女拳大帝 in 力行 279 at the desk under bed 6, playing LOL ----
+  // ---- 23:00–08:00: 女拳大帝 in 力行 279 at the desk under bed 4, playing LOL, then asleep ----
   get night() {
     return !!this.S?.closed;
   }
   get asleep() {
     const m = ((this.g.clock % 1440) + 1440) % 1440;
-    return this.night && m < 6 * 60;
-  } // 00:00–06:00 on his bed
+    return this.night && m < 8 * 60;
+  } // 00:00–08:00 on his bed
+  get _day() {
+    return Math.floor(this.g.clock / 1440);
+  }
+  // 06:00 until he leaves for work: his phone alarm on the desk, unless you turned it off today
+  get ringing() {
+    const m = ((this.g.clock % 1440) + 1440) % 1440;
+    return this.asleep && m >= ALARM_AT && this.alarmOff !== this._day;
+  }
   get boughtAny() {
     return Object.values(this.bought).some((n) => n > 0);
   }
@@ -368,13 +387,61 @@ export class Gordon {
     lap.position.set(D.x, D.y + 0.01, D.z);
     lap.rotation.y = k.heading(desk.face + Math.PI);
     game.scene.add(lap);
-    this.dorm = { seat, ch, lap, bed: bedAt };
+    // his phone next to the laptop: the alarm screen lights up and blinks while it rings
+    const lh = lap.rotation.y,
+      phone = new THREE.Group();
+    phone.add(
+      new THREE.Mesh(
+        new THREE.BoxGeometry(0.075, 0.01, 0.155),
+        new THREE.MeshStandardMaterial({ color: '#111114', roughness: 0.3, metalness: 0.5 })
+      )
+    );
+    const pc = document.createElement('canvas');
+    pc.width = 64;
+    pc.height = 128;
+    const px = pc.getContext('2d');
+    px.fillStyle = '#ff3b5c';
+    px.fillRect(0, 0, 64, 128);
+    px.fillStyle = '#fff';
+    px.textAlign = 'center';
+    px.font = '900 30px sans-serif';
+    px.fillText('⏰', 32, 50);
+    px.font = '800 17px sans-serif';
+    px.fillText('06:00', 32, 80);
+    px.font = '700 11px sans-serif';
+    px.fillText('鬧鐘', 32, 100);
+    const ptex = new THREE.CanvasTexture(pc);
+    ptex.colorSpace = THREE.SRGBColorSpace;
+    const pscr = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.066, 0.142),
+      new THREE.MeshBasicMaterial({ map: ptex, color: '#0d1020' })
+    );
+    pscr.rotation.x = -Math.PI / 2;
+    pscr.position.y = 0.0055;
+    phone.add(pscr);
+    const PO = -0.27; // beside the laptop, on the open side of the desk
+    phone.position.set(D.x + Math.cos(lh) * PO, D.y + 0.006, D.z - Math.sin(lh) * PO);
+    phone.rotation.y = lh + 0.35;
+    game.scene.add(phone);
+    this.dorm = { seat, ch, lap, bed: bedAt, phone, pscr };
+    this.alarmOff = -1;
+    this._alarmHeard = -1;
+    const aY = R.y + B - surfaceAt(phone.position.x, phone.position.z);
+    game.interiors.actions.push({
+      x: phone.position.x,
+      z: phone.position.z,
+      y: aY,
+      r: 1.7, // takes over from talking to him (below) while it rings
+      cond: () => this.ringing && !game.zz?.gdOut,
+      label: () => '按 <kbd>E</kbd> 關掉女拳大帝一直響的鬧鐘',
+      fn: () => this.alarmStop(),
+    });
     game.interiors.actions.push({
       x: seat.x,
       z: seat.z,
       y: R.y + B - surfaceAt(seat.x, seat.z),
       r: 1.6,
-      cond: () => this.night && !game.zz?.gdOut,
+      cond: () => this.night && !game.zz?.gdOut && !this.ringing,
       label: () =>
         this.asleep
           ? '按 <kbd>E</kbd> 看看 4 號床上的女拳大帝（睡著了）'
@@ -396,7 +463,52 @@ export class Gordon {
           mode: sl ? 'down' : 'sit',
           pose: !sl && Math.sin(gm.time * 0.6) > 0.85 ? 'talk' : null,
         });
+      this._alarmTick(dt, gm);
     });
+  }
+  // the alarm: louder the closer you are, much quieter from another floor; blinking screen
+  _alarmTick(dt, g) {
+    const { phone, pscr } = this.dorm,
+      on = this.ringing && !g.zz?.gdOut;
+    let lv = 0;
+    if (on) {
+      const p = g.player.worldPos(),
+        d = Math.hypot(p.x - phone.position.x, p.z - phone.position.z),
+        dy = Math.abs(p.y - phone.position.y);
+      lv = d < ALARM_R ? Math.pow(1 - d / ALARM_R, 1.4) * (dy < 2.6 ? 1 : 0.12) : 0;
+      // the first time you hear it close by each morning
+      if (d < 9 && dy < 2.6 && this._alarmHeard !== this._day) {
+        this._alarmHeard = this._day;
+        g.hud.toast('⏰ 279 寢的鬧鐘又在響了……女拳大帝完全沒醒，室友們好像也習慣了', 'good', 3200);
+      }
+    }
+    g.audio.loopAt?.('gdAlarm', ALARM_SRC, lv * 0.9, dt);
+    pscr.material.color.set(on ? (Math.sin(g.time * 9) > -0.2 ? '#ffffff' : '#5a5a66') : '#0d1020');
+  }
+  // you turn it off for him (he sleeps on)
+  alarmStop() {
+    const g = this.g;
+    if (!this.ringing) return;
+    this.alarmOff = this._day;
+    g.audio.blip?.();
+    const L = [
+      [
+        ['彥霖', '（女拳大帝的鬧鐘從 6 點響到現在，按掉了。整間寢室一下子安靜下來）'],
+        [KEEPER, '（翻個身，繼續睡……）'],
+        ['漢克', '謝啦……他每天都這樣，從來沒自己關過'],
+      ],
+      [
+        ['彥霖', '（關掉鬧鐘）'],
+        ['霍華德', '（被子裡）……終於……'],
+        ['霍華德', '我們早就習慣了，聽到這首歌就知道 6 點了 😂'],
+      ],
+      [
+        ['彥霖', '（把女拳大帝的鬧鐘關了）'],
+        ['漢克', '你人真好。我們都習慣了，我還能跟著它的節奏彈吉他 🎸'],
+        [KEEPER, '（夢話）……打野來幫我啦……'],
+      ],
+    ];
+    g.dialog(L[Math.floor(Math.random() * L.length)]);
   }
   // not a customer and not a friend: he won't even look up
   dormTalk() {

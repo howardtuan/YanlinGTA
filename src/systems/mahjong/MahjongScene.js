@@ -223,31 +223,32 @@ function drawFace(c, k, x, y) {
         line(7, '#f6f1e2');
       }
     } else {
-      // sticks: rows of up to 3
-      const rows =
-        n <= 3
-          ? [n]
-          : n === 4
-            ? [2, 2]
-            : n === 5
-              ? [2, 1, 2]
-              : n === 6
-                ? [3, 3]
-                : n === 7
-                  ? [1, 3, 3]
-                  : [3, 3, 3];
-      const rh = (CH - 30) / rows.length;
+      // sticks laid out like the real tiles: 二條 one above the other, 三條 one over two, 四條 2+2, 五條 2+1+2,
+      // 六條 3+3, 七條 1+3+3, 九條 3+3+3. Each stick is one short bamboo piece (knots at both ends, no band across
+      // the middle, so two sticks never read as four)
+      const rows = {
+        2: [1, 1],
+        3: [1, 2],
+        4: [2, 2],
+        5: [2, 1, 2],
+        6: [3, 3],
+        7: [1, 3, 3],
+        9: [3, 3, 3],
+      }[n];
+      const rh = (CH - 30) / rows.length,
+        L = Math.min(rh * 0.78, 50);
       rows.forEach((m, ri) => {
         for (let j = 0; j < m; j++) {
-          const cx = CW / 2 + (j - (m - 1) / 2) * 30,
+          const cx = CW / 2 + (j - (m - 1) / 2) * 32,
             cy = 15 + rh * ri + rh / 2;
-          c.fillStyle =
-            (n === 7 && ri === 0) || (n === 5 && ri === 1) || (n === 9 && j === 1)
-              ? '#c8272d'
-              : '#1f8a4c';
-          c.fillRect(cx - 7, cy - rh * 0.4, 14, rh * 0.8);
-          c.fillStyle = '#f6f1e2';
-          c.fillRect(cx - 7, cy - 2, 14, 4);
+          const red = (n === 7 && ri === 0) || (n === 5 && ri === 1) || (n === 9 && j === 1);
+          c.fillStyle = red ? '#c8272d' : '#1f8a4c';
+          c.fillRect(cx - 6, cy - L / 2, 12, L);
+          c.fillStyle = red ? '#8e1a1f' : '#155f34';
+          c.fillRect(cx - 8, cy - L / 2, 16, 5); // knots
+          c.fillRect(cx - 8, cy + L / 2 - 5, 16, 5);
+          c.fillStyle = 'rgba(255,255,255,0.45)';
+          c.fillRect(cx - 1, cy - L / 2 + 7, 2, L - 14); // a light line down the stick
         }
       });
     }
@@ -653,20 +654,26 @@ export class MahjongScene {
     const done = e.phase === 'end';
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
-      // concealed hand, always in order (the tile you just drew goes straight into its place; a green arrow marks it)
+      // concealed hand in order; the tile just drawn waits on the right, one tile's width apart, until a tile is
+      // discarded (then the hand is sorted again with it)
       const hand = sortTiles(P.hand);
-      const drawnAt =
-        s === 0 && e.turn === 0 && e.justDrew && e.phase === 'turn' ? hand.indexOf(e.drawn) : -1;
+      let drawn = -1;
+      if (e.turn === s && e.justDrew && e.phase === 'turn' && hand.includes(e.drawn)) {
+        hand.splice(hand.indexOf(e.drawn), 1);
+        hand.push(e.drawn);
+        drawn = hand.length - 1;
+      }
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
-      const total = hand.length + nMeld + P.melds.length * 0.3;
+      const total = hand.length + nMeld + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
       let u = -(total * TW) / 2;
       const reveal = done; // hand over: everybody lays their tiles down
       hand.forEach((k, i) => {
+        if (i === drawn) u += TW; // the gap before the drawn tile
         const how = s === 0 && !reveal ? 'mine' : reveal ? 'up' : 'stand';
         put(
           k,
           slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
-          s === 0 ? (i === drawnAt ? 'drawn' : 'mine') : null
+          s === 0 ? (i === drawn ? 'drawn' : 'mine') : null
         );
         u += TW;
       });
@@ -734,28 +741,38 @@ export class MahjongScene {
   }
 
   // ---------------- your moves ----------------
+  // what you may do now; mine = the tiles of your hand it uses, inc = the tile it takes (drawn on the button)
   _options() {
-    const p = this.e?.pending;
+    const e = this.e,
+      p = e?.pending;
     if (!p || p.seat !== 0) return [];
     const out = [];
     if (p.kind === 'turn') {
-      if (p.options.tsumo) out.push({ type: 'tsumo', label: '自摸 胡', key: 'H' });
+      if (p.options.tsumo)
+        out.push({ type: 'tsumo', label: '自摸！', key: 'H', mine: [], inc: e.drawn });
       for (const k of p.options.kongs)
-        out.push({ type: 'kong', t: k.t, label: `槓 ${tileName(k.t)}`, key: 'K' });
+        out.push({
+          type: 'kong',
+          t: k.t,
+          label: k.kind === 'added' ? '加槓' : '暗槓',
+          key: 'K',
+          mine: k.kind === 'added' ? [k.t, k.t, k.t] : [k.t, k.t, k.t, k.t],
+          inc: k.kind === 'added' ? k.t : null,
+        });
     } else {
+      const t = e.last.t;
       for (const o of p.options) {
-        if (o.type === 'hu') out.push({ ...o, label: '胡！', key: 'H' });
-        else if (o.type === 'pon') out.push({ ...o, label: `碰 ${tileName(o.t)}`, key: 'P' });
-        else if (o.type === 'kong') out.push({ ...o, label: `槓 ${tileName(o.t)}`, key: 'K' });
+        if (o.type === 'hu') out.push({ ...o, label: '胡！', key: 'H', mine: [], inc: t });
+        else if (o.type === 'pon') out.push({ ...o, label: '碰', key: 'P', mine: [t, t], inc: t });
+        else if (o.type === 'kong')
+          out.push({ ...o, label: '槓', key: 'K', mine: [t, t, t], inc: t });
       }
       const chis = p.options.filter((o) => o.type === 'chi');
-      chis.forEach((o, i) =>
-        out.push({
-          ...o,
-          label: `吃 ${[o.t, o.t + 1, o.t + 2].map((x) => tileName(x)[0]).join('')}${tileName(o.t).slice(1)}`,
-          key: chis.length > 1 ? String(i + 1) : 'C',
-        })
-      );
+      chis.forEach((o, i) => {
+        const mine = [o.t, o.t + 1, o.t + 2];
+        mine.splice(mine.indexOf(t), 1);
+        out.push({ ...o, label: '吃', key: chis.length > 1 ? String(i + 1) : 'C', mine, inc: t });
+      });
       out.push({ type: 'pass', label: '過', key: 'X' });
     }
     return out;
@@ -767,7 +784,7 @@ export class MahjongScene {
     if (a.type === 'leave') return this.mj.leave();
     const e = this.e;
     if (!e?.pending) return;
-    const { label: _l, key: _k, ...act } = a;
+    const { label: _l, key: _k, mine: _m, inc: _i, ...act } = a;
     if (e.decide(act)) {
       this.t = 0.15;
       this._layout();
@@ -853,12 +870,21 @@ export class MahjongScene {
     if (key !== this._actKey) {
       this._actKey = key;
       const pad = { H: 'Y', P: 'X', K: 'RB', C: 'LB', X: 'B', 1: 'LB', 2: '2', 3: '3' };
+      // big buttons over your hand: the tiles you'd use + the one you'd take (orange frame), then the key and the word
+      const img = (k, inc) => `<img src="${this._tileImg(k)}" class="${inc ? 'inc' : ''}" alt="">`;
       this.$('.mj-acts').innerHTML = opts
-        .map(
-          (o) =>
-            `<button data-a='${JSON.stringify(o)}' class="${o.type}"><kbd>${g.prompts?.pad ? pad[o.key] || o.key : o.key}</kbd> ${o.label}</button>`
-        )
+        .map((o) => {
+          const tiles = o.mine
+            ? `<span class="mj-tiles">${o.mine.map((k) => img(k)).join('')}${o.inc != null ? `${o.mine.length ? '<i>＋</i>' : ''}${img(o.inc, true)}` : ''}</span>`
+            : '';
+          return `<button data-a='${JSON.stringify(o)}' class="${o.type}">${tiles}<span class="mj-lab"><kbd>${g.prompts?.pad ? pad[o.key] || o.key : o.key}</kbd>${o.label}</span></button>`;
+        })
         .join('');
+    }
+    // just above your hand
+    if (opts.length) {
+      const v = new THREE.Vector3(0, Y0 + 0.05, 0.36).project(this.cam);
+      this.$('.mj-acts').style.top = `${((1 - v.y) / 2) * 100}%`;
     }
     const p = e.pending;
     const hint = this.result

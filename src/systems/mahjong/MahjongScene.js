@@ -178,8 +178,52 @@ function drawFace(c, k, x, y) {
       c.lineTo(CW / 2, CH * 0.72);
       c.lineTo(CW / 2 + 26, CH * 0.85);
       c.fill();
+    } else if (n === 8) {
+      // 八條: a "W" on top and an "M" below, each one thick bamboo line — dark green with a pale line down the
+      // middle and a knot (bulge) on every stretch, like the real tile
+      const shapes = [
+        [
+          [18, 16],
+          [41, 74],
+          [64, 32],
+          [87, 74],
+          [110, 16],
+        ],
+        [
+          [18, 154],
+          [41, 96],
+          [64, 138],
+          [87, 96],
+          [110, 154],
+        ],
+      ];
+      c.lineJoin = c.lineCap = 'round';
+      for (const pts of shapes) {
+        const line = (w, col) => {
+          c.strokeStyle = col;
+          c.lineWidth = w;
+          c.beginPath();
+          pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+          c.stroke();
+        };
+        line(22, '#1d5a34');
+        c.fillStyle = '#1d5a34';
+        for (let i = 0; i + 1 < pts.length; i++)
+          for (const t of [0.3, 0.7]) {
+            c.beginPath();
+            c.arc(
+              pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t,
+              pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t,
+              13.5,
+              0,
+              7
+            );
+            c.fill();
+          }
+        line(7, '#f6f1e2');
+      }
     } else {
-      // sticks: rows of up to 3 (or 4 for 8)
+      // sticks: rows of up to 3
       const rows =
         n <= 3
           ? [n]
@@ -191,9 +235,7 @@ function drawFace(c, k, x, y) {
                 ? [3, 3]
                 : n === 7
                   ? [1, 3, 3]
-                  : n === 8
-                    ? [4, 4]
-                    : [3, 3, 3];
+                  : [3, 3, 3];
       const rh = (CH - 30) / rows.length;
       rows.forEach((m, ri) => {
         for (let j = 0; j < m; j++) {

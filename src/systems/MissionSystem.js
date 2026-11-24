@@ -57,7 +57,6 @@ export class Missions {
       lib: ap('張靜愚紀念圖書館'),
       sac: ap('學生活動中心'),
       village: ap('全人教育村'),
-      ee: ap('電學大樓'),
       dorm: ap('良善樓'),
       tower: ap('鐘塔') || { x: -16, z: 110, name: '鐘塔' },
       history: ap('校史館'),
@@ -68,6 +67,16 @@ export class Missions {
     };
     const nm = w.nearestRoadPoint(w.nightMarket.x, w.nightMarket.z, true);
     if (nm) this.P.market = { x: nm.x, z: nm.z, name: '中原夜市' };
+    // 任務一的 5 個公布欄：地形改版後「建築最近的道路點」會跑偏（電學大樓、良善樓疊在同一條路上），改成手選的固定座標。
+    // 全人教育村在 (-80,-80) 西邊的全人大道東側路邊；體育館取代原本的電學大樓；良善樓維持原本自動算出的點。
+    const fixed = (x, z, name) => ({ x, z, name });
+    this.P.flyers = [
+      fixed(-180, 8, '張靜愚紀念圖書館'),
+      fixed(-160, -80, '學生活動中心'),
+      fixed(-89.5, -80, '全人教育村'),
+      this.P.gym,
+      this.P.dorm,
+    ].filter(Boolean);
   }
   get active() {
     return this.step;
@@ -466,12 +475,12 @@ Missions.prototype.steps = [
         ['阿哲', '早安！主角終於來了！傳單一早剛印好，還熱熱的。'],
         [
           '阿哲',
-          '幫我把傳單送到 5 個公布欄：圖書館、學生活動中心、全人教育村、電學大樓、良善樓宿舍。',
+          '幫我把傳單送到 5 個公布欄：圖書館、學生活動中心、全人教育村、體育館、良善樓宿舍。',
         ],
         ['阿哲', '限時 3 分鐘！你的 JET SL 我幫你牽到系館前面了，騎它比較快 🛵'],
       ],
       () => {
-        const cps = [P.lib, P.sac, P.village, P.ee, P.dorm].filter(Boolean);
+        const cps = P.flyers;
         this.checkpoints(
           cps,
           '任務一 · 傳單大作戰',

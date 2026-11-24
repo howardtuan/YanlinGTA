@@ -8294,3 +8294,45 @@ body.mahjong #dialog {
   font-size: 16px;
   margin: 0 3px;
 }
+
+/* 277 麻將: 抓位、擲骰定莊／開門 (MahjongScene seatDraw / roll) */
+#mjUI .mj-say {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.68);
+  font-size: clamp(16px, 4.6vw, 22px);
+  font-weight: 700;
+  text-align: center;
+  width: max-content;
+  max-width: 92vw;
+  animation: mjSay 0.2s ease-out;
+}
+#mjUI .mj-say:empty {
+  display: none;
+}
+#mjUI .mj-say small {
+  display: block;
+  font-size: 15px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+@keyframes mjSay {
+  from {
+    transform: translateX(-50%) scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
+#mjUI .mj-acts button.go {
+  flex-direction: row;
+  background: #c8272d;
+  font-size: 22px;
+  padding: 10px 22px;
+}

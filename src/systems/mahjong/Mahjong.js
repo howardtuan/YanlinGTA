@@ -9,7 +9,15 @@ import { MahjongEngine } from './Engine.js';
 import { makeAI } from './AI.js';
 import { MahjongScene } from './MahjongScene.js';
 import { surfaceAt } from '../../world/Terrain.js';
-import { STAKES } from './Rules.js';
+import {
+  STAKES,
+  rollDice,
+  diceSum,
+  countSeat,
+  cutWall,
+  drawWinds,
+  seatsFromWinds,
+} from './Rules.js';
 
 // 力行的 7 個人：找人的順序（同一種狀態裡）＝ 離 277 近的寢室先；style 是打牌個性（src/systems/mahjong/AI.js）
 export const ROSTER = [
@@ -243,25 +251,54 @@ export class DormMahjong {
   start() {
     const g = this.g;
     this.state = 'play';
-    this.sess = { dealer: Math.floor(Math.random() * 4), streak: 0, passes: 0, hands: 0, net: 0 };
-    this.ais = [null, ...this.party.map((p) => makeAI(p.style))];
+    this.sess = { dealer: 0, streak: 0, passes: 0, hands: 0, net: 0 };
+    this._seatAIs();
     document.exitPointerLock?.();
     this.scene ||= new MahjongScene(g, this);
-    this.scene.open(['彥霖', ...this.party.map((p) => p.name)]);
+    this.scene.open(this.seatNames());
     // first the stakes (底／台), then the first hand
     this.scene.chooseStake(this.stats.stake || 0, (i) => {
       const [base, perTai] = STAKES[i] || STAKES[0];
       this.stats.stake = i;
       Object.assign(this.sess, { base, perTai });
-      this.deal();
+      this.seatDraw();
     });
+  }
+  // 抓位 (draw the four winds, sit by them) → whoever drew 東 throws the dice for the first dealer → the first hand
+  seatDraw(rng = Math.random) {
+    const winds = drawWinds(rng),
+      seats = seatsFromWinds(winds),
+      east = seats[winds.indexOf(0)],
+      dice = rollDice(rng);
+    this.sess.dealer = countSeat(east, diceSum(dice));
+    this.scene.seatDraw(
+      winds,
+      () => {
+        for (const p of this.party) p.seat = seats[p.seat];
+        this._seatAIs();
+        return this.seatNames();
+      },
+      () => this.scene.roll(east, dice, 'dealer', () => this.deal())
+    );
+  }
+  _seatAIs() {
+    this.ais = [null];
+    for (const p of this.party) this.ais[p.seat] = makeAI(p.style);
+  }
+  seatNames() {
+    const n = ['彥霖'];
+    for (const p of this.party) n[p.seat] = p.name;
+    return n;
   }
   get round() {
     return Math.floor(this.sess.passes / 4) % 4;
   }
+  // every hand: the dealer throws the dice for where the wall is broken open (開門)
   deal() {
-    const s = this.sess;
+    const s = this.sess,
+      dice = rollDice();
     this.engine = new MahjongEngine({
+      cut: cutWall(s.dealer, diceSum(dice)),
       dealer: s.dealer,
       streak: s.streak,
       round: this.round,
@@ -270,6 +307,7 @@ export class DormMahjong {
       ai: (e, seat, kind, o) => this.ais[seat](e, seat, kind, o),
     });
     this.scene.startHand(this.engine);
+    this.scene.roll(s.dealer, dice, 'cut');
   }
   // the scene calls this when a hand is over: pay up, move the dealer on
   handOver(r) {

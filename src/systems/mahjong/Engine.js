@@ -19,7 +19,7 @@ import {
 export const RESERVE = 16; // 留 16 張不摸（海底）
 
 export class MahjongEngine {
-  // opt: { rng, dealer, streak, round, human: [true,false,false,false], ai(engine, seat, kind, options), wall }
+  // opt: { rng, dealer, streak, round, human: [true,false,false,false], ai(engine, seat, kind, options), wall, cut }
   constructor(opt = {}) {
     this.rng = opt.rng || Math.random;
     this.dealer = opt.dealer ?? 0;
@@ -30,6 +30,8 @@ export class MahjongEngine {
     this.human = opt.human || [true, false, false, false];
     this.ai = opt.ai;
     this.wall = opt.wall ? [...opt.wall] : makeWall(this.rng);
+    // 開門（Rules.js cutWall）：只決定牌牆從哪一墩開始抓（畫面用），wall[0] 一律是第一張被抓的
+    this.cut = opt.cut || { seat: this.dealer, stacks: 0 };
     this.players = [0, 1, 2, 3].map(() => ({
       hand: [],
       melds: [],
@@ -69,11 +71,25 @@ export class MahjongEngine {
     while (isFlower(t)) {
       P.flowers.push(t);
       this.emit({ type: 'flower', seat: s, t });
+      this._flowerCheck(s, t);
       t = this.wall.pop();
       this.tailTaken++;
     }
     P.hand.push(t);
     return t;
+  }
+  // 八仙過海：一家湊齊 8 張花，馬上算胡（自摸）；七搶一：一家有 7 張花、別家摸到第 8 張，有 7 張的那家搶過來胡（摸到的人付）
+  _flowerCheck(s, t) {
+    if (this.flowerWin) return;
+    const n = this.players.map((P) => P.flowers.length);
+    if (n[s] === 8) this.flowerWin = { winner: s, from: null, t, name: '八仙過海' };
+    else {
+      // (dealing flowers out at the start, the 7 may be laid out after the 1)
+      const seven = n.findIndex((x) => x === 7),
+        one = n.findIndex((x) => x === 1);
+      if (seven >= 0 && one >= 0 && (s === seven || s === one))
+        this.flowerWin = { winner: seven, from: one, t, name: '七搶一' };
+    }
   }
 
   start() {
@@ -91,12 +107,23 @@ export class MahjongEngine {
         const t = P.hand.splice(f, 1)[0];
         P.flowers.push(t);
         this.emit({ type: 'flower', seat: s, t });
-        P.hand.push(this.wall.pop());
+        this._flowerCheck(s, t);
+        let r = this.wall.pop();
         this.tailTaken++;
+        // (a flower drawn as the replacement goes the same way)
+        while (isFlower(r)) {
+          P.flowers.push(r);
+          this.emit({ type: 'flower', seat: s, t: r });
+          this._flowerCheck(s, r);
+          r = this.wall.pop();
+          this.tailTaken++;
+        }
+        P.hand.push(r);
       }
       P.hand = sortTiles(P.hand);
     }
     this.emit({ type: 'deal' });
+    if (this.flowerWin) return this._flowerWin();
     this.phase = 'draw';
     this.turn = this.dealer;
     this.tail = false;
@@ -119,7 +146,11 @@ export class MahjongEngine {
     const t = this._take(s, this.tail);
     P.draws++;
     this.drawn = t;
-    this.afterKong = this.tail;
+    if (this.flowerWin) return this._flowerWin();
+    // 明槓（槓別人打的、或碰了再加槓）補的那張不能胡，只能打一張；暗槓補的才有槓上開花
+    this.noWin = this.tail && this.openKong;
+    this.afterKong = this.tail && !this.openKong;
+    this.openKong = false;
     this.tail = false;
     this.justDrew = true;
     this.emit({ type: 'draw', seat: s, t });
@@ -131,8 +162,8 @@ export class MahjongEngine {
     const c = counts(P.hand);
     const o = { tsumo: false, kongs: [], discard: true };
     if (this.justDrew) {
-      o.tsumo = isWin(c, this.sets(s));
-      if (this.live > 0) {
+      o.tsumo = !this.noWin && isWin(c, this.sets(s));
+      if (this.live > 0 && !this.noWin) {
         for (let k = 0; k < 34; k++) if (c[k] === 4) o.kongs.push({ t: k, kind: 'closed' });
         for (const m of P.melds)
           if (m.type === 'pung' && c[m.t]) o.kongs.push({ t: m.t, kind: 'added' });
@@ -229,7 +260,8 @@ export class MahjongEngine {
     if (rob) return o;
     if (this.live > 0) {
       if (c[t] >= 2) o.push({ type: 'pon', t });
-      if (c[t] >= 3) o.push({ type: 'kong', t });
+      // 不能槓上家打的牌（碰可以）
+      if (c[t] >= 3 && (from + 1) % 4 !== s) o.push({ type: 'kong', t });
       if ((from + 1) % 4 === s && t < 27) {
         const n = t % 9;
         for (const a of [t - 2, t - 1, t])
@@ -264,9 +296,10 @@ export class MahjongEngine {
     const hu = pick('hu');
     if (hu != null) return (this._win(hu, from, t, rob), true);
     if (rob) {
-      // nobody robbed the kong: the one who added it draws from the back
+      // nobody robbed the kong: the one who added it draws from the back (a 明槓: no win on that tile)
       this.turn = from;
       this.tail = true;
+      this.openKong = true;
       this.phase = 'draw';
       return true;
     }
@@ -297,6 +330,7 @@ export class MahjongEngine {
     this.turn = who;
     if (a.type === 'kong') {
       this.tail = true;
+      this.openKong = true;
       this.phase = 'draw';
     } else {
       this.justDrew = false;
@@ -357,6 +391,30 @@ export class MahjongEngine {
       items: sc.items,
       deltas,
       dealerStays,
+    };
+    this.emit({ type: 'win', ...this.result });
+    this.phase = 'end';
+  }
+
+  // 八仙過海／七搶一：不看手牌，就算 8 台（加莊家／連莊）
+  _flowerWin() {
+    const { winner: s, from, t, name } = this.flowerWin;
+    const self = from == null;
+    const deltas = settle(
+      { winner: s, from, tai: 8, dealer: this.dealer, streak: this.streak },
+      this.base,
+      this.perTai
+    );
+    this.result = {
+      winner: s,
+      from,
+      self,
+      t,
+      tai: 8,
+      items: [[name, 8]],
+      deltas,
+      dealerStays: s === this.dealer,
+      flower: name,
     };
     this.emit({ type: 'win', ...this.result });
     this.phase = 'end';

@@ -10,6 +10,13 @@ import {
   tileName,
   makeWall,
   STAKES,
+  rollDice,
+  diceSum,
+  countSeat,
+  drawWinds,
+  seatsFromWinds,
+  cutWall,
+  stackAt,
 } from '../../src/systems/mahjong/Rules.js';
 import { MahjongEngine } from '../../src/systems/mahjong/Engine.js';
 import { makeAI } from '../../src/systems/mahjong/AI.js';
@@ -243,5 +250,165 @@ describe('整局流程（4 家都是電腦）', () => {
     const t = e.players[0].hand[0];
     expect(e.decide({ type: 'discard', t })).toBe(true);
     expect(e.players[0].discards).toContain(t);
+  });
+});
+
+describe('擲骰：抓位、定莊、開門', () => {
+  it('3 dice, 3–18', () => {
+    for (let i = 0; i < 200; i++) {
+      const d = rollDice();
+      expect(d.length).toBe(3);
+      expect(d.every((v) => v >= 1 && v <= 6)).toBe(true);
+      expect(diceSum(d)).toBeGreaterThanOrEqual(3);
+      expect(diceSum(d)).toBeLessThanOrEqual(18);
+    }
+  });
+  it('counting from the thrower round to the right: 5 9 13 17 自己、2 6 10 14 18 下家…', () => {
+    const rel = (sum) => (countSeat(2, sum) - 2 + 4) % 4; // thrower at seat 2
+    for (const n of [5, 9, 13, 17]) expect(rel(n)).toBe(0);
+    for (const n of [2, 6, 10, 14, 18]) expect(rel(n)).toBe(1);
+    for (const n of [3, 7, 11, 15]) expect(rel(n)).toBe(2);
+    for (const n of [4, 8, 12, 16]) expect(rel(n)).toBe(3);
+    expect(countSeat(0, 6)).toBe(1); // 彥霖 throws 6: his 下家 (seat 1, on his right)
+  });
+  it('抓位: everyone draws one wind; you stay put, the rest sit 東南西北 round to the right', () => {
+    const w = drawWinds();
+    expect([...w].sort()).toEqual([0, 1, 2, 3]);
+    // you drew 西 (2): 北 sits on your right, 東 across, 南 on your left
+    const seats = seatsFromWinds([2, 0, 3, 1]);
+    expect(seats).toEqual([0, 2, 1, 3]);
+    expect(seats[1]).toBe(2); // whoever drew 東 is across the table
+    for (let i = 0; i < 20; i++) {
+      const W = drawWinds();
+      const S = seatsFromWinds(W);
+      expect(S[0]).toBe(0);
+      expect([...S].sort()).toEqual([0, 1, 2, 3]);
+      // round to the right, the winds go on 東南西北
+      for (let s = 0; s < 4; s++) expect((W[S.indexOf((S[s] + 1) % 4)] - W[s] + 4) % 4).toBe(1);
+    }
+  });
+  it('開門: count that many stacks from the right of that wall, draw from the next one, clockwise', () => {
+    const cut = cutWall(0, 5); // 彥霖 deals and throws 5: his own wall
+    expect(cut).toEqual({ seat: 0, stacks: 5 });
+    expect(stackAt(cut, 0)).toEqual({ seat: 0, si: 12 }); // 5 stacks counted from his right (17…13)
+    expect(stackAt(cut, 12)).toEqual({ seat: 0, si: 0 }); // drawing goes to his left
+    expect(stackAt(cut, 13)).toEqual({ seat: 3, si: 17 }); // then on to 上家's wall, from its right end
+    expect(stackAt(cut, 71)).toEqual({ seat: 0, si: 13 }); // 牌尾: the counted stacks, last one next to the cut
+    // seat 1 throws 18: seat 2's wall (its 下家), all 18 counted, so drawing starts at seat 2's 上家 = seat 1
+    expect(stackAt(cutWall(1, 18), 0)).toEqual({ seat: 1, si: 17 });
+    // every stack exactly once
+    const all = new Set();
+    for (let st = 0; st < 72; st++) {
+      const { seat, si } = stackAt(cutWall(3, 11), st);
+      all.add(`${seat}:${si}`);
+    }
+    expect(all.size).toBe(72);
+  });
+  it('the engine keeps where the wall was opened (the dealer’s own wall when nobody threw)', () => {
+    expect(new MahjongEngine({ dealer: 2 }).cut).toEqual({ seat: 2, stacks: 0 });
+    const c = cutWall(2, 9);
+    expect(new MahjongEngine({ dealer: 2, cut: c }).cut).toBe(c);
+  });
+});
+
+describe('骰子動畫（Dice.js）', () => {
+  it('lands with the thrown value on top, whatever way it is turned', async () => {
+    const { restingQuat, topValue } = await import('../../src/systems/mahjong/Dice.js');
+    for (let v = 1; v <= 6; v++)
+      for (const yaw of [0, 1, 2.5, 4]) expect(topValue(restingQuat(v, yaw))).toBe(v);
+  });
+});
+
+describe('槓與花的台灣規矩', () => {
+  // a table where only seat 1 has tiles; every other seat passes, seat 1 kongs when it can
+  const table = (tail) => {
+    const e = new MahjongEngine({
+      human: [false, false, false, false],
+      ai: (_e, _s, kind, o) =>
+        kind === 'claim'
+          ? o.find((x) => x.type === 'kong') || { type: 'pass' }
+          : { type: 'discard' },
+    });
+    e.wall = [...new Array(29).fill(K('9m')), K(tail)];
+    e.players[1].hand = T('555m123p456p789p11s23s');
+    return e;
+  };
+  it('no kong on 上家’s discard (a pon is fine)', () => {
+    const e = table('4s');
+    e.last = { t: K('5m'), from: 0 }; // seat 0 is seat 1's 上家
+    expect(e.claimOptions(1).map((o) => o.type)).toEqual(['pon']);
+    e.last = { t: K('5m'), from: 3 };
+    expect(e.claimOptions(1).map((o) => o.type)).toEqual(['pon', 'kong']);
+  });
+  it('明槓: the replacement tile can’t win (just discard); 暗槓 can (槓上開花)', () => {
+    const e = table('4s');
+    e.last = { t: K('5m'), from: 3 };
+    e.phase = 'claim';
+    e.answers = null;
+    e.step(); // seat 1 kongs
+    expect(e.players[1].melds[0]).toMatchObject({ type: 'kong', t: K('5m') });
+    e.step(); // draws 4s from the back: would finish the hand
+    expect(e.drawn).toBe(K('4s'));
+    expect(e.turnOptions(1)).toMatchObject({ tsumo: false, kongs: [] });
+    e.step(); // so it discards
+    expect(e.phase).not.toBe('end');
+
+    const c = table('4s');
+    c.players[1].hand = T('5555m123p456p789p11s23s');
+    c.turn = 1;
+    c.justDrew = true;
+    c.phase = 'turn';
+    c._act(1, { type: 'kong', t: K('5m') }); // 暗槓
+    c.step();
+    expect(c.turnOptions(1).tsumo).toBe(true);
+    expect(c.afterKong).toBe(true);
+  });
+  it('七搶一: 7 flowers, somebody else draws the 8th — the 7 win off them, 8 台', () => {
+    const e = new MahjongEngine({ human: [false, false, false, false], dealer: 3 });
+    e.players[0].flowers = [34, 35, 36, 37, 38, 39, 40];
+    e.wall = [41, ...new Array(30).fill(K('9m'))];
+    e.turn = 2;
+    e.phase = 'draw';
+    e.step();
+    expect(e.result).toMatchObject({ winner: 0, from: 2, tai: 8, items: [['七搶一', 8]] });
+    expect(e.result.deltas[2]).toBe(-(30 + 10 * 8));
+  });
+  it('八仙過海: all 8 flowers is a win straight away (self-drawn)', () => {
+    const e = new MahjongEngine({ human: [false, false, false, false], dealer: 2 });
+    e.players[2].flowers = [34, 35, 36, 37, 38, 39, 40];
+    e.wall = [41, ...new Array(30).fill(K('9m'))];
+    e.turn = 2;
+    e.phase = 'draw';
+    e.step();
+    expect(e.result).toMatchObject({ winner: 2, from: null, self: true, flower: '八仙過海' });
+  });
+  it('半求人: every set called, then self-drawn', () => {
+    const melds = [
+      { type: 'pung', t: K('1m') },
+      { type: 'chow', t: K('2p') },
+      { type: 'chow', t: K('5p') },
+      { type: 'pung', t: K('9s') },
+      { type: 'chow', t: K('1s') },
+    ];
+    const s = scoreHand({
+      concealed: T('44s'),
+      melds,
+      flowers: [],
+      win: K('4s'),
+      self: true,
+      seat: 1,
+      round: 0,
+    });
+    expect(s.items.map(([n]) => n)).toContain('半求人');
+    const q = scoreHand({
+      concealed: T('44s'),
+      melds,
+      flowers: [],
+      win: K('4s'),
+      self: false,
+      seat: 1,
+      round: 0,
+    });
+    expect(q.items.map(([n]) => n)).toContain('全求人');
   });
 });

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { DormMahjong, statusOf, pickPlayers, DELAY } from '../../src/systems/mahjong/Mahjong.js';
+import {
+  countSeat,
+  diceSum,
+  seatsFromWinds,
+  drawWinds,
+  rollDice,
+} from '../../src/systems/mahjong/Rules.js';
 
 // 力行 277 的麻將桌（src/systems/mahjong/Mahjong.js）：誰醒著／在寢室、揪誰、開打條件、輸贏記帳、上桌的人在哪。
 // A stand-in for the game: the 7 people of 力行 with the modes their own update() would give them.
@@ -223,5 +230,44 @@ describe('輸贏記帳', () => {
     mj.sess.passes = 15;
     const end = mj.handOver({ draw: true, deltas: [0, 0, 0, 0], dealerStays: false });
     expect(end.over).toBe(true);
+  });
+});
+
+describe('抓位、擲骰定莊', () => {
+  it('everyone moves to the seat of the wind they drew; whoever drew 東 throws for the first dealer', () => {
+    const g = fakeGame();
+    const mj = new DormMahjong(g);
+    mj.press();
+    mj.sess = { dealer: 0, streak: 0, passes: 0, hands: 0, net: 0 };
+    const before = Object.fromEntries(mj.party.map((p) => [p.id, p.seat]));
+    let call;
+    mj.scene = {
+      seatDraw: (winds, apply, done) => (call = { winds, apply, done }),
+      roll: (thrower, dice, what) => Object.assign(call, { thrower, dice, what }),
+    };
+    // a fixed rng: the same draws as drawWinds / rollDice would make with it
+    const seq = [0.1, 0.7, 0.4, 0.3, 0.9, 0.5];
+    const rng = () => {
+      let i = 0;
+      return () => seq[i++ % seq.length];
+    };
+    mj.seatDraw(rng());
+    const r2 = rng();
+    const winds = drawWinds(r2),
+      dice = rollDice(r2);
+    expect(call.winds).toEqual(winds);
+    const seats = seatsFromWinds(winds);
+    const names = call.apply();
+    for (const p of mj.party) {
+      expect(p.seat).toBe(seats[before[p.id]]);
+      expect(names[p.seat]).toBe(p.name);
+      expect(typeof mj.ais[p.seat]).toBe('function');
+    }
+    expect(names[0]).toBe('彥霖');
+    call.done();
+    const east = seats[winds.indexOf(0)];
+    expect(call.thrower).toBe(east);
+    expect(call.what).toBe('dealer');
+    expect(mj.sess.dealer).toBe(countSeat(east, diceSum(dice)));
   });
 });

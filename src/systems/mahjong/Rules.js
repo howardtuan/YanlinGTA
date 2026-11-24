@@ -215,7 +215,7 @@ export function scoreHand(w) {
       if (w.self) add('自摸', 1);
       if (menqing) add('門清', 1);
     }
-    if (open.length === 5 && !w.self) add('全求人', 2);
+    if (open.length === 5) add(w.self ? '半求人' : '全求人', w.self ? 1 : 2);
     if (w.last) add(w.self ? '海底撈月' : '河底撈魚', 1);
     if (w.afterKong) add('槓上開花', 1);
     if (w.robKong) add('搶槓', 1);
@@ -303,4 +303,35 @@ export function settle(r, base = BASE, perTai = PER_TAI) {
     d[r.winner] += amt;
   }
   return d;
+}
+
+// ---------------- 擲骰：抓位、定莊、開門 ----------------
+// 一律擲 3 顆骰子（3–18 點）；從擲的人自己數 1，往右手邊（逆時針：下家、對家、上家）數下去：
+//   5 9 13 17 自己、2 6 10 14 18 下家、3 7 11 15 對家、4 8 12 16 上家
+// 座位 0–3 逆時針排（0 = 彥霖，1 = 下家），所以數到的座位 = (擲的人 + 點數 − 1) mod 4。
+export const rollDice = (rng = Math.random) => [0, 0, 0].map(() => 1 + Math.floor(rng() * 6));
+export const diceSum = (d) => d.reduce((a, b) => a + b, 0);
+export const countSeat = (thrower, sum) => (thrower + sum - 1) % 4;
+export const SEAT_REL = ['自己', '下家', '對家', '上家'];
+
+// 抓位：東南西北四張風牌蓋著洗好、每人抽一張；winds[s] = 現在坐 s 的人抽到的風。
+export function drawWinds(rng = Math.random) {
+  const w = [0, 1, 2, 3];
+  for (let i = 3; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [w[i], w[j]] = [w[j], w[i]];
+  }
+  return w;
+}
+// 照抽到的風逆時針坐（東、南、西、北），彥霖不動：現在坐 s 的人換到哪個座位
+export const seatsFromWinds = (winds) => winds.map((w) => (w - winds[0] + 4) % 4);
+
+// 開門：莊家擲骰，數到誰就從誰面前的牌牆開；從那面牌牆的右端往左數「點數」墩，下一墩開始抓（順時針抓），
+// 數過的那幾墩是牌尾（補花、補槓從那裡逆時針拿）。
+export const cutWall = (dealer, sum) => ({ seat: countSeat(dealer, sum), stacks: sum });
+export const STACKS = 18; // 每面牌牆 18 墩（2 張一墩，4 面 144 張）
+// 從開門那墩數起的第 st 墩（0 = 第一個被抓的）在哪：seat 那面牌牆、si = 從那家看由左（0）往右（17）第幾墩
+export function stackAt(cut, st) {
+  const c = (cut.stacks + st) % (STACKS * 4); // 0 = 開門那面牌牆最右邊那墩，往順時針（那家的左手邊、再到上家）數
+  return { seat: (cut.seat - Math.floor(c / STACKS) + 8) % 4, si: STACKS - 1 - (c % STACKS) };
 }

@@ -8,7 +8,19 @@
 //   滑鼠：指到的牌會浮起來，點一下打出；觸控：點一下選、再點一次打出；按鈕也可以直接點
 //   搖桿：十字鍵選牌、A 打出、Y 胡、X 碰、LB 吃、RB 槓、B 過、Start 離開（src/core/Input.js 的 mahjong 配置）
 import * as THREE from 'three';
-import { tileName, isFlower, WINDS, sortTiles, meldTiles, STAKES } from './Rules.js';
+import {
+  tileName,
+  isFlower,
+  WINDS,
+  sortTiles,
+  meldTiles,
+  STAKES,
+  stackAt,
+  countSeat,
+  diceSum,
+  SEAT_REL,
+} from './Rules.js';
+import { DiceSet } from './Dice.js';
 
 const TW = 0.03, // tile width, height, thickness (m)
   TH = 0.04,
@@ -398,6 +410,8 @@ function slot(s, u, d, how, lift = 0) {
   const q = new THREE.Quaternion().setFromRotationMatrix(_m.makeBasis(_x, _y, _z));
   return { p, q };
 }
+// stack si (0 = that player's left … 17 = right) of seat ws's wall
+const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, 0.29, 'down', lift);
 
 export class MahjongScene {
   constructor(game, mj) {
@@ -425,6 +439,7 @@ export class MahjongScene {
         this.tiles.push(m);
       }
     }
+    this.dice = new DiceSet(this.set.scene, Y0);
     this.ray = new THREE.Raycaster();
     this._ui();
   }
@@ -435,7 +450,7 @@ export class MahjongScene {
     el.className = 'hidden';
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div>
       <button class="mj-view" data-a='{"type":"view"}'></button>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
@@ -455,6 +470,7 @@ export class MahjongScene {
     };
     this._down = (e) => {
       if (!this.active || e.target !== cv) return;
+      if (this.intro) return this._introGo(); // a click throws the dice / skips the animation
       const t = this._pick(e);
       if (t == null) return;
       if (e.pointerType === 'mouse' || this.sel === t) this._discard(t);
@@ -490,6 +506,9 @@ export class MahjongScene {
     this.active = false;
     this.e = null;
     this.choosing = null;
+    this.intro = null;
+    this.dice?.hide();
+    this._say('');
     this.ui.classList.add('hidden');
     this.$('.mj-res').classList.add('hidden');
     this._hidePop();
@@ -540,6 +559,11 @@ export class MahjongScene {
     if (inp.hit('KeyV')) this._toggleView();
     this._viewBtn();
     if (this.choosing) return this._stakeKeys(inp);
+    if (this.intro) {
+      this._introUpdate(dt, inp);
+      this._glide(dt);
+      return this._introHud();
+    }
     const e = this.e;
     if (!e) return;
     this._keys(inp);
@@ -560,14 +584,7 @@ export class MahjongScene {
       }
       if (e.phase === 'end' && this.t <= 0) this._showResult();
     }
-    // tiles glide to where they belong
-    const k = Math.min(1, dt * 14);
-    for (const m of this.tiles) {
-      const T = m.userData.to;
-      if (!T) continue;
-      m.position.lerp(T.p, k);
-      m.quaternion.slerp(T.q, k);
-    }
+    this._glide(dt);
     // your turn just started: the tile you drew is the one picked (摸打 is one key away)
     const myTurn = e.pending?.seat === 0 && e.pending.kind === 'turn';
     if (myTurn && !this._myTurn) {
@@ -596,6 +613,16 @@ export class MahjongScene {
       this.set.mark.position.y += 0.03 + Math.sin(this.g.time * 5) * 0.004;
     }
     this._hud();
+  }
+  // tiles glide to where they belong
+  _glide(dt) {
+    const k = Math.min(1, dt * 14);
+    for (const m of this.tiles) {
+      const T = m.userData.to;
+      if (!T || !m.visible) continue;
+      m.position.lerp(T.p, k);
+      m.quaternion.slerp(T.q, k);
+    }
   }
   _pace(ev) {
     let t = 0.05;
@@ -699,18 +726,16 @@ export class MahjongScene {
         );
       });
     }
-    // the wall: 4 × 18 stacks of 2, face down; slot j of what's left is e.wall[j] (front = next draw)
+    // the wall: 4 × 18 stacks of 2, face down; slot j of what's left is e.wall[j] (front = next draw). Stack 0 is
+    // the one after the 開門 count (Rules.js stackAt); drawing goes clockwise from there, the 牌尾 the other way.
     const N = 144,
       head = e.headTaken,
       tail = e.tailTaken;
     let j = 0;
     for (let i = head; i < N - tail; i++) {
-      const st = Math.floor(i / 2),
-        top = i % 2 === 0 && i + 1 < N - tail; // the lower tile stays on the table when the top one is gone
-      const ws = (e.dealer + Math.floor(st / 18)) % 4,
-        si = st % 18;
-      const at = slot(ws, -0.25 + TW / 2 + si * TW, 0.29, 'down', top ? TD : 0);
-      put(e.wall[j++], at);
+      const top = i % 2 === 0 && i + 1 < N - tail; // the lower tile stays on the table when the top one is gone
+      const { seat: ws, si } = stackAt(e.cut, Math.floor(i / 2));
+      put(e.wall[j++], wallSlot(ws, si, top ? TD : 0));
     }
     // match each wanted spot with a tile of that kind (the nearest one, so equal tiles don't swap places)
     const free = this.pool.map((a) => [...a]);
@@ -782,6 +807,7 @@ export class MahjongScene {
     if (a.type === 'stake') return this._pickStake(a.i);
     if (a.type === 'view') return this._toggleView();
     if (a.type === 'leave') return this.mj.leave();
+    if (a.type === 'go') return this._introGo();
     const e = this.e;
     if (!e?.pending) return;
     const { label: _l, key: _k, mine: _m, inc: _i, ...act } = a;
@@ -850,15 +876,7 @@ export class MahjongScene {
     const v = new THREE.Vector3();
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
-      // on the table edge in front of each player; yours left of your hand
-      if (s === 0) v.set(-0.42, Y0 + 0.03, 0.4);
-      else {
-        v.copy(FWD[s]).multiplyScalar(-0.5);
-        v.y = Y0 + 0.1;
-      }
-      v.project(this.cam);
-      el.style.left = `${((v.x + 1) / 2) * 100}%`;
-      el.style.top = `${((1 - v.y) / 2) * 100}%`;
+      this._placeTag(el, s, v);
       const txt = `${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
       if (el.textContent !== txt) el.textContent = txt;
       el.classList.toggle('on', e.turn === s && e.phase !== 'end');
@@ -899,6 +917,17 @@ export class MahjongScene {
           ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
           : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
+  }
+  // on the table edge in front of each player; yours left of your hand
+  _placeTag(el, s, v = new THREE.Vector3()) {
+    if (s === 0) v.set(-0.42, Y0 + 0.03, 0.4);
+    else {
+      v.copy(FWD[s]).multiplyScalar(-0.5);
+      v.y = Y0 + 0.1;
+    }
+    v.project(this.cam);
+    el.style.left = `${((v.x + 1) / 2) * 100}%`;
+    el.style.top = `${((1 - v.y) / 2) * 100}%`;
   }
   // ---------------- before the first hand: 底／台 ----------------
   chooseStake(def, cb) {
@@ -945,6 +974,246 @@ export class MahjongScene {
     const [b, t] = STAKES[i];
     this.g.hud.toast(`🀄 底 ${b}／一台 ${t}，開打！`, 'good', 1800);
     C.cb(i);
+  }
+  // ---------------- 抓位、擲骰（src/systems/mahjong/Mahjong.js seatDraw() / deal()） ----------------
+  // 抓位: the four winds face down in the middle, shuffled; you draw, everyone's tile slides over and flips, then
+  // everyone moves to the seat of their wind (apply() moves the people and returns the names by the new seats).
+  seatDraw(winds, apply, done) {
+    this.e = null;
+    this.result = null;
+    this.$('.mj-res').classList.add('hidden');
+    for (const m of this.tiles) m.visible = false;
+    const row = winds.map((w) => this.pool[27 + w][0]);
+    row.forEach((m, s) => {
+      const at = slot(0, (s - 1.5) * (TW + 0.01), 0, 'down');
+      m.position.copy(at.p);
+      m.quaternion.copy(at.q);
+      m.userData.to = at;
+      m.visible = true;
+    });
+    this.introTag = (s) => this.names[s];
+    this.intro = {
+      kind: 'winds',
+      phase: 'shuffle',
+      t: 0,
+      winds,
+      apply,
+      done,
+      row,
+      title: '🀄 抓位：東南西北四張風牌蓋著洗好，一人抽一張',
+    };
+    this._say('');
+  }
+  // 擲骰: thrower throws dice (values decided already); count from them round to the right; what: 'dealer' (定莊)
+  // or 'cut' (開門, this.e is the hand about to be dealt). You press to throw; the others throw by themselves.
+  roll(thrower, dice, what, done) {
+    const sum = diceSum(dice);
+    const name = this.names[thrower];
+    this.intro = {
+      kind: 'roll',
+      phase: thrower === 0 ? 'wait' : 'pre',
+      t: 0,
+      thrower,
+      dice,
+      sum,
+      to: countSeat(thrower, sum),
+      what,
+      done,
+      step: 0,
+      title:
+        what === 'dealer'
+          ? `🎲 抽到東的 ${name} 擲骰定莊`
+          : `🎲 莊家 ${name} 擲骰開門${this.e?.streak ? `（連 ${this.e.streak}）` : ''}`,
+    };
+    if (what === 'cut') this._say('');
+  }
+  // Enter / click: draw your wind, throw your dice, or skip the rest of the animation
+  _introGo() {
+    const I = this.intro;
+    if (!I) return;
+    if (I.kind === 'winds') {
+      if (I.phase === 'wait') this._introPhase('deal');
+      return;
+    }
+    if (I.phase === 'wait' || I.phase === 'pre') return this._throw();
+    if (I.phase === 'fly' || I.phase === 'count') {
+      this.dice.skip();
+      I.step = I.sum;
+      this._introPhase('show');
+    } else if (I.phase === 'show' && I.t > 0.3) this._introEnd();
+  }
+  _throw() {
+    const I = this.intro;
+    const from = new THREE.Vector3().addScaledVector(FWD[I.thrower], -0.24);
+    this.dice.throw(from, I.dice);
+    this._introPhase('fly');
+  }
+  _introPhase(p) {
+    const I = this.intro;
+    I.phase = p;
+    I.t = 0;
+    const W = I.winds;
+    if (p === 'deal')
+      // everyone's tile slides over to them, still face down
+      I.row.forEach((m, s) => (m.userData.to = slot(s, 0, 0.2, 'down')));
+    else if (p === 'flip') {
+      I.row.forEach((m, s) => (m.userData.to = slot(s, 0, 0.2, 'up')));
+      this.introTag = (s) => `抽到 ${WINDS[W[s]]}・${this.names[s]}`;
+      this._say(W.map((w, s) => `${this.names[s]} ${WINDS[w]}`).join('・'), '照東南西北，逆時針坐');
+      this.g.audio?.tap?.();
+    } else if (p === 'seat') {
+      // everyone moves to the seat of their wind; 彥霖 stays where he is
+      const at = W.map((w) => (w - W[0] + 4) % 4);
+      I.row.forEach((m, s) => (m.userData.to = slot(at[s], 0, 0.2, 'up')));
+      this.names = I.apply();
+      const drew = (s) => WINDS[(s + W[0]) % 4];
+      this.introTag = (s) => `抽到 ${drew(s)}・${this.names[s]}`;
+      const east = at[W.indexOf(0)];
+      this._say(
+        [0, 1, 2, 3].map((w) => `${WINDS[w]} ${this.names[(w - W[0] + 4) % 4]}`).join('・'),
+        `換好位子了，抽到東的 ${this.names[east]} 擲骰定莊`
+      );
+    } else if (p === 'count') {
+      const [a, b, c] = I.dice;
+      this._say(
+        `🎲 ${a}＋${b}＋${c}＝${I.sum} 點`,
+        `從${this.names[I.thrower]}自己數 1，往右手邊數`
+      );
+    } else if (p === 'show') {
+      I.hl = I.to;
+      const rel = SEAT_REL[(I.to - I.thrower + 4) % 4],
+        who = this.names[I.to];
+      const [a, b, c] = I.dice;
+      if (I.what === 'dealer') this._say(`🎲 ${a}＋${b}＋${c}＝${I.sum} 點 → ${rel}・${who} 起莊`);
+      else {
+        this._say(
+          `🎲 ${a}＋${b}＋${c}＝${I.sum} 點 → 從${rel === '自己' ? '莊家自己' : `${rel} ${who} `}面前開門`,
+          `那面牌牆從右邊數 ${I.sum} 墩，下一墩開始抓牌`
+        );
+        // the first stack to draw from
+        const st = stackAt(this.e.cut, 0),
+          at = wallSlot(st.seat, st.si, TD);
+        this.set.newMark.position.copy(at.p);
+        this.set.newMark.visible = true;
+        I.mark = at.p.y + TD / 2 + 0.03;
+      }
+    }
+  }
+  _introEnd() {
+    const I = this.intro;
+    this.intro = null;
+    this.introTag = null;
+    this.dice.hide();
+    this.set.newMark.visible = false;
+    this._say('');
+    this._actKey = this._top = this._hint = '';
+    I.done?.();
+  }
+  _introUpdate(dt, inp) {
+    const I = this.intro;
+    if (inp.hit('Escape')) {
+      if (!this.e) return this.mj.leave(); // nothing dealt yet
+      const now = performance.now() / 1000;
+      if (now - this.escAt < 3) return this.mj.leave(true);
+      this.escAt = now;
+      this.g.hud.toast('再按一次 Esc 離開牌桌（這一局不算）', 'bad', 1800);
+      return;
+    }
+    if (inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE')) this._introGo();
+    if (this.intro !== I) return;
+    I.t += dt;
+    if (I.kind === 'winds') {
+      if (I.phase === 'shuffle') {
+        // mixed around face down for a moment, then lined up
+        const n = Math.floor(I.t / 0.14);
+        if (n !== I.mix) {
+          I.mix = n;
+          I.row.forEach((m, s) => {
+            m.userData.to =
+              I.t > 0.9
+                ? slot(0, (s - 1.5) * (TW + 0.01), 0, 'down')
+                : slot(0, (Math.random() - 0.5) * 0.14, (Math.random() - 0.5) * 0.1, 'down');
+          });
+        }
+        if (I.t > 1.1) this._introPhase('wait');
+      } else if (I.phase === 'wait') {
+        if (I.t > 8) this._introPhase('deal'); // (drawn for you if you wait)
+      } else if (I.phase === 'deal' && I.t > 0.6) this._introPhase('flip');
+      else if (I.phase === 'flip' && I.t > 2.2) this._introPhase('seat');
+      else if (I.phase === 'seat' && I.t > 2.6) this._introEnd();
+      return;
+    }
+    if (I.phase === 'pre' && I.t > 0.6) this._throw();
+    else if (I.phase === 'fly') {
+      if (this.dice.update(dt) > 0) this.g.audio?.tap?.();
+      if (this.dice.done) this._introPhase('count');
+    } else if (I.phase === 'count') {
+      // light up each seat as it is counted: 1 = the thrower, then round to the right
+      const n = Math.min(I.sum, 1 + Math.floor(I.t / 0.12));
+      if (n !== I.step) {
+        I.step = n;
+        I.hl = countSeat(I.thrower, n);
+      }
+      if (I.t > I.sum * 0.12 + 0.25) this._introPhase('show');
+    } else if (I.phase === 'show') {
+      if (I.mark) this.set.newMark.position.y = I.mark + Math.sin(this.g.time * 5) * 0.004;
+      if (I.t > 2.6) this._introEnd();
+    }
+  }
+  _introHud() {
+    const I = this.intro,
+      g = this.g;
+    if (!I) return;
+    if (I.title !== this._top) this.$('.mj-top').textContent = this._top = I.title;
+    const e = this.e;
+    this.tagEls.forEach((el, s) => {
+      this._placeTag(el, s);
+      const txt =
+        I.kind === 'roll' && e
+          ? `${WINDS[e.seatWind(s)]}・${this.names[s]}`
+          : this.introTag
+            ? this.introTag(s)
+            : this.names[s];
+      if (el.textContent !== txt) el.textContent = txt;
+      el.classList.toggle('on', I.kind === 'roll' && I.hl === s);
+      el.classList.toggle('me', s === 0);
+    });
+    const wait = I.phase === 'wait';
+    const pad = g.prompts?.pad;
+    const btn = wait
+      ? `<button data-a='{"type":"go"}' class="go"><kbd>${pad ? 'A' : 'Enter'}</kbd>${I.kind === 'winds' ? '🀄 抽一張風牌' : '🎲 擲骰'}</button>`
+      : '';
+    const key = `intro${btn}`;
+    if (key !== this._actKey) {
+      this._actKey = key;
+      this.$('.mj-acts').innerHTML = btn;
+    }
+    if (btn) {
+      const v = new THREE.Vector3(0, Y0 + 0.05, 0.36).project(this.cam);
+      this.$('.mj-acts').style.top = `${((1 - v.y) / 2) * 100}%`;
+    }
+    const hint = wait
+      ? I.kind === 'winds'
+        ? '抽到哪個風就坐哪個位子（東南西北逆時針坐）'
+        : I.what === 'dealer'
+          ? '你抽到東：擲骰決定誰起莊'
+          : '你是莊家：擲骰決定從哪一家的牌牆開門'
+      : ['pre', 'fly', 'count'].includes(I.phase)
+        ? `${g.input.touch ? '點一下' : pad ? '按 A ' : '按 Enter '}跳過`
+        : '';
+    if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
+  }
+  // the big line in the middle of the screen (empty = gone)
+  _say(big, small = '') {
+    const el = this.$?.('.mj-say');
+    if (!el) return;
+    const html = big ? `${big}${small ? `<small>${small}</small>` : ''}` : '';
+    if (html === this._said) return;
+    this._said = html;
+    el.innerHTML = html;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
   }
   // 近看 ⇄ 全景
   _toggleView() {
@@ -1029,7 +1298,13 @@ export class MahjongScene {
     if (r.draw) html = '<h3>流局 🀫</h3><p>牌摸完了，沒人胡。莊家連莊。</p>';
     else {
       const who = this.names[r.winner],
-        from = r.self ? '自摸' : `${this.names[r.from]} 放槍`;
+        from = r.flower
+          ? r.self
+            ? '湊齊 8 張花'
+            : `${this.names[r.from]} 摸到第 8 張花`
+          : r.self
+            ? '自摸'
+            : `${this.names[r.from]} 放槍`;
       const dealerT =
         r.winner === e.dealer || r.from === e.dealer || r.self
           ? `<li>莊家／連莊　另計 ${1 + 2 * e.streak} 台（莊家有付或有胡時）</li>`

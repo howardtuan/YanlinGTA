@@ -223,31 +223,32 @@ function drawFace(c, k, x, y) {
         line(7, '#f6f1e2');
       }
     } else {
-      // sticks: rows of up to 3
-      const rows =
-        n <= 3
-          ? [n]
-          : n === 4
-            ? [2, 2]
-            : n === 5
-              ? [2, 1, 2]
-              : n === 6
-                ? [3, 3]
-                : n === 7
-                  ? [1, 3, 3]
-                  : [3, 3, 3];
-      const rh = (CH - 30) / rows.length;
+      // sticks laid out like the real tiles: 二條 one above the other, 三條 one over two, 四條 2+2, 五條 2+1+2,
+      // 六條 3+3, 七條 1+3+3, 九條 3+3+3. Each stick is one short bamboo piece (knots at both ends, no band across
+      // the middle, so two sticks never read as four)
+      const rows = {
+        2: [1, 1],
+        3: [1, 2],
+        4: [2, 2],
+        5: [2, 1, 2],
+        6: [3, 3],
+        7: [1, 3, 3],
+        9: [3, 3, 3],
+      }[n];
+      const rh = (CH - 30) / rows.length,
+        L = Math.min(rh * 0.78, 50);
       rows.forEach((m, ri) => {
         for (let j = 0; j < m; j++) {
-          const cx = CW / 2 + (j - (m - 1) / 2) * 30,
+          const cx = CW / 2 + (j - (m - 1) / 2) * 32,
             cy = 15 + rh * ri + rh / 2;
-          c.fillStyle =
-            (n === 7 && ri === 0) || (n === 5 && ri === 1) || (n === 9 && j === 1)
-              ? '#c8272d'
-              : '#1f8a4c';
-          c.fillRect(cx - 7, cy - rh * 0.4, 14, rh * 0.8);
-          c.fillStyle = '#f6f1e2';
-          c.fillRect(cx - 7, cy - 2, 14, 4);
+          const red = (n === 7 && ri === 0) || (n === 5 && ri === 1) || (n === 9 && j === 1);
+          c.fillStyle = red ? '#c8272d' : '#1f8a4c';
+          c.fillRect(cx - 6, cy - L / 2, 12, L);
+          c.fillStyle = red ? '#8e1a1f' : '#155f34';
+          c.fillRect(cx - 8, cy - L / 2, 16, 5); // knots
+          c.fillRect(cx - 8, cy + L / 2 - 5, 16, 5);
+          c.fillStyle = 'rgba(255,255,255,0.45)';
+          c.fillRect(cx - 1, cy - L / 2 + 7, 2, L - 14); // a light line down the stick
         }
       });
     }

@@ -57,6 +57,7 @@ export function loadSettings() {
     quality: 'auto',
     fill: 'on',
     amb: 'on',
+    perfHud: 'off', // 效能顯示 (src/core/PerfHud.js): 'off' | 'fps' | 'detail' | 'dev'
   };
   try {
     return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };

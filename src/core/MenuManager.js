@@ -349,6 +349,8 @@ export class MenuManager {
     const fl = (v, t) =>
       `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
     const full = !!document.fullscreenElement;
+    const pf = (v, t) =>
+      `<button data-perf="${v}" class="${(s.perfHud || 'off') === v ? 'on' : ''}">${t}</button>`;
     const nv = (v, t) =>
       `<button data-nav="${v}" class="${(s.navGround || 'on') === v ? 'on' : ''}">${t}</button>`;
     const fs = (v, t) =>
@@ -364,6 +366,8 @@ export class MenuManager {
       <div class="set-row"><label>🧭 地面導航線</label><div class="seg" id="setNav">${nv('on', '開')}${nv('off', '關')}</div></div>
       <div class="set-row"><label>🖥 全螢幕</label><div class="seg" id="setFull">${fs('on', '開')}${fs('off', '關')}</div></div>
       ${document.fullscreenEnabled ? '' : '<div class="set-row"><label></label><small style="color:#a9adbf">這個瀏覽器不支援網頁全螢幕（iPhone 可用「分享 → 加入主畫面」以全螢幕開啟）</small></div>'}
+      <div class="set-row"><label>📊 效能顯示</label><div class="seg" id="setPerf">${pf('off', '關閉')}${pf('fps', '簡易')}${pf('detail', '詳細')}${pf('dev', '開發者')}</div></div>
+      <div class="set-row"><label></label><small style="color:#a9adbf">左上角顯示 FPS 等數據；簡易＝只有 FPS，詳細＝加上 1% 低幀、主執行緒負載、記憶體，開發者＝全部（含位置）</small></div>
       <div class="set-row"><label>🏘 補建街區</label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
       <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this.fillNote()}</small></div>`;
   }
@@ -451,6 +455,15 @@ export class MenuManager {
         const on = !!document.fullscreenElement;
         for (const o of document.querySelectorAll('#setFull button'))
           o.classList.toggle('on', (o.dataset.full === 'on') === on);
+      };
+    }
+    for (const b of document.querySelectorAll('#setPerf button')) {
+      b.onclick = () => {
+        s.perfHud = b.dataset.perf;
+        save();
+        game.perfHud?.setLevel(s.perfHud);
+        for (const o of document.querySelectorAll('#setPerf button'))
+          o.classList.toggle('on', o === b);
       };
     }
     for (const b of document.querySelectorAll('#setFill button')) {

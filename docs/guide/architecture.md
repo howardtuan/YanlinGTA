@@ -163,7 +163,14 @@ sequenceDiagram
   - 當幀率持續低於 35 FPS 時，自動縮減 `renderer.setPixelRatio`（最低降至 0.75x），並停用非關鍵後製輝光。
   - 當幀率穩定維持 58 FPS 以上時，平滑調升畫質至裝置原生解析度。
 
-### 3. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
+### 3. 效能顯示浮層 (`src/core/PerfHud.js`)
+- 設定 →「📊 效能顯示」可選 關閉／簡易／詳細／開發者，存在 `settings.perfHud`；網址帶 `?perf` 則本次強制開到「開發者」（不改存檔）。
+  - 簡易：只有 FPS（≥50 綠、30–49 黃、<30 紅）。
+  - 詳細：再加 1% 低幀與最慢一幀、主執行緒負載 %（遊戲 JS 每幀工作時間 ÷ 幀間隔；瀏覽器拿不到真正的 CPU／GPU 使用率）、JS 記憶體（`performance.memory`，僅 Chromium）、繪圖呼叫與三角形數。
+  - 開發者：再加 邏輯／物理／繪製 各自耗時、`renderer.info.memory` 紋理與幾何數、著色器數、車流／行人／NPC 數量、剛體與碰撞體、畫質與效能檔位、WASM、解析度×像素比、玩家座標與所在區域、GPU 名稱。
+- `GameLoop.loop()` 只在開啟時呼叫 `frameStart` / `renderStart` / `frameEnd`；文字每 0.5 秒更新一次。關閉時不做任何量測。效能重構要加的新數據（例如串流區塊數）請加在 `PerfHud._draw()` 的開發者層級。
+
+### 4. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
 - 遊玩中失去滑鼠鎖定（`pointerlockchange`）會被當成玩家按了 Esc 而打開暫停選單（`MenuManager.js`）。
 - 任何「自己放開滑鼠」的畫面（成績單、商店、電腦、手機、麻將……）必須讓 `Game.mouseOwnedByUI()` 回傳 true（`g.modal()` 會自動設 `_modalOpen`；其他畫面請加進該清單或設 `g._overlay`），否則一放開滑鼠就會誤跳暫停選單。例：障礙賽成績單（`race.state === 'results'`）。
 

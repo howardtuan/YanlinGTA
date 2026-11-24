@@ -346,6 +346,7 @@ export class Gordon {
     const seat = { ...world(desk.chair.x, desk.chair.z, R.y), h: k.heading(desk.face) },
       D = world(desk.x, desk.z, R.y + 0.76);
     const bedAt = { ...world(bed.x, bed.z, bed.y + 0.12), h: k.heading(0) };
+    const self = this;
     const ch = (this.dormCh = createCharacter(GD_LOOK));
     const tag = makeLabel('🎮 女拳大帝', { height: 0.24, size: 40, color: '#ff6b6b' });
     tag.position.set(0, 1.75, 0);
@@ -448,6 +449,19 @@ export class Gordon {
       x: seat.x,
       z: seat.z,
       y: R.y + B - surfaceAt(seat.x, seat.z),
+      // the crosshair aims at him: at the desk, or asleep up on bunk 4
+      get aimX() {
+        return self.asleep ? bedAt.x : seat.x;
+      },
+      get aimZ() {
+        return self.asleep ? bedAt.z : seat.z;
+      },
+      get aimY() {
+        return self.asleep ? bedAt.y + 0.2 : seat.y + 0.75;
+      },
+      get glow() {
+        return self.asleep ? 1.5 : 1.6;
+      },
       r: 1.6,
       cond: () => this.night && !game.zz?.gdOut && !this.ringing && !game.mahjong?.has('gd'),
       label: () =>

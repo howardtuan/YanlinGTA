@@ -317,13 +317,20 @@ export class Garry {
     this._trackPath();
     this._clubSpot();
     this._joggers();
-    const pos = this.pos;
+    const pos = this.pos,
+      self = this;
     game.interiors.actions.push({
       get x() {
         return pos.x;
       },
       get z() {
         return pos.z;
+      },
+      get aimY() {
+        return pos.y + (self.mode === 'sleep' ? 0.3 : 0.95);
+      },
+      get glow() {
+        return self.mode === 'sleep' ? 1.5 : 1.7;
       },
       r: 2.2,
       y: 0,

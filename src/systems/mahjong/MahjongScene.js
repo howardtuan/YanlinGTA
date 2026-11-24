@@ -191,8 +191,8 @@ function drawFace(c, k, x, y) {
       c.lineTo(CW / 2 + 26, CH * 0.85);
       c.fill();
     } else if (n === 8) {
-      // 八條: a "W" on top and an "M" below (outer legs upright), each one thick bamboo line — dark green with a pale line down the
-      // middle and a knot (bulge) on every stretch, like the real tile
+      // 八條: a "W" on top and an "M" below (outer legs upright), made of 8 sticks drawn just like the other 條 —
+      // green, a dark knot at each end, a light line down the middle — a little short of each corner so each reads as one stick
       const shapes = [
         [
           [22, 16],
@@ -209,31 +209,23 @@ function drawFace(c, k, x, y) {
           [106, 154],
         ],
       ];
-      c.lineJoin = c.lineCap = 'round';
-      for (const pts of shapes) {
-        const line = (w, col) => {
-          c.strokeStyle = col;
-          c.lineWidth = w;
-          c.beginPath();
-          pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
-          c.stroke();
-        };
-        line(22, '#1d5a34');
-        c.fillStyle = '#1d5a34';
-        for (let i = 0; i + 1 < pts.length; i++)
-          for (const t of [0.3, 0.7]) {
-            c.beginPath();
-            c.arc(
-              pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t,
-              pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t,
-              13.5,
-              0,
-              7
-            );
-            c.fill();
-          }
-        line(7, '#f6f1e2');
-      }
+      for (const pts of shapes)
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const [x1, y1] = pts[i],
+            [x2, y2] = pts[i + 1];
+          const L = Math.hypot(x2 - x1, y2 - y1) - 8;
+          c.save();
+          c.translate((x1 + x2) / 2, (y1 + y2) / 2);
+          c.rotate(Math.atan2(y2 - y1, x2 - x1) - Math.PI / 2);
+          c.fillStyle = '#1f8a4c';
+          c.fillRect(-6, -L / 2, 12, L);
+          c.fillStyle = '#155f34';
+          c.fillRect(-8, -L / 2, 16, 5); // knots
+          c.fillRect(-8, L / 2 - 5, 16, 5);
+          c.fillStyle = 'rgba(255,255,255,0.45)';
+          c.fillRect(-1, -L / 2 + 7, 2, L - 14); // the light line
+          c.restore();
+        }
     } else {
       // sticks laid out like the real tiles: 二條 one above the other, 三條 one over two, 四條 2+2, 五條 2+1+2,
       // 六條 3+3, 七條 1+3+3, 九條 3+3+3. Each stick is one short bamboo piece (knots at both ends, no band across

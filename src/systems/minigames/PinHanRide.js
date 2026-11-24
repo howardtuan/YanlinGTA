@@ -86,6 +86,13 @@ function buildInterior(v) {
   const body = v.mesh.children.find((o) => o.isMesh)?.material || mat('#888');
   box(1.76, 0.05, 1.3, body, 0, 0.92, 1.5, 0.04); // bonnet
   box(1.62, 0.24, 0.42, dark, 0, 0.84, 0.66); // dashboard
+  // the floor, the front bulkhead under the dashboard and the back of the cabin: with the body boxes hidden you would
+  // otherwise see the road through the bottom of the car
+  const carpet = mat('#24252a', { roughness: 1 });
+  box(1.7, 0.05, 3.0, carpet, 0, 0.32, -0.2); // floor
+  box(1.62, 0.5, 0.06, dark, 0, 0.55, 0.88); // footwell front
+  box(1.62, 0.12, 0.5, dark, 0, 0.7, 0.62); // under the dashboard
+  box(1.62, 1.15, 0.06, liner, 0, 0.9, -1.36); // behind the back seats
   box(1.62, 0.05, 0.34, dark, 0, 0.97, 0.72, 0.28); // its padded top, sloping to the glass
   box(0.46, 0.09, 0.16, dark, 0.38, 1.02, 0.6); // instrument hood
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.022, 8, 28), mat('#1b1b1f'));

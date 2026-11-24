@@ -3,6 +3,7 @@
 import { stockUI } from './StockUI.js';
 import { newsUI } from './NewsUI.js';
 import { locateUI } from '../../world/Locate.js';
+import { RIDE_PLACES } from '../../systems/minigames/PinHanRide.js';
 import { CONTACTS } from './Chats.js';
 import { Nano } from './Nano.js';
 import { dual } from '../Prompts.js';
@@ -29,6 +30,15 @@ const APPS = [
   { id: 'stock', name: '靈感股', icon: '📈', bg: 'linear-gradient(#ff6b6b,#c81e2a)', noArt: true },
   { id: 'news', name: 'PYtoday', icon: '📰', bg: 'linear-gradient(#ff3b3b,#1a1a1a)', noArt: true },
   { id: 'locate', name: '定位', icon: '📍', bg: 'linear-gradient(#5ac8fa,#007aff)', noArt: true }, // friends on a map (src/world/Locate.js)
+  // 漢堡車: 品漢堡 drives you somewhere once a day; installed when you have got him a car (src/systems/minigames/PinHanRide.js)
+  {
+    id: 'burger',
+    name: '漢堡車',
+    icon: '🍔',
+    bg: 'linear-gradient(#ffd27a,#e8892b)',
+    noArt: true,
+    need: (g) => g.pinhanRide?.installed,
+  },
   { id: 'drone', name: '無人機', icon: '🛸', bg: 'linear-gradient(#3a4256,#0d111a)', noArt: true }, // connects to 彥霖's drone (src/entities/Drone.js)
   { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (src/systems/minigames/Concert.js)
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
@@ -370,7 +380,8 @@ export class Phone {
     this.app = null;
     this.cur = null;
     this._frameKey = null;
-    const grid = APPS.filter((a) => !DOCK.includes(a.id)),
+    const shown = APPS.filter((a) => !a.need || a.need(this.g)), // apps you have to install first
+      grid = shown.filter((a) => !DOCK.includes(a.id)),
       dock = DOCK.map((id) => APPS.find((a) => a.id === id));
     const pages = [grid.slice(0, PAGE1), grid.slice(PAGE1)];
     this._pageStart = [0, PAGE1, grid.length];
@@ -652,6 +663,36 @@ export class Phone {
         g.hud.toast('⏹ 已退出任務，回到 ▶ 任務起點再從這裡繼續', 'good', 2800);
       };
   }
+  // ---------------- 漢堡車 (src/systems/minigames/PinHanRide.js) ----------------
+  _burger() {
+    const g = this.g,
+      R = g.pinhanRide,
+      used = R.usedToday;
+    const rows = RIDE_PLACES.map(
+      (p) =>
+        `<button class="ph-gbtn ph-hb" data-k="${p.key}" ${used ? 'disabled' : ''}>${p.icon} ${esc(p.name)}</button>`
+    ).join('');
+    const c = this._frame(
+      '漢堡車',
+      `<div class="ph-garage">
+        <div class="ph-gcard"><span>🍔</span><div><b>品漢堡 專屬司機</b><small>${used ? '今天的免費搭乘用過了，明天再來' : '每天免費一次・選目的地，他馬上開過來'}</small></div></div>
+        ${rows}
+        <div class="ph-note">他會開到你旁邊，你坐副駕，他親自送你到目的地。要在戶外、路邊叫車。</div>
+      </div>`
+    );
+    for (const b of c.querySelectorAll('.ph-hb'))
+      b.onclick = () => {
+        const err = R.call(b.dataset.k);
+        if (err) {
+          g.hud.toast(err, 'bad', 2600);
+          return;
+        }
+        g.audio.notify?.();
+        this.close();
+        this._last = null;
+        g.lockPointer();
+      };
+  }
   // ---------------- 定位 (friends' locations) ----------------
   _locate() {
     const c = this._frame('定位', '<div class="lc-host"></div>', { cls: 'ph-locate' });
@@ -701,6 +742,7 @@ export class Phone {
     if (id === 'stock') return this._stock();
     if (id === 'news') return this._news();
     if (id === 'locate') return this._locate();
+    if (id === 'burger') return this._burger();
     if (id === 'drone') return this._drone();
     if (id === 'tix') return g.concerts.app(this);
     if (id === 'map') {

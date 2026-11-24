@@ -73,6 +73,9 @@ import { YuluTea } from '../systems/quests/YuluTea.js';
 import { Yulu } from '../entities/npcs/Yulu.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
+import { PinHan } from '../entities/npcs/PinHan.js';
+import { PinHanCar } from '../systems/quests/PinHanCar.js';
+import { PinHanRide } from '../systems/minigames/PinHanRide.js';
 import { serviceTick, serviceName } from '../entities/npcs/Service.js';
 import { Mingshan } from '../entities/npcs/Mingshan.js';
 import { YeeMing } from '../entities/npcs/Yeeming.js';
@@ -518,6 +521,10 @@ class Game {
     this.houshe = new Houshe(this);
     this.richard = new Richard(this);
     this.howard = new Howard(this);
+    // 品漢堡 in 278 (劍玉's roommate) and his car errand (src/entities/npcs/PinHan.js, src/systems/quests/PinHanCar.js)
+    this.pinhan = new PinHan(this);
+    this.pinhanCar = new PinHanCar(this);
+    this.pinhanRide = new PinHanRide(this); // 漢堡車: his free ride once a day (src/systems/minigames/PinHanRide.js)
     // 吱吱's day in 力行 276 / the two BW'S, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
     this.zzQuest = new ZzInjury(this);
     this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
@@ -951,6 +958,7 @@ class Game {
       !this.airdrop.cinema &&
       !this.drone?.cinema &&
       !this.mingshan?.cinema &&
+      !this.pinhanRide?.cinema &&
       !this.zzQuest?.busy &&
       !this.mahjong?.playing &&
       !this.job.active &&
@@ -1094,6 +1102,8 @@ class Game {
     this.houshe?.update(dt);
     this.richard?.update(dt);
     this.howard?.update(dt);
+    this.pinhan?.update(dt);
+    this.pinhanCar?.update(dt);
     this.zz?.update(dt);
     this.zzQuest?.update(dt);
     this.tzuyuQuest?.update(dt);
@@ -1142,6 +1152,10 @@ class Game {
       // 277 麻將: the table has the keys (its own Esc to leave)
       this.mahjong.play(dt, inp);
       inp.pressed.clear();
+    } else if (this.pinhanRide?.cinema) {
+      // 漢堡車 (Esc / E skips to the place)
+      this.pinhanRide.update(dt, inp);
+      inp.pressed.clear();
     } else if (this.zzQuest?.busy) {
       // 吱吱's 武嶺 film (Esc / E skips it) or the bath mini-game (its own keys): nothing else reacts
       if (this.zzQuest.film.active) this.zzQuest.film.update(dt, inp);
@@ -1163,6 +1177,7 @@ class Game {
       this.airdrop.cinema ||
       this.drone.active ||
       this.mingshan?.cinema ||
+      this.pinhanRide?.cinema ||
       this.zzQuest?.busy ||
       this.mahjong?.playing ||
       this.speechOn ||
@@ -1466,6 +1481,7 @@ class Game {
     this.drone.update(dt, inp);
     this.drone.camera(this.camera, dt);
     this.mingshan?.camera(this.camera, dt);
+    this.pinhanRide?.camera(this.camera, dt);
     this._aim();
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];

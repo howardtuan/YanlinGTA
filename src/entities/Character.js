@@ -2083,6 +2083,23 @@ function animate(ch, dt, st) {
     // looking around (waiting for someone)
     t.headY = Math.sin(ch.poseT * 0.8) * 0.75;
     t.headX = -0.05;
+  } else if (st.pose === 'wheel') {
+    // both hands on a car's steering wheel in front of him (品漢堡 driving you, src/systems/minigames/PinHanRide.js):
+    // arms forward and in towards the middle, elbows bent, instead of the wide handlebar grip of mode 'drive'
+    t.shR = [-0.95, 0, 0.32];
+    t.shL = [-0.95, 0, -0.32];
+    t.elR = t.elL = -0.95;
+    ch.setHandPose('grip');
+  } else if (st.pose === 'read') {
+    // reading a book on the desk (品漢堡, src/entities/npcs/PinHan.js): forearms resting on it, head down, now and then a page turned
+    const turn = Math.max(0, Math.sin(ch.poseT * 0.5) - 0.94) * 12;
+    t.shR = [-0.5, 0.3, -0.12];
+    t.elR = -1.15 + turn * 0.4;
+    t.shL = [-0.5, -0.3, 0.12];
+    t.elL = -1.15;
+    t.headX = 0.34 + Math.sin(ch.poseT * 0.3) * 0.03;
+    t.lean = 0.1;
+    ch.setHandPose('relaxed');
   } else if (st.pose === 'type') {
     // typing at a laptop on the desk (the developers in 力行, src/entities/npcs/DevNPC.js): forearms forward, fingers tapping
     const a = Math.sin(ch.poseT * 17) * 0.05,

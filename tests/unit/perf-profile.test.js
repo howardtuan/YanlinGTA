@@ -8,10 +8,10 @@ import {
 
 describe('PerfProfile', () => {
   describe('detectTier', () => {
-    it('classifies touch devices as mobile-ios regardless of GPU string', () => {
-      expect(detectTier({ touch: true, gpuRenderer: 'Apple GPU' })).toBe('mobile-ios');
+    it('classifies touch devices as mobile-lite regardless of GPU string', () => {
+      expect(detectTier({ touch: true, gpuRenderer: 'Apple GPU' })).toBe('mobile-lite');
       expect(detectTier({ touch: true, gpuRenderer: 'NVIDIA GeForce RTX 4060' })).toBe(
-        'mobile-ios'
+        'mobile-lite'
       );
     });
 
@@ -46,6 +46,7 @@ describe('PerfProfile', () => {
       );
       expect(profile.tier).toBe('desktop-dgpu');
       expect(profile.texScale).toBe(TIERS['desktop-dgpu'].texScale);
+      expect(profile.postFx).toBe(true);
       expect(profile.stream).toBe('off');
       expect(profile.streamEnabled).toBe(false);
       expect(profile.streaming).toEqual(STREAMING_PROFILES.off);
@@ -56,17 +57,33 @@ describe('PerfProfile', () => {
       const profile = resolveRuntimeProfile(
         {},
         {
-          search: '?tier=mobile-ios&texscale=0.35&stream=1',
+          search: '?tier=mobile-lite&texscale=0.35&stream=1',
           touch: false,
           probeGpu,
         }
       );
       expect(probeGpu).not.toHaveBeenCalled();
-      expect(profile.tier).toBe('mobile-ios');
+      expect(profile.tier).toBe('mobile-lite');
       expect(profile.texScale).toBe(0.35);
+      expect(profile.postFx).toBe(false);
       expect(profile.stream).toBe('mobile');
       expect(profile.streamEnabled).toBe(true);
       expect(profile.streaming).toEqual(STREAMING_PROFILES.mobile);
+    });
+
+    it('normalizes backwards-compatible ?tier=mobile-ios alias to mobile-lite', () => {
+      const probeGpu = vi.fn(() => 'NVIDIA GeForce RTX 4060');
+      const profile = resolveRuntimeProfile(
+        {},
+        {
+          search: '?tier=mobile-ios',
+          touch: false,
+          probeGpu,
+        }
+      );
+      expect(probeGpu).not.toHaveBeenCalled();
+      expect(profile.tier).toBe('mobile-lite');
+      expect(profile.flags.tier).toBe('mobile-lite');
     });
 
     it('supports named ?stream= profiles and explicit disable values', () => {

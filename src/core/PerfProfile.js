@@ -4,11 +4,12 @@
  */
 
 export const TIERS = Object.freeze({
-  'mobile-ios': Object.freeze({
-    tier: 'mobile-ios',
+  'mobile-lite': Object.freeze({
+    tier: 'mobile-lite',
     texScale: 0.5,
     shadowSize: 512,
     maxDpr: 1.5,
+    postFx: false,
     streaming: 'mobile',
   }),
   'desktop-igpu': Object.freeze({
@@ -16,6 +17,7 @@ export const TIERS = Object.freeze({
     texScale: 0.75,
     shadowSize: 1024,
     maxDpr: 1.5,
+    postFx: false,
     streaming: 'balanced',
   }),
   'desktop-dgpu': Object.freeze({
@@ -23,6 +25,7 @@ export const TIERS = Object.freeze({
     texScale: 1,
     shadowSize: 2048,
     maxDpr: 2,
+    postFx: true,
     streaming: 'high',
   }),
 });
@@ -32,30 +35,46 @@ export const STREAMING_PROFILES = Object.freeze({
     mode: 'off',
     enabled: false,
     chunkSize: 120,
-    preloadRadius: Infinity,
-    unloadRadius: Infinity,
+    streetEnter: Infinity,
+    streetExit: Infinity,
+    interiorEnter: Infinity,
+    interiorExit: Infinity,
+    maxActiveChunks: Infinity,
   }),
   mobile: Object.freeze({
     mode: 'mobile',
     enabled: true,
     chunkSize: 120,
-    preloadRadius: 1,
-    unloadRadius: 2,
+    streetEnter: 150,
+    streetExit: 220,
+    interiorEnter: 38,
+    interiorExit: 60,
+    maxActiveChunks: 6,
   }),
   balanced: Object.freeze({
     mode: 'balanced',
     enabled: true,
     chunkSize: 120,
-    preloadRadius: 2,
-    unloadRadius: 3,
+    streetEnter: 320,
+    streetExit: 420,
+    interiorEnter: 65,
+    interiorExit: 95,
+    maxActiveChunks: 16,
   }),
   high: Object.freeze({
     mode: 'high',
     enabled: true,
     chunkSize: 120,
-    preloadRadius: 3,
-    unloadRadius: 4,
+    streetEnter: 550,
+    streetExit: 700,
+    interiorEnter: 100,
+    interiorExit: 140,
+    maxActiveChunks: Infinity,
   }),
+});
+
+const TIER_ALIASES = Object.freeze({
+  'mobile-ios': 'mobile-lite',
 });
 
 const IGPU_RE =
@@ -95,7 +114,7 @@ function probeGpuRenderer() {
  * Classify device hardware into a conservative tier from touch capability and GPU renderer string.
  */
 export function detectTier({ touch = false, gpuRenderer = '' } = {}) {
-  if (touch) return 'mobile-ios';
+  if (touch) return 'mobile-lite';
   const gpu = String(gpuRenderer || '').trim();
   if (!gpu) return 'desktop-igpu';
   if (IGPU_RE.test(gpu)) return 'desktop-igpu';
@@ -124,7 +143,8 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
         : '';
   const params = new URLSearchParams(search);
 
-  const tierParam = params.get('tier')?.trim().toLowerCase() || '';
+  const rawTierParam = params.get('tier')?.trim().toLowerCase() || '';
+  const tierParam = TIER_ALIASES[rawTierParam] || rawTierParam;
   const hasValidTierOverride = Object.hasOwn(TIERS, tierParam);
 
   const touch = env.touch !== undefined ? Boolean(env.touch) : detectTouch();
@@ -150,6 +170,7 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
     texScale,
     shadowSize: base.shadowSize,
     maxDpr: base.maxDpr,
+    postFx: base.postFx,
     stream,
     streamEnabled: stream !== 'off',
     streaming: STREAMING_PROFILES[stream],

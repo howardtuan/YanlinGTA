@@ -653,20 +653,26 @@ export class MahjongScene {
     const done = e.phase === 'end';
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
-      // concealed hand, always in order (the tile you just drew goes straight into its place; a green arrow marks it)
+      // concealed hand in order; the tile just drawn waits on the right, one tile's width apart, until a tile is
+      // discarded (then the hand is sorted again with it)
       const hand = sortTiles(P.hand);
-      const drawnAt =
-        s === 0 && e.turn === 0 && e.justDrew && e.phase === 'turn' ? hand.indexOf(e.drawn) : -1;
+      let drawn = -1;
+      if (e.turn === s && e.justDrew && e.phase === 'turn' && hand.includes(e.drawn)) {
+        hand.splice(hand.indexOf(e.drawn), 1);
+        hand.push(e.drawn);
+        drawn = hand.length - 1;
+      }
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
-      const total = hand.length + nMeld + P.melds.length * 0.3;
+      const total = hand.length + nMeld + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
       let u = -(total * TW) / 2;
       const reveal = done; // hand over: everybody lays their tiles down
       hand.forEach((k, i) => {
+        if (i === drawn) u += TW; // the gap before the drawn tile
         const how = s === 0 && !reveal ? 'mine' : reveal ? 'up' : 'stand';
         put(
           k,
           slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
-          s === 0 ? (i === drawnAt ? 'drawn' : 'mine') : null
+          s === 0 ? (i === drawn ? 'drawn' : 'mine') : null
         );
         u += TW;
       });

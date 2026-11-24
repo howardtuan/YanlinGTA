@@ -417,7 +417,7 @@ export class DevNPC {
       this.face = null;
       this.onMode?.(mode, was);
     }
-    const p = g.player.pos,
+    const p = g.player.worldPos(), // in a car pos is local to it (src/entities/Player.js)
       H = this.home;
     // the laptop shows code / the game while he is at it (and stays on, asleep: off)
     if (this.lap)
@@ -475,7 +475,7 @@ export class DevNPC {
   // stand at a spot outside (only drawn when you are within 160 m); turns to you while you talk
   standAt(dt, sp, pose, extra) {
     const g = this.g,
-      p = g.player.pos,
+      p = g.player.worldPos(), // in a car pos is local to it (src/entities/Player.js)
       ch = this.ch,
       near = Math.hypot(sp.x - p.x, sp.z - p.z) < 160;
     ch.root.visible = near;

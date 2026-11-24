@@ -246,7 +246,7 @@ function lists(dev, P) {
         row('地圖：移動', K('W', 'A', 'S', 'D')),
         row('暫停・設定', K('Esc')),
         row('障礙賽中：退出比賽', K('Esc')),
-        row('障礙賽結果：再賽一場', K('R')),
+        row('障礙賽結果：繼續 / 再賽一場', `${K('Enter')} ${K('Esc')} / ${K('R')}`),
       ]),
     ].join('');
   if (dev === 'pad')

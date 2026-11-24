@@ -27,6 +27,9 @@ const TW = 0.03, // tile width, height, thickness (m)
   TD = 0.022,
   Y0 = 0.72, // felt
   HALF = 0.47; // half the table
+const DISC = 0.072, // the discards: how far in from the centre each player's block starts (see _layout)
+  DROW = 7, // tiles a row
+  GAP = 0.003;
 const COLS = 8,
   ROWS = 6,
   CW = 128,
@@ -693,10 +696,15 @@ export class MahjongScene {
         );
         u += TW;
       });
-      // melds, face up (closed kongs face down) to the right
+      // melds, face up (closed kongs face down) to the right; a 吃 has the tile taken in the middle
       for (const m of P.melds) {
         u += TW * 0.3;
-        meldTiles(m).forEach((k, j) => {
+        let tiles = meldTiles(m);
+        if (m.type === 'chow' && m.take != null) {
+          const rest = tiles.filter((x) => x !== m.take);
+          tiles = [rest[0], m.take, rest[1]];
+        }
+        tiles.forEach((k, j) => {
           const down = m.closed && (j === 0 || j === 3);
           put(k, slot(s, u + TW / 2, 0.39, down ? 'down' : 'up'));
           u += TW;
@@ -704,13 +712,15 @@ export class MahjongScene {
       }
       // flowers in a row between the wall and the hand
       P.flowers.forEach((k, i) => put(k, slot(s, -0.27 + i * TW, 0.335, 'up')));
-      // discards: rows of 6 in front of the wall
+      // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
+      // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
+      // so two players' discards never meet at a corner
       P.discards.forEach((k, i) => {
-        const r = Math.floor(i / 6),
-          c = i % 6;
+        const r = Math.floor(i / DROW),
+          c = i % DROW;
         put(
           k,
-          slot(s, -0.09 + TW / 2 + c * TW, 0.095 + r * (TH + 0.003), 'up'),
+          slot(s, -DISC + TW / 2 + c * (TW + GAP), DISC + TH / 2 + r * (TH + GAP), 'up'),
           i === P.discards.length - 1 && e.last?.from === s ? 'last' : null
         );
       });

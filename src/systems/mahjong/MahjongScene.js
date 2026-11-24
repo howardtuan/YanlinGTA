@@ -383,10 +383,12 @@ export class MahjongScene {
     el.id = 'mjUI';
     el.className = 'hidden';
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
-      <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>`;
+      <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
     this.tagEls = [...el.querySelectorAll('.mj-tag')];
+    this.pop = { el: el.querySelector('.mj-pop'), until: 0 };
     el.addEventListener('click', (e) => {
       const b = e.target.closest('button[data-a]');
       if (!b) return;
@@ -437,6 +439,7 @@ export class MahjongScene {
     this.e = null;
     this.ui.classList.add('hidden');
     this.$('.mj-res').classList.add('hidden');
+    this._hidePop();
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
     if (!this.g.input.touch) this.g.lockPointer?.();
@@ -459,6 +462,13 @@ export class MahjongScene {
 
   startHand(engine) {
     this.e = engine;
+    // every move the engine makes (yours too) goes past _onEvent: a discard or a call pops up big
+    const emit = engine.emit.bind(engine);
+    engine.emit = (ev) => {
+      emit(ev);
+      this._onEvent(ev);
+    };
+    this._hidePop();
     this.t = 0.6;
     this.sel = 0;
     this.result = null;
@@ -738,6 +748,7 @@ export class MahjongScene {
   _hud() {
     const e = this.e,
       g = this.g;
+    this._popTick();
     const seatName = (s) => this.names[s];
     const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${BASE}／一台 ${PER_TAI}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
     if (top !== this._top) this.$('.mj-top').innerHTML = this._top = top;
@@ -786,6 +797,66 @@ export class MahjongScene {
           : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
   }
+  // ---------------- the tile just played, shown big next to whoever played it ----------------
+  _onEvent(ev) {
+    const CALL = { pon: '碰！', chi: '吃！', kong: '槓！' };
+    if (ev.type === 'discard')
+      this._showPop(ev.seat, ev.t, `${this.names[ev.seat]} 打出 ${tileName(ev.t)}`);
+    else if (CALL[ev.type] && !ev.closed)
+      // (a closed kong stays secret)
+      this._showPop(ev.seat, ev.t, `${this.names[ev.seat]} ${CALL[ev.type]}`, true);
+  }
+  // a picture of tile k (its face from the atlas), cached
+  _tileImg(k) {
+    this._imgs ||= {};
+    if (this._imgs[k]) return this._imgs[k];
+    const cv = document.createElement('canvas');
+    cv.width = CW;
+    cv.height = CH;
+    cv.getContext('2d').drawImage(
+      this.set.tileMat.map.image,
+      (k % COLS) * CW,
+      Math.floor(k / COLS) * CH,
+      CW,
+      CH,
+      0,
+      0,
+      CW,
+      CH
+    );
+    return (this._imgs[k] = cv.toDataURL());
+  }
+  _showPop(seat, k, text, call = false) {
+    const P = this.pop;
+    P.seat = seat;
+    P.until = performance.now() + (call ? 1600 : 1400);
+    P.el.querySelector('img').src = this._tileImg(k);
+    P.el.querySelector('b').textContent = text;
+    P.el.classList.toggle('call', call);
+    P.el.classList.remove('hidden');
+    // restart the pop-in animation
+    P.el.style.animation = 'none';
+    void P.el.offsetWidth;
+    P.el.style.animation = '';
+  }
+  _hidePop() {
+    this.pop?.el.classList.add('hidden');
+    if (this.pop) this.pop.until = 0;
+  }
+  _popTick() {
+    const P = this.pop;
+    if (P.el.classList.contains('hidden')) return;
+    // stays while it's your call to make on that tile
+    const waiting = this.e?.pending?.seat === 0 && this.e.pending.kind === 'claim';
+    if (this.result || (!waiting && performance.now() > P.until)) return this._hidePop();
+    // between the centre of the table and the one who played it
+    const v = new THREE.Vector3().copy(FWD[P.seat]).multiplyScalar(P.seat === 0 ? -0.16 : -0.2);
+    v.y = Y0 + 0.06;
+    v.project(this.cam);
+    P.el.style.left = `${((v.x + 1) / 2) * 100}%`;
+    P.el.style.top = `${((1 - v.y) / 2) * 100}%`;
+  }
+
   _showResult() {
     const e = this.e,
       r = e.result;

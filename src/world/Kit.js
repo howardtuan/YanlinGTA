@@ -495,18 +495,59 @@ export class Interiors {
       if (y >= zn.y0 - 0.5 && y <= zn.y1 && pointInPoly(x, z, zn.pts)) return zn;
     return null;
   }
-  actionAt(x, z, y) {
+  // the E action for a player at (x, z) standing y above the ground.
+  // aim (the crosshair: camera position o, unit view direction d, floor = world height of the player's
+  // ground) picks among the reachable ones the one closest to the middle of the screen, so in a room full
+  // of people / things you get whoever you look at; a spot you look straight at also reaches a bit further.
+  // Without aim (or nothing aimed) the nearest one wins. this.aimPt: where the picked one is ([x, y, z, size]).
+  // An action may say where it is to look at: aimY (world height) and glow (its size in metres).
+  actionAt(x, z, y, aim) {
     let best = null,
-      bd = 1e9;
+      bs = 1e9,
+      pt = null;
     for (const a of this.actions) {
       if (a.cond && !a.cond()) continue;
       if (!a.anyY && Math.abs(y - a.y) > 1.3) continue;
-      const d = a.poly ? (pointInPoly(x, z, a.poly) ? 0 : 1e9) : Math.hypot(x - a.x, z - a.z);
-      if (d < (a.poly ? 1 : a.r) && d < bd) {
-        bd = d;
+      let ax, az, d;
+      if (a.poly) {
+        if (!pointInPoly(x, z, a.poly)) continue;
+        ax = az = 0;
+        for (const p of a.poly) {
+          ax += p[0];
+          az += p[1];
+        }
+        ax /= a.poly.length;
+        az /= a.poly.length;
+        d = 0;
+      } else {
+        ax = a.x;
+        az = a.z;
+        d = Math.hypot(x - ax, z - az);
+      }
+      const ay = a.aimY ?? (aim ? aim.floor + (a.anyY ? 1.0 : a.y - y + 0.9) : 0);
+      // the thing itself may sit off the spot you stand at (a bunk over the desk): aimX / aimZ
+      const tx = a.aimX ?? ax,
+        tz = a.aimZ ?? az;
+      let ang = 0;
+      if (aim) {
+        const vx = tx - aim.o.x,
+          vy = ay - aim.o.y,
+          vz = tz - aim.o.z,
+          l = Math.hypot(vx, vy, vz) || 1;
+        ang = Math.acos(
+          Math.max(-1, Math.min(1, (vx * aim.d.x + vy * aim.d.y + vz * aim.d.z) / l))
+        );
+      }
+      const reach = a.poly ? 1 : a.r;
+      if (!(d < reach || (aim && !a.poly && ang < 0.14 && d < reach + 1.2))) continue;
+      const s = aim ? ang : d;
+      if (s < bs) {
+        bs = s;
         best = a;
+        pt = [tx, ay, tz, a.glow ?? (a.anyY ? 1.7 : 0.8)];
       }
     }
+    this.aimPt = pt;
     return best;
   }
   update(dt, game) {

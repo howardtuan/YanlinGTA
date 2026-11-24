@@ -192,10 +192,24 @@ export class Hank {
     ch.root.visible = false;
     game.scene.add(ch.root);
     this.dorm = { seat, ch, gt, phone, bed: bedAt };
+    const self = this;
     game.interiors.actions.push({
       x: seat.x,
       z: seat.z,
       y: R.y + B - surfaceAt(seat.x, seat.z),
+      // the crosshair aims at him: on his chair, or asleep up on bunk 2
+      get aimX() {
+        return self.asleep ? bedAt.x : seat.x;
+      },
+      get aimZ() {
+        return self.asleep ? bedAt.z : seat.z;
+      },
+      get aimY() {
+        return self.asleep ? bedAt.y + 0.2 : seat.y + 0.75;
+      },
+      get glow() {
+        return self.asleep ? 1.5 : 1.6;
+      },
       r: 1.6,
       cond: () => this.mode === 'dorm',
       label: () =>

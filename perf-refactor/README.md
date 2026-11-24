@@ -29,8 +29,8 @@
 
 | 階段 | 任務名稱 | 目前狀態 | 預定分支前綴 | 核心交付物 | 關鍵驗收指標 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **規劃** | 架構體檢、可行性評估與規格確立 | ✅ 規格完成 | `docs/perf-refactor-plan` | 本目錄 10 份檔案與 `AGENT.md` 公告 | `npm run ci` 與連結檢查全過 |
-| **Phase 0** | 基準量測（Mac Web Inspector）與極簡實驗旗標 | ⏳ 待動工 | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`?perf` 補 `renderer.info.memory`、Web Inspector 基準數據 | 取得 iPhone 17 Pro Max 實機 Memory/Canvases/Flame Chart 基準 |
+| **規劃** | 架構體檢、可行性評估與規格確立 | ✅ 已合併 | `docs/perf-refactor-plan` | 本目錄 10 份檔案與 `AGENT.md` 公告 | PR #147 已合併至 `main` |
+| **Phase 0** | 基準量測（Mac Web Inspector）與極簡實驗旗標 | 🔄 程式碼就緒，待實機錄製基線 | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`?perf` 補 `renderer.info.memory`、`perf-profile.test.js` | 本地 `npm run ci` 全過；待接上 Mac + iPhone 17 Pro Max 補齊實機 Web Inspector 數據 |
 | **Phase 1** | iOS 記憶體止血與資源生命週期修復 | ⏳ 待動工 | `fix/ios-canvas-lifecycle` | `renderer.initTexture` 後 `1×1` 釋放 Canvas、圖集降維、延遲載入音訊/後照鏡 | iPhone 17 Pro Max Safari / LINE / IG 成功載入不閃退 |
 | **Phase 2** | 全局空間動態載入（Global Streaming） | ⏳ 待動工 | `refactor/world-streaming-*` | 錨點分離、`ScopedChunkContext`、`WorldStreamer`、Rapier Tile 動態掛載 | 啟動僅載入骨架與玩家周邊，外圍街屋/室內/體育館動態進出 |
 | **Phase 3** | 渲染分塊與電腦無獨顯 60 FPS 優化 | ⏳ 待動工 | `refactor/render-igpu-*` | `MapBuilder` 120m 空間分塊、移除地板 `discard`、室內外剔除、GPU 檔位重校 | 內顯設備三角形/Draw Call 降 60%+，主場景穩 55–60 FPS |

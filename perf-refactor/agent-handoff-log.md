@@ -24,6 +24,25 @@
 
 ---
 
+### Session #002｜2026-11-24｜負責階段：Phase 0 實作（旗標解析與記憶體遙測）
+- **工作分支 / PR**：`chore/perf-flags-and-metrics`（基於合併 PR #147 後之 `main` `7a00e81` 建立，目前本地已提交待量測補數據）
+- **本輪已完成**：
+  1. 完成規劃分支合併：`docs/perf-refactor-plan` 已透過 PR #147 合併至上游 `howardtuan/YanlinGTA` (`main`)，並已清理本地舊分支與同步最新 `main`。
+  2. 新增 [`src/core/PerfProfile.js`](../src/core/PerfProfile.js)：實作 `TIERS`、`STREAMING_PROFILES`、`detectTier()` 與 `resolveRuntimeProfile()`，支援 `?tier=`、`?texscale=`、`?stream=` 實驗參數解析（預設不啟用串流，確保既有行為零改變，且於 GPU 探測後主動呼叫 `WEBGL_lose_context`）。
+  3. 修改 [`src/core/Game.js`](../src/core/Game.js)：於 `init()` 掛載 `this.perfProfile = resolveRuntimeProfile(this.settings)`。
+  4. 修改 [`src/core/GameLoop.js`](../src/core/GameLoop.js)：於 `?perf` HUD 新增 `紋理 {textures}  幾何 {geometries}  檔位 {tier}` 遙測列。
+  5. 新增單元測試 [`tests/unit/perf-profile.test.js`](../tests/unit/perf-profile.test.js) 並更新狀態看板；本地 `npm run format && npm run ci` 全數通過。
+- **實機與量化數據變化**（Mac Safari Web Inspector / iPhone LINE/IG / `?perf`）：
+  - 載入結果：尚未接上實體 iPhone 17 Pro Max 錄製，待實機補齊：
+  - Memory / Canvases / Texture / Draw Calls / Tris / FPS：_（待開發者以 Mac USB Safari Web Inspector 連線 iPhone 17 Pro Max 補填基準表）_
+- **新發現的技術細節或踩雷**：
+  - 上游 `main` 在規劃合併期間新增了 Mahjong 音效與 `Kit.js` 等內容，`Game.js` 亦小幅調整；Phase 0 因僅於 `loadSettings()` 後掛載 `this.perfProfile`，完全零衝突並存。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 以 Mac `npm run dev` + iPhone 17 Pro Max USB Safari Web Inspector 量測現況（記錄啟動後/進校園/全地圖的 Memory、Canvases、Textures/Geometries 與 `Game.init()` Flame Chart）並回填至 `specs/phase-0-baseline-and-flags.md` / 本文件，或將 `chore/perf-flags-and-metrics` 開 PR 合併。
+  2. 隨即切入 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**（`refactor/phase1-ios-memory-rescue`），處理 GPU 上傳後釋放 2D Canvas、圖集降維與延遲載入。
+
+---
+
 ### Session #001｜2026-11-24｜負責階段：架構診斷、可行性評估與規劃書確立
 - **工作分支 / PR**：`docs/perf-refactor-plan`（待審核與合入上游 `howardtuan/YanlinGTA`）
 - **本輪已完成**：

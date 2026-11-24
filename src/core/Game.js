@@ -95,6 +95,7 @@ import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
+import { resolveRuntimeProfile } from './PerfProfile.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 
 const $ = (id) => document.getElementById(id);
@@ -133,6 +134,7 @@ class Game {
     loadTerrain(terrain);
     this.data = data;
     this.settings = loadSettings();
+    this.perfProfile = resolveRuntimeProfile(this.settings);
     this.quality = resolveQuality(this.settings.quality, this.settings);
     this.lowQ = this.quality === 'low' || this.quality === 'xlow';
     this.xlowQ = this.quality === 'xlow';

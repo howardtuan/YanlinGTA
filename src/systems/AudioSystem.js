@@ -24,6 +24,14 @@ const SFX_DECODED = [
   'ped_oof',
   'crash_scooter',
   'crash_car',
+  'mj_tile',
+  'mj_tile2',
+  'mj_draw',
+  'mj_meld',
+  'mj_dice_hit',
+  'mj_shuffle',
+  'mj_reveal',
+  'mj_knock',
 ];
 export function loadSettings() {
   // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
@@ -782,6 +790,38 @@ export class Audio {
     this._hold(b.g.gain, n ? (b.f ? 0.05 + 0.03 * n : 0.12 + 0.08 * n) : 0);
     if (n && b.f && Math.random() < 0.12 * n)
       this.noise(0.015, 5000 + Math.random() * 3000, 1, 0.05 + Math.random() * 0.05);
+  }
+
+  // ---------- mahjong ----------
+  mjTile() {
+    const k = Math.random() < 0.5 ? 'mj_tile' : 'mj_tile2';
+    if (this._play(k, 0.55, 0, 0.95 + Math.random() * 0.1)) return;
+    this.tap();
+  }
+  mjDraw() {
+    if (this._play('mj_draw', 0.35, 0, 0.94 + Math.random() * 0.12)) return;
+    this.tap();
+  }
+  mjMeld() {
+    if (this._play('mj_meld', 0.65, 0, 0.96 + Math.random() * 0.08)) return;
+    this.tap();
+  }
+  mjDice(bounce = 1) {
+    const v = 0.55 * (1 - 0.12 * Math.min(2, Math.max(0, bounce - 1)));
+    if (this._play('mj_dice_hit', v, 0, 0.92 + Math.random() * 0.2)) return;
+    this.tap();
+  }
+  mjShuffle() {
+    if (this._play('mj_shuffle', 0.5, 0, 0.97 + Math.random() * 0.06)) return;
+    this.noise(0.35, 900, 0.8, 0.08);
+  }
+  mjReveal() {
+    if (this._play('mj_reveal', 0.7, 0, 0.96 + Math.random() * 0.08)) return;
+    this.tap();
+  }
+  mjKnock() {
+    if (this._play('mj_knock', 0.75)) return;
+    this.door();
   }
 
   // ---------- crowd ----------

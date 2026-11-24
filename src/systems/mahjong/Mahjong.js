@@ -347,11 +347,13 @@ export class DormMahjong {
     this.release();
     g.resume?.();
     const net = s?.net || 0;
-    if (raid)
+    if (raid) {
+      g.audio?.mjKnock?.();
       g.dialog([
         ['舍監', '（叩叩叩）查寢！277 開門！'],
         ['彥霖', '🚨 舍監來查寢了！快躲起來——這把不算！'],
       ]);
+    }
     g.hud.toast(
       `🀄 散場！打了 ${s?.hands || 0} 局，${net ? `${net > 0 ? '贏' : '輸'} NT$ ${Math.abs(net).toLocaleString('en-US')}` : '不輸不贏'}・${names}各自回去了`,
       net >= 0 ? 'good' : 'bad',

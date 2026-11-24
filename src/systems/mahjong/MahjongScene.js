@@ -575,12 +575,6 @@ export class MahjongScene {
         e.step();
         this.t += this._pace(e.events);
         this._layout();
-        if (
-          e.events.some(
-            (v) => v.type === 'discard' || v.type === 'pon' || v.type === 'chi' || v.type === 'kong'
-          )
-        )
-          this.g.audio?.tap?.();
       }
       if (e.phase === 'end' && this.t <= 0) this._showResult();
     }
@@ -822,7 +816,6 @@ export class MahjongScene {
     if (e.decide({ type: 'discard', t: this.mine[i].k })) {
       this.t = 0.3;
       this._layout();
-      this.g.audio?.tap?.();
     }
   }
   _keys(inp) {
@@ -1002,6 +995,7 @@ export class MahjongScene {
       row,
       title: '🀄 抓位：東南西北四張風牌蓋著洗好，一人抽一張',
     };
+    this.g.audio?.mjShuffle?.();
     this._say('');
   }
   // 擲骰: thrower throws dice (values decided already); count from them round to the right; what: 'dealer' (定莊)
@@ -1060,7 +1054,7 @@ export class MahjongScene {
       I.row.forEach((m, s) => (m.userData.to = slot(s, 0, 0.2, 'up')));
       this.introTag = (s) => `抽到 ${WINDS[W[s]]}・${this.names[s]}`;
       this._say(W.map((w, s) => `${this.names[s]} ${WINDS[w]}`).join('・'), '照東南西北，逆時針坐');
-      this.g.audio?.tap?.();
+      this.g.audio?.mjDraw?.();
     } else if (p === 'seat') {
       // everyone moves to the seat of their wind; 彥霖 stays where he is
       const at = W.map((w) => (w - W[0] + 4) % 4);
@@ -1145,7 +1139,7 @@ export class MahjongScene {
     }
     if (I.phase === 'pre' && I.t > 0.6) this._throw();
     else if (I.phase === 'fly') {
-      if (this.dice.update(dt) > 0) this.g.audio?.tap?.();
+      if (this.dice.update(dt) > 0) this.g.audio?.mjDice?.(this.dice.bounces);
       if (this.dice.done) this._introPhase('count');
     } else if (I.phase === 'count') {
       // light up each seat as it is counted: 1 = the thrower, then round to the right
@@ -1228,11 +1222,18 @@ export class MahjongScene {
   // ---------------- the tile just played, shown big next to whoever played it ----------------
   _onEvent(ev) {
     const CALL = { pon: '碰！', chi: '吃！', kong: '槓！' };
-    if (ev.type === 'discard')
+    const a = this.g.audio;
+    if (ev.type === 'deal') a?.mjShuffle?.();
+    else if (ev.type === 'draw') a?.mjDraw?.();
+    else if (ev.type === 'discard') {
+      a?.mjTile?.();
       this._showPop(ev.seat, ev.t, `${this.names[ev.seat]} 打出 ${tileName(ev.t)}`);
-    else if (CALL[ev.type] && !ev.closed)
-      // (a closed kong stays secret)
-      this._showPop(ev.seat, ev.t, `${this.names[ev.seat]} ${CALL[ev.type]}`, true);
+    } else if (CALL[ev.type]) {
+      a?.mjMeld?.();
+      if (!ev.closed)
+        // (a closed kong stays secret)
+        this._showPop(ev.seat, ev.t, `${this.names[ev.seat]} ${CALL[ev.type]}`, true);
+    } else if (ev.type === 'win') a?.mjReveal?.();
   }
   // a picture of tile k (its face from the atlas), cached
   _tileImg(k) {

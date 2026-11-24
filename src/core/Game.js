@@ -822,6 +822,25 @@ class Game {
     if (this.state === 'play') lockPointer(this.renderer.domElement);
   }
 
+  // a screen that freed the mouse on purpose is up (results, shops, PC, phone...): losing the pointer lock then is not
+  // the player pressing Esc, so it must not pause, and a click on the page must not grab the mouse back. A new screen
+  // that calls document.exitPointerLock() and is not a g.modal() belongs in this list.
+  mouseOwnedByUI() {
+    return (
+      this.hud.bigOpen ||
+      this._modalOpen ||
+      this._overlay ||
+      this.videoOpen ||
+      this.phone?.open ||
+      this.photo?.on ||
+      this.job?.active ||
+      this.pc?.isOpen ||
+      this.wardrobe?.isOpen ||
+      this.mahjong?.playing ||
+      this.race?.state === 'results'
+    );
+  }
+
   openMap(src = 'key') {
     this.mapSrc = src;
     this.hud.toggleBig(true);
@@ -1168,6 +1187,8 @@ class Game {
       inp.pressed.clear();
     } else if (inp.hit('Escape')) {
       if (hud.bigOpen) this.closeMap();
+      // Esc on the race results = 繼續, not the pause menu
+      else if (this.race.state === 'results') this.race.close(false);
       else if (!this._modalOpen) {
         document.exitPointerLock?.();
         this.pause();

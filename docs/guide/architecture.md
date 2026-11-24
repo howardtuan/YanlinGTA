@@ -163,6 +163,10 @@ sequenceDiagram
   - 當幀率持續低於 35 FPS 時，自動縮減 `renderer.setPixelRatio`（最低降至 0.75x），並停用非關鍵後製輝光。
   - 當幀率穩定維持 58 FPS 以上時，平滑調升畫質至裝置原生解析度。
 
+### 3. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
+- 遊玩中失去滑鼠鎖定（`pointerlockchange`）會被當成玩家按了 Esc 而打開暫停選單（`MenuManager.js`）。
+- 任何「自己放開滑鼠」的畫面（成績單、商店、電腦、手機、麻將……）必須讓 `Game.mouseOwnedByUI()` 回傳 true（`g.modal()` 會自動設 `_modalOpen`；其他畫面請加進該清單或設 `g._overlay`），否則一放開滑鼠就會誤跳暫停選單。例：障礙賽成績單（`race.state === 'results'`）。
+
 ---
 
 ## 五、 雙 WebAssembly 運算子系統 (Dual WASM Architecture)

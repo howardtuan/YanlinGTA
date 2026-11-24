@@ -84,18 +84,7 @@ export class MenuManager {
         game.missions.start();
       }
       $('app').onclick = () => {
-        if (
-          game.state === 'play' &&
-          !game.input.touch &&
-          !game.hud.bigOpen &&
-          !game._modalOpen &&
-          !game.videoOpen &&
-          !game.phone.open &&
-          !game.job.active &&
-          !game.pc?.isOpen &&
-          !game.wardrobe?.isOpen &&
-          !game.mahjong?.playing
-        ) {
+        if (game.state === 'play' && !game.input.touch && !game.mouseOwnedByUI()) {
           lockPointer(game.renderer.domElement);
         }
       };
@@ -153,21 +142,7 @@ export class MenuManager {
         game.zzQuest?.busy ||
         game.mahjong?.playing;
       if (cine || performance.now() - lockReqAt < 1200) return;
-      if (
-        game.state === 'play' &&
-        !game.hud.bigOpen &&
-        !game.input.touch &&
-        !game._modalOpen &&
-        !game._overlay &&
-        !game.videoOpen &&
-        !game.phone?.open &&
-        !game.photo?.on &&
-        !game.job?.active &&
-        !game.pc?.isOpen &&
-        !game.wardrobe?.isOpen
-      ) {
-        this.pause();
-      }
+      if (game.state === 'play' && !game.input.touch && !game.mouseOwnedByUI()) this.pause();
     });
   }
 

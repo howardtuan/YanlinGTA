@@ -345,6 +345,76 @@ export class Race {
       i,
     };
   }
+  // painted guide line on the road: a pink ribbon of chevrons along the course centreline, shown only
+  // while a race is on. Built once (one draw call, ~2 tris per 2 m), then just toggled.
+  _showGuide(on) {
+    if (!on) {
+      if (this.guide) this.guide.visible = false;
+      return;
+    }
+    if (!this.guide) {
+      const C = this.C,
+        HW = 0.45, // half width (m)
+        REP = 3.5; // one chevron every REP metres
+      const cv = document.createElement('canvas');
+      cv.width = 64;
+      cv.height = 64;
+      const c = cv.getContext('2d');
+      c.fillStyle = 'rgba(255,79,163,0.35)';
+      c.fillRect(0, 0, 64, 64);
+      c.strokeStyle = '#ff4fa3';
+      c.lineWidth = 11;
+      c.lineCap = 'round';
+      c.lineJoin = 'round';
+      c.beginPath();
+      c.moveTo(10, 46);
+      c.lineTo(32, 20);
+      c.lineTo(54, 46);
+      c.stroke();
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.anisotropy = 4;
+      const n = C.n + 1, // closed loop: repeat the first sample at the end
+        pos = new Float32Array(n * 6),
+        uv = new Float32Array(n * 4),
+        idx = [];
+      for (let k = 0; k < n; k++) {
+        const p = this._at(k * DS);
+        for (let side = 0; side < 2; side++) {
+          const o = side ? HW : -HW,
+            x = p.x + p.rx * o,
+            z = p.z + p.rz * o;
+          pos.set([x, surfaceAt(x, z) + 0.07, z], (k * 2 + side) * 3);
+          uv.set([side, (k * DS) / REP], (k * 2 + side) * 2);
+        }
+        if (k < n - 1) {
+          const a = k * 2;
+          idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      geo.setIndex(idx);
+      geo.computeBoundingSphere();
+      this.guide = new THREE.Mesh(
+        geo,
+        new THREE.MeshBasicMaterial({
+          map: tex,
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -4,
+          polygonOffsetUnits: -4,
+        })
+      );
+      this.guide.renderOrder = 2;
+      this.g.scene.add(this.guide);
+    }
+    this.guide.visible = true;
+  }
   // nearest course point to (x,z), searching ±win samples around index hint
   _project(x, z, hint, win = 30) {
     const C = this.C;
@@ -521,6 +591,7 @@ export class Race {
       my = g.myScooter;
     this.runs++;
     this._placeObstacles();
+    this._showGuide(true);
     // grid: 2 per row behind the line
     const slot = (k) => {
       const row = Math.floor(k / 2),
@@ -584,8 +655,8 @@ export class Race {
     g.hud.setTip(
       '🏁 障礙賽',
       dual(
-        '<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車 <kbd>A</kbd><kbd>D</kbd> 轉向 <kbd>Space</kbd> 甩尾<br>跟著小地圖的粉紅線，撞到三角錐・水馬・車子都會減速',
-        '{RT} 油門 {LT} 煞車 {L} 轉向 {RB} 甩尾<br>跟著小地圖的粉紅線，撞到三角錐・水馬・車子都會減速'
+        '<kbd>W</kbd> 油門 <kbd>S</kbd> 煞車 <kbd>A</kbd><kbd>D</kbd> 轉向 <kbd>Space</kbd> 甩尾<br>跟著地上和小地圖的粉紅箭頭線，撞到三角錐・水馬・車子都會減速',
+        '{RT} 油門 {LT} 煞車 {L} 轉向 {RB} 甩尾<br>跟著地上和小地圖的粉紅箭頭線，撞到三角錐・水馬・車子都會減速'
       )
     );
     this.pl = {
@@ -670,6 +741,7 @@ export class Race {
     this.rivals = [];
     this.obst = [];
     g.hud.route = null;
+    this._showGuide(false);
     this.el.hud.classList.add('hidden');
     this.el.res.classList.add('hidden');
     this.el.count.classList.add('hidden');
@@ -717,6 +789,7 @@ export class Race {
       this.signRing.material.opacity = 0.55 + Math.sin(g.time * 4) * 0.2;
     }
     if (this.state === 'idle') return;
+    if (this.guide?.visible) this.guide.material.map.offset.y -= dt * 1.6; // chevrons crawl forward
     if (this.state === 'results') {
       if (inp.hit('Enter', 'NumpadEnter', 'KeyE', 'Space')) {
         inp.pressed.clear();

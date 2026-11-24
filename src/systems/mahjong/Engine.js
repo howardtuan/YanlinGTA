@@ -440,4 +440,17 @@ export class MahjongEngine {
   waiting(s) {
     return waits(counts(this.players[s].hand), this.sets(s));
   }
+  // 聽牌提示：seat s 現在聽哪些牌、每種還剩幾張（扣掉自己手上和桌上看得到的）。
+  // 輪到 s 剛摸牌時看摸牌前那手；手上多一張（剛吃碰完要打）時不算，回 []
+  tenpai(s) {
+    const P = this.players[s];
+    let hand = P.hand;
+    if (this.turn === s && this.justDrew && this.phase === 'turn' && hand.includes(this.drawn)) {
+      hand = [...hand];
+      hand.splice(hand.indexOf(this.drawn), 1);
+    }
+    if (hand.length % 3 !== 1) return [];
+    const seen = this.visible(s);
+    return waits(counts(hand), this.sets(s)).map((t) => ({ t, left: Math.max(0, 4 - seen[t]) }));
+  }
 }

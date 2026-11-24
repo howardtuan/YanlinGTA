@@ -450,7 +450,7 @@ export class MahjongScene {
     el.className = 'hidden';
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div>
       <button class="mj-view" data-a='{"type":"view"}'></button>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
@@ -511,6 +511,8 @@ export class MahjongScene {
     this._say('');
     this.ui.classList.add('hidden');
     this.$('.mj-res').classList.add('hidden');
+    this.$('.mj-wait').classList.add('hidden');
+    this._waitKey = '';
     this._hidePop();
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
@@ -910,6 +912,33 @@ export class MahjongScene {
           ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
           : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
+    this._waitHud();
+  }
+  // 聽牌：beside your hand, the tiles you're waiting on (worked out for you) and how many of each are still out there
+  _waitHud() {
+    const e = this.e,
+      el = this.$('.mj-wait');
+    // (out of the way while the 吃碰槓胡 buttons are up)
+    const list = e && !this.result && !this._options().length ? e.tenpai(0) : [];
+    const key = list.map((w) => `${w.t}:${w.left}`).join(',');
+    if (key !== this._waitKey) {
+      this._waitKey = key;
+      const total = list.reduce((a, w) => a + w.left, 0);
+      el.innerHTML = list.length
+        ? `<b>聽牌 🀄</b><span class="mj-wt">${list
+            .map(
+              (w) =>
+                `<span class="${w.left ? '' : 'gone'}"><img src="${this._tileImg(w.t)}" alt="${tileName(w.t)}"><i>剩 ${w.left}</i></span>`
+            )
+            .join('')}</span><small>${total ? `共 ${total} 張可以胡` : '聽的牌都沒了 😱'}</small>`
+        : '';
+      el.classList.toggle('hidden', !list.length);
+    }
+    if (!list.length) return;
+    // just above the left end of your hand
+    const v = new THREE.Vector3(-0.25, Y0 + 0.05, 0.36).project(this.cam);
+    el.style.left = `${Math.max(1, ((v.x + 1) / 2) * 100)}%`;
+    el.style.top = `${((1 - v.y) / 2) * 100}%`;
   }
   // on the table edge in front of each player; yours left of your hand
   _placeTag(el, s, v = new THREE.Vector3()) {

@@ -412,3 +412,28 @@ describe('槓與花的台灣規矩', () => {
     expect(q.items.map(([n]) => n)).toContain('全求人');
   });
 });
+
+describe('聽牌提示（engine.tenpai）', () => {
+  it('what you wait on, and how many of each are still out there', () => {
+    const e = new MahjongEngine({ human: [true, false, false, false] });
+    e.players[0].hand = T('123m456m789m123p45s99s');
+    e.players[1].discards = T('33s');
+    expect(e.tenpai(0)).toEqual([
+      { t: K('3s'), left: 2 },
+      { t: K('6s'), left: 4 },
+    ]);
+    // your turn, just drew: still the hand from before the draw
+    e.players[0].hand.push(K('1z'));
+    e.turn = 0;
+    e.justDrew = true;
+    e.phase = 'turn';
+    e.drawn = K('1z');
+    expect(e.tenpai(0).map((w) => w.t)).toEqual([K('3s'), K('6s')]);
+    // one tile too many (just called a pon, about to discard): nothing shown
+    e.justDrew = false;
+    expect(e.tenpai(0)).toEqual([]);
+    // not ready yet
+    e.players[0].hand = T('123m456m789m123p47s99s');
+    expect(e.tenpai(0)).toEqual([]);
+  });
+});

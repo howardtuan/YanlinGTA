@@ -8336,3 +8336,49 @@ body.mahjong #dialog {
   font-size: 22px;
   padding: 10px 22px;
 }
+
+/* 277 麻將: 聽牌提示 beside your hand (MahjongScene._waitHud) */
+#mjUI .mj-wait {
+  position: absolute;
+  transform: translateY(-100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 60vw;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 2px solid #ffd166;
+}
+#mjUI .mj-wait b {
+  color: #ffd166;
+  font-size: 15px;
+}
+#mjUI .mj-wait small {
+  font-size: 12px;
+  opacity: 0.9;
+}
+#mjUI .mj-wt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+#mjUI .mj-wt span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#mjUI .mj-wt img {
+  width: clamp(30px, 3.6vw, 44px);
+  aspect-ratio: 128 / 170;
+  border-radius: 4px;
+  border-bottom: 4px solid #1e7a4a;
+}
+#mjUI .mj-wt i {
+  font-style: normal;
+  font-size: 12px;
+}
+#mjUI .mj-wt .gone {
+  opacity: 0.4;
+}

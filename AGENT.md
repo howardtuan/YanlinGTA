@@ -2,6 +2,12 @@
 
 本文件為「中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)」專案的**唯一共同指導原則（Single Source of Truth）**，適用於所有人類開發者與 AI Agent。詳細技術手冊與遊戲設計見 [docs/README.md](docs/README.md)。
 
+> [!NOTE]
+> **🚧 過渡期公告：底層記憶體、全局動態載入與渲染效能重構進行中**
+> 目前專案正同步進行長週期的「手機端記憶體止血、全局動態載入與內顯效能最佳化」重構計畫（所有進度與規格獨立收錄於根目錄 [perf-refactor/README.md](perf-refactor/README.md)）。
+> - **一般內容與功能開發者／AI Agent 請忽略該目錄**：新增 NPC、支線劇情、單棟建築或小遊戲請完全維持既有寫法照常交付，重構組會確保底層 API 向後相容。
+> - **僅在下列情況才需閱讀 [perf-refactor/README.md](perf-refactor/README.md)**：(1) 你正在接手執行該效能重構階段任務；或 (2) 你的修改涉及 `src/core/`、`src/graphics/`、`src/physics/PhysWorld.js`、`src/world/Kit.js`、`src/world/MapBuilder.js`、`src/world/zones/Zones.js` 等底層管線。
+
 ---
 
 ## 一、 核心開發原則與最佳實踐

@@ -24,6 +24,7 @@ export const PEOPLE = {
   侯舌: { av: `<img class="ph-avimg" src="${G('houshe_av')}" alt="">`, color: '#3a3a40' },
   理查: { av: `<img class="ph-avimg" src="${G('richard_av')}" alt="">`, color: '#2f4a32' },
   霍華德: { av: `<img class="ph-avimg" src="${G('howard_av')}" alt="">`, color: '#c9677f' },
+  瑞哲: { av: `<img class="ph-avimg" src="${G('ruizhe_av')}" alt="">`, color: '#2f2f31' },
 };
 
 export const FEED = [
@@ -390,6 +391,17 @@ export const STORY_SETS = {
     { bg: GR('#1e1e1e', '#c9677f'), t: 'i-Piyan 更新中\n已讀要更像真的', s: '📱' },
     { bg: GR('#ff8fb1', '#b3202a'), t: '玫瑰花魔術\n祕訣不能說 🌹', s: '🌹' },
   ],
+  // 瑞哲（加了好友才看得到）：278 的狼尾、VTuber、內卷；打字常把名字打錯
+  瑞哲: [
+    { bg: GR('#eba7d3', '#3c3f8c'), t: '湊あくわ APEX 冠軍\nSC 被念到了 😭✨', s: '⚓' },
+    { bg: GR('#1a1a1a', '#ffa116'), t: 'LeetCode 連續 386 天\n今天也沒斷 🔥', s: '💻' },
+    { bg: GR('#0f1923', '#ff4655'), t: '跟監獄雙排\n*劍玉 注音又選錯', s: '🎯' },
+    { bg: GR('#2f2f31', '#c4262c'), t: '新的狼尾\n自己覺得很帥 🐺', s: '✂️' },
+    { bg: GR('#3b5b8c', '#e8f0ff'), t: '資結作業出來當天寫完\n明天預習下一章', s: '📚' },
+    { bg: GR('#f5a9c9', '#1c1a1f'), t: '同人場戰利品\n錢包空了 心滿了', s: '🛍️' },
+    { bg: GR('#101018', '#f5a9c9'), t: '凌晨兩點 みけにゃこ。歌回\n明天早八 沒關係', s: '🎧' },
+    { bg: GR('#1f2937', '#ffd23f'), t: '278 三票都投燕林\n*彥霖 🗳️', s: '🗳️' },
+  ],
   // 戈登肉鋪店長（加了好友才看得到）。gd / gd_av 是遊戲裡的 3D 角色算繪，gd_shop 是遊戲裡的店內畫面
   YeeMing: [
     { img: G('yeeming_walk'), t: '休假 day 1 陪明衫散步', s: '💑' },
@@ -460,6 +472,7 @@ export const STORY_TIMES = {
   侯舌: [11 * 60 + 5, 23 * 60 + 25],
   理查: [12 * 60 + 35, 22 * 60 + 45],
   霍華德: [9 * 60 + 25, 20 * 60 + 20],
+  瑞哲: [12 * 60 + 50, 23 * 60 + 58],
 };
 // 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 src/ui/phone/Friends.js）
 export const FRIEND_ONLY = {
@@ -473,6 +486,7 @@ export const FRIEND_ONLY = {
   侯舌: 'houshe',
   理查: 'richard',
   霍華德: 'howard',
+  瑞哲: 'ruizhe',
 };
 
 export const PCARD = [

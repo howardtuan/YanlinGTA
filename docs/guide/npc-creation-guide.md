@@ -135,10 +135,10 @@ npm run dev
 classDiagram
     class LookParameters {
         +string skin ("膚色HEX，如 #f5cda8")
-        +string hair ("髮型：'short' | 'long' | 'buzz' | 'ponytail' | 'curly'")
+        +string hair ("髮型：'short' | 'long' | 'buzz' | 'ponytail' | 'curly' | 'wolf'（狼尾）")
         +string hairCol ("髮色HEX")
         +boolean glasses ("是否配戴眼鏡")
-        +string glassesStyle ("眼鏡款式：'thin' 細框 | 'thick' 黑粗框")
+        +string glassesStyle ("眼鏡款式：'thin' 細框 | 'thick' 黑粗框 | 'octa' 大八角細框")
         +string shirt ("上衣款式：'tee' T恤 | 'polo' Polo衫 | 'hoodie' 帽T | 'camo' 迷彩")
         +string shirtCol ("上衣主色HEX")
         +string pants ("褲裝款式：'shorts' 短褲 | 'jeans' 牛仔褲 | 'cargo' 卡其褲")
@@ -146,6 +146,10 @@ classDiagram
         +string shoesCol ("鞋子顏色HEX")
     }
 ```
+
+> 進階外觀參數（直接寫在 `look`，儀表板「細部調整」也看得到；實際名稱以 `src/entities/Character.js` 的 `createCharacter` 註解為準）：
+> `hairStyle: 'wolf'`（狼尾）、`glassesStyle: 'octa'`（大八角細框）、`sole`（鞋底顏色）、`longTee`（oversize 長版 T）、`wash`（水洗刷色）、
+> `pantsLow` ／ `pantsSplit`（膝下另一個顏色：短褲接長褲的兩截褲）、`wide`（寬褲蓋過鞋面）。範例見瑞哲（`src/entities/npcs/Ruizhe.js` 的 `RUIZHE_LOOK`）。
 
 ---
 

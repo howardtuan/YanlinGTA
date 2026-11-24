@@ -302,6 +302,94 @@ function curvedPrint(w, h, rx, rz, back, segs = 18, ox = 0) {
   return g;
 }
 
+// ---------- wolf cut (瑞哲, src/entities/npcs/Ruizhe.js) ----------
+// Locks of hair: each a tapered cone from its root b to its tip t (head frame), flattened against the head (the flat side
+// faces out from the middle of the head). One merged geometry per list.
+const _hc = new THREE.Vector3(0, 0.1, 0);
+function hairLocks(list) {
+  const b = new THREE.Vector3(),
+    t = new THREE.Vector3(),
+    yA = new THREE.Vector3(),
+    n = new THREE.Vector3(),
+    xA = new THREE.Vector3(),
+    M4 = new THREE.Matrix4();
+  const parts = list.map(([b0, t0, r, flat = 0.5]) => {
+    b.set(...b0);
+    t.set(...t0);
+    const len = yA.subVectors(b, t).length();
+    yA.normalize(); // the lock's +y: from the tip up to the root
+    n.subVectors(b, _hc);
+    n.addScaledVector(yA, -n.dot(yA)).normalize(); // outward, square to the lock
+    xA.crossVectors(yA, n);
+    const g = new THREE.ConeGeometry(r, len, 6, 1);
+    g.rotateX(Math.PI); // tip down
+    g.translate(0, -len / 2, 0); // root at the origin, tip at -len
+    g.scale(1, 1, flat);
+    g.applyMatrix4(M4.makeBasis(xA, yA, n).setPosition(b));
+    return g.toNonIndexed();
+  });
+  const geom = mergeGeometries(parts, false);
+  geom.computeVertexNormals();
+  return geom;
+}
+// a point on a circle round the head's vertical axis: a = angle from the face (+z) towards +x
+const onHead = (a, y, R) => [Math.sin(a) * R, y, Math.cos(a) * R];
+// 狼尾 (wolf cut): choppy see-through bangs to the top of the glasses, face-framing pieces down the cheeks, layered sides
+// over the ears and a mullet falling over the back of the neck to the shoulders, its ends flicked out
+function wolfLocks() {
+  const L = [];
+  // bangs: thick choppy pieces coming out of the crown at uneven heights (so there is no straight hairline) down to the top
+  // of the glasses, a little parted off the middle; crownR: the crown shell's radius at height y (wolfCrown below)
+  const crownR = (y) => 0.148 * Math.sqrt(Math.max(0, 1 - ((y - 0.11) / 0.159) ** 2));
+  for (const [a, y, b] of [
+    [-0.86, 0.1, 0.2],
+    [-0.7, 0.112, 0.222],
+    [-0.54, 0.12, 0.196],
+    [-0.38, 0.126, 0.214],
+    [-0.23, 0.118, 0.228],
+    [-0.09, 0.13, 0.2],
+    [0.07, 0.122, 0.218],
+    [0.22, 0.132, 0.194],
+    [0.37, 0.124, 0.224],
+    [0.52, 0.118, 0.204],
+    [0.68, 0.11, 0.216],
+    [0.84, 0.098, 0.198],
+  ])
+    L.push([
+      onHead(a, b + 0.014, crownR(b + 0.014) - 0.016),
+      onHead(a * 1.05, y, 0.124),
+      0.03,
+      0.38,
+    ]); // root buried in the crown
+  // face-framing pieces in front of the ears, down to the jaw
+  for (const s of [-1, 1])
+    for (const [a, y, r] of [
+      [0.98, 0.04, 0.024],
+      [1.16, 0.022, 0.028],
+      [1.36, 0.032, 0.03],
+    ])
+      L.push([onHead(s * a, 0.17, 0.134), onHead(s * a * 0.97, y, 0.13), r, 0.45]);
+  // layered sides over the ears, ending at the jaw line
+  for (const s of [-1, 1])
+    for (const a of [1.6, 1.85])
+      L.push([onHead(s * a, 0.14, 0.143), onHead(s * a, 0.0, 0.136), 0.032, 0.42]);
+  // the mullet: chunks round the back from the occiput, long in the middle (over the nape to the shoulders), shorter to
+  // the sides, the tips flicked out
+  for (const [d, y, R, r] of [
+    [0, -0.16, 0.15, 0.034],
+    [0.24, -0.15, 0.15, 0.032],
+    [0.5, -0.1, 0.148, 0.032],
+    [0.8, -0.03, 0.146, 0.032],
+    [1.1, 0.01, 0.145, 0.03],
+  ])
+    for (const s of d ? [-1, 1] : [1])
+      L.push([onHead(Math.PI + s * d, 0.1, 0.14), onHead(Math.PI + s * d * 1.04, y, R), r, 0.4]);
+  // choppy layers on the back of the crown
+  for (const d of [-0.9, -0.45, 0, 0.45, 0.9])
+    L.push([onHead(Math.PI + d, 0.235, 0.085), onHead(Math.PI + d, 0.125, 0.155), 0.03, 0.4]);
+  return hairLocks(L);
+}
+
 // ---------- hand with individual fingers (hero only) ----------
 function buildHand(skin, side) {
   const hand = pivot();
@@ -491,7 +579,10 @@ function faceGeo(jaw, chin = 0) {
 // imTee (true: 資管系服 — geometric lion on the left chest, the Information Management code print on the back),
 // chin (0..1: a narrower, pointier chin), glassesStyle ('browline': a thick bar in glassesColor over the top of each lens, thin silver rims;
 // 'thick': thick full frames in glassesColor, default black), belly (0..1, skinned body only: a chubby tummy, hips and thighs),
-// camo (true, skinned body only: the shirt and trousers in woodland camouflage), helmet ('camo': an army helmet with a chin strap)
+// camo (true, skinned body only: the shirt and trousers in woodland camouflage), helmet ('camo': an army helmet with a chin strap);
+// 瑞哲 (src/entities/npcs/Ruizhe.js): hairStyle 'wolf' (狼尾), glassesStyle 'octa' (big eight-sided thin metal frames), sole (colour);
+// skinned body only: longTee (an oversized tee: down over the hips, sleeves to the elbow), wash (the shirt mottled like acid-washed
+// cotton), pantsLow (the trousers below pantsSplit, default -0.45 m: jorts over jeans), wide (wide-leg trousers over the shoes)
 // The head's parts never move against the head (only the head pivot turns, and the eyelids blink), so they
 // are merged into one mesh per material — the small detail parts (hidden at distance) apart from the rest.
 // About 15–25 pieces become 5–8: fewer draw calls for every person on screen. skip: parts that must stay
@@ -538,7 +629,7 @@ export function createCharacter(opts = {}) {
   const shortsM = mat(opts.shorts || '#f1f0ea', { roughness: 0.9 });
   const hairM = mat(opts.hair || '#111111', { roughness: 0.45 });
   const shoeM = mat(opts.shoes || '#f5f5f2', { roughness: 0.6 });
-  const soleM = mat('#bdbdb5');
+  const soleM = mat(opts.sole || '#bdbdb5');
   const sockM = mat('#fafafa');
   const pants = !!opts.pants;
   const sk = opts.skinned ?? SKINNED;
@@ -1037,7 +1128,8 @@ export function createCharacter(opts = {}) {
     hs === 'pony' ||
     hs === 'curly' ||
     hs === 'hime' ||
-    hs === 'bob'
+    hs === 'bob' ||
+    hs === 'wolf'
   ) {
     // cap
     // SphereGeometry phi: front (+z) is phi = PI/2, back (-z) is 3PI/2
@@ -1143,6 +1235,51 @@ export function createCharacter(opts = {}) {
         tip.rotation.x = -0.25;
         head.add(tip);
       }
+    } else if (hs === 'wolf') {
+      // 狼尾 (瑞哲): a messy, full crown; the sides and back down to the middle of the ears (covering them); then the locks
+      // (wolfLocks: bangs, face-framing pieces, the mullet) and a pad behind the neck that fills the gaps in the mullet
+      head.add(
+        mesh(
+          geo('wolfCrown', () => {
+            const g = new THREE.SphereGeometry(0.137, 28, 12, 0, Math.PI * 2, 0, Math.PI * 0.34);
+            g.scale(1.06, 1.16, 1.08);
+            g.translate(0, 0.11, -0.008);
+            return g;
+          }),
+          hairM
+        )
+      );
+      head.add(
+        mesh(
+          geo('wolfSide', () => {
+            const g = new THREE.SphereGeometry(
+              0.136,
+              28,
+              12,
+              Math.PI * 0.8,
+              Math.PI * 1.4,
+              Math.PI * 0.08,
+              Math.PI * 0.52
+            );
+            g.scale(1.07, 1.1, 1.07);
+            g.translate(0, 0.106, -0.006);
+            return g;
+          }),
+          hairM
+        )
+      );
+      head.add(mesh(geo('wolfLocks', wolfLocks), hairM));
+      head.add(
+        mesh(
+          geo('wolfPad', () => {
+            const g = new THREE.SphereGeometry(0.06, 12, 8);
+            g.scale(1.05, 1.5, 0.5);
+            g.translate(0, -0.05, -0.118);
+            return g;
+          }),
+          hairM
+        )
+      );
     } else if (hs === 'short') {
       head.add(
         mesh(
@@ -1420,7 +1557,8 @@ export function createCharacter(opts = {}) {
   // glasses (thin round frames, like the photo)
   if (opts.glasses) {
     const brow = opts.glassesStyle === 'browline',
-      thick = opts.glassesStyle === 'thick';
+      thick = opts.glassesStyle === 'thick',
+      octa = opts.glassesStyle === 'octa'; // big thin metal frames, eight-sided (瑞哲)
     const fm = thick
       ? mat(opts.glassesColor || '#141414', { roughness: 0.4 })
       : mat(brow ? '#c9ccd0' : opts.glassesColor || '#cfc6b6', { metalness: 0.7, roughness: 0.3 });
@@ -1445,7 +1583,17 @@ export function createCharacter(opts = {}) {
         rim.scale.set(1.08, 0.86, 1);
         g.add(rim);
       } // thick black frames, a little wider than tall
-      else
+      else if (octa) {
+        const rim = mesh(
+          geo('rimOcta', () => new THREE.TorusGeometry(0.036, 0.0026, 5, 8).rotateZ(Math.PI / 8)),
+          fm,
+          0.043 * s,
+          -0.002,
+          0.001
+        );
+        rim.scale.set(1.06, 0.9, 1);
+        g.add(rim);
+      } else
         g.add(
           mesh(
             geo('rim', () => new THREE.TorusGeometry(0.03, 0.0038, 6, 20)),
@@ -1456,10 +1604,13 @@ export function createCharacter(opts = {}) {
           )
         );
       const lens = new THREE.Mesh(
-        geo('lens', () => new THREE.CircleGeometry(0.029, 16)),
+        octa
+          ? geo('lensOcta', () => new THREE.CircleGeometry(0.035, 8).rotateZ(Math.PI / 8))
+          : geo('lens', () => new THREE.CircleGeometry(0.029, 16)),
         lensM
       );
-      lens.position.set(0.04 * s, 0, 0.001);
+      lens.position.set((octa ? 0.043 : 0.04) * s, octa ? -0.002 : 0, 0.001);
+      if (octa) lens.scale.set(1.06, 0.9, 1);
       g.add(lens);
       const temple = mesh(
         geo('temple', () => {
@@ -1468,7 +1619,7 @@ export function createCharacter(opts = {}) {
           return gg;
         }),
         fm,
-        0.071 * s,
+        (octa ? 0.083 : 0.071) * s,
         0.004,
         0
       );
@@ -1734,6 +1885,11 @@ export function createCharacter(opts = {}) {
         arm: opts.arm,
         belly: opts.belly,
         camo: opts.camo,
+        longTee: opts.longTee,
+        wash: opts.wash,
+        lower: opts.pantsLow,
+        split: opts.pantsSplit,
+        wide: opts.wide,
       }
     );
   root.traverse((o) => {
@@ -2099,6 +2255,19 @@ function animate(ch, dt, st) {
     t.elL = -1.15;
     t.headX = 0.34 + Math.sin(ch.poseT * 0.3) * 0.03;
     t.lean = 0.1;
+    ch.setHandPose('relaxed');
+  } else if (st.pose === 'watch') {
+    // sitting back watching a stream on the laptop (瑞哲, src/entities/npcs/Ruizhe.js): one hand on the mouse, the other in his
+    // lap, head up at the screen, now and then a laugh (shoulders and head shaking)
+    const lol = Math.max(0, Math.sin(ch.poseT * 0.35) - 0.9) * 10,
+      sh = Math.sin(ch.poseT * 22) * 0.05 * lol;
+    t.shR = [-0.55, 0.3, -0.12];
+    t.elR = -1.0;
+    t.shL = [-0.15, -0.2, 0.1];
+    t.elL = -0.9;
+    t.headX = -0.02 + sh;
+    t.headZ = Math.sin(ch.poseT * 0.5) * 0.05;
+    t.lean = -0.06 + sh * 0.5;
     ch.setHandPose('relaxed');
   } else if (st.pose === 'type') {
     // typing at a laptop on the desk (the developers in 力行, src/entities/npcs/DevNPC.js): forearms forward, fingers tapping

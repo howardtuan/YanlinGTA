@@ -55,6 +55,7 @@ export function writeSave(g) {
     pinhan: g.pinhan?.toJSON() || null,
     pinhanCar: g.pinhanCar?.toJSON() || null,
     pinhanRide: g.pinhanRide?.toJSON() || null,
+    ruizhe: g.ruizhe?.toJSON() || null,
     zzQuest: g.zzQuest?.toJSON() || null,
     tzuyuQuest: g.tzuyuQuest?.toJSON() || null,
     yuluQuest: g.yuluQuest?.toJSON() || null,
@@ -167,6 +168,7 @@ export function applySave(g, d) {
   g.pinhan?.load(d.pinhan);
   g.pinhanCar?.load(d.pinhanCar);
   g.pinhanRide?.load(d.pinhanRide);
+  g.ruizhe?.load(d.ruizhe);
   g.zzQuest?.load(d.zzQuest);
   g.tzuyuQuest?.load(d.tzuyuQuest);
   g.yuluQuest?.load(d.yuluQuest);

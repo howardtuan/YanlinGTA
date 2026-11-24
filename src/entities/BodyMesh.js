@@ -118,7 +118,9 @@ export const LEG_PROF = [
 
 // ch: the rig from createCharacter; o: { shirt, bottom, skin, sock, pants, female, build, hem (shorts length, e.g. -0.4
 //   for knee-length basketball shorts; default -0.3), arm (upper-arm thickness, 1 = default),
-//   belly (0..1: a round tummy and fuller hips and thighs, for a chubby build) }
+//   belly (0..1: a round tummy and fuller hips and thighs, for a chubby build), longTee (an oversized tee: the hem down over
+//   the hips, flared, sleeves to the elbow), wash (the shirt mottled like acid-washed cotton), lower (trousers: another colour
+//   below split, default -0.45 m in the hip frame — jorts over jeans), wide (wide-leg trousers down over the shoes) }
 export function buildSkinnedBody(ch, o) {
   const { root, hips, torso, head, arms, legs } = ch;
   root.updateMatrixWorld(true);
@@ -142,6 +144,7 @@ export function buildSkinnedBody(ch, o) {
   const C = (c) => new THREE.Color(c);
   const shirt = C(o.shirt),
     bottom = C(o.bottom),
+    lower = C(o.lower || o.bottom),
     skin = C(o.skin),
     sock = C(o.sock || '#fafafa');
   const out = { pos: [], ref: [], ao: [], si: [], sw: [], idx: [] };
@@ -151,6 +154,10 @@ export function buildSkinnedBody(ch, o) {
   const bump = (y, c, wd) => Math.exp(-(((y - c) / wd) ** 2));
   const bel = o.belly || 0;
   const tum = (y) => bel * bump(y, 1.12, 0.17); // how much the tummy pushes out at this height (0 away from the waist)
+  // oversized tee: hangs off the body below the waist, widest at the hem (0.87 m, over the hips) instead of 0.95
+  const lt = o.longTee,
+    teeHem = lt ? 0.87 : 0.95,
+    drape = (y) => (lt && y >= teeHem ? Math.min(1, Math.max(0, (1.04 - y) / 0.16)) : 0);
 
   // ---- torso + neck (root frame) ----
   const prof = torsoProfile(f);
@@ -169,7 +176,7 @@ export function buildSkinnedBody(ch, o) {
   ];
   const rings = [];
   for (const [y, rx, rz, cz] of prof) {
-    const col = y >= 1.54 ? skin : y >= 0.95 ? shirt : bottom;
+    const col = y >= 1.54 ? skin : y >= teeHem ? shirt : bottom;
     const ao = (sa, ca) =>
       1 -
       0.26 * bump(y, 1.37, 0.07) * Math.abs(sa) ** 6 -
@@ -177,15 +184,25 @@ export function buildSkinnedBody(ch, o) {
       (y > 1.548 ? 0.12 * bump(y, 1.56, 0.02) : 0);
     rings.push({
       y,
-      rx: (rx + 0.035 * tum(y)) * bw,
-      rz: (rz + 0.06 * tum(y)) * (0.5 + bw / 2),
+      rx: (rx + 0.035 * tum(y) + 0.04 * drape(y)) * bw,
+      rz: (rz + 0.06 * tum(y) + 0.02 * drape(y)) * (0.5 + bw / 2),
       cz: cz + 0.035 * tum(y),
       e: y < 1.54 ? 2.5 : 2,
       w: wAt(tw, y),
       col,
       ao,
     });
-    if (y === 0.925)
+    if (lt && y === 0.88)
+      rings.push({
+        y: 0.872,
+        rx: (rx + 0.042) * bw,
+        rz: (rz + 0.022) * (0.5 + bw / 2),
+        cz,
+        e: 2.5,
+        w: wAt(tw, 0.872),
+        col: shirt,
+      }); // the hem's edge (below it the colour snaps to the trousers, sweep())
+    if (y === 0.925 && !lt)
       rings.push(
         {
           y: 0.94,
@@ -207,6 +224,7 @@ export function buildSkinnedBody(ch, o) {
         }
       ); // tee hem over the waistband
   }
+  rings.sort((a, b) => a.y - b.y);
   rings[0].cap = 0.03;
   rings[rings.length - 1].cap = 0.01;
   sweep(rings, new THREE.Matrix4(), out);
@@ -254,11 +272,14 @@ export function buildSkinnedBody(ch, o) {
     const ak = o.arm || 1;
     const kA = (y) => 1 + (ak - 1) * Math.min(1, Math.max(0.15, (y + 0.48) / 0.26)); // thicker upper arm, wrist nearly as is
     // o.longSleeve (jackets): the sleeve runs down to a cuff at the wrist and sits a little off the arm
-    const sleeve = (y, sl) => sl || (o.longSleeve && y > -0.45);
+    // o.longTee: wide sleeves down to just above the elbow
+    const sleeve = (y, sl) => sl || (o.longSleeve && y > -0.45) || (lt && y > -0.235);
+    const off = (y, sl) =>
+      o.longSleeve && sleeve(y, sl) ? 0.007 : lt && sleeve(y, sl) && y < 0 ? 0.013 : 0; // (not the shoulder cap: no puff)
     const r = prof.map(([y, rr, sl]) => ({
       y,
-      rx: (rr * kA(y) * (1 - 0.1 * f) + (o.longSleeve && sleeve(y, sl) ? 0.007 : 0)) * bw,
-      rz: rr * kA(y) * (1 - 0.1 * f) + (o.longSleeve && sleeve(y, sl) ? 0.007 : 0),
+      rx: (rr * kA(y) * (1 - 0.1 * f) + off(y, sl)) * bw,
+      rz: rr * kA(y) * (1 - 0.1 * f) + off(y, sl),
       w: wAt(keys, y),
       col: sleeve(y, sl) ? shirt : skin,
       ao: (sa) => 1 - (0.1 + 0.22 * bump(y, -0.05, 0.07)) * Math.max(0, -side * sa) ** 2,
@@ -316,10 +337,19 @@ export function buildSkinnedBody(ch, o) {
       for (const y of [hem - 0.01, hem]) rr.push({ y, r: rAt(y) });
       rr.sort((a, b) => a.y - b.y);
     }
+    // jorts over jeans (o.lower): a rolled hem at the split, sitting off the leg
+    const split = o.lower ? (o.split ?? -0.45) : null;
+    if (split != null) {
+      rr = rr.filter((q) => Math.abs(q.y - split) > 0.012);
+      for (const y of [split, split + 0.008, split - 0.004]) rr.push({ y, r: 0.064 });
+      rr.sort((a, b) => a.y - b.y);
+    }
     const pantsCol = (y) =>
       o.pants
-        ? y > -0.845
-          ? bottom
+        ? y > -0.845 || o.wide
+          ? split != null && y < split - 0.001
+            ? lower
+            : bottom
           : sock
         : y > (hem ?? -0.3) - (hem ? 0.0005 : 0)
           ? bottom
@@ -329,8 +359,13 @@ export function buildSkinnedBody(ch, o) {
     const ringsL = [];
     for (const { y, r: r0 } of rr) {
       const r = r0 * (1 + 0.22 * bel * Math.min(1, Math.max(0, (y + 0.6) / 0.5))); // belly: fuller thighs
-      const loose =
-        y > -0.02
+      const loose = o.wide
+        ? y > -0.05
+          ? 0
+          : split != null && y >= split
+            ? 0.034 * Math.min(1, (-0.05 - y) / 0.15) + (y - split < 0.01 ? 0.008 : 0) // jorts, the hem's lip
+            : 0.026 + 0.03 * Math.min(1, Math.max(0, (split ?? -0.45) - y) / 0.4) // jeans flaring to the hem
+        : y > -0.02
           ? 0
           : hem
             ? y >= hem
@@ -395,10 +430,24 @@ export function buildSkinnedBody(ch, o) {
       Math.sin(z * 23 + x * 9 + 1.3);
     return CAMO[n > 1.0 ? 2 : n > 0.1 ? 0 : n > -0.9 ? 1 : 3];
   };
+  // o.wash (瑞哲's tee, src/entities/npcs/Ruizhe.js): acid-washed cotton — the shirt lightened in soft blotches
+  const washed = o.wash ? shirt.clone().offsetHSL(0, 0, 0.11) : null,
+    _w = new THREE.Color();
+  const washAt = (i) => {
+    const x = out.pos[i * 3],
+      y = out.pos[i * 3 + 1],
+      z = out.pos[i * 3 + 2];
+    const n =
+      Math.sin(x * 31 + Math.sin(y * 23) * 2) +
+      Math.sin(y * 29 + z * 17) +
+      Math.sin(z * 37 + x * 13 + 0.7);
+    return _w.copy(shirt).lerp(washed, Math.min(1, Math.max(0, (n + 0.6) / 2.2)));
+  };
   const paint = (over) => {
     for (let i = 0; i < col.count; i++) {
       let c = over.get(out.ref[i]) || out.ref[i];
       const k = out.ao[i];
+      if (washed && !over.has(shirt) && out.ref[i] === shirt) c = washAt(i);
       if (CAMO && !over.has(out.ref[i]) && (out.ref[i] === shirt || out.ref[i] === bottom))
         c = camoAt(i);
       col.setXYZ(i, c.r * k, c.g * k, c.b * k);

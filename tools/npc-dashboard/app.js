@@ -47,6 +47,7 @@ const BUILTIN = {
   howard: async () => (await import('../../src/entities/npcs/Howard.js')).createHoward(),
   tzuyu: async () => (await import('../../src/entities/npcs/Howard.js')).createTzuyu(),
   pinhan: async () => (await import('../../src/entities/npcs/PinHan.js')).createPinHan(),
+  ruizhe: async () => (await import('../../src/entities/npcs/Ruizhe.js')).createRuizhe(),
   yulu: async () => (await import('../../src/entities/npcs/Yulu.js')).createYulu(),
   xiaoyun: async () => {
     const { dressCrew, CREW_SHIRT } = await import('../../src/systems/minigames/McUniform.js');
@@ -485,6 +486,7 @@ const HAIR = [
   ['pony', '馬尾'],
   ['curly', '捲髮'],
   ['buzz', '平頭'],
+  ['wolf', '狼尾'],
   ['bald', '光頭'],
 ];
 function fine() {
@@ -499,7 +501,7 @@ function fine() {
     <label>褲子<select data-s="pants"><option value="1" ${L.pants ? 'selected' : ''}>長褲</option><option value="0" ${!L.pants ? 'selected' : ''}>短褲</option></select></label>
     <label>上衣款式<select data-s="top"><option value="tee" ${!L.polo && !L.imTee ? 'selected' : ''}>素 T</option><option value="polo" ${L.polo ? 'selected' : ''}>系學會幹部 T（polo）</option><option value="im" ${L.imTee ? 'selected' : ''}>資管系服</option></select></label>
     <label>眼鏡<input type="checkbox" data-b="glasses" ${L.glasses ? 'checked' : ''}></label>
-    <label>鏡框<select data-s="glassesStyle"><option value="" ${!L.glassesStyle ? 'selected' : ''}>細圓框</option><option value="browline" ${L.glassesStyle === 'browline' ? 'selected' : ''}>眉框（上粗下細）</option><option value="thick" ${L.glassesStyle === 'thick' ? 'selected' : ''}>黑粗框</option></select></label>
+    <label>鏡框<select data-s="glassesStyle"><option value="" ${!L.glassesStyle ? 'selected' : ''}>細圓框</option><option value="browline" ${L.glassesStyle === 'browline' ? 'selected' : ''}>眉框（上粗下細）</option><option value="thick" ${L.glassesStyle === 'thick' ? 'selected' : ''}>黑粗框</option><option value="octa" ${L.glassesStyle === 'octa' ? 'selected' : ''}>大八角細框</option></select></label>
     <label>粗眉<input type="checkbox" data-b="brows" ${L.brows ? 'checked' : ''}></label>
     <label>嚴肅的嘴<input type="checkbox" data-b="mouth" ${L.mouth ? 'checked' : ''}></label>
     <label>山羊鬍<input type="checkbox" data-b="beard" ${L.beard ? 'checked' : ''}></label>

@@ -227,7 +227,9 @@ export class GameLoop {
         if (now - P.t0 < 500) return;
         const fps = P.ms > 0 ? (1000 * (P.n - 1)) / P.ms : 0;
         const ph = game.physics?.world;
-        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${game.quality}  WASM ${kernelsReady() ? '開' : '關'}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}\n${gpu}`;
+        const mem = r.info.memory;
+        const tier = game.perfProfile?.tier || '-';
+        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${game.quality}  WASM ${kernelsReady() ? '開' : '關'}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}\n紋理 ${mem.textures}  幾何 ${mem.geometries}  檔位 ${tier}\n${gpu}`;
         P.n = 0;
         P.ms = 0;
         P.t0 = now;

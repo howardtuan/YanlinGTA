@@ -53,3 +53,25 @@
 - **驗收清單**：
   1. `npm run ci` 全綠通過（確認 [import-graph.test.js](../../tests/unit/import-graph.test.js) 與 [dom-ids.test.js](../../tests/unit/dom-ids.test.js) 無違規）。
   2. Mac Safari Web Inspector 成功對現況（未優化基線）錄得第一份真實數據（Canvas 數、記憶體峰值、失敗點 Console 訊息），並寫入 [agent-handoff-log.md](../agent-handoff-log.md)。
+
+---
+
+## 五、 Phase 0 實機基準數據紀錄（2026-11-24）
+
+- **量測分支 / Commit**：`chore/perf-flags-and-metrics` (`9daa340`)
+- **測試網址**：Mac 本機 `http://localhost:5173/?perf`；iPhone 區網 `http://172.20.10.2:5173/?perf`
+
+### 1. iPhone 17 Pro Max（iOS Safari）
+- **載入結果**：❌ **失敗（穩定重整循環，無法開啟）**
+- **現象**：持續卡在載入頁面的 **「載入地圖資料 2%」**，停滯一段時間後觸發 WebKit 頁面自動重整，始終無法進入標題頁或顯示 `?perf`。
+- **Web Inspector 狀態**：因 iPhone 無法掛載 Mac Safari Web Inspector 遠端偵錯且於 2% 即觸發重整循環，Console / Canvases / Timelines Memory / Call Trees 均標記為未取得。
+- **關鍵線索（對齊 `Game.js#L124-L311`）**：`setLoad(0.02, '載入地圖資料')` 到下一個 `setLoad(0.08, '搭建中原大學')` 之間包含 `cycu.json` / `terrain.json` 下載解析、`initKernels()`、`physics.init()`（Rapier WASM 3.08 MB）、`zonesFix/Add/Terrain`、`WebGLRenderer` 與 `PostFX` 初始化；Phase 1 需同步排查此區間記憶體與同步阻塞熱點，以及後續 `buildWorld` / `Textures` 的 Canvas 釋放。
+
+### 2. MacBook Pro Apple M1 Pro（`desktop-igpu` 對照組）
+- **環境**：macOS `27.2.1` (Build `26B131`)｜GPU：`Apple, ANGLE Metal Renderer: Apple M1 Pro`｜畫質：`medium`｜WASM：`開`｜Console 全程無錯誤。
+
+| 場景階段 | FPS / Frame Time | Draw Calls | 三角形 | 物理碰撞體 | 紋理 (`textures`) | 幾何 (`geometries`) | 檔位 (`tier`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **標題頁（載入 100% 穩定）** | `65 fps` / `15.3 ms` | `1,763`（峰值 `1,774`） | `4,590k`（峰值 `4,638k`） | `0 剛體 2,557 碰撞體` | `432`（峰值 `434`） | `1,963`（峰值 `1,976`） | `desktop-igpu` |
+| **進校園初期（開場對話開啟中）** | `60 fps` / `16.6 ms` | `1,744` | `4,287k` | `1 剛體 2,558 碰撞體` | `653` | `2,724` | `desktop-igpu` |
+| **進校園自由漫遊（懷恩樓前靜止）** | `50 fps` / `20.0 ms` | `1,729` | `4,240k` | `2 剛體 2,559 碰撞體` | `659` | `2,747` | `desktop-igpu` |

@@ -24,6 +24,28 @@
 
 ---
 
+### Session #002｜2026-11-24｜負責階段：Phase 0 實作（旗標解析與記憶體遙測）
+- **工作分支 / PR**：`chore/perf-flags-and-metrics`（基於合併 PR #147 後之 `main` `7a00e81` 建立，目前本地已提交待量測補數據）
+- **本輪已完成**：
+  1. 完成規劃分支合併：`docs/perf-refactor-plan` 已透過 PR #147 合併至上游 `howardtuan/YanlinGTA` (`main`)，並已清理本地舊分支與同步最新 `main`。
+  2. 新增 [`src/core/PerfProfile.js`](../src/core/PerfProfile.js)：實作 `TIERS`、`STREAMING_PROFILES`、`detectTier()` 與 `resolveRuntimeProfile()`，支援 `?tier=`、`?texscale=`、`?stream=` 實驗參數解析（預設不啟用串流，確保既有行為零改變，且於 GPU 探測後主動呼叫 `WEBGL_lose_context`）。
+  3. 修改 [`src/core/Game.js`](../src/core/Game.js)：於 `init()` 掛載 `this.perfProfile = resolveRuntimeProfile(this.settings)`。
+  4. 修改 [`src/core/GameLoop.js`](../src/core/GameLoop.js)：於 `?perf` HUD 新增 `紋理 {textures}  幾何 {geometries}  檔位 {tier}` 遙測列。
+  5. 新增單元測試 [`tests/unit/perf-profile.test.js`](../tests/unit/perf-profile.test.js) 並更新狀態看板；本地 `npm run format && npm run ci` 全數通過。
+- **實機與量化數據變化**（2026-11-24 實測，`chore/perf-flags-and-metrics` `9daa340`）：
+  - **iPhone 17 Pro Max（iOS Safari）**：❌ 載入失敗，持續卡在「載入地圖資料 2%」停滯後觸發頁面自動重整循環，無法進入標題頁（Web Inspector 未能掛載，Console/Canvases/Memory/Call Trees 未取得）。
+  - **MacBook Pro Apple M1 Pro（`desktop-igpu` 對照組，`medium` 畫質、WASM 開）**：
+    - 標題頁：`65 fps` (`15.3 ms`)｜Draw Calls `1,763`（峰值 `1,774`）｜Triangles `4,590k`（峰值 `4,638k`）｜Textures `432`｜Geometries `1,963`｜物理 `0 剛體 2,557 碰撞體`
+    - 進校園（懷恩樓前靜止）：`50 fps` (`20.0 ms`)｜Draw Calls `1,729`｜Triangles `4,240k`｜Textures `659`｜Geometries `2,747`｜物理 `2 剛體 2,559 碰撞體`
+- **新發現的技術細節或踩雷**：
+  - 上游 `main` 在規劃合併期間新增了 Mahjong 音效與 `Kit.js` 等內容，`Game.js` 亦小幅調整；Phase 0 因僅於 `loadSettings()` 後掛載 `this.perfProfile`，完全零衝突並存。
+  - M1 Pro 單幀已高達 **1,729 Draw Calls / 424 萬三角形 / 659 張紋理 / 2,747 個幾何體**，連 M1 Pro 在懷恩樓前靜止都掉到 `50 fps`，直接印證 Phase 1（釋放 Canvas 與圖集降維）與 Phase 2/3（空間串流與視錐體分塊剔除）的必要性。
+  - iPhone 17 Pro Max 在 **2%（「載入地圖資料」）** 即重整循環，Phase 1 開工時需優先定位 `Game.js#L124-L311`（`cycu.json` + Rapier WASM + `WebGLRenderer`/`PostFX`）與後續貼圖建置的實際崩潰點。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 確認本 PR（`chore/perf-flags-and-metrics`）合併進 `main` 後，從最新 `main` 切出 `refactor/phase1-ios-memory-rescue` 展開 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**。
+
+---
+
 ### Session #001｜2026-11-24｜負責階段：架構診斷、可行性評估與規劃書確立
 - **工作分支 / PR**：`docs/perf-refactor-plan`（待審核與合入上游 `howardtuan/YanlinGTA`）
 - **本輪已完成**：

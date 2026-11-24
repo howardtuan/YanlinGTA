@@ -369,11 +369,13 @@ export class Airdrop {
   // rotor thump, louder when it is close
   _chop(R, at, dt, loud) {
     const pp = this.g.player.worldPos(),
-      d = Math.hypot(at.x - pp.x, at.z - pp.z, at.y - surfaceAt(pp.x, pp.z));
+      d = Math.hypot(at.x - pp.x, at.z - pp.z, at.y - surfaceAt(pp.x, pp.z)),
+      k = Math.max(0, 1 - d / 220);
+    if (this.g.audio.heli?.(k)) return;
     R.chop -= dt;
     if (R.chop <= 0) {
       R.chop = 0.11;
-      const vol = loud * Math.max(0, 1 - d / 220);
+      const vol = loud * k;
       if (vol > 0.005) this.g.audio.noise?.(0.07, 120, 1.2, vol, 0, 'lowpass');
     }
   }

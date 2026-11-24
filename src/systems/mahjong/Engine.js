@@ -147,7 +147,7 @@ export class MahjongEngine {
     P.draws++;
     this.drawn = t;
     if (this.flowerWin) return this._flowerWin();
-    // 明槓（槓別人打的、或碰了再加槓）補的那張不能胡，只能打一張；暗槓補的才有槓上開花
+    // 槓別人打的牌（大明槓）補的那張不能胡，只能打一張；暗槓、加槓（自己摸到的第 4 張）補的可以胡，算槓上開花
     this.noWin = this.tail && this.openKong;
     this.afterKong = this.tail && !this.openKong;
     this.openKong = false;
@@ -296,10 +296,9 @@ export class MahjongEngine {
     const hu = pick('hu');
     if (hu != null) return (this._win(hu, from, t, rob), true);
     if (rob) {
-      // nobody robbed the kong: the one who added it draws from the back (a 明槓: no win on that tile)
+      // nobody robbed the kong: the one who added it draws from the back (may win on it: 槓上開花)
       this.turn = from;
       this.tail = true;
-      this.openKong = true;
       this.phase = 'draw';
       return true;
     }

@@ -451,7 +451,7 @@ export class MahjongScene {
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div>
-      <button class="mj-view" data-a='{"type":"view"}'></button>`;
+      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button></div>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
     this.tagEls = [...el.querySelectorAll('.mj-tag')];
@@ -513,6 +513,7 @@ export class MahjongScene {
     this.$('.mj-res').classList.add('hidden');
     this.$('.mj-wait').classList.add('hidden');
     this._waitKey = '';
+    this.$('.mj-info').innerHTML = this._info = '';
     this._hidePop();
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
@@ -865,15 +866,17 @@ export class MahjongScene {
       g = this.g;
     this._popTick();
     const seatName = (s) => this.names[s];
-    const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${e.base}／一台 ${e.perTai}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
-    if (top !== this._top) this.$('.mj-top').innerHTML = this._top = top;
-    // name tags over each seat
+    // (the info card has it all now: the line at the top is only for 抓位／擲骰 titles)
+    const topEl = this.$('.mj-top');
+    if (topEl.textContent) topEl.textContent = this._top = '';
+    this._infoCard();
+    // name tags over each seat (the dealer's with a red 莊)
     const v = new THREE.Vector3();
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
-      const txt = `${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
-      if (el.textContent !== txt) el.textContent = txt;
+      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
+      if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
       el.classList.toggle('on', e.turn === s && e.phase !== 'end');
       el.classList.toggle('me', s === 0);
     }
@@ -913,6 +916,23 @@ export class MahjongScene {
           : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
     this._waitHud();
+  }
+  // the card in the top right: 圈風 and your 門風 big (both count 台), the dealer, the wall, the stakes, your wallet
+  _infoCard() {
+    const e = this.e,
+      g = this.g;
+    const R = WINDS[e.round],
+      S = WINDS[e.seatWind(0)];
+    const tai =
+      e.round === e.seatWind(0)
+        ? `碰到${R}的刻子算 2 台（圈風＋門風）`
+        : `碰到${R}、${S}的刻子各算 1 台`;
+    const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>你的門風</span></div></div>
+      <div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div><div class="mj-tai">${tai}</div>
+      <div class="mj-dealer"><i class="mj-zhuang">莊</i>${this.names[e.dealer]}${e.dealer === 0 ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
+      <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>
+      <dt>錢包</dt><dd class="mj-cash ${g.money < 0 ? 'neg' : ''}">NT$ ${g.money.toLocaleString('en-US')}</dd></dl>`;
+    if (html !== this._info) this.$('.mj-info').innerHTML = this._info = html;
   }
   // 聽牌：beside your hand, the tiles you're waiting on (worked out for you) and how many of each are still out there
   _waitHud() {
@@ -974,6 +994,7 @@ export class MahjongScene {
     this._actKey = '';
     this.$('.mj-hint').textContent = this._hint = '';
     this.$('.mj-top').textContent = this._top = `🀄 力行 277・${this.names.slice(1).join('、')}`;
+    this.$('.mj-info').innerHTML = this._info = '';
     for (const t of this.tagEls) t.textContent = '';
   }
   _stakeKeys(inp) {
@@ -1189,6 +1210,7 @@ export class MahjongScene {
     if (!I) return;
     if (I.title !== this._top) this.$('.mj-top').textContent = this._top = I.title;
     const e = this.e;
+    if (e) this._infoCard(); // (開門: the new hand's 圈風／門風 already)
     this.tagEls.forEach((el, s) => {
       this._placeTag(el, s);
       const txt =
@@ -1197,7 +1219,10 @@ export class MahjongScene {
           : this.introTag
             ? this.introTag(s)
             : this.names[s];
-      if (el.textContent !== txt) el.textContent = txt;
+      if (el.textContent !== txt || el.dataset.h) {
+        el.textContent = txt;
+        el.dataset.h = '';
+      }
       el.classList.toggle('on', I.kind === 'roll' && I.hl === s);
       el.classList.toggle('me', s === 0);
     });

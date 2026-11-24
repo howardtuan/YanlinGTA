@@ -363,6 +363,33 @@ describe('槓與花的台灣規矩', () => {
     expect(c.turnOptions(1).tsumo).toBe(true);
     expect(c.afterKong).toBe(true);
   });
+  it('大明槓 then a flower: still no win on the tile after the flower', () => {
+    const e = table('4s');
+    e.wall.push(34); // the back of the wall: a flower first, then the 4s
+    e.last = { t: K('5m'), from: 3 };
+    e.phase = 'claim';
+    e.answers = null;
+    e.step();
+    e.step();
+    expect(e.players[1].flowers).toEqual([34]);
+    expect(e.drawn).toBe(K('4s'));
+    expect(e.turnOptions(1).tsumo).toBe(false);
+  });
+  it('加槓 (your own 4th tile on a pon): the replacement may win, 槓上開花', () => {
+    const e = table('4s');
+    e.players[1].hand = T('5m123p456p789p11s23s');
+    e.players[1].melds = [{ type: 'pung', t: K('5m'), from: 3 }];
+    e.turn = 1;
+    e.justDrew = true;
+    e.phase = 'turn';
+    e._act(1, { type: 'kong', t: K('5m') }); // 加槓: nobody can rob it
+    e.step(); // nobody robs
+    e.step(); // draws 4s from the back
+    expect(e.drawn).toBe(K('4s'));
+    expect(e.turnOptions(1).tsumo).toBe(true);
+    e._act(1, { type: 'tsumo' });
+    expect(e.result.items.map(([n]) => n)).toContain('槓上開花');
+  });
   it('七搶一: 7 flowers, somebody else draws the 8th — the 7 win off them, 8 台', () => {
     const e = new MahjongEngine({ human: [false, false, false, false], dealer: 3 });
     e.players[0].flowers = [34, 35, 36, 37, 38, 39, 40];

@@ -96,6 +96,7 @@ import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { resolveRuntimeProfile } from './PerfProfile.js';
+import { PerfHud } from './PerfHud.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 
 const $ = (id) => document.getElementById(id);
@@ -552,7 +553,11 @@ class Game {
     }
 
     this.menuManager.setup();
-    if (/[?&]perf\b/.test(location.search)) this.gameLoop.perfOverlay();
+    // 設定 → 效能顯示; ?perf forces the developer level for this session
+    this.perfHud = new PerfHud(this);
+    this.perfHud.setLevel(
+      /[?&]perf\b/.test(location.search) ? 'dev' : this.settings.perfHud || 'off'
+    );
     if (/[?&]physdebug\b/.test(location.search)) this.physics.enableDebug(this.scene);
 
     this.last = performance.now();

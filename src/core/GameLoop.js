@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { Nano } from '../ui/phone/Nano.js';
-import { kernelsReady } from '../graphics/wasm/kernels.js';
 import { saveSettings } from '../systems/AudioSystem.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -186,58 +185,6 @@ export class GameLoop {
     if (game.race) each(game.race.vehicles());
   }
 
-  // ?perf in the URL: fps, frame time, draw calls and triangles per frame (all passes) in the top-left corner
-  perfOverlay() {
-    const game = this.game,
-      r = game.renderer,
-      el = document.createElement('div');
-    Object.assign(el.style, {
-      position: 'fixed',
-      left: '6px',
-      top: '6px',
-      zIndex: 99999,
-      font: '12px/1.35 ui-monospace,monospace',
-      color: '#fff',
-      background: 'rgba(0,0,0,.62)',
-      padding: '4px 7px',
-      borderRadius: '4px',
-      pointerEvents: 'none',
-      whiteSpace: 'pre',
-    });
-    document.body.appendChild(el);
-    r.info.autoReset = false; // the post chain renders several passes per frame: count them all
-    const P = { n: 0, ms: 0, t0: performance.now(), calls: 0, tris: 0, last: 0 };
-    let gpu = '';
-    try {
-      const d = r.getContext().getExtension('WEBGL_debug_renderer_info');
-      gpu = d ? r.getContext().getParameter(d.UNMASKED_RENDERER_WEBGL) : '';
-    } catch (_e) {}
-    gpu = gpu
-      .replace(/^ANGLE \((.*)\)$/, '$1')
-      .replace(/Direct3D.*$|\(0x[0-9a-f]+\)/gi, '')
-      .slice(0, 60);
-    game._perf = {
-      begin: () => r.info.reset(),
-      end: (now) => {
-        P.n++;
-        P.calls = r.info.render.calls;
-        P.tris = r.info.render.triangles;
-        if (P.last) P.ms += now - P.last;
-        P.last = now;
-        if (now - P.t0 < 500) return;
-        const fps = P.ms > 0 ? (1000 * (P.n - 1)) / P.ms : 0;
-        const ph = game.physics?.world;
-        const mem = r.info.memory;
-        const tier = game.perfProfile?.tier || '-';
-        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${game.quality}  WASM ${kernelsReady() ? '開' : '關'}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}\n紋理 ${mem.textures}  幾何 ${mem.geometries}  檔位 ${tier}\n${gpu}`;
-        P.n = 0;
-        P.ms = 0;
-        P.t0 = now;
-        P.last = now;
-      },
-    };
-  }
-
   titleCam(dt) {
     const game = this.game;
     game.titleT += dt;
@@ -261,6 +208,8 @@ export class GameLoop {
     this.rafId = requestAnimationFrame(() => this.loop());
     const game = this.game;
     const now = performance.now();
+    const perf = game.perfHud?.level !== 'off' ? game.perfHud : null; // 設定 → 效能顯示 (src/core/PerfHud.js)
+    perf?.frameStart(now);
     if (game.state === 'play') this.autoQuality(now - game.last);
     const dt = Math.min(0.05, (now - game.last) / 1000);
     game.last = now;
@@ -297,7 +246,7 @@ export class GameLoop {
     for (const b of game.beams) {
       if (b.visible) b.material.opacity = 0.22 + Math.sin(game.time * 4) * 0.06;
     }
-    if (game._perf) game._perf.begin();
+    perf?.renderStart();
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
     const yieldGpu =
@@ -319,7 +268,7 @@ export class GameLoop {
         game.zzQuest.film.render(game.renderer); // 吱吱's 武嶺 film: its own little scene
       else game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
     }
-    if (game._perf) game._perf.end(now);
+    perf?.frameEnd(now);
     if (game._shot) {
       const cb = game._shot;
       game._shot = null;

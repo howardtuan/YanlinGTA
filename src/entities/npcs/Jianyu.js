@@ -6,6 +6,8 @@
 // 支線「班費失竊案」：第一次跟他說話，他會說放在桌上的 2000 元班費不見了 —— 到 278 寢按 E 看他的書桌（空信封、刷卡門），
 // 用他的電競筆電查宿舍紀錄（偵探模式 src/systems/minigames/Detective.js 的 jianyu 案件）；破案後再找他，全班挺你 +10 票，還會把他最寶貝的藍寶堅尼借你。
 // 加了好友（src/ui/phone/Friends.js 的 jianyu）就能開他停在系館的超跑；沒加好友時車是鎖著的。
+// 「劉董」的零錢：書桌靠走道那頭堆著一堆零錢（每天都有）。他不在寢室的時候（顧車、兜風、去 277 打麻將）走過去按 E 可以偷拿，
+// 一天一次；他坐在桌前或睡在正上方的高架床時拿不了。室友瑞哲、品漢堡在的話會「什麼都沒看到」。偷過的那天找他聊天，他會覺得零錢少了，但有錢人不計較。
 // 白天（顧車的時段）有些整點他會開藍寶堅尼出去兜風：停車場那台開走、校園附近的車流裡會出現他開的藍寶堅尼，
 // 那台只有他自己能開（搶不了車）；兜完風開回來停好。
 import * as THREE from 'three';
@@ -13,6 +15,7 @@ import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { Vehicle } from '../Vehicles.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const JIANYU_LOOK = {
   skin: '#e9c2a0',
@@ -350,6 +353,7 @@ export class Jianyu {
           '資管四甲'
         ),
     });
+    this._coins(R, desk, world, s);
     // his desk: the envelope, the card-locked door and his laptop (the 班費 case)
     const D = this.home.desk;
     this.g.interiors.actions.push({
@@ -361,6 +365,97 @@ export class Jianyu {
       cond: () => this._atLaptop(),
       fn: () => this.desk(),
     });
+  }
+  // 劉董's loose change: a heap of coins (and two stacks of NT$10) at the aisle end of his desk, away from the laptop and the envelope
+  _coins(R, desk, world, s) {
+    const k = this.g.interiors.lixing.k,
+      B = this.g.interiors.lixing.B;
+    const met = (c) =>
+      new THREE.MeshStandardMaterial({ color: c, metalness: 0.8, roughness: 0.35 });
+    let sd = 3;
+    const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    const parts = { s: [], g: [], c: [] },
+      coin = new THREE.CylinderGeometry(1, 1, 1, 14);
+    const add = (key, rad, x, y, z, tx = 0, tz = 0) => {
+      const g = coin.clone();
+      g.scale(rad, 0.0022, rad);
+      g.rotateX(tx);
+      g.rotateZ(tz);
+      g.translate(x, y, z);
+      parts[key].push(g);
+    };
+    for (let i = 0; i < 72; i++) {
+      const r = rnd() ** 0.7 * 0.085,
+        a = rnd() * Math.PI * 2,
+        u = rnd(),
+        key = u < 0.5 ? 's' : u < 0.8 ? 'c' : 'g'; // NT$10 / 5 silver, NT$1 copper, NT$50 gold
+      add(
+        key,
+        key === 'g' ? 0.014 : key === 's' ? 0.013 : 0.0105,
+        Math.cos(a) * r,
+        (0.085 - r) * 0.28 + 0.0012,
+        Math.sin(a) * r,
+        (rnd() - 0.5) * 0.5,
+        (rnd() - 0.5) * 0.5
+      );
+    }
+    for (const oz of [-0.03, 0.03])
+      for (let j = 0; j < 7; j++) add('s', 0.013, 0.095, j * 0.0023 + 0.0011, oz);
+    const grp = (this.coins = new THREE.Group());
+    for (const [key, c] of [
+      ['s', '#c9ccd1'],
+      ['g', '#d9b25a'],
+      ['c', '#b9773f'],
+    ]) {
+      const m = new THREE.Mesh(mergeGeometries(parts[key]), met(c));
+      m.castShadow = true;
+      grp.add(m);
+    }
+    coin.dispose();
+    const p = world(desk.x + s * 0.12, desk.z + 0.38, R.y + 0.76);
+    grp.position.set(p.x, p.y, p.z);
+    grp.rotation.y = k.heading(desk.face + Math.PI);
+    this.g.scene.add(grp);
+    this.g.interiors.actions.push({
+      x: p.x,
+      z: p.z,
+      y: R.y + B - surfaceAt(p.x, p.z),
+      r: 0.75,
+      cond: () => grp.visible,
+      label: () =>
+        this._inRoom()
+          ? '按 <kbd>E</kbd> 看劍玉桌上的一堆零錢'
+          : '按 <kbd>E</kbd> 偷拿劍玉桌上的零錢 🪙（他不在）',
+      fn: () => this.stealCoins(),
+    });
+  }
+  // in 278: at his desk, or asleep in the loft bed right over it
+  _inRoom() {
+    return this.mode === 'sleep' || (this.mode === 'game' && !this.cruising);
+  }
+  stealCoins() {
+    const g = this.g,
+      day = Math.floor(g.clock / 1440);
+    if (this.mode === 'sleep') {
+      g.hud.toast('😴 劍玉就睡在正上方的高架床……翻個身就看到了，還是算了', 'bad', 2800);
+      return;
+    }
+    if (this._inRoom()) {
+      g.hud.toast('👀 劉董就坐在旁邊打積分，現在拿太明顯了', 'bad', 2600);
+      return;
+    }
+    const n = 60 + ((((day + 7) * 2654435761) >>> 0) % 140);
+    this.state.coinsDay = day;
+    g._saveT = 9.5;
+    this.coins.visible = false;
+    g.earn(n, '劍玉桌上的零錢');
+    g.hud.toast(`🪙 偷拿了劍玉桌上的零錢 NT$${n}……他的班費才剛被偷過耶`, 'good', 3200);
+    // his roommates at their desks saw it
+    const R = g.ruizhe,
+      P = g.pinhan;
+    if (R && (R.mode === 'code' || R.mode === 'dorm'))
+      g.dialog([['瑞哲', '……我什麼都沒看到 👀（眼睛黏回螢幕上）']]);
+    else if (P && P.mode === 'dorm') g.dialog([['品漢堡', '……（翻頁）']]);
   }
   // you are at his desk and he isn't sitting at it
   _atLaptop() {
@@ -500,6 +595,7 @@ export class Jianyu {
 
   // ---------------- every frame ----------------
   update(dt) {
+    if (this.coins) this.coins.visible = this.state.coinsDay !== Math.floor(this.g.clock / 1440); // back every day
     this._carsHome(dt);
     this._cruise();
     const g = this.g,
@@ -640,6 +736,16 @@ export class Jianyu {
           if (!g.friends.added.has('jianyu')) g.after(() => g.friends.offer('jianyu'), 600);
         }
       );
+      return;
+    }
+    // the day you took his change: he notices, and doesn't mind
+    const day = Math.floor(g.clock / 1440);
+    if (this.state.coinsDay === day && this.state.coinsSaid !== day) {
+      this.state.coinsSaid = day;
+      g.dialog([
+        [NAME, '欸彥霖，我桌上的零錢好像少了一點……'],
+        [NAME, '算了，大概是我自己拿去買飲料忘了 🤔 零錢而已，不計較'],
+      ]);
       return;
     }
     const first = !this.state.met;

@@ -76,6 +76,7 @@ import { Howard } from '../entities/npcs/Howard.js';
 import { PinHan } from '../entities/npcs/PinHan.js';
 import { PinHanCar } from '../systems/quests/PinHanCar.js';
 import { PinHanRide } from '../systems/minigames/PinHanRide.js';
+import { Ruizhe } from '../entities/npcs/Ruizhe.js';
 import { serviceTick, serviceName } from '../entities/npcs/Service.js';
 import { Mingshan } from '../entities/npcs/Mingshan.js';
 import { YeeMing } from '../entities/npcs/Yeeming.js';
@@ -525,6 +526,7 @@ class Game {
     this.pinhan = new PinHan(this);
     this.pinhanCar = new PinHanCar(this);
     this.pinhanRide = new PinHanRide(this); // 漢堡車: his free ride once a day (src/systems/minigames/PinHanRide.js)
+    this.ruizhe = new Ruizhe(this); // 瑞哲 in 278 (bed 5, the middle desk on the left; src/entities/npcs/Ruizhe.js)
     // 吱吱's day in 力行 276 / the two BW'S, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
     this.zzQuest = new ZzInjury(this);
     this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
@@ -1104,6 +1106,7 @@ class Game {
     this.howard?.update(dt);
     this.pinhan?.update(dt);
     this.pinhanCar?.update(dt);
+    this.ruizhe?.update(dt);
     this.zz?.update(dt);
     this.zzQuest?.update(dt);
     this.tzuyuQuest?.update(dt);

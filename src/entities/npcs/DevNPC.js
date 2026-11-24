@@ -78,7 +78,7 @@ function tokens(line) {
   return out;
 }
 // an editor in a dark theme: file tabs, line numbers, the code typed out a few characters at a time
-function drawEditor(x, W, H, file, lines, typed, blink) {
+function drawEditor(x, W, H, file, lines, typed, blink, repo = 'YanlinGTA') {
   x.fillStyle = '#1e1e1e';
   x.fillRect(0, 0, W, H);
   x.font = '13px Consolas,"Microsoft JhengHei",monospace';
@@ -96,7 +96,7 @@ function drawEditor(x, W, H, file, lines, typed, blink) {
   x.fillRect(0, H - 18, W, 18);
   x.fillStyle = '#fff';
   x.font = '11px Consolas,monospace';
-  x.fillText(`main ↻  YanlinGTA   Ln ${ln}   UTF-8   JavaScript`, 8, H - 5);
+  x.fillText(`main ↻  ${repo}   Ln ${ln}   UTF-8   JavaScript`, 8, H - 5);
   const LH = 17,
     top = 44,
     rows = Math.floor((H - top - 22) / LH) + 1;
@@ -146,8 +146,9 @@ function pickGlow(G) {
   } else l.intensity = 0;
 }
 
-// laptop on the desk, the screen drawn on a canvas; mode 'code' types the lines out, a game screen is drawn once
-export function buildLaptop(L, R, desk, { file, lines, games = {} }) {
+// laptop on the desk, the screen drawn on a canvas; mode 'code' types the lines out, a game screen is drawn once;
+// repo: the project name on the editor's status bar (default YanlinGTA; 瑞哲's homework, src/entities/npcs/Ruizhe.js)
+export function buildLaptop(L, R, desk, { file, lines, games = {}, repo }) {
   const { k, B, W } = L,
     s = Math.sign(-Math.sin(desk.face)) || 1; // s: from the desk towards the aisle
   const world = (lx, lz, ly) => {
@@ -268,7 +269,8 @@ export function buildLaptop(L, R, desk, { file, lines, games = {} }) {
         file,
         lines,
         Math.floor(typed),
-        Math.floor(performance.now() / 500) % 2 === 0
+        Math.floor(performance.now() / 500) % 2 === 0,
+        repo
       );
       tex.needsUpdate = true;
     },

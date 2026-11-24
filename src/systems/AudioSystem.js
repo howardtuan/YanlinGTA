@@ -32,6 +32,19 @@ const SFX_DECODED = [
   'mj_shuffle',
   'mj_reveal',
   'mj_knock',
+  'skid',
+  'engine_scooter',
+  'engine_car',
+  'heli',
+  'step_out',
+  'step_out2',
+  'step_in',
+  'step_in2',
+  'step_grass',
+  'land',
+  'paper',
+  'door',
+  'lift',
 ];
 export function loadSettings() {
   // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
@@ -290,6 +303,20 @@ export class Audio {
     if (!this.engine) return;
     const t = this.ctx.currentTime,
       e = this.engine;
+    const key = kind === 'scooter' ? 'engine_scooter' : 'engine_car';
+    const bufs = (this._engBuf ||= {});
+    if (on && this.buf?.[key]) {
+      bufs[key] ||= this._loopBuf(key);
+      const b = bufs[key];
+      e.g.gain.setTargetAtTime(0, t, 0.08);
+      for (const [k, other] of Object.entries(bufs))
+        if (k !== key) other.g.gain.setTargetAtTime(0, t, 0.08);
+      const rate = kind === 'scooter' ? 0.72 + speed01 * 0.75 : 0.78 + speed01 * 0.72;
+      b.s.playbackRate.setTargetAtTime(rate, t, 0.08);
+      b.g.gain.setTargetAtTime(0.2 + speed01 * 0.2, t, 0.12);
+      return;
+    }
+    for (const b of Object.values(bufs)) b.g.gain.setTargetAtTime(0, t, 0.12);
     const base = kind === 'scooter' ? 70 : 45;
     e.o.frequency.setTargetAtTime(base + speed01 * (kind === 'scooter' ? 160 : 110), t, 0.08);
     e.o2.frequency.setTargetAtTime((base + speed01 * 100) / 2, t, 0.08);
@@ -409,14 +436,19 @@ export class Audio {
     const v = run ? 1.25 : 1,
       j = 0.85 + Math.random() * 0.3;
     if (surface === 'grass') {
+      if (this._play('step_grass', 0.32 * v, 0, 0.92 + Math.random() * 0.16)) return;
       this.noise(0.11, 2400 * j, 0.7, 0.16 * v, 0, 'bandpass');
       return;
     }
     if (surface === 'in') {
+      const k = Math.random() < 0.5 ? 'step_in' : 'step_in2';
+      if (this._play(k, 0.3 * v, 0, 0.93 + Math.random() * 0.14)) return;
       this.noise(0.05, 3200 * j, 1.4, 0.13 * v);
       this.tone(150 * j, 0.06, 'sine', 0.09 * v, 0, 0.6);
       return;
     }
+    const k = Math.random() < 0.5 ? 'step_out' : 'step_out2';
+    if (this._play(k, 0.32 * v, 0, 0.92 + Math.random() * 0.16)) return;
     this.noise(0.07, 1500 * j, 1.1, 0.17 * v);
     this.tone(95 * j, 0.07, 'sine', 0.1 * v, 0, 0.6);
   }
@@ -425,6 +457,7 @@ export class Audio {
   }
   land(i = 1) {
     const k = Math.min(1.6, i);
+    if (this._play('land', 0.42 * k, 0, 0.92 + Math.random() * 0.16)) return;
     this.noise(0.12, 700, 0.9, 0.16 * k);
     this.tone(70, 0.12, 'sine', 0.14 * k, 0, 0.5);
   }
@@ -437,10 +470,12 @@ export class Audio {
     this.tone(520 + Math.random() * 120, 0.05, 'square', 0.03);
   }
   door() {
+    if (this._play('door', 0.48, 0, 0.96 + Math.random() * 0.08)) return;
     this.noise(0.18, 400, 0.8, 0.14, 0, 'lowpass');
     this.tone(180, 0.1, 'triangle', 0.08, 0.02, 0.7);
   }
   paper() {
+    if (this._play('paper', 0.5, 0, 0.94 + Math.random() * 0.12)) return;
     this.noise(0.16, 3500, 0.6, 0.12, 0, 'highpass', 0.6);
   }
   mount() {
@@ -653,6 +688,12 @@ export class Audio {
   // tyre squeal while drifting; amount 0..1, call every frame
   skid(amount) {
     if (!this.ctx) return;
+    if (this._skid?.f && this.buf?.skid) {
+      try {
+        this._skid.s.stop();
+      } catch (e) {}
+      this._skid = null;
+    }
     if (!this._skid) this._skid = this._loopBuf('skid') || this._bed('bandpass', 1900, 9);
     const b = this._skid;
     this._hold(b.g.gain, amount * (b.f ? 0.5 : 0.3));
@@ -662,6 +703,14 @@ export class Audio {
         this.ctx.currentTime,
         0.05
       );
+  }
+  // helicopter main rotor loop (src/systems/minigames/Airdrop.js); amount 0..1, call every frame
+  heli(amount) {
+    if (!this.ctx || !this.buf?.heli) return false;
+    if (!this._heli) this._heli = this._loopBuf('heli');
+    if (!this._heli) return false;
+    this._hold(this._heli.g.gain, amount * 0.55, 0.12);
+    return true;
   }
   // knocked a pedestrian over: thud + "oof"
   hitPed() {
@@ -711,8 +760,10 @@ export class Audio {
   }
   // lift: motor hum while the car moves, ding on arrival
   lift() {
-    this.tone(55, 0.9, 'sawtooth', 0.05, 0, 1.08, 260);
-    this.tone(110, 0.9, 'sine', 0.03);
+    if (!this._play('lift', 0.38)) {
+      this.tone(55, 0.9, 'sawtooth', 0.05, 0, 1.08, 260);
+      this.tone(110, 0.9, 'sine', 0.03);
+    }
     if (!this._play('ding', 0.3, 0.95)) {
       this.tone(1568, 1.3, 'sine', 0.09, 0.95);
       this.tone(3136, 0.5, 'sine', 0.02, 0.95);

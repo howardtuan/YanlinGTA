@@ -189,10 +189,11 @@ export function friendLocations(g) {
     ['houshe', '侯舌', '📷', '#3a3a40'],
     ['richard', '理查', '🕺', '#2f4a32'],
     ['howard', '霍華德', '🃏', '#c9677f'],
+    ['pinhan', '品漢堡', '📘', '#3b5b8c'],
   ]) {
     const D = g[id];
     if (has(id) && D?.mode)
-      add(id, name, av, color, D.mode === 'date' || D.mode === 'walk' ? null : D.pos, D.where()); // out on a date / a walk with his girlfriend: no pin
+      add(id, name, av, color, ['date', 'walk', 'ikea'].includes(D.mode) ? null : D.pos, D.where()); // out on a date / a walk with his girlfriend / at IKEA: no pin
   }
   // 吱吱's girlfriend (src/entities/npcs/Yulu.js): a pin only in front of 商設館
   const Y = g.yulu;
@@ -232,6 +233,7 @@ export function locateUI(root, g) {
         'richard',
         'howard',
         'yulu',
+        'pinhan',
       ].some((id) => !g.friends.added.has(id))
         ? '<div class="lc-note">在校園裡認識新朋友、加好友，他們就會出現在這裡 📍</div>'
         : '';

@@ -149,6 +149,7 @@ export class MenuManager {
         game.airdrop?.cinema ||
         game.drone?.cinema ||
         game.mingshan?.cinema ||
+        game.pinhanRide?.cinema ||
         game.zzQuest?.busy ||
         game.mahjong?.playing;
       if (cine || performance.now() - lockReqAt < 1200) return;

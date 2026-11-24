@@ -46,6 +46,7 @@ const BUILTIN = {
   richard: async () => (await import('../../src/entities/npcs/Richard.js')).createRichard(),
   howard: async () => (await import('../../src/entities/npcs/Howard.js')).createHoward(),
   tzuyu: async () => (await import('../../src/entities/npcs/Howard.js')).createTzuyu(),
+  pinhan: async () => (await import('../../src/entities/npcs/PinHan.js')).createPinHan(),
   yulu: async () => (await import('../../src/entities/npcs/Yulu.js')).createYulu(),
   xiaoyun: async () => {
     const { dressCrew, CREW_SHIRT } = await import('../../src/systems/minigames/McUniform.js');

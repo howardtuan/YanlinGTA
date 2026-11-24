@@ -1224,6 +1224,55 @@ export const FRIEND_CONTACTS = {
       },
     ],
   },
+  // 品漢堡（src/entities/npcs/PinHan.js）：話少的讀書人。「你在哪？」：278 讀書、健身、正門口等車，週末約會或去 IKEA 時不給定位
+  pinhan: {
+    id: 'pinhan',
+    name: '品漢堡',
+    sub: '資管・278 寢・讀書人',
+    avatar: '<img class="ph-avimg" src="assets/gram/pinhan_av.jpg" alt="">',
+    color: '#3b5b8c',
+    unread: 1,
+    history: [{ day: '今天' }, ['pinhan', '嗯。加到了。']],
+    script: [
+      {
+        choices: [
+          { t: '在讀什麼？', r: ['資管所。', '計概。'] },
+          { t: '週末去哪了？', r: ['……', '劍玉跟你說的？'] },
+        ],
+      },
+      {
+        choices: [
+          { t: '資管要贏！', r: ['嗯。票投你。'], v: 1 },
+          { t: '下次去 IKEA 帶我', r: ['好。', '要買鯊魚嗎？'] },
+        ],
+      },
+    ],
+    always: [
+      {
+        t: '你在哪？',
+        match: /在哪|哪裡|哪邊|位置|定位/,
+        ask: (g) => {
+          const P = g.pinhan;
+          if (!P?.mode) return { r: ['嗯？'] };
+          if (P.mode === 'sleep') return { r: ['（已讀不回）'] };
+          const r = {
+            date: ['外面。', '……不要問。'],
+            ikea: ['IKEA。', '要帶什麼？'],
+            gym: ['體育館。', '練背。'],
+            wait: ['正門口。', '車呢？'],
+            dorm: ['278。', '讀書。'],
+          }[P.mode] || ['學校。'];
+          if (P.mode === 'date' || P.mode === 'ikea') return { r };
+          return {
+            r,
+            then: () => {
+              if (trackFriend(g, 'pinhan')) g.hud.toast('🧭 已設定導航到品漢堡那裡', 'good', 2400);
+            },
+          };
+        },
+      },
+    ],
+  },
   // 黃蓋瑞（src/entities/npcs/Garry.js）：古箏社幹部，住彥霖隔壁。「你在哪？」每一輪都能問，他會說在跑道、活動中心還是房間，並設定導航跟著他
   garry: {
     id: 'garry',

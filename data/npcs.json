@@ -408,7 +408,7 @@
       "likes": "雙排上分、天婦羅",
       "catchphrase": "今晚要不要雙排？我帶你上分 🎯",
       "background": "家裡非常有錢：校園裡看到的超跑都是他借給別人開的，自己的法拉利、保時捷、藍寶堅尼停在資管系館西邊的停車場。最近放在桌上的 2000 元班費被偷了（支線：劍玉的班費失竊案）。",
-      "relations": "彥霖的同班同學，資管三甲班代；278 寢室友小偉、小宏、小澤、小志、小誠。",
+      "relations": "彥霖的同班同學，資管三甲班代；278 寢室友小偉、小宏、小澤、小志、小誠。 278 寢室友是品漢堡。",
       "where": "力行宿舍 278 寢（進門右手邊第一個床位）／資管系館停車場",
       "schedule": "02:00–10:00 睡覺，10:00–17:00 在系館停車場顧車，17:00–02:00 在寢室打特戰英豪",
       "friend": true,
@@ -622,6 +622,34 @@
         "src/ui/phone/Chats.js",
         "src/systems/quests/YuluTea.js",
         "src/entities/npcs/Zz.js"
+      ]
+    },
+    {
+      "id": "pinhan",
+      "kind": "builtin",
+      "ref": "pinhan",
+      "name": "品漢堡",
+      "title": "資管・278 寢的讀書人",
+      "gender": "男",
+      "personality": "話比較少、規律、可靠。",
+      "interests": [
+        "健身",
+        "讀書（資管所補習班參考書、英文）"
+      ],
+      "likes": "IKEA",
+      "catchphrase": "……嗯。",
+      "background": "成績很好，平常待在宿舍讀資管所補習班的參考書或英文，傍晚去體育館重訓。有時候開車載大家去 IKEA 買生活用品。劍玉說週末常看不到他，是因為他在跟不同女生約會。加好友後觸發支線「幫品漢堡找一台車」：開一台汽車到正門口交給他；之後他幫你裝專屬 App「漢堡車」，每天可以免費叫他開車載你去一個地方一次。外型：皮膚偏白、黑色有瀏海的短髮、細金框圓眼鏡、深色 T 恤。",
+      "relations": "劍玉的室友（力行 278 寢）；彥霖的同學。",
+      "where": "力行宿舍 278 寢 4 號床（高架床）與床下書桌／體育館正門外",
+      "schedule": "01:00–08:00 睡 4 號床；17:00–19:00 體育館正門外重訓；其他時間在書桌讀書（早晚英文、白天資管所參考書）；大約一半的真實世界週末日 12:00–23:00 出去約會；有車之後大約 3 天有 1 天 14:00–17:00 開車去 IKEA；支線進行中 09:00–21:00 在正門口等車",
+      "friend": true,
+      "sources": [
+        "src/entities/npcs/PinHan.js",
+        "src/entities/npcs/DevNPC.js",
+        "src/ui/phone/Friends.js",
+        "src/ui/phone/Chats.js",
+        "src/systems/quests/PinHanCar.js",
+        "src/systems/minigames/PinHanRide.js"
       ]
     }
   ]

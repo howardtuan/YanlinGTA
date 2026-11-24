@@ -5580,7 +5580,8 @@ body.cinema #touch,
 body.cinema #prompt {
   visibility: hidden;
 }
-#zzFilmCap {
+#zzFilmCap,
+#rideCap {
   position: fixed;
   inset: 0;
   z-index: 57;
@@ -5592,7 +5593,8 @@ body.cinema #prompt {
     sans-serif;
   text-shadow: 0 1px 3px #000;
 }
-#zzFilmCap .rec {
+#zzFilmCap .rec,
+#rideCap .rec {
   position: absolute;
   left: 4%;
   top: calc(var(--bar, 0px) + 14px);
@@ -5608,7 +5610,8 @@ body.cinema #prompt {
   margin-right: 6px;
   animation: phRing 1s infinite;
 }
-#zzFilmCap .sub {
+#zzFilmCap .sub,
+#rideCap .sub {
   position: absolute;
   left: 0;
   right: 0;
@@ -5616,7 +5619,8 @@ body.cinema #prompt {
   text-align: center;
   font-size: 17px;
 }
-#zzFilmCap .skip {
+#zzFilmCap .skip,
+#rideCap .skip {
   position: absolute;
   right: 4%;
   top: calc(var(--bar, 0px) + 14px);

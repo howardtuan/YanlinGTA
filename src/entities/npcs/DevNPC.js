@@ -319,28 +319,30 @@ export class DevNPC {
     serviceWear(cfg.id, ch, cfg.look, { tag, hide: () => ch.hideInUniform || [] });
     this.pos = new THREE.Vector3();
     this._dorm();
-    // talking (wherever he is): the action follows him; asleep, the bed says so
-    game.interiors.actions.push({
-      get x() {
-        return game[cfg.id].pos.x;
-      },
-      get z() {
-        return game[cfg.id].pos.z;
-      },
-      r: 2.2,
-      y: 0,
-      anyY: true,
-      cond: () =>
-        ch.root.visible &&
-        !!this.mode &&
-        this.mode !== 'mahjong' &&
-        Math.abs(game.player.pos.y - this.pos.y) < 2.4,
-      label: () =>
-        this.mode === 'sleep'
-          ? `按 <kbd>E</kbd> 看看 ${cfg.bed} 號床上的${cfg.name}（睡著了）`
-          : `按 <kbd>E</kbd> 和${this.doing ? this.doing() : ''}的${cfg.name}聊天`,
-      fn: () => this.talk(),
-    });
+    // talking (wherever he is): the action follows him; asleep, the bed says so (this.action: a subclass may wrap it)
+    game.interiors.actions.push(
+      (this.action = {
+        get x() {
+          return game[cfg.id].pos.x;
+        },
+        get z() {
+          return game[cfg.id].pos.z;
+        },
+        r: 2.2,
+        y: 0,
+        anyY: true,
+        cond: () =>
+          ch.root.visible &&
+          !!this.mode &&
+          this.mode !== 'mahjong' &&
+          Math.abs(game.player.pos.y - this.pos.y) < 2.4,
+        label: () =>
+          this.mode === 'sleep'
+            ? `按 <kbd>E</kbd> 看看 ${cfg.bed} 號床上的${cfg.name}（睡著了）`
+            : `按 <kbd>E</kbd> 和${this.doing ? this.doing() : ''}的${cfg.name}聊天`,
+        fn: () => this.talk(),
+      })
+    );
   }
   toJSON() {
     return this.state;

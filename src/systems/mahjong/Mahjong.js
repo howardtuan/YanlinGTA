@@ -300,7 +300,8 @@ export class DormMahjong {
     if (this.sess.passes >= 16 || this.g.money <= 0) return this.leave();
     this.deal();
   }
-  leave() {
+  // raid: left with Esc in the middle of a hand —「舍監來查寢了，快躲起來，這把不算」
+  leave(raid = false) {
     const g = this.g,
       s = this.sess;
     this.scene.close();
@@ -308,6 +309,11 @@ export class DormMahjong {
     this.release();
     g.resume?.();
     const net = s?.net || 0;
+    if (raid)
+      g.dialog([
+        ['舍監', '（叩叩叩）查寢！277 開門！'],
+        ['彥霖', '🚨 舍監來查寢了！快躲起來——這把不算！'],
+      ]);
     g.hud.toast(
       `🀄 散場！打了 ${s?.hands || 0} 局，${net ? `${net > 0 ? '贏' : '輸'} NT$ ${Math.abs(net).toLocaleString('en-US')}` : '不輸不贏'}・${names}各自回去了`,
       net >= 0 ? 'good' : 'bad',

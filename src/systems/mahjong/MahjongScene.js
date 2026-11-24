@@ -179,22 +179,22 @@ function drawFace(c, k, x, y) {
       c.lineTo(CW / 2 + 26, CH * 0.85);
       c.fill();
     } else if (n === 8) {
-      // 八條: a "W" on top and an "M" below, each one thick bamboo line — dark green with a pale line down the
+      // 八條: a "W" on top and an "M" below (outer legs upright), each one thick bamboo line — dark green with a pale line down the
       // middle and a knot (bulge) on every stretch, like the real tile
       const shapes = [
         [
-          [18, 16],
-          [41, 74],
-          [64, 32],
-          [87, 74],
-          [110, 16],
+          [22, 16],
+          [22, 76],
+          [64, 34],
+          [106, 76],
+          [106, 16],
         ],
         [
-          [18, 154],
-          [41, 96],
-          [64, 138],
-          [87, 96],
-          [110, 154],
+          [22, 154],
+          [22, 94],
+          [64, 136],
+          [106, 94],
+          [106, 154],
         ],
       ];
       c.lineJoin = c.lineCap = 'round';
@@ -786,7 +786,8 @@ export class MahjongScene {
     const e = this.e;
     if (inp.hit('Escape')) {
       const now = performance.now() / 1000;
-      if (this.result || now - this.escAt < 3) return this.mj.leave();
+      if (this.result) return this.mj.leave();
+      if (now - this.escAt < 3) return this.mj.leave(true); // in the middle of a hand: 舍監來查寢
       this.escAt = now;
       this.g.hud.toast('再按一次 Esc 離開牌桌（這一局不算）', 'bad', 1800);
       return;

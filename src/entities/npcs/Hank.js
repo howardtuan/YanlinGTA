@@ -2,10 +2,11 @@
 // 興趣：聽團、寫程式（資管系校內專題競賽第一名）、騎車跑山看夜景、偶爾打 LOL。
 // 一天的行程（遊戲時鐘）：
 //   18:00–22:00 在活動中心麥當勞內場打工、顧薯條爐（穿店員制服、戴髮網；外場櫃台是值班經理羊明衫，src/entities/npcs/Mingshan.js）；
-//   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他（走近聽得到，一直輪播），或跟女朋友講電話；
+//   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他，或跟女朋友講電話；他彈的是一首要練給女朋友聽的歌
+//     （assets/sfx/hank/guitar.mp3，走近 14 m 內聽得到、越近越大聲，一直重播）；
 //     00:00–06:00 睡在 2 號床（上舖）。室友是 4 號床的女拳大帝；
 //   其他時間以 90 分鐘為一段，大多騎他的 ZMAX（155cc 白牌大速克達）在校園外圍和附近道路兜風（跟著車流跑），
-//   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前彈一段給你聽。
+//   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前，從頭彈那首歌給你聽。
 // 他同一時間只會出現在一個地方。說完話可以選擇要不要加好友（src/ui/phone/Friends.js 的 hank）。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
@@ -76,63 +77,10 @@ function buildGuitar() {
   return g;
 }
 
-// a strummed chord progression (C G Am F) from plucked-string (Karplus–Strong) samples, into the sound-effects bus
-function playGuitar(audio) {
-  const ctx = audio?.ctx;
-  if (!ctx || !audio.sfx) return 0;
-  const sr = ctx.sampleRate,
-    pluck = (f, len = 2.2) => {
-      const N = Math.floor(sr * len),
-        b = ctx.createBuffer(1, N, sr),
-        d = b.getChannelData(0),
-        P = Math.max(2, Math.round(sr / f));
-      const ring = new Float32Array(P);
-      for (let i = 0; i < P; i++) ring[i] = Math.random() * 2 - 1;
-      for (let i = 0, k = 0; i < N; i++) {
-        const nx = (k + 1) % P,
-          v = 0.497 * (ring[k] + ring[nx]);
-        d[i] = ring[k];
-        ring[k] = v;
-        k = nx;
-      }
-      return b;
-    };
-  const CH = {
-    C: [130.8, 164.8, 196, 261.6, 329.6],
-    G: [98, 123.5, 146.8, 196, 246.9, 392],
-    Am: [110, 164.8, 220, 261.6, 329.6],
-    F: [87.3, 130.8, 174.6, 220, 261.6, 349.2],
-  };
-  const out = ctx.createGain();
-  out.gain.value = 0.32;
-  out.connect(audio.sfx);
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = 3200;
-  lp.connect(out);
-  let t = ctx.currentTime + 0.1;
-  for (const name of ['C', 'G', 'Am', 'F', 'C', 'G', 'F', 'C']) {
-    for (const [dt, down] of [
-      [0, true],
-      [0.62, false],
-      [0.95, true],
-    ]) {
-      const notes = down ? CH[name] : [...CH[name]].reverse().slice(0, 4);
-      notes.forEach((f, i) => {
-        const s = ctx.createBufferSource();
-        s.buffer = pluck(f);
-        const gn = ctx.createGain();
-        gn.gain.value = down ? 0.55 : 0.32;
-        s.connect(gn);
-        gn.connect(lp);
-        s.start(t + dt + i * 0.018);
-        s.stop(t + dt + 2.4);
-      });
-    }
-    t += 1.3;
-  }
-  return t - ctx.currentTime;
-}
+// the song he is practising for his girlfriend (his guitar in 279 and on his walks): a looped recording, louder the nearer you are
+const GUITAR_SRC = 'assets/sfx/hank/guitar.mp3';
+const GUITAR_R = 14; // metres
+const SERENADE = 14; // seconds he plays for you on a walk before you talk
 
 const g_kitchenBusy = (g) => !!g.job?.kitchen?.active; // you are on the kitchen shift yourself
 
@@ -282,7 +230,7 @@ export class Hank {
     if (g.friends?.added.has('hank')) {
       const L = [
         [
-          ['漢克', '新歌的副歌寫好了，彈給你聽 🎸'],
+          ['漢克', '這首是要彈給女朋友聽的，副歌那段還一直卡住 🎸'],
           ['漢克', '♪ ～（輕輕刷著和弦）'],
         ],
         [['漢克', '女拳大帝在對面打 LOL 一直吼，我只好彈大聲一點 😂']],
@@ -299,7 +247,6 @@ export class Hank {
     if (this.mode === 'mahjong') {
       D.gt.visible = D.phone.visible = false;
       this.call = false;
-      this._gtT = 0;
       this.g.mahjong.hold('hank', D.ch, dt);
       return;
     }
@@ -307,10 +254,7 @@ export class Hank {
       p = this.g.player.pos,
       near = Math.hypot(p.x - D.seat.x, p.z - D.seat.z) < 60;
     D.ch.root.visible = on && near;
-    if (!D.ch.root.visible) {
-      this._gtT = 0;
-      return;
-    }
+    if (!D.ch.root.visible) return;
     const sl = this.asleep;
     // switches between the guitar and a call every few game-minutes (asleep on his bunk 00:00–06:00)
     this.call = !sl && Math.floor(this.g.clock / 25) % 3 === 2;
@@ -324,13 +268,12 @@ export class Hank {
       mode: sl ? 'down' : 'sit',
       pose: sl ? null : this.call ? 'call' : 'guitar',
     });
-    // the guitar keeps playing (one progression after another) while he plays and you are in or by the room
+    // the song keeps playing (on repeat) while he plays and you are in or by the room
     const g = this.g,
-      dPl = Math.hypot(g.player.pos.x - D.seat.x, g.player.pos.z - D.seat.z),
+      dPl = Math.hypot(p.x - D.seat.x, p.z - D.seat.z),
       level = Math.abs(g.player.pos.y - D.seat.y) < 2;
-    if (!sl && !this.call && dPl < 14 && level && !g.hud.inDialog && g.state === 'play') {
-      if ((this._gtT = (this._gtT || 0) - dt) <= 0) this._gtT = (playGuitar(g.audio) || 6) + 0.6;
-    } else this._gtT = Math.min(this._gtT || 0, 0.5);
+    if (!sl && !this.call && dPl < GUITAR_R && level && g.state === 'play')
+      this._gtLvl = Math.pow(1 - dPl / GUITAR_R, 1.2) * (g.hud.inDialog ? 0.45 : 0.85);
   }
   _guitarBack() {
     const gt = this.guitar;
@@ -383,11 +326,14 @@ export class Hank {
     this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
     this.playing = true;
     this._guitarFront();
-    const len = playGuitar(g.audio) || 6;
+    const len = SERENADE;
+    const el = g.audio._loops?.hankGuitar?.el;
+    if (el) el.currentTime = 0; // from the top
     g.dialog(
       [
-        ['漢克', '嘿彥霖！剛好在練團的新歌，彈給你聽 🎸'],
+        ['漢克', '嘿彥霖！我在練一首要彈給女朋友聽的歌，先彈給你聽 🎸'],
         ['漢克', '♪ ～ ♪♪ ～ ♪ ～（刷著和弦，輕輕哼著）'],
+        ['漢克', '……她生日那天要彈，不要跟她說喔 🤫'],
       ],
       () => {
         const done = () => {
@@ -438,6 +384,9 @@ export class Hank {
   update(dt) {
     const g = this.g,
       mode = g.mahjong?.has('hank') ? 'mahjong' : this._modeAt(g.clock); // 被揪去 277 打麻將 (src/systems/mahjong/Mahjong.js)
+    // his song: the level the room / the walk asked for last frame (0: fades out and pauses)
+    g.audio.loopAt?.('hankGuitar', GUITAR_SRC, this._gtLvl || 0, dt);
+    this._gtLvl = 0;
     if (mode !== this.mode) {
       this.mode = mode;
       if (mode !== 'walk' && !this.playing) this._hideWalker();
@@ -509,5 +458,7 @@ export class Hank {
     r.rotation.y = this.heading;
     this.walker.setDetail(dPl < 35);
     this.walker.update(dt, { speed, mode: 'foot', pose: this.playing ? 'guitar' : null });
+    if (this.playing && dPl < GUITAR_R + 6)
+      this._gtLvl = Math.pow(1 - dPl / (GUITAR_R + 6), 1.1) * 0.9;
   }
 }

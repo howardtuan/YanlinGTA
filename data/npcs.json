@@ -229,12 +229,13 @@
       "background": "皮膚偏黑的捲長髮男生，騎 155cc 的 ZMAX；散步時背著吉他，跟他說話他會彈一段給你聽。",
       "relations": "彥霖的同系同學；女拳大帝的室友（力行 279 寢，他 2 號床、女拳大帝 4 號床）。",
       "where": "活動中心 B1 麥當勞內場／校園散步／騎 ZMAX 兜風／力行宿舍 279 寢（2 號床，中間的書桌）",
-      "schedule": "18:00–22:00 麥當勞內場顧薯條爐，23:00–10:00 在力行 279 寢（00:00–06:00 睡 2 號床，其他時間彈吉他或跟女朋友講電話），其他時間騎車或背吉他散步",
+      "schedule": "18:00–22:00 麥當勞內場顧薯條爐，23:00–10:00 在力行 279 寢（00:00–06:00 睡 2 號床，其他時間彈吉他——練一首要彈給女朋友聽的歌——或跟女朋友講電話），其他時間騎車或背吉他散步",
       "friend": true,
       "sources": [
         "src/entities/npcs/Hank.js",
         "src/ui/phone/Friends.js",
-        "src/entities/Vehicles.js"
+        "src/entities/Vehicles.js",
+        "assets/sfx/hank/guitar.mp3"
       ]
     },
     {

@@ -12,6 +12,8 @@ import {
   settle,
   sortTiles,
   meldTiles,
+  BASE,
+  PER_TAI,
 } from './Rules.js';
 
 export const RESERVE = 16; // 留 16 張不摸（海底）
@@ -23,6 +25,8 @@ export class MahjongEngine {
     this.dealer = opt.dealer ?? 0;
     this.streak = opt.streak ?? 0;
     this.round = opt.round ?? 0;
+    this.base = opt.base ?? BASE; // 底／台 (Rules.js STAKES)
+    this.perTai = opt.perTai ?? PER_TAI;
     this.human = opt.human || [true, false, false, false];
     this.ai = opt.ai;
     this.wall = opt.wall ? [...opt.wall] : makeWall(this.rng);
@@ -332,13 +336,17 @@ export class MahjongEngine {
       P.hand.push(t);
       P.hand = sortTiles(P.hand);
     }
-    const deltas = settle({
-      winner: s,
-      from: self ? null : from,
-      tai: sc.tai,
-      dealer: this.dealer,
-      streak: this.streak,
-    });
+    const deltas = settle(
+      {
+        winner: s,
+        from: self ? null : from,
+        tai: sc.tai,
+        dealer: this.dealer,
+        streak: this.streak,
+      },
+      this.base,
+      this.perTai
+    );
     const dealerStays = s === this.dealer;
     this.result = {
       winner: s,

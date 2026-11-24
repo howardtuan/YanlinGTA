@@ -3,8 +3,15 @@
 // 一副 144 張：34 種各 4 張 + 8 張花。胡牌 = 5 組（順子／刻子／槓）+ 1 對，手上 16 張再進 1 張。
 // 底 30、一台 10（src/systems/mahjong/Mahjong.js 用 settle() 算錢）。
 
-export const BASE = 30, // 底
+export const BASE = 30, // 底（預設）
   PER_TAI = 10; // 一台
+// 開打前可以選的底／台（src/systems/mahjong/MahjongScene.js 的選擇畫面）
+export const STAKES = [
+  [30, 10],
+  [50, 20],
+  [100, 20],
+  [300, 100],
+];
 export const KINDS = 34;
 export const FLOWER0 = 34;
 export const isFlower = (k) => k >= FLOWER0;

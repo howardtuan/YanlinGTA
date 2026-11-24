@@ -9,7 +9,7 @@ import { MahjongEngine } from './Engine.js';
 import { makeAI } from './AI.js';
 import { MahjongScene } from './MahjongScene.js';
 import { surfaceAt } from '../../world/Terrain.js';
-import { BASE, PER_TAI } from './Rules.js';
+import { STAKES } from './Rules.js';
 
 // 力行的 7 個人：找人的順序（同一種狀態裡）＝ 離 277 近的寢室先；style 是打牌個性（src/systems/mahjong/AI.js）
 export const ROSTER = [
@@ -72,7 +72,7 @@ export class DormMahjong {
     this.g = game;
     this.state = null; // null | 'gather' | 'play'
     this.party = [];
-    this.stats = { hands: 0, wins: 0, self: 0, net: 0, best: 0 };
+    this.stats = { hands: 0, wins: 0, self: 0, net: 0, best: 0, stake: 0 }; // stake: the 底／台 picked last time (STAKES index)
     const L = game.interiors.lixing,
       M = L?.rooms?.[277]?.mahjong;
     if (!M) {
@@ -168,7 +168,7 @@ export class DormMahjong {
     }
     if (g.money <= 0)
       return `💸 錢包見底了（NT$ ${g.money.toLocaleString('en-US')}），先去賺點錢才能上桌`;
-    return `按 <kbd>E</kbd> 揪人打麻將 🀄（底 ${BASE}・一台 ${PER_TAI}）`;
+    return `按 <kbd>E</kbd> 揪人打麻將 🀄（開打前選底／台）`;
   }
   press() {
     const g = this.g;
@@ -248,7 +248,13 @@ export class DormMahjong {
     document.exitPointerLock?.();
     this.scene ||= new MahjongScene(g, this);
     this.scene.open(['彥霖', ...this.party.map((p) => p.name)]);
-    this.deal();
+    // first the stakes (底／台), then the first hand
+    this.scene.chooseStake(this.stats.stake || 0, (i) => {
+      const [base, perTai] = STAKES[i] || STAKES[0];
+      this.stats.stake = i;
+      Object.assign(this.sess, { base, perTai });
+      this.deal();
+    });
   }
   get round() {
     return Math.floor(this.sess.passes / 4) % 4;
@@ -259,6 +265,8 @@ export class DormMahjong {
       dealer: s.dealer,
       streak: s.streak,
       round: this.round,
+      base: s.base,
+      perTai: s.perTai,
       ai: (e, seat, kind, o) => this.ais[seat](e, seat, kind, o),
     });
     this.scene.startHand(this.engine);

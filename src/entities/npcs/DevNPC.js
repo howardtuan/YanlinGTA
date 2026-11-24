@@ -330,6 +330,13 @@ export class DevNPC {
         get z() {
           return game[cfg.id].pos.z;
         },
+        // the crosshair aims at his middle (lying in his bunk: low and wide)
+        get aimY() {
+          return game[cfg.id].pos.y + (game[cfg.id].mode === 'sleep' ? 0.3 : 0.95);
+        },
+        get glow() {
+          return game[cfg.id].mode === 'sleep' ? 1.5 : 1.7;
+        },
         r: 2.2,
         y: 0,
         anyY: true,

@@ -225,12 +225,21 @@ export class Jianyu {
       get z() {
         return game.jianyu.pos.z;
       },
+      get aimY() {
+        return game.jianyu.pos.y + (game.jianyu.mode === 'sleep' ? 0.3 : 0.95);
+      },
+      get glow() {
+        return game.jianyu.mode === 'sleep' ? 1.5 : 1.7;
+      },
       r: 2.2,
       y: 0,
       anyY: true,
-      cond: () =>
-        !!this.mode && this.mode !== 'sleep' && this.mode !== 'mahjong' && ch.root.visible, // asleep he is up on the loft bed over his desk: the desk action says so
-      label: () => `按 <kbd>E</kbd> 和${NAME}聊天`,
+      // asleep he is up on the loft bed over his desk: aim at him to see him, at the desk / coins for those
+      cond: () => !!this.mode && this.mode !== 'mahjong' && ch.root.visible,
+      label: () =>
+        this.mode === 'sleep'
+          ? `按 <kbd>E</kbd> 看看高架床上的${NAME}（睡著了）`
+          : `按 <kbd>E</kbd> 和${NAME}聊天`,
       fn: () => this.talk(),
     });
   }
@@ -344,6 +353,8 @@ export class Jianyu {
       x: pp.x,
       z: pp.z,
       y: R.y + B - surfaceAt(pp.x, pp.z),
+      aimY: pp.y,
+      glow: 0.9,
       r: 1.0,
       label: () => '按 <kbd>E</kbd> 看劍玉的班代海報',
       fn: () =>
@@ -360,6 +371,8 @@ export class Jianyu {
       x: D.x,
       z: D.z,
       y: R.y + B - surfaceAt(D.x, D.z),
+      aimY: D.y + 0.15, // the laptop on it
+      glow: 0.8,
       r: 1.05,
       label: () => '按 <kbd>E</kbd> 看劍玉的書桌（電競筆電）',
       cond: () => this._atLaptop(),
@@ -420,6 +433,8 @@ export class Jianyu {
       x: p.x,
       z: p.z,
       y: R.y + B - surfaceAt(p.x, p.z),
+      aimY: p.y + 0.03,
+      glow: 0.45,
       r: 0.75,
       cond: () => grp.visible,
       label: () =>

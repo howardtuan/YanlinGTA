@@ -40,6 +40,7 @@ import { createCharacter, randomStudent } from '../entities/Character.js';
 import { loadTerrain, surfaceAt } from '../world/Terrain.js';
 import { SkySystem } from '../graphics/SkySystem.js';
 import { PostFX } from '../graphics/PostFX.js';
+import { AimGlow } from '../graphics/AimGlow.js';
 import { Phone } from '../ui/phone/Phone.js';
 import { GateDuty } from '../systems/minigames/GateDuty.js';
 import { McShift } from '../systems/minigames/McShift.js';
@@ -354,6 +355,8 @@ class Game {
     this.rig = new CameraRig(this.camera);
     this.fpv = new FirstPerson(this);
     this.rig.fpv = this.fpv;
+    this.aimGlow = new AimGlow(this.scene); // golden halo on what the crosshair picked for E
+    this._aimRay = { o: this.camera.position, d: new THREE.Vector3(), floor: 0 };
     this.traffic = new Traffic(this.scene, this.world, this.xlowQ ? 8 : this.lowQ ? 14 : 26);
     this.peds = new Peds(this.scene, this.world, this.xlowQ ? 10 : this.lowQ ? 18 : 32);
     this.traffic.viewK = this.peds.viewK = this.viewK;
@@ -1200,7 +1203,13 @@ class Game {
       !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
     this.drone.doors(dt);
 
-    const act = !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y) : null;
+    // E target: among the reachable actions, the one nearest the crosshair (src/world/Kit.js actionAt)
+    const ray = this._aimRay;
+    this.camera.getWorldDirection(ray.d);
+    ray.floor = pl.pos.y - pl.y;
+    const act =
+      !pl.vehicle && !inDialog ? this.interiors.actionAt(pl.pos.x, pl.pos.z, pl.y, ray) : null;
+    this.aimGlow.update(act && !pl.frozen ? this.interiors.aimPt : null, dt);
     if (act && !pl.frozen && inp.hit('KeyE')) {
       this.audio.interact();
       act.fn(this);

@@ -8,7 +8,7 @@
 //   滑鼠：指到的牌會浮起來，點一下打出；觸控：點一下選、再點一次打出；按鈕也可以直接點
 //   搖桿：十字鍵選牌、A 打出、Y 胡、X 碰、LB 吃、RB 槓、B 過、Start 離開（src/core/Input.js 的 mahjong 配置）
 import * as THREE from 'three';
-import { tileName, isFlower, WINDS, sortTiles, meldTiles, BASE, PER_TAI } from './Rules.js';
+import { tileName, isFlower, WINDS, sortTiles, meldTiles, STAKES } from './Rules.js';
 
 const TW = 0.03, // tile width, height, thickness (m)
   TH = 0.04,
@@ -178,8 +178,52 @@ function drawFace(c, k, x, y) {
       c.lineTo(CW / 2, CH * 0.72);
       c.lineTo(CW / 2 + 26, CH * 0.85);
       c.fill();
+    } else if (n === 8) {
+      // 八條: a "W" on top and an "M" below (outer legs upright), each one thick bamboo line — dark green with a pale line down the
+      // middle and a knot (bulge) on every stretch, like the real tile
+      const shapes = [
+        [
+          [22, 16],
+          [22, 76],
+          [64, 34],
+          [106, 76],
+          [106, 16],
+        ],
+        [
+          [22, 154],
+          [22, 94],
+          [64, 136],
+          [106, 94],
+          [106, 154],
+        ],
+      ];
+      c.lineJoin = c.lineCap = 'round';
+      for (const pts of shapes) {
+        const line = (w, col) => {
+          c.strokeStyle = col;
+          c.lineWidth = w;
+          c.beginPath();
+          pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+          c.stroke();
+        };
+        line(22, '#1d5a34');
+        c.fillStyle = '#1d5a34';
+        for (let i = 0; i + 1 < pts.length; i++)
+          for (const t of [0.3, 0.7]) {
+            c.beginPath();
+            c.arc(
+              pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t,
+              pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t,
+              13.5,
+              0,
+              7
+            );
+            c.fill();
+          }
+        line(7, '#f6f1e2');
+      }
     } else {
-      // sticks: rows of up to 3 (or 4 for 8)
+      // sticks: rows of up to 3
       const rows =
         n <= 3
           ? [n]
@@ -191,9 +235,7 @@ function drawFace(c, k, x, y) {
                 ? [3, 3]
                 : n === 7
                   ? [1, 3, 3]
-                  : n === 8
-                    ? [4, 4]
-                    : [3, 3, 3];
+                  : [3, 3, 3];
       const rh = (CH - 30) / rows.length;
       rows.forEach((m, ri) => {
         for (let j = 0; j < m; j++) {
@@ -316,8 +358,16 @@ function buildSet(atlas) {
   );
   mark.rotation.x = Math.PI;
   scene.add(mark);
+  // a green one over the tile you just drew
+  const newMark = new THREE.Mesh(
+    new THREE.ConeGeometry(0.007, 0.018, 10),
+    M('#34c759', { emissive: '#34c759', emissiveIntensity: 0.8 })
+  );
+  newMark.rotation.x = Math.PI;
+  newMark.visible = false;
+  scene.add(newMark);
   const tileMat = new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.35 });
-  return { scene, mark, tileMat };
+  return { scene, mark, newMark, tileMat };
 }
 
 // world transform of a slot: seat s, u along the seat's right, d from the centre towards the seat; how: 'stand' | 'up' | 'down' | 'mine'
@@ -384,7 +434,8 @@ export class MahjongScene {
     el.className = 'hidden';
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div>`;
+      <div class="mj-pop hidden"><img alt=""><b></b></div>
+      <button class="mj-view" data-a='{"type":"view"}'></button>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
     this.tagEls = [...el.querySelectorAll('.mj-tag')];
@@ -437,6 +488,7 @@ export class MahjongScene {
   close() {
     this.active = false;
     this.e = null;
+    this.choosing = null;
     this.ui.classList.add('hidden');
     this.$('.mj-res').classList.add('hidden');
     this._hidePop();
@@ -484,6 +536,9 @@ export class MahjongScene {
 
   // ---------------- every frame ----------------
   update(dt, inp) {
+    if (inp.hit('KeyV')) this._toggleView();
+    this._viewBtn();
+    if (this.choosing) return this._stakeKeys(inp);
     const e = this.e;
     if (!e) return;
     this._keys(inp);
@@ -511,6 +566,19 @@ export class MahjongScene {
       if (!T) continue;
       m.position.lerp(T.p, k);
       m.quaternion.slerp(T.q, k);
+    }
+    // your turn just started: the tile you drew is the one picked (摸打 is one key away)
+    const myTurn = e.pending?.seat === 0 && e.pending.kind === 'turn';
+    if (myTurn && !this._myTurn) {
+      const d = this.mine?.findIndex((x) => x.drawn);
+      if (d >= 0) this.sel = d;
+    }
+    this._myTurn = myTurn;
+    const dm = myTurn && this.mine?.find((x) => x.drawn);
+    this.set.newMark.visible = !!dm;
+    if (dm) {
+      this.set.newMark.position.copy(dm.mesh.position);
+      this.set.newMark.position.y += TH / 2 + 0.03 + Math.sin(this.g.time * 5) * 0.003;
     }
     // your hand: the chosen tile pops up
     if (this.mine) {
@@ -555,13 +623,19 @@ export class MahjongScene {
     if (!this.active || !this.set) return;
     const c = this.cam;
     c.aspect = innerWidth / innerHeight;
-    // closer on a narrow screen so the hand still fits
-    const tall = c.aspect < 1.2;
+    // 近看 (default): leaning over the table, your hand and the discards big; 全景 (V / the 🔍 button): the whole
+    // table and the other three. Closer on a narrow screen so the hand still fits.
+    const tall = c.aspect < 1.2,
+      near = !this.far;
     if (c.aspect < 0.8) {
       // a phone held upright: from higher up, so the table's width fits
-      c.position.set(0, 1.62, 0.62);
-      c.fov = 76;
-      c.lookAt(0, Y0, 0.06);
+      c.position.set(0, near ? 1.5 : 1.62, near ? 0.56 : 0.62);
+      c.fov = near ? 74 : 76;
+      c.lookAt(0, Y0, near ? 0.1 : 0.06);
+    } else if (near) {
+      c.position.set(0, tall ? 1.4 : 1.3, tall ? 0.96 : 0.86);
+      c.fov = tall ? 54 : 46;
+      c.lookAt(0, Y0, tall ? 0.06 : 0.1);
     } else {
       c.position.set(0, tall ? 1.6 : 1.42, tall ? 1.05 : 1.02);
       c.fov = tall ? 60 : 52;
@@ -579,22 +653,21 @@ export class MahjongScene {
     const done = e.phase === 'end';
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
-      // concealed hand (yours: the tile you just drew a bit apart)
-      let hand = sortTiles(P.hand);
-      let drawn = null;
-      if (e.turn === s && e.justDrew && e.phase === 'turn' && hand.includes(e.drawn)) {
-        hand.splice(hand.indexOf(e.drawn), 1);
-        drawn = e.drawn;
-      }
-      if (drawn != null) hand = [...hand, drawn];
+      // concealed hand, always in order (the tile you just drew goes straight into its place; a green arrow marks it)
+      const hand = sortTiles(P.hand);
+      const drawnAt =
+        s === 0 && e.turn === 0 && e.justDrew && e.phase === 'turn' ? hand.indexOf(e.drawn) : -1;
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
-      const total = hand.length + nMeld + P.melds.length * 0.3 + (drawn != null ? 0.4 : 0);
+      const total = hand.length + nMeld + P.melds.length * 0.3;
       let u = -(total * TW) / 2;
       const reveal = done; // hand over: everybody lays their tiles down
       hand.forEach((k, i) => {
-        if (drawn != null && i === hand.length - 1) u += TW * 0.4;
         const how = s === 0 && !reveal ? 'mine' : reveal ? 'up' : 'stand';
-        put(k, slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how), s === 0 ? 'mine' : null);
+        put(
+          k,
+          slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
+          s === 0 ? (i === drawnAt ? 'drawn' : 'mine') : null
+        );
         u += TW;
       });
       // melds, face up (closed kongs face down) to the right
@@ -653,7 +726,8 @@ export class MahjongScene {
         m.userData.fresh = false;
       }
       m.visible = true;
-      if (w.tag === 'mine') this.mine.push({ mesh: m, k: w.k });
+      if (w.tag === 'mine' || w.tag === 'drawn')
+        this.mine.push({ mesh: m, k: w.k, drawn: w.tag === 'drawn' });
       if (w.tag === 'last') this.lastMesh = m;
     }
     for (const list of free) for (const m of list) m.visible = false;
@@ -688,6 +762,8 @@ export class MahjongScene {
   }
   _do(a) {
     if (a.type === 'next') return this.mj.next();
+    if (a.type === 'stake') return this._pickStake(a.i);
+    if (a.type === 'view') return this._toggleView();
     if (a.type === 'leave') return this.mj.leave();
     const e = this.e;
     if (!e?.pending) return;
@@ -710,7 +786,8 @@ export class MahjongScene {
     const e = this.e;
     if (inp.hit('Escape')) {
       const now = performance.now() / 1000;
-      if (this.result || now - this.escAt < 3) return this.mj.leave();
+      if (this.result) return this.mj.leave();
+      if (now - this.escAt < 3) return this.mj.leave(true); // in the middle of a hand: 舍監來查寢
       this.escAt = now;
       this.g.hud.toast('再按一次 Esc 離開牌桌（這一局不算）', 'bad', 1800);
       return;
@@ -750,7 +827,7 @@ export class MahjongScene {
       g = this.g;
     this._popTick();
     const seatName = (s) => this.names[s];
-    const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${BASE}／一台 ${PER_TAI}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
+    const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${e.base}／一台 ${e.perTai}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
     if (top !== this._top) this.$('.mj-top').innerHTML = this._top = top;
     // name tags over each seat
     const v = new THREE.Vector3();
@@ -797,6 +874,62 @@ export class MahjongScene {
           : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
   }
+  // ---------------- before the first hand: 底／台 ----------------
+  chooseStake(def, cb) {
+    this.e = null;
+    for (const m of this.tiles) m.visible = false;
+    this.choosing = { i: def, cb };
+    this._stakePanel();
+  }
+  _stakePanel() {
+    const C = this.choosing,
+      g = this.g,
+      pad = g.prompts?.pad;
+    const el = this.$('.mj-res');
+    el.innerHTML = `<h3>🀄 這將打多大？</h3><p>選底／台（錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>）</p>
+      <div class="mj-btns mj-stakes">${STAKES.map(
+        ([b, t], i) =>
+          `<button data-a='{"type":"stake","i":${i}}' class="${i === C.i ? 'on' : ''}"><kbd>${i + 1}</kbd> 底 ${b}／一台 ${t}</button>`
+      ).join('')}</div>
+      <p class="mj-small">${pad ? '十字鍵選、A 開打、Start 離開' : '← → 或 1–4 選、Enter 開打、Esc 離開'}</p>`;
+    el.classList.remove('hidden');
+    this.$('.mj-acts').innerHTML = '';
+    this._actKey = '';
+    this.$('.mj-hint').textContent = this._hint = '';
+    this.$('.mj-top').textContent = this._top = `🀄 力行 277・${this.names.slice(1).join('、')}`;
+    for (const t of this.tagEls) t.textContent = '';
+  }
+  _stakeKeys(inp) {
+    const C = this.choosing;
+    if (inp.hit('Escape')) return this.mj.leave();
+    const n = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].findIndex((c) => inp.hit(c));
+    if (n >= 0) return this._pickStake(n);
+    const d = (inp.hit('ArrowRight', 'KeyD') ? 1 : 0) - (inp.hit('ArrowLeft', 'KeyA') ? 1 : 0);
+    if (d) {
+      C.i = (C.i + d + STAKES.length) % STAKES.length;
+      this._stakePanel();
+    }
+    if (inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE')) this._pickStake(C.i);
+  }
+  _pickStake(i) {
+    const C = this.choosing;
+    if (!C) return;
+    this.choosing = null;
+    this.$('.mj-res').classList.add('hidden');
+    const [b, t] = STAKES[i];
+    this.g.hud.toast(`🀄 底 ${b}／一台 ${t}，開打！`, 'good', 1800);
+    C.cb(i);
+  }
+  // 近看 ⇄ 全景
+  _toggleView() {
+    this.far = !this.far;
+    this.g.audio?.tap?.();
+  }
+  _viewBtn() {
+    const txt = `<kbd>${this.g.prompts?.pad ? 'View' : 'V'}</kbd> ${this.far ? '🔍 近看' : '🔭 全景'}`;
+    if (txt !== this._vb) this.$('.mj-view').innerHTML = this._vb = txt;
+  }
+
   // ---------------- the tile just played, shown big next to whoever played it ----------------
   _onEvent(ev) {
     const CALL = { pon: '碰！', chi: '吃！', kong: '槓！' };

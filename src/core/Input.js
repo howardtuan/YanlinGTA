@@ -54,7 +54,7 @@ export const PAD_MAPS = {
     [3, 'KeyE'],
     [9, 'KeyE'],
   ],
-  // 277 麻將 (src/systems/mahjong/MahjongScene.js): D-pad picks a tile, A discards, Y 胡, X 碰, LB 吃, RB 槓, B 過, Start leaves
+  // 277 麻將 (src/systems/mahjong/MahjongScene.js): D-pad picks a tile, A discards, Y 胡, X 碰, LB 吃, RB 槓, B 過, View 近看／全景, Start leaves
   mahjong: [
     [14, 'ArrowLeft'],
     [15, 'ArrowRight'],
@@ -65,6 +65,7 @@ export const PAD_MAPS = {
     [4, 'KeyC'],
     [5, 'KeyK'],
     [9, 'Escape'],
+    [8, 'KeyV'],
   ],
   // McDonald's shift: D-pad up/right/down/left + X / Y pick items 1-6, A serve, B remove last, Start clock out
   job: [

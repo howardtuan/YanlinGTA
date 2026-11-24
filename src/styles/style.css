@@ -8076,7 +8076,7 @@ body.mahjong #dialog {
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.55);
   white-space: nowrap;
-  max-width: 96vw;
+  max-width: calc(100vw - 150px);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -8233,4 +8233,26 @@ body.mahjong #dialog {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
+}
+
+/* 277 麻將: 近看／全景 button, the 底／台 choice */
+#mjUI .mj-view {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  pointer-events: auto;
+  font-size: 14px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.55);
+}
+#mjUI .mj-stakes {
+  flex-wrap: wrap;
+}
+#mjUI .mj-stakes button.on {
+  background: #e0622f;
+  border-color: #fff;
+}
+#mjUI .mj-small {
+  font-size: 12px;
+  opacity: 0.8;
 }

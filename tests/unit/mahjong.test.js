@@ -9,6 +9,7 @@ import {
   settle,
   tileName,
   makeWall,
+  STAKES,
 } from '../../src/systems/mahjong/Rules.js';
 import { MahjongEngine } from '../../src/systems/mahjong/Engine.js';
 import { makeAI } from '../../src/systems/mahjong/AI.js';
@@ -200,6 +201,37 @@ describe('整局流程（4 家都是電腦）', () => {
     }
     expect(wins).toBeGreaterThan(12);
     expect(wins + draws).toBe(40);
+  });
+  it('pays at the stakes picked (底 300／一台 100)', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const e = new MahjongEngine({
+        rng: seeded(seed),
+        human: [false, false, false, false],
+        ai: makeAI(),
+        base: 300,
+        perTai: 100,
+      });
+      while (e.step());
+      const r = e.result;
+      if (r.draw) continue;
+      expect(r.deltas).toEqual(
+        settle(
+          { winner: r.winner, from: r.from, tai: r.tai, dealer: e.dealer, streak: 0 },
+          300,
+          100
+        )
+      );
+      const payers = r.from == null ? 3 : 1;
+      expect(r.deltas[r.winner]).toBeGreaterThanOrEqual(payers * (300 + 100 * r.tai));
+    }
+  });
+  it('the stakes on offer', () => {
+    expect(STAKES).toEqual([
+      [30, 10],
+      [50, 20],
+      [100, 20],
+      [300, 100],
+    ]);
   });
   it('waits for the human and takes the answer', () => {
     const e = new MahjongEngine({ rng: seeded(7), ai: makeAI(), dealer: 0 });

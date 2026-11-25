@@ -12,6 +12,14 @@ import {
 const APP_ID = 'yanlin-gta-mahjong-v1';
 const peerIdOf = (ctx) => (typeof ctx === 'string' ? ctx : ctx?.peerId || null);
 
+export const SPECTATE_REACTS = [
+  { id: 'clap', text: '👏 好牌！' },
+  { id: 'shock', text: '😱 放槍了' },
+  { id: 'fire', text: '🔥 聽牌！' },
+  { id: 'lol', text: '😂 笑死' },
+  { id: 'pray', text: '🙏 自摸！' },
+];
+
 // 封裝 trystero@0.27 MessageAction（{ send(data, { target }), onMessage(cb(data, ctx)) }）
 function bindAction(room, name) {
   const act = room.makeAction(name);
@@ -47,6 +55,7 @@ export async function createHostRoom({
   onPeerLeave,
   onNotice,
   onSpectatorChange,
+  onReact,
 } = {}) {
   const roomCode = normalizeRoomCode(code) || makeRoomCode();
   const room = await joinRoomFn(`room-${roomCode}`);
@@ -60,6 +69,7 @@ export async function createHostRoom({
   const seats = [{ seat: 0, peerId: 'host', name, isHost: true, isAI: false }, null, null, null];
   const peerToSeat = new Map();
   const spectators = new Map(); // peerId -> { peerId, name, wantSeat, viewSeat, moneyOk, order }
+  const reactCd = new Map(); // peerId -> last ms
   let curStake = stake;
   let specReveal = spectateReveal !== false;
   let started = false;
@@ -73,6 +83,15 @@ export async function createHostRoom({
     return [0, 1, 2, 3].map((ls) => names[unrotateSeat(ls, viewSeat)]);
   };
   const orderedSpectators = () => [...spectators.values()].sort((a, b) => a.order - b.order);
+  const spectatorList = () => {
+    let q = 0;
+    return orderedSpectators().map((s) => ({
+      id: s.peerId,
+      name: s.name,
+      wantSeat: s.wantSeat,
+      queuePos: s.wantSeat ? ++q : 0,
+    }));
+  };
   const queuePosOf = (peerId) => {
     let pos = 0;
     for (const s of orderedSpectators()) {
@@ -86,6 +105,7 @@ export async function createHostRoom({
     count: spectators.size,
     queueCount: [...spectators.values()].filter((s) => s.wantSeat).length,
     reveal: specReveal,
+    spectators: spectatorList(),
   });
 
   const lobbyPayload = () => ({
@@ -93,7 +113,7 @@ export async function createHostRoom({
     stake: curStake,
     started,
     spectateReveal: specReveal,
-    spectators: orderedSpectators().map((s) => ({ name: s.name, wantSeat: s.wantSeat })),
+    spectators: spectatorList(),
     seats: seats.map((s, i) =>
       s
         ? { seat: i, name: s.name, isHost: !!s.isHost, isAI: !!s.isAI }
@@ -129,6 +149,7 @@ export async function createHostRoom({
 
   const broadcastMeta = (extra = {}) => {
     if (closed) return;
+    const specs = spectatorList();
     if (started) {
       for (const [pid, seat] of peerToSeat.entries()) {
         sendCtrl(
@@ -138,6 +159,7 @@ export async function createHostRoom({
             seat,
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
+            spectators: specs,
           },
           pid
         );
@@ -152,6 +174,7 @@ export async function createHostRoom({
             queuePos: queuePosOf(pid),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
+            spectators: specs,
             names: rotatedNames(spec.viewSeat),
           },
           pid
@@ -159,6 +182,27 @@ export async function createHostRoom({
       }
     }
     onSpectatorChange?.({ ...spectatorSummary(), ...extra });
+  };
+
+  const broadcastReact = (fromId, senderName, rawText, hostSeat = null) => {
+    if (closed || !started) return false;
+    const text = String(rawText || '')
+      .trim()
+      .slice(0, 16);
+    if (!text) return false;
+    const now = Date.now();
+    if (now - (reactCd.get(fromId) || 0) < 900) return false;
+    reactCd.set(fromId, now);
+    for (const [pid, seat] of peerToSeat.entries()) {
+      const rotSeat = hostSeat == null ? null : (hostSeat - seat + 4) % 4;
+      sendCtrl({ type: 'react', fromId, name: senderName, text, seat: rotSeat }, pid);
+    }
+    for (const [pid, spec] of spectators.entries()) {
+      const rotSeat = hostSeat == null ? null : (hostSeat - spec.viewSeat + 4) % 4;
+      sendCtrl({ type: 'react', fromId, name: senderName, text, seat: rotSeat }, pid);
+    }
+    onReact?.({ fromId, name: senderName, text, seat: hostSeat });
+    return true;
   };
 
   const seatQueuedLobbySpectator = () => {
@@ -244,6 +288,7 @@ export async function createHostRoom({
         queuePos: qpos,
         spectateReveal: specReveal,
         spectatorCount: spectators.size,
+        spectators: spectatorList(),
         stake: curStake,
         names: fullNames(),
         code: roomCode,
@@ -324,6 +369,16 @@ export async function createHostRoom({
     }
     if (data.type === 'walletStatus' && spectators.has(peerId)) {
       spectators.get(peerId).moneyOk = !!data.moneyOk;
+      return;
+    }
+    if (data.type === 'react') {
+      if (spectators.has(peerId)) {
+        const spec = spectators.get(peerId);
+        broadcastReact(peerId, spec.name, data.text, null);
+      } else if (peerToSeat.has(peerId)) {
+        const seat = peerToSeat.get(peerId);
+        broadcastReact(peerId, seats[seat]?.name || '玩家', data.text, seat);
+      }
     }
   });
 
@@ -393,6 +448,7 @@ export async function createHostRoom({
         }
       }
       const names = fullNames();
+      const specs = spectatorList();
       for (const [peerId, seat] of peerToSeat.entries()) {
         sendStart(
           {
@@ -402,6 +458,7 @@ export async function createHostRoom({
             names: rotatedNames(seat),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
+            spectators: specs,
             code: roomCode,
           },
           peerId
@@ -419,12 +476,13 @@ export async function createHostRoom({
             names: rotatedNames(spec.viewSeat),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
+            spectators: specs,
             code: roomCode,
           },
           peerId
         );
       }
-      return { seats, names, human: seats.map((s) => !s.isAI), aiSeats };
+      return { seats, names, human: seats.map((s) => !s.isAI), aiSeats, spectators: specs };
     },
     // 下一局開始前：依排隊順序讓想上桌且錢包足夠的觀賽者取代 AI 座位
     promoteSpectators() {
@@ -496,6 +554,7 @@ export async function createHostRoom({
     broadcastNext(promotedPeerIds = []) {
       if (closed) return;
       const promoSet = new Set(promotedPeerIds);
+      const specs = spectatorList();
       for (const [peerId, seat] of peerToSeat.entries()) {
         sendCtrl(
           {
@@ -506,6 +565,7 @@ export async function createHostRoom({
             promoted: promoSet.has(peerId),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
+            spectators: specs,
           },
           peerId
         );
@@ -522,10 +582,14 @@ export async function createHostRoom({
             names: rotatedNames(spec.viewSeat),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
+            spectators: specs,
           },
           peerId
         );
       }
+    },
+    sendReact(text) {
+      return broadcastReact('host', seats[0]?.name || name, text, 0);
     },
     broadcastNotice(msg) {
       if (!closed && peerToSeat.size + spectators.size > 0) sendCtrl({ type: 'notice', msg });
@@ -551,6 +615,7 @@ export async function joinGuestRoom({
   onState,
   onNext,
   onSpectateInfo,
+  onReact,
   onEnd,
   onNotice,
 } = {}) {
@@ -608,6 +673,8 @@ export async function joinGuestRoom({
       onNext?.(data);
     } else if (data.type === 'spectateInfo') {
       onSpectateInfo?.(data);
+    } else if (data.type === 'react') {
+      onReact?.(data);
     } else if (data.type === 'notice' && data.msg) {
       onNotice?.(data.msg);
     }
@@ -672,6 +739,10 @@ export async function joinGuestRoom({
     sendWalletStatus(ok) {
       if (closed || !hostPeerId) return;
       sendCtrl({ type: 'walletStatus', moneyOk: !!ok }, hostPeerId);
+    },
+    sendReact(text) {
+      if (closed || !hostPeerId) return;
+      sendCtrl({ type: 'react', text }, hostPeerId);
     },
     close,
   };

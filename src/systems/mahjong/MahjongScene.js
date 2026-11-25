@@ -22,6 +22,30 @@ import {
 } from './Rules.js';
 import { DiceSet } from './Dice.js';
 import { normalizeRoomCode } from './Net.js';
+import { SPECTATE_REACTS } from './P2P.js';
+import { createCharacter, randomStudent } from '../../entities/Character.js';
+
+const SPEC_SPOTS = [
+  { x: -0.58, y: -0.1, z: -0.84, mode: 'stand', headY: 1.48 },
+  { x: 0.58, y: -0.1, z: -0.84, mode: 'stand', headY: 1.48 },
+  { x: -0.86, y: 0, z: -0.54, mode: 'sit', headY: 1.18 },
+  { x: 0.86, y: 0, z: -0.54, mode: 'sit', headY: 1.18 },
+  { x: -0.32, y: -0.08, z: -1.14, mode: 'stand', headY: 1.5 },
+  { x: 0.32, y: -0.08, z: -1.14, mode: 'stand', headY: 1.5 },
+];
+
+function specRng(str) {
+  let s = 2166136261 >>> 0;
+  const key = String(str || 'spec');
+  for (let i = 0; i < key.length; i++) {
+    s ^= key.charCodeAt(i);
+    s = Math.imul(s, 16777619) >>> 0;
+  }
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
 
 const esc = (s) =>
   String(s ?? '').replace(
@@ -451,6 +475,7 @@ export class MahjongScene {
     el.id = 'mjUI';
     el.className = 'hidden';
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
+      <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div>
       <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>`;
@@ -524,6 +549,8 @@ export class MahjongScene {
       mpBar.innerHTML = '';
     }
     this._mpBar = '';
+    this._clearSpectators();
+    this._clearBubbles();
     this._hidePop();
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
@@ -595,6 +622,7 @@ export class MahjongScene {
       if (e.phase === 'end' && this.t <= 0) this._showResult();
     }
     this._glide(dt);
+    this._syncSpectators(dt);
     // your turn just started: the tile you drew is the one picked (摸打 is one key away)
     const myTurn = e.pending?.seat === 0 && e.pending.kind === 'turn';
     if (myTurn && !this._myTurn) {
@@ -868,6 +896,9 @@ export class MahjongScene {
     if (a.type === 'lobbyToggleQueue') {
       return this.mj.setGuestWantSeat(!this.lobby?.wantSeat);
     }
+    if (a.type === 'mpReact') {
+      return this.mj.sendReaction(a.text);
+    }
     if (a.type === 'mpCopy') {
       const code = this.lobby?.code || '';
       if (!code) return;
@@ -954,6 +985,7 @@ export class MahjongScene {
     if (topEl.textContent) topEl.textContent = this._top = '';
     this._infoCard();
     this._mpBarHud();
+    this._tickBubbles();
     // name tags over each seat (the dealer's with a red 莊)
     const v = new THREE.Vector3();
     for (let s = 0; s < 4; s++) {
@@ -1007,24 +1039,177 @@ export class MahjongScene {
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
     this._waitHud();
   }
+  _clearSpectators() {
+    if (this._specActors) {
+      for (const a of this._specActors.values()) {
+        if (a.ch?.root?.parent === this.set?.scene) this.set.scene.remove(a.ch.root);
+        a.tagEl?.remove();
+      }
+      this._specActors.clear();
+    }
+    const box = this.$?.('.mj-spec-tags');
+    if (box) box.innerHTML = '';
+  }
+  _clearBubbles() {
+    if (this._bubbles) {
+      for (const b of this._bubbles) b.el?.remove();
+      this._bubbles.length = 0;
+    }
+    const box = this.$?.('.mj-bubbles');
+    if (box) box.innerHTML = '';
+  }
+  _syncSpectators(dt) {
+    if (!this.set?.scene || !this.cam) return;
+    const list = this.mj.sess?.spectators || [];
+    this._specActors ||= new Map();
+    const keep = new Set();
+    const tagWrap = this.$('.mj-spec-tags');
+
+    // Sync up to SPEC_SPOTS.length 3D spectator models standing/sitting around the 277 table
+    const visible = list.slice(0, SPEC_SPOTS.length);
+    visible.forEach((spec, idx) => {
+      const id = spec.id || spec.name;
+      keep.add(id);
+      let a = this._specActors.get(id);
+      if (!a) {
+        const ch = createCharacter({ ...randomStudent(specRng(id)), id, bag: null });
+        ch.setDetail?.(true);
+        this.set.scene.add(ch.root);
+        const tagEl = document.createElement('div');
+        tagEl.className = 'mj-spec-tag';
+        tagWrap?.appendChild(tagEl);
+        a = { id, ch, spotIdx: idx, tagEl };
+        this._specActors.set(id, a);
+      }
+      a.spotIdx = idx;
+      a.name = spec.name;
+      a.wantSeat = !!spec.wantSeat;
+      a.queuePos = spec.queuePos || 0;
+    });
+
+    for (const [id, a] of [...this._specActors.entries()]) {
+      if (!keep.has(id)) {
+        if (a.ch?.root?.parent === this.set.scene) this.set.scene.remove(a.ch.root);
+        a.tagEl?.remove();
+        this._specActors.delete(id);
+      }
+    }
+
+    const e = this.e;
+    const focus = e && e.phase !== 'end' ? FWD[e.turn] : null;
+    const fx = focus ? -focus.x * 0.35 : 0;
+    const fz = focus ? -focus.z * 0.35 : 0;
+    const v = new THREE.Vector3();
+
+    for (const a of this._specActors.values()) {
+      const sp = SPEC_SPOTS[a.spotIdx];
+      const sway = Math.sin(this.g.time * 1.4 + a.spotIdx * 1.9) * 0.02;
+      a.ch.root.visible = true;
+      a.ch.root.position.set(sp.x + sway, sp.y, sp.z);
+      a.ch.root.rotation.y = Math.atan2(fx - sp.x, fz - sp.z);
+      a.ch.update(dt, { speed: 0, mode: sp.mode });
+
+      if (a.tagEl) {
+        v.set(sp.x, sp.headY, sp.z).project(this.cam);
+        const px = Math.max(8, Math.min(92, ((v.x + 1) / 2) * 100));
+        const py = Math.max(11, Math.min(82, ((1 - v.y) / 2) * 100));
+        a.tagEl.style.left = `${px}%`;
+        a.tagEl.style.top = `${py}%`;
+        const label = `👀 ${a.name}${a.wantSeat && a.queuePos ? ` #${a.queuePos}` : ''}`;
+        if (a.tagEl.textContent !== label) a.tagEl.textContent = label;
+      }
+    }
+  }
+  showReaction(ev) {
+    if (!ev?.text || !this.ui) return;
+    const wrap = this.$('.mj-bubbles');
+    if (!wrap) return;
+    this._bubbles ||= [];
+    // Replace previous bubble from the same sender so it stays clean right over their head
+    for (let i = this._bubbles.length - 1; i >= 0; i--) {
+      if (this._bubbles[i].fromId === ev.fromId) {
+        this._bubbles[i].el.remove();
+        this._bubbles.splice(i, 1);
+      }
+    }
+    const el = document.createElement('div');
+    el.className = 'mj-bubble';
+    el.innerHTML = `<small>${esc(ev.name || '圍觀')}</small>${esc(ev.text)}`;
+    wrap.appendChild(el);
+    this._bubbles.push({
+      fromId: ev.fromId || ev.name || 'spec',
+      seat: ev.seat ?? null,
+      el,
+      born: performance.now(),
+      ttl: 2800,
+    });
+    this._tickBubbles();
+  }
+  _anchorFor(fromId, seat) {
+    const a = this._specActors?.get(fromId);
+    if (a) {
+      const sp = SPEC_SPOTS[a.spotIdx];
+      return new THREE.Vector3(sp.x, sp.headY + 0.08, sp.z);
+    }
+    if (seat != null && seat >= 0 && seat < 4) {
+      if (seat === 0) return new THREE.Vector3(-0.28, Y0 + 0.14, 0.36);
+      const F = FWD[seat];
+      return new THREE.Vector3(-F.x * 0.62, Y0 + 0.34, -F.z * 0.62);
+    }
+    // Overflow spectators (> 6): spread horizontally along the back wall based on sender id
+    const r = specRng(fromId)();
+    return new THREE.Vector3((r - 0.5) * 1.6, 1.48, -1.24);
+  }
+  _tickBubbles() {
+    if (!this._bubbles?.length || !this.cam) return;
+    const now = performance.now();
+    for (let i = this._bubbles.length - 1; i >= 0; i--) {
+      const b = this._bubbles[i];
+      const age = now - b.born;
+      if (age >= b.ttl) {
+        b.el.remove();
+        this._bubbles.splice(i, 1);
+        continue;
+      }
+      const p = this._anchorFor(b.fromId, b.seat).project(this.cam);
+      const px = Math.max(10, Math.min(90, ((p.x + 1) / 2) * 100));
+      const py = Math.max(13, Math.min(82, ((1 - p.y) / 2) * 100));
+      const lift = (age / b.ttl) * 22;
+      b.el.style.left = `${px}%`;
+      b.el.style.top = `calc(${py}% - ${lift.toFixed(1)}px)`;
+      b.el.style.opacity = age > b.ttl - 500 ? String(Math.max(0, (b.ttl - age) / 500)) : '1';
+    }
+  }
   _mpBarHud() {
     const bar = this.$('.mj-mp-bar');
     if (!bar) return;
     let html = '';
+    const specs = this.mj.sess?.spectators || [];
+    const specNames = specs
+      .map((x) => `${esc(x.name)}${x.wantSeat && x.queuePos ? `#${x.queuePos}` : ''}`)
+      .join('、');
+    const reactRow = `<div class="mj-react-row">${SPECTATE_REACTS.map(
+      (r) =>
+        `<button data-a='${JSON.stringify({ type: 'mpReact', text: r.text })}'>${esc(r.text)}</button>`
+    ).join('')}</div>`;
     if (this.mj.mpMode === 'host' && this.mj.mp && this.e) {
       const reveal = !!this.mj.mp.spectateReveal;
-      const sc = this.mj.mp.spectatorCount || 0;
-      const qc = this.mj.mp.queueCount || 0;
-      html = `${sc > 0 ? `<div class="mj-mp-pill">👀 觀賽 ${sc} 人${qc > 0 ? `（排隊 ${qc}）` : ''}</div>` : ''}
-        <button data-a='{"type":"mpToggleReveal"}' class="${reveal ? 'on' : ''}">${reveal ? '👀 觀賽看牌：開' : '🙈 觀賽看牌：關'}</button>`;
+      const sc = specs.length || this.mj.mp.spectatorCount || 0;
+      html = `${sc > 0 ? `<div class="mj-mp-pill">👀 圍觀（${sc}）：${specNames}</div>` : ''}
+        <button data-a='{"type":"mpToggleReveal"}' class="${reveal ? 'on' : ''}">${reveal ? '👀 觀賽看牌：開' : '🙈 觀賽看牌：關'}</button>
+        ${this.mj.sess?.spectating ? reactRow : ''}`;
     } else if (this.mj.isGuest && this.mj.sess?.spectating && this.e) {
       const s = this.mj.sess;
       const status = s.wantSeat ? `👀 觀賽中・排隊 #${s.queuePos || 1}` : '👀 純觀賽中';
       const eye = this.e.revealAll ? '可看手牌' : '手牌隱藏';
       html = `<div class="mj-mp-pill">${status}（${eye}）</div>
+        ${specs.length > 1 ? `<div class="mj-mp-pill">圍觀：${specNames}</div>` : ''}
+        ${reactRow}
         <button data-a='{"type":"specView"}'>🔄 切換視角（${WINDS[this.e.seatWind(0)]}・${esc(this.names[0])}）</button>
         <button data-a='{"type":"specToggleQueue"}' class="${s.wantSeat ? 'on' : ''}">${s.wantSeat ? '👀 改為純觀賽' : '🪑 排隊下局上桌'}</button>
         <button data-a='{"type":"leave"}'>🚪 離開觀賽</button>`;
+    } else if (this.mj.isGuest && this.e && specs.length > 0) {
+      html = `<div class="mj-mp-pill">👀 圍觀（${specs.length}）：${specNames}</div>`;
     }
     if (html !== this._mpBar) {
       this._mpBar = html;
@@ -1044,12 +1229,13 @@ export class MahjongScene {
         ? `碰到${R}的刻子算 2 台（圈風＋門風）`
         : `碰到${R}、${S}的刻子各算 1 台`;
     const tier = this.mj.aiTier?.();
+    const specs = this.mj.sess?.spectators || [];
     const specRow = isGuestSpec
       ? `<dt>狀態</dt><dd>${this.mj.sess?.wantSeat ? `👀 排隊補位 #${this.mj.sess.queuePos || 1}` : '👀 純觀賽'}</dd>`
       : this.mj.sess?.spectating
         ? '<dt>狀態</dt><dd>👀 觀戰（AI 代打）</dd>'
-        : this.mj.mpMode === 'host' && (this.mj.mp?.spectatorCount || 0) > 0
-          ? `<dt>觀賽</dt><dd>👀 ${this.mj.mp.spectatorCount} 人</dd>`
+        : specs.length > 0
+          ? `<dt>圍觀</dt><dd>👀 ${specs.map((x) => esc(x.name)).join('、')}</dd>`
           : '';
     const extra = this.mj.isMulti
       ? `<dt>房號</dt><dd>${esc(this.mj.mp?.code || '連線')}</dd>${specRow}`

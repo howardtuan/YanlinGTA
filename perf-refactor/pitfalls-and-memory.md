@@ -31,7 +31,7 @@ cv.width = 1; cv.height = 1;
 ```
 
 ### ✅ 正確解法（四種角色分級的兩階段安全生命週期）
-所有畫布統一交由 Phase 1 新增的 `CanvasLifecycle` 管理，嚴格區分 4 種角色：
+所有畫布統一交由 Phase 1 新增的 `GpuMemLifecycle` 管理，嚴格區分 4 種角色：
 1. **`immediate-scratch`（純計算中間畫布，如 `Textures.js` 的 `hc` / `dc`）**：讀取完 `getImageData()` 或 `drawImage()` 後**當場** `cv.width = 1; cv.height = 1;`。
 2. **`atlas-source`（專供 `finishRow()` / `Kit.finish()` 打包進圖集的店面招牌）**：建立時保留原畫布，直到 `packAtlas()` 繪入圖集且圖集完成 `renderer.initTexture(sheet.tex)` 後，才把**子貼圖 `.dispose()` 並將子畫布與圖集畫布雙雙縮回 `1×1`**。
 3. **`shared`（`TEX[key]` / `Textures.js` `CACHE[k]` 共用材質）**：保留輕量 `redraw()` 工廠閉包（不佔像素記憶體），在 `buildWorld()` / `buildInteriors()` 結束、且 `renderer` 就緒並執行 `renderer.initTexture(tex)` 上傳 VRAM 後，將 `<canvas>` 縮回 `1×1`；若遇到 `webglcontextlost` 或 Phase 3 動態區塊重新 `mount()` 時缺少畫布，透過 `redraw()` 即時重建並再次釋放。
@@ -138,3 +138,23 @@ cv.width = 1; cv.height = 1;
    - 掃描 `src/` 中所有 `getElementById('x')` 與 `$('x')`，要求 `'x'` 必須存在於 `index.html` 或 `id="x"` / `.id = 'x'` 定義內。動態除錯浮層（如 `?perf`、`?diag`）請直接用 `document.createElement('div')` 建立並操作變數參考，不要憑空查詢不存在的 DOM ID。
 4. **`tools/check_dist.mjs`**：
    - 確保 `dist/index.html` 所有路徑皆為相對路徑（相容 GitHub Pages `/YanlinGTA/` 子路徑）且無未打包的 `src/` 參照。
+
+---
+
+## 踩雷 #9：借鏡《臺北狂飆》實證優化時必守的 `Three.js r160` 差異與四大紅線
+
+經逐行比對 `node_modules/three/build/three.module.js`（`r160`）與 `YanlinGTA` 原始碼，下列從同類型產品逆向分析篩選出的注意事項**嚴禁誤用**：
+
+1. **❌ 絕對禁止在 `Three.js r160` 使用 `slimShadowMaps()`（單通道 `RedFormat` 陰影 FBO）**：
+   - 《臺北狂飆》採用 `r186` 的硬體 `DepthTexture`；但 **`Three.js r160` 的 `WebGLShadowMap`（與 [ShadowFix.js](../src/graphics/ShadowFix.js#L13)）是將 32-bit 深度打包進 `RGBADepthPacking` 的 RGBA 四個通道**。若將 `shadow.map` 改為單通道 `RedFormat`，會直接破壞 G/B/A 三個通道導致全場景陰影毀損！
+2. **❌ 不要重寫 2D `uLampMap` 環形路燈貼圖**：
+   - [MapBuilder.js](../src/world/MapBuilder.js#L7164) 在 `low` 畫質已是 **`0` 盞 `PointLight`**（白天還會隱藏 `coneMesh` / `poolMesh`），`medium` 也只有 `4` 盞不投射陰影的池化點光源。將 `desktop-igpu` 上限調為 `0` 或 `2` 盞即可達到相同效果，無須為了 `uLampMap` 改寫全專案所有建築與人物 Shader。
+3. **⚠️ 靜態 `BufferGeometry` 清空 CPU 陣列（`onUploadCallback` → `new Ctor(0)`）必守四條件**：
+   - `Three.js r160` 確實支援 `BufferAttribute.prototype.onUploadCallback`，但不可全域套用：
+     1. **必須先呼叫 `geo.computeBoundingSphere()` 再釋放**：[ShadowFix.js](../src/graphics/ShadowFix.js#L26) 每秒會掃描一次場景，若 `!g.boundingSphere` 就會重算並讀到長度 `0` 的 `position.array`，導致半徑變成 `0`、整棟建築陰影被剔除！
+     2. **只採顯式白名單 `markStaticGeometry(geo)`**：僅限 `MapBuilder`、`Kit.finish()`、`finishRow()` 產出的純靜態建築／地面幾何；嚴禁套用到動態粒子（如 [MapBuilder.js#L6525](../src/world/MapBuilder.js#L6525) 噴水池）或執行期會讀取 `attributes.position.array` 的車輛 LOD 烘培（[Vehicles.js#L2318](../src/entities/Vehicles.js#L2318)）與 `SkinnedMesh`。
+     3. **保留 `attr.count` 不變**：只將 `attr.array = new attr.array.constructor(0)`，切勿改動 `attr.count`，且覆寫 `needsUpdate` setter 防止誤將 0-byte 陣列重新上傳。
+     4. **搭配 `webglcontextlost` 安全降階重載**：CPU 陣列一旦清空，發生 Context Lost 無法原地復原，必須由 `BootDiag` 標記 `safeMode` 觸發低記憶體重載。
+4. **⚠️ `Three.js r160` 無 `tex.source.dataReady`，分帶 `texSubImage2D` 須用 `DataTexture(null, W, H)`**：
+   - `tex.source.dataReady` 是在較新版 Three.js 才加入的旗標；在 `r160` 做分帶上傳須改用 `new THREE.DataTexture(null, W, H)` 先呼叫 `renderer.initTexture(tex)` 配置空 VRAM 紋理，再透過 `renderer.properties.get(tex).__webglTexture` 逐幀執行 `gl.texSubImage2D()`，最後一帶才呼叫 `gl.generateMipmap(gl.TEXTURE_2D)`。
+   - 若未來有功能需把 Canvas 繪圖移入 Web Worker，**必須包裝 `IdleWorker`（閒置 10 秒自動 `terminate()`）**，且在 Worker 初始化時先以 64×64 畫布測試 CJK 中文字體像素差分（iOS Safari / `WKWebView` 部分版本 Worker 內無中文字體，測不到就退回主執行緒）。

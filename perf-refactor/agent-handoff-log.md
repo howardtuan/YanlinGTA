@@ -24,6 +24,20 @@
 
 ---
 
+### Session #005｜2026-11-25｜負責階段：吸收《臺北狂飆》實證架構分析 ＋ 確立免插線手機自動化驗證方案
+- **工作分支 / PR**：`docs/revise-perf-refactor-plan`
+- **本輪已完成**：
+  1. 逐項比對《臺北狂飆》（Three.js `r186`）與 `YanlinGTA`（`Three.js r160`）實際原始碼，完成技術篩選並回寫 `perf-refactor/`：
+     - **納入**：`BootDiag` 玩家端無感自動降階 `safeMode`（Phase 0）；靜態幾何 `onUploadCallback` 清空 CPU `TypedArray` + `ImageBitmap.close()` + `WebGLRenderer({ alpha: false, stencil: false })` + 條件式 `gcNudge`（Phase 1）；`low` 切換 `MeshLambertMaterial` 跳過法線/RM 貼圖 + `opaqueSort` + 30Hz 隔幀陰影 + 零相依 `PostFX` 瘦身（Phase 2）；`r160` 相容分帶 `texSubImage2D` + `pinPrograms()` + 分批 `dispose` + `MessageChannel` 幀預算（Phase 3）；KTX2 上傳後清空 `mipmaps`（Phase 4）。
+     - **拒絕**：`slimShadowMaps`（`r160` 用四通道 `RGBADepthPacking`，改單通道必壞陰影）、2D `uLampMap` 重寫、`pmndrs/postprocessing` 套件、替換 Rapier 物理與原生 `TilePool` 私有魔改。
+  2. 確立**三層免插線手機自動化驗證架構**（Tier 1 `npm run profile:mobile -- --assert-ios-budget` 量測 `peakBackingStoreMB`/`liveBackingStoreMB` ＋ `--markdown` 自動抄表；Tier 2 Mac Playwright `webkit` / `xcrun simctl` Simulator；Tier 3 里程碑無線真機 LINE/IG 驗收）。
+  3. **更正本機環境紀錄**：確認 Linux 本機已安裝 Google Chrome（`/usr/bin/google-chrome-stable -> /opt/google/chrome/google-chrome`），前次 `ENOENT` 係因受限終端沙盒未掛載 `/opt/google/chrome/` 所致，於本機一般終端機即可直接執行 `npm run profile:scene -- --play`。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 將本輪規劃同步合入 `chore/perf-flags-and-metrics`，實作 `BootDiag` `safeMode` 自動降階與 `profile_scene.mjs` `--mobile` / `peakBackingStoreMB` / `--markdown` / `--assert-ios-budget`。
+  2. 於一般本機終端機執行 `npm run profile:mobile` 取得修正後第一份自動化手機模擬基線數據。
+
+---
+
 ### Session #003｜2026-11-25｜負責階段：規劃體檢、目標定錨與技術規格全面修正
 - **工作分支 / PR**：`docs/revise-perf-refactor-plan`（接續檢視 PR #147 合入後之 `perf-refactor/` 與未合併分支 `chore/perf-flags-and-metrics`）
 - **本輪已完成**：

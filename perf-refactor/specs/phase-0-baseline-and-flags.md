@@ -3,11 +3,11 @@
 ## 一、 階段目的（Why）
 原版 Phase 0 假設「完全依賴 Mac USB Safari Web Inspector 即可抓出 iPhone 崩潰點，不需動到載入畫面與診斷紀錄」。但 2026-11-24 實機測試直接推翻此假設：iPhone 17 Pro Max 持續卡在「載入地圖資料 · 2%」並觸發頁面自動重整循環，**導致 Web Inspector 根本無法掛載，所有指標空白**；同時也揭露 [Game.js](../../src/core/Game.js#L308-L337) 存在 `await nextFrame()` 放在 `setLoad(0.08)` 之前的時序 Bug，造成整個 8,286 行 `buildWorld()` 阻塞期間畫面永遠凍結在 `2%`。
 
-因此本階段聚焦於建立**「無盲區、跨平台（Linux / Mac / iPhone WebView）」的可觀測基準**：
+因此本階段聚焦於建立**「無盲區、免插手機線、跨平台（Linux / Mac / iPhone WebView）」的可觀測基準與自癒安全網**：
 1. 修復 `Game.js` 載入階段的讓幀順序（先更新 DOM ＋ 檢查點，再 `await nextFrame()`）。
-2. 加入極輕量、可由 `?diag=1` / `?diag=halt` 開啟的啟動檢查點麵包屑 `BootDiag.js`（連死兩次自動暫停重載循環，不依賴 USB 就能看清崩潰階段）。
+2. 加入極輕量 `BootDiag.js` 持久化檢查點與 **玩家端自動降階自癒（`safeMode`）**：支援 `?diag=1` / `?diag=halt` 斷路器讓開發者看清崩潰階段，同時在**一般玩家不帶任何參數**遇到連續 2 次閃退或 `webglcontextlost` 時，自動進入低記憶體安全模式（`low` + `texScale <= 0.375` + `atlas <= 1024`），穩玩 180 秒後自動恢復。
 3. 建立單一職責的 `PerfProfile.js`（不重複定義 `QPROF` 視覺畫質欄位）。
-4. 擴充 `?perf` 記憶體行，並提供開發機可用的 Headless CDP 自動剖析腳本 `tools/profile_scene.mjs`。
+4. 擴充 `?perf` 記憶體行，並升級 `tools/profile_scene.mjs` 支援 `--mobile`（手機模擬）、`peakBackingStoreMB` / `liveBackingStoreMB` 雙指標、`--markdown` 自動抄表與 `--assert-ios-budget` 軟體記憶體門禁。
 
 ---
 
@@ -33,25 +33,31 @@
   - `?texscale=0.25 .. 2`
   - `?stream=0 | 1 | off | mobile | balanced | high`
   - `?diag` / `?diag=1` / `?diag=halt` / `?diag=0`
+  - `?safemode=0 | 1`（強制開啟或略過自動低記憶體安全模式）
 
 ### 2. `src/core/BootDiag.js` 規格（不觸犯 `dom-ids.test.js` 與 `import-graph.test.js`）
 - 嚴禁引入 `systems/` 或 `ui/` 模組；嚴禁使用 `document.getElementById()` 或 `$()` 查詢新 ID（需建立浮層時直接用 `doc.createElement('div')` 掛載於 `doc.body`）。
 - 每次 `begin()` 若發現前次 `current.completed === false`，將其升格為 `lastCrash` 並累加 `crashCount`：
-  - 當 `diagMode === 'halt'` 且有 `lastCrash`，或 `diagMode === 'on'` 且 `crashCount >= 2` 時，`begin()` 顯示包含前次崩潰階段與各階段耗時的診斷浮層並暫停執行，直到點擊 `[▶ 繼續單次載入]` 才放行，徹底打破 iOS Safari / `WKWebView` 的重整死循環。
+  - **開發者斷路器（需 `?diag=1` / `?diag=halt`）**：當 `diagMode === 'halt'` 且有 `lastCrash`，或 `diagMode === 'on'` 且 `crashCount >= 2` 時暫停執行並顯示 `[▶ 繼續單次載入]` 按鈕，打破重整死循環。
+  - **一般玩家自動自癒（無須任何 URL 參數）**：當 `crashCount >= 2` 或偵測過 `webglcontextlost`（透過 `attachCanvas(canvas)` 監聽）時自動啟用 `safeMode = true`，強制將 `quality` 降為 `'low'` 並呼叫 `applySafeMode(perfProfile)` 把 `texScale` 鎖至 `<= 0.375`、`atlasMaxW/H` 鎖至 `1024`；進入遊戲後於 `GameLoop` 呼叫 `tickHealthy(dt)` 累計穩定遊玩達 `180 秒` 即自動清除 `safeMode` 與 `crashCount`。
 
 ---
 
-## 三、 標準量測 SOP（自動化 + 實機雙軌）
+## 三、 免插線自動化量測 SOP（Tier 1 ＋ Tier 2 ＋ 里程碑 Tier 3）
 
-1. **本機 Headless CDP 量測（任何有 Chrome/Chromium 的 Linux / Mac 機器）**：
+1. **Tier 1：本機免插線手機模擬 ＋ 自動抄表 ＋ 記憶體門禁（任何 Linux / Mac 本機終端機）**：
    ```bash
    npm run build
-   node tools/profile_scene.mjs --play
+   npm run profile:mobile
+   # 加上記憶體預算閘門（Phase 1 起啟用驗收）：
+   node tools/profile_scene.mjs --mobile --play --markdown --assert-ios-budget
    ```
-   輸出標題頁與進場後的 `<canvas>` 總數、未歸零畫布 MB、`textures`、`geometries`、`calls`/`triangles` 與各啟動階段耗時。
-2. **iPhone 17 Pro Max 區網 / Fork Pages ＋ `?diag=1`**：
-   - 開啟 `http://<LAN-IP>:5173/?perf&diag=1`（或個人 Fork GitHub Pages）。
-   - 若仍觸發 WebKit 重整，重載兩次後會自動停在診斷浮層，顯示確切卡死階段（例如是否死在 `build-world` 而非 `fetch-and-wasm`），並可接上 Mac Safari Web Inspector 讀取 **Graphics → Canvases** 與 **Timelines → Memory**。
+   透過攔截 `HTMLCanvasElement.prototype` 的 `getContext` 與 `width`/`height` setter，自動量測 **`peakBackingStoreMB`（啟動尖峰）** 與 **`liveBackingStoreMB`（進場殘留）**、平均 FPS、Draw Calls、Triangles、Textures、Geometries 與 `BootDiag` 各階段耗時，並可直接輸出 Markdown 表格。
+   > **環境備註**：本機 Linux 若於 AI 受限沙盒內執行，`google-chrome` 指向之 `/opt/google/chrome/google-chrome` 未掛載，會以 `--if-available` 跳過；請於一般本機終端機執行上述指令。
+2. **Tier 2：Mac 免插線 Apple WebKit / Metal 回歸（Playwright `webkit` / `xcrun simctl` Simulator）**：
+   - 免插手機線即可在 Mac 上跑真實 WebKit + Metal GLSL 編譯與 JS 行為驗證（因無實體 iOS Jetsam，記憶體上限仍由 Tier 1 `--assert-ios-budget` 精準把關）。
+3. **Tier 3：里程碑無線真機驗收（LINE / IG `WKWebView` ＋ `?perf&diag=1`）**：
+   - Phase 1 / Phase 3 里程碑時於 iPhone 無線開啟 Fork GitHub Pages（或區網 `http://<LAN-IP>:5173/?perf&diag=1`）連玩 10 分鐘，確認零閃退。
 
 ---
 

@@ -820,7 +820,8 @@ export function buildGordon(I, scene) {
   };
   I.updaters.push((dt, game) => {
     const m = ((game.clock % 1440) + 1440) % 1440,
-      closed = m < OPEN0 || m >= OPEN1;
+      // overslept (you turned his alarm off, src/entities/npcs/Gordon.js): opens 40 minutes late
+      closed = m < OPEN0 + (game.gordon?.overslept ? 40 : 0) || m >= OPEN1;
     if (closed !== gdState.closed) setClosed(closed);
     const keeperNpc = game.friends?.npcs?.gd;
     if (keeperNpc) keeperNpc.ch.root.visible = !closed && !game.mahjong?.has('gd'); // at the counter only while open (and not off playing 277 麻將)

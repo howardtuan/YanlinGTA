@@ -8997,3 +8997,378 @@ body.mahjong #dialog {
   border-radius: 4px;
   white-space: pre-wrap;
 }
+
+/* 🎬 一鍵通關 (src/ui/AutoSolveUI.js): buttons on the terminal, 案件檔案 and Two Sum; the pop-up; the 21:9 film */
+.tm-auto {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 0;
+  text-align: right;
+}
+.tm-auto.hidden {
+  display: none;
+}
+.tm-auto button,
+.cf-auto,
+.ts-auto {
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #ff9f43, #ff6b6b);
+  color: #fff;
+  font:
+    800 13px/1.2 'Noto Sans TC',
+    'Microsoft JhengHei',
+    sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.tm-auto button:hover,
+.cf-auto:hover,
+.ts-auto:hover {
+  filter: brightness(1.08);
+}
+.cf-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cf-btns .cf-go {
+  margin-top: 0;
+}
+.cf-auto {
+  padding: 9px 14px;
+  font-size: 14px;
+}
+.ts-hbtns {
+  display: flex;
+  gap: 6px;
+}
+.ts-auto {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.as-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.35s;
+  font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+}
+.as-layer.on {
+  opacity: 1;
+}
+.as-ask {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 16px;
+}
+.as-card-pop {
+  max-width: 460px;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fffaf0;
+  color: #2b2418;
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.as-card-pop h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+.as-card-pop p {
+  margin: 0 0 14px;
+  line-height: 1.7;
+  font-size: 14.5px;
+}
+.as-card-pop small {
+  display: block;
+  margin-top: 12px;
+  color: #7a6c58;
+  line-height: 1.6;
+}
+.as-ask-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.as-ask-btns button,
+.as-ctl button,
+.as-x {
+  border: 0;
+  border-radius: 9px;
+  padding: 11px 14px;
+  font:
+    800 15px/1.2 'Noto Sans TC',
+    'Microsoft JhengHei',
+    sans-serif;
+  background: #e7e0d2;
+  color: #2b2418;
+  cursor: pointer;
+}
+.as-ask-btns .as-go,
+.as-ctl .as-go {
+  background: linear-gradient(135deg, #ff9f43, #ff6b6b);
+  color: #fff;
+}
+.as-ask-btns .as-dim {
+  background: none;
+  color: #7a6c58;
+}
+/* the film: a 21:9 picture, black bars above and below (or at the sides on a wider screen) */
+.as-film {
+  background: #000;
+}
+.as-stage {
+  width: min(100vw, calc(100vh * 21 / 9));
+  aspect-ratio: 21 / 9;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #14161c;
+  color: #e8e8e8;
+  overflow: hidden;
+  transform: scale(0.96);
+  transition: transform 0.45s ease;
+}
+.as-film.on .as-stage {
+  transform: none;
+}
+.as-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: #0b0c10;
+  font-size: 14px;
+}
+.as-top b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.as-count {
+  color: #ffd27a;
+  font-weight: 800;
+  font-size: 13px;
+}
+.as-x {
+  padding: 5px 10px;
+  font-size: 13px;
+  background: #2b2f3a;
+  color: #ddd;
+}
+.as-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.as-screen {
+  flex: 1.35;
+  min-width: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  font:
+    13px/1.45 Consolas,
+    'Cascadia Mono',
+    'Noto Sans TC',
+    monospace;
+}
+.as-term {
+  background: #0c0c0c;
+  color: #d4d4d4;
+}
+.as-out div {
+  white-space: pre-wrap;
+  min-height: 1.45em;
+}
+.as-ps {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.as-ps i {
+  font-style: normal;
+  color: #fff;
+}
+.as-ps i::after,
+.as-caret::after {
+  content: '▌';
+  color: #aeafad;
+  animation: asBlink 1s steps(1) infinite;
+}
+@keyframes asBlink {
+  50% {
+    opacity: 0;
+  }
+}
+.as-code {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #1e1e1e;
+}
+.as-ed {
+  flex: 1;
+  margin: 0;
+  overflow: auto;
+  color: #d4d4d4;
+  font:
+    15px/1.55 Consolas,
+    'Courier New',
+    monospace;
+  tab-size: 4;
+}
+.as-caret {
+  font-style: normal;
+}
+.as-res {
+  font-size: 14px;
+  min-height: 1.5em;
+}
+.as-card {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 12px 16px;
+  background: #fffaf0;
+  color: #2b2418;
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+.as-step {
+  color: #c0581b;
+  font-weight: 800;
+  font-size: 13px;
+}
+.as-line {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 7px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font:
+    13px/1.5 Consolas,
+    'Courier New',
+    monospace;
+}
+.as-say {
+  margin: 6px 0;
+}
+.as-card code {
+  background: #efe6d4;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-family: Consolas, monospace;
+}
+.as-parts {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.as-parts div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-top: 1px dashed #e0d4bd;
+}
+.as-parts code {
+  color: #0b5394;
+  font-weight: 700;
+}
+.as-parts span {
+  color: #5a4c38;
+  font-size: 13.5px;
+}
+.as-clue {
+  margin: 6px 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: #fff1c4;
+  color: #6b4d00;
+  font-weight: 700;
+}
+.as-win {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1c8a4a;
+  margin: 4px 0 8px;
+}
+.as-bad {
+  color: #b23a3a;
+  font-weight: 700;
+}
+.as-dim {
+  color: #8a7c66;
+  font-size: 13px;
+}
+.as-ctl {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px;
+  background: #0b0c10;
+}
+.as-ctl button {
+  padding: 9px 16px;
+  font-size: 14px;
+}
+.as-ctl button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* a phone held upright: 21:9 would be a thin strip, so the picture fills the screen and stacks */
+@media (max-aspect-ratio: 1/1) {
+  .as-stage {
+    width: 100vw;
+    height: 100%;
+    aspect-ratio: auto;
+    border-top: 6vh solid #000;
+    border-bottom: 6vh solid #000;
+    box-sizing: border-box;
+  }
+  .as-main {
+    flex-direction: column;
+  }
+  .as-screen {
+    flex: 1;
+  }
+  .as-card {
+    flex: 1.2;
+  }
+}
+/* a phone on its side: smaller type to fit the short picture */
+@media (max-height: 480px) {
+  .as-top {
+    padding: 3px 10px;
+  }
+  .as-screen,
+  .as-line {
+    font-size: 11.5px;
+  }
+  .as-ed {
+    font-size: 12.5px;
+  }
+  .as-card {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .as-ctl {
+    padding: 4px;
+  }
+  .as-ctl button {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}

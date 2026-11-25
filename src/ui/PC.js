@@ -6,10 +6,14 @@
 // The terminal's `case` command is the detective console (src/systems/minigames/Detective.js, SQL); 🕵️ 案件檔案 lists the cases and your clues.
 // The desktop fills the whole screen; windows can be maximized (▢ or double-click the title bar).
 // The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
+// 🎬 一鍵通關 (src/ui/AutoSolveUI.js, src/systems/AutoSolve.js): the terminal's detective mode, 案件檔案 and Two Sum each
+// have the button; the first time an unsolved case / Two Sum opens it asks once whether to clear it automatically,
+// and a solved one offers 🔁 再破一次 (by hand or automatic, on a throw-away state).
 import { stockUI } from './phone/StockUI.js';
 import { newsUI } from './phone/NewsUI.js';
 import { learnUI, hl } from '../systems/minigames/Learn.js';
 import { TWO_SUM_STARTER } from '../systems/quests/HowardTwoSum.js';
+import { askAutoSolve, askReplay, playAutoSolve } from './AutoSolveUI.js';
 const $ = (id) => document.getElementById(id);
 const _esc = (t) =>
   String(t).replace(
@@ -579,7 +583,7 @@ export class PC {
         <p class="ts-rule">霍華德的規定：<br>・語言 <b>Python3</b><br>・時間複雜度 <b>O(N)</b>（暴力 O(N²)、排序 O(N log N) 都不收）<br>・<b>不可以複製貼上</b>，自己一個字一個字打</p>
       </div>
       <div class="ts-r">
-        <div class="ts-head"><span>Python3 <span class="ts-nopaste">🚫 已停用貼上</span></span><button class="ts-reset" title="把程式碼還原成一開始的樣子（class Solution / def twoSum）">↺ 還原程式碼</button></div>
+        <div class="ts-head"><span>Python3 <span class="ts-nopaste">🚫 已停用貼上</span></span><span class="ts-hbtns"><button class="ts-auto">${Q.done ? '🔁 再破一次' : '🎬 一鍵通關'}</button><button class="ts-reset" title="把程式碼還原成一開始的樣子（class Solution / def twoSum）">↺ 還原程式碼</button></span></div>
         <div class="ts-edit"><pre class="ts-hl" aria-hidden="true"></pre><textarea class="ts-code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>
         <div class="ts-btns"><button class="ts-run">▶ 執行範例</button><button class="ts-sub">提交</button></div>
         <div class="ts-out">${Q.done ? '<div class="ts-ac">✅ Accepted —— 忍 400 已經可以騎了</div>' : '寫好後先「執行範例」，再「提交」。第一次執行要下載 Python（約 10 秒）。'}</div>
@@ -720,10 +724,36 @@ export class PC {
     };
     body.querySelector('.ts-run').onclick = () => go('run');
     body.querySelector('.ts-sub').onclick = () => go('submit');
+    // 🎬 一鍵通關 / 🔁 再破一次 (src/ui/AutoSolveUI.js); the window is rebuilt afterwards to show the new code and verdict
+    const reopen = () => {
+      if (!this.wins.leet) return;
+      this._closeWin('leet');
+      this.launch('leet');
+    };
+    const auto = async (practice) => {
+      const ok = await playAutoSolve(g, 'twosum', { practice });
+      if (ok && !practice) g.autoSolve?.used('twosum');
+      reopen();
+    };
+    body.querySelector('.ts-auto').onclick = async () => {
+      if (!Q.done) return auto(false);
+      const how = await askReplay('twosum');
+      if (how === 'auto') auto(true);
+      else if (how === 'manual') {
+        Q.state.code = TWO_SUM_STARTER;
+        reopen();
+        g.hud.toast('🔁 程式碼回到一開始的樣子了，再寫一次吧！', 'good', 2200);
+      }
+    };
     setTimeout(() => {
       ta.focus();
       ta.selectionStart = ta.selectionEnd = ta.value.length;
     }, 50);
+    // the first time the problem opens: offer to clear it automatically
+    if (!Q.done && g.autoSolve?.ask('twosum'))
+      setTimeout(async () => {
+        if ((await askAutoSolve('twosum')) === 'auto') auto(false);
+      }, 300);
   }
   // ---------------- 資管學堂: online Python / MySQL course (src/systems/minigames/Learn.js) ----------------
   _learn(body) {
@@ -737,7 +767,9 @@ export class PC {
   }
   _term(body) {
     const PROMPT = 'C:\\Users\\yanlin>';
-    body.innerHTML = `<div class="tm-out"></div><label class="tm-line"><span class="tm-ps"></span><input class="tm-in" spellcheck="false" autocomplete="off"></label>`;
+    body.innerHTML = `<div class="tm-auto hidden"><button></button></div><div class="tm-out"></div><label class="tm-line"><span class="tm-ps"></span><input class="tm-in" spellcheck="false" autocomplete="off"></label>`;
+    const bar = body.querySelector('.tm-auto'),
+      barBtn = bar.querySelector('button');
     const out = body.querySelector('.tm-out'),
       inp = body.querySelector('.tm-in'),
       ps = body.querySelector('.tm-ps');
@@ -780,9 +812,55 @@ export class PC {
         const c = Math.floor(g.clock) % 1440;
         return `${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}`;
       };
-    const enterCase = async (id) => {
-      if (await g.detective?.enter(io, id)) mode = 'case';
+    // 🎬 一鍵通關 in detective mode (top right): 🔁 再破一次 once the case is solved (and not already replaying it)
+    const D = g.detective;
+    const refreshAuto = () => {
+      const c = mode === 'case' ? D?.cur : null;
+      bar.classList.toggle('hidden', !c);
+      if (c) barBtn.textContent = D.solved(c.id) && !D.practice ? '🔁 再破一次' : '🎬 一鍵通關';
+    };
+    const autoPlay = async (id, practice) => {
+      const ok = await playAutoSolve(g, id, { practice });
+      if (ok && !practice) g.autoSolve?.used(id);
+      if (!this.wins.term) return;
+      print('');
+      print(ok ? '🎬 自動通關完成。' : '🎬 已離開自動通關。', 'tm-dim');
+      await enterCase(id, 'quiet');
+    };
+    const replay = async (id) => {
+      const how = await askReplay(id);
+      if (how === 'auto') autoPlay(id, true);
+      else if (how === 'manual' && (await D.enter(io, id, { practice: true }))) {
+        mode = 'case';
+        refreshAuto();
+        inp.focus();
+      }
+    };
+    // then: 'auto' / 'replay' (from 案件檔案's buttons), 'quiet' (no pop-up)
+    const enterCase = async (id, then) => {
+      if (D?.practice) D.leave();
+      if (await D?.enter(io, id)) mode = 'case';
+      refreshAuto();
       inp.focus();
+      const c = mode === 'case' ? D.cur : null;
+      if (!c) return;
+      if (then === 'auto' && !D.solved(c.id)) {
+        g.autoSolve?.ask(c.id);
+        autoPlay(c.id, false);
+      } else if (then === 'replay' || (then === 'auto' && D.solved(c.id))) replay(c.id);
+      else if (
+        !then &&
+        !D.solved(c.id) &&
+        g.autoSolve?.ask(c.id) &&
+        (await askAutoSolve(c.id)) === 'auto'
+      )
+        autoPlay(c.id, false);
+    };
+    barBtn.onclick = () => {
+      const c = D?.cur;
+      if (!c || mode !== 'case') return;
+      if (D.solved(c.id) && !D.practice) replay(c.id);
+      else autoPlay(c.id, !!D.practice);
     };
     const run = async (raw) => {
       if (mode === 'case') {
@@ -790,6 +868,8 @@ export class PC {
         const c0 = raw.trim().toLowerCase();
         if (c0 === 'exit' || c0 === 'quit') {
           mode = null;
+          D?.leave();
+          refreshAuto();
           prompt(PROMPT);
           print('已離開偵探模式。', 'tm-dim');
           print('');
@@ -800,6 +880,7 @@ export class PC {
           return;
         }
         await g.detective.run(raw, io);
+        refreshAuto();
         return;
       }
       const cmd = raw.trim(),
@@ -891,9 +972,10 @@ export class PC {
     this.wins.term.enterCase = enterCase;
     this.wins.term.caseMode = () => mode === 'case'; // S.U.N.D.A.Y gives the case's hints while this is on (src/systems/minigames/Sunday.js)
     if (this._pendingCase !== undefined) {
-      const id = this._pendingCase;
-      this._pendingCase = undefined;
-      enterCase(id);
+      const id = this._pendingCase,
+        then = this._pendingThen;
+      this._pendingCase = this._pendingThen = undefined;
+      enterCase(id, then);
     }
   }
 
@@ -924,7 +1006,7 @@ export class PC {
           .join('')}</div>
         <h4>📝 線索筆記（${got.length} / ${c.clues.length}）</h4><div class="cf-notes">${got.length ? got.map((x) => `<div>・${x.text}</div>`).join('') : '<div class="cf-dim">還沒有線索：到終端機用 SQL 查查看，查到的重點會自動記在這裡。</div>'}</div>
         ${D.solved(c.id) ? `<div class="cf-win">✅ 已破案：${c.solved}</div>` : ''}
-        <button class="cf-go">💻 在終端機${D.solved(c.id) ? '重看' : '開始調查'}這個案件</button>
+        <div class="cf-btns"><button class="cf-go">💻 在終端機${D.solved(c.id) ? '重看' : '開始調查'}這個案件</button><button class="cf-auto">${D.solved(c.id) ? '🔁 再破一次' : '🎬 一鍵通關'}</button></div>
         <p class="cf-dim">在終端機輸入 <code>help</code> 看指令；卡住了輸入 <code>hint</code>；找到犯人後輸入 <code>accuse 名字</code>。不熟 SQL 的話，可以先到 🎓 資管學堂上「MySQL 入門」。</p></div></div>`;
       body.querySelectorAll('[data-c]').forEach(
         (b) =>
@@ -934,20 +1016,23 @@ export class PC {
           })
       );
       body.querySelector('.cf-go').onclick = () => this.investigate(c.id);
+      body.querySelector('.cf-auto').onclick = () =>
+        this.investigate(c.id, D.solved(c.id) ? 'replay' : 'auto');
     };
     render();
     const t = setInterval(render, 1000);
     this.wins.case.cleanup = () => clearInterval(t);
   }
-  // open the terminal (next to the case files) in detective mode on case id
-  investigate(id) {
+  // open the terminal (next to the case files) in detective mode on case id; then: 'auto' (🎬 一鍵通關) or 'replay' (🔁 再破一次)
+  investigate(id, then) {
     const t = this.wins.term;
     if (t?.enterCase) {
       this._focus('term');
-      t.enterCase(id);
+      t.enterCase(id, then);
       return;
     }
     this._pendingCase = id;
+    this._pendingThen = then;
     this.launch('term');
   }
 

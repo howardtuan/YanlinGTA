@@ -343,6 +343,8 @@ export class Detective {
     this.state = {};
     this.cur = null;
     this.db = null;
+    // 🔁 再破一次 (src/systems/AutoSolve.js): a solved case replayed on a throw-away state; no reward, nothing saved
+    this.practice = null; // { id, st }
   }
   toJSON() {
     return this.state;
@@ -351,6 +353,7 @@ export class Detective {
     this.state = d && typeof d === 'object' ? d : {};
   }
   st(id) {
+    if (this.practice?.id === id) return this.practice.st;
     return (this.state[id] ||= { clues: [], hints: 0, solved: false, tries: 0 });
   }
   solved(id) {
@@ -370,8 +373,11 @@ export class Detective {
   }
   // ---------------- terminal ----------------
   // io: { print(text, cls), html(html), prompt(p), clear() } from the terminal window (src/ui/PC.js)
-  async enter(io, id) {
+  // opts.practice: replay case id (already solved) from scratch without touching the save
+  async enter(io, id, opts = {}) {
     this.io = io;
+    if (opts.practice && CASES[id])
+      this.practice = { id, st: { clues: [], hints: 0, solved: false, tries: 0 } };
     const list = this.available();
     if (!list.length) {
       io.print('目前沒有需要調查的案件。', 'tm-dim');
@@ -387,7 +393,12 @@ export class Detective {
     }
     return true;
   }
+  // leaving detective mode ends a replay
+  leave() {
+    this.practice = null;
+  }
   async _open(c) {
+    if (this.practice && this.practice.id !== c.id) this.practice = null;
     const S = await sqlEngine();
     this.db?.close();
     this.db = new S.Database();
@@ -395,7 +406,7 @@ export class Detective {
     this.cur = c;
     const io = this.io;
     io.html(
-      `<div class="dt-head">${c.icon} 案件：${esc(c.title)}${this.solved(c.id) ? '　<span class="dt-ok">已破案</span>' : ''}</div>`
+      `<div class="dt-head">${c.icon} 案件：${esc(c.title)}${this.practice ? '　<span class="dt-ok">🔁 再破一次（練習模式，不影響存檔）</span>' : this.solved(c.id) ? '　<span class="dt-ok">已破案</span>' : ''}</div>`
     );
     io.html(`<div class="dt-brief">${esc(c.brief).replace(/\n/g, '<br>')}</div>`);
     io.print(
@@ -541,12 +552,18 @@ export class Detective {
     io.html(
       `<div class="dt-win">✅ 破案！犯人就是 <b>${esc(c.culprit)}</b>。<br>${esc(c.solved)}</div>`
     );
-    if (c.reward) {
+    if (this.practice) {
+      io.print('🔁 練習模式：這次不會再拿一次獎金。', 'tm-dim');
+    } else if (c.reward) {
       this.g.earn(c.reward, `${c.title} 破案獎金`);
       io.print(`💰 破案獎金 NT$ ${c.reward}`, 'tm-ok');
     }
     io.print(
-      c.main ? '按 Esc 關掉電腦，回去告訴 M.O.N.D.A.Y 吧！' : '輸入 cases 看看還有沒有其他案子。',
+      this.practice
+        ? '練習完成！輸入 exit 離開練習模式。'
+        : c.main
+          ? '按 Esc 關掉電腦，回去告訴 M.O.N.D.A.Y 吧！'
+          : '輸入 cases 看看還有沒有其他案子。',
       'tm-dim'
     );
     this.g.audio?.fanfare?.();

@@ -10,7 +10,7 @@
 // - Pressing F nearby claims the slot and materializes a real drivable Vehicle of the exact same kind & color.
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
-import { sameLevel, bodyGap, getParkedCarAssets } from '../entities/Vehicles.js';
+import { sameLevel, getParkedCarAssets } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
 import { vmass, KNOCK_E } from './VehicleSpawner.js';
 
@@ -34,6 +34,14 @@ const _ZERO_S = new THREE.Vector3(0, 0, 0);
 const _C = new THREE.Color();
 const _F = new THREE.Vector3();
 
+function closestOnSeg(px, pz, ax, az, bx, bz) {
+  const dx = bx - ax,
+    dz = bz - az,
+    l2 = dx * dx + dz * dz || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / l2));
+  return [ax + dx * t, az + dz * t];
+}
+
 function closestOnCapsule(px, pz, sx, sz, yaw, hl, hw) {
   const fx = Math.sin(yaw),
     fz = Math.cos(yaw);
@@ -48,6 +56,44 @@ function closestOnCapsule(px, pz, sx, sz, yaw, hl, hw) {
   const gx = px - qx,
     gz = pz - qz;
   return { qx, qz, dx: gx, dz: gz, dist: Math.hypot(gx, gz) };
+}
+
+function capsuleSeg(x, z, yaw, hl, hw) {
+  const f = Math.max(0.05, hl - hw);
+  const fx = Math.sin(yaw) * f,
+    fz = Math.cos(yaw) * f;
+  return [x + fx, z + fz, x - fx, z - fz];
+}
+
+// Closest points [pa, pb] between two 2D line segments a=[ax,az,bx,bz], b=[cx,cz,dx,dz]
+function segSeg(a, b) {
+  let best = null,
+    bd = Infinity;
+  const tryP = (pa, pb) => {
+    const d = (pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = [pa, pb];
+    }
+  };
+  tryP([a[0], a[1]], closestOnSeg(a[0], a[1], ...b));
+  tryP([a[2], a[3]], closestOnSeg(a[2], a[3], ...b));
+  tryP(closestOnSeg(b[0], b[1], ...a), [b[0], b[1]]);
+  tryP(closestOnSeg(b[2], b[3], ...a), [b[2], b[3]]);
+  const dx = a[2] - a[0],
+    dz = a[3] - a[1],
+    ex = b[2] - b[0],
+    ez = b[3] - b[1],
+    cr = dx * ez - dz * ex;
+  if (Math.abs(cr) > 1e-9) {
+    const t = ((b[0] - a[0]) * ez - (b[1] - a[1]) * ex) / cr;
+    const u = ((b[0] - a[0]) * dz - (b[1] - a[1]) * dx) / cr;
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+      const p = [a[0] + dx * t, a[1] + dz * t];
+      tryP(p, p);
+    }
+  }
+  return best;
 }
 
 export class ParkedScooters {
@@ -269,6 +315,7 @@ export class ParkedScooters {
           color: item.color,
           tilt: item.tilt,
           state: 'static',
+          physKey: { parked: true },
           cx: 0,
           cz: 0,
         };
@@ -371,22 +418,77 @@ export class ParkedScooters {
     return grp;
   }
 
-  // Push a walking character out of nearby static parked scooters & cars
+  // Push a walking character out of nearby static & fallen parked scooters/cars (3 passes for dense rows)
   resolveFoot(pos, r = 0.35) {
     if (!this.slots.length) return false;
-    let hit = false;
-    this._near(pos.x, pos.z, 3.2, (s) => {
-      if (s.state !== 'static') return;
-      if (Math.abs(s.y - (pos.y || 0)) > 1.8) return;
-      const rr = s.hw + r;
-      const c = closestOnCapsule(pos.x, pos.z, s.x, s.z, s.yaw, s.hl, s.hw);
-      if (c.dist < rr && c.dist > 1e-4) {
-        pos.x = c.qx + (c.dx / c.dist) * rr;
-        pos.z = c.qz + (c.dz / c.dist) * rr;
-        hit = true;
-      }
+    let anyHit = false;
+    for (let pass = 0; pass < 3; pass++) {
+      let hit = false;
+      this._near(pos.x, pos.z, 3.2, (s) => {
+        if (s.state !== 'static' && s.state !== 'fallen') return;
+        if (Math.abs(s.y - (pos.y || 0)) > 1.8) return;
+        const hw = s.state === 'fallen' ? s.hw * 0.85 : s.hw;
+        const rr = hw + r;
+        const c = closestOnCapsule(pos.x, pos.z, s.x, s.z, s.yaw, s.hl, hw);
+        if (c.dist < rr && c.dist > 1e-4) {
+          pos.x = c.qx + (c.dx / c.dist) * rr;
+          pos.z = c.qz + (c.dz / c.dist) * rr;
+          hit = true;
+          anyHit = true;
+        }
+      });
+      if (!hit) break;
+    }
+    return anyHit;
+  }
+
+  // Feed nearby static parked cars (and low-speed scooters) into Rapier's kinematic movers list
+  // so the player's Rapier Chassis physically collides with them instead of clipping through.
+  appendMovers(list, x, z, pv) {
+    if (!this.slots.length || !pv?.body) return;
+    const sp = Math.abs(pv.speed || 0);
+    const py = pv.mesh?.position?.y ?? 0;
+    const nearCars = [];
+    const nearScooters = [];
+    this._near(x, z, 20, (s) => {
+      if (s.state !== 'static' && s.state !== 'fallen') return;
+      if (!sameLevel(s.y, py)) return;
+      const d = Math.hypot(s.x - x, s.z - z);
+      if (s.kind === 'car' && d < 20) nearCars.push([d, s]);
+      else if (s.kind === 'scooter' && sp < 0.5 && d < 10) nearScooters.push([d, s]);
     });
-    return hit;
+    nearCars.sort((a, b) => a[0] - b[0]);
+    for (let i = 0; i < Math.min(8, nearCars.length); i++) {
+      const s = nearCars[i][1];
+      list.push({
+        key: s.physKey,
+        x: s.x,
+        y: s.y,
+        z: s.z,
+        yaw: s.yaw,
+        r: s.hw,
+        hl: s.hl,
+        cy: 0.8,
+        hh: 0.75,
+      });
+    }
+    if (nearScooters.length) {
+      nearScooters.sort((a, b) => a[0] - b[0]);
+      for (let i = 0; i < Math.min(8, nearScooters.length); i++) {
+        const s = nearScooters[i][1];
+        list.push({
+          key: s.physKey,
+          x: s.x,
+          y: s.y,
+          z: s.z,
+          yaw: s.yaw,
+          r: s.hw,
+          hl: s.hl,
+          cy: 0.5,
+          hh: 0.45,
+        });
+      }
+    }
   }
 
   // Closest interactive (static or fallen) parked scooter or car within maxR (press F to drive)
@@ -410,6 +512,7 @@ export class ParkedScooters {
     if (!spot || (spot.state !== 'static' && spot.state !== 'fallen')) return null;
     const g = this.game;
     spot.state = 'taken';
+    g.physics?.dropMover?.(spot.physKey);
     this._hideSlot(spot);
     // Recycle oldest distant claimed roadside vehicle if over cap
     if (this.claimed.length >= MAX_CLAIMED) {
@@ -443,10 +546,11 @@ export class ParkedScooters {
   }
 
   knockSlot(slot, vx, vz, dv) {
-    if (!slot || slot.state !== 'static') return false;
+    if (!slot || (slot.state !== 'static' && slot.state !== 'fallen')) return false;
     const g = this.game;
     const isCar = slot.kind === 'car';
     slot.state = 'flying';
+    g.physics?.dropMover?.(slot.physKey);
     this._hideSlot(slot);
     if (!isCar && this._scrapeCd <= 0 && dv > 1.2) {
       this._scrapeCd = 0.12;
@@ -461,8 +565,12 @@ export class ParkedScooters {
 
     if (mesh) {
       mesh.position.set(slot.x, slot.y + 0.04, slot.z);
-      _E.set(0, slot.yaw, slot.tilt, 'YXZ');
-      mesh.quaternion.setFromEuler(_E);
+      if (slot.quat) {
+        mesh.quaternion.copy(slot.quat);
+      } else {
+        _E.set(0, slot.yaw, slot.tilt, 'YXZ');
+        mesh.quaternion.setFromEuler(_E);
+      }
       mesh.matrixAutoUpdate = false;
       mesh.updateMatrix();
       g.scene?.add(mesh);
@@ -492,6 +600,7 @@ export class ParkedScooters {
           if (slot.state === 'taken') return;
           slot.state = 'fallen';
           slot.y = p.y;
+          slot.quat = q.clone();
           _F.set(0, 0, 1).applyQuaternion(q);
           slot.yaw = Math.atan2(_F.x, _F.z);
           this._indexMove(slot, p.x, p.z);
@@ -514,12 +623,13 @@ export class ParkedScooters {
     _Q.setFromEuler(_E);
     slot.state = 'fallen';
     slot.y = ny + (isCar ? 0 : 0.14);
+    slot.quat = _Q.clone();
     this._indexMove(slot, nx, nz);
     this._writeSlotPose(slot, nx, slot.y, nz, _Q);
     return true;
   }
 
-  _checkVehicle(v, isPlayer) {
+  _checkVehicle(v, isPlayer, dt = 0.016) {
     const sp = Math.abs(v.speed || 0);
     if (!isPlayer && sp < 1.5) return;
     const vy = v.mesh?.position?.y ?? 0;
@@ -529,31 +639,54 @@ export class ParkedScooters {
       vvz = fz * v.speed;
     let hitScooters = 0;
     let bumpedCar = false;
+    let pushedArcade = false;
 
-    this._near(v.pos.x, v.pos.z, v.hl + CAR_HL + 1.0, (s) => {
-      if (s.state !== 'static') return;
+    // Build full front-to-back capsule(s): include swept midpoint on fast / low-FPS frames to prevent tunneling
+    const stepDist = sp * dt;
+    const probes = [capsuleSeg(v.pos.x, v.pos.z, v.heading, v.hl, v.hw)];
+    if (stepDist > 0.35) {
+      probes.push(
+        capsuleSeg(v.pos.x - vvx * dt * 0.5, v.pos.z - vvz * dt * 0.5, v.heading, v.hl, v.hw)
+      );
+    }
+    const searchR = v.hl + CAR_HL + Math.min(2.5, stepDist) + 1.0;
+
+    this._near(v.pos.x, v.pos.z, searchR, (s) => {
+      if (s.state !== 'static' && s.state !== 'fallen') return;
       if (!sameLevel(s.y, vy)) return;
       const isCar = s.kind === 'car';
-      const c = closestOnCapsule(v.pos.x, v.pos.z, s.x, s.z, s.yaw, s.hl, s.hw);
-      const b = bodyGap(v, c.qx, c.qz);
-      const minGap = s.hw + 0.12;
-      if (b.gap >= minGap) return;
+      const sSeg = capsuleSeg(s.x, s.z, s.yaw, s.hl, s.hw);
+      let bestDist = Infinity,
+        bestPa = null,
+        bestPb = null;
+      for (let pi = 0; pi < probes.length; pi++) {
+        const [pa, pb] = segSeg(probes[pi], sSeg);
+        const d = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
+        if (d < bestDist) {
+          bestDist = d;
+          bestPa = pa;
+          bestPb = pb;
+        }
+      }
+      const sumR = v.hw + s.hw + (isPlayer && !isCar && sp >= 0.4 ? 0.16 : 0.1);
+      if (bestDist >= sumR) return;
 
-      const ox = c.qx - b.qx,
-        oz = c.qz - b.qz,
+      const ox = bestPb[0] - bestPa[0],
+        oz = bestPb[1] - bestPa[1],
         ol = Math.hypot(ox, oz) || 1;
       const nx = ox / ol,
         nz = oz / ol;
       const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
       const dvRaw = (((1 + KNOCK_E) * m1) / (m1 + s.mass)) * sp;
 
-      // Solid push-out when slow player creep (< 0.35) or gentle hit on a heavy parked car
-      if ((isPlayer && sp < 0.35) || (isCar && dvRaw < 1.2)) {
-        if (isPlayer) {
-          const push = minGap - b.gap;
+      // Solid push-out when slow player creep (< 0.4) or gentle hit on a heavy parked car
+      if ((isPlayer && sp < 0.4) || (isCar && dvRaw < 1.2)) {
+        if (isPlayer && !v.body) {
+          const push = sumR - bestDist;
           v.pos.x -= nx * push;
           v.pos.z -= nz * push;
-          if (isCar && sp >= 0.35) {
+          pushedArcade = true;
+          if (isCar && sp >= 0.4) {
             v.speed *= 0.35;
             bumpedCar = true;
           }
@@ -566,20 +699,28 @@ export class ParkedScooters {
       const dl = Math.hypot(dx, dz) || 1;
       dx /= dl;
       dz /= dl;
-      const dv = Math.max(isCar ? 1.4 : 1.8, dvRaw);
+      const dv = Math.max(isCar ? 1.4 : 2.0, dvRaw);
       if (this.knockSlot(s, dx * dv + vvx * 0.2, dz * dv + vvz * 0.2, dv)) {
         if (isCar) bumpedCar = true;
         else hitScooters++;
       }
     });
 
+    if (pushedArcade) v.sync?.();
+
     if (isPlayer && (hitScooters > 0 || bumpedCar)) {
+      let factor = 1;
       if (hitScooters > 0) {
         const drag =
           v.kind === 'scooter' ? Math.pow(0.9, hitScooters) : Math.pow(0.96, hitScooters);
-        v.speed *= Math.max(0.55, drag);
+        factor *= Math.max(0.55, drag);
       }
-      if (bumpedCar) v.speed *= 0.5;
+      if (bumpedCar) factor *= 0.5;
+      v.speed *= factor;
+      if (v.body?.body) {
+        const lv = v.body.body.linvel();
+        v.body.body.setLinvel({ x: lv.x * factor, y: lv.y, z: lv.z * factor }, true);
+      }
       if (this._bumpCd <= 0) {
         this._bumpCd = 0.16;
         this.game.audio?.bump?.(Math.min(2.2, Math.max(0.4, sp / 5)), v.kind);
@@ -595,7 +736,7 @@ export class ParkedScooters {
     const g = this.game;
     const pl = g.player;
     const pv = pl?.vehicle;
-    if (pv) this._checkVehicle(pv, true);
+    if (pv) this._checkVehicle(pv, true, dt);
 
     const wp = pl?.worldPos?.() || pl?.pos;
     if (wp) {
@@ -605,7 +746,7 @@ export class ParkedScooters {
         const v = others[i];
         if (!v || v === pv || v.knocked) continue;
         if (Math.abs(v.pos.x - wp.x) > 45 || Math.abs(v.pos.z - wp.z) > 45) continue;
-        this._checkVehicle(v, false);
+        this._checkVehicle(v, false, dt);
       }
     }
 

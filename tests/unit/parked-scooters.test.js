@@ -238,4 +238,50 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(src).toMatch(/scooter:\s*\([^)]*\)\s*=>\s*q\.scooter\(/);
     expect(src).toMatch(/car:\s*\([^)]*\)\s*=>\s*q\.car\(/);
   });
+
+  it('catches bumper-to-bumper capsule hits, swept high-speed frames, fallen scooters, and Rapier movers', () => {
+    const { game, knocks } = makeMockGame({
+      motoSpots: [[10, 10, 0, '#b8282a', 0.07, 0]],
+      streetScooters: [],
+      streetCars: [[25, 25, 0, '#3f6fb0']],
+    });
+    const ps = new ParkedScooters(game);
+
+    // 1. High-speed frame that would tunnel past the scooter center is caught by swept segSeg
+    const fastCar = {
+      kind: 'car',
+      pos: new THREE.Vector3(10, 0, 14.5), // jumped past z=10 in one 30fps frame at 24 m/s? Check midpoint z=11.5!
+      heading: 0,
+      speed: 30,
+      hl: 2.2,
+      hw: 0.92,
+      mesh: { position: { y: 0 } },
+      forward: () => [0, 1],
+    };
+    game.player.vehicle = fastCar;
+    ps.update(0.2); // midpoint at z = 14.5 - 3.0 = 11.5 -> bumper overlaps scooter nose at z = 10.78!
+    expect(knocks.length).toBe(1);
+    expect(ps.scooterSlots[0].state).toBe('flying');
+
+    // 2. Once fallen, scooter still blocks walking player AND can be knocked again repeatedly!
+    knocks[0].onRest(new THREE.Vector3(10, 0.14, 12), new THREE.Quaternion());
+    expect(ps.scooterSlots[0].state).toBe('fallen');
+    const walkPos = { x: 10.1, y: 0, z: 12 };
+    expect(ps.resolveFoot(walkPos, 0.35)).toBe(true);
+    fastCar.pos.set(10, 0, 12);
+    ps.update(0.016);
+    expect(knocks.length).toBe(2);
+    expect(ps.scooterSlots[0].state).toBe('flying');
+
+    // 3. appendMovers feeds parked cars into Rapier movers with a non-Vehicle physKey (no .hw)
+    const movers = [];
+    ps.appendMovers(movers, 24, 24, {
+      body: {},
+      speed: 5,
+      mesh: { position: { y: 0 } },
+    });
+    expect(movers.length).toBe(1);
+    expect(movers[0].key.hw).toBeUndefined();
+    expect(movers[0].hl).toBeGreaterThan(2);
+  });
 });

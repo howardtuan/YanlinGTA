@@ -1,4 +1,4 @@
-// 免後端伺服器的 WebRTC P2P 麻將房間層（延遲載入 trystero，不影響主遊戲首屏載入）：
+// 免後端伺服器的 WebRTC P2P 麻將房間層（延遲載入 trystero@0.27，不影響主遊戲首屏載入）：
 // - 房主當權威主機（createHostRoom）：分配 4 個座位（不足 4 人開打時自動補 AI）、廣播過濾旋轉後的牌局快照、處理斷線交給 AI 接手
 // - 客端（joinGuestRoom）：輸入 4 碼房號連上房主、接收專屬視角快照、送回出牌／吃碰槓胡指令
 import {
@@ -10,10 +10,29 @@ import {
 } from './Net.js';
 
 const APP_ID = 'yanlin-gta-mahjong-v1';
+const peerIdOf = (ctx) => (typeof ctx === 'string' ? ctx : ctx?.peerId || null);
+
+// 封裝 trystero@0.27 MessageAction（{ send(data, { target }), onMessage(cb(data, ctx)) }）
+function bindAction(room, name) {
+  const act = room.makeAction(name);
+  const send = (data, peerId) => {
+    try {
+      const p = act.send(data, peerId ? { target: peerId } : undefined);
+      if (p?.catch) p.catch(() => {});
+    } catch (_e) {
+      /* ignore transient send error */
+    }
+  };
+  const on = (cb) => act.onMessage((data, ctx) => cb(data, peerIdOf(ctx)));
+  return [send, on];
+}
 
 async function defaultJoinRoom(roomId) {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error('需要 HTTPS 或 localhost 環境才能建立加密 P2P 連線');
+  }
   const mod = await import('trystero');
-  return mod.joinRoom({ appId: APP_ID }, roomId);
+  return mod.joinRoom({ appId: APP_ID, identity: 'none' }, roomId);
 }
 
 // ---------------- 房主端 ----------------
@@ -29,12 +48,12 @@ export async function createHostRoom({
 } = {}) {
   const roomCode = normalizeRoomCode(code) || makeRoomCode();
   const room = await joinRoomFn(`room-${roomCode}`);
-  const [sendLobby] = room.makeAction('lobby');
-  const [sendStart] = room.makeAction('start');
-  const [sendState] = room.makeAction('state');
-  const [sendCtrl] = room.makeAction('ctrl');
-  const [, onHello] = room.makeAction('hello');
-  const [, onAct] = room.makeAction('act');
+  const [sendLobby] = bindAction(room, 'lobby');
+  const [sendStart] = bindAction(room, 'start');
+  const [sendState] = bindAction(room, 'state');
+  const [sendCtrl] = bindAction(room, 'ctrl');
+  const [, onHello] = bindAction(room, 'hello');
+  const [, onAct] = bindAction(room, 'act');
 
   const seats = [{ seat: 0, peerId: 'host', name, isHost: true, isAI: false }, null, null, null];
   const peerToSeat = new Map();
@@ -54,14 +73,14 @@ export async function createHostRoom({
     ),
   });
 
-  const emitLobby = () => {
+  const emitLobby = (targetPeerId) => {
     const p = lobbyPayload();
-    if (!closed) sendLobby(p);
+    if (!closed) sendLobby(p, targetPeerId);
     onLobby?.(p);
   };
 
   onHello((data, peerId) => {
-    if (closed) return;
+    if (closed || !peerId) return;
     if (peerToSeat.has(peerId)) {
       sendLobby(lobbyPayload(), peerId);
       return;
@@ -86,14 +105,16 @@ export async function createHostRoom({
   });
 
   onAct((data, peerId) => {
-    if (closed || !started) return;
+    if (closed || !started || !peerId) return;
     const seat = peerToSeat.get(peerId);
     if (seat == null || !data?.act) return;
     onAction?.(seat, data.act);
   });
 
-  room.onPeerLeave((peerId) => {
+  room.onPeerLeave?.((ctx) => {
     if (closed) return;
+    const peerId = peerIdOf(ctx);
+    if (!peerId) return;
     const seat = peerToSeat.get(peerId);
     if (seat == null) return;
     peerToSeat.delete(peerId);
@@ -111,7 +132,15 @@ export async function createHostRoom({
     }
   });
 
-  emitLobby();
+  room.onError?.((err) => {
+    if (closed) return;
+    if (err?.code === 'relay-failed') {
+      onNotice?.('⚠️ 無法連上 P2P 信令節點，請確認網路連線');
+    }
+  });
+
+  // 立即更新房主自己的大廳畫面（此時尚未有其他節點，不需廣播空封包）
+  onLobby?.(lobbyPayload());
 
   return {
     role: 'host',
@@ -169,12 +198,8 @@ export async function createHostRoom({
     close(reason = '房主已結束房間') {
       if (closed) return;
       closed = true;
-      try {
-        sendCtrl({ type: 'end', reason });
-      } catch (_e) {
-        /* ignore */
-      }
-      room.leave?.();
+      if (peerToSeat.size > 0) sendCtrl({ type: 'end', reason });
+      Promise.resolve(room.leave?.()).catch(() => {});
     },
   };
 }
@@ -194,12 +219,12 @@ export async function joinGuestRoom({
   const roomCode = normalizeRoomCode(code);
   if (roomCode.length < 4) throw new Error('請輸入 4 碼房號');
   const room = await joinRoomFn(`room-${roomCode}`);
-  const [sendHello] = room.makeAction('hello');
-  const [sendAct] = room.makeAction('act');
-  const [, onLobbyMsg] = room.makeAction('lobby');
-  const [, onStartMsg] = room.makeAction('start');
-  const [, onStateMsg] = room.makeAction('state');
-  const [, onCtrlMsg] = room.makeAction('ctrl');
+  const [sendHello] = bindAction(room, 'hello');
+  const [sendAct] = bindAction(room, 'act');
+  const [, onLobbyMsg] = bindAction(room, 'lobby');
+  const [, onStartMsg] = bindAction(room, 'start');
+  const [, onStateMsg] = bindAction(room, 'state');
+  const [, onCtrlMsg] = bindAction(room, 'ctrl');
 
   let hostPeerId = null;
   let closed = false;
@@ -212,14 +237,14 @@ export async function joinGuestRoom({
   };
 
   onLobbyMsg((data, peerId) => {
-    if (closed) return;
+    if (closed || !peerId) return;
     hostPeerId = peerId;
     clearInterval(retry);
     onLobby?.(data);
   });
 
   onStartMsg((data, peerId) => {
-    if (closed) return;
+    if (closed || !peerId) return;
     hostPeerId = peerId;
     started = true;
     clearInterval(retry);
@@ -248,15 +273,24 @@ export async function joinGuestRoom({
     }
   });
 
-  room.onPeerJoin((peerId) => {
-    if (!hostPeerId) announce(peerId);
+  room.onPeerJoin?.((ctx) => {
+    const peerId = peerIdOf(ctx);
+    if (!hostPeerId && peerId) announce(peerId);
   });
 
-  room.onPeerLeave((peerId) => {
+  room.onPeerLeave?.((ctx) => {
     if (closed) return;
+    const peerId = peerIdOf(ctx);
     if (hostPeerId && peerId === hostPeerId) {
       close();
       onEnd?.('房主已離線，房間已結束');
+    }
+  });
+
+  room.onError?.((err) => {
+    if (closed) return;
+    if (err?.code === 'relay-failed') {
+      onNotice?.('⚠️ 無法連上 P2P 信令節點，請確認網路連線');
     }
   });
 
@@ -274,7 +308,7 @@ export async function joinGuestRoom({
     if (closed) return;
     closed = true;
     clearInterval(retry);
-    room.leave?.();
+    Promise.resolve(room.leave?.()).catch(() => {});
   }
 
   return {

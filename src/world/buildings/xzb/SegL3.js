@@ -276,23 +276,10 @@ export default {
       }
       return k;
     };
-    const car = (a, b, hex, w = 1.75) => {
-      // 停著的車：a 車尾、b 車頭
-      const k = K(lerp(a, b, 0.5));
-      slab(k, a, b, w, 0.28, 0.9, hex);
-      slab(k, lerp(a, b, 0.18), lerp(a, b, 0.78), w - 0.24, 0.9, 1.42, '#27303a', false);
-      for (const t of [0.17, 0.83])
-        for (const v of [-1, 1])
-          slab(
-            k,
-            side(a, b, t - 0.07, v * (w / 2 - 0.08)),
-            side(a, b, t + 0.07, v * (w / 2 - 0.08)),
-            0.22,
-            -0.1,
-            0.55,
-            '#1c1c1e',
-            false
-          );
+    const car = (a, b, hex) => {
+      // 停著的車：a 車尾、b 車頭 → 交給統一停放車輛系統
+      const mid = lerp(a, b, 0.5);
+      K(mid).I.addCar(mid[0], mid[1], Math.atan2(b[0] - a[0], b[1] - a[1]), hex);
     };
     // 柵欄機＋紅白柵欄桿（m 機箱位置、e 桿尾）；桿子不加碰撞，車與人照樣能過
     const barrier = (m, e, hex) => {

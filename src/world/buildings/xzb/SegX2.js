@@ -48,8 +48,17 @@ const conifer = (C, k, x, z, h, rad) => {
   k.cyl(x, z, rad, h * 0.18, h * 0.62, '#2f5a36', { seg: 8, r1: rad * 0.55 });
   k.cyl(x, z, rad * 0.62, h * 0.55, h, '#356b3c', { seg: 8, r1: 0.05 });
 };
-// 一輛車（len 車長、wid 車寬；turn 為真時車頭朝區域 z，否則順著區域 x）：車身、車窗、車頂、輪子
+// 一輛車（一般轎車交給統一停放車輛系統；特殊高頂校車保留自訂車體與碰撞）
 const car = (k, x, z, len, wid, hgt, body, roof, turn) => {
+  if (!roof && hgt <= 1.8) {
+    k.car(
+      x + (turn ? wid : len) / 2,
+      z + (turn ? len : wid) / 2,
+      turn ? Math.PI : Math.PI / 2,
+      body
+    );
+    return;
+  }
   const B = (a0, a1, y0, y1, b0, b1, m, o) =>
     turn
       ? k.box(x + b0, x + b1, y0, y1, z + a0, z + a1, m, o)

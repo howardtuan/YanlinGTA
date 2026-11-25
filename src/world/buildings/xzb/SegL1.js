@@ -159,27 +159,9 @@ export default {
       k._part(VC, paintGeo(g, hex));
     };
     const carK = (k, x, z, alongX, hex) => {
-      // 停著的車（方盒）
+      // 停著的車 → 交給統一停放車輛系統
       const [dx, dz] = alongX ? [4.2, 1.75] : [1.75, 4.2];
-      k.box(x, x + dx, 0.28, 0.9, z, z + dz, hex);
-      if (alongX) k.box(x + 0.9, x + 3.2, 0.9, 1.42, z + 0.12, z + dz - 0.12, '#27303a', NC);
-      else k.box(x + 0.12, x + dx - 0.12, 0.9, 1.42, z + 0.9, z + 3.2, '#27303a', NC);
-      for (const [a, b] of [
-        [0.12, 0.12],
-        [0.88, 0.12],
-        [0.12, 0.88],
-        [0.88, 0.88],
-      ])
-        k.box(
-          x + dx * a - 0.3,
-          x + dx * a + 0.3,
-          -0.1,
-          0.55,
-          z + dz * b - 0.3,
-          z + dz * b + 0.3,
-          '#1c1c1e',
-          NC
-        );
+      k.car(x + dx / 2, z + dz / 2, alongX ? Math.PI / 2 : Math.PI, hex);
     };
     const pole = (q, s, off, h = 9, stripe = '#d8b02a') => {
       // 水泥電桿，底部斜紋警示帶

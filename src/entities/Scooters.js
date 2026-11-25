@@ -402,9 +402,8 @@ function arcFender(cy, cz, th0, th1, half, n = 18) {
 
 // ---------------------------------------------------------------- shared parts
 // wheel: lathe tyre (rounded section, tread texture), black 5 Y-spoke alloy rim with machined lip, hub, wave disc
-function buildWheel(o) {
-  const _M = mats(),
-    P = new Parts();
+function buildWheelParts(o) {
+  const P = new Parts();
   const R = o.R,
     rimR = o.rimR,
     W = o.W,
@@ -528,7 +527,10 @@ function buildWheel(o) {
     car.translate(o.disc.x * 0.9, 0, 0);
     P.add('rim', car);
   }
-  const grp = P.build(mats());
+  return P;
+}
+function buildWheel(o) {
+  const grp = buildWheelParts(o).build(mats());
   grp.userData.shadow = true;
   grp.traverse((m) => {
     if (m.isMesh) m.userData.shadow = true;
@@ -1056,3 +1058,96 @@ export function buildScooter(color) {
 }
 let GP = null;
 const genericPlate = () => GP || (GP = plateTex('MAN-34'));
+
+// Shared geometry + materials for ParkedScooters InstancedMesh (exact same 3D model as buildScooter,
+// zero DOM/canvas usage so it also works cleanly in headless unit tests).
+const PARKED_TRIM_COLORS = {
+  dark: '#1a1b1e',
+  floor: '#1d1e20',
+  seat: '#1b1b1d',
+  chrome: '#e8ebee',
+  alu: '#b9bec4',
+  grey: '#3a3d42',
+  exhaust: '#2a2c30',
+  spring: '#1d1e21',
+  led: '#eef6ff',
+  tail: '#d01828',
+  rubber: '#141415',
+  blackMatte: '#1a1b1e',
+  blackGloss: '#0e0f11',
+  mirror: '#c8d2dc',
+  tire: '#18181a',
+  rim: '#0e0e10',
+  rimLip: '#d7dbe0',
+  disc: '#c9ccd0',
+  plate: '#f4f4f0',
+};
+function paintNonIndexed(src, hex) {
+  const g = src.index ? src.toNonIndexed() : src.clone();
+  for (const attr of Object.keys(g.attributes)) {
+    if (attr !== 'position' && attr !== 'normal') g.deleteAttribute(attr);
+  }
+  if (!g.attributes.normal) g.computeVertexNormals();
+  const n = g.attributes.position.count;
+  const col = new Float32Array(n * 3);
+  const c = new THREE.Color(hex);
+  for (let i = 0; i < n; i++) {
+    col[i * 3] = c.r;
+    col[i * 3 + 1] = c.g;
+    col[i * 3 + 2] = c.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+let PARKED_SCOOTER_ASSETS = null;
+export function getParkedScooterAssets() {
+  if (PARKED_SCOOTER_ASSETS) return PARKED_SCOOTER_ASSETS;
+  const G = genericGeometry();
+  const paintGeo = G.parts.geometry('paint');
+  const trimList = [];
+  for (const [key, list] of G.parts.map) {
+    if (key === 'paint') continue;
+    const hex = PARKED_TRIM_COLORS[key] || '#1a1b1e';
+    for (const geo of list) trimList.push(paintNonIndexed(geo, hex));
+  }
+  const wheelParts = buildWheelParts({
+    R: 0.205,
+    rimR: 0.128,
+    W: 0.09,
+    disc: { r: 0.1, x: 0.045 },
+    lo: true,
+  });
+  for (const ax of [G.FA, G.RA]) {
+    for (const [key, list] of wheelParts.map) {
+      const hex = PARKED_TRIM_COLORS[key] || '#18181a';
+      for (const geo of list) {
+        const g = paintNonIndexed(geo, hex);
+        g.translate(0, ax.y, ax.z);
+        trimList.push(g);
+      }
+    }
+  }
+  const plateGeo = new THREE.PlaneGeometry(0.19, 0.095);
+  plateGeo.rotateY(Math.PI);
+  plateGeo.rotateX(-0.15);
+  plateGeo.translate(0, 0.52, -0.985);
+  trimList.push(paintNonIndexed(plateGeo, PARKED_TRIM_COLORS.plate));
+
+  PARKED_SCOOTER_ASSETS = {
+    paintGeo,
+    trimGeo: mergeGeometries(trimList),
+    paintMat: new THREE.MeshPhysicalMaterial({
+      color: '#ffffff',
+      roughness: 0.32,
+      metalness: 0.15,
+      clearcoat: 1,
+      clearcoatRoughness: 0.08,
+    }),
+    trimMat: new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.52,
+      metalness: 0.22,
+    }),
+  };
+  return PARKED_SCOOTER_ASSETS;
+}

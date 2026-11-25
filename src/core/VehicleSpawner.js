@@ -253,7 +253,15 @@ export class VehicleSpawner {
       }
     }
     const ps = this.game.parkedScooters?.nearestSpot(p.x, p.z, p.y, bd);
-    if (ps) return { isParkedSpot: true, kind: 'scooter', spot: ps.spot, label: '路邊機車' };
+    if (ps) {
+      const kind = ps.spot.kind || 'scooter';
+      return {
+        isParkedSpot: true,
+        kind,
+        spot: ps.spot,
+        label: kind === 'car' ? '路邊汽車' : '路邊機車',
+      };
+    }
     return best;
   }
 

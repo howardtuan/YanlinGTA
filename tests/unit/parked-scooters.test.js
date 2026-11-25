@@ -19,6 +19,7 @@ function makeMockGame(opts = {}) {
     },
     interiors: {
       scooters: opts.streetScooters || [[20, 20, Math.PI / 2, '#e8e8e4']],
+      cars: opts.streetCars || [],
     },
     vehicles: opts.vehicles || [],
     traffic: { vehicles: () => [] },
@@ -152,5 +153,51 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     ps.update(0.016);
     expect(v.pos.x).toBeLessThan(9.5);
     expect(ps.slots[0].state).toBe('static');
+  });
+
+  it('uses drivable scooter paint+trim meshes from start and handles parked cars (collision, knock, claim)', () => {
+    const { game, addedVehicles } = makeMockGame({
+      motoSpots: [[10, 10, 0, '#b8282a', 0.07, 0]],
+      streetScooters: [],
+      streetCars: [[30, 30, Math.PI, '#3f6fb0']],
+    });
+    const ps = new ParkedScooters(game);
+    // Scooters render with real Scooters.js paint + trim InstancedMeshes
+    expect(ps.scooterPaintIm).toBeInstanceOf(THREE.InstancedMesh);
+    expect(ps.scooterTrimIm).toBeInstanceOf(THREE.InstancedMesh);
+    // Cars render with real Vehicles.js buildCar paint + trim InstancedMeshes
+    expect(ps.carPaintIm).toBeInstanceOf(THREE.InstancedMesh);
+    expect(ps.carTrimIm).toBeInstanceOf(THREE.InstancedMesh);
+    expect(ps.carSlots.length).toBe(1);
+
+    // Walking player is pushed out of parked car
+    const pos = { x: 30.4, y: 0, z: 30 };
+    expect(ps.resolveFoot(pos, 0.35)).toBe(true);
+    expect(pos.x).toBeGreaterThanOrEqual(31.2);
+
+    // Light scooter bumping a heavy parked car bounces off instead of clipping
+    const sc = {
+      kind: 'scooter',
+      pos: new THREE.Vector3(28.8, 0, 30),
+      heading: Math.PI / 2,
+      speed: 2.5,
+      hl: 0.9,
+      hw: 0.35,
+      mesh: { position: { y: 0 } },
+      forward: () => [1, 0],
+    };
+    game.player.vehicle = sc;
+    ps.update(0.016);
+    expect(sc.pos.x).toBeLessThan(28.8);
+    expect(ps.carSlots[0].state).toBe('static');
+
+    // Pressing F nearby claims the parked car as a real drivable 'car' keeping exact color
+    const nearCar = ps.nearestSpot(31.8, 30, 0, 3.2);
+    expect(nearCar).not.toBeNull();
+    expect(nearCar.spot.kind).toBe('car');
+    const carVeh = ps.claimAsVehicle(nearCar.spot);
+    expect(carVeh.kind).toBe('car');
+    expect(carVeh.color).toBe('#3f6fb0');
+    expect(addedVehicles.at(-1)).toBe(carVeh);
   });
 });

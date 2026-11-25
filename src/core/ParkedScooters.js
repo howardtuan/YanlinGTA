@@ -1,21 +1,26 @@
-// Unified roadside parked scooters (Option B):
-// - Combines Furniture.js parked scooters (world.motoSpots) + hand-built street bikes (interiors.scooters)
-//   into ONE single THREE.InstancedMesh draw call using the realistic scooter geometry.
-// - Provides lightweight spatial-grid foot collision so walking characters don't clip through them.
-// - When hit by the player's vehicle, traffic, or another flying scooter, hides the static instance
-//   and launches a dynamic Rapier body (physics.knock) with domino chain knocks & bike_scrape SFX;
-//   when it comes to rest, bakes the fallen pose back into the InstancedMesh (zero permanent draw-call growth).
-// - When the player presses F nearby, claims the slot and materializes a real drivable Vehicle of the
-//   same color (with a cap recycling oldest distant claimed scooters to protect mobile memory).
+// Unified roadside parked vehicles (scooters + cars):
+// - Combines Furniture.js parked scooters (world.motoSpots), hand-built street bikes (interiors.scooters),
+//   and hand-built street/lot parked cars (interiors.cars) into InstancedMeshes using the EXACT same
+//   3D models as the drivable Vehicles (Scooters.js buildScooter + Vehicles.js buildCar) so mounting
+//   never swaps the look.
+// - Total draw calls across the entire map: 2 for all scooters (paint + trim) + 2 for all cars (paint + trim).
+// - Provides lightweight spatial-grid foot collision & vehicle collision (blocking slow creep, solid bounce
+//   against heavy parked cars, Rapier physics.knock + domino chain knocks for scooters & hard car hits,
+//   baking final fallen/resting pose back into the InstancedMeshes with zero permanent draw-call growth).
+// - Pressing F nearby claims the slot and materializes a real drivable Vehicle of the exact same kind & color.
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
-import { sameLevel, bodyGap } from '../entities/Vehicles.js';
+import { sameLevel, bodyGap, getParkedCarAssets } from '../entities/Vehicles.js';
+import { getParkedScooterAssets } from '../entities/Scooters.js';
 import { vmass, KNOCK_E } from './VehicleSpawner.js';
 
 const CELL = 10;
 const SCOOTER_MASS = 110;
 const SCOOTER_HL = 0.78;
 const SCOOTER_HW = 0.34;
+const CAR_MASS = 1250;
+const CAR_HL = 2.15;
+const CAR_HW = 0.92;
 const MAX_FLYING = 24;
 const MAX_CLAIMED = 12;
 
@@ -28,10 +33,10 @@ const _ZERO_S = new THREE.Vector3(0, 0, 0);
 const _C = new THREE.Color();
 const _F = new THREE.Vector3();
 
-function closestOnCapsule(px, pz, sx, sz, yaw, hl) {
+function closestOnCapsule(px, pz, sx, sz, yaw, hl, hw) {
   const fx = Math.sin(yaw),
     fz = Math.cos(yaw);
-  const f = Math.max(0.05, hl - SCOOTER_HW);
+  const f = Math.max(0.05, hl - hw);
   const dx = px - sx,
     dz = pz - sz;
   let t = dx * fx + dz * fz;
@@ -48,14 +53,21 @@ export class ParkedScooters {
   constructor(game) {
     this.game = game;
     this.slots = [];
+    this.scooterSlots = [];
+    this.carSlots = [];
     this.grid = new Map();
     this.activeKnocks = new Set();
     this.claimed = [];
-    this._debrisMats = new Map();
+    this._paintMats = new Map();
     this._scrapeCd = 0;
     this._bumpCd = 0;
-    this.geo = game.world?.motoGeo || null;
+    this.scooterAssets = null;
+    this.carAssets = null;
     this.im = null;
+    this.scooterPaintIm = null;
+    this.scooterTrimIm = null;
+    this.carPaintIm = null;
+    this.carTrimIm = null;
     this._build();
   }
 
@@ -103,11 +115,43 @@ export class ParkedScooters {
     }
   }
 
+  _buildInstancedPair(list, assets) {
+    if (!list.length || !assets?.paintGeo) return [null, null];
+    const paintIm = new THREE.InstancedMesh(assets.paintGeo, assets.paintMat, list.length);
+    const trimIm = assets.trimGeo
+      ? new THREE.InstancedMesh(assets.trimGeo, assets.trimMat, list.length)
+      : null;
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      _E.set(0, s.yaw, s.tilt, 'YXZ');
+      _Q.setFromEuler(_E);
+      _P.set(s.x, s.y, s.z);
+      _M.compose(_P, _Q, _S);
+      paintIm.setMatrixAt(i, _M);
+      paintIm.setColorAt(i, _C.set(s.color));
+      if (trimIm) trimIm.setMatrixAt(i, _M);
+    }
+    paintIm.instanceMatrix.needsUpdate = true;
+    if (paintIm.instanceColor) paintIm.instanceColor.needsUpdate = true;
+    paintIm.castShadow = false;
+    paintIm.receiveShadow = true;
+    paintIm.frustumCulled = false;
+    this.game.scene?.add(paintIm);
+    if (trimIm) {
+      trimIm.instanceMatrix.needsUpdate = true;
+      trimIm.castShadow = false;
+      trimIm.receiveShadow = true;
+      trimIm.frustumCulled = false;
+      this.game.scene?.add(trimIm);
+    }
+    return [paintIm, trimIm];
+  }
+
   _build() {
     const g = this.game;
-    const raw = [];
+    const rawScooters = [];
     for (const m of g.world?.motoSpots || []) {
-      raw.push({
+      rawScooters.push({
         x: m[0],
         z: m[1],
         yaw: m[2],
@@ -117,109 +161,166 @@ export class ParkedScooters {
       });
     }
     for (const s of g.interiors?.scooters || []) {
-      raw.push({
+      rawScooters.push({
         x: s[0],
         z: s[1],
         yaw: s[2],
         color: s[3] || '#2a2a30',
-        tilt: (raw.length % 2 ? 1 : -1) * 0.06,
+        tilt: (rawScooters.length % 2 ? 1 : -1) * 0.06,
         y: undefined,
       });
     }
-    const vehicles = g.vehicles || [];
-    for (const item of raw) {
-      if (!Number.isFinite(item.x) || !Number.isFinite(item.z)) continue;
-      // Skip spots overlapping already-spawned real vehicles
-      let overlap = false;
-      for (let i = 0; i < vehicles.length; i++) {
-        const v = vehicles[i];
-        if ((v.pos.x - item.x) ** 2 + (v.pos.z - item.z) ** 2 < 1.35 * 1.35) {
-          overlap = true;
-          break;
-        }
-      }
-      if (overlap) continue;
-      // Deduplicate spots within 0.55 m of an earlier parked scooter
-      this._near(item.x, item.z, 0.6, (other) => {
-        if ((other.x - item.x) ** 2 + (other.z - item.z) ** 2 < 0.55 * 0.55) overlap = true;
+
+    const rawCars = [];
+    for (const c of g.interiors?.cars || []) {
+      rawCars.push({
+        x: c[0],
+        z: c[1],
+        yaw: c[2],
+        color: c[3] || '#c9c9c4',
+        tilt: 0,
+        y: undefined,
       });
-      if (overlap) continue;
-      const y = Number.isFinite(item.y) ? item.y : surfaceAt(item.x, item.z);
-      const slot = {
-        idx: this.slots.length,
-        x: item.x,
-        y,
-        z: item.z,
-        yaw: item.yaw,
-        color: item.color,
-        tilt: item.tilt,
-        state: 'static',
-        cx: 0,
-        cz: 0,
-      };
-      this.slots.push(slot);
-      this._indexAdd(slot);
     }
 
-    if (!this.slots.length || !this.geo) return;
-    const im = new THREE.InstancedMesh(
-      this.geo,
-      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }),
-      this.slots.length
-    );
-    for (let i = 0; i < this.slots.length; i++) {
-      const s = this.slots[i];
-      _E.set(0, s.yaw, s.tilt, 'YXZ');
-      _Q.setFromEuler(_E);
-      _P.set(s.x, s.y, s.z);
-      _M.compose(_P, _Q, _S);
-      im.setMatrixAt(i, _M);
-      im.setColorAt(i, _C.set(s.color));
+    const vehicles = g.vehicles || [];
+    const addSlots = (raw, kind) => {
+      const isCar = kind === 'car';
+      const vehDist = isCar ? 2.4 : 1.35;
+      const dedupDist = isCar ? 2.0 : 0.55;
+      const hl = isCar ? CAR_HL : SCOOTER_HL;
+      const hw = isCar ? CAR_HW : SCOOTER_HW;
+      const mass = isCar ? CAR_MASS : SCOOTER_MASS;
+      const list = isCar ? this.carSlots : this.scooterSlots;
+
+      for (const item of raw) {
+        if (!Number.isFinite(item.x) || !Number.isFinite(item.z)) continue;
+        let overlap = false;
+        for (let i = 0; i < vehicles.length; i++) {
+          const v = vehicles[i];
+          if ((v.pos.x - item.x) ** 2 + (v.pos.z - item.z) ** 2 < vehDist * vehDist) {
+            overlap = true;
+            break;
+          }
+        }
+        if (overlap) continue;
+        this._near(item.x, item.z, Math.max(dedupDist + 0.1, 1.5), (other) => {
+          const minD = other.kind === 'car' || isCar ? Math.max(dedupDist, 1.4) : dedupDist;
+          if ((other.x - item.x) ** 2 + (other.z - item.z) ** 2 < minD * minD) overlap = true;
+        });
+        if (overlap) continue;
+        const y = Number.isFinite(item.y) ? item.y : surfaceAt(item.x, item.z);
+        const slot = {
+          idx: this.slots.length,
+          imIdx: list.length,
+          kind,
+          hl,
+          hw,
+          mass,
+          x: item.x,
+          y,
+          z: item.z,
+          yaw: item.yaw,
+          color: item.color,
+          tilt: item.tilt,
+          state: 'static',
+          cx: 0,
+          cz: 0,
+        };
+        this.slots.push(slot);
+        list.push(slot);
+        this._indexAdd(slot);
+      }
+    };
+
+    // Place cars first so nearby roadside scooters never overlap a parked car body
+    addSlots(rawCars, 'car');
+    addSlots(rawScooters, 'scooter');
+
+    if (this.scooterSlots.length) {
+      this.scooterAssets = getParkedScooterAssets();
+      [this.scooterPaintIm, this.scooterTrimIm] = this._buildInstancedPair(
+        this.scooterSlots,
+        this.scooterAssets
+      );
+      this.im = this.scooterPaintIm;
     }
-    im.instanceMatrix.needsUpdate = true;
-    if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    im.castShadow = false;
-    im.receiveShadow = true;
-    im.frustumCulled = false;
-    g.scene?.add(im);
-    this.im = im;
+    if (this.carSlots.length) {
+      this.carAssets = getParkedCarAssets();
+      [this.carPaintIm, this.carTrimIm] = this._buildInstancedPair(this.carSlots, this.carAssets);
+    }
   }
 
-  _hideSlot(idx) {
-    if (!this.im) return;
+  _pairFor(slot) {
+    return slot.kind === 'car'
+      ? [this.carPaintIm, this.carTrimIm]
+      : [this.scooterPaintIm, this.scooterTrimIm];
+  }
+
+  _hideSlot(slot) {
+    const [paintIm, trimIm] = this._pairFor(slot);
+    if (!paintIm) return;
     _P.set(0, -500, 0);
     _Q.identity();
     _M.compose(_P, _Q, _ZERO_S);
-    this.im.setMatrixAt(idx, _M);
-    this.im.instanceMatrix.needsUpdate = true;
+    paintIm.setMatrixAt(slot.imIdx, _M);
+    paintIm.instanceMatrix.needsUpdate = true;
+    if (trimIm) {
+      trimIm.setMatrixAt(slot.imIdx, _M);
+      trimIm.instanceMatrix.needsUpdate = true;
+    }
   }
 
-  _writeSlotPose(idx, x, y, z, quat) {
-    if (!this.im) return;
+  _writeSlotPose(slot, x, y, z, quat) {
+    const [paintIm, trimIm] = this._pairFor(slot);
+    if (!paintIm) return;
     _P.set(x, y, z);
     _M.compose(_P, quat, _S);
-    this.im.setMatrixAt(idx, _M);
-    this.im.instanceMatrix.needsUpdate = true;
+    paintIm.setMatrixAt(slot.imIdx, _M);
+    paintIm.instanceMatrix.needsUpdate = true;
+    if (trimIm) {
+      trimIm.setMatrixAt(slot.imIdx, _M);
+      trimIm.instanceMatrix.needsUpdate = true;
+    }
   }
 
-  _debrisMat(color) {
-    let m = this._debrisMats.get(color);
+  _debrisPaintMat(kind, color) {
+    const key = `${kind}:${color}`;
+    let m = this._paintMats.get(key);
     if (!m) {
-      m = new THREE.MeshStandardMaterial({ vertexColors: true, color, roughness: 0.75 });
-      this._debrisMats.set(color, m);
+      m =
+        kind === 'car'
+          ? new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.4 })
+          : new THREE.MeshPhysicalMaterial({
+              color,
+              roughness: 0.32,
+              metalness: 0.15,
+              clearcoat: 1,
+              clearcoatRoughness: 0.08,
+            });
+      this._paintMats.set(key, m);
     }
     return m;
   }
 
-  // Push a walking character out of nearby static parked scooters
+  _makeDebrisMesh(slot) {
+    const assets = slot.kind === 'car' ? this.carAssets : this.scooterAssets;
+    if (!assets?.paintGeo) return null;
+    const grp = new THREE.Group();
+    grp.add(new THREE.Mesh(assets.paintGeo, this._debrisPaintMat(slot.kind, slot.color)));
+    if (assets.trimGeo) grp.add(new THREE.Mesh(assets.trimGeo, assets.trimMat));
+    return grp;
+  }
+
+  // Push a walking character out of nearby static parked scooters & cars
   resolveFoot(pos, r = 0.35) {
     if (!this.slots.length) return false;
     let hit = false;
-    const rr = SCOOTER_HW + r;
-    this._near(pos.x, pos.z, 2.2, (s) => {
+    this._near(pos.x, pos.z, 3.2, (s) => {
       if (s.state !== 'static') return;
       if (Math.abs(s.y - (pos.y || 0)) > 1.8) return;
-      const c = closestOnCapsule(pos.x, pos.z, s.x, s.z, s.yaw, SCOOTER_HL);
+      const rr = s.hw + r;
+      const c = closestOnCapsule(pos.x, pos.z, s.x, s.z, s.yaw, s.hl, s.hw);
       if (c.dist < rr && c.dist > 1e-4) {
         pos.x = c.qx + (c.dx / c.dist) * rr;
         pos.z = c.qz + (c.dz / c.dist) * rr;
@@ -229,14 +330,14 @@ export class ParkedScooters {
     return hit;
   }
 
-  // Closest interactive (static or fallen) parked scooter within maxR (Option B: press F to ride)
+  // Closest interactive (static or fallen) parked scooter or car within maxR (press F to drive)
   nearestSpot(x, z, y, maxR = 3.2) {
     let best = null,
       bd = maxR;
-    this._near(x, z, maxR + 1, (s) => {
+    this._near(x, z, maxR + 2.2, (s) => {
       if (s.state !== 'static' && s.state !== 'fallen') return;
       if (Math.abs(s.y - y) > 2.5) return;
-      const d = Math.hypot(s.x - x, s.z - z);
+      const d = Math.hypot(s.x - x, s.z - z) - (s.kind === 'car' ? 1.0 : 0);
       if (d < bd) {
         bd = d;
         best = s;
@@ -245,13 +346,13 @@ export class ParkedScooters {
     return best ? { spot: best, dist: bd } : null;
   }
 
-  // Materialize a parked scooter slot into a real drivable Vehicle of the same color
+  // Materialize a parked slot into a real drivable Vehicle of the exact same kind & color
   claimAsVehicle(spot) {
     if (!spot || (spot.state !== 'static' && spot.state !== 'fallen')) return null;
     const g = this.game;
     spot.state = 'taken';
-    this._hideSlot(spot.idx);
-    // Recycle oldest distant claimed roadside scooter if over cap
+    this._hideSlot(spot);
+    // Recycle oldest distant claimed roadside vehicle if over cap
     if (this.claimed.length >= MAX_CLAIMED) {
       const plPos = g.player?.worldPos?.() || g.player?.pos || { x: 0, z: 0 };
       const idx = this.claimed.findIndex(
@@ -269,9 +370,14 @@ export class ParkedScooters {
         if (vi >= 0) g.vehicles.splice(vi, 1);
       }
     }
-    const v = g.vehicleSpawner.addVehicle('scooter', spot.x, spot.z, spot.yaw, Math.random, {
-      color: spot.color,
-    });
+    const v = g.vehicleSpawner.addVehicle(
+      spot.kind || 'scooter',
+      spot.x,
+      spot.z,
+      spot.yaw,
+      Math.random,
+      { color: spot.color }
+    );
     v.fallen = false;
     this.claimed.push(v);
     return v;
@@ -280,9 +386,10 @@ export class ParkedScooters {
   knockSlot(slot, vx, vz, dv) {
     if (!slot || slot.state !== 'static') return false;
     const g = this.game;
+    const isCar = slot.kind === 'car';
     slot.state = 'flying';
-    this._hideSlot(slot.idx);
-    if (this._scrapeCd <= 0 && dv > 1.2) {
+    this._hideSlot(slot);
+    if (!isCar && this._scrapeCd <= 0 && dv > 1.2) {
       this._scrapeCd = 0.12;
       g.audio?.physImpact?.('bike_scrape', Math.min(1, dv / 7), slot.x, slot.z);
     }
@@ -290,9 +397,10 @@ export class ParkedScooters {
     const l = Math.hypot(vx, vz) || 1;
     const dx = vx / l,
       dz = vz / l;
+    const mesh =
+      P?.ready && this.activeKnocks.size < MAX_FLYING ? this._makeDebrisMesh(slot) : null;
 
-    if (P?.ready && this.geo && this.activeKnocks.size < MAX_FLYING) {
-      const mesh = new THREE.Mesh(this.geo, this._debrisMat(slot.color));
+    if (mesh) {
       mesh.position.set(slot.x, slot.y + 0.04, slot.z);
       _E.set(0, slot.yaw, slot.tilt, 'YXZ');
       mesh.quaternion.setFromEuler(_E);
@@ -300,15 +408,18 @@ export class ParkedScooters {
       mesh.updateMatrix();
       g.scene?.add(mesh);
 
-      const sp = Math.min(14, dv * 1.15);
+      const sp = isCar ? Math.min(2.5, dv * 0.14) : Math.min(14, dv * 1.15);
+      const shape = isCar
+        ? { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 }
+        : { shape: 'box', hx: 0.3, hy: 0.48, hz: 0.82 };
       const rec = { slot, mesh, x: slot.x, y: slot.y, z: slot.z, vx, vz, dv };
       this.activeKnocks.add(rec);
       const knocked = P.knock(
         mesh,
-        { shape: 'box', hx: 0.3, hy: 0.48, hz: 0.82 },
-        SCOOTER_MASS,
-        { x: vx, y: Math.min(2.4, 0.85 + dv * 0.12), z: vz },
-        { x: dz * sp, y: (slot.idx % 2 ? 0.35 : -0.35) * dv, z: -dx * sp },
+        shape,
+        slot.mass,
+        { x: vx, y: isCar ? 0.3 : Math.min(2.4, 0.85 + dv * 0.12), z: vz },
+        { x: dz * sp, y: (slot.idx % 2 ? 0.35 : -0.35) * dv * (isCar ? 0.35 : 1), z: -dx * sp },
         (p) => {
           rec.vx = (p.x - rec.x) * 60;
           rec.vz = (p.z - rec.z) * 60;
@@ -325,7 +436,7 @@ export class ParkedScooters {
           _F.set(0, 0, 1).applyQuaternion(q);
           slot.yaw = Math.atan2(_F.x, _F.z);
           this._indexMove(slot, p.x, p.z);
-          this._writeSlotPose(slot.idx, p.x, p.y, p.z, q);
+          this._writeSlotPose(slot, p.x, p.y, p.z, q);
         },
         rec
       );
@@ -334,17 +445,18 @@ export class ParkedScooters {
       g.scene?.remove(mesh);
     }
 
-    // Fallback without physics or when flying debris pool is full: tip over directly in InstancedMesh
-    const nx = slot.x + dx * Math.min(1.4, 0.45 + dv * 0.08);
-    const nz = slot.z + dz * Math.min(1.4, 0.45 + dv * 0.08);
+    // Fallback without physics or when flying debris pool is full: settle directly in InstancedMesh
+    const shift = isCar ? Math.min(1.6, 0.35 + dv * 0.12) : Math.min(1.4, 0.45 + dv * 0.08);
+    const nx = slot.x + dx * shift;
+    const nz = slot.z + dz * shift;
     const ny = surfaceAt(nx, nz);
     const dirSign = slot.idx % 2 ? 1 : -1;
-    _E.set(0, slot.yaw + dirSign * 0.35, dirSign * 1.32, 'YXZ');
+    _E.set(0, slot.yaw + dirSign * (isCar ? 0.18 : 0.35), isCar ? 0 : dirSign * 1.32, 'YXZ');
     _Q.setFromEuler(_E);
     slot.state = 'fallen';
-    slot.y = ny + 0.14;
+    slot.y = ny + (isCar ? 0 : 0.14);
     this._indexMove(slot, nx, nz);
-    this._writeSlotPose(slot.idx, nx, slot.y, nz, _Q);
+    this._writeSlotPose(slot, nx, slot.y, nz, _Q);
     return true;
   }
 
@@ -356,40 +468,62 @@ export class ParkedScooters {
     const sg = Math.sign(v.speed) || 1;
     const vvx = fx * v.speed,
       vvz = fz * v.speed;
-    let hitCount = 0;
+    let hitScooters = 0;
+    let bumpedCar = false;
 
-    this._near(v.pos.x, v.pos.z, v.hl + SCOOTER_HL + 0.8, (s) => {
+    this._near(v.pos.x, v.pos.z, v.hl + CAR_HL + 1.0, (s) => {
       if (s.state !== 'static') return;
       if (!sameLevel(s.y, vy)) return;
-      const b = bodyGap(v, s.x, s.z);
-      const minGap = SCOOTER_HW + 0.12;
+      const isCar = s.kind === 'car';
+      const c = closestOnCapsule(v.pos.x, v.pos.z, s.x, s.z, s.yaw, s.hl, s.hw);
+      const b = bodyGap(v, c.qx, c.qz);
+      const minGap = s.hw + 0.12;
       if (b.gap >= minGap) return;
-      const ox = s.x - b.qx,
-        oz = s.z - b.qz,
+
+      const ox = c.qx - b.qx,
+        oz = c.qz - b.qz,
         ol = Math.hypot(ox, oz) || 1;
-      // Slow player creep (< 0.35 m/s): push vehicle out smoothly so it never clips through parked scooters
-      if (isPlayer && sp < 0.35) {
-        const push = minGap - b.gap;
-        v.pos.x -= (ox / ol) * push;
-        v.pos.z -= (oz / ol) * push;
+      const nx = ox / ol,
+        nz = oz / ol;
+      const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
+      const dvRaw = (((1 + KNOCK_E) * m1) / (m1 + s.mass)) * sp;
+
+      // Solid push-out when slow player creep (< 0.35) or gentle hit on a heavy parked car
+      if ((isPlayer && sp < 0.35) || (isCar && dvRaw < 1.2)) {
+        if (isPlayer) {
+          const push = minGap - b.gap;
+          v.pos.x -= nx * push;
+          v.pos.z -= nz * push;
+          if (isCar && sp >= 0.35) {
+            v.speed *= 0.35;
+            bumpedCar = true;
+          }
+        }
         return;
       }
-      let dx = fx * sg * 0.7 + (ox / ol) * 0.6;
-      let dz = fz * sg * 0.7 + (oz / ol) * 0.6;
+
+      let dx = fx * sg * 0.7 + nx * 0.6;
+      let dz = fz * sg * 0.7 + nz * 0.6;
       const dl = Math.hypot(dx, dz) || 1;
       dx /= dl;
       dz /= dl;
-      const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
-      const dv = Math.max(1.8, (((1 + KNOCK_E) * m1) / (m1 + SCOOTER_MASS)) * sp);
-      if (this.knockSlot(s, dx * dv + vvx * 0.2, dz * dv + vvz * 0.2, dv)) hitCount++;
+      const dv = Math.max(isCar ? 1.4 : 1.8, dvRaw);
+      if (this.knockSlot(s, dx * dv + vvx * 0.2, dz * dv + vvz * 0.2, dv)) {
+        if (isCar) bumpedCar = true;
+        else hitScooters++;
+      }
     });
 
-    if (hitCount > 0 && isPlayer) {
-      const drag = v.kind === 'scooter' ? Math.pow(0.9, hitCount) : Math.pow(0.96, hitCount);
-      v.speed *= Math.max(0.55, drag);
+    if (isPlayer && (hitScooters > 0 || bumpedCar)) {
+      if (hitScooters > 0) {
+        const drag =
+          v.kind === 'scooter' ? Math.pow(0.9, hitScooters) : Math.pow(0.96, hitScooters);
+        v.speed *= Math.max(0.55, drag);
+      }
+      if (bumpedCar) v.speed *= 0.5;
       if (this._bumpCd <= 0) {
         this._bumpCd = 0.16;
-        this.game.audio?.bump?.(Math.min(2.2, sp / 5), v.kind);
+        this.game.audio?.bump?.(Math.min(2.2, Math.max(0.4, sp / 5)), v.kind);
       }
     }
   }
@@ -420,8 +554,8 @@ export class ParkedScooters {
       for (const rec of [...this.activeKnocks]) {
         const spd = Math.hypot(rec.vx, rec.vz);
         if (spd < 1.0) continue;
-        this._near(rec.x, rec.z, 1.15, (s) => {
-          if (s.state !== 'static') return;
+        this._near(rec.x, rec.z, 1.3, (s) => {
+          if (s.state !== 'static' || s.kind === 'car') return;
           const dx = s.x - rec.x,
             dz = s.z - rec.z;
           const d = Math.hypot(dx, dz);

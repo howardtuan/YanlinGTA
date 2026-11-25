@@ -1205,6 +1205,82 @@ export function buildCar(color, taxi = false) {
   return g;
 }
 
+let PARKED_CAR_ASSETS = null;
+export function getParkedCarAssets() {
+  if (PARKED_CAR_ASSETS) return PARKED_CAR_ASSETS;
+  const paintParts = [];
+  const trimParts = [];
+  const prepGeo = (src, hex) => {
+    const g = src.index ? src.toNonIndexed() : src.clone();
+    for (const attr of Object.keys(g.attributes)) {
+      if (attr !== 'position' && attr !== 'normal') g.deleteAttribute(attr);
+    }
+    if (!g.attributes.normal) g.computeVertexNormals();
+    if (hex) {
+      const n = g.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      const c = new THREE.Color(hex);
+      for (let i = 0; i < n; i++) {
+        col[i * 3] = c.r;
+        col[i * 3 + 1] = c.g;
+        col[i * 3 + 2] = c.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    }
+    return g;
+  };
+  const addBox = (arr, w, h, d, x, y, z, hex) => {
+    const g = new THREE.BoxGeometry(w, h, d);
+    g.translate(x, y, z);
+    arr.push(prepGeo(g, hex));
+  };
+  // Painted bodywork (exact same coordinates as buildCar)
+  addBox(paintParts, 1.8, 0.62, 4.3, 0, 0.62, 0, null);
+  addBox(paintParts, 1.66, 0.08, 2.0, 0, 1.5, -0.3, null);
+  for (const s of [-1, 1]) addBox(paintParts, 0.08, 0.5, 0.08, 0.78 * s, 1.2, 0.84, null);
+  // Trim: glass, wheels, hubs, lights, bumpers, rear plate
+  addBox(trimParts, 1.62, 0.56, 2.2, 0, 1.2, -0.25, '#24323f');
+  for (const [x, z] of [
+    [-0.82, 1.35],
+    [0.82, 1.35],
+    [-0.82, -1.35],
+    [0.82, -1.35],
+  ]) {
+    const tire = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 14).rotateZ(Math.PI / 2);
+    tire.translate(x, 0.34, z);
+    trimParts.push(prepGeo(tire, '#1a1a1a'));
+    const hub = new THREE.CylinderGeometry(0.17, 0.17, 0.25, 10).rotateZ(Math.PI / 2);
+    hub.translate(x, 0.34, z);
+    trimParts.push(prepGeo(hub, '#9aa0a6'));
+  }
+  for (const s of [-1, 1]) {
+    addBox(trimParts, 0.36, 0.14, 0.05, 0.62 * s, 0.75, 2.16, '#fff4d6');
+    addBox(trimParts, 0.36, 0.14, 0.05, 0.62 * s, 0.78, -2.16, '#d81a1a');
+  }
+  addBox(trimParts, 1.7, 0.16, 0.12, 0, 0.42, 2.15, '#222222');
+  addBox(trimParts, 1.7, 0.16, 0.12, 0, 0.42, -2.15, '#222222');
+  const plate = new THREE.PlaneGeometry(0.5, 0.17);
+  plate.rotateY(Math.PI);
+  plate.translate(0, 0.55, -2.22);
+  trimParts.push(prepGeo(plate, '#f4f4f0'));
+
+  PARKED_CAR_ASSETS = {
+    paintGeo: mergeGeometries(paintParts),
+    trimGeo: mergeGeometries(trimParts),
+    paintMat: new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.3,
+      metalness: 0.4,
+    }),
+    trimMat: new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.45,
+      metalness: 0.3,
+    }),
+  };
+  return PARKED_CAR_ASSETS;
+}
+
 // =====================================================================
 // 偶爾出現在車流裡的超跑與重機（src/entities/NPC.js Traffic 抽到才會有）。外型參考：
 //   超跑 — ferrari：中置引擎、圓潤的長車頭、短車尾、圓形雙尾燈；lambo：銳利的楔形車身、超低車頭、
@@ -2524,7 +2600,7 @@ export class Vehicle {
       });
     } else {
       const taxi = kind === 'taxi';
-      this.mesh = buildCar(taxi ? '#ffd000' : pick(CAR_COLORS), taxi);
+      this.mesh = buildCar(taxi ? '#ffd000' : opt.color || pick(CAR_COLORS), taxi);
       Object.assign(this, {
         wb: 2.7,
         radius: 1.35,

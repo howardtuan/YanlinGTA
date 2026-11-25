@@ -940,11 +940,7 @@ export function buildShijianStreet(I, scene, X) {
         const s = side > 0 ? s0 + x : s1 - x;
         return s > a - m && s < b + m;
       });
-    const cone = (x, z) => {
-      k.box(x - 0.2, x + 0.2, 0.05, 0.1, z - 0.2, z + 0.2, '#e8651f', { col: false });
-      k.cyl(x, z, 0.1, 0.1, 0.7, '#e8651f', { seg: 8 });
-      k.cyl(x, z, 0.105, 0.4, 0.5, '#f4f4f0', { seg: 8 });
-    };
+    const cone = (x, z) => k.cone(x, z);
     if (fs.bikes)
       for (
         let x = 0.6 + r() * 1.5;

@@ -52,6 +52,7 @@ export function writeSave(g) {
     houshe: g.houshe?.toJSON() || null,
     richard: g.richard?.toJSON() || null,
     howard: g.howard?.toJSON() || null,
+    howardQuest: g.howardQuest?.toJSON() || null,
     pinhan: g.pinhan?.toJSON() || null,
     pinhanCar: g.pinhanCar?.toJSON() || null,
     pinhanRide: g.pinhanRide?.toJSON() || null,
@@ -165,6 +166,7 @@ export function applySave(g, d) {
   g.houshe?.load(d.houshe);
   g.richard?.load(d.richard);
   g.howard?.load(d.howard);
+  g.howardQuest?.load(d.howardQuest);
   g.pinhan?.load(d.pinhan);
   g.pinhanCar?.load(d.pinhanCar);
   g.pinhanRide?.load(d.pinhanRide);

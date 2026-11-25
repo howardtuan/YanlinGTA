@@ -201,7 +201,7 @@ export function friendLocations(g) {
         name,
         av,
         color,
-        ['date', 'walk', 'ikea', 'con'].includes(D.mode) ? null : D.pos,
+        ['date', 'walk', 'ikea', 'con', 'ride'].includes(D.mode) ? null : D.pos,
         D.where()
       ); // out on a date / a walk with his girlfriend / at IKEA / at a 同人場: no pin
   }

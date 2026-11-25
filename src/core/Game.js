@@ -75,6 +75,7 @@ import { YuluTea } from '../systems/quests/YuluTea.js';
 import { Yulu } from '../entities/npcs/Yulu.js';
 import { Richard } from '../entities/npcs/Richard.js';
 import { Howard } from '../entities/npcs/Howard.js';
+import { HowardTwoSum } from '../systems/quests/HowardTwoSum.js';
 import { PinHan } from '../entities/npcs/PinHan.js';
 import { PinHanCar } from '../systems/quests/PinHanCar.js';
 import { PinHanRide } from '../systems/minigames/PinHanRide.js';
@@ -581,6 +582,7 @@ class Game {
     // the three developers in 力行 (src/entities/npcs/DevNPC.js)
     this.houshe = new Houshe(this);
     this.richard = new Richard(this);
+    this.howardQuest = new HowardTwoSum(this); // 支線 Two Sum → his 忍 400 (src/systems/quests/HowardTwoSum.js)
     this.howard = new Howard(this);
     // 品漢堡 in 278 (劍玉's roommate) and his car errand (src/entities/npcs/PinHan.js, src/systems/quests/PinHanCar.js)
     this.pinhan = new PinHan(this);

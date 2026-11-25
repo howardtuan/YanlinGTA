@@ -2549,7 +2549,7 @@ export class Vehicle {
     } else if (kind === 'scooter' && BIKES[opt.model]) {
       // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
       const B = BIKES[opt.model];
-      this.mesh = buildBike(opt.model, pick(B.colors));
+      this.mesh = buildBike(opt.model, opt.color || pick(B.colors)); // opt.color: someone's own bike (霍華德's black one)
       this.model = opt.model;
       Object.assign(this, {
         wb: 1.46,

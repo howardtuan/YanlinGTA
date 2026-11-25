@@ -47,13 +47,14 @@ const APPS = [
   ['learn', '🎓', '資管學堂'],
   ['case', '🕵️', '案件檔案'],
   ['term', '💻', '終端機'],
+  ['leet', '🧩', 'Two Sum'], // 霍華德 sent it (src/systems/quests/HowardTwoSum.js): only on the desktop once he has
 ];
 // where some windows open on the (full-screen) desktop: [left, top, width, height]; others cascade
 const LAYOUT = {
   term: ['0px', '0px', '60%', 'calc(100% - 42px)'],
   case: ['60%', '0px', '40%', 'calc(100% - 42px)'],
 };
-const MAXED = new Set(['learn']); // opened maximized
+const MAXED = new Set(['learn', 'leet']); // opened maximized
 const DEFAULT_NOTES =
   '競選待辦：\n- 掃街拉票，發完傳單\n- 去麥當勞打工賺零用錢\n- 新中北路障礙賽要拿第一\n- 記得月底前繳房租！\n';
 
@@ -101,7 +102,12 @@ export class PC {
     this.g.audio.blip?.();
     this._tick = setInterval(() => this._clock(), 1000);
     this._clock();
-    if (!Object.keys(this.wins).length) this.launch('browser');
+    // 霍華德's Two Sum: its icon once he has sent it; it pops up by itself while it is unsolved
+    const Q = this.g.howardQuest;
+    for (const b of this.el.querySelectorAll('[data-app="leet"]'))
+      b.style.display = Q?.onPC ? '' : 'none';
+    if (Q?.sent) this.launch('leet');
+    else if (!Object.keys(this.wins).length) this.launch('browser');
   }
   close() {
     if (!this.isOpen) return;
@@ -550,6 +556,133 @@ export class PC {
     const ui = newsUI(body, this.g, { wide: true });
     const t = setInterval(() => ui.refresh(), 1000);
     this.wins.news.cleanup = () => clearInterval(t);
+  }
+  // ---------------- 🧩 Two Sum from 霍華德 (src/systems/quests/HowardTwoSum.js): Python3, O(N), typed by hand ----------------
+  _leet(body) {
+    const g = this.g,
+      Q = g.howardQuest;
+    if (!Q) return;
+    body.innerHTML = `<div class="ts">
+      <div class="ts-q">
+        <div class="ts-from">💬 霍華德傳給你的題目</div>
+        <h3>1. Two Sum <span class="ts-easy">Easy</span></h3>
+        <p>給一個整數陣列 <code>nums</code> 和一個整數 <code>target</code>，回傳<b>兩個數字的索引</b>，使它們相加等於 <code>target</code>。</p>
+        <p>每組輸入<b>剛好只有一個答案</b>，同一個元素不能用兩次。回傳的索引順序不限。</p>
+        <div class="ts-ex"><b>範例 1</b><pre>輸入：nums = [2,7,11,15], target = 9
+輸出：[0,1]
+說明：nums[0] + nums[1] == 9</pre></div>
+        <div class="ts-ex"><b>範例 2</b><pre>輸入：nums = [3,2,4], target = 6
+輸出：[1,2]</pre></div>
+        <div class="ts-ex"><b>範例 3</b><pre>輸入：nums = [3,3], target = 6
+輸出：[0,1]</pre></div>
+        <p class="ts-rule">霍華德的規定：<br>・語言 <b>Python3</b><br>・時間複雜度 <b>O(N)</b>（暴力 O(N²)、排序 O(N log N) 都不收）<br>・<b>不可以複製貼上</b>，自己一個字一個字打</p>
+      </div>
+      <div class="ts-r">
+        <div class="ts-head"><span>Python3</span><span class="ts-nopaste">🚫 已停用貼上</span></div>
+        <textarea class="ts-code" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        <div class="ts-btns"><button class="ts-run">▶ 執行範例</button><button class="ts-sub">提交</button></div>
+        <div class="ts-out">${Q.done ? '<div class="ts-ac">✅ Accepted —— 忍 400 已經可以騎了</div>' : '寫好後先「執行範例」，再「提交」。第一次執行要下載 Python（約 10 秒）。'}</div>
+      </div></div>`;
+    const ta = body.querySelector('.ts-code'),
+      out = body.querySelector('.ts-out');
+    ta.value = Q.state.code;
+    let last = ta.value;
+    const warn = () => {
+      g.hud.toast('🙅 霍華德說：不可以複製貼上，自己打！', 'bad', 2200);
+      ta.classList.remove('ts-shake');
+      void ta.offsetWidth;
+      ta.classList.add('ts-shake');
+    };
+    // no pasting, no dropping text in, no autofill of a whole block
+    for (const ev of ['paste', 'drop', 'dragover'])
+      ta.addEventListener(ev, (e) => {
+        e.preventDefault();
+        if (ev !== 'dragover') warn();
+      });
+    ta.addEventListener('contextmenu', (e) => e.preventDefault());
+    ta.addEventListener('beforeinput', (e) => {
+      if (/^insert(FromPaste|FromDrop|FromYank|ReplacementText)/.test(e.inputType || '')) {
+        e.preventDefault();
+        warn();
+      }
+    });
+    ta.addEventListener('input', () => {
+      if (ta.value.length - last.length > 24) {
+        // a whole block at once is not typing
+        ta.value = last;
+        warn();
+        return;
+      }
+      last = ta.value;
+      Q.state.code = ta.value;
+    });
+    const put = (txt) => {
+      const a = ta.selectionStart,
+        b = ta.selectionEnd;
+      ta.value = ta.value.slice(0, a) + txt + ta.value.slice(b);
+      ta.selectionStart = ta.selectionEnd = a + txt.length;
+      last = ta.value;
+      Q.state.code = ta.value;
+    };
+    ta.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      const k = e.key;
+      if ((e.ctrlKey || e.metaKey) && (k === 'v' || k === 'V')) {
+        e.preventDefault();
+        warn();
+        return;
+      }
+      if (k === 'Tab') {
+        e.preventDefault();
+        put('    ');
+      } else if (k === 'Enter') {
+        // keep the indentation, one more level after a colon
+        e.preventDefault();
+        const a = ta.selectionStart,
+          line = ta.value.slice(ta.value.lastIndexOf('\n', a - 1) + 1, a),
+          ind = line.match(/^ */)[0] + (/:\s*$/.test(line) ? '    ' : '');
+        put(`\n${ind}`);
+      }
+    });
+    const show = (r, mode) => {
+      let h = '';
+      if (r.err) h += `<div class="ts-bad">❌ ${_esc(r.err)}</div>`;
+      for (const c of r.cases || []) {
+        const inp = c.nums
+          ? `nums = ${JSON.stringify(c.nums)}, target = ${c.target}`
+          : `大測資 (${c.k})`;
+        const ok = !c.why && !c.err;
+        h += `<div class="ts-case ${ok ? 'ok' : 'no'}">${ok ? '✅' : '❌'} ${_esc(inp)}${c.ans !== undefined ? `　→　${_esc(JSON.stringify(c.ans))}` : ''}${c.why ? `<small>${_esc(c.why)}</small>` : ''}${c.err ? `<small>${_esc(c.err)}</small>` : ''}</div>`;
+      }
+      if (mode === 'submit' && !r.err) {
+        if (r.bad?.length)
+          h += `<div class="ts-bad">⏱ 不是 O(N)：<br>${r.bad.map(_esc).join('<br>')}</div>`;
+        else if (r.slow)
+          h += `<div class="ts-bad">⏱ Time Limit Exceeded：n = ${r.slow.toLocaleString()} 跑太久（${(r.times || []).join(' ms → ')} ms），這不是 O(N)</div>`;
+        else if (r.ok)
+          h += `<div class="ts-ac">✅ Accepted　${r.passed} 組測資全部通過・n = 20,000 只花 ${(r.times || [])[1]} ms<br>霍華德的忍 400 可以騎了！</div>`;
+      } else if (mode === 'run' && r.ok)
+        h += '<div class="ts-note">範例都對了，按「提交」跑完整測資和時間複雜度。</div>';
+      if (r.out?.trim())
+        h += `<div class="ts-print"><b>print 輸出</b><pre>${_esc(r.out.trim().slice(0, 2000))}</pre></div>`;
+      out.innerHTML = h || '（沒有結果）';
+    };
+    const go = async (mode) => {
+      for (const b of body.querySelectorAll('.ts-btns button')) b.disabled = true;
+      out.innerHTML = '⏳ 執行中……（第一次要下載 Python，約 10 秒）';
+      try {
+        show(await Q.judge(ta.value, mode), mode);
+      } catch (e) {
+        out.innerHTML = `<div class="ts-bad">❌ ${_esc(e.message || e)}</div>`;
+      }
+      for (const b of body.querySelectorAll('.ts-btns button')) b.disabled = false;
+    };
+    body.querySelector('.ts-run').onclick = () => go('run');
+    body.querySelector('.ts-sub').onclick = () => go('submit');
+    setTimeout(() => {
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = ta.value.length;
+    }, 50);
   }
   // ---------------- 資管學堂: online Python / MySQL course (src/systems/minigames/Learn.js) ----------------
   _learn(body) {

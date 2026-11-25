@@ -109,7 +109,8 @@ onmessage = async (e) => {
   });
   return pyReady;
 }
-async function runPython(code) {
+// also the judge of 霍華德's Two Sum (src/systems/quests/HowardTwoSum.js)
+export async function runPython(code) {
   await pyWorker();
   const id = ++pyId;
   return new Promise((ok) => {

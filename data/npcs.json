@@ -96,7 +96,7 @@
       "likes": "牛肉拉麵、麥當勞",
       "catchphrase": "資管要贏，票投彥霖！✌",
       "background": "在活動中心 B1 的麥當勞打工，以前住在中北路孫師傅牛肉拉麵的樓上。明天就是投票日。",
-      "relations": "小安是競選總幹事；阿哲是系上學長；女朋友是遠距離的 Winter；鄰居是黃蓋瑞。",
+      "relations": "M.O.N.D.A.Y 是競選總幹事 AI；W.E.D.N.E.S.D.A.Y 是系館駐點 AI；女朋友是遠距離的 Winter；鄰居是黃蓋瑞。",
       "where": "玩家操作的主角",
       "schedule": "跟著主線任務走",
       "sources": [
@@ -105,51 +105,55 @@
       ]
     },
     {
-      "id": "xiaoan",
+      "id": "monday",
       "kind": "builtin",
-      "ref": "xiaoan",
-      "name": "小安",
-      "title": "競選總幹事",
-      "gender": "女",
-      "dept": "資管系三年級",
-      "personality": "細心又愛操心，行程排得滿滿的；嘴上催人，其實比誰都挺彥霖。",
+      "ref": "monday",
+      "name": "M.O.N.D.A.Y",
+      "title": "競選總幹事 AI",
+      "gender": "AI",
+      "dept": "全息投影（青色圓圈）",
+      "personality": "冷靜、精準，講話像系統回報；其實比誰都挺彥霖。",
       "interests": [
         "排行程",
-        "做筆記",
-        "幫大家買早餐"
+        "監控校園布條訊號",
+        "計算票數"
       ],
-      "likes": "蛋餅配豆漿",
-      "catchphrase": "跟著地圖上的黃色★走！",
-      "background": "主線的任務幾乎都是她交代的：發傳單、買早餐、掛布條、查布條失竊案。",
-      "relations": "彥霖的競選總幹事，和阿哲一起帶競選團隊。",
+      "likes": "任務準時完成",
+      "catchphrase": "路線已標在地圖上的黃色★。",
+      "background": "取代以前的競選總幹事小安：主線任務幾乎都是它交代的 —— 發傳單、買早餐、掛布條、查布條失竊案。在地圖上是一個浮在半空、會轉的 3D 青色全息圓圈。",
+      "relations": "和 W.E.D.N.E.S.D.A.Y、右下角的提示 AI S.U.N.D.A.Y 是同一套系統。",
       "where": "舊正門（遊戲起點）",
-      "schedule": "整天站在舊正門附近等彥霖回報",
+      "schedule": "整天浮在舊正門附近待命，按 E 呼叫",
       "sources": [
-        "src/systems/MissionSystem.js"
+        "src/systems/MissionSystem.js",
+        "src/entities/HoloAI.js",
+        "src/graphics/HoloRing.js"
       ]
     },
     {
-      "id": "azhe",
+      "id": "wednesday",
       "kind": "builtin",
-      "ref": "azhe",
-      "name": "阿哲",
-      "title": "資管系學長",
-      "gender": "男",
-      "dept": "資管系四年級",
-      "personality": "熱心、愛開玩笑，講話很有梗；做事很快，傳單一早就印好。",
+      "ref": "wednesday",
+      "name": "W.E.D.N.E.S.D.A.Y",
+      "title": "資管系館駐點 AI",
+      "gender": "AI",
+      "dept": "全息投影（紫色圓圈）",
+      "personality": "反應快、偶爾冒出冷笑話式的計算結果（「蛋餅 2 分鐘後就會冷掉」）。",
       "interests": [
         "印傳單",
-        "系上活動",
-        "宵夜"
+        "系館監控",
+        "調度機車"
       ],
-      "likes": "熱騰騰的蛋餅",
-      "catchphrase": "主角終於來了！",
-      "background": "主線任務一開始在資管系館前交代傳單任務，也是他想起舊電腦裡有校園紀錄備份。",
-      "relations": "彥霖的學長、競選團隊成員。",
+      "likes": "效率超出預期的任務",
+      "catchphrase": "偵測到候選人抵達。",
+      "background": "取代以前的阿哲學長：主線任務一開始在資管系館前交代傳單任務，也是它想起舊電腦裡有離線的校園紀錄備份。在地圖上是一個 3D 紫色全息圓圈。",
+      "relations": "M.O.N.D.A.Y 的搭檔，競選團隊的系館駐點。",
       "where": "資訊管理學系館前",
-      "schedule": "從任務一開始一直待在系館前",
+      "schedule": "從任務一開始一直浮在系館前",
       "sources": [
-        "src/systems/MissionSystem.js"
+        "src/systems/MissionSystem.js",
+        "src/entities/HoloAI.js",
+        "src/graphics/HoloRing.js"
       ]
     },
     {

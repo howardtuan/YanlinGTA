@@ -1,6 +1,6 @@
 // Campaign story for 彥霖 (Yanlin) (第34屆資管系會長候選人).
 // All story text lives here — edit freely.
-import { makeMissionNpc } from '../entities/NPC.js';
+import { makeHoloNpc } from '../entities/HoloAI.js';
 import { NAME_ALIAS } from '../world/zones/ZoneA.js';
 
 export const SPEECH = [
@@ -10,30 +10,10 @@ export const SPEECH = [
   ['彥霖', '資管要贏，票投彥霖！✌'],
 ];
 
-// 小安 (MANAGER) and 阿哲 (SENIOR) are exported for tools/npc-dashboard
-export const MANAGER = {
-  skin: '#f0d2b8',
-  shirt: '#ffd23f',
-  shorts: '#1d3557',
-  pants: true,
-  hair: '#1a1410',
-  hairStyle: 'pony',
-  glasses: false,
-  shoes: '#222',
-  face: true,
-};
-export const SENIOR = {
-  skin: '#e2b994',
-  shirt: '#2f6bff',
-  shorts: '#333',
-  pants: true,
-  hair: '#111',
-  hairStyle: 'short',
-  glasses: true,
-  shoes: '#f5f5f2',
-  face: true,
-  bag: '#222',
-};
+// The two story AIs that give the missions (they replaced the old 小安 / 阿哲 NPCs). Both are holographic
+// rings standing on the map (src/entities/HoloAI.js); exported for tools/npc-dashboard and the tests.
+export const MONDAY = 'M.O.N.D.A.Y'; // 舊正門起點，帶整條主線（青色）
+export const WEDNESDAY = 'W.E.D.N.E.S.D.A.Y'; // 資管系館前駐點（紫色）
 
 export class Missions {
   constructor(game) {
@@ -81,33 +61,26 @@ export class Missions {
   get active() {
     return this.step;
   }
-  // story NPCs always stand at their own fixed spots: 小安 at the start point inside the old gate,
-  // 阿哲 in front of the 資管系館. Called by the steps and when a saved game is resumed at step idx.
+  // the story AIs always float at their own fixed spots: M.O.N.D.A.Y at the start point inside the old gate,
+  // W.E.D.N.E.S.D.A.Y in front of the 資管系館. Called by the steps and when a saved game is resumed at step idx.
   spawnNpcs(idx) {
     const g = this.g,
       s = g.startPos,
       P = this.P;
     if (!this.manager) {
-      this.manager = makeMissionNpc(
-        g.scene,
-        MANAGER,
-        '競選總幹事 小安',
-        s.x + 1.6,
-        s.z + 1.2,
-        s.h + Math.PI
-      );
+      this.manager = makeHoloNpc(g.scene, MONDAY, s.x + 1.6, s.z + 1.2, s.h + Math.PI);
       g.npcs.push(this.manager);
-      this._talkable(this.manager, '小安', '競選總幹事小安');
+      this._talkable(this.manager, MONDAY);
     }
     if (idx >= 1 && !this.senior) {
-      this.senior = makeMissionNpc(g.scene, SENIOR, '資管系學長 阿哲', P.im.x + 2, P.im.z + 1.5, 0);
+      this.senior = makeHoloNpc(g.scene, WEDNESDAY, P.im.x + 2, P.im.z + 1.5, 0);
       g.npcs.push(this.senior);
-      this._talkable(this.senior, '阿哲', '阿哲學長');
+      this._talkable(this.senior, WEDNESDAY);
     }
   }
-  // 小安 / 阿哲 between their story scenes: E reminds you what to do now (or that the mission is paused), and cheers
-  // you on once the story is over. (They used to have no E at all: walking up to them did nothing.)
-  _talkable(npc, who, title) {
+  // the AIs between their story scenes: E reminds you what to do now (or that the mission is paused), and cheers
+  // you on once the story is over.
+  _talkable(npc, who) {
     const g = this.g,
       p = npc.ch.root.position;
     g.interiors.actions.push({
@@ -117,7 +90,7 @@ export class Missions {
       y: 0,
       anyY: true,
       cond: () => npc.ch.root.visible && !g.hud.inDialog,
-      label: () => `按 <kbd>E</kbd> 和${title}說話`,
+      label: () => `按 <kbd>E</kbd> 呼叫 ${who}`,
       fn: () => this.chat(who),
     });
   }
@@ -127,14 +100,17 @@ export class Missions {
     let lines;
     if (this.done || this.free)
       lines =
-        who === '小安'
+        who === MONDAY
           ? [
-              ['小安', '辛苦了會長！✌ 接下來就是自由時間啦，去收集金色選票、到處逛逛吧。'],
-              ['小安', '有空也幫忙發發傳單，選票是越多越好 🗳️'],
+              [
+                MONDAY,
+                '主線任務全部完成。辛苦了，會長 ✌ 接下來是自由時間，去收集金色選票、到處逛逛吧。',
+              ],
+              [MONDAY, '提醒：發傳單一樣能加票，選票是越多越好 🗳️'],
             ]
           : [
-              ['阿哲', '會長好！系學會的事之後再慢慢跟你交接 😆'],
-              ['阿哲', '想打工的話活動中心的麥當勞在缺人喔 🍟'],
+              [WEDNESDAY, '系館駐點回報：一切正常。系學會的交接資料我已經整理好了 😆'],
+              [WEDNESDAY, '偵測到活動中心的麥當勞在缺人，想打工可以過去 🍟'],
             ];
     else if (this.exited)
       lines = [
@@ -143,14 +119,12 @@ export class Missions {
       ];
     else if (this.step && obj)
       lines = [
-        [who, who === '小安' ? '我們現在要做的是：' : '學弟，現在要：'],
+        [who, who === MONDAY ? '目前的任務目標：' : '系館駐點提示，現在要：'],
         [who, obj],
         [who, '不知道怎麼走就按 M 看大地圖，或打開手機「任務」App 導航 🧭'],
       ];
     else
-      lines = [
-        [who, who === '小安' ? '我在這邊等你，有事隨時來找我！' : '加油！系館這邊交給我顧 💪'],
-      ];
+      lines = [[who, who === MONDAY ? '我在這裡待命，有事隨時呼叫我。' : '系館這邊交給我監控 💪']];
     g.dialog(lines);
   }
   start(free = false) {
@@ -447,16 +421,19 @@ Missions.prototype.steps = [
     const g = this.g,
       P = this.P;
     this.spawnNpcs(0);
-    g.hud.setObjective('序章 · 投票前一天', '和 小安 對話');
+    g.hud.setObjective('序章 · 投票前一天', '和 <b>M.O.N.D.A.Y</b> 對話');
     this.talk(
       [
         [
-          '小安',
-          '早安彥霖！明天就是 <第34屆資管系會長> 投票日了，今天是最後衝刺，從早上拉票到晚上的政見發表會！',
+          MONDAY,
+          '早安，彥霖。我是你的競選總幹事 AI —— M.O.N.D.A.Y。明天就是 <第34屆資管系會長> 投票日，今天是最後衝刺：從早上拉票到晚上的政見發表會。',
         ],
         ['彥霖', '放心，我準備好了 ✌'],
-        ['小安', '大家一早就在資訊管理學系館集合等你。系館在二一鐘塔的東邊，跟著地圖上的黃色★走！'],
-        ['小安', '小提示：按 [[M|View]] 打開大地圖；路邊的機車走過去按 [[F|B]] 就能騎。'],
+        [
+          MONDAY,
+          '競選團隊一早就在資訊管理學系館集合。系館在二一鐘塔的東邊，路線已標在地圖上的黃色★。',
+        ],
+        [MONDAY, '操作提示：按 [[M|View]] 打開大地圖；路邊的機車走過去按 [[F|B]] 就能騎。'],
       ],
       () => {
         g.player.setPose('peace', 1.5);
@@ -472,12 +449,15 @@ Missions.prototype.steps = [
     g.bringMyScooter(P.im.x, P.im.z);
     this.talk(
       [
-        ['阿哲', '早安！主角終於來了！傳單一早剛印好，還熱熱的。'],
         [
-          '阿哲',
-          '幫我把傳單送到 5 個公布欄：圖書館、學生活動中心、全人教育村、體育館、良善樓宿舍。',
+          WEDNESDAY,
+          '偵測到候選人抵達。我是系館駐點 AI —— W.E.D.N.E.S.D.A.Y。傳單一早剛印好，還熱熱的。',
         ],
-        ['阿哲', '限時 3 分鐘！你的 JET SL 我幫你牽到系館前面了，騎它比較快 🛵'],
+        [
+          WEDNESDAY,
+          '任務：把傳單送到 5 個公布欄 —— 圖書館、學生活動中心、全人教育村、體育館、良善樓宿舍。',
+        ],
+        [WEDNESDAY, '限時 3 分鐘！你的 JET SL 我已經遠端調度到系館前面了，騎它比較快 🛵'],
       ],
       () => {
         const cps = P.flyers;
@@ -517,9 +497,9 @@ Missions.prototype.steps = [
       P = this.P;
     this.talk(
       [
-        ['阿哲', '太神啦！不過大家一大早就來幫忙，到現在都還沒吃早餐…'],
-        ['小安', '彥霖，可以幫大家去中原夜市那條街的早餐店買蛋餅跟豆漿嗎？'],
-        ['阿哲', '蛋餅冷掉就不好吃了，2 分鐘內來回！'],
+        [WEDNESDAY, '傳單全數送達，效率超出預期！不過團隊成員一大早就來幫忙，到現在都還沒吃早餐…'],
+        [MONDAY, '彥霖，請幫大家去中原夜市那條街的早餐店買蛋餅跟豆漿。'],
+        [WEDNESDAY, '根據計算，蛋餅 2 分鐘後就會冷掉。限時 2 分鐘來回！'],
       ],
       () => {
         this.timer = 120;
@@ -556,9 +536,12 @@ Missions.prototype.steps = [
     const g = this.g;
     this.talk(
       [
-        ['阿哲', '吃飽了，該去拉票啦！'],
-        ['小安', '去路上找同學聊聊，對他們按 [[滑鼠左鍵|X]]（手機按 📄）遞傳單。目標再拿 15 票！'],
-        ['小安', '騎車小心，撞到同學會掉票喔 😅'],
+        [WEDNESDAY, '團隊能量已補滿，該去拉票了！'],
+        [
+          MONDAY,
+          '去路上找同學聊聊，對他們按 [[滑鼠左鍵|X]]（手機按 📄）遞傳單。目標：再拿 15 票！',
+        ],
+        [MONDAY, '安全提醒：騎車撞到同學會掉票 😅'],
       ],
       () => {
         this._title = '任務三 · 掃街拉票';
@@ -584,8 +567,8 @@ Missions.prototype.steps = [
       P = this.P;
     this.talk(
       [
-        ['小安', '糟了！剛剛有人把我們的布條拆掉了！'],
-        ['小安', '依照順序騎去 6 個地點把布條掛回去，限時 120 秒！'],
+        [MONDAY, '警報！校園各處的競選布條訊號中斷 —— 有人把我們的布條拆掉了！'],
+        [MONDAY, '依照順序騎去 6 個地點把布條掛回去，限時 120 秒！'],
         ['彥霖', '交給我，衝了 🛵💨'],
       ],
       () => {
@@ -618,13 +601,16 @@ Missions.prototype.steps = [
       D = g.detective;
     this.talk(
       [
-        ['小安', '布條是掛回去了，可是到底是誰拆的？這樣下去明天投票前還會出事。'],
+        [MONDAY, '布條已全部恢復。但到底是誰拆的？不查清楚，明天投票前還會出事。'],
         [
-          '阿哲',
+          WEDNESDAY,
           '系學會以前辦活動對帳，存過一份「校園紀錄」備份：路口監視器的車牌、門禁刷卡、超商發票都有。',
         ],
-        ['阿哲', '那份備份只在彥霖以前那台舊電腦裡，就放在你以前住的地方。'],
-        ['小安', '你以前住哪？我只記得是在 <中北路> 上，樓下是一間 <牛肉拉麵店>。'],
+        [
+          WEDNESDAY,
+          '那份備份是離線的，只在彥霖以前那台舊電腦裡，就放在你以前住的地方。我連不進去。',
+        ],
+        [MONDAY, '我的資料庫只剩部分紀錄：在 <中北路> 上，樓下是一間 <牛肉拉麵店>。'],
         ['彥霖', '……自己住過的地方我當然記得（應該吧）。我回去用電腦查！'],
       ],
       () => {
@@ -657,12 +643,12 @@ Missions.prototype.steps = [
               () => {
                 this.talk(
                   [
-                    ['彥霖', '小安，我查到了！是資管系二年級的 小明。'],
+                    ['彥霖', 'M.O.N.D.A.Y，我查到了！是資管系二年級的 小明。'],
                     [
                       '彥霖',
                       '他中午先去全家買了美工刀跟大垃圾袋，騎著 MKZ-893 繞校園一圈，把 6 條布條一條一條割下來，最後還發文說「任務完成」。',
                     ],
-                    ['小安', '……我馬上去系館找他。'],
+                    [MONDAY, '……已通知 W.E.D.N.E.S.D.A.Y，請他在系館把人留下來。'],
                     [
                       '小明',
                       '對不起……我只是想幫小華學姊，一時衝動就做了。布條都收在系館的櫃子裡，沒有弄壞。',
@@ -673,8 +659,8 @@ Missions.prototype.steps = [
                     ],
                     ['彥霖', '沒關係，明天我們就公平地比一場吧 ✌'],
                     [
-                      '小安',
-                      '真相大白！大家都在討論你怎麼用資料庫破案的，風向整個站到我們這邊了！',
+                      MONDAY,
+                      '真相大白！社群聲量分析：大家都在討論你怎麼用資料庫破案的，風向整個站到我們這邊了！',
                     ],
                   ],
                   () => {
@@ -699,7 +685,7 @@ Missions.prototype.steps = [
                 icon: '?',
               },
             ],
-            // after 2.5 minutes 小安 texts the exact place
+            // after 2.5 minutes M.O.N.D.A.Y sends the exact place
             tick: (t, step) => {
               if (step.hinted || t < 150) return;
               step.hinted = true;
@@ -707,7 +693,7 @@ Missions.prototype.steps = [
               this.g.setBeam({ x: d[0], z: d[1] }, 6);
               this.hideHome = false;
               g.hud.toast(
-                '📱 小安：「是 孫師傅牛肉拉麵 樓上啦！我幫你標在地圖上了」',
+                '📡 M.O.N.D.A.Y：「定位完成，是 孫師傅牛肉拉麵 樓上！已標在地圖上」',
                 'good',
                 3600
               );
@@ -723,8 +709,8 @@ Missions.prototype.steps = [
       P = this.P;
     this.talk(
       [
-        ['小安', '忙了一整天，晚上 7 點的政見發表會要開始了！'],
-        ['小安', '大家都在 學生活動中心 等你，快過去！'],
+        [MONDAY, '忙了一整天，晚上 7 點的政見發表會要開始了！'],
+        [MONDAY, '大家都在 學生活動中心 等你，路線已設定，快過去！'],
       ],
       () => {
         this.goto(

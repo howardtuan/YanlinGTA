@@ -97,7 +97,7 @@ const SHOP = [
     name: '加印傳單 500 張',
     icon: '📄',
     price: 200,
-    desc: '交給阿凱發，+3 票（最多 3 次）',
+    desc: '交給競選團隊發，+3 票（最多 3 次）',
     votes: 3,
     max: 3,
   },
@@ -109,7 +109,6 @@ const SHOP = [
     desc: '競選小組士氣大增，+4 票',
     votes: 4,
     max: 1,
-    team: '雞排！！！會長萬歲 🍗',
   },
   {
     id: 'tee',
@@ -155,7 +154,7 @@ const NOTES = [
   {
     t: '政見發表會講稿',
     d: '昨天',
-    b: '大家好，我是資管系第34屆系學會會長候選人彥霖。\n資管要贏，票投彥霖！\n（記得不要超過五分鐘——柏宇）',
+    b: '大家好，我是資管系第34屆系學會會長候選人彥霖。\n資管要贏，票投彥霖！\n（記得不要超過五分鐘）',
   },
   {
     t: '待辦',
@@ -593,7 +592,7 @@ export class Phone {
     const g = this.g,
       M = g.missions;
     const LIST = [
-      ['序章 · 投票前一天', '一早和總幹事小安會合，前往資訊管理學系館'],
+      ['序章 · 投票前一天', '一早和總幹事 AI M.O.N.D.A.Y 會合，前往資訊管理學系館'],
       ['任務一 · 傳單大作戰', '3 分鐘內把傳單送到 5 個公布欄'],
       ['任務二 · 早餐補給', '去中原夜市那條街幫競選小組買早餐'],
       ['任務三 · 掃街拉票', '對路上的同學發傳單，拉到 15 票'],
@@ -1357,16 +1356,6 @@ export class Phone {
           }
           if (it.votes) g.addVotes(it.votes, `${it.icon} ${it.name} +${it.votes} 票`);
           else if (!it.boost) g.hud.toast(`${it.icon} ${it.name} 已送達！`, 'good', 1800);
-          if (it.team) {
-            const t = this.chats.find((x) => x.c.id === 'team');
-            if (t) {
-              t.msgs.push({ who: '阿凱', text: it.team, time: hhmm(g.clock) });
-              t.lastAt = g.clock;
-              t.unread++;
-              this._relist();
-              g.audio.notify?.(0.6);
-            }
-          }
           const y = c.scrollTop;
           this._shop('store');
           this.view.querySelector('.ph-content').scrollTop = y;
@@ -2034,7 +2023,7 @@ export class Phone {
       }
     }
     const fallback = scripted || [
-      { who: st.c.group ? (st.members || ['柏宇'])[0] : st.c.id, text: this._filler() },
+      { who: st.c.group ? (st.members || [st.c.name])[0] : st.c.id, text: this._filler() },
     ];
     // scripted options always get their written reply (no AI); the AI only answers your own words and its own topics
     if (Nano.on && !scripted) {

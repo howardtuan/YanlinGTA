@@ -34,7 +34,7 @@ flowchart TD
 | 類別 | 代表人物 | 實作方式 | 支援能力 |
 | :--- | :--- | :--- | :--- |
 | **自訂 NPC (`custom`)** | 一般系上同學、學弟妹、路人好友 | 透過 `data/npcs.json` 設定，無需修改任何 JavaScript。 | 3D 外觀即時生成、定點站位、面向設定、名牌顯示、多輪輪播對話樹。 |
-| **劇情 NPC (`builtin`)** | 漢克、羊明衫、黃蓋瑞、劍玉、阿哲、小安 | `src/entities/npcs/` 專屬類別模組。 | 24 小時作息排程、換裝換地點、i-Piyan 加好友聊天、Peachgram 發限動、借車、打工值班。 |
+| **劇情 NPC (`builtin`)** | 漢克、羊明衫、黃蓋瑞、劍玉、M.O.N.D.A.Y、W.E.D.N.E.S.D.A.Y（全息 AI，`src/entities/HoloAI.js`） | `src/entities/npcs/` 專屬類別模組。 | 24 小時作息排程、換裝換地點、i-Piyan 加好友聊天、Peachgram 發限動、借車、打工值班。 |
 
 ---
 

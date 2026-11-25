@@ -8,6 +8,8 @@
 import { MahjongEngine } from './Engine.js';
 import { makeAI, SKILL_DEFAULT, effectiveSkill, skillTier, adjustSkill } from './AI.js';
 import { MahjongScene } from './MahjongScene.js';
+import { RemoteMahjongEngine, normalizeRoomCode } from './Net.js';
+import { createHostRoom, joinGuestRoom } from './P2P.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import {
   STAKES,
@@ -242,7 +244,7 @@ export class DormMahjong {
     }
     if (g.money <= 0)
       return `💸 錢包見底了（NT$ ${g.money.toLocaleString('en-US')}），先去賺點錢才能上桌`;
-    return `按 <kbd>E</kbd> 揪人打麻將 🀄（開打前選底／台）`;
+    return `按 <kbd>E</kbd> 上麻將桌 🀄（單人打室友／多人連線）`;
   }
   press() {
     const g = this.g;
@@ -257,7 +259,242 @@ export class DormMahjong {
       g.hud.toast('💸 錢已經輸光了（0 或負的），不能開打', 'bad', 2400);
       return;
     }
-    this.gather();
+    this.openMenu();
+  }
+  openMenu() {
+    const g = this.g;
+    this.state = 'play';
+    this.mpMode = null;
+    document.exitPointerLock?.();
+    this.scene ||= new MahjongScene(g, this);
+    this.scene.open(['彥霖', '室友', '室友', '室友']);
+    this.scene.chooseMode();
+  }
+  closeMenu() {
+    this.mp?.close();
+    this.mp = null;
+    this.mpMode = null;
+    this.scene?.close();
+    this.release();
+    this.g.resume?.();
+  }
+  pickMode(mode) {
+    if (mode === 'solo') {
+      this.closeMenu();
+      this.gather();
+      return;
+    }
+    if (mode === 'multi') {
+      this.scene?.chooseMulti(this.savedNick(), this.stats.stake || 0);
+    }
+  }
+  savedNick() {
+    try {
+      return localStorage.getItem('yanlinGTA.mjNick') || '彥霖';
+    } catch (_e) {
+      return '彥霖';
+    }
+  }
+  saveNick(nick) {
+    const n =
+      String(nick || '')
+        .trim()
+        .slice(0, 12) || '彥霖';
+    try {
+      localStorage.setItem('yanlinGTA.mjNick', n);
+    } catch (_e) {
+      /* storage blocked */
+    }
+    return n;
+  }
+  get isMulti() {
+    return !!this.sess?.multi || !!this.mpMode;
+  }
+  get isGuest() {
+    return this.mpMode === 'guest';
+  }
+  async hostRoom(nick, stake = 0, joinRoomFn) {
+    const g = this.g;
+    const clean = this.saveNick(nick);
+    this.stats.stake = stake;
+    this.mp?.close();
+    this.mpMode = 'host';
+    this.scene?.showLobby({ role: 'host', connecting: true, stake, seats: [] });
+    try {
+      this.mp = await createHostRoom({
+        name: clean,
+        stake,
+        joinRoomFn,
+        onLobby: (lobby) => {
+          this._lobby = lobby;
+          this.scene?.showLobby({ role: 'host', ...lobby });
+        },
+        onNotice: (msg) => g.hud.toast(msg, 'good', 2400),
+        onAction: (seat, act) => this._onRemoteAction(seat, act),
+        onPeerLeave: (seat) => this._onGuestDisconnect(seat),
+      });
+    } catch (e) {
+      this.mpMode = null;
+      g.hud.toast(`開房失敗：${e?.message || '請稍後再試'}`, 'bad', 3000);
+      this.scene?.chooseMulti(clean, stake);
+    }
+  }
+  setHostStake(i) {
+    this.stats.stake = i;
+    this.mp?.setStake?.(i);
+  }
+  async joinRoom(code, nick, joinRoomFn) {
+    const g = this.g;
+    const clean = this.saveNick(nick);
+    const roomCode = normalizeRoomCode(code);
+    if (roomCode.length < 4) {
+      g.hud.toast('請輸入 4 碼房號', 'bad', 2200);
+      return;
+    }
+    this.mp?.close();
+    this.mpMode = 'guest';
+    this.scene?.showLobby({
+      role: 'guest',
+      code: roomCode,
+      connecting: true,
+      stake: 0,
+      seats: [],
+    });
+    try {
+      this.mp = await joinGuestRoom({
+        code: roomCode,
+        name: clean,
+        joinRoomFn,
+        onLobby: (lobby) => {
+          this._lobby = lobby;
+          this.scene?.showLobby({ role: 'guest', ...lobby });
+        },
+        onStart: (data) => this._startGuestSession(data),
+        onState: (snap, events) => this._onGuestState(snap, events),
+        onNext: () => {
+          if (this.engine?.isRemote && this.scene) this.scene.startHand(this.engine);
+        },
+        onNotice: (msg) => g.hud.toast(msg, 'good', 2600),
+        onEnd: (reason) => this._onGuestEnd(reason),
+      });
+    } catch (e) {
+      this.mpMode = null;
+      g.hud.toast(`加入失敗：${e?.message || '請確認房號'}`, 'bad', 3000);
+      this.scene?.chooseMulti(clean, this.stats.stake || 0, roomCode);
+    }
+  }
+  startMultiHost() {
+    if (!this.mp || this.mpMode !== 'host') return;
+    const g = this.g;
+    const aiPicks = pickPlayers(g, 3);
+    const aiPool = aiPicks.length >= 3 ? aiPicks : ROSTER.slice(0, 3);
+    const info = this.mp.startGame(aiPool);
+    const [base, perTai] = STAKES[this.mp.stake] || STAKES[0];
+    this.stats.stake = this.mp.stake;
+    // 用寢室室友當作牌桌旁的 3D 模型（名字仍顯示真人玩家暱稱）
+    this.party = aiPool.slice(0, 3).map((r, i) => ({
+      id: r.id,
+      name: info.names[i + 1],
+      seat: i + 1,
+      style: info.seats[i + 1]?.style || r.style,
+      st: 'dorm',
+      arrive: g.clock,
+    }));
+    this.sess = {
+      dealer: 0,
+      streak: 0,
+      passes: 0,
+      hands: 0,
+      net: 0,
+      base,
+      perTai,
+      heat: 0,
+      winStreak: 0,
+      loseStreak: 0,
+      multi: true,
+      human: info.human,
+      names: info.names,
+    };
+    this._seatAIs();
+    this.scene.names = info.names;
+    this.scene.lobby = null;
+    this.deal();
+  }
+  _startGuestSession(data) {
+    const g = this.g;
+    const [base, perTai] = STAKES[data.stake] || STAKES[0];
+    const visual = pickPlayers(g, 3);
+    const pool = visual.length >= 3 ? visual : ROSTER.slice(0, 3);
+    this.party = pool.slice(0, 3).map((r, i) => ({
+      id: r.id,
+      name: data.names[i + 1],
+      seat: i + 1,
+      style: r.style,
+      st: 'dorm',
+      arrive: g.clock,
+    }));
+    this.sess = {
+      dealer: 0,
+      streak: 0,
+      passes: 0,
+      hands: 0,
+      net: 0,
+      base,
+      perTai,
+      heat: 0,
+      winStreak: 0,
+      loseStreak: 0,
+      multi: true,
+      guest: true,
+      seat: data.seat,
+      names: data.names,
+    };
+    this.engine = new RemoteMahjongEngine((act) => this.mp?.sendAction(act));
+    this.scene.names = data.names;
+    this.scene.lobby = null;
+    this.scene.startHand(this.engine);
+  }
+  _onRemoteAction(seat, act) {
+    const e = this.engine;
+    if (!e || this.mpMode !== 'host') return;
+    e.events.length = 0;
+    if (!e.decideFor(seat, act)) return;
+    const evs = [...e.events];
+    this.mp?.broadcastState(e, evs);
+    if (this.scene) {
+      this.scene.t = Math.max(this.scene.t, 0.15);
+      this.scene._layout();
+    }
+  }
+  _onGuestDisconnect(seat) {
+    if (!this.sess?.multi || this.mpMode !== 'host') return;
+    if (this.sess.human) this.sess.human[seat] = false;
+    if (!this.ais?.[seat])
+      this.ais[seat] = makeAI({ attack: 0.5, defense: 0.5, skill: () => this.aiSkill() });
+    const e = this.engine;
+    if (e) {
+      e.events.length = 0;
+      e.handOverToAI(seat);
+      this.mp?.broadcastState(e, [...e.events]);
+    }
+  }
+  onHostStep(events) {
+    if (this.mpMode === 'host' && this.mp && this.engine) {
+      this.mp.broadcastState(this.engine, events);
+    }
+  }
+  _onGuestState(snap, events) {
+    if (!this.engine?.isRemote || !this.scene) return;
+    if (this.scene.result && snap.phase !== 'end') this.scene.startHand(this.engine);
+    this.engine.applySnapshot(snap, events);
+    this.scene._layout();
+    if (snap.phase === 'end' && !this.scene.result) this.scene._showResult();
+  }
+  _onGuestEnd(reason) {
+    if (this.mpMode !== 'guest') return;
+    this.g.hud.toast(reason || '房間已結束', 'bad', 3200);
+    if (this.sess) this.leave(false);
+    else this.closeMenu();
   }
   gather() {
     const g = this.g,
@@ -396,10 +633,19 @@ export class DormMahjong {
       round: this.round,
       base: s.base,
       perTai: s.perTai,
+      human: s.multi ? [...s.human] : [true, false, false, false],
       ai: (e, seat, kind, o) => this.ais[seat](e, seat, kind, o),
     });
     this.scene.startHand(this.engine);
-    this.scene.roll(s.dealer, dice, 'cut');
+    if (s.multi && this.mpMode === 'host') {
+      // 多人房主直接發牌並同步給全桌客端，確保開局節奏一致
+      this.engine.events.length = 0;
+      this.engine.start();
+      this.mp?.broadcastState(this.engine, [...this.engine.events]);
+      this.scene._layout(true);
+    } else {
+      this.scene.roll(s.dealer, dice, 'cut');
+    }
   }
   // the scene calls this when a hand is over: pay up, move the dealer on, and adapt AI difficulty
   handOver(r) {
@@ -407,8 +653,9 @@ export class DormMahjong {
       s = this.sess,
       d = r.deltas[0];
     const prevTier = this.aiTier().id;
-    if (d > 0) g.earn(d, '277 麻將');
-    else if (d < 0) g.pay(-d, '277 麻將');
+    const label = s.multi ? '277 多人麻將' : '277 麻將';
+    if (d > 0) g.earn(d, label);
+    else if (d < 0) g.pay(-d, label);
     s.hands++;
     s.net += d;
     if (!r.draw && r.winner === 0) {
@@ -426,30 +673,32 @@ export class DormMahjong {
       if (r.self) st.self++;
       st.best = Math.max(st.best, r.tai);
     }
-    const adj = adjustSkill(st.skill, s.heat || 0, {
-      winner: r.winner,
-      from: r.from,
-      self: !!r.self,
-      tai: r.tai || 0,
-      delta: d,
-      draw: !!r.draw,
-      winStreak: s.winStreak || 0,
-      loseStreak: s.loseStreak || 0,
-    });
-    st.skill = adj.skill;
-    s.heat = adj.heat;
-    const tier = this.aiTier();
     let banter = null;
-    if (tier.id > prevTier) {
-      const key = tier.id >= 3 ? 'up3' : tier.id === 2 ? 'up2' : null;
-      if (key) banter = this._pickBanter(key, 'up', r.from);
-    } else if (tier.id < prevTier) {
-      const key = tier.id <= 0 ? 'down0' : tier.id === 1 ? 'down1' : null;
-      if (key) banter = this._pickBanter(key, 'down', r.winner);
-    } else if (tier.id === 3 && s.winStreak >= 3 && s.winStreak % 3 === 0) {
-      banter = this._pickBanter('hot', 'up', r.from);
-    } else if (tier.id === 0 && s.loseStreak >= 3 && s.loseStreak % 3 === 0) {
-      banter = this._pickBanter('cold', 'down', r.winner);
+    if (!s.multi) {
+      const adj = adjustSkill(st.skill, s.heat || 0, {
+        winner: r.winner,
+        from: r.from,
+        self: !!r.self,
+        tai: r.tai || 0,
+        delta: d,
+        draw: !!r.draw,
+        winStreak: s.winStreak || 0,
+        loseStreak: s.loseStreak || 0,
+      });
+      st.skill = adj.skill;
+      s.heat = adj.heat;
+      const tier = this.aiTier();
+      if (tier.id > prevTier) {
+        const key = tier.id >= 3 ? 'up3' : tier.id === 2 ? 'up2' : null;
+        if (key) banter = this._pickBanter(key, 'up', r.from);
+      } else if (tier.id < prevTier) {
+        const key = tier.id <= 0 ? 'down0' : tier.id === 1 ? 'down1' : null;
+        if (key) banter = this._pickBanter(key, 'down', r.winner);
+      } else if (tier.id === 3 && s.winStreak >= 3 && s.winStreak % 3 === 0) {
+        banter = this._pickBanter('hot', 'up', r.from);
+      } else if (tier.id === 0 && s.loseStreak >= 3 && s.loseStreak % 3 === 0) {
+        banter = this._pickBanter('cold', 'down', r.winner);
+      }
     }
     if (r.dealerStays) s.streak++;
     else {
@@ -457,33 +706,42 @@ export class DormMahjong {
       s.streak = 0;
       s.passes++;
     }
-    return { over: s.passes >= 16, broke: g.money <= 0, banter, tier };
+    return { over: s.passes >= 16, broke: g.money <= 0, banter, tier: this.aiTier() };
   }
   next() {
+    if (this.isGuest) return;
     if (this.sess.passes >= 16 || this.g.money <= 0) return this.leave();
+    if (this.mpMode === 'host') this.mp?.broadcastNext();
     this.deal();
   }
   // raid: left with Esc in the middle of a hand —「舍監來查寢了，快躲起來，這把不算」
   leave(raid = false) {
     const g = this.g,
-      s = this.sess;
-    this.scene.close();
-    const names = this.party.map((p) => p.name).join('、');
+      s = this.sess,
+      wasMulti = !!s?.multi || !!this.mpMode;
+    this.mp?.close();
+    this.mp = null;
+    this.mpMode = null;
+    this.scene?.close();
+    const names = (s?.names ? s.names.slice(1) : this.party.map((p) => p.name)).join('、');
     this.release();
+    this.sess = null;
     g.resume?.();
     const net = s?.net || 0;
-    if (raid) {
+    if (raid && !wasMulti) {
       g.audio?.mjKnock?.();
       g.dialog([
         ['舍監', '（叩叩叩）查寢！277 開門！'],
         ['彥霖', '🚨 舍監來查寢了！快躲起來——這把不算！'],
       ]);
     }
-    g.hud.toast(
-      `🀄 散場！打了 ${s?.hands || 0} 局，${net ? `${net > 0 ? '贏' : '輸'} NT$ ${Math.abs(net).toLocaleString('en-US')}` : '不輸不贏'}・${names}各自回去了`,
-      net >= 0 ? 'good' : 'bad',
-      3600
-    );
+    if (s) {
+      g.hud.toast(
+        `🀄 散場！打了 ${s.hands || 0} 局，${net ? `${net > 0 ? '贏' : '輸'} NT$ ${Math.abs(net).toLocaleString('en-US')}` : '不輸不贏'}${names ? `・${names}各自回去了` : ''}`,
+        net >= 0 ? 'good' : 'bad',
+        3600
+      );
+    }
   }
 }
 

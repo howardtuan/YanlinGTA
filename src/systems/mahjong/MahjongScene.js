@@ -21,6 +21,13 @@ import {
   SEAT_REL,
 } from './Rules.js';
 import { DiceSet } from './Dice.js';
+import { normalizeRoomCode } from './Net.js';
+
+const esc = (s) =>
+  String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
 
 const TW = 0.03, // tile width, height, thickness (m)
   TH = 0.04,
@@ -501,6 +508,8 @@ export class MahjongScene {
     this.active = false;
     this.e = null;
     this.choosing = null;
+    this.menu = null;
+    this.lobby = null;
     this.intro = null;
     this.dice?.hide();
     this._say('');
@@ -554,8 +563,10 @@ export class MahjongScene {
 
   // ---------------- every frame ----------------
   update(dt, inp) {
-    if (inp.hit('KeyV')) this._toggleView();
+    const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
+    if (!typing && inp.hit('KeyV')) this._toggleView();
     this._viewBtn();
+    if (this.menu || this.lobby) return this._menuKeys(inp, typing);
     if (this.choosing) return this._stakeKeys(inp);
     if (this.intro) {
       this._introUpdate(dt, inp);
@@ -565,12 +576,13 @@ export class MahjongScene {
     const e = this.e;
     if (!e) return;
     this._keys(inp);
-    if (!this.result) {
+    if (!this.result && !e.isRemote) {
       this.t -= dt;
       let guard = 0;
       while (this.t <= 0 && !e.pending && e.phase !== 'end' && guard++ < 6) {
         e.events.length = 0;
         e.step();
+        this.mj.onHostStep?.([...e.events]);
         this.t += this._pace(e.events);
         this._layout();
       }
@@ -802,6 +814,40 @@ export class MahjongScene {
     return out;
   }
   _do(a) {
+    if (a.type === 'mode') return this.mj.pickMode(a.v);
+    if (a.type === 'closeMenu') return this.mj.closeMenu();
+    if (a.type === 'backMode') return this.chooseMode();
+    if (a.type === 'mpStake') {
+      if (this.menu?.kind === 'multi') {
+        this.menu.stake = a.i;
+        this.menu.nick = this.$('#mjNick')?.value ?? this.menu.nick;
+        this.menu.code = this.$('#mjCode')?.value ?? this.menu.code;
+        this._multiPanel();
+      }
+      return;
+    }
+    if (a.type === 'mpHost') {
+      const nick = this.$('#mjNick')?.value || this.menu?.nick || '彥霖';
+      return this.mj.hostRoom(nick, this.menu?.stake || 0);
+    }
+    if (a.type === 'mpJoin') {
+      const nick = this.$('#mjNick')?.value || this.menu?.nick || '朋友';
+      const code = this.$('#mjCode')?.value || '';
+      return this.mj.joinRoom(code, nick);
+    }
+    if (a.type === 'mpCopy') {
+      const code = this.lobby?.code || '';
+      if (!code) return;
+      const text = a.link ? `${location.origin}${location.pathname}?mj=${code}` : code;
+      navigator.clipboard?.writeText(text).catch(() => {});
+      this.g.hud.toast(
+        a.link ? `🔗 已複製邀請連結（房號 ${code}）` : `📋 已複製房號 ${code}`,
+        'good',
+        2000
+      );
+      return;
+    }
+    if (a.type === 'mpStart') return this.mj.startMultiHost();
     if (a.type === 'next') return this.mj.next();
     if (a.type === 'stake') return this._pickStake(a.i);
     if (a.type === 'view') return this._toggleView();
@@ -810,7 +856,9 @@ export class MahjongScene {
     const e = this.e;
     if (!e?.pending) return;
     const { label: _l, key: _k, mine: _m, inc: _i, ...act } = a;
+    if (!e.isRemote) e.events.length = 0;
     if (e.decide(act)) {
+      if (!e.isRemote) this.mj.onHostStep?.([...e.events]);
       this.t = 0.15;
       this._layout();
     }
@@ -818,7 +866,9 @@ export class MahjongScene {
   _discard(i) {
     const e = this.e;
     if (e?.pending?.kind !== 'turn' || !this.mine[i]) return;
+    if (!e.isRemote) e.events.length = 0;
     if (e.decide({ type: 'discard', t: this.mine[i].k })) {
+      if (!e.isRemote) this.mj.onHostStep?.([...e.events]);
       this.t = 0.3;
       this._layout();
     }
@@ -834,7 +884,7 @@ export class MahjongScene {
       return;
     }
     if (this.result) {
-      if (inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE'))
+      if (!this.mj.isGuest && inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE'))
         this._do({ type: this.resNext ? 'next' : 'leave' });
       return;
     }
@@ -905,6 +955,8 @@ export class MahjongScene {
       this.$('.mj-acts').style.top = `${((1 - v.y) / 2) * 100}%`;
     }
     const p = e.pending;
+    const waitSeat =
+      !this.result && (!p || p.seat !== 0) ? (e.isRemote ? e.waitingSeat : p?.seat) : null;
     const hint = this.result
       ? ''
       : p?.seat === 0 && p.kind === 'turn'
@@ -915,7 +967,9 @@ export class MahjongScene {
             : '← → 選牌・Enter／空白鍵打出（滑鼠點牌直接打）・Esc 離開'
         : p?.seat === 0
           ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
-          : '';
+          : waitSeat != null && waitSeat !== 0
+            ? `⏳ 等待 ${this.names[waitSeat]} 思考中…`
+            : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
     this._waitHud();
   }
@@ -930,11 +984,15 @@ export class MahjongScene {
         ? `碰到${R}的刻子算 2 台（圈風＋門風）`
         : `碰到${R}、${S}的刻子各算 1 台`;
     const tier = this.mj.aiTier?.();
-    const mood = tier?.badge ? `<dt>牌風</dt><dd>${tier.badge}</dd>` : '';
+    const extra = this.mj.isMulti
+      ? `<dt>房號</dt><dd>${esc(this.mj.mp?.code || '連線')}</dd>`
+      : tier?.badge
+        ? `<dt>牌風</dt><dd>${tier.badge}</dd>`
+        : '';
     const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>你的門風</span></div></div>
       <div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div><div class="mj-tai">${tai}</div>
-      <div class="mj-dealer"><i class="mj-zhuang">莊</i>${this.names[e.dealer]}${e.dealer === 0 ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
-      <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>${mood}
+      <div class="mj-dealer"><i class="mj-zhuang">莊</i>${esc(this.names[e.dealer])}${e.dealer === 0 ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
+      <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>${extra}
       <dt>錢包</dt><dd class="mj-cash ${g.money < 0 ? 'neg' : ''}">NT$ ${g.money.toLocaleString('en-US')}</dd></dl>`;
     if (html !== this._info) this.$('.mj-info').innerHTML = this._info = html;
   }
@@ -974,6 +1032,138 @@ export class MahjongScene {
     v.project(this.cam);
     el.style.left = `${((v.x + 1) / 2) * 100}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
+  }
+  // ---------------- mode picker & P2P multiplayer lobby ----------------
+  chooseMode() {
+    this.e = null;
+    this.choosing = null;
+    this.lobby = null;
+    this.menu = { kind: 'mode' };
+    for (const m of this.tiles) m.visible = false;
+    const g = this.g;
+    const el = this.$('.mj-res');
+    el.innerHTML = `<h3>🀄 力行 277 麻將桌</h3>
+      <p>選擇遊玩模式（錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>）</p>
+      <div class="mj-btns mj-mode-btns">
+        <button data-a='{"type":"mode","v":"solo"}' class="on"><kbd>1</kbd> 🀄 單人模式<small>揪力行室友 AI 打牌</small></button>
+        <button data-a='{"type":"mode","v":"multi"}'><kbd>2</kbd> 🌐 多人連線<small>開房拿房號／加入朋友（不足 4 人補 AI）</small></button>
+      </div>
+      <div class="mj-btns"><button data-a='{"type":"closeMenu"}'><kbd>Esc</kbd> 離開</button></div>`;
+    el.classList.remove('hidden');
+    this.$('.mj-acts').innerHTML = '';
+    this._actKey = '';
+    this.$('.mj-hint').textContent = this._hint = '';
+    this.$('.mj-top').textContent = this._top = '🀄 力行 277 麻將桌';
+    this.$('.mj-info').innerHTML = this._info = '';
+    for (const t of this.tagEls) t.textContent = '';
+  }
+  chooseMulti(nick = '彥霖', stake = 0, prefill = '') {
+    this.e = null;
+    this.choosing = null;
+    this.lobby = null;
+    let urlCode = '';
+    try {
+      urlCode = normalizeRoomCode(new URLSearchParams(location.search).get('mj') || '');
+    } catch (_e) {
+      /* ignore */
+    }
+    this.menu = { kind: 'multi', nick, stake, code: normalizeRoomCode(prefill) || urlCode };
+    this._multiPanel();
+  }
+  _multiPanel() {
+    const M = this.menu;
+    const el = this.$('.mj-res');
+    el.innerHTML = `<h3>🌐 多人連線麻將（P2P）</h3>
+      <p class="mj-small">免伺服器直連・輸贏照樣計入各自 Peach Pay 錢包並存檔</p>
+      <div class="mj-form">
+        <label class="mj-field"><span>你的暱稱</span><input id="mjNick" maxlength="12" value="${esc(M.nick)}" placeholder="彥霖"></label>
+        <div class="mj-mp-box">
+          <b>🏠 開設新房間（你當房主）</b>
+          <div class="mj-btns mj-stakes">${STAKES.map(
+            ([b, t], i) =>
+              `<button data-a='{"type":"mpStake","i":${i}}' class="${i === M.stake ? 'on' : ''}">底 ${b}／一台 ${t}</button>`
+          ).join('')}</div>
+          <div class="mj-btns"><button data-a='{"type":"mpHost"}' class="on">🏠 開設房間並產生房號</button></div>
+        </div>
+        <div class="mj-mp-box">
+          <b>🚪 加入朋友的房間</b>
+          <div class="mj-join-row">
+            <input id="mjCode" maxlength="4" value="${esc(M.code)}" placeholder="輸入 4 碼房號" autocomplete="off">
+            <button data-a='{"type":"mpJoin"}'>加入房間</button>
+          </div>
+        </div>
+      </div>
+      <div class="mj-btns"><button data-a='{"type":"backMode"}'>← 返回</button><button data-a='{"type":"closeMenu"}'>離開</button></div>`;
+    el.classList.remove('hidden');
+    for (const inp of el.querySelectorAll('input')) {
+      inp.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter' && inp.id === 'mjCode') this._do({ type: 'mpJoin' });
+      });
+    }
+    const codeInp = this.$('#mjCode');
+    codeInp?.addEventListener('input', () => {
+      codeInp.value = normalizeRoomCode(codeInp.value);
+    });
+  }
+  showLobby(state) {
+    this.menu = null;
+    this.lobby = state;
+    const el = this.$('.mj-res');
+    const [b, t] = STAKES[state.stake || 0] || STAKES[0];
+    const seats = state.seats?.length
+      ? state.seats
+      : [0, 1, 2, 3].map((i) => ({ seat: i, name: null, isHost: i === 0, isAI: false }));
+    const count = seats.filter((s) => s.name && !s.isAI).length;
+    const isHost = state.role === 'host';
+    const status = state.connecting
+      ? isHost
+        ? '🔄 正在建立 P2P 房間…'
+        : `🔄 正在連線至房號 ${esc(state.code)}，等待房主回應…`
+      : count >= 4
+        ? '✅ 4 人到齊！可以開打了'
+        : `⏳ 等待中（${count}/4）— 不足 4 人開打時會自動補上室友 AI`;
+    const rows = seats
+      .map((s, i) => {
+        const tag = s.name
+          ? s.isHost
+            ? `🏠 <b>${esc(s.name)}</b> <small>（房主）</small>`
+            : `🧑 <b>${esc(s.name)}</b>`
+          : `<span class="mj-wait-slot">⏳ 等待中…（開打時補 AI）</span>`;
+        return `<div class="mj-seat-row"><i>座位 ${i + 1}</i><span>${tag}</span></div>`;
+      })
+      .join('');
+    el.innerHTML = `<h3>${isHost ? '🏠 麻將房間大廳' : '🚪 已加入麻將房間'}</h3>
+      ${
+        state.code
+          ? `<div class="mj-code-bar"><span>房號</span><b class="mj-code">${esc(state.code)}</b><button data-a='{"type":"mpCopy"}'>📋 複製房號</button><button data-a='{"type":"mpCopy","link":true}'>🔗 邀請連結</button></div>`
+          : ''
+      }
+      <p class="mj-small">底 ${b}／一台 ${t}・${status}</p>
+      <div class="mj-seats">${rows}</div>
+      <div class="mj-btns">
+        ${
+          isHost && !state.connecting
+            ? `<button data-a='{"type":"mpStart"}' class="on">▶ ${count >= 4 ? '4 人到齊，立即開打！' : `立即開打（補 ${4 - count} 位 AI）`}</button>`
+            : ''
+        }
+        <button data-a='{"type":"closeMenu"}'>${isHost ? '✕ 解散房間' : '✕ 離開房間'}</button>
+      </div>`;
+    el.classList.remove('hidden');
+    this.$('.mj-top').textContent = this._top = state.code
+      ? `🌐 多人麻將・房號 ${state.code}`
+      : '🌐 多人麻將連線中…';
+  }
+  _menuKeys(inp, typing) {
+    if (typing) return;
+    if (inp.hit('Escape')) {
+      if (this.menu?.kind === 'multi') return this.chooseMode();
+      return this.mj.closeMenu();
+    }
+    if (this.menu?.kind === 'mode') {
+      if (inp.hit('Digit1', 'Enter', 'NumpadEnter', 'KeyE')) return this.mj.pickMode('solo');
+      if (inp.hit('Digit2')) return this.mj.pickMode('multi');
+    }
   }
   // ---------------- before the first hand: 底／台 ----------------
   chooseStake(def, cb) {
@@ -1356,14 +1546,14 @@ export class MahjongScene {
     let html;
     if (r.draw) html = '<h3>流局 🀫</h3><p>牌摸完了，沒人胡。莊家連莊。</p>';
     else {
-      const who = this.names[r.winner],
+      const who = esc(this.names[r.winner]),
         from = r.flower
           ? r.self
             ? '湊齊 8 張花'
-            : `${this.names[r.from]} 摸到第 8 張花`
+            : `${esc(this.names[r.from])} 摸到第 8 張花`
           : r.self
             ? '自摸'
-            : `${this.names[r.from]} 放槍`;
+            : `${esc(this.names[r.from])} 放槍`;
       const dealerT =
         r.winner === e.dealer || r.from === e.dealer || r.self
           ? `<li>莊家／連莊　另計 ${1 + 2 * e.streak} 台（莊家有付或有胡時）</li>`
@@ -1372,12 +1562,22 @@ export class MahjongScene {
         <ul>${r.items.map(([n, t]) => `<li>${n}　${t} 台</li>`).join('')}${r.items.length ? '' : '<li>沒有台（只算底）</li>'}${dealerT}</ul>
         <p>共 ${r.tai} 台</p>`;
     }
-    html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 ? 'me' : ''}">${this.names[s]} ${money(d)}</span>`).join('')}</div>`;
+    html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 ? 'me' : ''}">${esc(this.names[s])} ${money(d)}</span>`).join('')}</div>`;
     if (end.banter && !end.broke && !end.over)
-      html += `<p class="mj-banter ${end.banter.dir}">💬 <b>${end.banter.name}</b>：「${end.banter.text}」</p>`;
+      html += `<p class="mj-banter ${end.banter.dir}">💬 <b>${esc(end.banter.name)}</b>：「${esc(end.banter.text)}」</p>`;
     if (end.broke) html += '<p class="neg">💸 錢包見底了，不能再打了</p>';
     else if (end.over) html += '<p>🀄 北風北打完了，一將結束！</p>';
-    html += `<div class="mj-btns">${this.resNext ? `<button data-a='{"type":"next"}'><kbd>Enter</kbd> 下一局</button>` : ''}<button data-a='{"type":"leave"}'>${this.resNext ? '散場' : '<kbd>Enter</kbd> 散場'}</button></div>`;
+    else if (this.mj.isGuest) html += '<p class="mj-small">⏳ 等待房主開下一局…</p>';
+    const nextBtn =
+      this.resNext && !this.mj.isGuest
+        ? `<button data-a='{"type":"next"}'><kbd>Enter</kbd> 下一局</button>`
+        : '';
+    const leaveLabel = this.mj.isMulti
+      ? '離開房間'
+      : this.resNext
+        ? '散場'
+        : '<kbd>Enter</kbd> 散場';
+    html += `<div class="mj-btns">${nextBtn}<button data-a='{"type":"leave"}'>${leaveLabel}</button></div>`;
     const el = this.$('.mj-res');
     el.innerHTML = html;
     el.classList.remove('hidden');

@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { sameLevel, getParkedCarAssets, CRASH_STOP, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
-import { vehicleSpec, solveVehicleImpact } from '../physics/ImpactPhysics.js';
+import { vehicleSpec, solveVehicleImpact, solvePersonImpact } from '../physics/ImpactPhysics.js';
 
 const CELL = 10;
 const CHUNK = 120;
@@ -674,6 +674,7 @@ export class ParkedScooters {
     const sol = solveVehicleImpact({
       kind1: v.kind,
       rider1: true,
+      rider1Mass: this.game.player?.ch?.weight,
       kind2: slot.kind,
       rider2: false,
       parked2: true,
@@ -762,6 +763,7 @@ export class ParkedScooters {
       const sol = solveVehicleImpact({
         kind1: v.kind,
         rider1: true,
+        rider1Mass: isPlayer ? this.game.player?.ch?.weight : v.rider?.weight,
         kind2: s.kind,
         rider2: false,
         parked2: true,
@@ -830,11 +832,25 @@ export class ParkedScooters {
         if (Math.abs(v.pos.x - wp.x) > 45 || Math.abs(v.pos.z - wp.z) > 45) continue;
         this._checkVehicle(v, false, dt);
       }
+      // Keep walking/idle pedestrians out of parked roadside scooters & cars (no walking through parked bikes)
+      const peds = g.peds?.active?.();
+      if (peds) {
+        for (let i = 0; i < peds.length; i++) {
+          const p = peds[i];
+          if (p.state === 'fly' || p.state === 'down' || p.rag) continue;
+          if (Math.abs(p.pos.x - wp.x) > 65 || Math.abs(p.pos.z - wp.z) > 65) continue;
+          const prevY = p.pos.y;
+          p.pos.y = p.y;
+          const pushed = this.resolveFoot(p.pos, 0.35);
+          p.pos.y = prevY;
+          if (pushed && p.ch?.root) p.ch.root.position.set(p.pos.x, p.y, p.pos.z);
+        }
+      }
     }
 
-    // Domino chain knock: strictly obeys Newton's 2nd & 3rd Laws + conservation of momentum (no energy injection).
-    // Contact velocity includes both CM linear speed and gravity-driven tipping swing v_contact = v_cm + omega x r_cm.
+    // Domino chain knock + knocked vehicles hitting nearby pedestrians (strict Newton's 2nd & 3rd Laws)
     if (this.activeKnocks.size) {
+      const peds = g.peds?.active?.() || [];
       for (const rec of [...this.activeKnocks]) {
         const spec1 = vehicleSpec(rec.slot.kind);
         let vcx = rec.vx,
@@ -847,6 +863,47 @@ export class ParkedScooters {
         }
         const spd = Math.hypot(vcx, vcz);
         if (spd < 0.7) continue;
+
+        // 1. Knocked scooter/car hitting nearby pedestrians
+        const pedHitR = rec.slot.kind === 'car' ? 2.1 : 1.05;
+        for (let i = 0; i < peds.length; i++) {
+          const p = peds[i];
+          if (p.state === 'fly' || p.state === 'down' || p.rag) continue;
+          if (Math.abs(p.y - rec.y) > 2.0) continue;
+          const pdx = p.pos.x - rec.x,
+            pdz = p.pos.z - rec.z;
+          const d = Math.hypot(pdx, pdz);
+          if (d < pedHitR) {
+            const pnx = d > 1e-3 ? pdx / d : vcx / spd;
+            const pnz = d > 1e-3 ? pdz / d : vcz / spd;
+            const vRel = vcx * pnx + vcz * pnz;
+            if (vRel <= 0) continue;
+            const pSol = solvePersonImpact({
+              vehicleKind: rec.slot.kind,
+              riderOnVehicle: false,
+              personMass: p.ch?.weight,
+              personHeight: p.ch?.height,
+              vRel,
+            });
+            if (
+              pSol.knockDown &&
+              g.peds.knock(p, pnx, pnz, vRel, { dv: pSol.dvPerson, vy: pSol.vyPerson })
+            ) {
+              g.audio?.hitPed?.();
+              if (rec.body) {
+                const lv = rec.body.linvel();
+                rec.body.setLinvel(
+                  { x: lv.x - pnx * pSol.dvVehicle, y: lv.y, z: lv.z - pnz * pSol.dvVehicle },
+                  true
+                );
+              }
+              rec.vx -= pnx * pSol.dvVehicle;
+              rec.vz -= pnz * pSol.dvVehicle;
+            }
+          }
+        }
+
+        // 2. Domino knock on neighboring static scooters
         this._near(rec.x, rec.z, 1.4, (s) => {
           if (s.state !== 'static' || s.kind === 'car') return;
           const dx = s.x - rec.x,

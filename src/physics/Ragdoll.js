@@ -77,6 +77,9 @@ export class Ragdoll {
     ch.root.updateMatrixWorld(true);
     this.yaw = new THREE.Euler().setFromQuaternion(ch.root.getWorldQuaternion(_q), 'YXZ').y;
     this.qT = ch.torso.quaternion.clone(); // the torso pivot rides on the trunk body as it is
+    this.lenK = ch.heightScale || 1;
+    const massK = (ch.weight || 70.6) / 70.6;
+    const lenK = this.lenK;
     this.bodies = [];
     const make = (pivot, seg, extraQ) => {
       pivot.getWorldPosition(_p);
@@ -89,16 +92,19 @@ export class Ragdoll {
           .setAngularDamping(seg === SEG.head ? 2 : 0.8)
           .setCcdEnabled(true)
       );
-      const c = seg.h > 0 ? R.ColliderDesc.capsule(seg.h, seg.r) : R.ColliderDesc.ball(seg.r);
+      const c =
+        seg.h > 0
+          ? R.ColliderDesc.capsule(seg.h * lenK, seg.r * lenK)
+          : R.ColliderDesc.ball(seg.r * lenK);
       // the trunk's capsule follows the torso's lean inside the hips frame
-      const off = new THREE.Vector3(0, seg.y, 0);
+      const off = new THREE.Vector3(0, seg.y * lenK, 0);
       if (extraQ) off.applyQuaternion(extraQ);
       c.setTranslation(off.x, off.y, off.z);
       if (extraQ) c.setRotation(quat(extraQ));
       P._own(
         W.createCollider(
           c
-            .setMass(seg.m)
+            .setMass(seg.m * massK)
             .setFriction(0.9)
             .setRestitution(0.05)
             .setCollisionGroups(groups(G.RAGDOLL)),
@@ -165,13 +171,13 @@ export class Ragdoll {
     // bit below it at worst)
     root.position.set(
       tb.x,
-      Math.max(Math.min(surfaceAt(tb.x, tb.z, tb.y), tb.y), tb.y - 0.93),
+      Math.max(Math.min(surfaceAt(tb.x, tb.z, tb.y), tb.y), tb.y - 0.93 * this.lenK),
       tb.z
     );
     (this.wrote ||= new THREE.Vector3()).copy(root.position);
     this.trunkY = tb.y;
     _yaw.setFromAxisAngle(_up, this.yaw);
-    ch.hips.position.set(0, tb.y - root.position.y, 0);
+    ch.hips.position.set(0, (tb.y - root.position.y) / this.lenK, 0);
     ch.hips.quaternion.copy(_yaw).invert().multiply(_tr);
     // every other pivot: its body's rotation in its parent's frame
     _iTr.copy(_tr).invert();

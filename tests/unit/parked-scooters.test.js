@@ -10,6 +10,8 @@ import {
   solveVehicleImpact,
   solvePersonImpact,
   solvePersonPersonImpact,
+  solveRiderEjection,
+  sampleAnthropometry,
   RESTITUTION,
   GRAVITY,
 } from '../../src/physics/ImpactPhysics.js';
@@ -463,7 +465,7 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(knocks[0].vel.z).toBeGreaterThan(2.0);
     expect(game.player.throwOff).toHaveBeenCalled();
     const [rvx, rvz] = game.player.throwOff.mock.calls[0];
-    expect(Math.hypot(rvx, rvz)).toBeGreaterThan(4.0);
+    expect(Math.hypot(rvx, rvz)).toBeGreaterThan(3.5);
     expect(game.hud.toast).toHaveBeenCalledWith(expect.stringContaining('被撞飛了'), 'bad', 2600);
 
     // 3. Head-on crash while riding forward (+Z) into obstacle (normal -Z): rider flies FORWARD (+Z), NOT backward!
@@ -474,38 +476,150 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     v.crash = { impact: 12, speed: 12, nx: 0, nz: -1, pushed: false };
     spawner.throwOff(v);
     const [fwdX, fwdZ, fwdY] = game.player.throwOff.mock.calls[0];
-    expect(fwdZ).toBeGreaterThan(6.0); // pure forward inertia over the handlebars!
+    expect(fwdZ).toBeGreaterThan(7.0); // pure forward inertia over the handlebars!
     expect(Math.abs(fwdX)).toBeLessThan(0.5);
-    expect(fwdY).toBeGreaterThan(2.0);
+    expect(fwdY).toBeGreaterThan(2.5);
   });
 
   it('applies Newtonian impulse-momentum to vehicle-vs-person and person-vs-person collisions', () => {
-    // Car (1320 kg) vs 70 kg person at 10 m/s: car barely slows (kf > 0.9), person knocked down cleanly
+    // Car (1320 kg) vs 70 kg person at 10 m/s: car barely slows (kf > 0.9), total launch speed strictly equals dvTotal (energy conserving)
     const carHit = solvePersonImpact({ vehicleKind: 'car', riderOnVehicle: true, vRel: 10 });
     expect(carHit.knockDown).toBe(true);
     expect(carHit.kf).toBeGreaterThan(0.93);
-    expect(carHit.dvPerson).toBeGreaterThan(8.5);
-    expect(carHit.vyPerson).toBeLessThanOrEqual(3.4);
+    expect(Math.hypot(carHit.dvPerson, carHit.vyPerson)).toBeCloseTo(carHit.dvTotal, 4);
 
-    // Scooter (180 kg) vs 70 kg person at 6 m/s: scooter loses ~31% speed, person knocked down, rider stays on
-    const scMed = solvePersonImpact({ vehicleKind: 'scooter', riderOnVehicle: true, vRel: 6 });
-    expect(scMed.knockDown).toBe(true);
-    expect(scMed.kf).toBeCloseTo(0.69, 1);
-    expect(scMed.ejectRider1).toBe(false);
+    // Heavier person (90 kg) vs lighter person (48 kg): heavier person slows scooter more and launches slightly slower
+    const lightHit = solvePersonImpact({
+      vehicleKind: 'scooter',
+      riderOnVehicle: true,
+      personMass: 48,
+      personHeight: 1.56,
+      vRel: 8,
+    });
+    const heavyHit = solvePersonImpact({
+      vehicleKind: 'scooter',
+      riderOnVehicle: true,
+      personMass: 90,
+      personHeight: 1.84,
+      vRel: 8,
+    });
+    expect(heavyHit.dvVehicle).toBeGreaterThan(lightHit.dvVehicle);
+    expect(lightHit.dvTotal).toBeGreaterThan(heavyHit.dvTotal);
 
     // High-speed scooter (17 m/s = 61 km/h) hitting a 70 kg person: shock >= 4.3 G -> scooter rider crashes too
     const scFast = solvePersonImpact({ vehicleKind: 'scooter', riderOnVehicle: true, vRel: 17 });
     expect(scFast.knockDown).toBe(true);
     expect(scFast.ejectRider1).toBe(true);
 
-    // Person vs person (70 kg vs 70 kg): walking bump (3 m/s) doesn't knock down; full sprint tackle (7.5 m/s) does
-    const walkBump = solvePersonPersonImpact(3.0);
-    expect(walkBump.knockDown).toBe(false);
-    expect(walkBump.dv1).toBeCloseTo((1.08 * 35 * 3) / 70, 3);
+    // Person vs person with unequal masses (85 kg running into 50 kg): exact momentum transfer
+    const asym = solvePersonPersonImpact(6.0, 85, 50);
+    expect(asym.dv2Total).toBeGreaterThan(asym.dv1);
+    expect(Math.hypot(asym.dv2, asym.vy2)).toBeCloseTo(asym.dv2Total, 4);
 
-    const sprintTackle = solvePersonPersonImpact(7.5);
-    expect(sprintTackle.knockDown).toBe(true);
-    expect(sprintTackle.dv2).toBeGreaterThan(2.8);
-    expect(sprintTackle.vy2).toBeLessThanOrEqual(2.0);
+    // Rider ejection strictly scales with speed minus handlebar grip impulse (no arbitrary floor)
+    const ejSlow = solveRiderEjection({
+      speed: 8,
+      impact: 8,
+      nx: 0,
+      nz: -1,
+      fx: 0,
+      fz: 1,
+      pushed: false,
+      riderMass: 70,
+    });
+    const ejFast = solveRiderEjection({
+      speed: 14,
+      impact: 14,
+      nx: 0,
+      nz: -1,
+      fx: 0,
+      fz: 1,
+      pushed: false,
+      riderMass: 70,
+    });
+    expect(ejFast.vz).toBeGreaterThan(ejSlow.vz);
+    expect(ejSlow.vy).toBeGreaterThan(1.5);
+  });
+
+  it('samples realistic gender-based normal distributions for NPC height & weight and prevents peds clipping or ignoring knocked scooters', () => {
+    // 1. Statistical check of Box-Muller normal distributions (500 male, 500 female)
+    const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    const sd = (arr, m) => Math.sqrt(arr.reduce((a, x) => a + (x - m) ** 2, 0) / arr.length);
+    const mh = [],
+      mw = [],
+      fh = [],
+      fw = [];
+    for (let i = 1; i <= 500; i++) {
+      const u1 = ((i * 2654435761) >>> 0) / 4294967296;
+      const u2 = (((i + 500) * 2246822519) >>> 0) / 4294967296;
+      const m = sampleAnthropometry(false, u1, u2);
+      const f = sampleAnthropometry(true, u1, u2);
+      mh.push(m.height);
+      mw.push(m.weight);
+      fh.push(f.height);
+      fw.push(f.weight);
+      expect(m.height).toBeGreaterThanOrEqual(1.55);
+      expect(m.height).toBeLessThanOrEqual(1.95);
+      expect(f.height).toBeGreaterThanOrEqual(1.45);
+      expect(f.height).toBeLessThanOrEqual(1.8);
+    }
+    const mhm = mean(mh),
+      fhm = mean(fh),
+      mwm = mean(mw),
+      fwm = mean(fw);
+    expect(mhm).toBeGreaterThan(1.7);
+    expect(mhm).toBeLessThan(1.77);
+    expect(fhm).toBeGreaterThan(1.57);
+    expect(fhm).toBeLessThan(1.64);
+    expect(sd(mh, mhm)).toBeGreaterThan(0.04);
+    expect(mwm).toBeGreaterThan(64);
+    expect(mwm).toBeLessThan(75);
+    expect(fwm).toBeGreaterThan(49);
+    expect(fwm).toBeLessThan(59);
+    expect(mhm).toBeGreaterThan(fhm + 0.08);
+    expect(mwm).toBeGreaterThan(fwm + 10);
+
+    // 2. Pedestrians are pushed out of parked scooters AND knocked down by sliding knocked scooters
+    const { game, knocks } = makeMockGame({
+      motoSpots: [[10, 10, 0, '#b8282a', 0.07, 0]],
+      streetScooters: [],
+    });
+    const ped1 = {
+      pos: new THREE.Vector3(10.1, 0, 10),
+      y: 0,
+      state: 'walk',
+      rag: null,
+      ch: { root: { position: new THREE.Vector3() }, weight: 55, height: 1.62 },
+    };
+    const ped2 = {
+      pos: new THREE.Vector3(13.0, 0, 10),
+      y: 0,
+      state: 'walk',
+      rag: null,
+      ch: { root: { position: new THREE.Vector3() }, weight: 62, height: 1.68 },
+    };
+    const knockedPeds = [];
+    game.peds = {
+      active: () => [ped1, ped2],
+      knock: vi.fn((p, dx, dz, sp, opt) => {
+        p.state = 'fly';
+        knockedPeds.push({ p, dx, dz, sp, opt });
+        return true;
+      }),
+    };
+    game.audio.hitPed = vi.fn();
+    const ps = new ParkedScooters(game);
+    ps.update(0.016);
+    // ped1 was walking inside parked scooter -> pushed outside scooter capsule!
+    expect(ped1.pos.x).toBeGreaterThanOrEqual(10.68);
+
+    // Now knock the parked scooter into ped2 at 6 m/s -> ped2 gets knocked down with Newtonian impulse!
+    ps.knockSlot(ps.scooterSlots[0], 6, 0, 6);
+    knocks[0].onMove({ x: 12.4, y: 0.1, z: 10 }, new THREE.Quaternion(), { x: 6, y: 0, z: 0 });
+    ps.update(0.016);
+    expect(knockedPeds.length).toBe(1);
+    expect(knockedPeds[0].p).toBe(ped2);
+    expect(knockedPeds[0].opt.dv).toBeGreaterThan(2.5);
+    expect(game.audio.hitPed).toHaveBeenCalled();
   });
 });

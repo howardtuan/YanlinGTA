@@ -3,7 +3,13 @@ import { Vehicle } from '../entities/Vehicles.js';
 import { mulberry32, makeLabel } from '../world/MapBuilder.js';
 import { pointInPoly } from '../physics/Collision.js';
 import { pitAt } from '../world/Terrain.js';
-import { RESTITUTION, vehicleSpec, solveVehicleImpact } from '../physics/ImpactPhysics.js';
+import {
+  RESTITUTION,
+  vehicleSpec,
+  solveVehicleImpact,
+  solvePersonImpact,
+  solveRiderEjection,
+} from '../physics/ImpactPhysics.js';
 
 // masses for vehicles thrown by physics (kg, without rider) and inelastic collision restitution
 export const vmass = (v) => vehicleSpec(v.kind).mass;
@@ -150,6 +156,8 @@ export class VehicleSpawner {
     const sol = solveVehicleImpact({
       kind1: by.kind,
       rider1: true,
+      rider1Mass:
+        by === this.game.player?.vehicle ? this.game.player?.ch?.weight : by.rider?.weight,
       kind2: o.kind,
       rider2: false,
       parked2: true,
@@ -170,8 +178,10 @@ export class VehicleSpawner {
     const sol = solveVehicleImpact({
       kind1: by.kind,
       rider1: true,
+      rider1Mass: by === game.player?.vehicle ? game.player?.ch?.weight : by.rider?.weight,
       kind2: o.kind,
       rider2: !!o.rider || !sc,
+      rider2Mass: o.rider?.weight,
       parked2: false,
       vRel: impact,
     });
@@ -184,13 +194,19 @@ export class VehicleSpawner {
     const tvz = fz * o.speed - nz * sol.dv2;
     if (!this.throwVehicle(o, tvx, tvz, sol.dv2, (p, up) => game.traffic.landed(o, p, up), sol))
       return false;
-    // Traffic rider inertia: keeps pre-impact forward velocity plus partial impulse transfer from the bike
-    game.traffic.throwRider(
-      o,
-      fx * o.speed * 0.85 - nx * sol.dv2 * 0.4,
-      1.6 + Math.min(1.6, sol.dv2 * 0.14),
-      fz * o.speed * 0.85 - nz * sol.dv2 * 0.4
-    );
+    // Traffic rider ejected by exact handlebar/seat pivot physics using rider's own weight
+    const rEj = solveRiderEjection({
+      speed: o.speed,
+      impact: sol.dv2,
+      nx: -nx,
+      nz: -nz,
+      fx,
+      fz,
+      dv1: sol.dv2,
+      pushed: o.speed < sol.dv2 * 0.5,
+      riderMass: o.rider?.weight,
+    });
+    game.traffic.throwRider(o, rEj.vx, rEj.vy, rEj.vz);
     if (by === game.player.vehicle) game.audio.bump(Math.min(3, impact / 4), by.kind);
     return { kf: sol.kf, eject: sol.ejectRider1 };
   }
@@ -236,16 +252,57 @@ export class VehicleSpawner {
       return Math.atan2(f.x, f.z);
     };
     o.knocked = true;
-    const rec = P.knock(
+    let rec = null;
+    rec = P.knock(
       o.mesh,
       shape,
       spec.mass,
       { x: vx, y: 0, z: vz },
       { x: rollSp ? sfx * rollSp : 0, y: yawSpin, z: rollSp ? sfz * rollSp : 0 },
-      (p, q) => {
+      (p, q, lv) => {
         o.pos.x = p.x;
         o.pos.z = p.z;
         o.heading = o.moveAng = heading(q);
+        // Sliding/tumbling vehicle can also knock down nearby pedestrians with Newtonian impulse
+        const peds = this.game.peds?.active?.();
+        if (!peds || !lv) return;
+        const spd = Math.hypot(lv.x, lv.z);
+        if (spd < 1.5) return;
+        const hitR = sc ? 1.0 : 2.1;
+        for (let i = 0; i < peds.length; i++) {
+          const pd = peds[i];
+          if (pd.state === 'fly' || pd.state === 'down' || pd.rag) continue;
+          if (Math.abs(pd.y - p.y) > 2.0) continue;
+          const pdx = pd.pos.x - p.x,
+            pdz = pd.pos.z - p.z;
+          const d = Math.hypot(pdx, pdz);
+          if (d < hitR) {
+            const pnx = d > 1e-3 ? pdx / d : lv.x / spd;
+            const pnz = d > 1e-3 ? pdz / d : lv.z / spd;
+            const vRel = lv.x * pnx + lv.z * pnz;
+            if (vRel <= 0) continue;
+            const pSol = solvePersonImpact({
+              vehicleKind: o.kind,
+              riderOnVehicle: false,
+              personMass: pd.ch?.weight,
+              personHeight: pd.ch?.height,
+              vRel,
+            });
+            if (
+              pSol.knockDown &&
+              this.game.peds.knock(pd, pnx, pnz, vRel, { dv: pSol.dvPerson, vy: pSol.vyPerson })
+            ) {
+              this.game.audio?.hitPed?.();
+              if (rec?.body) {
+                const cur = rec.body.linvel();
+                rec.body.setLinvel(
+                  { x: cur.x - pnx * pSol.dvVehicle, y: cur.y, z: cur.z - pnz * pSol.dvVehicle },
+                  true
+                );
+              }
+            }
+          }
+        }
       },
       (p, q) => {
         f.set(0, 1, 0).applyQuaternion(q);
@@ -319,28 +376,21 @@ export class VehicleSpawner {
     pl.heading = v.heading;
     v.speed = 0;
 
-    // Rider launch velocity (Newton's 1st Law: inertia carries the rider FORWARD over the handlebars!)
-    const d = fx * c.nx + fz * c.nz;
-    let rvx, rvz, rvy;
-    if (c.pushed) {
-      const k = Math.min(9.5, c.impact * 0.55);
-      rvx = c.nx * k;
-      rvz = c.nz * k;
-      rvy = 2.2 + Math.min(2.0, c.impact * 0.14);
-    } else {
-      // Tangential component along obstacle (0 for head-on), blended lightly with pure forward inertia
-      const tangX = fx - d * c.nx;
-      const tangZ = fz - d * c.nz;
-      let dirX = fx * 0.85 + tangX * 0.15;
-      let dirZ = fz * 0.85 + tangZ * 0.15;
-      const dl = Math.hypot(dirX, dirZ) || 1;
-      dirX /= dl;
-      dirZ /= dl;
-      const k = Math.min(14, Math.max(4.5, s * 0.72));
-      rvx = dirX * k;
-      rvz = dirZ * k;
-      rvy = 2.0 + Math.min(2.2, s * 0.14);
-    }
+    // Rider launch velocity derived strictly from Newton's 1st Law (inertia), grip break impulse, and handlebar vault geometry
+    const ej = solveRiderEjection({
+      speed: s,
+      impact: c.impact,
+      nx: c.nx,
+      nz: c.nz,
+      fx,
+      fz,
+      dv1: c.dv1,
+      pushed: !!c.pushed,
+      riderMass: pl.ch?.weight,
+    });
+    const rvx = ej.vx,
+      rvz = ej.vz,
+      rvy = ej.vy;
 
     // Player's own scooter post-impact velocity strictly from Newtonian impulse:
     // tangential velocity is largely preserved; normal velocity changes by +c.nx * dv1 (rebound = e*v_n on rigid hit)

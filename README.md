@@ -15,33 +15,16 @@
 
 ---
 
-## 🚀 30 秒本機啟動 (Quickstart)
+## 🏛️ 校園開放世界探索特色
 
-專案已全方位工程化重構，採用標準的 **Vite** 建置管線與模組化體系：
-
-### 推薦方式：Node.js 與 Vite（本機開發熱更新）
-需安裝 [Node.js (>= 22.0.0 LTS)](https://nodejs.org/)：
-```bash
-# 1. 複製專案
-git clone https://github.com/howardtuan/YanlinGTA.git
-cd YanlinGTA
-
-# 2. 安裝依賴
-npm install
-
-# 3. 啟動本機開發伺服器 (支援 HMR 熱更新)
-npm run dev
-```
-瀏覽器打開 👉 **http://localhost:5173**
-
-### 容器化方式：Docker 🐳（一鍵多階段生產運行）
-需安裝 [Docker Desktop](https://www.docker.com/products/docker-desktop/)：
-```bash
-# 使用 Docker Compose 一鍵編譯與啟動
-docker compose up -d --build
-```
-瀏覽器打開 👉 **http://localhost:8080**  
-（停止並移除容器：`docker compose down`）
+- **🀄 宿舍開桌打 3D 台灣麻將（支援好友線上連線）**：走進力行宿舍 277 寢就能坐下來打完整台灣十六張麻將——3D 擲骰開門、自動算台、聽牌提示通通齊全；除了揪 AI 室友開打，還支援**免註冊開房，分享房號就能和朋友線上對戰**，人沒滿自動補 AI，也支援中途加入與觀戰。
+- **🏙️ 真實街景中原大學與夜市商圈**：騎車穿梭依實景還原的校園與中原夜市周邊街區，搭上資管系館的紅框玻璃電梯探索教室、走過新中北路天橋連通力行宿舍與四層樓學生活動中心，還能上「孫師傅牛肉拉麵」二樓回到彥霖以前的家。
+- **🍟 校園打工、障礙賽與各種超鬧活動**：到學活麥當勞應徵外場出餐或內場炸薯條賺零用錢、坐進側門警衛室值班查門禁、騎車報名新中北路障礙賽、搶票搭接駁車衝林口體育館看演唱會，甚至直接呼叫直升機把機車空投到面前。
+- **🎸 活生生的校園夥伴與隱藏彩蛋**：十多位同學、室友與開發者角色各有 24 小時作息、專屬對話與社群動態。混熟之後不只能觸發多條意想不到的支線劇情，宿舍與校園各處也藏滿了等著被發掘的生活細節與彩蛋。
+- **💆 走進校園周邊特色店家**：除了逛街看招牌，還能真的推門走進 **涼韌足體養生按摩店**、**戈登肉鋪** 與 **茶學苑手搖飲**，體驗各自不同的營業時間、客製點單與專屬互動。
+- **💻 遊戲裡再開一台真的電腦**：在資管電腦教室、彥霖房間或宿舍書桌坐下就能開機——內建真的能上網的瀏覽器、小畫家、踩地雷、競選後台與終端機（能寫真 SQL 查案）；還能打開「資管學堂」直接挑戰 Python、MySQL 與 AI Agent 實作關卡，程式碼現寫現跑、自動批改。
+- **📈 靈感股、校園新聞與智慧手機**：模擬百檔台股諧音股（第一檔為 `PYL 彥霖好帥`），股價會隨校園新聞即時波動；手機裡還內建社群動態、好友聊天、後鏡頭拍照與多款等著解鎖的實用 App。
+- **🛵 路邊機車隨手借騎、道具通通撞得飛**：路邊停放的整排機車不只可以撞出骨牌效應，還能直接騎走；全地圖三角錐皆可撞飛，搭配引擎、甩尾、碰撞與校園各處環境音效，怎麼逛都很有戲。
 
 ---
 
@@ -61,81 +44,6 @@ docker compose up -d --build
 | **暫停選單 / 設定** | `Esc` | Menu / Options |
 
 > 📱 **手機觸控**：左下虛擬搖桿移動、畫面右側拖曳轉動視角、右下浮動按鈕進行互動與上下車。
-
----
-
-## 🏛️ 校園開放世界探索特色
-
-- **🏛️ 資訊管理學系館**：完整重現灰色菱形花紋欄杆、紅色飾條、綠色牆裙與紅框玻璃電梯，可搭電梯或走樓梯探索 1F～3F 教室。
-- **💻 電腦教室（101、301）與彥霖房間**：坐到電腦前按 `E` 開啟桌面，內建瀏覽器（真的能上網）、記事本、小畫家、小算盤、踩地雷、競選後台與終端機。
-- **🎓 資管學堂**（`src/systems/minigames/Learn.js`）：電腦桌面上的線上程式課，「Python 入門」與「MySQL 入門」各 9 章、「AI Agent 入門」10 章，內建 Pyodide 與 sql.js 瀏覽器端執行引擎，答對自動批改打勾。
-- **🏠 孫師傅牛肉拉麵／彥霖以前的家**：位於中北路 52 號，店面旁走廊上二樓可抵達房間，內有雙人床、更衣衣櫃與電腦桌。
-- **🏢 力行宿舍（力行大樓）**：四層樓開放式天井、露天涼亭、二樓中廊連通「新中北路天橋」，天橋直通學生活動中心。
-- **🎭 學生活動中心**：一到四樓完整走通，包含前庭大階梯、二樓採光罩中庭、挑高兩層培英廳、麥當勞與各系社團辦公室。
-- **🍟 麥當勞打工體驗**：可應徵櫃台出餐外場（依序出餐）或內場廚房（雙面煎台、炸雞爐、薯條爐計時起鍋），賺取零用錢。
-- **🎸 豐富校園夥伴與作息系統**：漢克（資管同學・樂團吉他手）、羊明衫（內捲王・麥當勞經理）、YeeMing（物理系・當兵中）、吱吱（排球少年）、黃蓋瑞（古箏社幹部）、劍玉（超跑借閱與班費失竊案），每位 NPC 皆有動態作息與手機社群。
-- **📈 靈感股與新聞**：模擬台股百檔成分股（第一檔為「彥霖好帥 2335」），結合校園新聞動態影響盤中漲跌。
-
----
-
-## 🛠️ 技術架構亮點 (Engineering Highlights)
-
-YanlinGTA 經歷了全方位的現代前端架構重構，具備以下工程特色：
-
-```mermaid
-flowchart LR
-    subgraph CoreEngine["引擎核心 (src/core)"]
-        GameLoop["GameLoop<br/>Fixed Timestep 60Hz"]
-        MenuManager["MenuManager<br/>選單與設定"]
-        VehicleSpawner["VehicleSpawner<br/>車流調度與撞擊"]
-    end
-
-    subgraph Subsystems["雙 WASM 與渲染管線"]
-        Three["Three.js r160<br/>PBR 材質與動態天空"]
-        Rapier["Rapier 3D WASM<br/>剛體與車輛懸吊動力學"]
-        RustKernels["Rust WASM Kernels<br/>FBM 噪聲與法線 (18.1x 加速)"]
-    end
-
-    subgraph Defense["自動化品質守護"]
-        Vitest["Vitest 單元與架構測試"]
-        ESLint["ESLint 嚴格門禁 (0 error)"]
-        CI["GitHub Actions CI/CD"]
-    end
-
-    CoreEngine --> Subsystems
-    Subsystems --> Defense
-```
-
-1. **7 大領域分層架構**：嚴格劃分 `core`, `physics`, `graphics`, `world`, `entities`, `systems`, `ui`，杜絕循環引用，維持單向無環依賴。
-2. **雙軌 WebAssembly 運算**：
-   - 物理：`@dimforge/rapier3d-compat` WASM 處理真實剛體與懸吊物理。
-   - 圖形：Rust 撰寫之 `tools/wasm-kernels/`，FBM 噪聲計算加速 **18.1 倍**，且維持純 JS Fallback 零誤差雙保險。
-3. **主循環雙時鐘模型**：物理固定 60Hz 步進（Fixed Timestep）與螢幕刷新率（RAF）解耦，兼備動態畫質自動升降頻。
-4. **測試金字塔保護**：涵蓋碰撞檢測、A* 路網尋路、存讀檔自癒、股市運算、任務狀態機、DOM 接線、架構分層依賴與資料一致性等自動化測試。
-
----
-
-## 📁 現代化專案目錄結構
-
-```
-YanlinGTA/
-├── src/                           # 核心原始碼 (7 大模組分層)
-│   ├── core/                      # 引擎中樞 (Game, GameLoop, MenuManager, VehicleSpawner, Input)
-│   ├── physics/                   # 物理系統 (VehPhysics 機車懸吊, Collision 碰撞檢測)
-│   ├── graphics/                  # 渲染視覺 (SkySystem 天空, Textures 程序貼圖, wasm/)
-│   ├── world/                     # 場景生成 (MapBuilder, Interiors, zones/, buildings/)
-│   ├── entities/                  # 實體角色 (Player, Character, Vehicles, Traffic, npcs/)
-│   ├── systems/                   # 業務系統 (MissionSystem, SaveSystem, StockMarket, minigames/)
-│   ├── ui/                        # 人機介面 (HUD, PC 桌面, phone/ 手機系統, Prompts)
-│   └── styles/                    # 樣式表 (style.css)
-│
-├── assets/                        # 靜態音效、貼圖與音樂
-├── data/                          # 遊戲地理資料 (cycu.json, npcs.json, terrain.json)
-├── docker/                        # 容器配置 (nginx.conf)
-├── docs/                          # 專案文檔 (guide/ 程式與設計, references/ 建模原材, media/ 宣傳媒體)
-├── tests/                         # Vitest 單元測試與 WASM 整合測試
-└── tools/                         # 開發輔助工具 (npc-dashboard, check_wasm, wasm-kernels)
-```
 
 ---
 

@@ -6361,6 +6361,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   if (fp) {
     const cx = fp.pts.reduce((s, p) => s + p[0], 0) / fp.pts.length,
       cz = fp.pts.reduce((s, p) => s + p[1], 0) / fp.pts.length;
+    world.fountain = { x: cx, z: cz };
     const FT = LM['中原噴水池'] || {},
       round = FT.style === 'round_basin';
     const R = round ? (FT.d || 8.5) / 2 : 1.3,

@@ -234,6 +234,8 @@ export class VehicleSpawner {
       o.knocked = false;
       return false;
     }
+    if (sc && dv > 1.8)
+      this.game.audio.physImpact?.('bike_scrape', Math.min(1, dv / 7), o.pos.x, o.pos.z);
     o.speed = 0;
     return true;
   }

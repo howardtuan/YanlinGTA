@@ -1134,6 +1134,7 @@ class Game {
       }
       near.sort((a, b) => a[0] - b[0]);
       for (let i = 0; i < Math.min(12, near.length); i++) veh(near[i][1]);
+      this.parkedScooters?.appendMovers(list, wp.x, wp.z, pv);
     }
     P.movers(list, dt);
     P.focus = wp;
@@ -1443,7 +1444,7 @@ class Game {
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
       if (!pl.rag) {
-        this.parkedScooters?.resolveFoot(pl.pos, 0.35);
+        const pushed = this.parkedScooters?.resolveFoot(pl.pos, 0.35);
         for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
           if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1)
             continue;
@@ -1459,6 +1460,7 @@ class Game {
             }
           }
         }
+        if (pushed && pl.ch?.root) pl.ch.root.position.set(pl.pos.x, pl.pos.y, pl.pos.z);
       }
       hud.setSpeed(null);
       this.headlight.intensity = 0;

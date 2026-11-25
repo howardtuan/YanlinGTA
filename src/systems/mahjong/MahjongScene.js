@@ -863,7 +863,9 @@ export class MahjongScene {
       g = this.g;
     this._popTick();
     const seatName = (s) => this.names[s];
-    const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${e.base}／一台 ${e.perTai}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
+    const tier = this.mj.aiTier?.();
+    const mood = tier?.badge ? `・${tier.badge}` : '';
+    const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${e.base}／一台 ${e.perTai}${mood}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
     if (top !== this._top) this.$('.mj-top').innerHTML = this._top = top;
     // name tags over each seat
     const v = new THREE.Vector3();
@@ -1315,6 +1317,8 @@ export class MahjongScene {
         <p>共 ${r.tai} 台</p>`;
     }
     html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 ? 'me' : ''}">${this.names[s]} ${money(d)}</span>`).join('')}</div>`;
+    if (end.banter && !end.broke && !end.over)
+      html += `<p class="mj-banter ${end.banter.dir}">💬 <b>${end.banter.name}</b>：「${end.banter.text}」</p>`;
     if (end.broke) html += '<p class="neg">💸 錢包見底了，不能再打了</p>';
     else if (end.over) html += '<p>🀄 北風北打完了，一將結束！</p>';
     html += `<div class="mj-btns">${this.resNext ? `<button data-a='{"type":"next"}'><kbd>Enter</kbd> 下一局</button>` : ''}<button data-a='{"type":"leave"}'>${this.resNext ? '散場' : '<kbd>Enter</kbd> 散場'}</button></div>`;

@@ -19,7 +19,15 @@ import {
   stackAt,
 } from '../../src/systems/mahjong/Rules.js';
 import { MahjongEngine } from '../../src/systems/mahjong/Engine.js';
-import { makeAI } from '../../src/systems/mahjong/AI.js';
+import {
+  makeAI,
+  SKILL_MIN,
+  SKILL_MAX,
+  SKILL_DEFAULT,
+  skillTier,
+  effectiveSkill,
+  adjustSkill,
+} from '../../src/systems/mahjong/AI.js';
 
 // 台式麻將（src/systems/mahjong/）：胡牌判定、台數、結算、整局流程。
 // 牌的寫法：'123m' 萬、'p' 筒、's' 條、'z' 字（1–7 = 東南西北中發白）
@@ -411,4 +419,99 @@ describe('槓與花的台灣規矩', () => {
     });
     expect(q.items.map(([n]) => n)).toContain('全求人');
   });
+});
+
+describe('動態 AI 強度（AI.js）', () => {
+  it('連贏上升、連輸下降、流局熱度回落，且不超出上下限', () => {
+    let s = SKILL_DEFAULT,
+      h = 0;
+    for (let i = 1; i <= 12; i++) {
+      ({ skill: s, heat: h } = adjustSkill(s, h, {
+        winner: 0,
+        from: 1,
+        tai: 3,
+        delta: 100,
+        winStreak: i,
+      }));
+    }
+    expect(s).toBe(SKILL_MAX);
+    expect(h).toBeGreaterThan(0);
+    expect(skillTier(effectiveSkill(s, { stake: 2, heat: h })).id).toBe(3);
+
+    // 連輸後雙向往下降到最低檔
+    for (let i = 1; i <= 15; i++) {
+      ({ skill: s, heat: h } = adjustSkill(s, h, {
+        winner: 2,
+        from: 0,
+        tai: 3,
+        delta: -100,
+        loseStreak: i,
+      }));
+    }
+    expect(s).toBe(SKILL_MIN);
+    expect(h).toBeLessThan(0);
+    expect(skillTier(effectiveSkill(s, { stake: 0, heat: h })).id).toBe(0);
+
+    // 流局不改長期實力、只讓當桌熱度回落
+    const before = s;
+    const after = adjustSkill(s, h, { draw: true, delta: 0 });
+    expect(after.skill).toBe(before);
+    expect(Math.abs(after.heat)).toBeLessThan(Math.abs(h));
+  });
+
+  it('高強度會讀對手副露染手並避開該花色，也會防搶槓不亂加槓', () => {
+    const proAI = makeAI({ attack: 0.5, defense: 0.9, skill: 0.95 });
+    const e = new MahjongEngine({ rng: () => 0.1, human: [false, false, false, false] });
+    // 對手（seat 0）亮了 2 組萬子且棄牌都是條／筒 → 明顯染萬子
+    e.players[0].melds = [
+      { type: 'chow', t: K('1m') },
+      { type: 'pung', t: K('7m') },
+    ];
+    e.players[0].discards = T('1p9p3s8s');
+    // seat 1 手牌雜亂（>= 2 向聽），同時有 5m（萬子中張）與 5s（條子中張）
+    e.players[1].hand = T('5m5s2p6p8p1s4s7s1z2z3z4z5z6z7z9p2m');
+    const act = proAI(e, 1, 'turn', { tsumo: false, kongs: [], discard: true });
+    // 不該優先丟染手花色萬子（會選對手打過的 1p/9p/3s/8s 或他門）
+    expect([K('5m'), K('2m')]).not.toContain(act.t);
+
+    // 防搶槓：對手亮了 3 組副露時，高強度不隨便加槓；低強度會直接加槓
+    const e2 = new MahjongEngine({ rng: () => 0.1, human: [false, false, false, false] });
+    e2.players[0].melds = [
+      { type: 'chow', t: K('1m') },
+      { type: 'chow', t: K('4m') },
+      { type: 'pung', t: K('7m') },
+    ];
+    e2.players[1].melds = [{ type: 'pung', t: K('2p') }];
+    e2.players[1].hand = T('2p123s456s789s55p88p');
+    const opts = { tsumo: false, kongs: [{ t: K('2p'), kind: 'added' }], discard: true };
+    const lowAI = makeAI({ attack: 0.5, defense: 0.5, skill: 0.2 });
+    expect(lowAI(e2, 1, 'turn', opts).type).toBe('kong');
+    expect(proAI(e2, 1, 'turn', opts).type).toBe('discard');
+  });
+
+  it('高強度 AI（0.95）與低強度 AI（0.15）對打 50 局，高強度淨勝且牌張守恆', () => {
+    const pro = makeAI({ attack: 0.5, defense: 0.65, skill: 0.95 });
+    const casual = makeAI({ attack: 0.5, defense: 0.5, skill: 0.15 });
+    let proNet = 0,
+      proWins = 0,
+      casualWins = 0;
+    for (let seed = 101; seed <= 150; seed++) {
+      const e = new MahjongEngine({
+        rng: seeded(seed),
+        human: [false, false, false, false],
+        dealer: seed % 4,
+        // seat 0, 2 用高強度；seat 1, 3 用低強度
+        ai: (eng, seat, kind, o) => (seat % 2 === 0 ? pro : casual)(eng, seat, kind, o),
+      });
+      let guard = 0;
+      while (e.step()) if (++guard > 2000) throw new Error('hand never ended');
+      proNet += e.result.deltas[0] + e.result.deltas[2];
+      if (!e.result.draw) {
+        if (e.result.winner % 2 === 0) proWins++;
+        else casualWins++;
+      }
+    }
+    expect(proNet).toBeGreaterThan(0);
+    expect(proWins).toBeGreaterThanOrEqual(casualWins);
+  }, 20000);
 });

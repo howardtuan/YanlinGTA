@@ -271,3 +271,70 @@ describe('抓位、擲骰定莊', () => {
     expect(mj.sess.dealer).toBe(countSeat(east, diceSum(dice)));
   });
 });
+
+describe('動態難度與室友短台詞', () => {
+  const setupTable = (skill = 0.5, stake = 1) => {
+    const g = fakeGame({}, { money: 5000 });
+    const mj = new DormMahjong(g);
+    mj.press();
+    mj.stats.skill = skill;
+    mj.stats.stake = stake;
+    mj.sess = {
+      dealer: 0,
+      streak: 0,
+      passes: 0,
+      hands: 0,
+      net: 0,
+      heat: 0,
+      winStreak: 0,
+      loseStreak: 0,
+    };
+    return mj;
+  };
+  it('玩家連贏會拉高 AI 強度並觸發室友「認真／全力」短台詞', () => {
+    const mj = setupTable(0.55, 1);
+    const startSkill = mj.aiSkill();
+    const banters = [];
+    for (let i = 0; i < 6; i++) {
+      const res = mj.handOver({
+        winner: 0,
+        from: 1,
+        self: false,
+        tai: 3,
+        deltas: [110, -110, 0, 0],
+        dealerStays: true,
+      });
+      if (res.banter) banters.push(res.banter);
+    }
+    expect(mj.aiSkill()).toBeGreaterThan(startSkill);
+    expect(mj.aiTier().id).toBeGreaterThanOrEqual(2);
+    expect(banters.length).toBeGreaterThan(0);
+    expect(banters.some((b) => b.dir === 'up' && b.text.length > 0)).toBe(true);
+  });
+  it('玩家連輸會降低 AI 強度並觸發室友「放輕鬆」短台詞', () => {
+    const mj = setupTable(0.45, 0);
+    const startSkill = mj.aiSkill();
+    const banters = [];
+    for (let i = 0; i < 6; i++) {
+      const res = mj.handOver({
+        winner: 2,
+        from: 0,
+        self: false,
+        tai: 3,
+        deltas: [-90, 0, 90, 0],
+        dealerStays: false,
+      });
+      if (res.banter) banters.push(res.banter);
+    }
+    expect(mj.aiSkill()).toBeLessThan(startSkill);
+    expect(mj.aiTier().id).toBe(0);
+    expect(banters.length).toBeGreaterThan(0);
+    expect(banters.some((b) => b.dir === 'down' && b.text.length > 0)).toBe(true);
+  });
+  it('讀取舊存檔（沒有 skill 欄位）仍維持預設強度 0.5', () => {
+    const g = fakeGame();
+    const mj = new DormMahjong(g);
+    mj.load({ hands: 5, wins: 2, net: 100 });
+    expect(mj.stats.skill).toBe(0.5);
+  });
+});

@@ -1283,25 +1283,29 @@ export class Peds {
     p.ghost = false;
     p.dodge = 0;
   }
-  // hit by a vehicle going speed m/s along (dirX, dirZ): thrown up and forward, tumbling,
-  // slides to a stop on landing, lies there (state 'down'), then gets up and runs off
-  knock(p, dirX, dirZ, speed = 6) {
+  // Hit by a vehicle or sprinting character: uses Newtonian post-impact horizontal speed (dv) and lift (vy)
+  // when supplied by ImpactPhysics.js, tumbling realistically without sky-launching.
+  knock(p, dirX, dirZ, speed = 6, opt = null) {
     if (p.state === 'down' || p.state === 'fly') return false;
-    const s = Math.min(22, Math.max(3, speed));
+    const horiz =
+      opt?.dv !== undefined
+        ? Math.min(14, Math.max(1.5, opt.dv))
+        : Math.min(14, Math.max(2.5, speed * 0.75));
+    const lift = opt?.vy !== undefined ? opt.vy : Math.min(3.4, 0.9 + horiz * 0.2);
     this._unmate(p);
     p.pose = null;
     p.run = 0;
     p.state = 'fly';
     p.t = 2.5;
-    p.vx = dirX * s * 0.75;
-    p.vz = dirZ * s * 0.75;
-    p.vy = 2.2 + s * 0.28;
+    p.vx = dirX * horiz;
+    p.vz = dirZ * horiz;
+    p.vy = lift;
     p.air = 0.1;
     p.spin = 0;
     p.heading = Math.atan2(-dirX, -dirZ);
     // with physics: limp (src/physics/Ragdoll.js), flipping backwards over the hit (it faces the vehicle)
     p.ch.root.rotation.set(0, p.heading, 0);
-    const sp = Math.min(8, s * 0.6);
+    const sp = Math.min(6.5, horiz * 0.55);
     p.rag =
       this.ragdoll?.(p.ch, { x: p.vx, y: p.vy, z: p.vz }, { x: dirZ * sp, y: 0, z: -dirX * sp }) ||
       null;

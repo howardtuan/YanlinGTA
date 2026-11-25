@@ -3,10 +3,11 @@ import { Vehicle } from '../entities/Vehicles.js';
 import { mulberry32, makeLabel } from '../world/MapBuilder.js';
 import { pointInPoly } from '../physics/Collision.js';
 import { pitAt } from '../world/Terrain.js';
+import { RESTITUTION, vehicleSpec, solveVehicleImpact } from '../physics/ImpactPhysics.js';
 
 // masses for vehicles thrown by physics (kg, without rider) and inelastic collision restitution
-export const vmass = (v) => (v.kind === 'scooter' ? 110 : 1250);
-export const KNOCK_E = 0.1;
+export const vmass = (v) => vehicleSpec(v.kind).mass;
+export const KNOCK_E = RESTITUTION;
 
 export class VehicleSpawner {
   constructor(game) {
@@ -143,91 +144,89 @@ export class VehicleSpawner {
     }
   }
 
-  // a parked vehicle hit hard (src/entities/Vehicles.js KNOCK_MIN): pushed/toppled by physics until it rests.
-  // Respects real vehicle mass & parked tire/stand friction: scooters cannot launch 1.25-ton cars, and
-  // scooter-vs-scooter impacts slow/crash the hitter symmetrically rather than launching the target into orbit.
+  // Parked vehicle collision solved by Newtonian impulse-momentum (src/physics/ImpactPhysics.js).
+  // Target moves only if impulse exceeds static hold friction (handbrake / kickstand).
   knockVehicle(o, by, nx, nz, impact) {
-    const sc = o.kind === 'scooter';
-    const m1 = vmass(by) + (by.kind === 'scooter' ? 70 : 0),
-      m2 = vmass(o);
-    // A 180 kg scooter cannot launch a 1,250 kg parked car; even a car needs a hard ram to shove a parked car
-    if (!sc && (m1 < m2 * 0.4 || impact < 6.0)) return false;
-    const grip = sc ? 0.52 : 0.48;
-    const cap = sc ? (by.kind === 'scooter' ? 6.2 : 7.5) : 5.0;
-    const dv = Math.min(cap, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * grip);
-    if (dv < (sc ? 0.9 : 1.5)) return false;
-    if (!this.throwVehicle(o, -nx * dv, -nz * dv, dv, null)) return false;
+    const sol = solveVehicleImpact({
+      kind1: by.kind,
+      rider1: true,
+      kind2: o.kind,
+      rider2: false,
+      parked2: true,
+      vRel: impact,
+    });
+    if (!sol.moves) return false;
+    if (!this.throwVehicle(o, -nx * sol.dv2, -nz * sol.dv2, sol.dv2, null, sol)) return false;
     if (by === this.game.player.vehicle) this.game.audio.bump(Math.min(3, impact / 4), by.kind);
-    if (by.kind === 'scooter' && sc) {
-      // Hitting another 110 kg scooter takes a big bite out of momentum (< 0.3 so head-on > CRASH_THROW crashes you too)
-      return Math.max(0.12, ((m1 - 0.35 * m2) / (m1 + m2)) * 0.55);
-    }
-    if (!sc) return Math.max(0.12, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.72);
-    return Math.max(0.15, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.92);
+    return { kf: sol.kf, eject: sol.ejectRider1 };
   }
 
-  // a traffic vehicle hit hard: pushed/toppled with realistic mass ratio, then back on its lane when it lands
-  // on its wheels next to it, otherwise a wreck for a while (src/entities/NPC.js Traffic).
-  // Returns hitter momentum retention factor kf, or false if the target was too heavy / hit too softly.
+  // Traffic vehicle collision solved by Newtonian impulse-momentum (src/physics/ImpactPhysics.js).
+  // Both hitter and target receive exact equal-and-opposite impulse J = (1+e)*mu*vRel.
   knockTraffic(o, by, nx, nz, impact) {
     const game = this.game;
     const sc = o.kind === 'scooter';
     if (!game.physics.ready || o.knocked || o.ai?.dormant) return false;
-    const m1 = vmass(by) + (by.kind === 'scooter' ? 70 : 0),
-      m2 = vmass(o) + (o.rider ? 70 : 0);
-    if (!sc && (m1 < m2 * 0.4 || impact < 8.5)) return false;
-    if (sc && impact <= 5) return false;
-    const grip = sc ? 0.55 : 0.48;
-    const cap = sc ? (by.kind === 'scooter' ? 6.2 : 7.5) : 5.2;
-    const dv = Math.min(cap, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * grip);
-    if (dv < 1.5) return false;
+    const sol = solveVehicleImpact({
+      kind1: by.kind,
+      rider1: true,
+      kind2: o.kind,
+      rider2: !!o.rider || !sc,
+      parked2: false,
+      vRel: impact,
+    });
+    // Require meaningful shock before knocking a moving traffic vehicle out of its lane
+    const minDv2 = sc ? 2.2 : 3.2;
+    if (sol.dv2 < minDv2) return false;
     const [fx, fz] = o.forward();
     if (
       !this.throwVehicle(
         o,
-        fx * o.speed * 0.5 - nx * dv,
-        fz * o.speed * 0.5 - nz * dv,
-        dv,
-        (p, up) => game.traffic.landed(o, p, up)
+        fx * o.speed * 0.55 - nx * sol.dv2,
+        fz * o.speed * 0.55 - nz * sol.dv2,
+        sol.dv2,
+        (p, up) => game.traffic.landed(o, p, up),
+        sol
       )
     )
       return false;
-    // its rider goes on with the speed it had, thrown off from the hit
     game.traffic.throwRider(
       o,
-      fx * o.speed * 0.6 - nx * dv * 0.55,
-      1.6 + Math.min(1.6, dv * 0.15),
-      fz * o.speed * 0.6 - nz * dv * 0.55
+      fx * o.speed * 0.6 - nx * sol.dv2 * 0.55,
+      1.6 + Math.min(1.6, sol.dv2 * 0.14),
+      fz * o.speed * 0.6 - nz * sol.dv2 * 0.55
     );
     if (by === game.player.vehicle) game.audio.bump(Math.min(3, impact / 4), by.kind);
-    if (by.kind === 'scooter' && sc) return Math.max(0.12, ((m1 - 0.35 * m2) / (m1 + m2)) * 0.55);
-    if (!sc) return Math.max(0.12, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.68);
-    return Math.max(0.15, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.92);
+    return { kf: sol.kf, eject: sol.ejectRider1 };
   }
 
-  // hand vehicle o to physics as a pushed/toppled body (velocity vx, vz; dv: how hard) until it rests;
-  // heavy ground damping keeps 110 kg scooters and 1.25-ton cars sliding realistically instead of flying.
-  throwVehicle(o, vx, vz, dv, done) {
+  // Hand vehicle o to Rapier with real Coulomb sliding friction & rigid-body roll torque from ImpactPhysics.
+  throwVehicle(o, vx, vz, dv, done, sol = null) {
     const P = this.game.physics;
     if (!P.ready) return false;
     const sc = o.kind === 'scooter',
+      spec = vehicleSpec(o.kind),
       l = Math.hypot(vx, vz) || 1,
       dx = vx / l,
       dz = vz / l;
-    // Scooters roll onto their side moderately; cars stay flat on all 4 wheels and only yaw-skid
-    const sp = sc ? Math.min(4.2, dv * 0.65) : 0;
+    const sfx = Math.sin(o.heading || 0),
+      sfz = Math.cos(o.heading || 0);
+    const lat = dx * sfz - dz * sfx;
+    const tipSign = Math.abs(lat) > 0.15 ? Math.sign(lat) : o.id % 2 ? 1 : -1;
+    const rollMag = sol ? sol.rollSpeed : sc ? Math.max(3.4, Math.min(6.5, 2.8 + dv * 0.55)) : 0;
+    const rollSp = sc ? rollMag * tipSign : 0;
     const yawSpin = sc
-      ? (o.id % 2 ? 0.14 : -0.14) * Math.min(4, dv)
-      : (o.id % 2 ? 0.28 : -0.28) * Math.min(3.5, dv * 0.55);
-    const vy = sc ? Math.min(0.4, Math.max(0, (dv - 2.5) * 0.07)) : 0;
-    const shape = sc
-      ? { shape: 'box', hx: 0.3, hy: 0.5, hz: 0.88 }
-      : { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 };
-    const physOpt = sc
-      ? { linDamp: 1.35, angDamp: 1.6, friction: 1.05, restitution: 0.06 }
-      : { linDamp: 2.6, angDamp: 3.0, friction: 1.15, restitution: 0.04 };
+      ? (o.id % 2 ? 0.22 : -0.22) * Math.min(4.0, dv * 0.6)
+      : (o.id % 2 ? 0.28 : -0.28) * Math.min(3.0, dv * 0.45);
+    const physOpt = sol?.physOpt2 || {
+      linDamp: spec.linDamp,
+      angDamp: spec.angDamp,
+      friction: spec.muKinetic,
+      restitution: spec.restitution,
+    };
+    const shape = sol?.shape2 || spec.shape;
     P.dropMover(o); // its stand-in (parked next to a physics vehicle, traffic)
-    // Nudge 4 cm clear along push vector so spawning the dynamic body never triggers a Rapier overlap cannonball
+    // Nudge 4 cm clear along push vector so spawning the dynamic body never triggers a Rapier overlap explosion
     o.mesh.position.x += dx * 0.04;
     o.mesh.position.z += dz * 0.04;
     const f = new THREE.Vector3();
@@ -239,9 +238,9 @@ export class VehicleSpawner {
     const rec = P.knock(
       o.mesh,
       shape,
-      vmass(o),
-      { x: vx, y: vy, z: vz },
-      { x: sp ? dz * sp : 0, y: yawSpin, z: sp ? -dx * sp : 0 },
+      spec.mass,
+      { x: vx, y: 0, z: vz },
+      { x: rollSp ? sfx * rollSp : 0, y: yawSpin, z: rollSp ? sfz * rollSp : 0 },
       (p, q) => {
         o.pos.x = p.x;
         o.pos.z = p.z;
@@ -298,8 +297,8 @@ export class VehicleSpawner {
     return best;
   }
 
-  // crash: the rider goes on over the handlebars, glancing off what was hit, tumbles and lies
-  // there a moment; the scooter drops on its side where it stopped (ride it again with F)
+  // crash: the rider goes over the handlebars (or forward when rear-ended) and tumbles; the scooter
+  // also slides & tips over with residual momentum via Rapier physics instead of freezing dead in place
   throwOff(v) {
     const game = this.game,
       pl = game.player,
@@ -312,16 +311,66 @@ export class VehicleSpawner {
     game.audio.bump(2.5);
     pl.exit(game.scene, game.world.collision, game.interiors);
     const y = v.mesh.position.y;
-    pl.pos.set(v.pos.x + fx * 0.3, y, v.pos.z + fz * 0.3);
+    pl.pos.set(v.pos.x + (c.pushed ? c.nx : fx) * 0.35, y, v.pos.z + (c.pushed ? c.nz : fz) * 0.35);
     pl.heading = v.heading;
     v.speed = 0;
-    v.fallen = true;
-    v.sync();
-    const d = fx * c.nx + fz * c.nz,
-      k = s * 0.45;
-    pl.throwOff((fx - 1.2 * d * c.nx) * k, (fz - 1.2 * d * c.nz) * k, 3 + s * 0.22, 2.2);
+
+    // Rider launch velocity
+    const d = fx * c.nx + fz * c.nz;
+    let rvx, rvz, rvy;
+    if (c.pushed) {
+      const k = Math.min(9.5, c.impact * 0.55);
+      rvx = c.nx * k;
+      rvz = c.nz * k;
+      rvy = 2.6 + Math.min(2.2, c.impact * 0.16);
+    } else {
+      const k = s * 0.45;
+      rvx = (fx - 1.2 * d * c.nx) * k;
+      rvz = (fz - 1.2 * d * c.nz) * k;
+      rvy = 3 + s * 0.22;
+    }
+
+    // Player's own scooter slides & topples with glancing/recoil momentum so both bikes react symmetrically
+    let bvx, bvz;
+    if (c.pushed) {
+      const bk = Math.min(5.2, Math.max(1.8, c.impact * 0.42));
+      bvx = c.nx * bk;
+      bvz = c.nz * bk;
+    } else {
+      const tx = (fx - d * c.nx) * s * 0.38;
+      const tz = (fz - d * c.nz) * s * 0.38;
+      const reb = Math.max(0.9, -Math.min(0, d) * s * 0.14);
+      bvx = tx + c.nx * reb;
+      bvz = tz + c.nz * reb;
+      const bl = Math.hypot(bvx, bvz);
+      if (bl > 5.2) {
+        bvx *= 5.2 / bl;
+        bvz *= 5.2 / bl;
+      } else if (bl < 1.4) {
+        const dl = Math.hypot(c.nx, c.nz) || 1;
+        bvx = (c.nx / dl) * 1.4;
+        bvz = (c.nz / dl) * 1.4;
+      }
+    }
+    const bspd = Math.hypot(bvx, bvz);
+    const slid = this.throwVehicle(v, bvx, bvz, Math.max(1.8, bspd), () => {
+      v.fallen = true;
+      v.sync();
+    });
+    if (!slid) {
+      v.fallen = true;
+      v.sync();
+    }
+
+    pl.throwOff(rvx, rvz, rvy, 2.2);
     game.hud.setSpeed(null);
     game.headlight.intensity = 0;
-    game.hud.toast(`摔車了！😵（撞擊時速 ${Math.round(c.impact * 3.6)} km/h）`, 'bad', 2600);
+    game.hud.toast(
+      c.pushed
+        ? `被撞飛了！😵（撞擊時速 ${Math.round(c.impact * 3.6)} km/h）`
+        : `摔車了！😵（撞擊時速 ${Math.round(c.impact * 3.6)} km/h）`,
+      'bad',
+      2600
+    );
   }
 }

@@ -2722,10 +2722,8 @@ function segSeg(a, b) {
 // above THROW a scooter rider is thrown off (src/core/VehicleSpawner.js)
 export const CRASH_STOP = 4,
   CRASH_THROW = 7.5;
-// a parked vehicle hit faster than this (m/s into it) is knocked loose: Vehicle.knock(o, by, nx, nz, impact)
-// (set by src/core/Game.js) hands it to physics until it comes to rest and returns the factor the hitter's speed
-// keeps (momentum: a car barely slows for a scooter, a scooter into a car still stops), or false
-export const KNOCK_MIN = 3;
+// Minimum normal closing speed (m/s) before consulting Newtonian impulse/static-friction solver (ImpactPhysics.js)
+export const KNOCK_MIN = 0.85;
 
 // ---------- far LOD: one merged, vertex-coloured mesh per vehicle beyond ~30 m ----------
 // A parked commuter scooter is ~26 meshes (draw calls, x2 with shadows); 150+ vehicles stand around the map.
@@ -3298,18 +3296,28 @@ export class Vehicle {
   // when hit hard (Vehicle.knockTraffic, src/core/Game.js). bs: your speed for the bump, rel: the closing speed of
   // the two (impact counts your own motion only)
   _hitVehicle(o, kf, impact, nx, nz, v0, onBump, bs, rel) {
-    if (bs > 3 && this.bumpCooldown <= 0) {
-      onBump && onBump(bs);
-      this.bumpCooldown = 0.5;
+    const hitSpd = Math.max(bs, impact);
+    if (hitSpd > 2.0 && this.bumpCooldown <= 0) {
+      onBump && onBump(hitSpd);
+      this.bumpCooldown = 0.45;
     }
+    const pushed = Math.abs(v0) < impact * 0.5;
+    let eject = false;
     if (o.ai) {
       o.ai.stunned = 2;
-      const tkf = Vehicle.knockTraffic?.(o, this, nx, nz, rel);
-      if (typeof tkf === 'number') kf = tkf;
+      const res = Vehicle.knockTraffic?.(o, this, nx, nz, rel);
+      if (res && typeof res === 'object') {
+        if (typeof res.kf === 'number') kf = res.kf;
+        if (res.eject) eject = true;
+      } else if (typeof res === 'number') kf = res;
+    }
+    if (kf && typeof kf === 'object') {
+      if (kf.eject) eject = true;
+      kf = kf.kf;
     }
     if (kf !== null) this.speed = Math.abs(v0) > 0.01 ? v0 * kf : this.speed * kf;
-    else this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
-    if (impact > CRASH_THROW && !this.crash && (kf === null || kf < 0.3))
-      this.crash = { impact, speed: Math.abs(v0), nx, nz };
+    else if (!pushed) this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
+    if (!this.crash && (eject || (impact > CRASH_THROW && (kf === null || kf < 0.55))))
+      this.crash = { impact, speed: Math.max(Math.abs(v0), impact), nx, nz, pushed };
   }
 }

@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { sameLevel, getParkedCarAssets, CRASH_STOP, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
-import { vmass, KNOCK_E } from './VehicleSpawner.js';
+import { vehicleSpec, solveVehicleImpact } from '../physics/ImpactPhysics.js';
 
 const CELL = 10;
 const CHUNK = 120;
@@ -585,25 +585,32 @@ export class ParkedScooters {
       mesh.updateMatrix();
       g.scene?.add(mesh);
 
-      const sp = isCar ? 0 : Math.min(4.2, dv * 0.65);
+      // Scooters balance on two wheels: roll around their own longitudinal axis using angular impulse omega = J*h/I
+      const spec = vehicleSpec(slot.kind);
+      const sfx = Math.sin(slot.yaw),
+        sfz = Math.cos(slot.yaw);
+      const lat = dx * sfz - dz * sfx;
+      const tipSign = Math.abs(lat) > 0.15 ? Math.sign(lat) : slot.tilt >= 0 ? 1 : -1;
+      const rollMag = opt?.rollSpeed ?? (isCar ? 0 : Math.max(3.4, Math.min(6.5, 2.8 + dv * 0.55)));
+      const rollSp = isCar ? 0 : rollMag * tipSign;
       const yawSpin = isCar
-        ? (slot.idx % 2 ? 0.28 : -0.28) * Math.min(3.5, dv * 0.55)
-        : (slot.idx % 2 ? 0.16 : -0.16) * Math.min(4, dv);
-      const vy = isCar ? 0 : (opt?.vy ?? Math.min(0.38, Math.max(0, (dv - 2.5) * 0.07)));
-      const shape = isCar
-        ? { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 }
-        : { shape: 'box', hx: 0.3, hy: 0.48, hz: 0.82 };
-      const physOpt = isCar
-        ? { linDamp: 2.6, angDamp: 3.0, friction: 1.15, restitution: 0.04 }
-        : { linDamp: 1.35, angDamp: 1.6, friction: 1.05, restitution: 0.06 };
+        ? (slot.idx % 2 ? 0.28 : -0.28) * Math.min(3.0, dv * 0.45)
+        : (slot.idx % 2 ? 0.22 : -0.22) * Math.min(4.0, dv * 0.6);
+      const shape = opt?.shape2 || spec.shape;
+      const physOpt = opt?.physOpt2 || {
+        linDamp: spec.linDamp,
+        angDamp: spec.angDamp,
+        friction: spec.muKinetic,
+        restitution: spec.restitution,
+      };
       const rec = { slot, mesh, x: slot.x, y: slot.y, z: slot.z, vx, vz, dv };
       this.activeKnocks.add(rec);
       const knocked = P.knock(
         mesh,
         shape,
-        slot.mass,
-        { x: vx, y: vy, z: vz },
-        { x: sp ? dz * sp : 0, y: yawSpin, z: sp ? -dx * sp : 0 },
+        spec.mass,
+        { x: vx, y: 0, z: vz },
+        { x: rollSp ? sfx * rollSp : 0, y: yawSpin, z: rollSp ? sfz * rollSp : 0 },
         (p, _q, lv) => {
           rec.vx = lv ? lv.x : (p.x - rec.x) * 60;
           rec.vz = lv ? lv.z : (p.z - rec.z) * 60;
@@ -648,58 +655,39 @@ export class ParkedScooters {
   }
 
   // Called by VehPhysics.Chassis.frame() when the player's Rapier body hits a parked scooter/car mover.
-  // hit.nx, hit.nz point from the parked slot toward the player's vehicle; hit.impact is normal closing speed (m/s).
+  // Solves exact Newtonian impulse, static hold friction, velocity change, and rider ejection shock (ImpactPhysics.js).
   onChassisHit(slot, v, hit, onBump) {
     if (!slot || (slot.state !== 'static' && slot.state !== 'fallen')) return;
     const impact = hit.impact;
     const sp = hit.sp;
     const pushX = -hit.nx,
       pushZ = -hit.nz;
-    const isCar = slot.kind === 'car';
-    const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
-    const m2 = slot.mass;
 
     if (impact > 1.8 && v.bumpCooldown <= 0) {
       onBump?.(impact);
       v.bumpCooldown = 0.35;
     }
 
-    if (isCar) {
-      // A 180 kg scooter can never launch a 1,250 kg parked car; even a car needs a hard ram (>= 6 m/s)
-      if (m1 < m2 * 0.4 || impact < 6.0) {
-        v.speed = impact > CRASH_STOP ? 0 : sp * 0.45;
-        if (impact > CRASH_THROW && !v.crash)
-          v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
-        return;
-      }
-      const dv = Math.min(5.0, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.48);
-      this.knockSlot(slot, pushX * dv, pushZ * dv, dv);
-      const kf = Math.max(0.12, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.72);
-      v.speed = sp * kf;
+    const sol = solveVehicleImpact({
+      kind1: v.kind,
+      rider1: true,
+      kind2: slot.kind,
+      rider2: false,
+      parked2: true,
+      vRel: impact,
+    });
+
+    if (!sol.moves) {
+      // Static friction held (e.g. slow bump or 180 kg scooter vs 1,250 kg parked car)
+      v.speed = impact > CRASH_STOP ? 0 : sp * Math.min(0.5, sol.kf);
+      if ((sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
+        v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
       return;
     }
 
-    // Parked scooter (110 kg)
-    if (impact < 1.2) {
-      v.speed *= 0.4;
-      return;
-    }
-    if (impact < 2.4) {
-      // Firm tap: tips over right where it stands without flying
-      const dv = Math.min(1.2, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.45);
-      this.knockSlot(slot, pushX * dv, pushZ * dv, dv, { vy: 0 });
-      v.speed = sp * (v.kind === 'scooter' ? 0.35 : 0.88);
-      return;
-    }
-    const cap = v.kind === 'scooter' ? 6.2 : 7.5;
-    const dv = Math.min(cap, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.52);
-    this.knockSlot(slot, pushX * dv, pushZ * dv, dv);
-    const kf =
-      v.kind === 'scooter'
-        ? Math.max(0.12, ((m1 - 0.35 * m2) / (m1 + m2)) * 0.55)
-        : Math.max(0.15, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.92);
-    v.speed = sp * kf;
-    if (impact > CRASH_THROW && !v.crash && kf < 0.3)
+    this.knockSlot(slot, pushX * sol.dv2, pushZ * sol.dv2, sol.dv2, sol);
+    v.speed = sp * sol.kf;
+    if (sol.ejectRider1 && !v.crash)
       v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
   }
 
@@ -730,7 +718,6 @@ export class ParkedScooters {
       // Player with Rapier Chassis already gets exact 60 Hz collisions via onChassisHit for slots in movers
       if (isPlayer && v.body && this._moverSlots.has(s)) return;
       if (!sameLevel(s.y, vy)) return;
-      const isCar = s.kind === 'car';
       const sSeg = capsuleSeg(s.x, s.z, s.yaw, s.hl, s.hw);
       let bestDist = Infinity,
         bestPa = null,
@@ -754,62 +741,36 @@ export class ParkedScooters {
       const pushZ = ol > 1e-4 ? oz / ol : fz * (Math.sign(v.speed) || 1);
       // True normal closing speed into the parked vehicle (not raw scalar speed)
       const impact = ol > 1e-4 ? Math.max(0, vvx * pushX + vvz * pushZ) : sp;
-      const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
-      const m2 = s.mass;
 
-      const pushOut = () => {
+      const sol = solveVehicleImpact({
+        kind1: v.kind,
+        rider1: true,
+        kind2: s.kind,
+        rider2: false,
+        parked2: true,
+        vRel: impact,
+      });
+
+      if (!sol.moves) {
         if (isPlayer && !v.body) {
           const push = sumR - bestDist;
           v.pos.x -= pushX * push;
           v.pos.z -= pushZ * push;
           pushedArcade = true;
         }
-      };
-
-      if (isCar) {
-        if (m1 < m2 * 0.4 || impact < 6.0) {
-          pushOut();
-          if (isPlayer && impact > 0.4) {
-            blockedHard = true;
-            maxImpact = Math.max(maxImpact, impact);
-            if (impact > CRASH_THROW && !v.crash)
-              v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
-          }
-          return;
-        }
-        const dv = Math.min(5.0, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.48);
-        if (this.knockSlot(s, pushX * dv, pushZ * dv, dv)) {
-          const kf = Math.max(0.12, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.72);
-          worstKf = worstKf === null ? kf : Math.min(worstKf, kf);
+        if (isPlayer && impact > 0.4) {
+          blockedHard = true;
           maxImpact = Math.max(maxImpact, impact);
+          if ((sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
+            v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
         }
         return;
       }
 
-      // Parked scooter
-      if (impact < 1.2) {
-        pushOut();
-        return;
-      }
-      if (impact < 2.4) {
-        const dv = Math.min(1.2, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.45);
-        if (this.knockSlot(s, pushX * dv, pushZ * dv, dv, { vy: 0 })) {
-          const kf = v.kind === 'scooter' ? 0.35 : 0.88;
-          worstKf = worstKf === null ? kf : Math.min(worstKf, kf);
-          maxImpact = Math.max(maxImpact, impact);
-        }
-        return;
-      }
-      const cap = v.kind === 'scooter' ? 6.2 : 7.5;
-      const dv = Math.min(cap, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.52);
-      if (this.knockSlot(s, pushX * dv, pushZ * dv, dv)) {
-        const kf =
-          v.kind === 'scooter'
-            ? Math.max(0.12, ((m1 - 0.35 * m2) / (m1 + m2)) * 0.55)
-            : Math.max(0.15, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.92);
-        worstKf = worstKf === null ? kf : Math.min(worstKf, kf);
+      if (this.knockSlot(s, pushX * sol.dv2, pushZ * sol.dv2, sol.dv2, sol)) {
+        worstKf = worstKf === null ? sol.kf : Math.min(worstKf, sol.kf);
         maxImpact = Math.max(maxImpact, impact);
-        if (isPlayer && impact > CRASH_THROW && !v.crash && kf < 0.3)
+        if (isPlayer && sol.ejectRider1 && !v.crash)
           v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
       }
     });
@@ -867,8 +828,15 @@ export class ParkedScooters {
           if (d < 0.85 && Math.abs(s.y - rec.y) < 1.5) {
             const nx = d > 1e-3 ? dx / d : rec.vx / spd;
             const nz = d > 1e-3 ? dz / d : rec.vz / spd;
-            const dv = Math.min(3.5, spd * 0.52);
-            if (dv >= 0.7) this.knockSlot(s, nx * dv, nz * dv, dv, { vy: 0 });
+            const sol = solveVehicleImpact({
+              kind1: 'scooter',
+              rider1: false,
+              kind2: 'scooter',
+              rider2: false,
+              parked2: true,
+              vRel: spd,
+            });
+            if (sol.moves) this.knockSlot(s, nx * sol.dv2, nz * sol.dv2, sol.dv2, sol);
           }
         });
       }

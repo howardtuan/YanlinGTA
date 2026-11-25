@@ -41,8 +41,8 @@ function makeMockGame(opts = {}) {
     physics: {
       ready: opts.physicsReady ?? true,
       dropMover: vi.fn(),
-      knock: vi.fn((mesh, shape, mass, vel, spin, onMove, onRest, key) => {
-        const rec = { mesh, shape, mass, vel, spin, onMove, onRest, key };
+      knock: vi.fn((mesh, shape, mass, vel, spin, onMove, onRest, key, opt) => {
+        const rec = { mesh, shape, mass, vel, spin, onMove, onRest, key, opt };
         knocks.push(rec);
         return rec;
       }),
@@ -273,15 +273,93 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(knocks.length).toBe(2);
     expect(ps.scooterSlots[0].state).toBe('flying');
 
-    // 3. appendMovers feeds parked cars into Rapier movers with a non-Vehicle physKey (no .hw)
+    // 3. appendMovers feeds parked cars & scooters (at all speeds) into Rapier movers with parkedSlot/onHit
     const movers = [];
     ps.appendMovers(movers, 24, 24, {
       body: {},
-      speed: 5,
+      speed: 12,
       mesh: { position: { y: 0 } },
     });
     expect(movers.length).toBe(1);
     expect(movers[0].key.hw).toBeUndefined();
+    expect(movers[0].key.parkedSlot).toBe(ps.carSlots[0]);
+    expect(typeof movers[0].key.onHit).toBe('function');
     expect(movers[0].hl).toBeGreaterThan(2);
+  });
+
+  it('enforces realistic mass & grounded physics: no launching cars with scooters, symmetrical scooter crashes, zero air-launch', () => {
+    const { game, knocks } = makeMockGame({
+      motoSpots: [
+        [10, 10, 0, '#b8282a', 0.07, 0],
+        [20, 10, 0, '#2c5aa0', -0.07, 0],
+      ],
+      streetScooters: [],
+      streetCars: [
+        [30, 30, 0, '#3f6fb0'],
+        [50, 30, 0, '#d0d0d0'],
+      ],
+    });
+    const ps = new ParkedScooters(game);
+    const onBump = vi.fn();
+
+    // 1. High-speed scooter (15 m/s) slamming a 1,250 kg parked car: car does NOT move, rider crashes!
+    const playerScooter = {
+      kind: 'scooter',
+      speed: 15,
+      bumpCooldown: 0,
+      crash: null,
+    };
+    ps.onChassisHit(ps.carSlots[0], playerScooter, { impact: 15, sp: 15, nx: -1, nz: 0 }, onBump);
+    expect(ps.carSlots[0].state).toBe('static');
+    expect(knocks.length).toBe(0);
+    expect(playerScooter.speed).toBe(0);
+    expect(playerScooter.crash).not.toBeNull();
+
+    // 2. Car (15 m/s) ramming a 1,250 kg parked car: parked car skids flat (vy=0, zero roll/pitch, heavy damping), hitter slows sharply
+    const playerCar = {
+      kind: 'car',
+      speed: 15,
+      bumpCooldown: 0,
+      crash: null,
+    };
+    ps.onChassisHit(ps.carSlots[1], playerCar, { impact: 15, sp: 15, nx: -1, nz: 0 }, onBump);
+    expect(ps.carSlots[1].state).toBe('flying');
+    expect(knocks.length).toBe(1);
+    expect(knocks[0].vel.y).toBe(0);
+    expect(Math.hypot(knocks[0].vel.x, knocks[0].vel.z)).toBeLessThanOrEqual(5.01);
+    expect(knocks[0].spin.x).toBe(0);
+    expect(knocks[0].spin.z).toBe(0);
+    expect(knocks[0].opt.linDamp).toBeGreaterThanOrEqual(2.0);
+    expect(playerCar.speed).toBeLessThan(6.0);
+
+    // 3. Scooter (5 m/s) hitting parked scooter: grounded slide (vy=0), hitting scooter loses most speed symmetrically
+    const medScooter = {
+      kind: 'scooter',
+      speed: 5,
+      bumpCooldown: 0,
+      crash: null,
+    };
+    ps.onChassisHit(ps.scooterSlots[0], medScooter, { impact: 5, sp: 5, nx: -1, nz: 0 }, onBump);
+    expect(ps.scooterSlots[0].state).toBe('flying');
+    expect(knocks.length).toBe(2);
+    expect(knocks[1].vel.y).toBe(0);
+    expect(Math.hypot(knocks[1].vel.x, knocks[1].vel.z)).toBeLessThan(2.5);
+    expect(knocks[1].opt.linDamp).toBeGreaterThanOrEqual(1.2);
+    expect(medScooter.speed).toBeLessThan(2.0);
+    expect(medScooter.crash).toBeNull();
+
+    // 4. Scooter (12 m/s) head-on into parked scooter: target stays grounded (vy < 0.4) AND hitter crashes too!
+    const fastScooter = {
+      kind: 'scooter',
+      speed: 12,
+      bumpCooldown: 0,
+      crash: null,
+    };
+    ps.onChassisHit(ps.scooterSlots[1], fastScooter, { impact: 12, sp: 12, nx: -1, nz: 0 }, onBump);
+    expect(ps.scooterSlots[1].state).toBe('flying');
+    expect(knocks.length).toBe(3);
+    expect(knocks[2].vel.y).toBeLessThan(0.4);
+    expect(Math.hypot(knocks[2].vel.x, knocks[2].vel.z)).toBeLessThanOrEqual(6.21);
+    expect(fastScooter.crash).not.toBeNull();
   });
 });

@@ -268,8 +268,8 @@ export class Chassis {
         if (!own) {
           if (P.tags.ground.has(other.handle)) return;
           key = 'wall';
-        } else if (own.kind === 'mover' && own.key?.hw !== undefined)
-          key = own.key; // a vehicle stand-in
+        } else if (own.kind === 'mover' && (own.key?.hw !== undefined || own.key?.parkedSlot))
+          key = own.key; // a vehicle stand-in or parked scooter/car slot
         else return; // props, debris, walking characters: physics alone
         const hl = Math.hypot(nx, nz) || 1,
           vs = this.vset;
@@ -342,6 +342,10 @@ export class Chassis {
         if (this.log.length > 8) this.log.shift(); // debugging
         if (key === 'wall') {
           v.hitWall(hit.impact, hit.nx, hit.nz, sp, onBump);
+          continue;
+        }
+        if (key.parkedSlot) {
+          key.onHit?.(v, hit, onBump);
           continue;
         }
         const kf = v._knockKf(key, hit.nx, hit.nz, hit.impact);

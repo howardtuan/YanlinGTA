@@ -335,7 +335,7 @@ export class Physics {
   // obj.updateMatrix() when matrixAutoUpdate is off). shape: as addProp (centre above the origin).
   // v: {x,y,z} start velocity, w: {x,y,z} spin. onMove(pos, quat) after each frame's steps, onRest(pos, quat)
   // once it sleeps (or after KNOCK_MAX_T): the body is gone by then. Returns the record or null.
-  knock(obj, shape, mass, v, w, onMove, onRest, key = obj) {
+  knock(obj, shape, mass, v, w, onMove, onRest, key = obj, opt = null) {
     if (!this.world) return null;
     const R = this.R,
       W = this.world,
@@ -345,8 +345,8 @@ export class Physics {
       R.RigidBodyDesc.dynamic()
         .setTranslation(p.x, p.y, p.z)
         .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
-        .setLinearDamping(0.15)
-        .setAngularDamping(0.6)
+        .setLinearDamping(opt?.linDamp ?? 0.15)
+        .setAngularDamping(opt?.angDamp ?? 0.6)
         .setCcdEnabled(true)
     );
     const rec = { body, obj, onMove, onRest, t: 0, key };
@@ -354,8 +354,8 @@ export class Physics {
       W.createCollider(
         this._shape(shape)
           .setMass(mass)
-          .setFriction(0.8)
-          .setRestitution(0.15)
+          .setFriction(opt?.friction ?? 0.8)
+          .setRestitution(opt?.restitution ?? 0.15)
           .setCollisionGroups(groups(G.DEBRIS)),
         body
       ),
@@ -431,7 +431,7 @@ export class Physics {
       k.obj.position.set(t.x, t.y, t.z);
       k.obj.quaternion.set(r.x, r.y, r.z, r.w);
       if (!k.obj.matrixAutoUpdate) k.obj.updateMatrix();
-      k.onMove?.(k.obj.position, k.obj.quaternion);
+      k.onMove?.(k.obj.position, k.obj.quaternion, k.body.linvel());
       if (k.body.isSleeping() || (k.t += dt) > KNOCK_MAX_T) {
         this.knocked.delete(k);
         this._drop(k.body);

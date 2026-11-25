@@ -3076,7 +3076,7 @@ export function buildDaren5Street(I, scene, X) {
     g.fillRect(0, 31, 64, 2);
   }); // 透明浪板
   const tree = (k, x, z, h, s, r) => {
-    k.cyl(x, z, 0.2, 0, h, '#6a4a30', { seg: 6 });
+    k.cyl(x, z, 0.2, 0, h, '#6a4a30', { seg: 6, col: true });
     for (const [dx, dy, dz, q] of [
       [0, h + 0.5, 0, 1],
       [-1.1, h - 0.5, 0.4, 0.8],

@@ -375,7 +375,7 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(Math.hypot(knocks[2].vel.x, knocks[2].vel.z)).toBeCloseTo(fastSol.dv2, 2);
     expect(fastScooter.crash).not.toBeNull();
 
-    // 5. Verify Newton's 3rd Law & exact impulse formula directly in ImpactPhysics
+    // 5. Verify Newton's 3rd Law & exact momentum/energy conservation across free, parked, and domino collisions
     const sym = solveVehicleImpact({
       kind1: 'scooter',
       rider1: true,
@@ -389,6 +389,37 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(sym.dv1).toBeCloseTo(sym.dv2, 4); // equal mass -> equal delta-V
     expect(sym.force).toBeCloseTo(expectedJ / 0.12, 2);
     expect(GRAVITY).toBeCloseTo(9.81, 2);
+
+    // Exact momentum conservation with external static friction impulse: m1*v1' + m2*v2' == m1*v1 - J_hold
+    const parked = solveVehicleImpact({
+      kind1: 'scooter',
+      rider1: false,
+      kind2: 'scooter',
+      rider2: false,
+      parked2: true,
+      vRel: 5,
+    });
+    const pBefore = parked.m1 * 5;
+    const pAfter = parked.m1 * (5 - parked.dv1) + parked.m2 * parked.dv2;
+    expect(pAfter).toBeCloseTo(pBefore - parked.holdImpulse, 5);
+    // Kinetic energy never increases (inelastic + friction)
+    const keBefore = 0.5 * parked.m1 * 25;
+    const keAfter = 0.5 * parked.m1 * (5 - parked.dv1) ** 2 + 0.5 * parked.m2 * parked.dv2 ** 2;
+    expect(keAfter).toBeLessThan(keBefore);
+
+    // Rigid static-hold case (scooter vs 1,250 kg parked car at 10 m/s): exact rigid-body impulse J = (1+e)*m1*v
+    const rigid = solveVehicleImpact({
+      kind1: 'scooter',
+      rider1: true,
+      kind2: 'car',
+      rider2: false,
+      parked2: true,
+      vRel: 10,
+    });
+    expect(rigid.moves).toBe(false);
+    expect(rigid.dv2).toBe(0);
+    expect(rigid.impulse).toBeCloseTo((1 + RESTITUTION) * rigid.m1 * 10, 4);
+    expect(rigid.ejectRider1).toBe(true);
   });
 
   it('slides player scooter on throwOff and triggers rear-end crash when stationary player is hit by fast AI', () => {
@@ -462,8 +493,8 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(scMed.kf).toBeCloseTo(0.69, 1);
     expect(scMed.ejectRider1).toBe(false);
 
-    // High-speed scooter (15 m/s = 54 km/h) hitting a 70 kg person: shock >= 3.6 G -> scooter rider crashes too
-    const scFast = solvePersonImpact({ vehicleKind: 'scooter', riderOnVehicle: true, vRel: 15 });
+    // High-speed scooter (17 m/s = 61 km/h) hitting a 70 kg person: shock >= 4.3 G -> scooter rider crashes too
+    const scFast = solvePersonImpact({ vehicleKind: 'scooter', riderOnVehicle: true, vRel: 17 });
     expect(scFast.knockDown).toBe(true);
     expect(scFast.ejectRider1).toBe(true);
 

@@ -179,22 +179,17 @@ export class VehicleSpawner {
     const minDv2 = sc ? 2.2 : 3.2;
     if (sol.dv2 < minDv2) return false;
     const [fx, fz] = o.forward();
-    if (
-      !this.throwVehicle(
-        o,
-        fx * o.speed * 0.55 - nx * sol.dv2,
-        fz * o.speed * 0.55 - nz * sol.dv2,
-        sol.dv2,
-        (p, up) => game.traffic.landed(o, p, up),
-        sol
-      )
-    )
+    // Newton's 1st & 3rd Laws: preserve target's full pre-impact velocity and add exact normal impulse -n * dv2
+    const tvx = fx * o.speed - nx * sol.dv2;
+    const tvz = fz * o.speed - nz * sol.dv2;
+    if (!this.throwVehicle(o, tvx, tvz, sol.dv2, (p, up) => game.traffic.landed(o, p, up), sol))
       return false;
+    // Traffic rider inertia: keeps pre-impact forward velocity plus partial impulse transfer from the bike
     game.traffic.throwRider(
       o,
-      fx * o.speed * 0.6 - nx * sol.dv2 * 0.55,
+      fx * o.speed * 0.85 - nx * sol.dv2 * 0.4,
       1.6 + Math.min(1.6, sol.dv2 * 0.14),
-      fz * o.speed * 0.6 - nz * sol.dv2 * 0.55
+      fz * o.speed * 0.85 - nz * sol.dv2 * 0.4
     );
     if (by === game.player.vehicle) game.audio.bump(Math.min(3, impact / 4), by.kind);
     return { kf: sol.kf, eject: sol.ejectRider1 };
@@ -347,30 +342,24 @@ export class VehicleSpawner {
       rvy = 2.0 + Math.min(2.2, s * 0.14);
     }
 
-    // Player's own scooter slides & topples with glancing/recoil momentum so both bikes react symmetrically
+    // Player's own scooter post-impact velocity strictly from Newtonian impulse:
+    // tangential velocity is largely preserved; normal velocity changes by +c.nx * dv1 (rebound = e*v_n on rigid hit)
     let bvx, bvz;
     if (c.pushed) {
-      const bk = Math.min(5.2, Math.max(1.8, c.impact * 0.42));
+      const bk = c.dv1 ?? c.impact * 0.5;
       bvx = c.nx * bk;
       bvz = c.nz * bk;
     } else {
-      const tx = (fx - d * c.nx) * s * 0.38;
-      const tz = (fz - d * c.nz) * s * 0.38;
-      const reb = Math.max(0.9, -Math.min(0, d) * s * 0.14);
-      bvx = tx + c.nx * reb;
-      bvz = tz + c.nz * reb;
-      const bl = Math.hypot(bvx, bvz);
-      if (bl > 5.2) {
-        bvx *= 5.2 / bl;
-        bvz *= 5.2 / bl;
-      } else if (bl < 1.4) {
-        const dl = Math.hypot(c.nx, c.nz) || 1;
-        bvx = (c.nx / dl) * 1.4;
-        bvz = (c.nz / dl) * 1.4;
-      }
+      const vn = fx * s * c.nx + fz * s * c.nz; // negative when approaching obstacle
+      const tangX = fx * s - vn * c.nx;
+      const tangZ = fz * s - vn * c.nz;
+      const dv1 = c.dv1 ?? (1 + KNOCK_E) * Math.abs(vn);
+      const vnPost = vn + dv1; // >0 slight inelastic rebound against rigid wall/car, <0 slower forward follow-through after moving another scooter
+      bvx = tangX * 0.8 + c.nx * vnPost;
+      bvz = tangZ * 0.8 + c.nz * vnPost;
     }
     const bspd = Math.hypot(bvx, bvz);
-    const slid = this.throwVehicle(v, bvx, bvz, Math.max(1.8, bspd), () => {
+    const slid = this.throwVehicle(v, bvx, bvz, Math.max(0.8, bspd), () => {
       v.fallen = true;
       v.sync();
     });

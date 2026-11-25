@@ -159,3 +159,13 @@ cv.width = 1; cv.height = 1;
 4. **⚠️ `Three.js r160` 無 `tex.source.dataReady`，分帶 `texSubImage2D` 須用 `DataTexture(null, W, H)`**：
    - `tex.source.dataReady` 是在較新版 Three.js 才加入的旗標；在 `r160` 做分帶上傳須改用 `new THREE.DataTexture(null, W, H)` 先呼叫 `renderer.initTexture(tex)` 配置空 VRAM 紋理，再透過 `renderer.properties.get(tex).__webglTexture` 逐幀執行 `gl.texSubImage2D()`，最後一帶才呼叫 `gl.generateMipmap(gl.TEXTURE_2D)`。
    - 若未來有功能需把 Canvas 繪圖移入 Web Worker，**必須包裝 `IdleWorker`（閒置 10 秒自動 `terminate()`）**，且在 Worker 初始化時先以 64×64 畫布測試 CJK 中文字體像素差分（iOS Safari / `WKWebView` 部分版本 Worker 內無中文字體，測不到就退回主執行緒）。
+
+---
+
+## 踩雷 #10：Phase 1A 實作與量測時踩到的五件事（2026-11-25）
+
+1. **畫布放掉後，`profile_scene` 的「貼圖估算」會少算**：舊算法用 `texture.image` 的寬高，畫布上傳後縮成 1×1 就算成 0，但 GPU 上仍是原尺寸。`GpuMemLifecycle.uploadAndRelease()` 現在把上傳時的尺寸記在 `texture.userData.gpuW/gpuH`，`tools/perf/page-hook.js` 優先用它。
+2. **自動化量測會讓 BootDiag 進安全模式**：載入到一半就換頁（重新整理、導到下一個網址），BootDiag 會把那次記成「沒跑完」，連兩次後下次啟動自動進安全模式（`texScale` 0.375），量到的數字就不是一般手機設定。量測腳本每次啟動前要清掉 `localStorage['yanlinGTA.bootDiag.v1']`，並加 `?safemode=0`。
+3. **同一台機器上還有別的頁面在跑遊戲時，開機時間會被灌水**：無頭 Chrome 用 SwiftShader 軟體算圖，一個停在標題畫面的分頁就會吃滿 CPU，`profile:mobile` 的「啟動到標題」曾因此從 67 秒變成 107 秒。量開機時間前先關掉其他無頭 Chrome。
+4. **縮小的畫布不能用 `g.canvas.width` 畫、不能 `getImageData`**：`scaledCanvas()` 讓 context 先縮放，所以 `draw(g, w, h)` 照原尺寸畫就對；用實際像素寬高畫會只畫到四分之一，`getImageData`/`putImageData` 不吃縮放（`Textures.js` 的法線圖因此不走 `scaledCanvas`）。
+5. **規格說的「4 支模組頂層立即建畫布」量不到**：以建立當下的載入階段分類，所有畫布都在 `stage()` 開始之後才建立（`Dorms`、`Weiche`、`StreetDaren`、`d2/corners` 都是用到才建），這項不需要改。

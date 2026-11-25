@@ -24,6 +24,45 @@
 
 ---
 
+### Session #007｜2026-11-25｜負責階段：Phase 1A 第一部分（畫布生命週期：圖集、招牌、私有畫布、手機縮圖）
+- **工作分支 / PR**：`fix/ios-canvas-lifecycle`（規劃表的 PR #3；Phase 1A 剩下的項目見文末，下一個 PR 接續）
+- **本輪已完成**：
+  1. **新增 `src/graphics/GpuMemLifecycle.js`**：`configureGpuMem` / `scaledCanvas` / `canvasTexture` / `uploadAndRelease` / `markAtlasSource` / `releaseAtlasSources` / `blankTexture`。
+     - 街屋圖集（`finishRow` 的 sheet）：畫完立刻 `renderer.initTexture()`，畫布縮成 1×1。
+     - 打包進圖集的小招牌（atlas-source）：每蓋完一個 zone（`buildZones` 的 `afterZone`），把場景裡沒有別的 mesh 直接用到的釋放，並從 `TEX` 移除 key（之後再用同一個 key 會重畫，像素相同）。
+     - `Sac` 的門牌／招牌圖集、`Lixing` 的門牌圖集：全部畫完後上傳並釋放。
+     - 拿不到 2D context 時回傳共用 1×1 `blankTexture()`，不拋例外。
+  2. **接上 `PerfProfile`**：`mobile-lite` 用 `texScale` 0.5，安全模式 0.375，網址 `?texscale=` 照指定值；`atlasMaxW/H` 決定圖集存放倍率與邏輯高度上限。**電腦一律 1 倍**：`desktop-igpu` 的 0.75 刻意不套用（使用者要求筆電畫質不降，電腦記憶體也不是瓶頸），請 Hank 確認。
+  3. **私有畫布收斂**：ZoneA/B/C/D/E/G/H、`Dorms` 的私有 `ctex`，`Lixing`、`Sac` 的 `canvasTex` 與圖集，以及 `Kit.ctex`，都改走 `canvasTexture` / `scaledCanvas`。`HUD` 小地圖倍率改為 `1.3 × texScale`（手機 0.65）。
+  4. `Game.js`：建好 renderer 後呼叫 `configureGpuMem`；`webglcontextrestored` 時重新整理（已釋放的畫布傳不回 GPU）。
+  5. `tools/perf/page-hook.js`：貼圖估算改用 `texture.userData.gpuW/gpuH`（上傳時的尺寸），畫布釋放後不再少算。
+  6. 單元測試 `tests/unit/gpu-mem-lifecycle.test.js`（6 個），文件 `docs/guide/architecture.md` 新增〈畫布貼圖記憶體〉一節（含內容組新增貼圖的規則）。
+- **實機與量化數據變化**：
+  - **手機模擬**（`npm run profile:mobile -- --assert-ios-budget`，Apple M1 本機 Chrome，SwiftShader，`mobile-lite` / `low`，3 次中位數）：
+
+    | 項目 | Session #006 | 本輪 |
+    | :--- | ---: | ---: |
+    | Canvas（進標題時） | 1748.43 MB（3133 個） | **165.65 MB（800 個）**，門禁通過 |
+    | 貼圖估算（GPU，含 mip） | 1640.24 MB | **538.45 MB**（−67%；圖集以半尺寸上傳） |
+    | JS heap | 437.64 MB | 441.22 MB（本輪未處理幾何） |
+    | 啟動到標題（軟體渲染） | 70.7 s | 64.4 s（63.2–67.2） |
+
+    - 載入過程的 Canvas 最高峰（另以 `createElement` / 寬高 setter 追蹤，未受 GC 影響的上限）：1762 MB → **212 MB**，發生在「蓋資管系館、麥當勞、警衛室」（`buildZones`）。
+  - **電腦**（`node tools/profile_scene.mjs --gpu`，Apple M1 Metal，`desktop-igpu` / `medium`，3 次，main 與本分支交替先後跑兩輪）：Canvas 1839.96 → 359.17 MB；貼圖估算 1758.5 → 1754.45 MB（電腦不縮圖，GPU 用量不變）。
+    - 幀時間在兩輪間互有高低，同一個 build 同一機位單次就會在 50–76 fps 間跳（無風扇 M1 的溫度），無法用幀時間判斷。改為**包住 `WebGL2RenderingContext` 計算每一幀的 GL 呼叫**：91 個固定機位（13 排街屋招牌特寫、Sac／Lixing 門牌、空拍）在 `low` 與 `medium` 下，`drawElements`、`bindTexture`、`useProgram`、`uniform*` 等每一種呼叫次數都與 main **完全相同（91/91）**，每幀工作量不變。
+  - **畫面**：電腦與 main 逐像素比對 87/91 完全相同，其餘最多 6/255；手機只有貼圖變軟，無缺件、無錯位；「畫布已釋放但沒上傳 GPU」的空白貼圖檢查兩種檔位都是 0。
+  - **iPhone 14 Pro**（區網正式版建置，`?diag=1`）：**第一次成功進到標題畫面**（之前在畫第一幀時被系統殺掉）。總計 69.9 s：`fetch-and-wasm` 0.6 s、`build-world` **51.3 s**、`build-interiors` 9.9 s、`build-physics` 1.8 s、`spawn-entities` 2.5 s、`init-npcs` 1.5 s、`compile-shaders` 2.4 s。連續遊玩 10 分鐘尚未測。
+- **新發現的技術細節或踩雷**：已寫進 [pitfalls-and-memory.md](pitfalls-and-memory.md) 踩雷 #10（貼圖估算少算、自動化量測觸發安全模式、背景頁面灌水開機時間、縮放畫布的畫法限制、「頂層立即建畫布」量不到）。另外：`--assert-ios-budget` 檢查的是進標題時還活著的畫布，不是載入途中的最高峰，最高峰要另外量。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. **Phase 1A 剩餘（下一個 PR）**：
+     - `Textures.js` 的 `hc` / `dc` 暫存畫布，以及共用貼圖上傳後釋放（規格要求進遊戲後 ≤ 24 MB；目前 `Textures.js` 約 51 MB、`Kit` 共用約 9 MB）。
+     - 其餘私有畫布：`MapBuilder` 約 17 MB，以及 `Weiche`、`Vehicles`、`ClubRoom`、`Arena`、`GateExtras`、`Furniture`、NPC 頭像。
+     - `markStaticGeometry`（JS heap 約 440–460 MB）與 `gcNudge`。
+  2. **Phase 1B**：`fix/ios-lazy-noncore-assets`。
+  3. **iPhone 的 `build-world` 51 s**：瓶頸是保留區多邊形判斷（`inAnyPoly` 逐一比對約 1,400 個多邊形）。#156 的格子索引曾在同一支手機把這段從約 50 s 壓到約 10 s，輸出逐棵相同；規劃沒有這項，建議另開小 PR。
+
+---
+
 ### Session #006｜2026-11-25｜負責階段：Phase 0 合併收尾（接手 hank1224）
 - **工作分支 / PR**：`chore/merge-perf-phase0`（把 `chore/perf-flags-and-metrics`，含 `docs/revise-perf-refactor-plan`，合併回 `main` @ #161）
 - **本輪已完成**：

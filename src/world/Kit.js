@@ -362,9 +362,13 @@ export class Interiors {
     this.updaters = [];
     this.stamp = 0;
     this.wst = [];
+    this.scooters = [];
   }
   _key(ix, iz) {
     return ix * 73856 + iz;
+  }
+  addScooter(x, z, yaw, color = '#2a2a30') {
+    this.scooters.push([x, z, yaw, color]);
   }
   addWall(ax, az, bx, bz, y0, y1) {
     const wi = this.walls.length;
@@ -590,6 +594,10 @@ export class Kit {
   heading(localAngle = 0) {
     return localAngle - this.ang;
   } // three rotation.y for local-forward
+  scooter(lx, lz, rot = 0, color = '#2a2a30') {
+    const [wx, wz] = rot ? this.w(lx, lz + 0.75) : this.w(lx + 0.75, lz);
+    this.I.addScooter(wx, wz, this.heading(rot ? 0 : Math.PI / 2), color);
+  }
   box(x0, x1, y0, y1, z0, z1, mat, o = {}) {
     const W = x1 - x0,
       H = y1 - y0,

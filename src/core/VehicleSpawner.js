@@ -252,6 +252,8 @@ export class VehicleSpawner {
         best = v;
       }
     }
+    const ps = this.game.parkedScooters?.nearestSpot(p.x, p.z, p.y, bd);
+    if (ps) return { isParkedSpot: true, kind: 'scooter', spot: ps.spot, label: '路邊機車' };
     return best;
   }
 

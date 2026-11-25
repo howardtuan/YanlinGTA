@@ -100,6 +100,7 @@ import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
 import { createBootDiag } from './BootDiag.js';
 import { PerfHud } from './PerfHud.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
+import { ParkedScooters } from './ParkedScooters.js';
 
 const $ = (id) => document.getElementById(id);
 const onClick = (id, fn) => {
@@ -509,6 +510,7 @@ class Game {
     }
 
     this.vehicleSpawner.spawnParked();
+    this.parkedScooters = new ParkedScooters(this);
     Vehicle.knock = (o, by, nx, nz, impact) =>
       this.vehicleSpawner.knockVehicle(o, by, nx, nz, impact);
     Vehicle.knockTraffic = (o, by, nx, nz, impact) =>
@@ -1295,10 +1297,14 @@ class Game {
           this.audio.mount();
         } else hud.toast('先減速才能下車！', 'bad');
       } else {
-        const v = this._nearestVehicle(3.2),
-          locked = v?.lock?.();
+        let v = this._nearestVehicle(3.2);
+        const locked = v?.lock?.();
         if (locked) hud.toast(locked, 'bad', 2800);
         else if (v) {
+          if (v.isParkedSpot) {
+            v = this.parkedScooters.claimAsVehicle(v.spot);
+            if (!v) return;
+          }
           if (v.ai !== null && v.ai !== undefined) {
             this.traffic.hijack(v);
             this.vehicles.push(v);
@@ -1405,6 +1411,7 @@ class Game {
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
       if (!pl.rag) {
+        this.parkedScooters?.resolveFoot(pl.pos, 0.35);
         for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
           if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1)
             continue;
@@ -1549,6 +1556,7 @@ class Game {
       this.audio.pickup();
     }
 
+    this.parkedScooters?.update(dt);
     if (inp.hit('KeyV') && !this.phone.open && !hud.inDialog && !hud.bigOpen && !this._modalOpen)
       this.fpv.toggle();
     this.rig.update(

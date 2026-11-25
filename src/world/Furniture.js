@@ -1291,49 +1291,30 @@ export function buildFurniture(scene, world, data, ctx) {
     const real = motos.filter((m) => !m[3]);
     stats.motos = real.length;
     stats.motoGhosts = motos.length - real.length;
-    world.motoSpots = real.map(([x, z, ry]) => [x, z, ry]);
-    if (real.length) {
-      const { geo, tris } = scooterGeometry(Geo);
-      const im = new THREE.InstancedMesh(
-        geo,
-        new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75 }),
-        real.length
-      );
-      const M = new THREE.Matrix4(),
-        Q = new THREE.Quaternion(),
-        E = new THREE.Euler(),
-        S = new THREE.Vector3(1, 1, 1),
-        P = new THREE.Vector3(),
-        C = new THREE.Color();
-      const PAL = [
-        '#e8e8e4',
-        '#2a2a2c',
-        '#b8bcc0',
-        '#b8282a',
-        '#2c5aa0',
-        '#6b6e70',
-        '#d8b440',
-        '#5a8a5a',
-        '#f2f0ea',
-        '#3a3f48',
-      ];
-      let j = 0;
-      motos.forEach(([x, z, ry, gh], i) => {
-        const c = PAL[Math.floor(rnd() * PAL.length)];
-        if (gh) return; // ghosts keep their colour draw
-        E.set(0, ry, (i % 2 ? 1 : -1) * 0.07, 'YXZ');
-        Q.setFromEuler(E);
-        P.set(x, Hmin(x, z, 0.8), z);
-        M.compose(P, Q, S);
-        im.setMatrixAt(j, M);
-        im.setColorAt(j, C.set(c));
-        j++;
-      });
-      im.castShadow = false;
-      im.receiveShadow = true;
-      scene.add(im);
-      stats.motoTris = tris * real.length;
-    }
+    const { geo, tris } = scooterGeometry(Geo);
+    world.motoGeo = geo;
+    const PAL = [
+      '#e8e8e4',
+      '#2a2a2c',
+      '#b8bcc0',
+      '#b8282a',
+      '#2c5aa0',
+      '#6b6e70',
+      '#d8b440',
+      '#5a8a5a',
+      '#f2f0ea',
+      '#3a3f48',
+    ];
+    // Preserve exact rnd() draws for deterministic map generation; ParkedScooters renders
+    // these + street scooters together in one interactive InstancedMesh.
+    const spots = [];
+    motos.forEach(([x, z, ry, gh], i) => {
+      const c = PAL[Math.floor(rnd() * PAL.length)];
+      if (gh) return; // ghosts keep their colour draw
+      spots.push([x, z, ry, c, (i % 2 ? 1 : -1) * 0.07, Hmin(x, z, 0.8)]);
+    });
+    world.motoSpots = spots;
+    stats.motoTris = tris * real.length;
   }
 
   // ---------- 7. shop signs from POIs ----------

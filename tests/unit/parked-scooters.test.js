@@ -4,6 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { ParkedScooters } from '../../src/core/ParkedScooters.js';
+import { VehicleSpawner } from '../../src/core/VehicleSpawner.js';
+import { Vehicle } from '../../src/entities/Vehicles.js';
+import { solveVehicleImpact, RESTITUTION, GRAVITY } from '../../src/physics/ImpactPhysics.js';
 
 function makeMockGame(opts = {}) {
   const scene = new THREE.Scene();
@@ -315,7 +318,7 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(playerScooter.speed).toBe(0);
     expect(playerScooter.crash).not.toBeNull();
 
-    // 2. Car (15 m/s) ramming a 1,250 kg parked car: parked car skids flat (vy=0, zero roll/pitch, heavy damping), hitter slows sharply
+    // 2. Car (15 m/s) ramming a 1,250 kg parked car: obeys J = (1+e)*mu*vRel - J_hold, slides flat on 4 wheels (vy=0, roll=0)
     const playerCar = {
       kind: 'car',
       speed: 15,
@@ -325,14 +328,15 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     ps.onChassisHit(ps.carSlots[1], playerCar, { impact: 15, sp: 15, nx: -1, nz: 0 }, onBump);
     expect(ps.carSlots[1].state).toBe('flying');
     expect(knocks.length).toBe(1);
+    const carSol = solveVehicleImpact({ kind1: 'car', kind2: 'car', vRel: 15 });
     expect(knocks[0].vel.y).toBe(0);
-    expect(Math.hypot(knocks[0].vel.x, knocks[0].vel.z)).toBeLessThanOrEqual(5.01);
+    expect(Math.hypot(knocks[0].vel.x, knocks[0].vel.z)).toBeCloseTo(carSol.dv2, 2);
     expect(knocks[0].spin.x).toBe(0);
     expect(knocks[0].spin.z).toBe(0);
-    expect(knocks[0].opt.linDamp).toBeGreaterThanOrEqual(2.0);
-    expect(playerCar.speed).toBeLessThan(6.0);
+    expect(knocks[0].opt.friction).toBeCloseTo(0.8, 2);
+    expect(playerCar.speed).toBeCloseTo(15 * carSol.kf, 2);
 
-    // 3. Scooter (5 m/s) hitting parked scooter: grounded slide (vy=0), hitting scooter loses most speed symmetrically
+    // 3. Scooter (5 m/s) hitting parked scooter: exact Newtonian dv2 & dv1, rolls sideways, grounded (vy=0)
     const medScooter = {
       kind: 'scooter',
       speed: 5,
@@ -342,13 +346,15 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     ps.onChassisHit(ps.scooterSlots[0], medScooter, { impact: 5, sp: 5, nx: -1, nz: 0 }, onBump);
     expect(ps.scooterSlots[0].state).toBe('flying');
     expect(knocks.length).toBe(2);
+    const medSol = solveVehicleImpact({ kind1: 'scooter', kind2: 'scooter', vRel: 5 });
     expect(knocks[1].vel.y).toBe(0);
-    expect(Math.hypot(knocks[1].vel.x, knocks[1].vel.z)).toBeLessThan(2.5);
-    expect(knocks[1].opt.linDamp).toBeGreaterThanOrEqual(1.2);
-    expect(medScooter.speed).toBeLessThan(2.0);
+    expect(Math.hypot(knocks[1].vel.x, knocks[1].vel.z)).toBeCloseTo(medSol.dv2, 2);
+    expect(Math.hypot(knocks[1].spin.x, knocks[1].spin.z)).toBeCloseTo(medSol.rollSpeed, 2);
+    expect(knocks[1].opt.friction).toBeCloseTo(0.55, 2);
+    expect(medScooter.speed).toBeCloseTo(5 * medSol.kf, 2);
     expect(medScooter.crash).toBeNull();
 
-    // 4. Scooter (12 m/s) head-on into parked scooter: target stays grounded (vy < 0.4) AND hitter crashes too!
+    // 4. Scooter (12 m/s) head-on into parked scooter: shock deceleration >= A_EJECT -> player crashes symmetrically!
     const fastScooter = {
       kind: 'scooter',
       speed: 12,
@@ -358,8 +364,69 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     ps.onChassisHit(ps.scooterSlots[1], fastScooter, { impact: 12, sp: 12, nx: -1, nz: 0 }, onBump);
     expect(ps.scooterSlots[1].state).toBe('flying');
     expect(knocks.length).toBe(3);
-    expect(knocks[2].vel.y).toBeLessThan(0.4);
-    expect(Math.hypot(knocks[2].vel.x, knocks[2].vel.z)).toBeLessThanOrEqual(6.21);
+    const fastSol = solveVehicleImpact({ kind1: 'scooter', kind2: 'scooter', vRel: 12 });
+    expect(knocks[2].vel.y).toBe(0);
+    expect(Math.hypot(knocks[2].vel.x, knocks[2].vel.z)).toBeCloseTo(fastSol.dv2, 2);
     expect(fastScooter.crash).not.toBeNull();
+
+    // 5. Verify Newton's 3rd Law & exact impulse formula directly in ImpactPhysics
+    const sym = solveVehicleImpact({
+      kind1: 'scooter',
+      rider1: true,
+      kind2: 'scooter',
+      rider2: true,
+      parked2: false,
+      vRel: 10,
+    });
+    const expectedJ = (1 + RESTITUTION) * ((180 * 180) / 360) * 10;
+    expect(sym.impulse).toBeCloseTo(expectedJ, 4);
+    expect(sym.dv1).toBeCloseTo(sym.dv2, 4); // equal mass -> equal delta-V
+    expect(sym.force).toBeCloseTo(expectedJ / 0.12, 2);
+    expect(GRAVITY).toBeCloseTo(9.81, 2);
+  });
+
+  it('slides player scooter on throwOff and triggers rear-end crash when stationary player is hit by fast AI', () => {
+    const { game, knocks } = makeMockGame();
+    game.audio = {
+      ...game.audio,
+      engineStop: vi.fn(),
+      setEngine: vi.fn(),
+      skid: vi.fn(),
+    };
+    game.hud = { setSpeed: vi.fn(), toast: vi.fn() };
+    game.headlight = { intensity: 1 };
+    game.world.collision = {};
+    game.player.exit = vi.fn();
+    game.player.throwOff = vi.fn();
+    const spawner = new VehicleSpawner(game);
+
+    // 1. Stationary player scooter rear-ended by fast AI car (12 m/s closing)
+    const v = Object.assign(Object.create(Vehicle.prototype), {
+      id: 1,
+      kind: 'scooter',
+      speed: 0,
+      heading: 0,
+      moveAng: 0,
+      bumpCooldown: 0,
+      crash: null,
+      pos: new THREE.Vector3(0, 0, 0),
+      mesh: new THREE.Group(),
+      sync: vi.fn(),
+      resolveBody: vi.fn(),
+    });
+    const aiCar = { kind: 'car', ai: { stunned: 0 }, speed: 12, forward: () => [0, 1] };
+    v._hitVehicle(aiCar, null, 11.5, 0, 1, 0, vi.fn(), 0, 11.5);
+    expect(v.crash).not.toBeNull();
+    expect(v.crash.pushed).toBe(true);
+    expect(aiCar.ai.stunned).toBe(2);
+
+    // 2. throwOff launches BOTH rider AND the player's own scooter forward along impact normal
+    spawner.throwOff(v);
+    expect(knocks.length).toBe(1);
+    expect(knocks[0].vel.z).toBeGreaterThan(2.0);
+    expect(game.player.throwOff).toHaveBeenCalled();
+    const [rvx, rvz] = game.player.throwOff.mock.calls[0];
+    expect(Math.hypot(rvx, rvz)).toBeGreaterThan(4.0);
+    expect(game.hud.toast).toHaveBeenCalledWith(expect.stringContaining('被撞飛了'), 'bad', 2600);
   });
 });

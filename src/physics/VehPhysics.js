@@ -273,8 +273,17 @@ export class Chassis {
         else return; // props, debris, walking characters: physics alone
         const hl = Math.hypot(nx, nz) || 1,
           vs = this.vset;
-        // only as hard as you were going into it (pushed by a moving stand-in: approach <= 0, no hit)
-        const approach = -(vs.x * nx + vs.z * nz) / hl,
+        let ovx = 0,
+          ovz = 0;
+        if (key !== 'wall' && !key.parkedSlot && typeof key.forward === 'function') {
+          const [ofx, ofz] = key.forward(),
+            os = key.speed || 0;
+          ovx = ofx * os;
+          ovz = ofz * os;
+        }
+        // True closing speed along the contact normal: catches both you ramming an obstacle and
+        // a moving AI vehicle rear-ending/T-boning you, while still ignoring walls you were shoved into
+        const approach = -((vs.x - ovx) * nx + (vs.z - ovz) * nz) / hl,
           impact = Math.min(approach, -(Lx * nx + Lz * nz) / hl);
         if (impact <= 0) return;
         const h = this.hits.get(key);
@@ -330,7 +339,7 @@ export class Chassis {
       const last = this.lastHits;
       for (const [key, hit] of this.hits) {
         const prev = last.get(key),
-          cls = hit.impact > 4 ? 2 : hit.impact > 2 ? 1 : 0,
+          cls = hit.impact > 4 ? 3 : hit.impact > 2 ? 2 : hit.impact > 1.0 ? 1 : 0,
           sp = hit.sp;
         hit.cls = cls;
         if (prev && cls <= prev.cls) continue;
@@ -340,12 +349,27 @@ export class Chassis {
           v0: +sp.toFixed(2),
         });
         if (this.log.length > 8) this.log.shift(); // debugging
+        const deflect = () => {
+          if (hit.impact <= 2.0 || v.crash) return;
+          const [fx, fz] = v.forward();
+          const cross = fz * hit.nx - fx * hit.nz;
+          if (Math.abs(cross) > 0.15) {
+            const kick = Math.max(
+              -0.22,
+              Math.min(0.22, cross * Math.min(1, hit.impact / 8) * 0.25)
+            );
+            v.heading += kick;
+            v.moveAng += kick * 0.7;
+          }
+        };
         if (key === 'wall') {
           v.hitWall(hit.impact, hit.nx, hit.nz, sp, onBump);
+          deflect();
           continue;
         }
         if (key.parkedSlot) {
           key.onHit?.(v, hit, onBump);
+          deflect();
           continue;
         }
         const kf = v._knockKf(key, hit.nx, hit.nz, hit.impact);
@@ -355,6 +379,7 @@ export class Chassis {
           os = key.speed || 0;
         const rel = -((hit.vx - ofx * os) * hit.nx + (hit.vz - ofz * os) * hit.nz);
         v._hitVehicle(key, kf, hit.impact, hit.nx, hit.nz, sp, onBump, Math.abs(sp), rel);
+        deflect();
       }
       this.lastHits = this.hits;
       this.hits = new Map();

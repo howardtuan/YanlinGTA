@@ -51,6 +51,7 @@ cv.width = 1; cv.height = 1;
 
 ### ✅ 正確解法
 1. **先寫 DOM ＋ 檢查點，再 `await nextFrame()`**：封裝 `stage(key, pct, label)`，順序必須是 `setLoad(pct, label)` → `bootDiag.checkpoint(...)` → `await nextFrame()`，確保瀏覽器把最新階段文字畫上螢幕後才執行下一個同步重負載區塊。
+   - **`nextFrame()` 不能只等 `requestAnimationFrame`**（2026-11-25 補充）：`await` 一個在 rAF callback 裡 resolve 的 Promise，後續程式會在同一幀的 callback 階段（microtask）就接著跑，**早於該幀的繪製**；緊接的 `buildWorld()` 一跑數秒，畫面仍是上一段的文字。必須寫成 `requestAnimationFrame(() => setTimeout(r, 0))`，等瀏覽器畫完這一幀才繼續。`BootDiag` 的 `localStorage` 檢查點是同步寫入，不受此影響。
 2. **輕量持久化崩潰麵包屑（`BootDiag`）**：將最後停留階段寫入 `localStorage`，加上 `?diag=1`（連死 2 次自動暫停）與 `?diag=halt`（遇上次未完成即暫停），讓開發者在無法掛載 Web Inspector 的 iPhone Safari / LINE / IG 內直接看見上一次死在哪個確切階段並保留頁面供掛載除錯。
 
 ---

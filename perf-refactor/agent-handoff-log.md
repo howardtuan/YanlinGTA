@@ -24,6 +24,42 @@
 
 ---
 
+### Session #006｜2026-11-25｜負責階段：Phase 0 合併收尾（接手 hank1224）
+- **工作分支 / PR**：`chore/merge-perf-phase0`（把 `chore/perf-flags-and-metrics`，含 `docs/revise-perf-refactor-plan`，合併回 `main` @ #161）
+- **本輪已完成**：
+  1. **以本規劃為準，拿掉 #156 的內容**（`?boottrace` 開機追蹤、`nextFrame` 調整、`Kit.configureTextures` / `releaseAtlasSources` 手機畫布縮放與釋放、保留區格子索引、林口體育館座椅剔除）：#156 改過的 16 個檔案回到 #155 合併時的內容。對應工作改由 Phase 0 `BootDiag` / `stage()`、Phase 1A 畫布生命週期、Phase 1B `Arena.js` 剔除處理。#157、#159、#160、#161（麻將）未受影響。
+  2. **合併本分支**：分支建在 #153 之前，#153 已用 `src/core/PerfHud.js`（設定 → 效能顯示，四段式）取代 `GameLoop.perfOverlay()`。衝突處理保留 `PerfHud`、不帶回舊浮層；`[SAFE]` 標記改掛在 `PerfHud` 開發者層級的「檔位」後面；`?perf` 會直接開 `PerfHud` 的開發者層級。其餘 25 個檔案與分支一字不差。
+  3. **`nextFrame()` 改為 `requestAnimationFrame(() => setTimeout(r, 0))`**：原本只等 rAF，`stage()` 寫好的文字仍要等下一段同步建置跑完才畫得出來（見 [pitfalls-and-memory.md](pitfalls-and-memory.md) 踩雷 #2 補充）。
+- **實機與量化數據變化**（`npm run profile:mobile`，Apple M1 本機 Chrome，SwiftShader 軟體渲染，`mobile-lite` / `low`，3 次取中位數；幀時間僅供相對比較）：
+
+  | 記憶體 / 啟動 | 值 |
+  | :--- | :--- |
+  | Canvas | **1748.43 MB**（3133 個，DOM 內 3） |
+  | 貼圖估算（GPU，含 mip） | 1640.24 MB（763 張） |
+  | JS heap | 437.64 MB |
+  | 啟動到標題 | 70694 ms（範圍 68401–73859，軟體渲染） |
+  | 載入資源 | 32 個 / 11683 KB |
+
+  | 機位 | Calls | Tris | Tex | Geo |
+  | :--- | ---: | ---: | ---: | ---: |
+  | title-orbit | 700 | 2018k | 240 | 766 |
+  | 鐘塔 | 399 | 1905k | 414 | 1202 |
+  | 張靜愚紀念圖書館 | 262 | 1574k | 469 | 1403 |
+  | 學生活動中心 | 418 | 1739k | 486 | 1441 |
+  | 中原大學體育館 | 209 | 1532k | 488 | 1441 |
+  | 真知教學大樓 | 348 | 1698k | 534 | 1687 |
+
+  - 最大宗 canvas：`2048x4096 × 28 = 896 MB`（街屋圖集）、`2048x2048 × 5 = 80 MB`、`256x192 × 334 = 62.63 MB`、`512x512 × 45 = 45 MB`、`1024x192 × 43 = 32.25 MB`。
+  - 距離 Phase 1 門禁（`peakBackingStoreMB <= 220`）約差 8 倍。
+- **新發現的技術細節或踩雷**：
+  - `nextFrame()` 只等 rAF 不會讓畫面先繪製（已補進踩雷 #2）。
+  - `applySafeMode()` 設的 `texScale <= 0.375` 與 `atlasMaxW/H = 1024` 目前**沒有任何貼圖程式讀取**，安全模式實際只有「`auto` 畫質鎖 `low`」，而手機本來就是 `low`。Phase 1A 必須把 `Kit.js` / `Textures.js` 接上這兩個值，安全模式才有實際效果。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 從最新 `main` 切出 `fix/ios-canvas-lifecycle`，依 [Phase 1 規格書](specs/phase-1-ios-memory-rescue.md) 實作 Phase 1A；第一優先是 28 張 `2048x4096` 街屋圖集（896 MB）與 `texScale` / `atlasMaxW/H` 接線，每步以 `npm run profile:mobile -- --assert-ios-budget` 對照本筆基線。
+  2. Phase 1B（`fix/ios-lazy-noncore-assets`）補回 `Arena.js` 座椅 `frustumCulled`（人在校園時每幀多畫 4 km 外約 46 萬三角形，M1 GPU 約 4 ms）。
+
+---
+
 ### Session #005｜2026-11-25｜負責階段：吸收《臺北狂飆》實證優化 ＋ 免插線手機驗證與 Phase 0 自癒落實
 - **工作分支 / PR**：`chore/perf-flags-and-metrics`（已合併 `docs/revise-perf-refactor-plan`）
 - **本輪已完成**：

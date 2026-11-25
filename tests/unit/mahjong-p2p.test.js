@@ -411,3 +411,212 @@ describe('房主＋客端 P2P 房間流程與本機金錢結算（P2P.js + Mahjo
     hostMj.leave(false);
   });
 });
+
+describe('中途加入（下局取代 AI）與觀賽模式（Issue #170）', () => {
+  it('Net.js 觀賽序列化：revealAll=true 公開 4 家真手牌；revealAll=false 全面遮罩且維持 144 張守恆', () => {
+    const e = new MahjongEngine({
+      rng: seeded(77),
+      human: [true, false, false, false],
+      ai: makeAI(),
+    });
+    e.start();
+    e.step();
+
+    // 開啟觀賽可看手牌：4 家手牌皆與真實引擎一致，且 pending 必為 null
+    const openSnap = serializeStateFor(e, 1, { spectate: true, revealAll: true });
+    expect(openSnap.spectate).toBe(true);
+    expect(openSnap.revealAll).toBe(true);
+    expect(openSnap.pending).toBeNull();
+    expect(openSnap.players[0].hand).toEqual(e.players[1].hand);
+    expect(openSnap.players[3].hand).toEqual(e.players[0].hand);
+
+    const openEv = rotateEventsFor([{ type: 'draw', seat: 0, t: 12 }], 1, {
+      spectate: true,
+      revealAll: true,
+    });
+    expect(openEv[0].t).toBe(12);
+
+    // 關閉觀賽可看手牌：所有 4 家皆不洩漏手牌、摸牌事件遮罩為 -1、且維持 144 張守恆
+    const hiddenSnap = serializeStateFor(e, 0, { spectate: true, revealAll: false });
+    expect(hiddenSnap.spectate).toBe(true);
+    expect(hiddenSnap.revealAll).toBe(false);
+    expect(hiddenSnap.pending).toBeNull();
+    expect(hiddenSnap.drawn).toBeNull();
+    expect(hiddenSnap.tenpai).toEqual([]);
+    const counts = new Array(FLOWER0 + 8).fill(0);
+    for (const P of hiddenSnap.players) {
+      for (const k of P.hand) counts[k]++;
+      for (const m of P.melds) for (const k of meldTiles(m)) counts[k]++;
+      for (const k of P.flowers) counts[k]++;
+      for (const k of P.discards) counts[k]++;
+    }
+    for (const k of hiddenSnap.wall) counts[k]++;
+    for (let k = 0; k < KINDS; k++) expect(counts[k]).toBe(4);
+    for (let k = FLOWER0; k < FLOWER0 + 8; k++) expect(counts[k]).toBe(1);
+
+    const hiddenEv = rotateEventsFor([{ type: 'draw', seat: 0, t: 12 }], 0, {
+      spectate: true,
+      revealAll: false,
+    });
+    expect(hiddenEv[0].t).toBe(-1);
+  });
+
+  it('開打後中途加入先觀賽（預設可看手牌、可切換視角與房主即時開關），本局不計錢，下局自動取代 AI 上桌並正常結算', async () => {
+    const bus = createMockBus();
+    const hostGame = fakeGame(1000);
+    const lateGame = fakeGame(600);
+    const hostMj = new DormMahjong(hostGame);
+    const lateMj = new DormMahjong(lateGame);
+    const stubScene = () => ({
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand() {},
+      _layout() {},
+      _showResult() {},
+      result: null,
+      names: [],
+    });
+    hostMj.scene = stubScene();
+    lateMj.scene = stubScene();
+
+    // 房主 1 人直接開打（座位 1, 2, 3 為 AI），預設觀賽可看手牌 = 開
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+    expect(hostMj.mp.spectateReveal).toBe(true);
+    hostMj.startMultiHost();
+    expect(hostMj.sess.human).toEqual([true, false, false, false]);
+
+    // 開打後小明中途加入 → 進入觀賽狀態且排隊補位 #1，立刻收到當前盤面（revealAll = true）
+    await lateMj.joinRoom(code, '小明', bus);
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+
+    expect(lateMj.sess.spectating).toBe(true);
+    expect(lateMj.sess.wantSeat).toBe(true);
+    expect(lateMj.sess.queuePos).toBe(1);
+    expect(lateMj.engine.spectate).toBe(true);
+    expect(lateMj.engine.revealAll).toBe(true);
+    expect(hostMj.mp.spectatorCount).toBe(1);
+
+    // 房主即時關閉「觀賽可看手牌」→ 觀賽端立刻切換為隱藏手牌
+    hostMj.toggleSpectateReveal();
+    expect(hostMj.mp.spectateReveal).toBe(false);
+    expect(lateMj.engine.revealAll).toBe(false);
+
+    // 觀賽者切換視角（seat 0 → seat 1）→ 名稱陣列同步旋轉
+    const origFirst = lateMj.scene.names[0];
+    lateMj.cycleSpectatorView();
+    expect(lateMj.sess.viewSeat).toBe(1);
+    expect(lateMj.scene.names[0]).not.toBe(origFirst);
+
+    // 本局結束：觀賽期間絕不變動本機錢包
+    lateMj.handOver({
+      winner: 0,
+      from: 1,
+      tai: 3,
+      deltas: [180, -180, 0, 0],
+      dealerStays: false,
+    });
+    expect(lateGame.money).toBe(600);
+
+    // 房主按下一局 → 小明自動取代座位 1 的 AI 上桌！
+    hostMj.next();
+    expect(hostMj.sess.human).toEqual([true, true, false, false]);
+    expect(hostMj.sess.names[1]).toBe('小明');
+    expect(hostMj.mp.spectatorCount).toBe(0);
+    expect(lateMj.sess.spectating).toBe(false);
+    expect(lateMj.sess.seat).toBe(1);
+    expect(lateMj.scene.names[0]).toBe('小明');
+    expect(lateMj.engine.spectate).toBe(false);
+
+    // 上桌後本局結算正常寫回小明本機錢包
+    lateMj.handOver({
+      winner: 0,
+      from: 2,
+      tai: 2,
+      deltas: [100, 0, -100, 0],
+      dealerStays: false,
+    });
+    expect(lateGame.money).toBe(700);
+
+    hostMj.leave(false);
+    lateMj.leave(false);
+  });
+
+  it('人滿 4 位真人或選擇純觀賽時維持觀賽；排隊但錢包見底者會略過補位維持觀賽', async () => {
+    const bus = createMockBus();
+    const stubScene = () => ({
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand() {},
+      _layout() {},
+      _showResult() {},
+      result: null,
+      names: [],
+    });
+
+    const hostMj = new DormMahjong(fakeGame(1000));
+    hostMj.scene = stubScene();
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+
+    // 情境 A：只有房主＋AI，但「阿呆」選擇純觀賽、「破產君」錢包 0 排隊補位
+    hostMj.startMultiHost();
+
+    const pureSpecGame = fakeGame(500);
+    const pureSpec = new DormMahjong(pureSpecGame);
+    pureSpec.scene = stubScene();
+    await pureSpec.joinRoom(code, '阿呆', bus, { spectateOnly: true });
+
+    const brokeGame = fakeGame(0);
+    const brokeSpec = new DormMahjong(brokeGame);
+    brokeSpec.scene = stubScene();
+    await brokeSpec.joinRoom(code, '破產君', bus);
+
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    expect(pureSpec.sess.spectating).toBe(true);
+    expect(pureSpec.sess.wantSeat).toBe(false);
+    expect(brokeSpec.sess.spectating).toBe(true);
+    expect(brokeSpec.sess.wantSeat).toBe(true);
+
+    // 房主開下一局：純觀賽不補位、破產君因錢包 <= 0 被略過並收到提示，兩人都維持觀賽
+    hostMj.next();
+    expect(hostMj.sess.human).toEqual([true, false, false, false]);
+    expect(pureSpec.sess.spectating).toBe(true);
+    expect(brokeSpec.sess.spectating).toBe(true);
+    expect(brokeGame.toasts.some((t) => t.includes('錢包見底'))).toBe(true);
+
+    // 情境 B：若 3 位有錢真人把座位坐滿後，第 5 人進房會一直維持觀賽
+    const p1 = new DormMahjong(fakeGame(500));
+    const p2 = new DormMahjong(fakeGame(500));
+    const p3 = new DormMahjong(fakeGame(500));
+    const p5 = new DormMahjong(fakeGame(500));
+    for (const m of [p1, p2, p3, p5]) m.scene = stubScene();
+    await p1.joinRoom(code, '一號', bus);
+    await p2.joinRoom(code, '二號', bus);
+    await p3.joinRoom(code, '三號', bus);
+    await p5.joinRoom(code, '五號', bus);
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+
+    hostMj.next();
+    expect(hostMj.sess.human).toEqual([true, true, true, true]);
+    expect(p1.sess.spectating).toBe(false);
+    expect(p2.sess.spectating).toBe(false);
+    expect(p3.sess.spectating).toBe(false);
+    expect(p5.sess.spectating).toBe(true); // 4 人已滿，第 5 人維持觀賽
+
+    // 再開下一局仍然維持觀賽（不取代真人）
+    hostMj.next();
+    expect(p5.sess.spectating).toBe(true);
+
+    hostMj.leave(false);
+    for (const m of [pureSpec, brokeSpec, p1, p2, p3, p5]) m.leave(false);
+  });
+});

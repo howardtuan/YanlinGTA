@@ -453,7 +453,7 @@ export class MahjongScene {
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div>
-      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button></div>`;
+      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
     this.tagEls = [...el.querySelectorAll('.mj-tag')];
@@ -518,6 +518,12 @@ export class MahjongScene {
     this.$('.mj-wait').classList.add('hidden');
     this._waitKey = '';
     this.$('.mj-info').innerHTML = this._info = '';
+    const mpBar = this.$('.mj-mp-bar');
+    if (mpBar) {
+      mpBar.classList.add('hidden');
+      mpBar.innerHTML = '';
+    }
+    this._mpBar = '';
     this._hidePop();
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
@@ -697,14 +703,14 @@ export class MahjongScene {
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
       const total = hand.length + nMeld + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
       let u = -(total * TW) / 2;
-      const reveal = done; // hand over: everybody lays their tiles down
+      const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
       hand.forEach((k, i) => {
         if (i === drawn) u += TW; // the gap before the drawn tile
-        const how = s === 0 && !reveal ? 'mine' : reveal ? 'up' : 'stand';
+        const how = reveal ? 'up' : e.spectate ? 'stand' : s === 0 ? 'mine' : 'stand';
         put(
           k,
           slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
-          s === 0 ? (i === drawn ? 'drawn' : 'mine') : null
+          !e.spectate && s === 0 ? (i === drawn ? 'drawn' : 'mine') : null
         );
         u += TW;
       });
@@ -826,14 +832,41 @@ export class MahjongScene {
       }
       return;
     }
+    if (a.type === 'mpToggleReveal') {
+      if (this.menu?.kind === 'multi') {
+        this.menu.spectateReveal = !this.menu.spectateReveal;
+        this.menu.nick = this.$('#mjNick')?.value ?? this.menu.nick;
+        this.menu.code = this.$('#mjCode')?.value ?? this.menu.code;
+        this._multiPanel();
+      } else if (this.mj.mpMode === 'host') {
+        this.mj.toggleSpectateReveal();
+      }
+      return;
+    }
     if (a.type === 'mpHost') {
       const nick = this.$('#mjNick')?.value || this.menu?.nick || '彥霖';
-      return this.mj.hostRoom(nick, this.menu?.stake || 0);
+      return this.mj.hostRoom(nick, this.menu?.stake || 0, undefined, {
+        spectateReveal: this.menu?.spectateReveal !== false,
+      });
     }
     if (a.type === 'mpJoin') {
       const nick = this.$('#mjNick')?.value || this.menu?.nick || '朋友';
       const code = this.$('#mjCode')?.value || '';
       return this.mj.joinRoom(code, nick);
+    }
+    if (a.type === 'mpSpectate') {
+      const nick = this.$('#mjNick')?.value || this.menu?.nick || '朋友';
+      const code = this.$('#mjCode')?.value || '';
+      return this.mj.joinRoom(code, nick, undefined, { spectateOnly: true });
+    }
+    if (a.type === 'specView') return this.mj.cycleSpectatorView();
+    if (a.type === 'specToggleQueue') {
+      this.mj.setGuestWantSeat(!this.mj.sess?.wantSeat);
+      if (this.result && this.e?.result) this._showResultPanelOnly?.();
+      return;
+    }
+    if (a.type === 'lobbyToggleQueue') {
+      return this.mj.setGuestWantSeat(!this.lobby?.wantSeat);
     }
     if (a.type === 'mpCopy') {
       const code = this.lobby?.code || '';
@@ -920,6 +953,7 @@ export class MahjongScene {
     const topEl = this.$('.mj-top');
     if (topEl.textContent) topEl.textContent = this._top = '';
     this._infoCard();
+    this._mpBarHud();
     // name tags over each seat (the dealer's with a red 莊)
     const v = new THREE.Vector3();
     for (let s = 0; s < 4; s++) {
@@ -928,7 +962,7 @@ export class MahjongScene {
       const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
       if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
       el.classList.toggle('on', e.turn === s && e.phase !== 'end');
-      el.classList.toggle('me', s === 0);
+      el.classList.toggle('me', s === 0 && !e.spectate);
     }
     // buttons
     const opts = this._options();
@@ -957,19 +991,46 @@ export class MahjongScene {
       !this.result && (!p || p.seat !== 0) ? (e.isRemote ? e.waitingSeat : p?.seat) : null;
     const hint = this.result
       ? ''
-      : p?.seat === 0 && p.kind === 'turn'
-        ? g.input.touch
-          ? '點一下選牌、再點一次打出'
-          : g.prompts?.pad
-            ? '十字鍵選牌・A 打出'
-            : '← → 選牌・Enter／空白鍵打出（滑鼠點牌直接打）・Esc 離開'
-        : p?.seat === 0
-          ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
-          : waitSeat != null && waitSeat !== 0
-            ? `⏳ 等待 ${this.names[waitSeat]} 思考中…`
-            : '';
+      : e.spectate
+        ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}・Esc 離開`
+        : p?.seat === 0 && p.kind === 'turn'
+          ? g.input.touch
+            ? '點一下選牌、再點一次打出'
+            : g.prompts?.pad
+              ? '十字鍵選牌・A 打出'
+              : '← → 選牌・Enter／空白鍵打出（滑鼠點牌直接打）・Esc 離開'
+          : p?.seat === 0
+            ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
+            : waitSeat != null && waitSeat !== 0
+              ? `⏳ 等待 ${this.names[waitSeat]} 思考中…`
+              : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
     this._waitHud();
+  }
+  _mpBarHud() {
+    const bar = this.$('.mj-mp-bar');
+    if (!bar) return;
+    let html = '';
+    if (this.mj.mpMode === 'host' && this.mj.mp && this.e) {
+      const reveal = !!this.mj.mp.spectateReveal;
+      const sc = this.mj.mp.spectatorCount || 0;
+      const qc = this.mj.mp.queueCount || 0;
+      html = `${sc > 0 ? `<div class="mj-mp-pill">👀 觀賽 ${sc} 人${qc > 0 ? `（排隊 ${qc}）` : ''}</div>` : ''}
+        <button data-a='{"type":"mpToggleReveal"}' class="${reveal ? 'on' : ''}">${reveal ? '👀 觀賽看牌：開' : '🙈 觀賽看牌：關'}</button>`;
+    } else if (this.mj.isGuest && this.mj.sess?.spectating && this.e) {
+      const s = this.mj.sess;
+      const status = s.wantSeat ? `👀 觀賽中・排隊 #${s.queuePos || 1}` : '👀 純觀賽中';
+      const eye = this.e.revealAll ? '可看手牌' : '手牌隱藏';
+      html = `<div class="mj-mp-pill">${status}（${eye}）</div>
+        <button data-a='{"type":"specView"}'>🔄 切換視角（${WINDS[this.e.seatWind(0)]}・${esc(this.names[0])}）</button>
+        <button data-a='{"type":"specToggleQueue"}' class="${s.wantSeat ? 'on' : ''}">${s.wantSeat ? '👀 改為純觀賽' : '🪑 排隊下局上桌'}</button>
+        <button data-a='{"type":"leave"}'>🚪 離開觀賽</button>`;
+    }
+    if (html !== this._mpBar) {
+      this._mpBar = html;
+      bar.innerHTML = html;
+      bar.classList.toggle('hidden', !html);
+    }
   }
   // the card in the top right: 圈風 and your 門風 big (both count 台), the dealer, the wall, the stakes, your wallet
   _infoCard() {
@@ -977,19 +1038,30 @@ export class MahjongScene {
       g = this.g;
     const R = WINDS[e.round],
       S = WINDS[e.seatWind(0)];
+    const isGuestSpec = !!(this.mj.isGuest && (e.spectate || this.mj.sess?.spectating));
     const tai =
       e.round === e.seatWind(0)
         ? `碰到${R}的刻子算 2 台（圈風＋門風）`
         : `碰到${R}、${S}的刻子各算 1 台`;
     const tier = this.mj.aiTier?.();
+    const specRow = isGuestSpec
+      ? `<dt>狀態</dt><dd>${this.mj.sess?.wantSeat ? `👀 排隊補位 #${this.mj.sess.queuePos || 1}` : '👀 純觀賽'}</dd>`
+      : this.mj.sess?.spectating
+        ? '<dt>狀態</dt><dd>👀 觀戰（AI 代打）</dd>'
+        : this.mj.mpMode === 'host' && (this.mj.mp?.spectatorCount || 0) > 0
+          ? `<dt>觀賽</dt><dd>👀 ${this.mj.mp.spectatorCount} 人</dd>`
+          : '';
     const extra = this.mj.isMulti
-      ? `<dt>房號</dt><dd>${esc(this.mj.mp?.code || '連線')}</dd>${this.mj.sess?.spectating ? '<dt>狀態</dt><dd>👀 觀戰（AI 代打）</dd>' : ''}`
+      ? `<dt>房號</dt><dd>${esc(this.mj.mp?.code || '連線')}</dd>${specRow}`
       : tier?.badge
         ? `<dt>牌風</dt><dd>${tier.badge}</dd>`
         : '';
-    const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>你的門風</span></div></div>
-      <div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div><div class="mj-tai">${tai}</div>
-      <div class="mj-dealer"><i class="mj-zhuang">莊</i>${esc(this.names[e.dealer])}${e.dealer === 0 ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
+    const seatLine = isGuestSpec
+      ? `<div class="mj-seat">👀 視角：<em class="r">${R}</em>風<em class="s">${S}</em>（${esc(this.names[0])}）</div>`
+      : `<div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div>`;
+    const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>${isGuestSpec ? '視角門風' : '你的門風'}</span></div></div>
+      ${seatLine}<div class="mj-tai">${tai}</div>
+      <div class="mj-dealer"><i class="mj-zhuang">莊</i>${esc(this.names[e.dealer])}${e.dealer === 0 && !isGuestSpec ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
       <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>${extra}
       <dt>錢包</dt><dd class="mj-cash ${g.money < 0 ? 'neg' : ''}">NT$ ${g.money.toLocaleString('en-US')}</dd></dl>`;
     if (html !== this._info) this.$('.mj-info').innerHTML = this._info = html;
@@ -1065,7 +1137,13 @@ export class MahjongScene {
     } catch (_e) {
       /* ignore */
     }
-    this.menu = { kind: 'multi', nick, stake, code: normalizeRoomCode(prefill) || urlCode };
+    this.menu = {
+      kind: 'multi',
+      nick,
+      stake,
+      spectateReveal: true,
+      code: normalizeRoomCode(prefill) || urlCode,
+    };
     this._multiPanel();
   }
   _multiPanel() {
@@ -1081,14 +1159,19 @@ export class MahjongScene {
             ([b, t], i) =>
               `<button data-a='{"type":"mpStake","i":${i}}' class="${i === M.stake ? 'on' : ''}">底 ${b}／一台 ${t}</button>`
           ).join('')}</div>
-          <div class="mj-btns"><button data-a='{"type":"mpHost"}' class="on">🏠 開設房間並產生房號</button></div>
+          <div class="mj-btns">
+            <button data-a='{"type":"mpToggleReveal"}' class="${M.spectateReveal ? 'on' : ''}">${M.spectateReveal ? '👀 觀賽可看手牌：開' : '🙈 觀賽可看手牌：關'}</button>
+            <button data-a='{"type":"mpHost"}' class="on">🏠 開設房間並產生房號</button>
+          </div>
         </div>
         <div class="mj-mp-box">
           <b>🚪 加入朋友的房間</b>
           <div class="mj-join-row">
             <input id="mjCode" maxlength="4" value="${esc(M.code)}" placeholder="輸入 4 碼房號" autocomplete="off">
             <button data-a='{"type":"mpJoin"}'>加入房間</button>
+            <button data-a='{"type":"mpSpectate"}'>👀 純觀賽</button>
           </div>
+          <span class="mj-small">開打後或滿桌加入會先觀賽，待該局結束自動取代 AI 上桌</span>
         </div>
       </div>
       <div class="mj-btns"><button data-a='{"type":"backMode"}'>← 返回</button><button data-a='{"type":"closeMenu"}'>離開</button></div>`;
@@ -1114,13 +1197,19 @@ export class MahjongScene {
       : [0, 1, 2, 3].map((i) => ({ seat: i, name: null, isHost: i === 0, isAI: false }));
     const count = seats.filter((s) => s.name && !s.isAI).length;
     const isHost = state.role === 'host';
+    const reveal = state.spectateReveal !== false;
+    const spectators = state.spectators || [];
     const status = state.connecting
       ? isHost
         ? '🔄 正在建立 P2P 房間…'
         : `🔄 正在連線至房號 ${esc(state.code)}，等待房主回應…`
-      : count >= 4
-        ? '✅ 4 人到齊！可以開打了'
-        : `⏳ 等待中（${count}/4）— 不足 4 人開打時會自動補上室友 AI`;
+      : state.yourRole === 'spectator'
+        ? state.wantSeat
+          ? '👀 你目前在觀賽候位（有空位將自動遞補入座）'
+          : '👀 你目前為純觀賽模式（開打後可直接旁觀）'
+        : count >= 4
+          ? '✅ 4 人到齊！可以開打了'
+          : `⏳ 等待中（${count}/4）— 不足 4 人開打時會自動補上室友 AI`;
     const rows = seats
       .map((s, i) => {
         const tag = s.name
@@ -1131,15 +1220,31 @@ export class MahjongScene {
         return `<div class="mj-seat-row"><i>座位 ${i + 1}</i><span>${tag}</span></div>`;
       })
       .join('');
+    const specHtml = spectators.length
+      ? `<div class="mj-spec-list">👀 觀賽名單（${spectators.length}）：${spectators
+          .map((s) => `${esc(s.name)}${s.wantSeat ? '（候位）' : ''}`)
+          .join('、')}</div>`
+      : '';
+    const revealBtn =
+      isHost && !state.connecting
+        ? `<button data-a='{"type":"mpToggleReveal"}' class="${reveal ? 'on' : ''}">${reveal ? '👀 觀賽可看手牌：開' : '🙈 觀賽可看手牌：關'}</button>`
+        : '';
+    const queueBtn =
+      !isHost && !state.connecting && state.yourRole === 'spectator'
+        ? `<button data-a='{"type":"lobbyToggleQueue"}' class="${state.wantSeat ? 'on' : ''}">${state.wantSeat ? '👀 改為純觀賽' : '🪑 排隊補位'}</button>`
+        : '';
     el.innerHTML = `<h3>${isHost ? '🏠 麻將房間大廳' : '🚪 已加入麻將房間'}</h3>
       ${
         state.code
           ? `<div class="mj-code-bar"><span>房號</span><b class="mj-code">${esc(state.code)}</b><button data-a='{"type":"mpCopy"}'>📋 複製房號</button></div>`
           : ''
       }
-      <p class="mj-small">底 ${b}／一台 ${t}・${status}</p>
+      <p class="mj-small">底 ${b}／一台 ${t}・${reveal ? '👀 觀賽可看手牌' : '🙈 觀賽隱藏手牌'}・${status}</p>
       <div class="mj-seats">${rows}</div>
+      ${specHtml}
       <div class="mj-btns">
+        ${revealBtn}
+        ${queueBtn}
         ${
           isHost && !state.connecting
             ? `<button data-a='{"type":"mpStart"}' class="on">▶ ${count >= 4 ? '4 人到齊，立即開打！' : `立即開打（補 ${4 - count} 位 AI）`}</button>`
@@ -1536,10 +1641,20 @@ export class MahjongScene {
     const e = this.e,
       r = e.result;
     this.result = r;
-    const end = this.mj.handOver(r);
-    this.resNext = !end.over && !end.broke;
-    this.resSpectate = !end.over && !!end.canSpectate;
+    this._lastEnd = this.mj.handOver(r);
+    this.resNext = !this._lastEnd.over && !this._lastEnd.broke;
+    this.resSpectate = !this._lastEnd.over && !!this._lastEnd.canSpectate;
     this._layout();
+    this._showResultPanelOnly();
+    const isGuestSpec = !!(this.mj.isGuest && this.mj.sess?.spectating);
+    if (!isGuestSpec && r.winner === 0) this.g.audio?.coin?.();
+  }
+  _showResultPanelOnly() {
+    const e = this.e,
+      r = this.result,
+      end = this._lastEnd || {};
+    if (!e || !r) return;
+    const isGuestSpec = !!(this.mj.isGuest && this.mj.sess?.spectating);
     const money = (n) =>
       `${n > 0 ? '+' : n < 0 ? '−' : '±'}NT$ ${Math.abs(n).toLocaleString('en-US')}`;
     let html;
@@ -1557,29 +1672,38 @@ export class MahjongScene {
         r.winner === e.dealer || r.from === e.dealer || r.self
           ? `<li>莊家／連莊　另計 ${1 + 2 * e.streak} 台（莊家有付或有胡時）</li>`
           : '';
-      html = `<h3>${r.winner === 0 ? '🎉 ' : ''}${who} 胡了！（${from}・${tileName(r.t)}）</h3>
+      html = `<h3>${!isGuestSpec && r.winner === 0 ? '🎉 ' : ''}${who} 胡了！（${from}・${tileName(r.t)}）</h3>
         <ul>${r.items.map(([n, t]) => `<li>${n}　${t} 台</li>`).join('')}${r.items.length ? '' : '<li>沒有台（只算底）</li>'}${dealerT}</ul>
         <p>共 ${r.tai} 台</p>`;
     }
-    html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 ? 'me' : ''}">${esc(this.names[s])} ${money(d)}</span>`).join('')}</div>`;
+    html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 && !isGuestSpec ? 'me' : ''}">${esc(this.names[s])} ${money(d)}</span>`).join('')}</div>`;
     if (end.banter && !end.broke && !end.over)
       html += `<p class="mj-banter ${end.banter.dir}">💬 <b>${esc(end.banter.name)}</b>：「${esc(end.banter.text)}」</p>`;
     if (end.canSpectate)
       html += '<p class="neg">💸 錢包見底了！可改為觀戰並由 AI 代打，讓朋友繼續打完這將</p>';
     else if (end.broke) html += '<p class="neg">💸 錢包見底了，不能再打了</p>';
     else if (end.over) html += '<p>🀄 北風北打完了，一將結束！</p>';
-    else if (end.spectating)
+    else if (isGuestSpec) {
+      const s = this.mj.sess;
+      html += s?.wantSeat
+        ? `<p class="mj-small">👀 觀賽中・排隊補位 #${s.queuePos || 1}（下局若有 AI 空位將自動上桌）</p>`
+        : '<p class="mj-small">👀 純觀賽中（不計輸贏），等待房主開下一局…</p>';
+    } else if (end.spectating)
       html += '<p class="mj-small">👀 觀戰中（由 AI 代打，不再變動你的錢包）</p>';
     else if (this.mj.isGuest) html += '<p class="mj-small">⏳ 等待房主開下一局…</p>';
     const nextBtn = this.resSpectate
       ? `<button data-a='{"type":"spectateNext"}'><kbd>Enter</kbd> 👀 觀戰繼續（AI 代打）</button>`
       : this.resNext && !this.mj.isGuest
         ? `<button data-a='{"type":"next"}'><kbd>Enter</kbd> 下一局</button>`
-        : '';
+        : isGuestSpec
+          ? `<button data-a='{"type":"specToggleQueue"}'>${this.mj.sess?.wantSeat ? '👀 改為純觀賽' : '🪑 排隊下局上桌'}</button>`
+          : '';
     const leaveLabel = this.mj.isMulti
       ? this.mj.mpMode === 'host'
         ? '解散房間'
-        : '離開房間'
+        : isGuestSpec
+          ? '離開觀賽'
+          : '離開房間'
       : this.resNext
         ? '散場'
         : '<kbd>Enter</kbd> 散場';
@@ -1587,6 +1711,5 @@ export class MahjongScene {
     const el = this.$('.mj-res');
     el.innerHTML = html;
     el.classList.remove('hidden');
-    if (r.winner === 0) this.g.audio?.coin?.();
   }
 }

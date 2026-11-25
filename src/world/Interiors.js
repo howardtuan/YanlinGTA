@@ -3758,14 +3758,20 @@ export function guardFootprint(s) {
   return [w(-0.6, -0.6), w(5, -0.6), w(5, 3.8), w(-0.6, 3.8)];
 }
 
-export function buildInteriors(scene, data, collision, { createCharacter } = {}) {
+// afterZone(): called after each zone of buildZones (canvas memory, see src/graphics/GpuMemLifecycle.js)
+export function buildInteriors(
+  scene,
+  data,
+  collision,
+  { createCharacter, afterZone = () => {} } = {}
+) {
   const I = new Interiors(scene);
   const im = buildIM(I, scene);
   const mcd = buildMcD(I, scene, createCharacter);
   I.yh = buildYanlinHome(I, scene);
   I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC); // 黃蓋瑞家: next door to 彥霖's, same floor (src/world/buildings/GarryHome.js)
   buildClubCorner(I, scene, Kit); // outside of 活動中心's NW corner; the 3F 古箏社教室 in it (I.club) is built with src/world/buildings/Sac.js
-  buildZones(I, scene, data, collision); // 周邊街道與校內各區自建的部分，順序見 src/world/zones/Zones.js
+  buildZones(I, scene, data, collision, afterZone); // 周邊街道與校內各區自建的部分，順序見 src/world/zones/Zones.js
   for (const s of GUARD_SPECS(data))
     buildGuardhouse(
       I,

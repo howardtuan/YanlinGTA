@@ -18,6 +18,12 @@
 // Local frame: origin at the north-west corner (-221.7, -183.8), x east along the north face, z south. y = metres above the building base.
 import * as THREE from 'three';
 import { H, surfaceAt } from '../Terrain.js';
+import {
+  canvasTexture,
+  scaledCanvas,
+  blankTexture,
+  uploadAndRelease,
+} from '../../graphics/GpuMemLifecycle.js';
 
 export const LX_ID = 'w392023431';
 const OX = -221.7,
@@ -136,16 +142,8 @@ export function lixingVegHide() {
   ];
 }
 
-function canvasTex(w, h, draw) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the phone texture scale), not repeating
+const canvasTex = (w, h, draw) => canvasTexture(w, h, draw, false);
 const FONT = '"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif';
 const signTex = (text, bg, fg, w = 512, h = 128, px = 64) =>
   canvasTex(w, h, (g) => {
@@ -431,19 +429,20 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
 
   // ---------------- doors: one texture atlas, one mesh ----------------
   const DC = { w: 64, h: 128, cols: 32, rows: 16 };
-  const doorCv = document.createElement('canvas');
-  doorCv.width = DC.w * DC.cols;
-  doorCv.height = DC.h * DC.rows;
-  const dg = doorCv.getContext('2d');
+  // stored at the phone texture scale (cells are drawn in full-size pixels); on the GPU once every door is in
+  const { cv: doorCv, g: dg } = scaledCanvas(DC.w * DC.cols, DC.h * DC.rows);
   let doorN = 0;
   const doorCell = new Map();
-  const doorTex = new THREE.CanvasTexture(doorCv);
-  doorTex.colorSpace = THREE.SRGBColorSpace;
-  doorTex.anisotropy = 4;
+  const doorTex = dg ? new THREE.CanvasTexture(doorCv) : blankTexture();
+  if (dg) {
+    doorTex.colorSpace = THREE.SRGBColorSpace;
+    doorTex.anisotropy = 4;
+  }
   const doorMat = mat('doors', std({ map: doorTex, roughness: 0.6, side: THREE.DoubleSide }, 0.3));
   const cellOf = (label, bg) => {
     const key = label + bg;
     if (doorCell.has(key)) return doorCell.get(key);
+    if (!dg) return 0; // no canvas to draw on (blank texture): every door uses cell 0
     const n = doorN++,
       cx = (n % DC.cols) * DC.w,
       cy = Math.floor(n / DC.cols) * DC.h;
@@ -1928,6 +1927,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   }
 
   doorTex.needsUpdate = true;
+  uploadAndRelease(doorTex); // every door is drawn by now (GpuMemLifecycle)
 
   // ---------------- 外牆（使用者指正 2026-11-23：外殼的樓層、窗戶和室內對不上）----------------
   // src/world/MapBuilder.js 不畫外牆（b.outerWalls = false，屋頂和女兒牆照舊），這裡照平面圖沿外框每一面自己蓋：

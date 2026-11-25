@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildSkinnedBody } from './BodyMesh.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { sampleAnthropometry, BASE_HEIGHT, RIDER_MASS } from '../physics/ImpactPhysics.js';
 
 // Body style: one continuous skinned mesh (src/entities/BodyMesh.js) by default; ?legacy in the URL brings back the old
 // sphere-and-capsule body for side-by-side comparison.
@@ -649,7 +650,27 @@ export function createCharacter(opts = {}) {
     opts.hairStyle,
     opts.shoes,
     opts.bag,
+    opts.seed ?? '',
   ].join('|');
+  // Gender-based normal distribution for height (m) & weight (kg) via Box-Muller transform
+  const anthro = hero
+    ? {
+        gender: 'male',
+        height: opts.height ?? 1.735,
+        weight: opts.weight ?? RIDER_MASS,
+        bmi: (opts.weight ?? RIDER_MASS) / (opts.height ?? 1.735) ** 2,
+        heightScale: (opts.height ?? 1.735) / BASE_HEIGHT,
+      }
+    : sampleAnthropometry(female, hash01(id, 11), hash01(id, 17));
+  if (Number.isFinite(opts.height)) {
+    anthro.height = opts.height;
+    anthro.heightScale = opts.height / BASE_HEIGHT;
+  }
+  if (Number.isFinite(opts.weight)) {
+    anthro.weight = opts.weight;
+    anthro.bmi = opts.weight / (anthro.height * anthro.height);
+  }
+  const bmiBuild = Math.max(0.86, Math.min(1.18, Math.sqrt(anthro.bmi / 22.0)));
   const fv = hero
     ? { eye: 1, gap: 1, jaw: 1, nose: 1, build: 1.04 }
     : {
@@ -657,12 +678,13 @@ export function createCharacter(opts = {}) {
         gap: 0.94 + hash01(id, 2) * 0.12,
         jaw: 0.92 + hash01(id, 3) * 0.16,
         nose: 0.85 + hash01(id, 4) * 0.35,
-        build: (female ? 0.94 : 0.97) + hash01(id, 5) * 0.12,
+        build: (female ? 0.94 : 0.98) * bmiBuild,
       };
   if (opts.build) fv.build = opts.build;
   if (opts.jaw) fv.jaw = opts.jaw;
 
   const root = new THREE.Group();
+  root.scale.setScalar(anthro.heightScale);
   const body = pivot(0, 0, 0);
   root.add(body); // bobbing container
   const hips = pivot(0, 0.93, 0);
@@ -1920,6 +1942,10 @@ export function createCharacter(opts = {}) {
     legs,
     phase: 0,
     hero,
+    gender: anthro.gender,
+    height: anthro.height,
+    weight: anthro.weight,
+    heightScale: anthro.heightScale,
     pose: null,
     poseT: 0,
     blend: 0,
@@ -1967,7 +1993,14 @@ const pivots = (c) =>
 // but ch and ch.root stay the same objects — position, rotation, scale, labels and every prop added to a part after the figure
 // was built (a camera on the head, dumbbells in the hands…) carry over to the matching part of the new body.
 export function restyle(ch, opts) {
-  const n = createCharacter(opts),
+  // Preserve the character's physical height & weight across outfit changes unless explicitly overridden
+  const merged = {
+    height: ch.height,
+    weight: ch.weight,
+    female: ch.gender === 'female',
+    ...opts,
+  };
+  const n = createCharacter(merged),
     op = pivots(ch),
     np = pivots(n);
   op.forEach((p, i) => {
@@ -2391,6 +2424,8 @@ export function randomStudent(rnd) {
   const pick = (a) => a[Math.floor(rnd() * a.length)];
   const female = rnd() < 0.48;
   return {
+    female,
+    seed: Math.floor(rnd() * 1e9),
     skin: pick(SKINS),
     shirt: pick(SHIRTS),
     shorts: pick(BOTTOMS),

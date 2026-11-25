@@ -14,17 +14,72 @@
 
 export const GRAVITY = 9.81;
 export const RESTITUTION = 0.12; // inelastic crumple/plastic absorption in real vehicle crashes
-export const RIDER_MASS = 70; // kg
+export const RIDER_MASS = 70; // kg default reference rider mass
+export const BASE_HEIGHT = 1.72; // m base 3D character mesh height (Character.js)
 export const A_EJECT = 42; // m/s^2 (~4.28 G sudden deceleration shock ejects a motorcycle rider)
 
+// Taiwan young-adult anthropometric normal distribution parameters (衛福部 19-29 歲常態分佈)
+export const ANTHRO_DIST = {
+  male: {
+    heightMean: 1.735, // m (173.5 cm)
+    heightSd: 0.06, // m (6.0 cm)
+    heightMin: 1.55,
+    heightMax: 1.95,
+    bmiMean: 23.0, // -> mean weight ~69.2 kg at 173.5 cm
+    bmiSd: 3.4,
+    weightMin: 48,
+    weightMax: 115,
+  },
+  female: {
+    heightMean: 1.605, // m (160.5 cm)
+    heightSd: 0.055, // m (5.5 cm)
+    heightMin: 1.45,
+    heightMax: 1.8,
+    bmiMean: 20.8, // -> mean weight ~53.6 kg at 160.5 cm
+    bmiSd: 2.9,
+    weightMin: 38,
+    weightMax: 90,
+  },
+};
+
+/**
+ * Sample realistic human height (m) and weight (kg) from gender-specific normal distributions
+ * via Box-Muller transform using two uniform inputs u1, u2 in (0, 1).
+ * Weight correlates with height via normal BMI (W = BMI * H^2).
+ */
+export function sampleAnthropometry(female, u1, u2) {
+  const d = female ? ANTHRO_DIST.female : ANTHRO_DIST.male;
+  const a = Math.max(1e-6, Math.min(1 - 1e-6, u1));
+  const b = Math.max(0, Math.min(1, u2));
+  const r = Math.sqrt(-2 * Math.log(a));
+  const z1 = r * Math.cos(2 * Math.PI * b);
+  const z2 = r * Math.sin(2 * Math.PI * b);
+  const height = Math.max(d.heightMin, Math.min(d.heightMax, d.heightMean + z1 * d.heightSd));
+  const bmi = Math.max(15.5, Math.min(34, d.bmiMean + z2 * d.bmiSd));
+  const weight = Math.max(d.weightMin, Math.min(d.weightMax, bmi * height * height));
+  return {
+    gender: female ? 'female' : 'male',
+    height,
+    weight,
+    bmi,
+    heightScale: height / BASE_HEIGHT,
+  };
+}
+
 export const PERSON_PHYS = {
-  mass: RIDER_MASS, // 70 kg average adult
+  mass: RIDER_MASS, // 70 kg fallback adult mass
+  height: BASE_HEIGHT, // 1.72 m fallback adult height
   dtImpact: 0.1, // s soft-body contact duration
   muStatic: 0.6, // sneaker static grip on pavement
   eVehicle: 0.1, // inelastic vehicle-to-person impact
   ePerson: 0.08, // inelastic person-to-person shoulder bump
   knockDownV: 2.2, // m/s post-impact delta-V that knocks a standing person off their feet
   tackleDownV: 2.8, // m/s post-impact delta-V for a sprint tackle between two people
+  gripForce: 450, // N max human handlebar brace force before grip breaks
+  riderCmH: 1.15, // m seated rider CM height above ground
+  barPivotH: 0.92, // m handlebar / front shield pivot height
+  barPivotL: 0.55, // m horizontal distance from hips to handlebar pivot
+  vaultEff: 0.85, // inelastic contact efficiency across thigh/handlebar vault
 };
 
 export const VEHICLE_PHYS = {
@@ -34,6 +89,7 @@ export const VEHICLE_PHYS = {
     muStatic: 0.5, // parked on 2 wheels + side/center stand
     muKinetic: 0.55, // fallen scooter scraping on asphalt (a = 5.4 m/s^2)
     hCm: 0.52, // m center of mass height
+    bumperH: 0.58, // m front shield impact height
     iRoll: 38.4, // kg*m^2 roll inertia about ground contact line: m * (rg^2 + h^2)
     minMoveV: 0.45, // m/s minimum target speed after overcoming static hold to trigger dynamic slide
     linDamp: 0.08, // minimal aerodynamic drag; Coulomb friction does the real stopping
@@ -48,6 +104,7 @@ export const VEHICLE_PHYS = {
     muStatic: 0.88, // 4 rubber tires locked in Park + handbrake
     muKinetic: 0.8, // 4 locked tires skidding on dry asphalt (a = 7.85 m/s^2)
     hCm: 0.55, // m (SSF = track/(2*hCm) ≈ 1.55 > muKinetic -> slides flat rather than flipping)
+    bumperH: 0.52, // m front bumper height
     iRoll: 0,
     minMoveV: 0.9, // m/s (~5 cm skid); smaller impulses just rock on suspension without breaking traction
     linDamp: 0.08,
@@ -76,15 +133,17 @@ export const vehicleMass = (kind, hasRider = false) =>
 export function solveVehicleImpact({
   kind1,
   rider1 = true,
+  rider1Mass = null,
   kind2,
   rider2 = false,
+  rider2Mass = null,
   parked2 = true,
   vRel,
 }) {
   const s1 = vehicleSpec(kind1);
   const s2 = vehicleSpec(kind2);
-  const m1 = s1.mass + (rider1 ? RIDER_MASS : 0);
-  const m2 = s2.mass + (rider2 ? RIDER_MASS : 0);
+  const m1 = s1.mass + (rider1 ? (rider1Mass ?? RIDER_MASS) : 0);
+  const m2 = s2.mass + (rider2 ? (rider2Mass ?? RIDER_MASS) : 0);
   const dt = Math.max(s1.dtImpact, s2.dtImpact);
   const v = Math.max(0, vRel || 0);
 
@@ -144,12 +203,21 @@ export function solveVehicleImpact({
 
 /**
  * Solve a vehicle-vs-person collision using Newtonian impulse-momentum (SI units).
- * Used for both player vehicle hitting pedestrians and moving traffic hitting the walking player.
+ * Decomposes post-impact speed dv2 into horizontal and upward components using bumper-to-CM geometry
+ * so total launch speed strictly equals dv2 = J_net / m_person (no free vertical energy added).
  */
-export function solvePersonImpact({ vehicleKind, riderOnVehicle = true, vRel }) {
+export function solvePersonImpact({
+  vehicleKind,
+  riderOnVehicle = true,
+  riderMass = null,
+  personMass = PERSON_PHYS.mass,
+  personHeight = PERSON_PHYS.height,
+  vRel,
+}) {
   const sv = vehicleSpec(vehicleKind);
-  const m1 = sv.mass + (riderOnVehicle ? RIDER_MASS : 0);
-  const m2 = PERSON_PHYS.mass;
+  const m1 = sv.mass + (riderOnVehicle ? (riderMass ?? RIDER_MASS) : 0);
+  const m2 = Math.max(30, personMass || PERSON_PHYS.mass);
+  const h = Math.max(1.2, personHeight || PERSON_PHYS.height);
   const dt = PERSON_PHYS.dtImpact;
   const v = Math.max(0, vRel || 0);
 
@@ -163,8 +231,16 @@ export function solvePersonImpact({ vehicleKind, riderOnVehicle = true, vRel }) 
   const dv2 = netImpulse / m2;
   const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
   const knockDown = dv2 >= PERSON_PHYS.knockDownV;
-  // Low bumper pitch lifts a knocked person moderately rather than launching them into orbit
-  const vy2 = knockDown ? Math.min(3.4, 0.9 + dv2 * 0.2) : 0;
+
+  // Geometric bumper-below-CM pitch angle: alpha = asin(kappa * max(0, hCm - hBumper) / hCm)
+  // Decomposes dv2 into (dv2*cos(alpha), dv2*sin(alpha)) -> |v_person| === dv2 (energy conserving!)
+  const hCm = 0.55 * h;
+  const lever = Math.max(0, (hCm - sv.bumperH) / hCm);
+  const sinA = knockDown ? Math.min(0.42, lever * 0.65) : 0;
+  const cosA = Math.sqrt(1 - sinA * sinA);
+  const dvHoriz = dv2 * cosA;
+  const vy2 = dv2 * sinA;
+
   const accel1 = dv1 / sv.dtImpact;
   const ejectRider1 = vehicleKind === 'scooter' && accel1 >= A_EJECT;
 
@@ -176,7 +252,8 @@ export function solvePersonImpact({ vehicleKind, riderOnVehicle = true, vRel }) 
     holdImpulse,
     netImpulse,
     dvVehicle: dv1,
-    dvPerson: dv2,
+    dvPerson: dvHoriz,
+    dvTotal: dv2,
     vyPerson: vy2,
     kf,
     knockDown,
@@ -186,22 +263,87 @@ export function solvePersonImpact({ vehicleKind, riderOnVehicle = true, vRel }) 
 }
 
 /**
- * Solve a person-vs-person collision (equal mass 70 kg vs 70 kg).
- * Walking bumps separate solidly; full sprint tackles (>= ~6.2 m/s) can knock the other person down.
+ * Solve motorcycle rider ejection velocity from Newton's 1st Law (inertia), handlebar grip break impulse,
+ * and handlebar/seat pivot vault geometry (zero arbitrary floors or hardcoded speed multipliers).
  */
-export function solvePersonPersonImpact(vRel) {
-  const m = PERSON_PHYS.mass;
+export function solveRiderEjection({
+  speed,
+  impact,
+  nx,
+  nz,
+  fx,
+  fz,
+  dv1,
+  pushed = false,
+  riderMass = PERSON_PHYS.mass,
+}) {
+  const m = Math.max(30, riderMass || PERSON_PHYS.mass);
+  const dt = VEHICLE_PHYS.scooter.dtImpact;
+  const dvGrip = (PERSON_PHYS.gripForce * dt) / m; // speed shed before hands lose grip (~0.77 m/s at 70 kg)
+  const theta = Math.atan2(PERSON_PHYS.riderCmH - PERSON_PHYS.barPivotH, PERSON_PHYS.barPivotL);
+  const cosT = Math.cos(theta);
+  const sinT = Math.sin(theta);
+
+  if (pushed) {
+    const vBase = Math.max(0, (dv1 ?? impact * 0.5) - dvGrip);
+    const vEff = vBase * PERSON_PHYS.vaultEff;
+    return {
+      vx: nx * vEff * cosT,
+      vz: nz * vEff * cosT,
+      vy: vEff * sinT,
+    };
+  }
+
+  // Forward crash: rider continues forward along pre-crash velocity by inertia, vaulting over the handlebars
+  const vLaunch = Math.max(0, Math.abs(speed || 0) - dvGrip);
+  const d = fx * nx + fz * nz;
+  const tangX = fx - d * nx;
+  const tangZ = fz - d * nz;
+  // Predominantly forward inertia with slight natural glancing component along obstacle surface
+  let dirX = fx * 0.9 + tangX * 0.1;
+  let dirZ = fz * 0.9 + tangZ * 0.1;
+  const dl = Math.hypot(dirX, dirZ) || 1;
+  dirX /= dl;
+  dirZ /= dl;
+
+  const vEff = vLaunch * PERSON_PHYS.vaultEff;
+  return {
+    vx: dirX * vEff * cosT,
+    vz: dirZ * vEff * cosT,
+    vy: vEff * sinT,
+  };
+}
+
+/**
+ * Solve a person-vs-person collision using both people's actual masses (m1, m2 in kg).
+ */
+export function solvePersonPersonImpact(vRel, mass1 = PERSON_PHYS.mass, mass2 = PERSON_PHYS.mass) {
+  const m1 = Math.max(30, mass1 || PERSON_PHYS.mass);
+  const m2 = Math.max(30, mass2 || PERSON_PHYS.mass);
   const dt = PERSON_PHYS.dtImpact;
   const v = Math.max(0, vRel || 0);
-  const mu = m * 0.5;
+  const mu = (m1 * m2) / (m1 + m2);
   const impulse = (1 + PERSON_PHYS.ePerson) * mu * v;
   const force = impulse / dt;
-  const holdImpulse = PERSON_PHYS.muStatic * m * GRAVITY * dt;
+  const holdImpulse = PERSON_PHYS.muStatic * m2 * GRAVITY * dt;
   const netImpulse = Math.max(0, impulse - holdImpulse);
-  const dv1 = impulse / m;
-  const dv2 = netImpulse / m;
+  const dv1 = impulse / m1;
+  const dv2 = netImpulse / m2;
   const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
   const knockDown = dv2 >= PERSON_PHYS.tackleDownV;
-  const vy2 = knockDown ? Math.min(2.0, 0.7 + dv2 * 0.15) : 0;
-  return { impulse, force, dv1, dv2, vy2, kf, knockDown };
+  // Energy-conserving slight upward pitch when tackled (~14° shoulder-level launch)
+  const sinA = knockDown ? 0.24 : 0;
+  const cosA = Math.sqrt(1 - sinA * sinA);
+  return {
+    m1,
+    m2,
+    impulse,
+    force,
+    dv1,
+    dv2: dv2 * cosA,
+    dv2Total: dv2,
+    vy2: dv2 * sinA,
+    kf,
+    knockDown,
+  };
 }

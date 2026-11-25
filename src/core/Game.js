@@ -1411,7 +1411,14 @@ class Game {
             dx /= dl;
             dz /= dl;
             const vRel = Math.max(0, fx * v.speed * dx + fz * v.speed * dz);
-            const sol = solvePersonImpact({ vehicleKind: v.kind, riderOnVehicle: true, vRel });
+            const sol = solvePersonImpact({
+              vehicleKind: v.kind,
+              riderOnVehicle: true,
+              riderMass: pl.ch?.weight,
+              personMass: p.ch?.weight,
+              personHeight: p.ch?.height,
+              vRel,
+            });
             if (
               sol.knockDown &&
               this.peds.knock(p, dx, dz, vRel, { dv: sol.dvPerson, vy: sol.vyPerson })
@@ -1484,6 +1491,9 @@ class Game {
               const sol = solvePersonImpact({
                 vehicleKind: v.kind,
                 riderOnVehicle: !!(v.driver || v.rider || v.ai || v.racer),
+                riderMass: v.rider?.weight,
+                personMass: pl.ch?.weight,
+                personHeight: pl.ch?.height,
                 vRel,
               });
               if (v.ai) v.ai.stunned = 2;
@@ -1521,7 +1531,7 @@ class Game {
               const pvz = p.state === 'walk' ? Math.cos(p.heading) * (p.speed || 0) : 0;
               const vRel = (pl.vel.x - pvx) * nx + (pl.vel.y - pvz) * nz;
               if (vRel > 1.2) {
-                const sol = solvePersonPersonImpact(vRel);
+                const sol = solvePersonPersonImpact(vRel, pl.ch?.weight, p.ch?.weight);
                 pl.vel.x -= nx * sol.dv1;
                 pl.vel.y -= nz * sol.dv1;
                 if (

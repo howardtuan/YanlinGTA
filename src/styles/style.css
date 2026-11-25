@@ -8743,3 +8743,157 @@ body.mahjong #dialog {
     font-size: 11px;
   }
 }
+
+/* 🧩 Two Sum from 霍華德 (src/ui/PC.js _leet, src/systems/quests/HowardTwoSum.js) */
+.pc-leet .pc-body {
+  padding: 0;
+  background: #1e1e1e;
+}
+.ts {
+  display: flex;
+  height: 100%;
+  color: #e6e6e6;
+  font-size: 14px;
+}
+.ts-q {
+  width: 42%;
+  overflow: auto;
+  padding: 16px 18px;
+  background: #262626;
+  border-right: 1px solid #3a3a3a;
+  line-height: 1.7;
+}
+.ts-q h3 {
+  margin: 6px 0 10px;
+  font-size: 20px;
+}
+.ts-q code {
+  background: #3a3a3a;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.ts-from {
+  color: #ffb3c7;
+  font-size: 12px;
+}
+.ts-easy {
+  font-size: 12px;
+  color: #00b8a3;
+  margin-left: 6px;
+}
+.ts-ex pre {
+  background: #303030;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin: 4px 0 10px;
+  white-space: pre-wrap;
+}
+.ts-rule {
+  background: #3b2a14;
+  border-left: 3px solid #ffa116;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+.ts-r {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ts-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #2b2b2b;
+  font-size: 13px;
+}
+.ts-nopaste {
+  color: #ff8a8a;
+}
+.ts-code {
+  flex: 1;
+  min-height: 180px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 12px 14px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font:
+    15px/1.55 Consolas,
+    'Courier New',
+    monospace;
+  tab-size: 4;
+  white-space: pre;
+}
+.ts-shake {
+  animation: tsShake 0.3s;
+}
+@keyframes tsShake {
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+.ts-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  background: #2b2b2b;
+}
+.ts-btns button {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 0;
+  background: #3e3e3e;
+  color: #fff;
+}
+.ts-btns .ts-sub {
+  background: #2cbb5d;
+}
+.ts-btns button:disabled {
+  opacity: 0.5;
+}
+.ts-out {
+  height: 34%;
+  overflow: auto;
+  padding: 10px 14px;
+  background: #252525;
+  border-top: 1px solid #3a3a3a;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ts-case small {
+  display: block;
+  color: #ff8a8a;
+  margin-left: 22px;
+}
+.ts-case.ok {
+  color: #9fe3a3;
+}
+.ts-case.no {
+  color: #ffb0b0;
+}
+.ts-bad {
+  color: #ff8a8a;
+  margin: 6px 0;
+}
+.ts-ac {
+  color: #2cbb5d;
+  font-weight: 700;
+  font-size: 15px;
+  margin: 6px 0;
+}
+.ts-note {
+  color: #ffd27a;
+  margin-top: 6px;
+}
+.ts-print pre {
+  background: #1b1b1b;
+  padding: 6px 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}

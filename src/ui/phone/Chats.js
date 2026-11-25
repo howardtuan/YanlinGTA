@@ -1132,8 +1132,9 @@ export const FRIEND_CONTACTS = {
             dorm: ['在 279 練牌 🃏', '來，我變一個給你看'],
             gym: ['在體育館正門外重訓 💪', '定位傳你'],
             walk: ['跟女朋友在學校散步 💕', '散完就去健身房'],
+            ride: ['騎忍 400 在外面兜風 🏍️', '晚點回宿舍'],
           }[H.mode] || ['在學校'];
-          if (H.mode === 'walk') return { r }; // out with his girlfriend: no pin
+          if (H.mode === 'walk' || H.mode === 'ride') return { r }; // out with his girlfriend / on his bike: no pin
           return {
             r,
             then: () => {

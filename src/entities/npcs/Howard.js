@@ -4,18 +4,27 @@
 // 外型照使用者給的照片：皮膚偏白、細框圓眼鏡、燙捲的短髮、粉色上衣。
 // 住力行宿舍 279 寢 3 號床（右手邊最裡面那張下舖，上舖 2 號是漢克；座位是右手邊最裡面的書桌）。
 // 一天（遊戲時鐘）：
-//   02:00–09:00 睡覺；09:00–12:00、14:00–16:00 在書桌前開發這個遊戲（任務、NPC、手機 App）；
+//   02:00–09:00 睡覺；09:00–12:00 在書桌前開發這個遊戲（任務、NPC、手機 App）；
+//   14:00–16:00 白天沒事，騎他的黑色忍 400（仿賽重機，src/entities/Vehicles.js buildBike sport）在學校附近兜風（跟著車流跑）；
+//     車被你借走沒還的話，他就留在寢室寫程式；
 //   12:00–14:00 在寢室練撲克牌魔術手法（牌在兩手之間飛）；16:00–18:30 打 LOL；
 //   18:30–22:30 晚餐後跟女朋友 Tzuyu 手牽手在校園步道散步（在你附近出現，跟 YeeMing 和羊明衫一樣）；
 //   22:30–24:00 在體育館西側正門外重訓（啞鈴彎舉）；00:00–02:00 打特戰英豪。
 // 女朋友 Tzuyu：韓國女團「兔瓦斯」的成員，平常都在韓國，只有跟霍華德散步的時候才會出現在學校；也認識彥霖的女朋友 aespo Winter。
 //   高挑、皮膚白皙、黑色長直髮，白色上衣配淺色牛仔褲。散步時走到她旁邊按 E 可以跟她聊天、加好友（src/ui/phone/Friends.js 的 tzuyu），
 //   加好友後的支線「幫 Winter 帶和牛」也是在這裡把和牛交給她（src/systems/quests/TzuyuWagyu.js）。
+// 忍 400：不兜風的時候停在力行宿舍大門前的前院（吱吱和女拳大帝的 BW'S 旁邊）。鎖著，要先跟他加好友、再解出他的支線
+//   「LeetCode Two Sum」（src/systems/quests/HowardTwoSum.js：面對面跟他聊天時他把題目傳到你的電腦，Python3、O(N)、不准複製貼上）
+//   才能按 F 騎；騎走之後放著不管，會自己回到前院。
 import * as THREE from 'three';
 import { surfaceAt } from '../../world/Terrain.js';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { DevNPC, M, angDiff, gameScreen, addCurls } from './DevNPC.js';
+import { Vehicle } from '../Vehicles.js';
+import { serviceWear } from './Service.js';
+
+const NINJA = { model: 'sport', color: '#141518' }; // his black 忍 400
 
 export const HOWARD_LOOK = {
   skin: '#f2d6c2',
@@ -112,7 +121,9 @@ export class Howard extends DevNPC {
       dorm: '在力行宿舍 279 寢練撲克牌魔術 🃏',
       gym: '在體育館正門外重訓 💪',
       walk: '跟女朋友 Tzuyu 在校園散步 💕',
+      ride: '騎忍 400 在學校附近兜風 🏍️',
     };
+    this._bike(game);
     // his girlfriend, walking on his right holding his right hand
     const gf = (this.gf = createTzuyu()),
       gt = makeLabel('💕 Tzuyu', { height: 0.24, size: 40, color: '#ffc2d4' });
@@ -193,7 +204,133 @@ export class Howard extends DevNPC {
     if ((m >= M(16) && m < M(18, 30)) || m < M(2)) return 'game';
     if (m >= M(18, 30) && m < M(22, 30)) return 'walk';
     if (m >= M(22, 30)) return 'gym';
+    if (m >= M(14) && m < M(16) && this.bikeHome()) return 'ride';
     return 'code';
+  }
+  // ---- the 忍 400: parked in front of 力行 (lockable, you can borrow it after his Two Sum), or out with him in the traffic ----
+  _bike(game) {
+    const L = game.interiors.lixing;
+    if (L?.park) {
+      const [x, z] = L.W(L.park.x + 2.8, L.park.z);
+      this.bikeSpot = { x, z, h: L.k.heading(Math.PI) };
+    }
+    const v = (this.bike = game._addVehicle('scooter', 0, -9999, 0, null, NINJA));
+    v.label = '霍華德的忍 400';
+    v.owner = 'howard';
+    v.lock = () =>
+      game.howardQuest?.done
+        ? null
+        : game.friends?.added.has('howard')
+          ? '🔒 霍華德說：先解出 Two Sum（Python3、O(N)）才借你騎'
+          : '🔒 這是霍華德的忍 400。先跟霍華德加好友';
+    v.idle = 0;
+    const t = makeLabel('🏍️ 霍華德的忍 400', { height: 0.26, size: 40, color: '#ffb3c7' });
+    t.position.set(0, 1.75, 0);
+    v.mesh.add(t);
+    this.parkT = 0;
+    // out riding: the same bike in the traffic with him on it
+    const rider = createHoward(),
+      rt = makeLabel('🏍️ 霍華德（兜風中）', { height: 0.26, size: 40, color: '#ffb3c7' });
+    rt.position.set(0, 2.1, 0);
+    rider.root.add(rt);
+    serviceWear('howard', rider, HOWARD_LOOK, { tag: rt, hide: () => rider.hideInUniform || [] });
+    this.cruiser = game.traffic?.adopt(new Vehicle('scooter', Math.random, NINJA), rider);
+    if (this.cruiser) {
+      this.cruiser.ai.hold = true;
+      this.cruiser.ai.dormant = true;
+      this.cruiser.mesh.visible = false;
+      this.cruiser.label = '霍華德的忍 400（兜風中）';
+      this.cruiser.lock = () => '🔒 霍華德正在騎，不能借';
+    }
+    this.cruising = false;
+    this._park(true);
+  }
+  // his bike is on its spot (not with you): he can go for a ride
+  bikeHome() {
+    const v = this.bike;
+    return !!v && (v.away || (this.g.player.vehicle !== v && v.idle === 0));
+  }
+  // the parked bike: off the street while he rides; back on its spot once you have left it (2 min, or far away)
+  _park(now = false) {
+    const g = this.g,
+      v = this.bike,
+      S = this.bikeSpot;
+    if (!v || !S) return;
+    if (g.player.vehicle === v) {
+      v.idle = 1;
+      return;
+    }
+    const p = g.player.worldPos(),
+      d = (x, z) => Math.hypot(x - p.x, z - p.z);
+    if (this.mode === 'ride') {
+      if (!v.away && v.idle === 0) {
+        const i = g.vehicles.indexOf(v);
+        if (i >= 0) g.vehicles.splice(i, 1);
+        g.scene.remove(v.mesh);
+        v.away = true;
+      }
+      return;
+    }
+    if (v.away) {
+      if (now || d(S.x, S.z) > 30) {
+        v.place(S.x, S.z, S.h);
+        g.scene.add(v.mesh);
+        if (!g.vehicles.includes(v)) g.vehicles.push(v);
+        v.away = false;
+        v.mesh.visible = true;
+        v.idle = 0;
+      }
+      return;
+    }
+    if (Math.hypot(v.pos.x - S.x, v.pos.z - S.z) < 1.2) {
+      v.idle = 0;
+      return;
+    }
+    v.idle += 1;
+    if (
+      now ||
+      (d(v.pos.x, v.pos.z) > 40 && d(S.x, S.z) > 40) ||
+      (v.idle > 120 && d(S.x, S.z) > 12)
+    ) {
+      v.place(S.x, S.z, S.h);
+      v.idle = 0;
+    }
+  }
+  _cruise() {
+    const g = this.g,
+      C = this.cruiser;
+    if (!C) return;
+    const want = this.mode === 'ride';
+    if (want && !this.cruising) {
+      this.cruising = true;
+      C.ai.hold = false;
+      const p = g.player.worldPos(),
+        S = this.bikeSpot,
+        on = g.world.inCampus?.(p.x, p.z) || !S;
+      g.traffic.spawn?.(C, on ? p.x : S.x, on ? p.z : S.z, on ? 30 : 0, on ? 90 : 120);
+    }
+    if (!want && this.cruising) {
+      C.ai.hold = true;
+      if (C.ai.dormant || !g.traffic.inView(C.pos)) {
+        C.ai.dormant = true;
+        C.mesh.visible = false;
+        this.cruising = false;
+      }
+    }
+  }
+  update(dt) {
+    super.update(dt);
+    this._cruise();
+    if ((this.parkT += dt) > 1) {
+      this._park();
+      this.parkT = 0;
+    }
+  }
+  // face to face, once you are friends: he sends you his Two Sum (src/systems/quests/HowardTwoSum.js)
+  talk() {
+    const Q = this.g.howardQuest;
+    if (this.mode !== 'sleep' && Q?.offer()) return;
+    super.talk();
   }
   gameNow() {
     return minuteNow(this.g) < M(2) ? 'val' : 'lol'; // after midnight: 特戰英豪
@@ -206,6 +343,7 @@ export class Howard extends DevNPC {
         dorm: '練牌技',
         gym: '重訓',
         walk: '跟女朋友散步',
+        ride: '騎車兜風',
       }[this.mode] || ''
     );
   }

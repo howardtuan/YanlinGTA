@@ -155,6 +155,9 @@ export class Physics {
       x0: p.x,
       z0: p.z,
       maxSpeed: opt.maxSpeed || 0,
+      sound: opt.sound || null,
+      soundT: 0,
+      prevV: 0,
       hit: false,
       off: false,
       remove: () => this._removeProp(rec),
@@ -400,10 +403,24 @@ export class Physics {
   _sync(dt) {
     for (const r of this.rags) r.pose(dt); // (may end itself: Set iteration copes with deleting the current one)
     for (const p of this.props) {
-      if (p.off || p.body.isSleeping()) continue;
+      if (p.soundT > 0) p.soundT -= dt;
+      if (p.off || p.body.isSleeping()) {
+        p.prevV = 0;
+        continue;
+      }
       const t = p.body.translation(),
         r = p.body.rotation();
-      if (!p.hit && Math.hypot(t.x - p.x0, t.z - p.z0) > 0.1) p.hit = true;
+      const firstHit = !p.hit && Math.hypot(t.x - p.x0, t.z - p.z0) > 0.1;
+      if (firstHit) p.hit = true;
+      if (p.sound && this.onSound) {
+        const lv = p.body.linvel(),
+          spd = Math.hypot(lv.x, lv.y, lv.z);
+        if (firstHit || (p.soundT <= 0 && Math.abs(spd - p.prevV) > 2.2 && spd > 1.2)) {
+          p.soundT = 0.28;
+          this.onSound(p.sound, Math.min(1, Math.max(0.35, spd / 7)), t.x, t.z);
+        }
+        p.prevV = spd;
+      }
       p.obj.position.set(t.x, t.y, t.z);
       p.obj.quaternion.set(r.x, r.y, r.z, r.w);
       if (!p.obj.matrixAutoUpdate) p.obj.updateMatrix();

@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { ParkedScooters } from '../../src/core/ParkedScooters.js';
 
@@ -224,5 +227,15 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     const nearChunk = ps.scooterSlots.find((s) => s.x === 10).chunk;
     expect(nearChunk.paintIm.visible).toBe(true);
     expect(farChunk.paintIm.visible).toBe(false);
+  });
+
+  it('forwards both scooter() and car() on StreetPuzhong sub() Kit proxy', () => {
+    const puzhongPath = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../src/world/buildings/StreetPuzhong.js'
+    );
+    const src = fs.readFileSync(puzhongPath, 'utf8');
+    expect(src).toMatch(/scooter:\s*\([^)]*\)\s*=>\s*q\.scooter\(/);
+    expect(src).toMatch(/car:\s*\([^)]*\)\s*=>\s*q\.car\(/);
   });
 });

@@ -4281,6 +4281,7 @@ export function buildPuzhongStreet(I, scene, X) {
         q.slab(x0 - x, z0 - z, x1 - x, z1 - z, th, y0, y1, m, o),
       plane: (tex, pw, ph, px, py, pz, rot, o) => q.plane(tex, pw, ph, px - x, py, pz - z, rot, o),
       scooter: (bx, bz, rot, col) => q.scooter(bx - x, bz - z, rot, col),
+      car: (cx, cz, rot, col) => q.car(cx - x, cz - z, rot, col),
       _part: (m, g) => q._part(m, g.translate(-x, 0, -z)),
     };
   };

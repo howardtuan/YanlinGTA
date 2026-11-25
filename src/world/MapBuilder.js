@@ -192,6 +192,44 @@ function adaptPieces(poly, out, S) {
 // drape=true: flat helpers (flatPoly/disc/strip) follow the terrain and their
 // y argument becomes the offset above it
 const UP = [0, 1, 0];
+// ChunkedGeo cell size in metres (perf-refactor/specs/phase-2-render-and-igpu-opt.md): a Geo whose triangles spread wider
+// than two cells becomes one mesh per cell. Measured 2026-11-25 (perf-refactor/agent-handoff-log.md Session #010):
+// about -16 % triangles per view but +85 % draw calls on the M1; kept at the spec's 120 m by decision.
+const GEO_CHUNK = 120;
+// what Geo.mesh returns for a chunked Geo: the chunks as children, and the Mesh settings the builders use passed on to
+// every chunk (castShadow, receiveShadow, renderOrder on the chunks themselves so they sort exactly like one mesh would).
+// Its material is chunkMaterial (all chunks share it).
+class ChunkedMesh extends THREE.Object3D {
+  constructor(meshes, material) {
+    super();
+    this.isChunkedMesh = true;
+    this.chunks = meshes;
+    this._material = material;
+    for (const m of meshes) this.add(m);
+    for (const key of ['castShadow', 'receiveShadow', 'frustumCulled']) {
+      let v = this[key];
+      Object.defineProperty(this, key, {
+        get: () => v,
+        set: (x) => {
+          v = x;
+          for (const m of this.chunks) m[key] = x;
+        },
+      });
+    }
+    let order = 0;
+    Object.defineProperty(this, 'renderOrder', {
+      get: () => order,
+      set: (x) => {
+        order = x;
+        for (const m of this.chunks) m.renderOrder = x;
+      },
+    });
+  }
+  // not `material`: three.js treats anything with a material as something to draw (WebGLRenderer.compile)
+  get chunkMaterial() {
+    return this._material;
+  }
+}
 class Geo {
   // uvAt: optional [x,z] -> [u,v] for the flat helpers (default: world / 8 m)
   // alpha: colours carry a 4th (alpha) component
@@ -361,19 +399,63 @@ class Geo {
       pts.map((p) => [p[0] / uvS, p[1] / uvS])
     );
   }
+  // one mesh, or (when the triangles spread wider than two chunks) one mesh per GEO_CHUNK x GEO_CHUNK m cell, so frustum
+  // and shadow culling can drop the parts out of view (perf-refactor Phase 2, ChunkedGeo). Triangles go to the cell of
+  // their centroid, unchanged: the same pixels, the same random draws.
   mesh(mat) {
+    const nt = this.p.length / 9;
+    if (nt > 0) {
+      const cells = new Map();
+      let x0 = Infinity,
+        x1 = -Infinity,
+        z0 = Infinity,
+        z1 = -Infinity;
+      for (let t = 0; t < nt; t++) {
+        const o = t * 9,
+          cx = (this.p[o] + this.p[o + 3] + this.p[o + 6]) / 3,
+          cz = (this.p[o + 2] + this.p[o + 5] + this.p[o + 8]) / 3;
+        if (cx < x0) x0 = cx;
+        if (cx > x1) x1 = cx;
+        if (cz < z0) z0 = cz;
+        if (cz > z1) z1 = cz;
+        const k = `${Math.floor(cx / GEO_CHUNK)},${Math.floor(cz / GEO_CHUNK)}`;
+        let l = cells.get(k);
+        if (!l) cells.set(k, (l = []));
+        l.push(t);
+      }
+      if (cells.size > 1 && Math.max(x1 - x0, z1 - z0) > GEO_CHUNK * 2) {
+        const meshes = [];
+        for (const tris of cells.values()) meshes.push(new THREE.Mesh(this._geometry(tris), mat));
+        return new ChunkedMesh(meshes, mat);
+      }
+    }
+    return new THREE.Mesh(this._geometry(null), mat);
+  }
+  // the BufferGeometry of triangles `tris` (null: all of them)
+  _geometry(tris) {
+    const pick = (src, per) => {
+      if (!tris) return src;
+      const out = new Float32Array(tris.length * 3 * per),
+        w = 3 * per;
+      for (let i = 0; i < tris.length; i++) {
+        const o = tris[i] * w;
+        for (let k = 0; k < w; k++) out[i * w + k] = src[o + k];
+      }
+      return out;
+    };
+    const cn = this.alpha ? 4 : 3;
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, this.alpha ? 4 : 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pick(this.p, 3), 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(pick(this.n, 3), 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(pick(this.c, cn), cn));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(pick(this.uv, 2), 2));
     if (this.c2) {
-      g.setAttribute('aAccent', new THREE.Float32BufferAttribute(this.c2, 3));
-      g.setAttribute('aGlass', new THREE.Float32BufferAttribute(this.c3, 3));
+      g.setAttribute('aAccent', new THREE.Float32BufferAttribute(pick(this.c2, 3), 3));
+      g.setAttribute('aGlass', new THREE.Float32BufferAttribute(pick(this.c3, 3), 3));
     }
     g.computeBoundingSphere();
     markStaticGeometry(g); // merged world geometry: its CPU arrays go once WebGL has them (GpuMemLifecycle)
-    return new THREE.Mesh(g, mat);
+    return g;
   }
   get tris() {
     return this.p.length / 9;
@@ -6841,7 +6923,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     );
     glow.renderOrder = layerOrder++;
     scene.add(glow);
-    world.marketGlow = glow.material;
+    world.marketGlow = glow.isChunkedMesh ? glow.chunkMaterial : glow.material;
     const M = new THREE.Matrix4(),
       Q = new THREE.Quaternion(),
       S = new THREE.Vector3(1, 1, 1),

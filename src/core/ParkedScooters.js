@@ -350,7 +350,7 @@ export class ParkedScooters {
 
   _checkVehicle(v, isPlayer) {
     const sp = Math.abs(v.speed || 0);
-    if (sp < (isPlayer ? 0.8 : 1.5)) return;
+    if (!isPlayer && sp < 1.5) return;
     const vy = v.mesh?.position?.y ?? 0;
     const [fx, fz] = v.forward();
     const sg = Math.sign(v.speed) || 1;
@@ -362,17 +362,25 @@ export class ParkedScooters {
       if (s.state !== 'static') return;
       if (!sameLevel(s.y, vy)) return;
       const b = bodyGap(v, s.x, s.z);
-      if (b.gap >= SCOOTER_HW + 0.12) return;
+      const minGap = SCOOTER_HW + 0.12;
+      if (b.gap >= minGap) return;
       const ox = s.x - b.qx,
         oz = s.z - b.qz,
         ol = Math.hypot(ox, oz) || 1;
+      // Slow player creep (< 0.35 m/s): push vehicle out smoothly so it never clips through parked scooters
+      if (isPlayer && sp < 0.35) {
+        const push = minGap - b.gap;
+        v.pos.x -= (ox / ol) * push;
+        v.pos.z -= (oz / ol) * push;
+        return;
+      }
       let dx = fx * sg * 0.7 + (ox / ol) * 0.6;
       let dz = fz * sg * 0.7 + (oz / ol) * 0.6;
       const dl = Math.hypot(dx, dz) || 1;
       dx /= dl;
       dz /= dl;
       const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
-      const dv = Math.max(2.2, (((1 + KNOCK_E) * m1) / (m1 + SCOOTER_MASS)) * sp);
+      const dv = Math.max(1.8, (((1 + KNOCK_E) * m1) / (m1 + SCOOTER_MASS)) * sp);
       if (this.knockSlot(s, dx * dv + vvx * 0.2, dz * dv + vvz * 0.2, dv)) hitCount++;
     });
 

@@ -131,4 +131,26 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(found.spot.state).toBe('taken');
     expect(ps.nearestSpot(10.5, 10.5, 0, 3.2)).toBeNull();
   });
+
+  it('prevents slow player vehicles (< 0.35 m/s) from clipping through static parked scooters', () => {
+    const { game } = makeMockGame({
+      motoSpots: [[10, 10, 0, '#b8282a', 0.07, 0]],
+      streetScooters: [],
+    });
+    const ps = new ParkedScooters(game);
+    const v = {
+      kind: 'scooter',
+      pos: new THREE.Vector3(9.5, 0, 10),
+      heading: 0,
+      speed: 0.1,
+      hl: 0.9,
+      hw: 0.35,
+      mesh: { position: { y: 0 } },
+      forward: () => [0, 1],
+    };
+    game.player.vehicle = v;
+    ps.update(0.016);
+    expect(v.pos.x).toBeLessThan(9.5);
+    expect(ps.slots[0].state).toBe('static');
+  });
 });

@@ -448,12 +448,12 @@ export class ParkedScooters {
     return anyHit;
   }
 
-  // Feed nearby parked cars & scooters (static or fallen) into Rapier's kinematic movers list at all speeds
-  // so the player's Rapier Chassis collides cleanly at 60 Hz with exact contact normals and zero overlap explosions.
-  appendMovers(list, x, z, pv) {
+  // Feed nearby parked cars & scooters (static or fallen) into Rapier's kinematic movers list whenever the
+  // player is driving OR dynamic knocked vehicles/ragdolls are moving, so falling bikes never clip through neighbors.
+  appendMovers(list, x, z, pvOrY) {
     this._moverSlots.clear();
-    if (!this.slots.length || !pv?.body) return;
-    const py = pv.mesh?.position?.y ?? 0;
+    if (!this.slots.length) return;
+    const py = typeof pvOrY === 'number' ? pvOrY : (pvOrY?.mesh?.position?.y ?? 0);
     const nearCars = [];
     const nearScooters = [];
     this._near(x, z, 20, (s) => {
@@ -461,7 +461,7 @@ export class ParkedScooters {
       if (!sameLevel(s.y, py)) return;
       const d = Math.hypot(s.x - x, s.z - z);
       if (s.kind === 'car' && d < 20) nearCars.push([d, s]);
-      else if (s.kind === 'scooter' && d < 14) nearScooters.push([d, s]);
+      else if (s.kind === 'scooter' && d < 16) nearScooters.push([d, s]);
     });
     nearCars.sort((a, b) => a[0] - b[0]);
     for (let i = 0; i < Math.min(8, nearCars.length); i++) {
@@ -481,7 +481,7 @@ export class ParkedScooters {
     }
     if (nearScooters.length) {
       nearScooters.sort((a, b) => a[0] - b[0]);
-      for (let i = 0; i < Math.min(16, nearScooters.length); i++) {
+      for (let i = 0; i < Math.min(24, nearScooters.length); i++) {
         const s = nearScooters[i][1];
         this._moverSlots.add(s);
         list.push({
@@ -573,25 +573,25 @@ export class ParkedScooters {
       P?.ready && this.activeKnocks.size < MAX_FLYING ? this._makeDebrisMesh(slot) : null;
 
     if (mesh) {
-      // Nudge 4 cm clear along push vector so spawning the dynamic body never causes a Rapier overlap explosion
+      // Scooters balance on two wheels: project push onto local +X (cos yaw, -sin yaw); negative roll tips top away from hit
+      const spec = vehicleSpec(slot.kind);
+      const sfx = Math.sin(slot.yaw),
+        sfz = Math.cos(slot.yaw);
+      const lat = dx * sfz - dz * sfx;
+      const tipSign = Math.abs(lat) > 0.15 ? -Math.sign(lat) : slot.tilt >= 0 ? 1 : -1;
+      // Nudge 4 cm clear along push vector; lean upright scooter past ~15° stand balance point so gravity tips it cleanly onto its side
       mesh.position.set(slot.x + dx * 0.04, slot.y + 0.02, slot.z + dz * 0.04);
       if (slot.quat) {
         mesh.quaternion.copy(slot.quat);
       } else {
-        _E.set(0, slot.yaw, slot.tilt, 'YXZ');
+        _E.set(0, slot.yaw, isCar ? 0 : tipSign * 0.3, 'YXZ');
         mesh.quaternion.setFromEuler(_E);
       }
       mesh.matrixAutoUpdate = false;
       mesh.updateMatrix();
       g.scene?.add(mesh);
 
-      // Scooters balance on two wheels: roll around their own longitudinal axis using angular impulse omega = J*h/I
-      const spec = vehicleSpec(slot.kind);
-      const sfx = Math.sin(slot.yaw),
-        sfz = Math.cos(slot.yaw);
-      const lat = dx * sfz - dz * sfx;
-      const tipSign = Math.abs(lat) > 0.15 ? Math.sign(lat) : slot.tilt >= 0 ? 1 : -1;
-      const rollMag = opt?.rollSpeed ?? (isCar ? 0 : Math.max(3.4, Math.min(6.5, 2.8 + dv * 0.55)));
+      const rollMag = opt?.rollSpeed ?? (isCar ? 0 : Math.max(3.6, Math.min(6.5, 3.0 + dv * 0.55)));
       const rollSp = isCar ? 0 : rollMag * tipSign;
       const yawSpin = isCar
         ? (slot.idx % 2 ? 0.28 : -0.28) * Math.min(3.0, dv * 0.45)
@@ -603,7 +603,7 @@ export class ParkedScooters {
         friction: spec.muKinetic,
         restitution: spec.restitution,
       };
-      const rec = { slot, mesh, x: slot.x, y: slot.y, z: slot.z, vx, vz, dv };
+      const rec = { slot, mesh, x: slot.x, y: slot.y, z: slot.z, vx, vz, dv, body: null };
       this.activeKnocks.add(rec);
       const knocked = P.knock(
         mesh,
@@ -633,7 +633,10 @@ export class ParkedScooters {
         rec,
         physOpt
       );
-      if (knocked) return true;
+      if (knocked) {
+        rec.body = knocked.body || null;
+        return true;
+      }
       this.activeKnocks.delete(rec);
       g.scene?.remove(mesh);
     }
@@ -815,28 +818,39 @@ export class ParkedScooters {
       }
     }
 
-    // Domino chain knock: falling scooters gently topple adjacent parked scooters with energy dissipation (no pop-up)
+    // Domino chain knock: falling/sliding scooters transfer Newtonian impulse to neighboring static scooters
+    // and slow down symmetrically so they pile up instead of clipping through adjacent bikes
     if (this.activeKnocks.size) {
       for (const rec of [...this.activeKnocks]) {
         const spd = Math.hypot(rec.vx, rec.vz);
-        if (spd < 1.2) continue;
-        this._near(rec.x, rec.z, 1.2, (s) => {
+        if (spd < 0.7) continue;
+        this._near(rec.x, rec.z, 1.4, (s) => {
           if (s.state !== 'static' || s.kind === 'car') return;
           const dx = s.x - rec.x,
             dz = s.z - rec.z;
           const d = Math.hypot(dx, dz);
-          if (d < 0.85 && Math.abs(s.y - rec.y) < 1.5) {
+          if (d < 1.05 && Math.abs(s.y - rec.y) < 1.5) {
             const nx = d > 1e-3 ? dx / d : rec.vx / spd;
             const nz = d > 1e-3 ? dz / d : rec.vz / spd;
+            const closing = rec.vx * nx + rec.vz * nz;
+            const vRel = Math.max(closing, d < 0.78 ? spd * 0.7 : 0);
+            if (vRel < 0.7) return;
             const sol = solveVehicleImpact({
-              kind1: 'scooter',
+              kind1: rec.slot.kind,
               rider1: false,
               kind2: 'scooter',
               rider2: false,
               parked2: true,
-              vRel: spd,
+              vRel: Math.max(vRel, 1.3),
             });
-            if (sol.moves) this.knockSlot(s, nx * sol.dv2, nz * sol.dv2, sol.dv2, sol);
+            if (sol.moves && this.knockSlot(s, nx * sol.dv2, nz * sol.dv2, sol.dv2, sol)) {
+              if (rec.body) {
+                const lv = rec.body.linvel();
+                rec.body.setLinvel({ x: lv.x * sol.kf, y: lv.y, z: lv.z * sol.kf }, true);
+              }
+              rec.vx *= sol.kf;
+              rec.vz *= sol.kf;
+            }
           }
         });
       }

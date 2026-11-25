@@ -1125,7 +1125,9 @@ class Game {
       )
         veh(v);
     }
-    if (pv?.body) {
+    // Keep nearby parked vehicles & roadside slots active as Rapier movers both while driving AND
+    // whenever any dynamic knocked vehicle/ragdoll is moving, so falling scooters never clip through neighbors
+    if (pv?.body || P.knocked.size > 0 || P.rags.size > 0) {
       const near = [];
       for (const o of this.vehicles) {
         if (o === pv || o.driver || o.knocked || o.ai || o.racer || o === this.airdrop.run?.v)
@@ -1135,7 +1137,8 @@ class Game {
       }
       near.sort((a, b) => a[0] - b[0]);
       for (let i = 0; i < Math.min(12, near.length); i++) veh(near[i][1]);
-      this.parkedScooters?.appendMovers(list, wp.x, wp.z, pv);
+      const py = pv?.mesh?.position?.y ?? wp.y ?? 0;
+      this.parkedScooters?.appendMovers(list, wp.x, wp.z, py);
     }
     P.movers(list, dt);
     P.focus = wp;

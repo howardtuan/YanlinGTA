@@ -37,9 +37,10 @@ export const VEHICLE_PHYS = {
     iRoll: 38.4, // kg*m^2 roll inertia about ground contact line: m * (rg^2 + h^2)
     minMoveV: 0.45, // m/s minimum target speed after overcoming static hold to trigger dynamic slide
     linDamp: 0.08, // minimal aerodynamic drag; Coulomb friction does the real stopping
-    angDamp: 0.35,
+    angDamp: 0.25,
     restitution: 0.08,
-    shape: { shape: 'box', hx: 0.24, hy: 0.44, hz: 0.78 },
+    // Narrow 2-wheel footprint (0.24 m wide, 0.88 m tall -> ~15° balance angle) so gravity tips it cleanly onto its side
+    shape: { shape: 'box', hx: 0.12, hy: 0.44, hz: 0.78 },
   },
   car: {
     mass: 1250, // kg sedan curb weight

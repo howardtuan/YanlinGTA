@@ -434,6 +434,18 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     const [rvx, rvz] = game.player.throwOff.mock.calls[0];
     expect(Math.hypot(rvx, rvz)).toBeGreaterThan(4.0);
     expect(game.hud.toast).toHaveBeenCalledWith(expect.stringContaining('被撞飛了'), 'bad', 2600);
+
+    // 3. Head-on crash while riding forward (+Z) into obstacle (normal -Z): rider flies FORWARD (+Z), NOT backward!
+    game.player.throwOff.mockClear();
+    v.knocked = false;
+    v.fallen = false;
+    v.heading = 0; // forward = (0, +1)
+    v.crash = { impact: 12, speed: 12, nx: 0, nz: -1, pushed: false };
+    spawner.throwOff(v);
+    const [fwdX, fwdZ, fwdY] = game.player.throwOff.mock.calls[0];
+    expect(fwdZ).toBeGreaterThan(6.0); // pure forward inertia over the handlebars!
+    expect(Math.abs(fwdX)).toBeLessThan(0.5);
+    expect(fwdY).toBeGreaterThan(2.0);
   });
 
   it('applies Newtonian impulse-momentum to vehicle-vs-person and person-vs-person collisions', () => {

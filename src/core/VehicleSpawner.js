@@ -211,9 +211,10 @@ export class VehicleSpawner {
       dz = vz / l;
     const sfx = Math.sin(o.heading || 0),
       sfz = Math.cos(o.heading || 0);
+    // Project push direction onto scooter's local +X axis (cos h, -sin h); negative roll tilts top toward +X (away from hit)
     const lat = dx * sfz - dz * sfx;
-    const tipSign = Math.abs(lat) > 0.15 ? Math.sign(lat) : o.id % 2 ? 1 : -1;
-    const rollMag = sol ? sol.rollSpeed : sc ? Math.max(3.4, Math.min(6.5, 2.8 + dv * 0.55)) : 0;
+    const tipSign = Math.abs(lat) > 0.15 ? -Math.sign(lat) : o.id % 2 ? 1 : -1;
+    const rollMag = sol ? sol.rollSpeed : sc ? Math.max(3.6, Math.min(6.5, 3.0 + dv * 0.55)) : 0;
     const rollSp = sc ? rollMag * tipSign : 0;
     const yawSpin = sc
       ? (o.id % 2 ? 0.22 : -0.22) * Math.min(4.0, dv * 0.6)
@@ -226,9 +227,14 @@ export class VehicleSpawner {
     };
     const shape = sol?.shape2 || spec.shape;
     P.dropMover(o); // its stand-in (parked next to a physics vehicle, traffic)
-    // Nudge 4 cm clear along push vector so spawning the dynamic body never triggers a Rapier overlap explosion
+    // Nudge 4 cm clear along push vector and lean upright scooter past its ~15° stand balance point so gravity tips it flat
     o.mesh.position.x += dx * 0.04;
     o.mesh.position.z += dz * 0.04;
+    if (sc && !o.fallen) {
+      o.mesh.rotation.order = 'YXZ';
+      o.mesh.rotation.z = tipSign * 0.3;
+      o.mesh.updateMatrix();
+    }
     const f = new THREE.Vector3();
     const heading = (q) => {
       f.set(0, 0, 1).applyQuaternion(q);
@@ -311,23 +317,34 @@ export class VehicleSpawner {
     game.audio.bump(2.5);
     pl.exit(game.scene, game.world.collision, game.interiors);
     const y = v.mesh.position.y;
-    pl.pos.set(v.pos.x + (c.pushed ? c.nx : fx) * 0.35, y, v.pos.z + (c.pushed ? c.nz : fz) * 0.35);
+    const launchDirX = c.pushed ? c.nx : fx;
+    const launchDirZ = c.pushed ? c.nz : fz;
+    // Start slightly ahead and at handlebar height so the ragdoll clears the front shield cleanly when flying forward
+    pl.pos.set(v.pos.x + launchDirX * 0.55, y + 0.55, v.pos.z + launchDirZ * 0.55);
     pl.heading = v.heading;
     v.speed = 0;
 
-    // Rider launch velocity
+    // Rider launch velocity (Newton's 1st Law: inertia carries the rider FORWARD over the handlebars!)
     const d = fx * c.nx + fz * c.nz;
     let rvx, rvz, rvy;
     if (c.pushed) {
       const k = Math.min(9.5, c.impact * 0.55);
       rvx = c.nx * k;
       rvz = c.nz * k;
-      rvy = 2.6 + Math.min(2.2, c.impact * 0.16);
+      rvy = 2.2 + Math.min(2.0, c.impact * 0.14);
     } else {
-      const k = s * 0.45;
-      rvx = (fx - 1.2 * d * c.nx) * k;
-      rvz = (fz - 1.2 * d * c.nz) * k;
-      rvy = 3 + s * 0.22;
+      // Tangential component along obstacle (0 for head-on), blended lightly with pure forward inertia
+      const tangX = fx - d * c.nx;
+      const tangZ = fz - d * c.nz;
+      let dirX = fx * 0.85 + tangX * 0.15;
+      let dirZ = fz * 0.85 + tangZ * 0.15;
+      const dl = Math.hypot(dirX, dirZ) || 1;
+      dirX /= dl;
+      dirZ /= dl;
+      const k = Math.min(14, Math.max(4.5, s * 0.72));
+      rvx = dirX * k;
+      rvz = dirZ * k;
+      rvy = 2.0 + Math.min(2.2, s * 0.14);
     }
 
     // Player's own scooter slides & topples with glancing/recoil momentum so both bikes react symmetrically

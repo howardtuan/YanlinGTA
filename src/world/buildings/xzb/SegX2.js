@@ -850,7 +850,7 @@ export default {
         [1.6, -4.3],
         [5.2, -4.5],
       ])
-        k.cyl(x, z, 0.18, 0, 0.7, '#e0621e', { seg: 8, r1: 0.03 });
+        k.cone(x, z);
       for (let j = 0; j < 3; j++)
         k.plane(C.archWin, 1.3, 1.7, -0.03, 4.8, 4.5 + j * 4.5, -Math.PI / 2); // 西側牆 3 扇拱形窗
     }

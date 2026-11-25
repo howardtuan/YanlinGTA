@@ -360,6 +360,7 @@ export class Interiors {
     this.zones = [];
     this.actions = [];
     this.updaters = [];
+    this.cones = [];
     this.stamp = 0;
     this.wst = [];
   }
@@ -382,6 +383,9 @@ export class Interiors {
         if (!l) this.grid.set(k, (l = []));
         l.push(wi);
       }
+  }
+  addCone(x, z) {
+    this.cones.push([x, z]);
   }
   addSurface(pts, h) {
     let a = 1e9,
@@ -631,6 +635,10 @@ export class Kit {
     const a = this.w(x0, z0),
       b = this.w(x1, z1);
     this.I.addWall(a[0], a[1], b[0], b[1], y0 * this.sc, y1 * this.sc);
+  }
+  cone(lx, lz) {
+    const [wx, wz] = this.w(lx, lz);
+    this.I.addCone(wx, wz);
   }
   _part(mat, g) {
     if (!this.parts.has(mat)) this.parts.set(mat, []);

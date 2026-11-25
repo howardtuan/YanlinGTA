@@ -3784,8 +3784,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       };
       fence(20, 32);
       fence(5.6, 8.6);
-      for (const x of [11.5, 16.5])
-        k.cyl(x, -2.6, 0.18, 0.05, 0.65, '#e8642a', { seg: 8, r1: 0.03 });
+      for (const x of [11.5, 16.5]) k.cone(x, -2.6);
       for (const x of [13.2, 18.3]) k.cyl(x, -2.5, 0.3, 0.05, 0.25, '#1c1c1e', { seg: 10 }); // 交通錐與廢輪胎
       lattice(k, 4.2, -1.8, 0, 12, 0.8);
       vsign(k, '九良汽車', '#b23a48', '#ffffff', 4.6, 6.0, 5.0, -2.5, 1.2);
@@ -3857,10 +3856,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       if (sp.turn) {
         k.box(-0.05, 0.05, -0.8, 2.0, 0.1, sp.turn, '#6f9a72');
       }
-      for (const x of [w * 0.3, w * 0.7]) {
-        const y = gy(k, x, -4.3);
-        k.cyl(x, -4.3, 0.2, y, y + 0.7, '#e8642a', { seg: 8, r1: 0.04 });
-      }
+      for (const x of [w * 0.3, w * 0.7]) k.cone(x, -4.3);
     },
     // C10 慈濟公園：沒有建物。紅磚色寬步道從人行道斜進去接圓形廣場（中間圓草地、白色石材環、外圈紅磚色透水磚、弧形座椅），
     // 西緣一條灰色高壓磚步道沿檳榔攤東牆往裡走、步道口亂石砌圓花台；東北角清水混凝土矮花台與兩塊黃黑紐澤西護欄
@@ -5694,7 +5690,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       k.plane(ROWT.alWin(), 1.6, 1.2, w / 2, 4.8, -0.03, FRONT);
       k.box(2.6, 3.2, 4.2, 4.6, -0.4, 0, MR.ac, nb);
       k.box(0.6, 1.4, 0, 0.45, -1.0, -0.6, '#8a6a4a', nb);
-      for (const x of [2.2, 2.9]) k.cyl(x, -1.2, 0.18, 0, 0.6, '#e8642a', { seg: 8, r1: 0.03 });
+      for (const x of [2.2, 2.9]) k.cone(x, -1.2);
     },
     // 50 號：橘黃色 3 樓＋屋頂整層鋼棚（看起來像 4 層），每層樓板處一道寬清水水泥帶、二樓下一圈淺綠浪板裙板；一樓整排淺綠浪板單斜雨棚（幾乎蓋到路邊），
     // 雨棚下由南到北藍色鐵捲門、深灰鐵捲門、不鏽鋼雕花大門（紅色門牌 50）、紅色「請勿停車」活動柵欄；二樓花格鐵窗與北端外推凸窗，三樓小窗與白色百葉鐵捲窗

@@ -8,7 +8,8 @@
 // The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
 import { stockUI } from './phone/StockUI.js';
 import { newsUI } from './phone/NewsUI.js';
-import { learnUI } from '../systems/minigames/Learn.js';
+import { learnUI, hl } from '../systems/minigames/Learn.js';
+import { TWO_SUM_STARTER } from '../systems/quests/HowardTwoSum.js';
 const $ = (id) => document.getElementById(id);
 const _esc = (t) =>
   String(t).replace(
@@ -578,15 +579,52 @@ export class PC {
         <p class="ts-rule">霍華德的規定：<br>・語言 <b>Python3</b><br>・時間複雜度 <b>O(N)</b>（暴力 O(N²)、排序 O(N log N) 都不收）<br>・<b>不可以複製貼上</b>，自己一個字一個字打</p>
       </div>
       <div class="ts-r">
-        <div class="ts-head"><span>Python3</span><span class="ts-nopaste">🚫 已停用貼上</span></div>
-        <textarea class="ts-code" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        <div class="ts-head"><span>Python3 <span class="ts-nopaste">🚫 已停用貼上</span></span><button class="ts-reset" title="把程式碼還原成一開始的樣子（class Solution / def twoSum）">↺ 還原程式碼</button></div>
+        <div class="ts-edit"><pre class="ts-hl" aria-hidden="true"></pre><textarea class="ts-code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>
         <div class="ts-btns"><button class="ts-run">▶ 執行範例</button><button class="ts-sub">提交</button></div>
         <div class="ts-out">${Q.done ? '<div class="ts-ac">✅ Accepted —— 忍 400 已經可以騎了</div>' : '寫好後先「執行範例」，再「提交」。第一次執行要下載 Python（約 10 秒）。'}</div>
       </div></div>`;
     const ta = body.querySelector('.ts-code'),
+      pre = body.querySelector('.ts-hl'),
       out = body.querySelector('.ts-out');
     ta.value = Q.state.code;
     let last = ta.value;
+    // VS Code colours: the textarea's text is transparent over a coloured copy of it (the 資管學堂 highlighter, Learn.js hl)
+    const paint = () => {
+      pre.innerHTML = `${hl(ta.value, 'python')}\n`;
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    };
+    ta.addEventListener('scroll', () => {
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    });
+    paint();
+    // ↺ back to the starter code (if you deleted the class / def twoSum line): asks once more before it throws your code away
+    const reset = body.querySelector('.ts-reset');
+    let sure = 0;
+    reset.onclick = () => {
+      if (performance.now() - sure > 3000) {
+        sure = performance.now();
+        reset.textContent = '確定還原？再按一次';
+        reset.classList.add('warn');
+        setTimeout(() => {
+          if (performance.now() - sure >= 2900) {
+            reset.textContent = '↺ 還原程式碼';
+            reset.classList.remove('warn');
+          }
+        }, 3000);
+        return;
+      }
+      sure = 0;
+      ta.value = last = Q.state.code = TWO_SUM_STARTER;
+      paint();
+      reset.textContent = '↺ 還原程式碼';
+      reset.classList.remove('warn');
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = ta.value.length;
+      g.hud.toast('↺ 程式碼已還原成一開始的樣子', 'good', 1800);
+    };
     const warn = () => {
       g.hud.toast('🙅 霍華德說：不可以複製貼上，自己打！', 'bad', 2200);
       ta.classList.remove('ts-shake');
@@ -610,11 +648,13 @@ export class PC {
       if (ta.value.length - last.length > 24) {
         // a whole block at once is not typing
         ta.value = last;
+        paint();
         warn();
         return;
       }
       last = ta.value;
       Q.state.code = ta.value;
+      paint();
     });
     const put = (txt) => {
       const a = ta.selectionStart,
@@ -623,6 +663,7 @@ export class PC {
       ta.selectionStart = ta.selectionEnd = a + txt.length;
       last = ta.value;
       Q.state.code = ta.value;
+      paint();
     };
     ta.addEventListener('keydown', (e) => {
       e.stopPropagation();

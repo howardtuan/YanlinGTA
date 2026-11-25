@@ -687,6 +687,10 @@ export class MahjongScene {
   }
   render(renderer) {
     if (!this.active || !this.set) return;
+    // the tiles are small on screen: draw the table at up to 2x the screen's pixels even when the quality setting draws
+    // the campus coarser (phones: 0.8). The table is cheap; src/core/GameLoop.js puts the pixel ratio back afterwards.
+    const sharp = Math.min(window.devicePixelRatio || 1, 2);
+    if (renderer.getPixelRatio() < sharp) renderer.setPixelRatio(sharp);
     const c = this.cam;
     c.aspect = innerWidth / innerHeight;
     // 近看 (default): leaning over the table, your hand and the discards big; 全景 (V / the 🔍 button): the whole

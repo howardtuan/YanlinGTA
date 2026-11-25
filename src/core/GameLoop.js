@@ -268,7 +268,15 @@ export class GameLoop {
         game.mahjong.render(game.renderer); // 277 麻將: its own little scene (src/systems/mahjong/MahjongScene.js)
       else if (game.zzQuest?.film.active)
         game.zzQuest.film.render(game.renderer); // 吱吱's 武嶺 film: its own little scene
-      else game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
+      else {
+        // back from the mahjong table (it draws sharper, src/systems/mahjong/MahjongScene.js): the quality's pixel ratio
+        const pr = this.pixelRatio();
+        if (game.renderer.getPixelRatio() !== pr) {
+          game.renderer.setPixelRatio(pr);
+          game.post.setSize(innerWidth, innerHeight);
+        }
+        game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
+      }
     }
     perf?.frameEnd(now);
     if (game._shot) {

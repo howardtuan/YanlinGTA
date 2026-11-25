@@ -21,6 +21,7 @@ import {
   yhFootprint,
   yhOutline,
 } from '../world/Interiors.js';
+import { configureTextures, releaseAtlasSources } from '../world/Kit.js';
 import {
   zoneDrops,
   zoneOwnSigns,
@@ -94,6 +95,7 @@ import { Walker } from '../entities/Walker.js';
 import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
+import { createBootTrace } from './BootTrace.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { resolveRuntimeProfile } from './PerfProfile.js';
 import { PerfHud } from './PerfHud.js';
@@ -111,13 +113,18 @@ const setLoad = (p, t) => {
   const tx = $('loadText');
   if (tx) tx.textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`;
 };
+// resolves after the browser has painted: an await on a bare requestAnimationFrame resumes inside that frame's
+// callbacks, before the paint, so a long synchronous step right after it (buildWorld, buildInteriors) kept the
+// previous loading text on screen for its whole run. setLoad first, then await this, so the text shows.
 const nextFrame = () =>
   new Promise((r) => {
-    requestAnimationFrame(() => r());
+    requestAnimationFrame(() => setTimeout(r, 0));
   });
 
 class Game {
   async init() {
+    // ?boottrace: report every loading step to the Vite dev server (src/core/BootTrace.js)
+    const trace = (this.bootTrace = createBootTrace());
     this.gameLoop = new GameLoop(this);
     this.menuManager = new MenuManager(this);
     this.vehicleSpawner = new VehicleSpawner(this);
@@ -132,6 +139,7 @@ class Game {
       initKernels(),
       this.physics.init(),
     ]);
+    trace.mark('data + wasm loaded');
     loadTerrain(terrain);
     this.data = data;
     this.settings = loadSettings();
@@ -289,6 +297,17 @@ class Game {
     r.toneMappingExposure = 1.0;
     r.domElement.id = 'game';
     document.getElementById('app').prepend(r.domElement);
+    trace.watchGl(r.domElement);
+    // canvas textures (src/world/Kit.js): phones (PerfProfile mobile-lite, or ?texscale=) store them at texScale;
+    // desktops keep full size, nothing looks different there. Shop-row sheets go to the GPU as soon as they are drawn.
+    const pp = this.perfProfile;
+    configureTextures({
+      scale: pp.flags.texScale ?? (pp.tier === 'mobile-lite' ? pp.texScale : 1),
+      upload: (t) => r.initTexture(t),
+    });
+    // those sheets keep no canvas once on the GPU: a restored WebGL context could not redraw them, so start over
+    // (the game saves on unload)
+    r.domElement.addEventListener('webglcontextrestored', () => location.reload());
     this.scene = new THREE.Scene();
     installShadowDepth(r, this.scene, () => this.quality !== 'high');
     this.scene.matrixAutoUpdate = false;
@@ -308,8 +327,9 @@ class Game {
 
     this._sky();
     this.post = new PostFX(r, this.scene, this.camera, subQ(this.quality));
-    await nextFrame();
+    trace.mark('renderer + post');
     setLoad(0.08, '搭建中原大學');
+    await nextFrame();
 
     const featureTrees = (() => {
       const { ox, oz, ang, D } = IM_SPEC,
@@ -324,7 +344,13 @@ class Game {
       ].map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
     featureTrees.push(...zoneTrees());
-    this.world = buildWorld(this.scene, data, (p) => setLoad(0.08 + p * 0.7, '搭建中原大學'), {
+    trace.mark('world: start');
+    // buildWorld runs in one go (the text set here only shows once it returns); label: the part it starts next
+    const worldProgress = (p, label) => {
+      setLoad(0.08 + p * 0.7, '搭建中原大學');
+      trace.mark(`world: ${label || `${Math.round(p * 100)}%`}`);
+    };
+    this.world = buildWorld(this.scene, data, worldProgress, {
       reserved,
       keep,
       low: this.lowQ,
@@ -336,9 +362,16 @@ class Game {
     });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality();
+    trace.mark('world + skyline done');
     setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
     await nextFrame();
-    this.interiors = buildInteriors(this.scene, data, this.world.collision, { createCharacter });
+    this.interiors = buildInteriors(this.scene, data, this.world.collision, {
+      createCharacter,
+      trace: trace.mark,
+      // after each zone: drop the sign canvases its shop rows copied into their sheets, so they never pile up
+      afterZone: () => releaseAtlasSources(this.scene),
+    });
+    trace.mark('interiors done');
 
     try {
       this.physStats = buildPhysicsWorld(this.physics, this.world.collision, this.interiors);
@@ -349,8 +382,9 @@ class Game {
       } catch (_e2) {}
       this.physics.world = null;
     }
-    await nextFrame();
+    trace.mark('physics world done');
     setLoad(0.8, '召喚同學與機車');
+    await nextFrame();
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);
     this.hud = new HUD(this.world);
@@ -514,8 +548,10 @@ class Game {
     this.startPos = { x: sx, z: sz, h: this.player.heading };
     this.rig.yaw = this.player.heading;
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
+    trace.mark('player + traffic done');
 
     setLoad(0.95, '準備出發');
+    await nextFrame();
     this.missions = new Missions(this);
     this.sunday = new Sunday(this);
     this.clubMembers = new ClubMembers(this);
@@ -542,6 +578,9 @@ class Game {
     this.yuluQuest = new YuluTea(this);
     // 力行 277 寢的迷你麻將桌：揪力行的人打台式麻將（src/systems/mahjong/Mahjong.js）
     this.mahjong = new DormMahjong(this);
+    trace.mark('npcs + quests done');
+    // everything is built: drop the canvases of the sign images that now live only in the shop-row sheets
+    trace.mark('atlas sources released', `${releaseAtlasSources(this.scene)} textures`);
 
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
     // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
@@ -551,6 +590,7 @@ class Game {
     } catch (_e) {
       this.renderer.compile(this.scene, this.camera);
     }
+    trace.mark('shaders compiled');
 
     this.menuManager.setup();
     // 設定 → 效能顯示; ?perf forces the developer level for this session
@@ -567,6 +607,8 @@ class Game {
     $('loading').classList.add('hidden');
     $('title').classList.remove('hidden');
     this.gameLoop.start();
+    trace.mark('loading done');
+    trace.afterFrames('title: first frames drawn'); // the first frames upload every texture to the GPU
   }
 
   // ---------- delegations ----------

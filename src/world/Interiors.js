@@ -3758,14 +3758,24 @@ export function guardFootprint(s) {
   return [w(-0.6, -0.6), w(5, -0.6), w(5, 3.8), w(-0.6, 3.8)];
 }
 
-export function buildInteriors(scene, data, collision, { createCharacter } = {}) {
+// trace(label): called as each part starts building (?boottrace, src/core/BootTrace.js); afterZone(): after each zone
+export function buildInteriors(
+  scene,
+  data,
+  collision,
+  { createCharacter, trace = () => {}, afterZone = () => {} } = {}
+) {
   const I = new Interiors(scene);
+  trace('interiors: 資管系館');
   const im = buildIM(I, scene);
+  trace('interiors: 麥當勞');
   const mcd = buildMcD(I, scene, createCharacter);
+  trace('interiors: 彥霖家、黃蓋瑞家、社團角');
   I.yh = buildYanlinHome(I, scene);
   I.garry = buildGarryHome(I, scene, Kit, regMat, YH_SPEC); // 黃蓋瑞家: next door to 彥霖's, same floor (src/world/buildings/GarryHome.js)
   buildClubCorner(I, scene, Kit); // outside of 活動中心's NW corner; the 3F 古箏社教室 in it (I.club) is built with src/world/buildings/Sac.js
-  buildZones(I, scene, data, collision); // 周邊街道與校內各區自建的部分，順序見 src/world/zones/Zones.js
+  buildZones(I, scene, data, collision, trace, afterZone); // 周邊街道與校內各區自建的部分，順序見 src/world/zones/Zones.js
+  trace('interiors: 警衛室');
   for (const s of GUARD_SPECS(data))
     buildGuardhouse(
       I,

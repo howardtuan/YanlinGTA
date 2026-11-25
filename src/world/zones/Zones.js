@@ -391,6 +391,13 @@ export function zonesTerrain(data) {
 export const zoneTrees = () => ZONES.flatMap((z) => z.trees?.() || []);
 export const zoneVegHide = (data) => ZONES.flatMap((z) => z.vegHide?.(data) || []);
 export const zoneTreeHide = (data) => ZONES.flatMap((z) => z.treeHide?.(data) || []);
-export function buildZones(I, scene, data, collision) {
-  for (const z of ZONES) z.build?.(I, scene, data, collision);
+// trace(label): called as each zone starts building (?boottrace, src/core/BootTrace.js); afterZone(): once each zone
+// has built (src/core/Game.js frees canvas memory there). Neither changes what is built.
+export function buildZones(I, scene, data, collision, trace = () => {}, afterZone = () => {}) {
+  for (const z of ZONES) {
+    if (!z.build) continue;
+    trace(`zone: ${z.name}`);
+    z.build(I, scene, data, collision);
+    afterZone();
+  }
 }

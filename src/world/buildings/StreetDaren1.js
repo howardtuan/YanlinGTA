@@ -1894,7 +1894,7 @@ export function buildDaren1Street(I, scene, X) {
         k.box(x - 1.6, x, 2.6, 2.68, -0.13, -0.04, '#b9b3a6', { col: false });
       } // 生鏽的立管與一段橫管
       else if (kind === 'pole') {
-        k.cyl(x, -0.3, 0.13, 0, 9.2, '#8a8478', { seg: 8 });
+        k.cyl(x, -0.3, 0.13, 0, 9.2, '#8a8478', { seg: 8, col: true });
         k.box(x - 0.9, x + 0.9, 8.3, 8.4, -0.36, -0.24, '#6f6a60', { col: false });
       } // 路邊的電線桿
       else if (kind === 'duct') {
@@ -2020,7 +2020,8 @@ export function buildDaren1Street(I, scene, X) {
       k.cyl(x, z, 0.8, th * 0.48, th * 0.78, gc, { r1: 1.45, seg: 8 });
       k.cyl(x, z, 1.45, th * 0.78, th * 1.15, gc, { r1: 0.35, seg: 8 });
     }
-    for (const s of sp.poles || []) k.cyl(sx(s), -0.15, 0.14, 0, 8.6, '#8a8478', { seg: 8 });
+    for (const s of sp.poles || [])
+      k.cyl(sx(s), -0.15, 0.14, 0, 8.6, '#8a8478', { seg: 8, col: true });
     if (sp.board) {
       const [a, b] = [sx(sp.board[0]), sx(sp.board[1])].sort((p, q) => p - q);
       k.box(a, b, 1.3, 2.9, 0.26, 0.31, '#f1efe8', { col: false });

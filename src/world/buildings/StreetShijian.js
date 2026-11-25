@@ -866,6 +866,7 @@ export function buildShijianStreet(I, scene, X) {
     const meshRun = (x0, x1, z, y0) => {
       const n = Math.max(1, Math.round((x1 - x0) / 2)),
         bw = (x1 - x0) / n;
+      k.wallLine(x0, z, x1, z, -0.4, y0 + 1.55);
       for (let j = 0; j < n; j++)
         k.plane(meshTex, bw, 1.5, x0 + (j + 0.5) * bw, y0 + 0.75, z, FRONT, {
           transparent: true,
@@ -894,6 +895,7 @@ export function buildShijianStreet(I, scene, X) {
         bay = w / n,
         ph = fs.bay ? 1.9 : 2.0,
         pw = fs.bay ? 0.45 : 0.24;
+      k.wallLine(0, 0.3, w, 0.3, -0.4, ph);
       for (let j = 0; j <= n; j++) {
         const x = Math.min(w - pw, Math.max(0, j * bay - pw / 2));
         k.box(x, x + pw, 0.55, ph, 0.1, 0.1 + Math.max(0.3, pw), '#a0523a', { col: false });
@@ -925,11 +927,7 @@ export function buildShijianStreet(I, scene, X) {
         const s = side > 0 ? s0 + x : s1 - x;
         return s > a - m && s < b + m;
       });
-    const cone = (x, z) => {
-      k.box(x - 0.2, x + 0.2, 0.05, 0.1, z - 0.2, z + 0.2, '#e8651f', { col: false });
-      k.cyl(x, z, 0.1, 0.1, 0.7, '#e8651f', { seg: 8 });
-      k.cyl(x, z, 0.105, 0.4, 0.5, '#f4f4f0', { seg: 8 });
-    };
+    const cone = (x, z) => k.cone(x, z);
     if (fs.bikes)
       for (
         let x = 0.6 + r() * 1.5;
@@ -953,7 +951,7 @@ export function buildShijianStreet(I, scene, X) {
       // 大樹：樹幹加幾團樹冠
       const h = fs.tall ? 7 + r() * 2.5 : 5 + r() * 2.5,
         s = fs.tall ? 2.6 + r() * 0.9 : 1.2 + r() * 0.6;
-      k.cyl(x, zt, fs.tall ? 0.32 : 0.22, 0, h, '#6a4a30', { seg: 6 });
+      k.cyl(x, zt, fs.tall ? 0.32 : 0.22, 0, h, '#6a4a30', { seg: 6, col: true });
       const crowns = fs.tall
         ? [
             [0, h + 1.4, 0, 1],

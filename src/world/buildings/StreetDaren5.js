@@ -3076,7 +3076,7 @@ export function buildDaren5Street(I, scene, X) {
     g.fillRect(0, 31, 64, 2);
   }); // 透明浪板
   const tree = (k, x, z, h, s, r) => {
-    k.cyl(x, z, 0.2, 0, h, '#6a4a30', { seg: 6 });
+    k.cyl(x, z, 0.2, 0, h, '#6a4a30', { seg: 6, col: true });
     for (const [dx, dy, dz, q] of [
       [0, h + 0.5, 0, 1],
       [-1.1, h - 0.5, 0.4, 0.8],
@@ -3448,8 +3448,7 @@ export function buildDaren5Street(I, scene, X) {
       for (let j = 0; j < 2; j++) bike(k, x0 + 0.3 + j * 1.7, z - 0.5, bikeCols[(i + j) % 6]);
       for (let j = 0; j < (sp.cones || 0); j++) {
         const cx = x0 + 0.5 + (j * (w - 1)) / Math.max(1, sp.cones - 1);
-        k.cyl(cx, z - 0.95, 0.16, 0, 0.6, '#e8642a', { seg: 8, r1: 0.03 });
-        k.box(cx - 0.18, cx + 0.18, 0, 0.04, z - 1.13, z - 0.77, '#e8642a', NC);
+        k.cone(cx, z - 0.95);
       }
     } else if (g === 'hatch') {
       // SW1：整面實牆加不鏽鋼圓舷窗與圓角艙門（PAPAFUN），門口太空人坐月球立牌

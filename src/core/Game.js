@@ -93,6 +93,7 @@ import { Chassis } from '../physics/VehPhysics.js';
 import { Ragdoll } from '../physics/Ragdoll.js';
 import { Walker } from '../entities/Walker.js';
 import { buildPhysicsWorld } from '../physics/PhysWorld.js';
+import { spawnWorldCones } from '../world/WorldProps.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
@@ -372,6 +373,7 @@ class Game {
       } catch (_e2) {}
       this.physics.world = null;
     }
+    this.worldCones = spawnWorldCones(this.scene, this.physics, this.interiors.cones);
     await stage('spawn-entities', 0.82, '召喚同學與機車');
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);

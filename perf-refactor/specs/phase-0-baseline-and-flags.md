@@ -57,7 +57,7 @@
 
 ## 四、 PR 切分與驗收標準
 
-- **工作分支**：`chore/perf-flags-and-metrics`
+- **工作分支**：`chore/perf-flags-and-metrics`（✅ 程式碼與單元測試已對齊本規格完成，待實機補測 `?diag=1` 鎖定 iPhone 崩潰檢查點後合併）
 - **驗收清單**：
   1. `npm run ci` 全綠（含 `perf-profile.test.js`、`boot-diag.test.js`、`import-graph.test.js`、`dom-ids.test.js`）。
   2. `Game.js` 載入進度條可逐階段繪出 `2% → 5% → 8% → 78% → 79% → 82% → 95% → 98% → 100%`。

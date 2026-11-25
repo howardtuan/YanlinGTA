@@ -37,7 +37,7 @@
 | 階段 | 任務名稱 | 目前狀態 | 預定分支前綴 | 核心交付物 | 關鍵驗收指標 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **規劃** | 架構體檢、可行性評估與規格修正 | ✅ 規格修正完成 | `docs/perf-refactor-plan`、`docs/revise-perf-refactor-plan` | 本目錄 10 份檔案與 `AGENT.md` 公告（修正目標模糊、順序與技術破洞） | `npm run ci` 與連結檢查全過 |
-| **Phase 0** | 可觀測基準、載入檢查點與實驗旗標 | 🔄 規格對齊中 | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`BootDiag.js`、`Game.js` 讓幀修復、`?perf`、`tools/profile_scene.mjs` | 消除「假卡 2%」盲區、`?diag=1` 抓出崩潰行、取得基準指標 |
+| **Phase 0** | 可觀測基準、載入檢查點與實驗旗標 | 🔄 實作就緒，待實機補測確認崩潰點 | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`BootDiag.js`、`Game.js` 讓幀修復、`?perf`、`tools/profile_scene.mjs` | `npm run ci` 全綠；用 `?perf&diag=1` 鎖定 iPhone 17 Pro Max 真正死因階段 |
 | **Phase 1** | iOS 記憶體止血與全專案 Canvas 生命週期修復 | ⏳ 待動工 | `fix/ios-canvas-lifecycle`、`fix/ios-lazy-noncore-assets` | `CanvasLifecycle.js` 兩階段安全釋放、消除頂層 `ctex`、86 處 Canvas 納管、延遲載入 | iPhone 17 Pro Max Safari / LINE / IG `<= 5s` 進場且連玩 `>= 10m` 不閃退 |
 | **Phase 2** | 渲染空間分塊、去 `discard` 與 `Kit.finish` 平面合批 | ⏳ 待動工 | `refactor/mapbuilder-chunking`、`refactor/kit-plane-batch-and-igpu` | `MapBuilder` 120m 分塊＋CPU 切洞、`Kit.finish()` 平面圖集合批、室內家具遮擋、內顯調校 | 主場景三角形降 **60%+**、Draw Calls 顯著下降、M 系列 / Iris Xe 穩 **55–60 FPS** |
 | **Phase 3** | 真拆包全局空間動態載入與動態物理碰撞 | ⏳ 待動工 | `refactor/world-streamer-*` | 輕量 Spec/Anchor 與重型建模檔物理分離、分步驟 `WorldStreamer`、`PhysWorld` 動態 Chunk 碰撞 | 外圍街屋/體育館/室內真正拆出 async chunks、進屋不穿牆、`tools/floorplan` 相容 |

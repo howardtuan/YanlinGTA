@@ -24,6 +24,21 @@
 
 ---
 
+### Session #004｜2026-11-25｜負責階段：Phase 0 依新規格修正完成（`chore/perf-flags-and-metrics`）
+- **工作分支 / PR**：`chore/perf-flags-and-metrics`（已合入 `docs/revise-perf-refactor-plan`）
+- **本輪已完成**：
+  1. 重構 [`src/core/PerfProfile.js`](../src/core/PerfProfile.js)：移除與 `GameLoop.js` `QPROF` 重複的 `shadowSize` / `maxDpr` / `postFx`，專注 `texScale` / `atlasMaxW` / `atlasMaxH` / `physTileRadius` 與 `?tier=` / `?texscale=` / `?stream=` / `?diag=` 解析。
+  2. 新增 [`src/core/BootDiag.js`](../src/core/BootDiag.js) 並修改 [`src/core/Game.js`](../src/core/Game.js)：修復 `await nextFrame()` 放在 `setLoad(0.08)` 之前的假停 `2%` 時序 Bug，將啟動拆為 9 個明確檢查點並支援 `?diag=1` / `?diag=halt` 防重整死循環斷路器。
+  3. 新增 `tools/profile_scene.mjs`（`npm run profile:scene`）：複用 `tools/e2e/` CDP 基礎設施自動量測存活 `<canvas>` 數與 Backing Store MB、紋理/幾何數、Draw Calls / 三角形與啟動階段耗時。
+  4. 更新 [`tests/unit/perf-profile.test.js`](../tests/unit/perf-profile.test.js) 與新增 [`tests/unit/boot-diag.test.js`](../tests/unit/boot-diag.test.js)，本機 `npm run ci` 全綠。
+- **實機與量化數據變化**：
+  - 延續 Session #002 M1 Pro 與 iPhone 17 Pro Max 基線；本機環境未安裝 Chrome/Chromium，待於 Mac/iPhone 或有瀏覽器環境補跑 `?perf&diag=1` 與 `npm run profile:scene`。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 將 `chore/perf-flags-and-metrics` 推上遠端並用 iPhone 17 Pro Max 開啟 `?perf&diag=1`，鎖定真實卡死階段後合併回 `main`。
+  2. 從最新 `main` 切出 `fix/ios-canvas-lifecycle` 執行 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**。
+
+---
+
 ### Session #003｜2026-11-25｜負責階段：規劃體檢、目標定錨與技術規格全面修正
 - **工作分支 / PR**：`docs/revise-perf-refactor-plan`（接續檢視 PR #147 合入後之 `perf-refactor/` 與未合併分支 `chore/perf-flags-and-metrics`）
 - **本輪已完成**：

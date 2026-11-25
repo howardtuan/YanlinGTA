@@ -1,31 +1,28 @@
 /**
- * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?stream=`).
- * Used by Phase 0 telemetry and later streaming / quality phases.
+ * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?stream=`, `?diag=`).
+ * Visual quality settings (`far`, `fog`, `pr`, `shadows`, `view`, `PostFX`) remain owned solely by `GameLoop.js` (`QPROF`).
  */
 
 export const TIERS = Object.freeze({
   'mobile-lite': Object.freeze({
     tier: 'mobile-lite',
     texScale: 0.5,
-    shadowSize: 512,
-    maxDpr: 1.5,
-    postFx: false,
+    atlasMaxW: 1024,
+    atlasMaxH: 2048,
     streaming: 'mobile',
   }),
   'desktop-igpu': Object.freeze({
     tier: 'desktop-igpu',
     texScale: 0.75,
-    shadowSize: 1024,
-    maxDpr: 1.5,
-    postFx: false,
+    atlasMaxW: 2048,
+    atlasMaxH: 2048,
     streaming: 'balanced',
   }),
   'desktop-dgpu': Object.freeze({
     tier: 'desktop-dgpu',
     texScale: 1,
-    shadowSize: 2048,
-    maxDpr: 2,
-    postFx: true,
+    atlasMaxW: 2048,
+    atlasMaxH: 4096,
     streaming: 'high',
   }),
 });
@@ -40,6 +37,7 @@ export const STREAMING_PROFILES = Object.freeze({
     interiorEnter: Infinity,
     interiorExit: Infinity,
     maxActiveChunks: Infinity,
+    physTileRadius: Infinity,
   }),
   mobile: Object.freeze({
     mode: 'mobile',
@@ -50,6 +48,7 @@ export const STREAMING_PROFILES = Object.freeze({
     interiorEnter: 38,
     interiorExit: 60,
     maxActiveChunks: 6,
+    physTileRadius: 1,
   }),
   balanced: Object.freeze({
     mode: 'balanced',
@@ -60,6 +59,7 @@ export const STREAMING_PROFILES = Object.freeze({
     interiorEnter: 65,
     interiorExit: 95,
     maxActiveChunks: 16,
+    physTileRadius: 2,
   }),
   high: Object.freeze({
     mode: 'high',
@@ -70,6 +70,7 @@ export const STREAMING_PROFILES = Object.freeze({
     interiorEnter: 100,
     interiorExit: 140,
     maxActiveChunks: Infinity,
+    physTileRadius: 3,
   }),
 });
 
@@ -131,8 +132,17 @@ function resolveStreamMode(raw, tierDefaultMode) {
   return 'off';
 }
 
+function resolveDiagMode(params) {
+  if (!params.has('diag')) return 'off';
+  const norm = (params.get('diag') ?? '').trim().toLowerCase();
+  if (norm === '0' || norm === 'false' || norm === 'off') return 'off';
+  if (norm === 'halt' || norm === 'pause') return 'halt';
+  if (norm === '' || norm === '1' || norm === 'true' || norm === 'on') return 'on';
+  return 'off';
+}
+
 /**
- * Resolve runtime performance profile and `?tier=` / `?texscale=` / `?stream=` URL overrides.
+ * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?stream=` / `?diag=` URL overrides.
  */
 export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const search =
@@ -165,15 +175,19 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const streamParam = params.get('stream');
   const stream = resolveStreamMode(streamParam, base.streaming);
 
+  const diagParam = params.has('diag') ? params.get('diag') : null;
+  const diagMode = resolveDiagMode(params);
+
   return {
     tier,
     texScale,
-    shadowSize: base.shadowSize,
-    maxDpr: base.maxDpr,
-    postFx: base.postFx,
+    atlasMaxW: base.atlasMaxW,
+    atlasMaxH: base.atlasMaxH,
     stream,
     streamEnabled: stream !== 'off',
     streaming: STREAMING_PROFILES[stream],
+    diagMode,
+    diagEnabled: diagMode !== 'off',
     touch,
     gpuRenderer,
     flags: {
@@ -181,6 +195,7 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
       texScale:
         Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : null,
       stream: streamParam !== null ? streamParam : null,
+      diag: diagParam,
     },
   };
 }

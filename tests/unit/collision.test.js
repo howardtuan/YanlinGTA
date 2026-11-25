@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { pointInPoly, closestOnSeg, CollisionWorld, SegGrid } from '../../src/physics/Collision.js';
+import {
+  pointInPoly,
+  inAnyPoly,
+  closestOnSeg,
+  CollisionWorld,
+  SegGrid,
+} from '../../src/physics/Collision.js';
 
 describe('Geometry & Collision Tests (Collision.js)', () => {
   describe('pointInPoly', () => {
@@ -48,6 +54,68 @@ describe('Geometry & Collision Tests (Collision.js)', () => {
           [10, 10],
         ])
       ).toBe(false);
+    });
+  });
+
+  // inAnyPoly replaces polys.some(pointInPoly) for the reserved outlines: the map's lamps, walls, trees and shrubs
+  // are laid out by it, so it must give exactly the same answers or the whole layout shifts
+  describe('inAnyPoly', () => {
+    let s = 7;
+    const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const polys = [];
+    for (let n = 0; n < 300; n++) {
+      // rotated boxes and triangles, some crossing the 32 m grid lines, some far apart
+      const cx = -900 + rnd() * 1800,
+        cz = -900 + rnd() * 1800,
+        a = rnd() * Math.PI,
+        w = 1 + rnd() * 60,
+        d = 1 + rnd() * 40,
+        k = n % 3 ? 4 : 3;
+      const pts = [];
+      for (let i = 0; i < k; i++) {
+        const t = (i / k) * Math.PI * 2 + a;
+        pts.push([cx + Math.cos(t) * w, cz + Math.sin(t) * d]);
+      }
+      polys.push(pts);
+    }
+    const old = (x, z, list) => list.some((p) => pointInPoly(x, z, p));
+
+    it('gives the same answer as testing every polygon, inside, outside and on the edges', () => {
+      let inside = 0;
+      const check = (x, z) => {
+        const want = old(x, z, polys);
+        if (want) inside++;
+        expect(inAnyPoly(x, z, polys)).toBe(want);
+      };
+      for (let i = 0; i < 20000; i++) check(-1000 + rnd() * 2000, -1000 + rnd() * 2000);
+      for (const p of polys)
+        for (const [x, z] of p)
+          for (const o of [0, 1e-9, -1e-9, 0.5, -0.5]) {
+            check(x + o, z);
+            check(x, z + o);
+          }
+      for (let i = -32; i <= 32; i++) for (let j = -32; j <= 32; j++) check(i * 32, j * 32);
+      expect(inside).toBeGreaterThan(1000); // the test really covers points inside
+    });
+
+    it('indexes outlines pushed after the first query', () => {
+      const list = [
+        [
+          [0, 0],
+          [4, 0],
+          [4, 4],
+          [0, 4],
+        ],
+      ];
+      expect(inAnyPoly(2, 2, list)).toBe(true);
+      expect(inAnyPoly(102, 2, list)).toBe(false);
+      list.push([
+        [100, 0],
+        [104, 0],
+        [104, 4],
+        [100, 4],
+      ]);
+      expect(inAnyPoly(102, 2, list)).toBe(true);
     });
   });
 

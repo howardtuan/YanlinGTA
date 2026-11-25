@@ -1301,6 +1301,7 @@ export const BIKES = {
   sport: { name: '重機（仿賽）', colors: ['#5ec400', '#d71920', '#1c3f94'] },
   naked: { name: '重機（街車）', colors: ['#5ec400', '#111214', '#b8bcc2'] },
   retro: { name: '重機（復古）', colors: ['#5b2c1a', '#1d2b4f', '#111214'] },
+  ninja: { name: '重機（忍 400）', colors: ['#0b0c0e'] }, // 霍華德's (src/entities/npcs/Howard.js), not in the traffic
 };
 // side profile with wheel arches cut out of the lower edge. top: [[z, y]] from the nose to the tail;
 // wheels: [[zc, yc, R]] front first; yb: underbody height; z ends taken from top[0] / top[last]
@@ -1562,7 +1563,372 @@ export function buildSupercar(style, color) {
   g.userData.wheels = wheels;
   return g;
 }
+// 霍華德的忍 400（src/entities/npcs/Howard.js）：照使用者給的照片做的 400cc 仿賽，沒有廠牌標誌和字樣。
+// 亮黑色車殼、側邊消光灰的大片導流板配一道銀色飾條和白色細線、銳利的雙燈和高擋風鏡、照後鏡、上翹的尖尾和兩段式座墊、
+// 黑色鋼管車架與搖臂、黑色引擎配銀色外蓋、右側短排氣管（黑色管身＋銀色防燙蓋）、前後碟盤、輪框一圈紅色細邊、
+// 尾巴下面垂著的牌照架和方向燈。+z 朝前、+x 是左邊，跟 buildBike 一樣的尺寸（軸距 1.46 m）。
+function buildNinja() {
+  const g = new THREE.Group(),
+    gloss = paint('#0b0c0e'),
+    matte = m('#2a2c31', { roughness: 0.75, metalness: 0.15 }),
+    silver = m('#c3c7cc', { metalness: 0.9, roughness: 0.28 }),
+    dark = m('#151619', { roughness: 0.6 }),
+    white = m('#f1f1ee', { roughness: 0.4 }),
+    red = m('#c8102e', { roughness: 0.45 });
+  const hlm = new THREE.MeshStandardMaterial({
+    color: '#fff',
+    emissive: '#f4f8ff',
+    emissiveIntensity: 1.2,
+  });
+  const tlm = new THREE.MeshStandardMaterial({
+    color: '#700',
+    emissive: '#ff1a1a',
+    emissiveIntensity: 0.9,
+  });
+  const ZF = 0.74,
+    ZR = -0.72,
+    RF = 0.31,
+    RR = 0.32;
+  const wheels = [wheel(RF, 0.12, 0, RF, ZF), wheel(RR, 0.17, 0, RR, ZR)];
+  g.add(...wheels);
+  // a thin red line round each rim, and the brake discs (they turn with the wheels)
+  for (const [w, r, wd] of [
+    [wheels[0], RF, 0.12],
+    [wheels[1], RR, 0.17],
+  ]) {
+    for (const s of [-1, 1]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 0.72, 0.007, 6, 36), red);
+      ring.rotation.y = Math.PI / 2;
+      ring.position.x = s * (wd / 2 + 0.004);
+      w.add(ring);
+    }
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(r * 0.62, r * 0.62, 0.008, 24).rotateZ(Math.PI / 2),
+      silver
+    );
+    disc.position.x = -(wd / 2 + 0.02);
+    w.add(disc);
+  }
+  // front: black fork legs, a gloss mudguard over the tyre
+  const head = [0, 0.93, 0.5];
+  for (const s of [-1, 1])
+    g.add(tube([0.085 * s, head[1], head[2] + 0.02], [0.085 * s, RF, ZF], 0.03, dark));
+  const guard = new THREE.Mesh(
+    new THREE.CylinderGeometry(RF + 0.04, RF + 0.04, 0.13, 18, 1, true, -0.35, 1.5).rotateZ(
+      Math.PI / 2
+    ),
+    gloss
+  );
+  guard.position.set(0, RF, ZF);
+  g.add(guard);
+  // black steel trellis frame and swingarm
+  for (const s of [-1, 1]) {
+    g.add(tube([0.07 * s, head[1] - 0.02, head[2]], [0.15 * s, 0.62, -0.16], 0.022, dark));
+    g.add(tube([0.07 * s, head[1] - 0.12, head[2] - 0.02], [0.15 * s, 0.42, -0.14], 0.02, dark));
+    g.add(tube([0.13 * s, 0.46, -0.18], [0.1 * s, RR, ZR], 0.03, dark)); // swingarm
+  }
+  // engine: black block, silver side covers
+  g.add(box(0.3, 0.32, 0.42, dark, 0, 0.44, 0.06));
+  for (const s of [-1, 1]) {
+    const c = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.1, 0.02, 18).rotateZ(Math.PI / 2),
+      silver
+    );
+    c.position.set(0.16 * s, 0.4, 0.0);
+    g.add(c);
+  }
+  // fairing: the nose and the upper sides, narrowing to the front
+  g.add(
+    panel(
+      [
+        [0.99, 0.8],
+        [0.97, 0.9],
+        [0.84, 1.02],
+        [0.62, 1.1],
+        [0.44, 1.05],
+        [0.3, 0.92],
+        [0.16, 0.7],
+        [0.26, 0.5],
+        [0.5, 0.52],
+        [0.68, 0.64],
+        [0.88, 0.68],
+      ],
+      0.42,
+      gloss,
+      { bevel: 0.035, taper: (z) => 1 - 0.68 * Math.min(1, Math.max(0, (z - 0.45) / 0.55)) } // narrows to a pointed nose
+    )
+  );
+  // the matte grey side panels under the tank, with a silver trim strip and a thin white line
+  for (const s of [-1, 1]) {
+    g.add(
+      panel(
+        [
+          [0.44, 0.86],
+          [0.2, 0.95],
+          [-0.03, 0.83],
+          [0.0, 0.56],
+          [0.3, 0.5],
+          [0.46, 0.62],
+        ],
+        0.03,
+        matte,
+        { x: 0.215 * s, bevel: 0.01 }
+      )
+    );
+    g.add(
+      panel(
+        [
+          [0.38, 0.75],
+          [0.16, 0.8],
+          [-0.01, 0.71],
+          [0.02, 0.66],
+          [0.17, 0.74],
+          [0.36, 0.7],
+        ],
+        0.012,
+        silver,
+        { x: 0.236 * s, bevel: 0.004 }
+      )
+    );
+    g.add(
+      panel(
+        [
+          [0.42, 0.62],
+          [0.1, 0.665],
+          [0.1, 0.645],
+          [0.42, 0.6],
+        ],
+        0.01,
+        white,
+        { x: 0.238 * s, bevel: 0.002 }
+      )
+    );
+  }
+  // belly pan under the engine
+  g.add(
+    panel(
+      [
+        [0.3, 0.46],
+        [0.04, 0.3],
+        [-0.22, 0.33],
+        [-0.12, 0.48],
+      ],
+      0.3,
+      gloss,
+      { bevel: 0.02 }
+    )
+  );
+  // tank
+  g.add(
+    panel(
+      [
+        [0.44, 0.95],
+        [0.32, 1.07],
+        [0.0, 1.07],
+        [-0.16, 0.94],
+        [0.1, 0.86],
+        [0.3, 0.88],
+      ],
+      0.38,
+      gloss,
+      { bevel: 0.04, taper: (z, y) => (y > 1.0 ? 0.86 : 1) }
+    )
+  );
+  // two-step seat: the rider's, then the higher pillion
+  g.add(
+    panel(
+      [
+        [-0.12, 0.92],
+        [-0.17, 0.975],
+        [-0.48, 0.995],
+        [-0.5, 0.93],
+        [-0.15, 0.88],
+      ],
+      0.27,
+      dark,
+      { bevel: 0.025 }
+    )
+  );
+  g.add(
+    panel(
+      [
+        [-0.51, 0.99],
+        [-0.54, 1.045],
+        [-0.78, 1.1],
+        [-0.8, 1.04],
+        [-0.53, 0.97],
+      ],
+      0.2,
+      dark,
+      { bevel: 0.02 }
+    )
+  );
+  // the sharp, upswept tail, a white line along it, the tail light at its tip
+  g.add(
+    panel(
+      [
+        [-0.15, 0.86],
+        [-0.5, 0.93],
+        [-0.82, 1.04],
+        [-1.03, 1.15],
+        [-1.0, 1.06],
+        [-0.72, 0.9],
+        [-0.42, 0.78],
+        [-0.2, 0.76],
+      ],
+      0.25,
+      gloss,
+      { bevel: 0.03, taper: (z) => (z < -0.75 ? 0.55 : 1) }
+    )
+  );
+  for (const s of [-1, 1])
+    g.add(
+      panel(
+        [
+          [-0.55, 0.955],
+          [-0.92, 1.1],
+          [-0.92, 1.085],
+          [-0.55, 0.94],
+        ],
+        0.008,
+        white,
+        { x: 0.13 * s, bevel: 0.002 }
+      )
+    );
+  g.add(box(0.12, 0.035, 0.03, tlm, 0, 1.11, -1.04));
+  // the number-plate hanger under the tail, with the plate and two small indicators
+  g.add(tube([0, 0.86, -0.92], [0, 0.66, -1.08], 0.02, dark));
+  for (const s of [-1, 1]) {
+    g.add(
+      box(
+        0.05,
+        0.025,
+        0.03,
+        m('#ffb347', { emissive: '#ff8a00', emissiveIntensity: 0.3 }),
+        0.07 * s,
+        0.7,
+        -1.07
+      )
+    );
+  }
+  // twin headlights like the photo's: each a sharp unit swept back and up towards the outside, set on the slanted
+  // face of the nose — a black housing, a clear lens over it, a bright LED projector at the inner end and a daytime
+  // running strip along its upper edge; a black ram-air slot between them under the screen
+  const lens = m('#dfeaf5', { transparent: true, opacity: 0.35, roughness: 0.05, metalness: 0.2 }),
+    hous = m('#060607', { roughness: 0.25, metalness: 0.4 }),
+    drl = new THREE.MeshStandardMaterial({
+      color: '#fff',
+      emissive: '#e8f2ff',
+      emissiveIntensity: 1.6,
+    });
+  const flat = (pts, depth, mat, bevel = 0.003) => {
+    const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
+    const geo = new THREE.ExtrudeGeometry(sh, {
+      depth,
+      bevelEnabled: bevel > 0,
+      bevelThickness: bevel,
+      bevelSize: bevel,
+      bevelSegments: 1,
+    });
+    return new THREE.Mesh(geo, mat);
+  };
+  // one light in its own frame (x: outwards, y: up, z: out of the nose), from the inner end to the swept tip
+  const LIGHT = [
+    [0.0, 0.0],
+    [0.14, 0.022],
+    [0.215, 0.07],
+    [0.2, 0.08],
+    [0.09, 0.052],
+    [0.0, 0.028],
+  ];
+  for (const s of [-1, 1]) {
+    const u = new THREE.Group();
+    const H = flat(
+      LIGHT.map(([x, y]) => [x * 1.08 - 0.006, y * 1.25 - 0.008]),
+      0.012,
+      hous
+    );
+    H.position.z = -0.01;
+    const L = flat(LIGHT, 0.006, lens, 0.002);
+    L.position.z = 0.006;
+    const led = box(0.05, 0.014, 0.008, hlm, 0.045, 0.014, 0.006); // the projector, a slim bar at the inner end
+    led.rotation.z = 0.12;
+    const led2 = box(0.04, 0.012, 0.008, hlm, 0.11, 0.03, 0.006);
+    led2.rotation.z = 0.3;
+    const strip = tube([0.01, 0.03, 0.01], [0.09, 0.054, 0.01], 0.004, drl, 6); // DRL along the top edge
+    const strip2 = tube([0.09, 0.054, 0.01], [0.2, 0.079, 0.01], 0.004, drl, 6);
+    u.add(H, L, led, led2, strip, strip2);
+    if (s < 0) u.scale.x = -1; // mirrored for the right-hand light
+    u.position.set(0.035 * s, 0.82, 1.065); // from the point of the nose back along its side
+    u.rotation.order = 'YXZ';
+    u.rotation.y = 0.95 * s;
+    u.rotation.x = -0.2;
+    g.add(u);
+  }
+  const ram = flat(
+    [
+      [-0.03, 0.0],
+      [0.03, 0.0],
+      [0.022, 0.045],
+      [-0.022, 0.045],
+    ],
+    0.01,
+    hous
+  );
+  ram.position.set(0, 0.78, 1.035);
+  ram.rotation.x = -0.18;
+  g.add(ram);
+  for (const s of [-1, 1]) {
+    g.add(tube([0.17 * s, 1.04, 0.7], [0.3 * s, 1.16, 0.64], 0.01, dark));
+    const mir = box(0.13, 0.06, 0.02, dark, 0.31 * s, 1.17, 0.64);
+    mir.rotation.y = 0.2 * s;
+    g.add(mir);
+    g.add(box(0.2, 0.03, 0.03, dark, 0.15 * s, 0.98, 0.5));
+  }
+  g.add(
+    panel(
+      [
+        [0.82, 1.02],
+        [0.64, 1.25],
+        [0.57, 1.21],
+        [0.62, 1.07],
+      ],
+      0.3,
+      m('#2a3a4a', { transparent: true, opacity: 0.55, roughness: 0.05 }),
+      { bevel: 0.008 }
+    )
+  );
+  // exhaust on the right: a short black can with a silver heat shield, tilted up
+  const can = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.075, 0.07, 0.44, 16).rotateX(Math.PI / 2 - 0.22),
+    m('#1b1c1f', { metalness: 0.6, roughness: 0.35 })
+  );
+  can.position.set(-0.17, 0.46, -0.5);
+  g.add(can);
+  const shield = box(0.02, 0.1, 0.28, silver, -0.25, 0.47, -0.42);
+  shield.rotation.x = 0.22;
+  g.add(shield);
+  g.add(
+    tube(
+      [-0.1, 0.32, 0.18],
+      [-0.17, 0.4, -0.3],
+      0.03,
+      m('#3a3c40', { metalness: 0.7, roughness: 0.35 })
+    )
+  );
+  const plate = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.2, 0.09),
+    new THREE.MeshBasicMaterial({ map: plateTex('NJ-400') })
+  );
+  plate.position.set(0, 0.68, -1.09);
+  plate.rotation.y = Math.PI;
+  g.add(plate);
+  g.userData.wheels = wheels;
+  return g;
+}
+
 export function buildBike(style, color) {
+  if (style === 'ninja') return buildNinja(); // 霍華德's own bike
   const g = new THREE.Group(),
     body = paint(color),
     dark = m('#18191c', { roughness: 0.6 });

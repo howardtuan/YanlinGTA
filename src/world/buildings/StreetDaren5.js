@@ -3113,13 +3113,7 @@ export function buildDaren5Street(I, scene, X) {
     k.box(x + 0.05, x + 0.75, y + 0.06, y + 0.44, z - 0.43, z - 0.42, '#9a9a94', NC);
   };
   const bikeCols = ['#2a2a30', '#c9c9c4', '#b02a2a', '#2f6db3', '#3f7a4c', '#d8b02a'];
-  const bike = (k, x, z, col) => {
-    k.box(x, x + 1.5, 0.28, 0.62, z - 0.14, z + 0.14, col, NC);
-    k.box(x + 0.45, x + 1.0, 0.62, 0.72, z - 0.1, z + 0.1, '#1c1c1e', NC);
-    k.box(x + 1.28, x + 1.34, 0.9, 0.96, z - 0.3, z + 0.3, '#1c1c1e', NC);
-    k.box(x + 0.05, x + 0.5, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', NC);
-    k.box(x + 1.2, x + 1.45, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', NC);
-  };
+  const bike = (k, x, z, col) => k.scooter(x, z, 0, col);
 
   // ---- 一樓一間店面：x0～x1、一樓高 gf、立面在 z（退縮時 z > 0）----
   const unit = (k, x0, x1, gf, sp, i, r, pier) => {

@@ -15,7 +15,7 @@
 export const GRAVITY = 9.81;
 export const RESTITUTION = 0.12; // inelastic crumple/plastic absorption in real vehicle crashes
 export const RIDER_MASS = 70; // kg
-export const A_EJECT = 36; // m/s^2 (~3.67 G shock over dtImpact ejects a motorcycle rider)
+export const A_EJECT = 42; // m/s^2 (~4.28 G sudden deceleration shock ejects a motorcycle rider)
 
 export const PERSON_PHYS = {
   mass: RIDER_MASS, // 70 kg average adult
@@ -44,7 +44,7 @@ export const VEHICLE_PHYS = {
   },
   car: {
     mass: 1250, // kg sedan curb weight
-    dtImpact: 0.15, // s bumper / crumple zone duration
+    dtImpact: 0.18, // s bumper / crumple zone duration
     muStatic: 0.88, // 4 rubber tires locked in Park + handbrake
     muKinetic: 0.8, // 4 locked tires skidding on dry asphalt (a = 7.85 m/s^2)
     hCm: 0.55, // m (SSF = track/(2*hCm) ≈ 1.55 > muKinetic -> slides flat rather than flipping)
@@ -91,26 +91,27 @@ export function solveVehicleImpact({
   // 1. Normal impulse J = (1 + e) * (m1 * m2 / (m1 + m2)) * vRel
   const mu = (m1 * m2) / (m1 + m2);
   const impulse = (1 + RESTITUTION) * mu * v;
-  const force = impulse / dt;
 
   // 2. Parked static friction impulse J_hold = muStatic * m2 * g * dt
   const holdImpulse = parked2 ? s2.muStatic * m2 * GRAVITY * dt : 0;
   const netImpulse = Math.max(0, impulse - holdImpulse);
 
-  // 3. Post-impact delta-V for both bodies (Newton's 3rd Law)
-  const dv1 = impulse / m1;
-  const dv2 = netImpulse / m2;
-  const moves = dv2 >= s2.minMoveV;
+  // 3. Post-impact delta-V for both bodies (Newton's 3rd Law: equal & opposite impulse J)
+  //    If static friction holds target rigidly (dv2 < minMoveV), target behaves as an infinite-mass barrier:
+  //    J_rigid = (1 + e) * m1 * vRel, so dv1 = (1 + e) * vRel and dv2 = 0.
+  const rawDv2 = netImpulse / m2;
+  const moves = rawDv2 >= s2.minMoveV;
+  const effImpulse = moves ? impulse : (1 + RESTITUTION) * m1 * v;
+  const dv1 = effImpulse / m1;
+  const dv2 = moves ? rawDv2 : 0;
 
-  // 4. Hitter deceleration shock & retained forward speed ratio kf
-  //    If target did not break traction (e.g. scooter hitting parked 1.25-ton car), target acts like a rigid barrier
-  const effDv1 = moves ? dv1 : Math.min(v * (1 + RESTITUTION), (impulse + holdImpulse * 0.5) / m1);
-  const accel1 = effDv1 / dt;
+  // 4. Hitter deceleration shock (a1 = dv1 / dt) & retained forward speed ratio kf = max(0, 1 - dv1 / v)
+  const accel1 = dv1 / dt;
   const ejectRider1 = kind1 === 'scooter' && accel1 >= A_EJECT;
   const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
 
-  // 5. Target tipping roll angular velocity (rad/s) around its own longitudinal axis
-  //    Scooter: omega = (J_net * hCm) / I_roll (with minimum tip torque once pushed off its stand)
+  // 5. Target tipping roll angular velocity (rad/s) around its own longitudinal axis:
+  //    Scooter: omega = (J_net * hCm) / I_roll (narrow 2-wheel base tips over; gravity completes fall past 15°)
   //    Car: SSF > muKinetic -> slides flat (rollSpeed = 0)
   const rollSpeed =
     kind2 === 'scooter' && moves
@@ -120,12 +121,12 @@ export function solveVehicleImpact({
   return {
     m1,
     m2,
-    impulse,
-    force,
+    impulse: effImpulse,
+    force: effImpulse / dt,
     holdImpulse,
-    netImpulse,
-    dv1: effDv1,
-    dv2: moves ? dv2 : 0,
+    netImpulse: moves ? netImpulse : 0,
+    dv1,
+    dv2,
     accel1,
     ejectRider1,
     moves,

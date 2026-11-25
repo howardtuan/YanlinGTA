@@ -682,16 +682,30 @@ export class ParkedScooters {
 
     if (!sol.moves) {
       // Static friction held (e.g. slow bump or 180 kg scooter vs 1,250 kg parked car)
-      v.speed = impact > CRASH_STOP ? 0 : sp * Math.min(0.5, sol.kf);
+      v.speed = impact > CRASH_STOP ? 0 : sp * sol.kf;
       if ((sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
-        v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
+        v.crash = {
+          impact,
+          speed: Math.abs(sp),
+          nx: hit.nx,
+          nz: hit.nz,
+          dv1: sol.dv1,
+          movedTarget: false,
+        };
       return;
     }
 
     this.knockSlot(slot, pushX * sol.dv2, pushZ * sol.dv2, sol.dv2, sol);
     v.speed = sp * sol.kf;
     if (sol.ejectRider1 && !v.crash)
-      v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
+      v.crash = {
+        impact,
+        speed: Math.abs(sp),
+        nx: hit.nx,
+        nz: hit.nz,
+        dv1: sol.dv1,
+        movedTarget: true,
+      };
   }
 
   _checkVehicle(v, isPlayer, dt = 0.016) {
@@ -818,11 +832,20 @@ export class ParkedScooters {
       }
     }
 
-    // Domino chain knock: falling/sliding scooters transfer Newtonian impulse to neighboring static scooters
-    // and slow down symmetrically so they pile up instead of clipping through adjacent bikes
+    // Domino chain knock: strictly obeys Newton's 2nd & 3rd Laws + conservation of momentum (no energy injection).
+    // Contact velocity includes both CM linear speed and gravity-driven tipping swing v_contact = v_cm + omega x r_cm.
     if (this.activeKnocks.size) {
       for (const rec of [...this.activeKnocks]) {
-        const spd = Math.hypot(rec.vx, rec.vz);
+        const spec1 = vehicleSpec(rec.slot.kind);
+        let vcx = rec.vx,
+          vcz = rec.vz;
+        if (rec.body?.angvel) {
+          const aw = rec.body.angvel();
+          // omega x (0, hCm, 0) = (-aw.z * hCm, 0, aw.x * hCm)
+          vcx += -aw.z * spec1.hCm;
+          vcz += aw.x * spec1.hCm;
+        }
+        const spd = Math.hypot(vcx, vcz);
         if (spd < 0.7) continue;
         this._near(rec.x, rec.z, 1.4, (s) => {
           if (s.state !== 'static' || s.kind === 'car') return;
@@ -830,26 +853,37 @@ export class ParkedScooters {
             dz = s.z - rec.z;
           const d = Math.hypot(dx, dz);
           if (d < 1.05 && Math.abs(s.y - rec.y) < 1.5) {
-            const nx = d > 1e-3 ? dx / d : rec.vx / spd;
-            const nz = d > 1e-3 ? dz / d : rec.vz / spd;
-            const closing = rec.vx * nx + rec.vz * nz;
-            const vRel = Math.max(closing, d < 0.78 ? spd * 0.7 : 0);
-            if (vRel < 0.7) return;
+            const nx = d > 1e-3 ? dx / d : vcx / spd;
+            const nz = d > 1e-3 ? dz / d : vcz / spd;
+            const vRel = vcx * nx + vcz * nz;
+            if (vRel <= 0) return;
             const sol = solveVehicleImpact({
               kind1: rec.slot.kind,
               rider1: false,
               kind2: 'scooter',
               rider2: false,
               parked2: true,
-              vRel: Math.max(vRel, 1.3),
+              vRel,
             });
             if (sol.moves && this.knockSlot(s, nx * sol.dv2, nz * sol.dv2, sol.dv2, sol)) {
+              // Newton's 3rd Law: subtract exact equal-and-opposite normal impulse J/m1 along n (tangential conserved!)
               if (rec.body) {
                 const lv = rec.body.linvel();
-                rec.body.setLinvel({ x: lv.x * sol.kf, y: lv.y, z: lv.z * sol.kf }, true);
+                rec.body.setLinvel(
+                  { x: lv.x - nx * sol.dv1, y: lv.y, z: lv.z - nz * sol.dv1 },
+                  true
+                );
+                if (rec.body.angvel && spec1.iRoll > 0) {
+                  const aw = rec.body.angvel();
+                  const dw = Math.min(
+                    1,
+                    (sol.impulse * spec1.hCm) / (spec1.iRoll * Math.max(1, Math.hypot(aw.x, aw.z)))
+                  );
+                  rec.body.setAngvel({ x: aw.x * (1 - dw), y: aw.y, z: aw.z * (1 - dw) }, true);
+                }
               }
-              rec.vx *= sol.kf;
-              rec.vz *= sol.kf;
+              rec.vx -= nx * sol.dv1;
+              rec.vz -= nz * sol.dv1;
             }
           }
         });

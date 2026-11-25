@@ -95,7 +95,8 @@ import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
-import { resolveRuntimeProfile } from './PerfProfile.js';
+import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
+import { createBootDiag } from './BootDiag.js';
 import { PerfHud } from './PerfHud.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 
@@ -121,8 +122,22 @@ class Game {
     this.gameLoop = new GameLoop(this);
     this.menuManager = new MenuManager(this);
     this.vehicleSpawner = new VehicleSpawner(this);
+    this.settings = loadSettings();
+    this.perfProfile = resolveRuntimeProfile(this.settings);
+    this.bootDiag = createBootDiag({
+      diagMode: this.perfProfile.diagMode,
+      safeModeOverride: this.perfProfile.flags.safeMode,
+    });
+    await this.bootDiag.begin();
+    if (this.bootDiag.isSafeMode()) applySafeMode(this.perfProfile);
 
-    setLoad(0.02, '載入地圖資料');
+    const stage = async (key, p, t) => {
+      setLoad(p, t);
+      this.bootDiag.checkpoint(key, p, t);
+      await nextFrame();
+    };
+
+    await stage('fetch-and-wasm', 0.02, '載入地圖資料');
     this.physics = new Physics();
     const [data, terrain] = await Promise.all([
       fetch(`data/cycu.json${window.__q || ''}`).then((r) => r.json()),
@@ -134,9 +149,10 @@ class Game {
     ]);
     loadTerrain(terrain);
     this.data = data;
-    this.settings = loadSettings();
-    this.perfProfile = resolveRuntimeProfile(this.settings);
     this.quality = resolveQuality(this.settings.quality, this.settings);
+    if (this.bootDiag.isSafeMode() && (this.settings.quality || 'auto') === 'auto') {
+      this.quality = 'low';
+    }
     this.lowQ = this.quality === 'low' || this.quality === 'xlow';
     this.xlowQ = this.quality === 'xlow';
 
@@ -277,6 +293,7 @@ class Game {
       keep.push({ x: g.x, z: g.z, r: 18 });
     }
 
+    await stage('renderer-and-sky', 0.05, '初始化渲染管線');
     const r = (this.renderer = new THREE.WebGLRenderer({
       antialias: !this.lowQ,
       powerPreference: 'high-performance',
@@ -288,6 +305,7 @@ class Game {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     r.domElement.id = 'game';
+    this.bootDiag.attachCanvas(r.domElement);
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
     installShadowDepth(r, this.scene, () => this.quality !== 'high');
@@ -308,8 +326,7 @@ class Game {
 
     this._sky();
     this.post = new PostFX(r, this.scene, this.camera, subQ(this.quality));
-    await nextFrame();
-    setLoad(0.08, '搭建中原大學');
+    await stage('build-world', 0.08, '搭建中原大學');
 
     const featureTrees = (() => {
       const { ox, oz, ang, D } = IM_SPEC,
@@ -336,10 +353,10 @@ class Game {
     });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality();
-    setLoad(0.78, '蓋資管系館、麥當勞、警衛室');
-    await nextFrame();
+    await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
     this.interiors = buildInteriors(this.scene, data, this.world.collision, { createCharacter });
 
+    await stage('build-physics', 0.79, '建立物理碰撞世界');
     try {
       this.physStats = buildPhysicsWorld(this.physics, this.world.collision, this.interiors);
     } catch (e) {
@@ -349,11 +366,13 @@ class Game {
       } catch (_e2) {}
       this.physics.world = null;
     }
-    await nextFrame();
-    setLoad(0.8, '召喚同學與機車');
+    await stage('spawn-entities', 0.82, '召喚同學與機車');
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);
     this.hud = new HUD(this.world);
+    if (this.bootDiag.isSafeMode()) {
+      this.hud.toast('已自動啟用低記憶體安全模式，穩定遊玩 3 分鐘後將自動恢復', 'good', 4500);
+    }
     this.player = new Player(this.scene);
     this.rig = new CameraRig(this.camera);
     this.fpv = new FirstPerson(this);
@@ -515,7 +534,7 @@ class Game {
     this.rig.yaw = this.player.heading;
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
 
-    setLoad(0.95, '準備出發');
+    await stage('init-npcs', 0.95, '準備出發');
     this.missions = new Missions(this);
     this.sunday = new Sunday(this);
     this.clubMembers = new ClubMembers(this);
@@ -543,6 +562,7 @@ class Game {
     // 力行 277 寢的迷你麻將桌：揪力行的人打台式麻將（src/systems/mahjong/Mahjong.js）
     this.mahjong = new DormMahjong(this);
 
+    await stage('compile-shaders', 0.98, '預編譯著色器');
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
     // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
     this.gameLoop.updateSky(0);
@@ -564,6 +584,7 @@ class Game {
     this.state = 'title';
     this.titleT = 0;
     setLoad(1, '完成');
+    this.bootDiag.complete();
     $('loading').classList.add('hidden');
     $('title').classList.remove('hidden');
     this.gameLoop.start();
@@ -1599,5 +1620,6 @@ class Game {
 window.game = new Game();
 window.game.init().catch((e) => {
   console.error(e);
+  window.game?.bootDiag?.fail(e);
   $('loadText').textContent = `載入失敗：${e.message}`;
 });

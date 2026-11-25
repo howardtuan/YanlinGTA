@@ -589,7 +589,7 @@ export default {
       k.box(OUT[1] - 0.75, OUT[1] - 0.4, 0, 1.3, 1.2, 1.55, '#e0a81e');
       post(OUT[0] + 0.15, 0.3);
       post(OUT[1] - 0.15, 0.3);
-      // 棚裡的機車：一排一排南北向停，車頭朝東西；最靠路的兩排畫完整，裡面的只畫車身與坐墊。實景大多是黑、灰、白色的車
+      // 棚裡的機車：一排一排南北向停，車頭朝東西；全數交給 ParkedScooters 統一 InstancedMesh 渲染與碰撞。實景大多是黑、灰、白色的車
       const BC = [
         '#2a2a30',
         '#3a3a40',
@@ -602,16 +602,12 @@ export default {
         '#e8e8e4',
         '#3a3a40',
       ];
-      [1.7, 3.4, 7.6, 9.3, 13.4, 15.1, 19.4, 21.1].forEach((z, j) => {
+      [1.7, 3.4, 7.6, 9.3, 13.4, 15.1, 19.4, 21.1].forEach((z) => {
         const L = lenAt(z + 0.7);
         for (let x = 0.9; x < L - 0.8; x += 0.78) {
           if (lane(x, 0.3) || r() < 0.22) continue;
           const col = BC[(r() * BC.length) | 0];
-          if (j < 2) bike(k, x, z, 1, col);
-          else {
-            k.box(x - 0.14, x + 0.14, 0.2, 0.66, z, z + 1.5, col, NC);
-            k.box(x - 0.1, x + 0.1, 0.66, 0.76, z + 0.45, z + 1.0, '#1c1c1e', NC);
-          }
+          bike(k, x, z, 1, col);
         }
       });
       for (const list of k.parts.values())

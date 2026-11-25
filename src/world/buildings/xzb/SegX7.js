@@ -60,7 +60,6 @@ const SO = (x, z) => {
   }
   return [best[1] + S0, best[2]];
 };
-const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 // a→b 上比例 t 的點，再往行進方向的右手邊偏 v 公尺
 const side = (a, b, t, v) => {
   const dx = b[0] - a[0],
@@ -219,14 +218,11 @@ export default {
           cols[(rnd() * cols.length) | 0]
         );
     };
-    // 機車：a 車尾、b 車頭（世界座標）
+    // 機車：a 車尾、b 車頭（世界座標）→ 交給 ParkedScooters 統一實體化（碰撞＋撞倒＋F 騎走）
     const moto = (k, a, b, col) => {
-      slab(k, lerp(a, b, 0.05), lerp(a, b, 0.78), 0.3, 0.3, 0.62, col, false);
-      slab(k, lerp(a, b, 0.25), lerp(a, b, 0.62), 0.24, 0.62, 0.74, '#1c1c1e', false);
-      slab(k, lerp(a, b, 0.78), lerp(a, b, 0.9), 0.34, 0.35, 0.95, col, false);
-      slab(k, side(a, b, 0.9, -0.32), side(a, b, 0.9, 0.32), 0.05, 0.93, 0.98, '#1c1c1e', false);
-      slab(k, lerp(a, b, 0.0), lerp(a, b, 0.3), 0.12, 0.0, 0.46, '#1c1c1e', false);
-      slab(k, lerp(a, b, 0.76), lerp(a, b, 1.0), 0.12, 0.0, 0.46, '#1c1c1e', false);
+      const mx = (a[0] + b[0]) / 2,
+        mz = (a[1] + b[1]) / 2;
+      k.I.addScooter(mx, mz, Math.atan2(b[0] - a[0], b[1] - a[1]), col);
     };
     const MCOL = [
       '#2a2a30',

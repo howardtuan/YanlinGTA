@@ -87,6 +87,7 @@ import { RX_ST, rxFootprints, buildRixinStreet } from '../buildings/StreetRixin.
 import { DF_ST, dfFootprints, buildDarenFill } from '../buildings/StreetDarenFill.js';
 import { pcLook, pcFootprints, buildPurenCenter } from '../buildings/PurenCenter.js';
 import { nmAdd, nmFootprints } from '../buildings/NightMarketFill.js';
+import { xmasTreeHide, buildChristmasTree } from '../Festive.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -369,6 +370,12 @@ export const ZONES = [
     name: '夜市街廓補建',
     add: nmAdd,
     footprints: nmFootprints,
+  },
+  {
+    // 12 月才蓋：正門噴水池東側的大聖誕樹（src/world/Festive.js）；樹範圍內原本的樹只藏不重抽
+    name: '節慶：聖誕樹',
+    treeHide: xmasTreeHide,
+    build: buildChristmasTree,
   },
 ];
 

@@ -1,9 +1,9 @@
-# L0 總綱：底層架構與全局動態載入可行性評估 (`00-master-architecture.md`)
+# L0 總綱：底層架構、單一職責與空間策略 (`00-master-architecture.md`)
 
-本文件為 `perf-refactor/` 的最高層架構總綱，闡明為何保留 Three.js 單一技術棧、詳述**全局空間動態載入（Global Spatial Streaming）**的技術可行性評估與難點解法，並定義全階段共用之三層世界模型與量化驗收指標（KPIs）。
+本文件為 `perf-refactor/` 的最高層架構總綱，闡明為何保留 Three.js 單一技術棧、釐清畫質系統單一職責邊界、定義**校園外殼常駐分塊 ＋ 外圍街屋與室內真拆包串流**的三層世界模型，以及全階段量化驗收指標（KPIs）。
 
 > [!NOTE]
-> 本總綱僅涵蓋**底層引擎、記憶體、空間串流與渲染管線**改造；所有 UI/UX 介面設計與主線第五章劇情皆不在本重構範疇。
+> 本總綱僅涵蓋**底層引擎、記憶體、渲染分塊合批與空間串流管線**改造；所有 UI/UX 介面設計與主線第五章劇情皆不在本重構範疇。
 
 ---
 
@@ -11,83 +11,81 @@
 
 針對「無獨顯電腦卡頓」與「iOS 手機打不開」，我們評估過遷移至 Unity WebGL、Godot Web、Babylon.js 或 PlayCanvas 的選項，**明確結論是不建議、也不需要更換 3D 框架**：
 
-1. **換引擎無法解決真正的瓶頸**：iOS 崩潰來自 WebKit 對 2D `<canvas>` 緩衝區的 384 MB 硬限制；內顯卡頓來自「跨公里巨型 Mesh 破壞視錐體剔除」、「地板 `discard` 破壞 Early-Z」與「4.2 km 外林口體育館關閉剔除」。這些問題在任何 WebGL 引擎上若沿用同樣建模邏輯都會發生。
-2. **首屏載入體積優勢**：Unity / Godot 編譯出的引擎本體 WASM 動輒 25–50 MB，在 IG / LINE 行動網路下首開即流失大量使用者；目前 Three.js (`r160`) 打包體積極小，最適合手機瀏覽器快速開啟體驗。
-3. **15.4 萬行程序化資產護城河**：專案 `src/world/` 超過 10.2 萬行程式碼以純程式幾何搭建中原大學與周邊街景，且已具備 7 層無環依賴、雙 WASM 運算與完整單元測試。在現有架構上補齊生命週期管理與空間串流，性價比遠高於重寫。
+1. **換引擎無法解決真正的瓶頸**：iOS 崩潰來自 WebKit 對 2D `<canvas>` 緩衝區的硬上限（~256–384 MB）與全專案 86 處畫布未回收；電腦內顯卡頓來自「跨公里巨型 Mesh 破壞視錐體剔除」、「地板 `discard` 破壞 Early-Z」、「26 處 `Kit.finish()` 未合批 1,258 個散裝平面」與「4.2 km 外林口體育館關閉剔除」。這些問題換任何引擎都不會自動消失。
+2. **首屏載入體積優勢**：Unity / Godot 編譯出的 WASM 動輒 25–50 MB，在 IG / LINE 行動網路下首開即流失使用者；目前 Three.js (`r160`) 本體僅 `~673 KB`，最適合手機瀏覽器 `<= 5 秒` 快速開啟。
+3. **15.5 萬行程序化資產護城河**：專案 `src/world/` 超過 10.2 萬行程式碼（`src/` 總計 155,393 行）以純程式幾何搭建中原大學與周邊街景，且已具備 7 層無環依賴、雙 WASM 運算與完整單元測試。在現有架構上補齊資源生命週期、空間分塊與串流，性價比遠高於重寫。
 
 ---
 
-## 二、 全局空間動態載入（Global Spatial Streaming）可行性評估
+## 二、 核心設計原則：單一畫質職責與階段順序優化
 
-我們放棄「死板把校園寫死進手機白名單、把校外全部砍掉」的靜態做法，改為評估**基於玩家座標與移動速度的全局空間動態載入與卸載（Global Spatial Streaming）**。
+### 1. 畫質與硬體分級的單一真相來源（SSOT）
+- **`GameLoop.js`（`QUALITY` / `QPROF`）為渲染畫質唯一真相**：負責 `far`（視距）、`fog`（霧氣）、`pr`（Pixel Ratio 上限：`low: 0.8`、`medium: 1.0`、`high: 1.6`）、`shadows`（陰影開關與解析度）、`view`（人車距離）與 `PostFX` 後製開關。
+- **`PerfProfile.js` 嚴格不重複定義畫質視覺欄位**：僅負責：
+  1. 硬體等級偵測 `tier`（`mobile-lite` / `desktop-igpu` / `desktop-dgpu`）；
+  2. 程序貼圖與圖集上限（`texScale`、`atlasMaxW`、`atlasMaxH`）；
+  3. 空間串流半徑與 LRU 預算（`STREAMING_PROFILES`）；
+  4. URL 實驗旗標（`?tier=`、`?texscale=`、`?stream=`、`?diag=`）。
 
-### 評估結論：**高度可行，且完全契合既有分層設計**
-原因在於本專案有兩個極佳的先天條件：
-1. [src/world/zones/Zones.js](../../src/world/zones/Zones.js) 已經把每個分區的**「輕量資料修正 Hooks（`drop`, `fix`, `add`, `look`, `footprints`, `terrain`, `trees`, `vegHide`, `treeHide`）」**與**「重量級幾何建模（`build()`）」**拆開。
-2. [src/physics/PhysWorld.js](../../src/physics/PhysWorld.js#L35) 已經天然將靜態牆壁、樹幹與樓板依照 **`TILE = 100`（100m × 100m 網格）**分組為 Compound Colliders。
-
-### 五大核心技術難點與工程解法
-
-| 技術難點 | 具體風險分析 | 工程解法 |
-| :--- | :--- | :--- |
-| **1. NPC 與任務啟動期強耦合 `game.interiors.*`** | `Jianyu.js`、`Hank.js`、`Zz.js`、`DevNPC.js`、`Ruizhe.js`、`Garry.js`、`McShift.js` 等在 `Game.init()` 便直接讀取房間床位、書桌座標與門市門位，若建築延遲建置會導致啟動 Crash。 | **「錨點（Anchors）」與「幾何（Mount）」徹底分離**：所有房間座標、床位與門位規格在啟動時以純數值物件（< 50 KB）立即註冊於 `game.interiors`；只有 3D `Mesh`、貼圖圖集與室內家具按距離動態掛載／卸載。 |
-| **2. `MapBuilder` 與 `Zones` 共用亂數流（PRNG）** | `Zones.js` 前置資料會影響 `MapBuilder` 抽樹與路燈的決定性亂數；若動態跳過某些 Zone 會讓全校植栽與冷氣亂掉。 | **資料階段同步、幾何階段非同步**：啟動時照原 `ZONES` 順序跑完所有前置資料 Hooks（耗時 < 3ms）；只有最後的 `build()` 與網格化幾何進入 `WorldStreamer` 串流管線。 |
-| **3. 騎乘 SYM JET SL 高速移動時卡頓（Hitching）** | 騎車時速達 80–100 km/h（約 22–28 m/s），若進範圍才同步建置整條街屋與幾十張 Canvas 圖集，主執行緒會瞬間卡死 100–300 ms。 | **速度前瞻預測 ＋ 分幀時間切片（Time-Slicing）**：以預測點 `pos + vel * 2.5s` 提前觸發 `import()` 預載；`FrameScheduler` 每幀只分配 **≤ 3.5 ms** 執行幾何掛載，將建置平滑攤提至多幀完成。 |
-| **4. 邊界反覆進出抖動與 iOS 記憶體堆積** | 玩家在某條街邊界來回騎車可能反覆觸發載入/釋放，或累積太多已載入區域導致手機 OOM。 | **雙半徑遲滯環（Hysteresis）＋ 冷卻期 ＋ LRU 上限**：設定 `enterR < exitR`（例如進 `150m` 載入、出 `220m` 才卸載），加上最少駐留 `12s` 冷卻；並依裝置 Profile 設定活躍 Chunk 上限，超過即按 LRU 強制 `.dispose()` 與釋放 Canvas。 |
-| **5. 內容組隊友持續新增建築與街道** | 另一組人馬持續在 `Zones.js` 增加新區域，不能要求他們每天學複雜的串流介面。 | **向後相容 Adapter**：未標註 `stream` 規格的傳統 `Zone` 會由 `WorldStreamer` 自動包裝，照常運作並自動獲得距離顯隱與 Canvas 回收紅利。 |
+### 2. 為什麼將「渲染分塊＋合批（Phase 2）」排在「真拆包空間串流（Phase 3）」之前？
+- 實測顯示 Apple M1 Pro 在懷恩樓前靜止僅 `50 fps`（1,729 Draw Calls / 424 萬三角形）。
+- `MapBuilder` 120m 網格分塊、CPU 切洞移除 `discard`、`Kit.finish()` 平面圖集合批與室內家具遮擋屬於**純渲染底層封裝**，**不需拆動任何建築檔或 NPC 錨點**，與內容組近乎零衝突，能立刻幫電腦內顯拿回 60 FPS，也大幅減輕手機 GPU 負擔。
+- 接著在 Phase 3 專心處理「輕重檔案拆檔真 Code-Splitting ＋ 動態 Rapier 碰撞體」的動態串流工程，整體風險大幅下降。
 
 ---
 
 ## 三、 統一三層世界模型（Three-Tier World Architecture）
 
-手機端與電腦端共用同一套引擎與地圖邏輯，僅由 `StreamingProfile` 決定各層的半徑與畫質參數：
+手機端與電腦端共用同一套引擎與地圖邏輯，並將**校內建築外殼**與**校外長街屋／室內細部**劃出明確邊界，兼顧「校園四面八方零彈出（No Pop-in）」與「外圍重資源真按需載入」：
 
 ```mermaid
 flowchart TD
     subgraph L1["Layer A：全局輕量骨架（啟動常駐，< 5 MB）"]
         Data["data/cycu.json + terrain.json + npcs.json<br/>Zones 前置資料 Hooks（決定性 PRNG 不變）"]
-        Anchors["Interiors 房間／門位／商店 Anchors（純數字）"]
-        Nav["A* 路網、HUD 小地圖、2D 多邊形基礎碰撞"]
+        Anchors["Interiors 房間／門位／商店 Anchors（純數字 < 50 KB）"]
+        Nav["A* 路網、HUD 小地圖（降採樣/節流）、2D 基礎碰撞"]
     end
 
-    subgraph L2["Layer B：基底世界空間網格（120m × 120m TileGrid）"]
-        Terrain["分塊地形、道路、人行道（已移除 discard）"]
-        OSM["OSM 建物與補建街屋（遠處自動剔除或低模化）"]
+    subgraph L2["Layer B：空間分塊常駐校園與基地圖（Phase 2 120m Chunked + 合批剔除）"]
+        Terrain["120m 分塊地形、道路、人行道（CPU 預切洞、無 discard）"]
+        OSM["120m 分塊 OSM 建物與補建樓（遠處依 P.far 剔除）"]
+        CampusShell["校內建築外觀 ZoneA~H / Dorms / Weiche / GateExtras / Court<br/>（外殼常駐免 Pop-in，Kit.finish 平面合批）"]
         Veg["既有分塊植栽 Vegetation & 路燈 InstancedMesh"]
     end
 
-    subgraph L3["Layer C：精細街屋與多層室內（WorldStreamer 動態串流）"]
-        Streets["外圍商業街屋（環中東/普忠/大仁/實踐/日新/中北）"]
-        Interiors["多層室內細部家具（資管系館/力行/學活/麥當勞/彥霖家）"]
-        Special["獨立遠端場景（林口體育館 Arena，僅演唱會預載）"]
+    subgraph L3["Layer C：真拆包動態串流層（Phase 3 WorldStreamer + 動態 Rapier）"]
+        Streets["外圍商業街屋（環中東/普忠/大仁/實踐/日新/中北/新中北/茶學苑/普仁）"]
+        Interiors["高密度多層室內家具與碰撞（力行/學活/學活B1/資管/麥當勞/彥霖家/蓋瑞家/古箏社/戈登）"]
+        Special["遠端獨立場景（林口體育館 Arena，僅演唱會預載）"]
     end
 
     L1 --> L2
     L1 --> L3
 ```
 
-### 裝置串流設定檔（`StreamingProfile`）對照
+### 裝置串流與資源設定檔（`PerfProfile`）對照
 
-| 參數項目 | `mobile-lite`（手機預設） | `desktop-igpu`（無獨顯 / M1/M2 Air） | `desktop-dgpu`（獨顯桌機/筆電） |
+| 參數項目 | `mobile-lite`（手機預設） | `desktop-igpu`（無獨顯 / M 系列） | `desktop-dgpu`（獨顯桌機/筆電） |
 | :--- | :--- | :--- | :--- |
+| **對應預設 `QPROF` 畫質** | `low`（`pr <= 0.8`，無陰影與 PostFX） | 新世代內顯 / M 系列 `medium`（無 MSAA PostFX）；舊款 UHD 自動 `low` | `medium` / `high`（完整開啟） |
+| **程序貼圖倍率 (`texScale`)** | `0.5x` | `0.75x` | `1.0x` |
+| **街屋圖集尺寸上限 (`atlasMaxW × H`)** | `1024 × 2048` | `2048 × 2048` | `2048 × 4096` |
 | **街屋串流半徑 (`enter / exit`)** | `150m / 220m` | `320m / 420m` | `550m / 700m` |
-| **室內細部串流半徑** | `38m / 60m` | `65m / 95m` | `100m / 140m` |
-| **同時駐留精細 Chunk 上限 (LRU)** | `6` 個 | `16` 個 | 無上限（全部常駐） |
-| **程序貼圖倍率 (`texScale`)** | `0.5x`（圖集上限 `1024×2048`） | `0.75x` | `1.0x` |
-| **Rapier 物理模式** | 依階段選擇：僅近距離 100m Tile 或輕量模式 | 動態掛載玩家周邊 `3×3` Tiles | 全地圖或 `5×5` Tiles |
-| **陰影與後製 (`PostFX`)** | 關閉陰影與 PostFX，原生 DPR ≤ 1.5 | `medium` 關閉 PostFX，動態視距 | `high` / `medium` 完整開啟 |
+| **室內細部串流半徑 (`enter / exit`)** | `38m / 60m` | `65m / 95m` | `100m / 140m` |
+| **同時駐留動態 Chunk 上限 (LRU)** | `6` 個 | `16` 個 | 無上限（全部常駐） |
+| **Rapier 靜態 Tile 半徑 (`physTileRadius`)** | `1`（周邊 `3×3` Tiles ＋ 動態室內） | `2`（周邊 `5×5` Tiles ＋ 動態室內） | 全地圖（`Infinity`） |
 
 ---
 
 ## 四、 全計畫量化驗收指標（Global KPIs）
 
-所有 iOS 指標以 **Mac Safari Web Inspector（`Timelines → Memory` & `Graphics → Canvases`）** 實測為準：
+所有數據以 **本機 `tools/profile_scene.mjs` ＋ Mac Safari Web Inspector ＋ iPhone 實機（Safari & LINE/IG `WKWebView`）** 實測為準：
 
-| 指標 | 現況基準（Phase 0 實機記錄） | Phase 1 目標 | Phase 2 + 3 最終目標 |
-| :--- | :--- | :--- | :--- |
-| **iPhone 17 Pro Max (Safari / IG / LINE)** | ❌ 無法開啟（WebKit Canvas/OOM 閃退） | ✅ 100% 穩定進場可逛校園 | ✅ 秒開、騎車高速穿梭零閃退 |
-| **Web Inspector `Canvases` 未釋放記憶體** | 估計 > 300–400 MB（> 850 張常駐） | **< 24 MB**（上傳後皆縮至 `1×1`） | **< 12 MB**（含動態卸載回收） |
-| **啟動階段同步載入的街屋/室內 JS** | 100% 全量同步執行 | 100%（但貼圖減半） | 僅核心骨架＋出生點周邊（< 25%） |
-| **主場景單幀 Draw Calls / 三角形（電腦內顯）** | 未分塊全圖送顯（待 `?perf` 記錄） | 同現況（修 Arena 剔除） | 視錐體分塊剔除後 **下降 60%～80%** |
-| **無獨顯筆電平均幀率** | 嚴重卡頓（< 20–25 FPS） | 略微改善 | **穩定 55–60 FPS** |
-| **自動化 CI 門禁 (`npm run ci`)** | 全綠 | 全綠（不破壞 `story-bot`） | 全綠（補齊串流與生命週期測試） |
+| 指標 | 現況基準（Phase 0 實測） | Phase 1 目標 | Phase 2 目標 | Phase 3 最終目標 |
+| :--- | :--- | :--- | :--- | :--- |
+| **iPhone 17 Pro Max (Safari / LINE / IG)** | ❌ 載入失敗（畫面停 2% 後重整循環） | ✅ **`<= 5s` 進場、連玩 `>= 10m` 零閃退** | ✅ `>= 30 FPS`（Safari `45–60 FPS`） | ✅ 秒開（真拆包首屏 JS 減重）、高速騎車零閃退 |
+| **存活非 `1×1` `<canvas>` 記憶體** | 86 處建立點、多張 `2048×4096` 常駐未釋放 | **核心建置後皆縮 `1×1`（`< 16 MB`）** | 同 Phase 1（含 `Kit` 平面圖集回收） | **`< 12 MB`**（動態卸載同步回收） |
+| **無獨顯筆電平均幀率（1080p）** | M1 Pro 靜止 `50 fps` (`20.0 ms`)；UHD 更低 | 略微改善 | **M 系列 / Iris Xe `55–60 FPS`；舊款 UHD (`low`) `>= 45 FPS`** | **雙級皆達標且降低啟動記憶體** |
+| **主場景單幀三角形 / Draw Calls（M1 Pro）** | `1,729–1,774` calls / `4.24M–4.64M` tris（含多 Pass） | 修 Arena 剔除 | **三角形降 `60%+`、Draw Calls 顯著下降** | 視距內外圍按需載入，資源駐留再減半 |
+| **啟動期下載/執行的街屋與室內 JS** | 100% 全量同步執行（`2.8 MB` 主包） | 100%（但消除頂層 `ctex` 與降維） | 同現況（渲染分塊與合批已完成） | **外圍街屋／體育館／大型室內拆出獨立 async chunks** |
+| **自動化 CI 門禁 (`npm run ci` + E2E + Floorplan)** | 全綠 | 全綠 | 全綠（洞口與建築視覺無破圖） | 全綠（補齊串流、物理碰撞與 `floorplan` 驗證） |

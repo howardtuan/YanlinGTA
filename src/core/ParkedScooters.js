@@ -15,6 +15,7 @@ import { getParkedScooterAssets } from '../entities/Scooters.js';
 import { vmass, KNOCK_E } from './VehicleSpawner.js';
 
 const CELL = 10;
+const CHUNK = 120;
 const SCOOTER_MASS = 110;
 const SCOOTER_HL = 0.78;
 const SCOOTER_HW = 0.34;
@@ -68,6 +69,9 @@ export class ParkedScooters {
     this.scooterTrimIm = null;
     this.carPaintIm = null;
     this.carTrimIm = null;
+    this.chunks = [];
+    this._visX = 1e9;
+    this._visZ = 1e9;
     this._build();
   }
 
@@ -115,36 +119,77 @@ export class ParkedScooters {
     }
   }
 
-  _buildInstancedPair(list, assets) {
+  _buildChunkedInstanced(list, assets) {
     if (!list.length || !assets?.paintGeo) return [null, null];
-    const paintIm = new THREE.InstancedMesh(assets.paintGeo, assets.paintMat, list.length);
-    const trimIm = assets.trimGeo
-      ? new THREE.InstancedMesh(assets.trimGeo, assets.trimMat, list.length)
-      : null;
-    for (let i = 0; i < list.length; i++) {
-      const s = list[i];
-      _E.set(0, s.yaw, s.tilt, 'YXZ');
-      _Q.setFromEuler(_E);
-      _P.set(s.x, s.y, s.z);
-      _M.compose(_P, _Q, _S);
-      paintIm.setMatrixAt(i, _M);
-      paintIm.setColorAt(i, _C.set(s.color));
-      if (trimIm) trimIm.setMatrixAt(i, _M);
+    const buckets = new Map();
+    for (const s of list) {
+      const cx = Math.floor(s.x / CHUNK),
+        cz = Math.floor(s.z / CHUNK);
+      const key = cx * 73856 + cz;
+      let b = buckets.get(key);
+      if (!b) buckets.set(key, (b = []));
+      b.push(s);
     }
-    paintIm.instanceMatrix.needsUpdate = true;
-    if (paintIm.instanceColor) paintIm.instanceColor.needsUpdate = true;
-    paintIm.castShadow = false;
-    paintIm.receiveShadow = true;
-    paintIm.frustumCulled = false;
-    this.game.scene?.add(paintIm);
-    if (trimIm) {
-      trimIm.instanceMatrix.needsUpdate = true;
-      trimIm.castShadow = false;
-      trimIm.receiveShadow = true;
-      trimIm.frustumCulled = false;
-      this.game.scene?.add(trimIm);
+    let firstPaint = null,
+      firstTrim = null;
+    for (const items of buckets.values()) {
+      const paintIm = new THREE.InstancedMesh(assets.paintGeo, assets.paintMat, items.length);
+      const trimIm = assets.trimGeo
+        ? new THREE.InstancedMesh(assets.trimGeo, assets.trimMat, items.length)
+        : null;
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity,
+        minZ = Infinity,
+        maxZ = -Infinity;
+      for (let i = 0; i < items.length; i++) {
+        const s = items[i];
+        s.imIdx = i;
+        _E.set(0, s.yaw, s.tilt, 'YXZ');
+        _Q.setFromEuler(_E);
+        _P.set(s.x, s.y, s.z);
+        _M.compose(_P, _Q, _S);
+        paintIm.setMatrixAt(i, _M);
+        paintIm.setColorAt(i, _C.set(s.color));
+        if (trimIm) trimIm.setMatrixAt(i, _M);
+        if (s.x < minX) minX = s.x;
+        if (s.x > maxX) maxX = s.x;
+        if (s.y < minY) minY = s.y;
+        if (s.y > maxY) maxY = s.y;
+        if (s.z < minZ) minZ = s.z;
+        if (s.z > maxZ) maxZ = s.z;
+      }
+      const midX = (minX + maxX) * 0.5;
+      const midY = (minY + maxY) * 0.5 + 0.9;
+      const midZ = (minZ + maxZ) * 0.5;
+      const radius =
+        Math.hypot((maxX - minX) * 0.5, (maxY - minY) * 0.5 + 1.2, (maxZ - minZ) * 0.5) + 4;
+      const sphere = new THREE.Sphere(new THREE.Vector3(midX, midY, midZ), radius);
+      paintIm.instanceMatrix.needsUpdate = true;
+      if (paintIm.instanceColor) paintIm.instanceColor.needsUpdate = true;
+      paintIm.castShadow = false;
+      paintIm.receiveShadow = true;
+      paintIm.frustumCulled = true;
+      paintIm.boundingSphere = sphere;
+      this.game.scene?.add(paintIm);
+      if (trimIm) {
+        trimIm.instanceMatrix.needsUpdate = true;
+        trimIm.castShadow = false;
+        trimIm.receiveShadow = true;
+        trimIm.frustumCulled = true;
+        trimIm.boundingSphere = sphere.clone();
+        this.game.scene?.add(trimIm);
+      }
+      const chunk = { paintIm, trimIm, midX, midZ, radius };
+      for (const s of items) s.chunk = chunk;
+      this.chunks.push(chunk);
+      if (!firstPaint) {
+        firstPaint = paintIm;
+        firstTrim = trimIm;
+      }
     }
-    return [paintIm, trimIm];
+    return [firstPaint, firstTrim];
   }
 
   _build() {
@@ -239,7 +284,7 @@ export class ParkedScooters {
 
     if (this.scooterSlots.length) {
       this.scooterAssets = getParkedScooterAssets();
-      [this.scooterPaintIm, this.scooterTrimIm] = this._buildInstancedPair(
+      [this.scooterPaintIm, this.scooterTrimIm] = this._buildChunkedInstanced(
         this.scooterSlots,
         this.scooterAssets
       );
@@ -247,11 +292,31 @@ export class ParkedScooters {
     }
     if (this.carSlots.length) {
       this.carAssets = getParkedCarAssets();
-      [this.carPaintIm, this.carTrimIm] = this._buildInstancedPair(this.carSlots, this.carAssets);
+      [this.carPaintIm, this.carTrimIm] = this._buildChunkedInstanced(
+        this.carSlots,
+        this.carAssets
+      );
+    }
+    const p0 = g.player?.worldPos?.() || g.player?.pos || { x: 0, z: 0 };
+    this._updateVisibility(p0.x, p0.z);
+  }
+
+  _updateVisibility(wx, wz) {
+    if (!this.chunks.length) return;
+    if ((wx - this._visX) ** 2 + (wz - this._visZ) ** 2 <= 64) return;
+    this._visX = wx;
+    this._visZ = wz;
+    const maxD = this.game.quality === 'low' ? 115 : 260;
+    for (let i = 0; i < this.chunks.length; i++) {
+      const ch = this.chunks[i];
+      const vis = Math.hypot(ch.midX - wx, ch.midZ - wz) - ch.radius < maxD;
+      ch.paintIm.visible = vis;
+      if (ch.trimIm) ch.trimIm.visible = vis;
     }
   }
 
   _pairFor(slot) {
+    if (slot.chunk) return [slot.chunk.paintIm, slot.chunk.trimIm];
     return slot.kind === 'car'
       ? [this.carPaintIm, this.carTrimIm]
       : [this.scooterPaintIm, this.scooterTrimIm];
@@ -291,13 +356,7 @@ export class ParkedScooters {
       m =
         kind === 'car'
           ? new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.4 })
-          : new THREE.MeshPhysicalMaterial({
-              color,
-              roughness: 0.32,
-              metalness: 0.15,
-              clearcoat: 1,
-              clearcoatRoughness: 0.08,
-            });
+          : new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.15 });
       this._paintMats.set(key, m);
     }
     return m;
@@ -540,6 +599,7 @@ export class ParkedScooters {
 
     const wp = pl?.worldPos?.() || pl?.pos;
     if (wp) {
+      this._updateVisibility(wp.x, wp.z);
       const others = [...(g.traffic?.vehicles?.() || []), ...(g.race?.vehicles?.() || [])];
       for (let i = 0; i < others.length; i++) {
         const v = others[i];

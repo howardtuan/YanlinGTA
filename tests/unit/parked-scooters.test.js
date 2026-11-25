@@ -200,4 +200,29 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(carVeh.color).toBe('#3f6fb0');
     expect(addedVehicles.at(-1)).toBe(carVeh);
   });
+
+  it('keeps parked scooter & car geometry lean (< 1200 tris) and frustum-culled per spatial chunk for mobile GPU safety', () => {
+    const { game } = makeMockGame({
+      motoSpots: [
+        [10, 10, 0, '#b8282a', 0.07, 0],
+        [300, 300, 0, '#2c5aa0', -0.07, 0],
+      ],
+      streetScooters: [],
+      streetCars: [[20, 20, Math.PI, '#3f6fb0']],
+    });
+    game.quality = 'low';
+    const ps = new ParkedScooters(game);
+    const triCount = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
+    const scooterTris = triCount(ps.scooterAssets.paintGeo) + triCount(ps.scooterAssets.trimGeo);
+    const carTris = triCount(ps.carAssets.paintGeo) + triCount(ps.carAssets.trimGeo);
+    expect(scooterTris).toBeLessThan(1200);
+    expect(carTris).toBeLessThan(600);
+    // Distant 120m chunk is frustum-culled & hidden when far from player on mobile/low quality
+    expect(ps.chunks.every((c) => c.paintIm.frustumCulled && c.paintIm.boundingSphere)).toBe(true);
+    ps.update(0.016);
+    const farChunk = ps.scooterSlots.find((s) => s.x === 300).chunk;
+    const nearChunk = ps.scooterSlots.find((s) => s.x === 10).chunk;
+    expect(nearChunk.paintIm.visible).toBe(true);
+    expect(farChunk.paintIm.visible).toBe(false);
+  });
 });

@@ -27,6 +27,9 @@ const TW = 0.03, // tile width, height, thickness (m)
   TD = 0.022,
   Y0 = 0.72, // felt
   HALF = 0.47; // half the table
+const DISC = 0.072, // the discards: how far in from the centre each player's block starts (see _layout)
+  DROW = 7, // tiles a row
+  GAP = 0.003;
 const COLS = 8,
   ROWS = 6,
   CW = 128,
@@ -191,8 +194,8 @@ function drawFace(c, k, x, y) {
       c.lineTo(CW / 2 + 26, CH * 0.85);
       c.fill();
     } else if (n === 8) {
-      // 八條: a "W" on top and an "M" below (outer legs upright), each one thick bamboo line — dark green with a pale line down the
-      // middle and a knot (bulge) on every stretch, like the real tile
+      // 八條: a "W" on top and an "M" below (outer legs upright), made of 8 sticks drawn just like the other 條 —
+      // green, a dark knot at each end, a light line down the middle — a little short of each corner so each reads as one stick
       const shapes = [
         [
           [22, 16],
@@ -209,31 +212,23 @@ function drawFace(c, k, x, y) {
           [106, 154],
         ],
       ];
-      c.lineJoin = c.lineCap = 'round';
-      for (const pts of shapes) {
-        const line = (w, col) => {
-          c.strokeStyle = col;
-          c.lineWidth = w;
-          c.beginPath();
-          pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
-          c.stroke();
-        };
-        line(22, '#1d5a34');
-        c.fillStyle = '#1d5a34';
-        for (let i = 0; i + 1 < pts.length; i++)
-          for (const t of [0.3, 0.7]) {
-            c.beginPath();
-            c.arc(
-              pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t,
-              pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t,
-              13.5,
-              0,
-              7
-            );
-            c.fill();
-          }
-        line(7, '#f6f1e2');
-      }
+      for (const pts of shapes)
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const [x1, y1] = pts[i],
+            [x2, y2] = pts[i + 1];
+          const L = Math.hypot(x2 - x1, y2 - y1) - 8;
+          c.save();
+          c.translate((x1 + x2) / 2, (y1 + y2) / 2);
+          c.rotate(Math.atan2(y2 - y1, x2 - x1) - Math.PI / 2);
+          c.fillStyle = '#1f8a4c';
+          c.fillRect(-6, -L / 2, 12, L);
+          c.fillStyle = '#155f34';
+          c.fillRect(-8, -L / 2, 16, 5); // knots
+          c.fillRect(-8, L / 2 - 5, 16, 5);
+          c.fillStyle = 'rgba(255,255,255,0.45)';
+          c.fillRect(-1, -L / 2 + 7, 2, L - 14); // the light line
+          c.restore();
+        }
     } else {
       // sticks laid out like the real tiles: 二條 one above the other, 三條 one over two, 四條 2+2, 五條 2+1+2,
       // 六條 3+3, 七條 1+3+3, 九條 3+3+3. Each stick is one short bamboo piece (knots at both ends, no band across
@@ -450,8 +445,8 @@ export class MahjongScene {
     el.className = 'hidden';
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div>
-      <button class="mj-view" data-a='{"type":"view"}'></button>`;
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div>
+      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button></div>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
     this.tagEls = [...el.querySelectorAll('.mj-tag')];
@@ -511,6 +506,9 @@ export class MahjongScene {
     this._say('');
     this.ui.classList.add('hidden');
     this.$('.mj-res').classList.add('hidden');
+    this.$('.mj-wait').classList.add('hidden');
+    this._waitKey = '';
+    this.$('.mj-info').innerHTML = this._info = '';
     this._hidePop();
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
@@ -698,10 +696,15 @@ export class MahjongScene {
         );
         u += TW;
       });
-      // melds, face up (closed kongs face down) to the right
+      // melds, face up (closed kongs face down) to the right; a 吃 has the tile taken in the middle
       for (const m of P.melds) {
         u += TW * 0.3;
-        meldTiles(m).forEach((k, j) => {
+        let tiles = meldTiles(m);
+        if (m.type === 'chow' && m.take != null) {
+          const rest = tiles.filter((x) => x !== m.take);
+          tiles = [rest[0], m.take, rest[1]];
+        }
+        tiles.forEach((k, j) => {
           const down = m.closed && (j === 0 || j === 3);
           put(k, slot(s, u + TW / 2, 0.39, down ? 'down' : 'up'));
           u += TW;
@@ -709,13 +712,15 @@ export class MahjongScene {
       }
       // flowers in a row between the wall and the hand
       P.flowers.forEach((k, i) => put(k, slot(s, -0.27 + i * TW, 0.335, 'up')));
-      // discards: rows of 6 in front of the wall
+      // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
+      // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
+      // so two players' discards never meet at a corner
       P.discards.forEach((k, i) => {
-        const r = Math.floor(i / 6),
-          c = i % 6;
+        const r = Math.floor(i / DROW),
+          c = i % DROW;
         put(
           k,
-          slot(s, -0.09 + TW / 2 + c * TW, 0.095 + r * (TH + 0.003), 'up'),
+          slot(s, -DISC + TW / 2 + c * (TW + GAP), DISC + TH / 2 + r * (TH + GAP), 'up'),
           i === P.discards.length - 1 && e.last?.from === s ? 'last' : null
         );
       });
@@ -863,17 +868,17 @@ export class MahjongScene {
       g = this.g;
     this._popTick();
     const seatName = (s) => this.names[s];
-    const tier = this.mj.aiTier?.();
-    const mood = tier?.badge ? `・${tier.badge}` : '';
-    const top = `${WINDS[e.round]}風圈・莊家 ${seatName(e.dealer)}${e.streak ? ` 連 ${e.streak}` : ''}・牌牆剩 ${Math.max(0, e.live)} 張・底 ${e.base}／一台 ${e.perTai}${mood}・錢包 NT$ <b class="${g.money < 0 ? 'neg' : ''}">${g.money.toLocaleString('en-US')}</b>`;
-    if (top !== this._top) this.$('.mj-top').innerHTML = this._top = top;
-    // name tags over each seat
+    // (the info card has it all now: the line at the top is only for 抓位／擲骰 titles)
+    const topEl = this.$('.mj-top');
+    if (topEl.textContent) topEl.textContent = this._top = '';
+    this._infoCard();
+    // name tags over each seat (the dealer's with a red 莊)
     const v = new THREE.Vector3();
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
-      const txt = `${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
-      if (el.textContent !== txt) el.textContent = txt;
+      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
+      if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
       el.classList.toggle('on', e.turn === s && e.phase !== 'end');
       el.classList.toggle('me', s === 0);
     }
@@ -912,6 +917,52 @@ export class MahjongScene {
           ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
           : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
+    this._waitHud();
+  }
+  // the card in the top right: 圈風 and your 門風 big (both count 台), the dealer, the wall, the stakes, your wallet
+  _infoCard() {
+    const e = this.e,
+      g = this.g;
+    const R = WINDS[e.round],
+      S = WINDS[e.seatWind(0)];
+    const tai =
+      e.round === e.seatWind(0)
+        ? `碰到${R}的刻子算 2 台（圈風＋門風）`
+        : `碰到${R}、${S}的刻子各算 1 台`;
+    const tier = this.mj.aiTier?.();
+    const mood = tier?.badge ? `<dt>牌風</dt><dd>${tier.badge}</dd>` : '';
+    const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>你的門風</span></div></div>
+      <div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div><div class="mj-tai">${tai}</div>
+      <div class="mj-dealer"><i class="mj-zhuang">莊</i>${this.names[e.dealer]}${e.dealer === 0 ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
+      <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>${mood}
+      <dt>錢包</dt><dd class="mj-cash ${g.money < 0 ? 'neg' : ''}">NT$ ${g.money.toLocaleString('en-US')}</dd></dl>`;
+    if (html !== this._info) this.$('.mj-info').innerHTML = this._info = html;
+  }
+  // 聽牌：beside your hand, the tiles you're waiting on (worked out for you) and how many of each are still out there
+  _waitHud() {
+    const e = this.e,
+      el = this.$('.mj-wait');
+    // (out of the way while the 吃碰槓胡 buttons are up)
+    const list = e && !this.result && !this._options().length ? e.tenpai(0) : [];
+    const key = list.map((w) => `${w.t}:${w.left}`).join(',');
+    if (key !== this._waitKey) {
+      this._waitKey = key;
+      const total = list.reduce((a, w) => a + w.left, 0);
+      el.innerHTML = list.length
+        ? `<b>聽牌 🀄</b><span class="mj-wt">${list
+            .map(
+              (w) =>
+                `<span class="${w.left ? '' : 'gone'}"><img src="${this._tileImg(w.t)}" alt="${tileName(w.t)}"><i>剩 ${w.left}</i></span>`
+            )
+            .join('')}</span><small>${total ? `共 ${total} 張可以胡` : '聽的牌都沒了 😱'}</small>`
+        : '';
+      el.classList.toggle('hidden', !list.length);
+    }
+    if (!list.length) return;
+    // just above the left end of your hand
+    const v = new THREE.Vector3(-0.25, Y0 + 0.05, 0.36).project(this.cam);
+    el.style.left = `${Math.max(1, ((v.x + 1) / 2) * 100)}%`;
+    el.style.top = `${((1 - v.y) / 2) * 100}%`;
   }
   // on the table edge in front of each player; yours left of your hand
   _placeTag(el, s, v = new THREE.Vector3()) {
@@ -947,6 +998,7 @@ export class MahjongScene {
     this._actKey = '';
     this.$('.mj-hint').textContent = this._hint = '';
     this.$('.mj-top').textContent = this._top = `🀄 力行 277・${this.names.slice(1).join('、')}`;
+    this.$('.mj-info').innerHTML = this._info = '';
     for (const t of this.tagEls) t.textContent = '';
   }
   _stakeKeys(inp) {
@@ -1162,6 +1214,7 @@ export class MahjongScene {
     if (!I) return;
     if (I.title !== this._top) this.$('.mj-top').textContent = this._top = I.title;
     const e = this.e;
+    if (e) this._infoCard(); // (開門: the new hand's 圈風／門風 already)
     this.tagEls.forEach((el, s) => {
       this._placeTag(el, s);
       const txt =
@@ -1170,7 +1223,10 @@ export class MahjongScene {
           : this.introTag
             ? this.introTag(s)
             : this.names[s];
-      if (el.textContent !== txt) el.textContent = txt;
+      if (el.textContent !== txt || el.dataset.h) {
+        el.textContent = txt;
+        el.dataset.h = '';
+      }
       el.classList.toggle('on', I.kind === 'roll' && I.hl === s);
       el.classList.toggle('me', s === 0);
     });

@@ -371,6 +371,33 @@ describe('槓與花的台灣規矩', () => {
     expect(c.turnOptions(1).tsumo).toBe(true);
     expect(c.afterKong).toBe(true);
   });
+  it('大明槓 then a flower: still no win on the tile after the flower', () => {
+    const e = table('4s');
+    e.wall.push(34); // the back of the wall: a flower first, then the 4s
+    e.last = { t: K('5m'), from: 3 };
+    e.phase = 'claim';
+    e.answers = null;
+    e.step();
+    e.step();
+    expect(e.players[1].flowers).toEqual([34]);
+    expect(e.drawn).toBe(K('4s'));
+    expect(e.turnOptions(1).tsumo).toBe(false);
+  });
+  it('加槓 (your own 4th tile on a pon): the replacement may win, 槓上開花', () => {
+    const e = table('4s');
+    e.players[1].hand = T('5m123p456p789p11s23s');
+    e.players[1].melds = [{ type: 'pung', t: K('5m'), from: 3 }];
+    e.turn = 1;
+    e.justDrew = true;
+    e.phase = 'turn';
+    e._act(1, { type: 'kong', t: K('5m') }); // 加槓: nobody can rob it
+    e.step(); // nobody robs
+    e.step(); // draws 4s from the back
+    expect(e.drawn).toBe(K('4s'));
+    expect(e.turnOptions(1).tsumo).toBe(true);
+    e._act(1, { type: 'tsumo' });
+    expect(e.result.items.map(([n]) => n)).toContain('槓上開花');
+  });
   it('七搶一: 7 flowers, somebody else draws the 8th — the 7 win off them, 8 台', () => {
     const e = new MahjongEngine({ human: [false, false, false, false], dealer: 3 });
     e.players[0].flowers = [34, 35, 36, 37, 38, 39, 40];
@@ -418,6 +445,31 @@ describe('槓與花的台灣規矩', () => {
       round: 0,
     });
     expect(q.items.map(([n]) => n)).toContain('全求人');
+  });
+});
+
+describe('聽牌提示（engine.tenpai）', () => {
+  it('what you wait on, and how many of each are still out there', () => {
+    const e = new MahjongEngine({ human: [true, false, false, false] });
+    e.players[0].hand = T('123m456m789m123p45s99s');
+    e.players[1].discards = T('33s');
+    expect(e.tenpai(0)).toEqual([
+      { t: K('3s'), left: 2 },
+      { t: K('6s'), left: 4 },
+    ]);
+    // your turn, just drew: still the hand from before the draw
+    e.players[0].hand.push(K('1z'));
+    e.turn = 0;
+    e.justDrew = true;
+    e.phase = 'turn';
+    e.drawn = K('1z');
+    expect(e.tenpai(0).map((w) => w.t)).toEqual([K('3s'), K('6s')]);
+    // one tile too many (just called a pon, about to discard): nothing shown
+    e.justDrew = false;
+    expect(e.tenpai(0)).toEqual([]);
+    // not ready yet
+    e.players[0].hand = T('123m456m789m123p47s99s');
+    expect(e.tenpai(0)).toEqual([]);
   });
 });
 

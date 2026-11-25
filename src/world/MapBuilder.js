@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { freezeStatic } from './Freeze.js';
-import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from '../physics/Collision.js';
+import {
+  CollisionWorld,
+  SegGrid,
+  pointInPoly,
+  inAnyPoly,
+  closestOnSeg,
+} from '../physics/Collision.js';
 import {
   H,
   Hgrid,
@@ -1492,6 +1498,7 @@ const ROAD_LAYER = {
   primary: 6,
 };
 
+// onProgress(p, label): p 0..1; label names the part that starts next (?boottrace logs it, src/core/BootTrace.js)
 export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const before = new Set(scene.children); // see freezeStatic at the end
   const B = data.bounds;
@@ -2108,7 +2115,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     for (const f of LV.floors) g.flatPoly(f.pts, 0.03, col(f.tint || '#ffffff'));
     addFlat(g, gmat(T.paving(), { macroAmt: 0.15 }), 'levels');
   }
-  onProgress(0.25);
+  onProgress(0.25, 'roads + grade separations');
 
   // rail
   {
@@ -2857,7 +2864,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       y = Hmin(cx, cz, hw);
     if (
       data.buildings.some((b) => pointInPoly(cx, cz, b.pts)) ||
-      collision.reserved.some((rp) => pointInPoly(cx, cz, rp))
+      inAnyPoly(cx, cz, collision.reserved)
     )
       return;
     const C = col('#9b978e'),
@@ -3753,7 +3760,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     }),
     'roads'
   );
-  onProgress(0.4);
+  onProgress(0.4, 'buildings');
 
   // ---------- buildings ----------
   // one wall mesh per facade (window style + OSM material); material variants
@@ -5617,6 +5624,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       world.named[b.name] = { x: cx, z: cz, h, base, b };
     }
   });
+  onProgress(0.5, 'building meshes');
   world.tris.walls = 0;
   for (const k in wallGeo) {
     const m = wallGeo[k].mesh(wallMat[k]);
@@ -5842,7 +5850,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     im.castShadow = true;
     scene.add(im, im2);
   }
-  onProgress(0.6);
+  onProgress(0.6, 'road graph');
 
   // ---------- road graph ----------
   const nodes = new Map();
@@ -5905,6 +5913,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     !waterPolys.some((p) => inArea(x, z, p)) &&
     !(world.soft && world.soft.near(x, z, r + 0.4));
 
+  onProgress(0.62, 'landmarks');
   // ---------- landmarks ----------
   const poi = (name) => data.pois.find((p) => p.name === name);
   const standard = (c, o = {}) =>
@@ -6587,6 +6596,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       for (const [x, z] of cols) collision.addCircle(x, z, w / 2 + 0.05);
     });
   }
+  onProgress(0.66, 'billboards');
   // Campaign billboards
   const bTex = bannerTexture();
   const boardMat = new THREE.MeshStandardMaterial({
@@ -6628,6 +6638,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   };
   world.addBoard = addBoard;
 
+  onProgress(0.67, 'night market');
   // Night market stalls 中原夜市
   // centre of OSM relation 13287977 (中原夜市), see tools/build_map.py
   world.nightMarket = data.nightMarket
@@ -6875,7 +6886,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     scene.add(top, body, lantern, back, signM);
     world.lanternMat = lantern.material;
   }
-  onProgress(0.7);
+  onProgress(0.7, 'street furniture + lamps');
 
   // ---------- street furniture (src/world/Furniture.js) ----------
   {
@@ -7196,6 +7207,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     };
   }
 
+  onProgress(0.76, 'trees');
   // ---------- trees ----------
   // species modelled on the campus (src/world/Vegetation.js): rain trees / banyans, round street trees,
   // black pines, 大王椰子 palms and clipped shrubs; placement and colliders as before
@@ -7268,7 +7280,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         for (let k = 0; k < 8; k++) {
           const qx = x + Math.cos(k * 0.785) * 4,
             qz = z + Math.sin(k * 0.785) * 4;
-          if (collision.reserved.some((p) => pointInPoly(qx, qz, p))) return false;
+          if (inAnyPoly(qx, qz, collision.reserved)) return false;
         }
       return true;
     };
@@ -7602,7 +7614,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     world.shrubCount = shrubs.length;
   }
   for (const f of lateColliders) f();
-  onProgress(0.85);
+  onProgress(0.85, 'height levels + labels');
 
   // ---------- height levels: pads, stairs, retaining walls (src/world/Terrain.js) ----------
   // Drawn after the trees and furniture, and their collision added last, so
@@ -8101,7 +8113,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     scene.add(s);
     world.labels.push(s);
   }
-  onProgress(0.95);
+  onProgress(0.95, 'finish');
 
   let lastT = 0;
   world.setQuality = (q) => {

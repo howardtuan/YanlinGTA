@@ -8067,6 +8067,9 @@ body.mahjong #dialog {
 #mjUI .hidden {
   display: none;
 }
+#mjUI .mj-top:empty {
+  display: none;
+}
 #mjUI .mj-top {
   position: absolute;
   top: 10px;
@@ -8255,9 +8258,7 @@ body.mahjong #dialog {
 
 /* 277 麻將: 近看／全景 button, the 底／台 choice */
 #mjUI .mj-view {
-  position: absolute;
-  top: 10px;
-  right: 12px;
+  align-self: flex-end;
   pointer-events: auto;
   font-size: 14px;
   padding: 5px 10px;
@@ -8353,4 +8354,190 @@ body.mahjong #dialog {
   background: #c8272d;
   font-size: 22px;
   padding: 10px 22px;
+}
+
+/* 277 麻將: 聽牌提示 beside your hand (MahjongScene._waitHud) */
+#mjUI .mj-wait {
+  position: absolute;
+  transform: translateY(-100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 60vw;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 2px solid #ffd166;
+}
+#mjUI .mj-wait b {
+  color: #ffd166;
+  font-size: 15px;
+}
+#mjUI .mj-wait small {
+  font-size: 12px;
+  opacity: 0.9;
+}
+#mjUI .mj-wt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+#mjUI .mj-wt span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#mjUI .mj-wt img {
+  width: clamp(30px, 3.6vw, 44px);
+  aspect-ratio: 128 / 170;
+  border-radius: 4px;
+  border-bottom: 4px solid #1e7a4a;
+}
+#mjUI .mj-wt i {
+  font-style: normal;
+  font-size: 12px;
+}
+#mjUI .mj-wt .gone {
+  opacity: 0.4;
+}
+
+/* 277 麻將: the card in the top right — 圈風／門風 big, the dealer, the wall, the stakes, your wallet (MahjongScene._infoCard) */
+#mjUI .mj-side {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+#mjUI .mj-info {
+  width: 236px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(16, 22, 19, 0.9);
+  border: 1.5px solid rgba(255, 209, 102, 0.85);
+  font-weight: 400;
+}
+#mjUI .mj-info:empty {
+  display: none;
+}
+#mjUI .mj-winds {
+  display: flex;
+  gap: 10px;
+}
+#mjUI .mj-winds div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0 3px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+#mjUI .mj-winds b {
+  font-size: 38px;
+  line-height: 1.15;
+}
+#mjUI .mj-winds span {
+  font-size: 12px;
+  color: #e6e1d3;
+}
+#mjUI .mj-info .r {
+  color: #ffd166;
+  font-style: normal;
+}
+#mjUI .mj-info .s {
+  color: #8fd3ff;
+  font-style: normal;
+}
+#mjUI .mj-seat {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+#mjUI .mj-tai {
+  text-align: center;
+  font-size: 12px;
+  color: #c9c4b6;
+}
+#mjUI .mj-dealer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 15px;
+  font-weight: 700;
+}
+#mjUI .mj-zhuang {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: #c8272d;
+  color: #fff;
+  font-style: normal;
+  font-size: 0.85em;
+  text-shadow: none;
+}
+#mjUI .mj-dealer .mj-zhuang {
+  margin-right: 0;
+}
+#mjUI .mj-streak {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #e0622f;
+  font-size: 12px;
+}
+#mjUI .mj-info dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+#mjUI .mj-info dt {
+  color: #c9c4b6;
+}
+#mjUI .mj-info dd {
+  margin: 0;
+  text-align: right;
+}
+#mjUI .mj-cash {
+  color: #ffd166;
+  font-weight: 700;
+}
+#mjUI .mj-cash.neg {
+  color: #ff6b6b;
+}
+@media (max-width: 600px) {
+  #mjUI .mj-side {
+    top: 6px;
+    right: 6px;
+  }
+  #mjUI .mj-info {
+    width: 150px;
+    padding: 7px 9px;
+  }
+  #mjUI .mj-winds {
+    gap: 6px;
+  }
+  #mjUI .mj-winds b {
+    font-size: 24px;
+  }
+  #mjUI .mj-winds span,
+  #mjUI .mj-tai {
+    font-size: 10px;
+  }
+  #mjUI .mj-seat,
+  #mjUI .mj-dealer {
+    font-size: 13px;
+  }
+  #mjUI .mj-info dl {
+    font-size: 11px;
+  }
 }

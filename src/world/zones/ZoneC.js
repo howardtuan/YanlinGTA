@@ -34,6 +34,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { H, groundY } from '../Terrain.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const C_IDS = {
   mg: 'w392023399',
@@ -400,17 +401,9 @@ export function zoneCLook(b) {
 
 // ---------------- 貼圖 ----------------
 const TEX = {};
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the phone texture scale); this file keeps its own keys
 function ctex(key, w, h, draw, repeat = true) {
-  if (TEX[key]) return TEX[key];
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return (TEX[key] = t);
+  return TEX[key] || (TEX[key] = canvasTexture(w, h, draw, repeat));
 }
 const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 const noise = (g, W, H, base, n, seed, a = 0.06, sz = 6) => {

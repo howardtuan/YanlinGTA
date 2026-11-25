@@ -26,6 +26,12 @@ import * as THREE from 'three';
 import { H, Hgrid, surfaceAt } from '../Terrain.js';
 import { CLUB_DOOR, buildClub3F } from './ClubRoom.js';
 import { G_IDS, FORE, STAIR2F, PIT, BRIDGE, SAC_DOORS } from '../zones/ZoneG.js';
+import {
+  canvasTexture,
+  scaledCanvas,
+  blankTexture,
+  uploadAndRelease,
+} from '../../graphics/GpuMemLifecycle.js';
 
 // ---------------- plan (world metres) ----------------
 const XL = -194.85,
@@ -106,16 +112,8 @@ export function sacLook(b) {
   if (b.id === G_IDS.sac) b.wallDoors = sacDoors();
 }
 
-function canvasTex(w, h, draw) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the phone texture scale), not repeating
+const canvasTex = (w, h, draw) => canvasTexture(w, h, draw, false);
 const FONT = '"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif';
 
 export function buildSac(I, scene, data, collision, Kit, regMat) {
@@ -414,26 +412,29 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
 
   // ---------------- doors and signs: two texture atlases, one mesh each ----------------
   const atlas = (cw, chh, cols, rows, name) => {
-    const cv = document.createElement('canvas');
-    cv.width = cw * cols;
-    cv.height = chh * rows;
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
+    // stored at the phone texture scale (cells are drawn in full-size pixels); on the GPU once built, see below
+    const { cv, g } = scaledCanvas(cw * cols, chh * rows);
+    const tex = g ? new THREE.CanvasTexture(cv) : blankTexture();
+    if (g) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 4;
+    }
     const m = mat(name, std({ map: tex, roughness: 0.6, side: THREE.DoubleSide }, 0.35)),
       cells = new Map();
     let n = 0;
     return {
-      g: cv.getContext('2d'),
+      g,
       tex,
       add(key, draw, w, h, x, y, z, face) {
         if (!cells.has(key)) {
           const i = n++;
           if (i >= cols * rows) console.warn('[sac] 圖集放不下', name);
-          this.g.save();
-          this.g.translate((i % cols) * cw, Math.floor(i / cols) * chh);
-          draw(this.g, cw, chh);
-          this.g.restore();
+          if (this.g) {
+            this.g.save();
+            this.g.translate((i % cols) * cw, Math.floor(i / cols) * chh);
+            draw(this.g, cw, chh);
+            this.g.restore();
+          }
           cells.set(key, i);
         }
         const i = cells.get(key),
@@ -1690,6 +1691,9 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
 
   doorA.tex.needsUpdate = true;
   signA.tex.needsUpdate = true;
+  // nothing draws into the two atlases again: to the GPU now, their canvases released (GpuMemLifecycle)
+  uploadAndRelease(doorA.tex);
+  uploadAndRelease(signA.tex);
   k.finish(scene);
   I.club = buildClub3F(I, scene, Kit, regMat, { F3, c: F3 + CH[2], sf });
   I.sac = {

@@ -83,8 +83,12 @@
           const t = m[k];
           if (t && t.isTexture && !seenTex.has(t)) {
             seenTex.add(t);
-            const im = t.image;
-            if (im && im.width) px += im.width * im.height;
+            // a canvas released after upload (src/graphics/GpuMemLifecycle.js) is 1x1 on the CPU, but the GPU
+            // still holds it at the size it was uploaded at
+            const gw = t.userData?.gpuW,
+              im = t.image;
+            if (gw) px += gw * t.userData.gpuH;
+            else if (im && im.width) px += im.width * im.height;
           }
         }
       }

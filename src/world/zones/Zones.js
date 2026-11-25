@@ -391,6 +391,11 @@ export function zonesTerrain(data) {
 export const zoneTrees = () => ZONES.flatMap((z) => z.trees?.() || []);
 export const zoneVegHide = (data) => ZONES.flatMap((z) => z.vegHide?.(data) || []);
 export const zoneTreeHide = (data) => ZONES.flatMap((z) => z.treeHide?.(data) || []);
-export function buildZones(I, scene, data, collision) {
-  for (const z of ZONES) z.build?.(I, scene, data, collision);
+// afterZone(): called after each zone (src/core/Game.js releases the sign canvases its shop rows copied into their
+// atlas sheets there, so they never pile up: src/graphics/GpuMemLifecycle.js)
+export function buildZones(I, scene, data, collision, afterZone = () => {}) {
+  for (const z of ZONES) {
+    z.build?.(I, scene, data, collision);
+    afterZone();
+  }
 }

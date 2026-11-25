@@ -99,6 +99,8 @@ import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
 import { createBootDiag } from './BootDiag.js';
+import { configureGpuMem, releaseAtlasSources } from '../graphics/GpuMemLifecycle.js';
+import { TEX } from '../world/Kit.js';
 import { PerfHud } from './PerfHud.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 import { ParkedScooters } from './ParkedScooters.js';
@@ -313,6 +315,11 @@ class Game {
     r.toneMappingExposure = 1.0;
     r.domElement.id = 'game';
     this.bootDiag.attachCanvas(r.domElement);
+    // canvas textures (src/graphics/GpuMemLifecycle.js): phones store them at texScale, atlas sheets go to the GPU as
+    // soon as they are drawn and lose their canvases. Desktops draw the same pixels as before.
+    configureGpuMem(this.perfProfile, r);
+    // released canvases cannot be uploaded again after a lost context: start over (the game saves on unload)
+    r.domElement.addEventListener('webglcontextrestored', () => location.reload());
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
     installShadowDepth(r, this.scene, () => this.quality !== 'high');
@@ -361,7 +368,12 @@ class Game {
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality();
     await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
-    this.interiors = buildInteriors(this.scene, data, this.world.collision, { createCharacter });
+    this.interiors = buildInteriors(this.scene, data, this.world.collision, {
+      createCharacter,
+      // after each zone: drop the sign canvases its shop rows copied into their atlas sheets
+      afterZone: () => releaseAtlasSources(this.scene, TEX),
+    });
+    releaseAtlasSources(this.scene, TEX);
 
     await stage('build-physics', 0.79, '建立物理碰撞世界');
     try {

@@ -1,3 +1,5 @@
+import { texScale } from '../graphics/GpuMemLifecycle.js';
+
 const $ = (id) => document.getElementById(id);
 const AREA_C = {
   park: '#4f7a3a',
@@ -21,7 +23,9 @@ export class HUD {
     this.mmg = this.mm.getContext('2d');
     this.big = $('bigmapCanvas');
     this.bigg = this.big.getContext('2d');
-    this.scale = 1.3; // px per metre in the prerendered map
+    // px per metre in the prerendered map: 1.3, times the phone texture scale (0.65 on phones: a quarter of the
+    // ~19 MB canvas; src/graphics/GpuMemLifecycle.js). Everything below converts through this.scale.
+    this.scale = 1.3 * texScale();
     this._prerender();
     this.keyLabel = (kb) => kb; // src/core/Game.js: keyboard key or gamepad button name, by last device used
     this.dialogQueue = [];

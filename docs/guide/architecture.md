@@ -170,13 +170,27 @@ sequenceDiagram
   - 開發者：再加 邏輯／物理／繪製 各自耗時、`renderer.info.memory` 紋理與幾何數、著色器數、車流／行人／NPC 數量、剛體與碰撞體、畫質與效能檔位、WASM、解析度×像素比、玩家座標與所在區域、GPU 名稱。
 - `GameLoop.loop()` 只在開啟時呼叫 `frameStart` / `renderStart` / `frameEnd`；文字每 0.5 秒更新一次。關閉時不做任何量測。效能重構要加的新數據（例如串流區塊數）請加在 `PerfHud._draw()` 的開發者層級。
 
-### 4. 可共用的小工具（隨涼韌足體養生加入）
+### 4. 畫布貼圖記憶體 (`src/graphics/GpuMemLifecycle.js`，效能重構 Phase 1A)
+iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB 就會把頁面殺掉；原本一次載入會留下約 1.75 GB 的畫布（光是 28 張 2048×4096 的街屋招牌圖集就 896 MB）。規格見 `perf-refactor/specs/phase-1-ios-memory-rescue.md`。
+- **設定**：`Game.init()` 建好 renderer 後呼叫 `configureGpuMem(perfProfile, renderer)`。只有手機（`mobile-lite`，`texScale` 0.5）、BootDiag 安全模式（0.375）或網址 `?texscale=` 會縮小貼圖；**電腦一律 1 倍，畫面與以前逐像素相同**（`desktop-igpu` 在 `PerfProfile` 的 0.75 刻意不套用，筆電畫質不降）。
+- **建立畫布**：`canvasTexture(w, h, draw, repeat)` / `scaledCanvas(w, h)`。畫布以 `texScale` 存放，但 context 已縮放，`draw(g, w, h)` 照原本的 w × h 畫；縮小的畫布用 `cv.lw` / `cv.lh` 記住原尺寸。拿不到 2D context（記憶體不足）時回傳共用的 1×1 `blankTexture()`，不會當掉。`Kit.ctex`、各區（ZoneA～H）、`Dorms`、`Lixing`、`Sac` 的貼圖都走這裡。
+- **釋放**：
+  - 街屋圖集（`finishRow` 的 sheet）一畫完就 `uploadAndRelease()`：上傳 GPU、畫布縮成 1×1。`Sac` 的門牌／招牌圖集、`Lixing` 的門牌圖集也在全部畫完後這樣處理。
+  - 被複製進圖集的小招牌畫布，每蓋完一個 zone 由 `releaseAtlasSources(scene, TEX)` 放掉（場景裡還有別的 mesh 直接用的會留著），並從 `TEX` 移除；之後再要同一個 key 會重畫一張（畫法沒有亂數，像素相同）。
+  - WebGL context 遺失後還原時，已釋放的畫布傳不回 GPU，所以會直接重新整理頁面（離開前會自動存檔；BootDiag 會在下次啟動進安全模式）。
+- **新增貼圖時請遵守**：
+  - 靜態的畫布貼圖用 `Kit.ctex` 或 `canvasTexture`，不要自己 `document.createElement('canvas')`，手機才會縮小。
+  - 畫圖時用傳進來的 `w`、`h`，不要用 `g.canvas.width`／`cv.width`（縮小後只會畫到四分之一）；需要 `getImageData` 逐像素處理的貼圖（例如 `src/graphics/Textures.js` 的法線圖）不要走 `scaledCanvas`。
+  - 之後還會重畫的貼圖（螢幕、門牌、計分板）不要用 `k.plane()` 放進街屋：`finishRow` 會把 `k.plane()` 建的平面打包進圖集，原畫布之後會被釋放。請自己建 mesh 放進 `k.group`（只有 `k.plane()` 的平面會被打包）。
+- **量測**：`npm run profile:mobile -- --assert-ios-budget`（進標題時畫布 ≤ 220 MB）；數據記在 `perf-refactor/agent-handoff-log.md`。
+
+### 5. 可共用的小工具（隨涼韌足體養生加入）
 - **`hud.fade(text, mid, after, { midText, dark, hold })`**（`src/ui/HUD.js`）：全螢幕黑幕加一行字（跟睡覺同一層 `#sleepFade`）。變黑後執行 `mid()`，文字可換成 `midText`，再淡回來後執行 `after()`。適合「時間往後跳」「瞬間移動」的轉場。
 - **`player.sitAt(x, z, h, { mode, dy })`**（`src/entities/Player.js`）：除了坐下（預設 `'sit'`），也可以 `'down'` 仰躺或 `'prone'` 趴著（`Character.js` 的姿勢）。`dy` 是把身體抬高多少（床的高度）。躺下時根節點的旋轉順序會暫時改成 `YXZ`，身體才會順著朝向躺（預設的 `XYZ` 會固定沿世界座標軸躺）；`standUp()` 會改回來。
 - **新中北路街屋的 `inside: true`**（`src/world/buildings/StreetXinzhongbei.js`）：那一格只蓋二樓以上的外殼，一樓的立面、店內與碰撞由那段的 `custom()` 自己蓋（範例：`src/world/buildings/MassageShop.js`）。街屋是整排合併的 mesh，會動、會亮、會隱藏的東西（門、燈、鐵捲門）要用自己的 mesh 放進 `k.group`，移動後要呼叫 `updateMatrix()`（整排已經 freeze）。
 - **系統接管鏡頭**：跟打工、門禁、羊明衫一樣，在 `Game._update` 的 `rig.update` 之後呼叫 `X.camera(this.camera, dt)`（例：`massage.camera`）；要讓玩家暫時不能動，把旗標加進 `busy` 清單（例：`massage?.busy`）。
 
-### 5. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
+### 6. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
 - 遊玩中失去滑鼠鎖定（`pointerlockchange`）會被當成玩家按了 Esc 而打開暫停選單（`MenuManager.js`）。
 - 任何「自己放開滑鼠」的畫面（成績單、商店、電腦、手機、麻將……）必須讓 `Game.mouseOwnedByUI()` 回傳 true（`g.modal()` 會自動設 `_modalOpen`；其他畫面請加進該清單或設 `g._overlay`），否則一放開滑鼠就會誤跳暫停選單。例：障礙賽成績單（`race.state === 'results'`）。
 

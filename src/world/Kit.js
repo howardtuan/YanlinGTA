@@ -7,20 +7,24 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { freezeStatic } from './Freeze.js';
 import { pointInPoly, closestOnSeg } from '../physics/Collision.js';
 import { H } from './Terrain.js';
+import {
+  canvasTexture,
+  scaledCanvas,
+  blankTexture,
+  drawnW,
+  drawnH,
+  atlasScale,
+  atlasMaxH,
+  markAtlasSource,
+  uploadAndRelease,
+} from '../graphics/GpuMemLifecycle.js';
 
 // ---------------- textures ----------------
+// Canvases come from src/graphics/GpuMemLifecycle.js: on phones they are stored at texScale (the context is scaled,
+// so draw(g, w, h) still draws at w x h); a canvas that gets no 2D context gives a blank texture instead of a crash.
 export const TEX = {};
 export function ctex(key, w, h, draw, repeat = true) {
-  if (TEX[key]) return TEX[key];
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return (TEX[key] = t);
+  return TEX[key] || (TEX[key] = canvasTexture(w, h, draw, repeat));
 }
 export const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 export const T = {
@@ -744,8 +748,9 @@ export class Kit {
 // Each image sits on a 16-pixel grid with 16 px of its own edge colour around it, and the sheet is a power
 // of two high: every mipmap level of the sheet then lines up with the image's own, so small text far away
 // stays as sharp as it was on its own texture (odd offsets shift and soften it).
+// Layout is in full-size pixels (ATLAS_W wide, up to atlasMaxH() high); a sheet is stored at atlasScale()
+// (phones: half) and goes to the GPU and loses its canvas as soon as its row is built (finishRow).
 const ATLAS_W = 2048,
-  ATLAS_MAX_H = 4096,
   ATLAS_GAP = 16;
 const alignUp = (v) => Math.ceil(v / ATLAS_GAP) * ATLAS_GAP;
 function atlasable(m) {
@@ -762,13 +767,14 @@ function atlasable(m) {
     t.offset.y === 0 &&
     t.rotation === 0 &&
     t.image &&
-    t.image.width <= ATLAS_W &&
-    t.image.height <= ATLAS_MAX_H
+    drawnW(t.image) <= ATLAS_W &&
+    drawnH(t.image) <= atlasMaxH()
   );
 }
 // pack images (unique) into one or more sheets; returns Map image -> { sheet, x, y, w, h }
 function packAtlas(images) {
-  const list = [...images].sort((a, b) => b.height - a.height || b.width - a.width);
+  const list = [...images].sort((a, b) => drawnH(b) - drawnH(a) || drawnW(b) - drawnW(a));
+  const maxH = atlasMaxH();
   const sheets = [],
     at = new Map();
   let sheet = null,
@@ -784,43 +790,48 @@ function packAtlas(images) {
   };
   newSheet();
   for (const img of list) {
-    const w = alignUp(img.width) + ATLAS_GAP * 2,
-      h = alignUp(img.height) + ATLAS_GAP * 2; // slot: gap, image, gap
+    const w = alignUp(drawnW(img)) + ATLAS_GAP * 2,
+      h = alignUp(drawnH(img)) + ATLAS_GAP * 2; // slot: gap, image, gap
     if (x + w > ATLAS_W) {
       x = 0;
       y += rowH;
       rowH = 0;
     }
-    if (y + h > ATLAS_MAX_H) newSheet();
+    if (y + h > maxH) newSheet();
     const ix = x + ATLAS_GAP,
       iy = y + ATLAS_GAP;
     sheet.items.push({ img, x: ix, y: iy });
-    at.set(img, { sheet, x: ix, y: iy, w: img.width, h: img.height });
+    at.set(img, { sheet, x: ix, y: iy, w: drawnW(img), h: drawnH(img) });
     x += w;
     rowH = Math.max(rowH, h);
     sheet.h = Math.max(sheet.h, y + rowH);
   }
+  const s = atlasScale();
   for (const sh of sheets) {
-    const cv = document.createElement('canvas');
-    cv.width = ATLAS_W;
-    cv.height = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h)));
-    const g = cv.getContext('2d'),
+    const H = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h))),
+      { cv, g } = scaledCanvas(ATLAS_W, H, s),
       P = ATLAS_GAP;
-    for (const { img, x: X, y: Y } of sh.items) {
-      const w = img.width,
-        h = img.height;
-      g.drawImage(img, X, Y);
-      // repeat the edge pixels into the gap so mipmaps do not pull in the neighbours
-      g.drawImage(img, 0, 0, w, 1, X, Y - P, w, P);
-      g.drawImage(img, 0, h - 1, w, 1, X, Y + h, w, P);
-      g.drawImage(img, 0, 0, 1, h, X - P, Y, P, h);
-      g.drawImage(img, w - 1, 0, 1, h, X + w, Y, P, h);
+    if (g)
+      for (const { img, x: X, y: Y } of sh.items) {
+        const w = drawnW(img),
+          h = drawnH(img),
+          iw = img.width, // its own pixels (fewer than w x h when stored scaled)
+          ih = img.height;
+        if (iw === w && ih === h) g.drawImage(img, X, Y);
+        else g.drawImage(img, X, Y, w, h);
+        // repeat the edge pixels into the gap so mipmaps do not pull in the neighbours
+        g.drawImage(img, 0, 0, iw, 1, X, Y - P, w, P);
+        g.drawImage(img, 0, ih - 1, iw, 1, X, Y + h, w, P);
+        g.drawImage(img, 0, 0, 1, ih, X - P, Y, P, h);
+        g.drawImage(img, iw - 1, 0, 1, ih, X + w, Y, P, h);
+      }
+    const t = g ? new THREE.CanvasTexture(cv) : blankTexture();
+    if (g) {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
     }
-    const t = new THREE.CanvasTexture(cv);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 4;
     sh.tex = t;
-    sh.H = cv.height;
+    sh.H = H; // full-size height: finishRow's UVs
   }
   return at;
 }
@@ -970,6 +981,8 @@ export function finishRow(scene, kits, shadow = true) {
       uv.setXY(i, (A.x + uv.getX(i) * A.w) / W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
     groups.get(key).geos.push(g);
     p.mesh.geometry.dispose();
+    markAtlasSource(m.map); // its pixels now live in the sheet (released per zone: GpuMemLifecycle)
+    if (m.emissiveMap) markAtlasSource(m.emissiveMap);
     m.dispose();
   }
   for (const { src, sheet, geos } of groups.values()) {
@@ -980,6 +993,8 @@ export function finishRow(scene, kits, shadow = true) {
     mesh.name = 'row:planes';
     out.add(mesh);
   }
+  // the sheets are this row's alone: straight to the GPU, their canvases are not needed again
+  for (const sh of new Set([...at.values()].map((A) => A.sheet))) uploadAndRelease(sh.tex);
   scene.add(out);
   for (const k of kits) if (k.group.children.length) scene.add(k.group);
   // a row never moves (that is what finishRow is for): matrices once, not every frame

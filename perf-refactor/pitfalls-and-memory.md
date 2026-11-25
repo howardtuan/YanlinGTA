@@ -169,3 +169,12 @@ cv.width = 1; cv.height = 1;
 3. **同一台機器上還有別的頁面在跑遊戲時，開機時間會被灌水**：無頭 Chrome 用 SwiftShader 軟體算圖，一個停在標題畫面的分頁就會吃滿 CPU，`profile:mobile` 的「啟動到標題」曾因此從 67 秒變成 107 秒。量開機時間前先關掉其他無頭 Chrome。
 4. **縮小的畫布不能用 `g.canvas.width` 畫、不能 `getImageData`**：`scaledCanvas()` 讓 context 先縮放，所以 `draw(g, w, h)` 照原尺寸畫就對；用實際像素寬高畫會只畫到四分之一，`getImageData`/`putImageData` 不吃縮放（`Textures.js` 的法線圖因此不走 `scaledCanvas`）。
 5. **規格說的「4 支模組頂層立即建畫布」量不到**：以建立當下的載入階段分類，所有畫布都在 `stage()` 開始之後才建立（`Dorms`、`Weiche`、`StreetDaren`、`d2/corners` 都是用到才建），這項不需要改。
+
+---
+
+## 踩雷 #11：Phase 1A 第二部分（共用貼圖釋放、靜態幾何）的四件事（2026-11-25）
+
+1. **進標題那一刻就會同步畫一幀**：`GameLoop.start()` 會立刻跑一次迴圈，鏡頭看得到的靜態網格在這一幀就上傳並丟掉 CPU 陣列（`markStaticGeometry`）。自動化工具若要用網格的頂點算鏡頭位置，必須在基準版（或第一幀之前）算好再沿用。
+2. **內顯檔位的圖集高度上限 2048 會多出繪圖呼叫**：`desktop-igpu` 的 `atlasMaxH = 2048`（PerfProfile），同一條街的招牌被拆到更多張圖集。91 個機位合計 `drawElements` 75355 → 78469（約 +4%，每個機位約 +34）。若要省回來，可把內顯的 `atlasMaxH` 改成 3072（存放 1536 寬，仍在 2048 以內）。
+3. **量 JS heap 要用精確模式＋強制 GC＋每次新開瀏覽器**：Chrome 預設的 `performance.memory` 是分級的粗略值，多個頁面共用同一個瀏覽器時數字會亂跳（同一個 build 量到 463 與 865 MB）。加 `--enable-precise-memory-info --js-flags=--expose-gc`，量之前 `gc()` 兩次，每個 build 開新的使用者資料夾。
+4. **主幹原本就有 49 則 `THREE.Material: parameter 'color' has value of undefined` 警告**：進遊戲後走動就會出現，main 與本分支次數相同，與效能重構無關；查警告時先扣掉這些。

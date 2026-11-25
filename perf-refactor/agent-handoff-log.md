@@ -24,6 +24,31 @@
 
 ---
 
+### Session #009｜2026-11-25｜負責階段：Phase 1A 第二部分（共用貼圖釋放、其餘私有畫布、Textures.js、靜態幾何、gcNudge、內顯 0.75）
+- **工作分支 / PR**：`fix/ios-canvas-lifecycle-2`（規劃表 PR #3 的剩餘部分）
+- **本輪已完成**：
+  1. **每個檔位都照 `PerfProfile.texScale`**：`desktop-dgpu` 1、`desktop-igpu` 0.75（使用者決定照規格，取代 Session #007 的「電腦一律 1 倍」）、`mobile-lite` 0.5、安全模式 0.375；圖集依 `atlasMaxW/H`。
+  2. **其餘私有畫布收斂**（規格列的全部）：`SacB1`、`Arena`（`ribbonTex` / `sideTex` 會被 `Concert.js` 以同一個縮放過的 context 重畫，標成 dynamic、不釋放）、`ClubRoom`、`GarryHome`、`GateExtras`、`GordonShop`、`Weiche`、`Court`、`Furniture`（招牌圖集）、`MapBuilder`（`canvasTex`、地名標籤 `labelTexture`、校門牆面）；另外 `Vehicles` 的車牌與車身貼紙（為了達到 24 MB）。
+  3. **`Textures.js`**：照原尺寸生成後縮到 `texScale`（花紋以像素畫，直接用小尺寸生成會讓花紋變兩倍大），手機地面 512 → 256；`hc` / `dc` 暫存畫布用完立刻釋放。
+  4. **`flushShared(scene)`**（進標題前）：場景裡用到、標記為共用且非 dynamic 的畫布，每個使用它的貼圖物件（含 `ZoneD` / 噴水池的複製貼圖）都 `initTexture` 後釋放；之後若被設 `needsUpdate`，`canvasTexture` 做的會先 `redraw()`，其餘警告。`T.screen()` 等圖片載入才畫上的貼圖用 `markDynamic`。
+  5. **`markStaticGeometry`**（`Geo.mesh()`、`Kit.finish()`、`finishRow()`）：照踩雷 #9 四守則，WebGL 上傳後把 CPU 陣列換成空陣列，`count` 保留。
+  6. **`gcNudge()`**：Apple WebKit 才執行、5 秒節流，建完世界與進標題前各一次。`ImageBitmap.close()`：專案沒有使用 `ImageBitmap`，不需要。
+  7. 單元測試 +3（`flushShared`、`markStaticGeometry`、`gcNudge`），`docs/guide/architecture.md` 補上規則（動態貼圖要標記、世界靜態網格畫過後不能再讀頂點）。
+- **實機與量化數據變化**：
+  - **進標題時存活的畫布**（三個檔位、強制 GC 後）：`desktop-dgpu` 270.3 → **42.1 MB**、`desktop-igpu` **31.1 MB**、`mobile-lite` 164.2 → **23.2 MB**（規格目標 ≤ 24 MB ✅）；共 702–734 張畫布上傳後釋放，空白貼圖 0。
+  - **JS heap**（精確模式、強制 GC、獨立瀏覽器）：進標題 6 秒後 463 → **363 MB**；走訪 8 個地點後 544 → **419 MB（−23%）**，此時 895 份靜態幾何全部已上傳並釋放陣列。
+  - **手機模擬**（`profile:mobile`）：Canvas 165.65 → **23.14 MB**、貼圖估算 538.45 → **425.02 MB**、JS heap 436.6 → **351.63 MB**、啟動到標題 66.6 s（軟體渲染浮動範圍內）；`--assert-ios-budget` 通過。每個機位 `Tex`（已上傳 GPU 的貼圖數）從約 430–480 變成約 740–765：`flushShared` 在進標題前一次上傳場景裡所有共用貼圖（原本看到才上傳），換來畫布全部釋放。
+  - **電腦畫面**：`desktop-dgpu` 與 main 逐像素比對 **95/95 完全相同**；`mobile-lite` 45/95 相同，其餘是地面／立面／私有貼圖變軟，無缺件。
+  - **內顯每幀 GL 呼叫**：`drawElements` 75355 → 78469（+4%），見踩雷 #11 第 2 點。
+  - **遊玩檢查**：開始遊戲後瞬移 8 個地點（鐘塔、圖書館、學活、體育館、真知、涼韌、立行、街屋），無例外；主控台的 49 則材質警告 main 也有（踩雷 #11 第 4 點）。
+- **新發現的技術細節或踩雷**：踩雷 #11（進標題的同步第一幀、內顯圖集上限的繪圖成本、heap 量法、既有的材質警告）。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. Phase 2：`refactor/mapbuilder-chunking`（PR #5）→ `refactor/kit-plane-batch-and-igpu`（PR #6，使用者決定 5 項畫質相關設定也照規格）。
+  2. iPhone 實機重測（Tier 3）：進遊戲連續 10 分鐘。
+  3. iPhone 的 `build-world` 51 s（保留區判斷）：建議另開小 PR。
+
+---
+
 ### Session #008｜2026-11-25｜負責階段：Phase 1B（延後載入非必要資源、剔除修正）
 - **工作分支 / PR**：`fix/ios-lazy-noncore-assets`（規劃表的 PR #4）
 - **本輪已完成**（`docs/guide/architecture.md`〈畫布貼圖記憶體〉一節的「載入時不做的事」）：

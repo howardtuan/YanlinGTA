@@ -95,8 +95,7 @@ export class PhotoMode {
         out.height = Math.round(sh * k);
         out.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, out.width, out.height);
         const ph = g.phone;
-        ph.photos.unshift(out.toDataURL('image/jpeg', 0.88));
-        if (ph.photos.length > 24) ph.photos.pop();
+        ph.addPhoto(out.toDataURL('image/jpeg', 0.88));
         this._thumb();
       };
       img.src = url;

@@ -9,6 +9,7 @@ import { Nano } from './Nano.js';
 import { dual } from '../Prompts.js';
 import { PEOPLE, FEED, STORY_SETS, STORY_TIMES, FRIEND_ONLY, PCARD } from './Feeds.js';
 import { START, slotAt, nextIndex, gramPost, pcardPost, postsUpTo } from './FeedGen.js';
+import { loadPhotos, savePhotos, MAX_PHOTOS } from '../../systems/PhotoStore.js';
 
 const PEACH = (fill = '#fff') => `<svg viewBox="0 0 64 64" class="peach-logo" aria-hidden="true">
   <path d="M32 19c-3-3-8-5-13-4C10 17 5 25 6 35c1 13 12 23 26 23s25-10 26-23c1-10-4-18-13-20-5-1-10 1-13 4z" fill="${fill}"/>
@@ -221,6 +222,11 @@ export class Phone {
     this.sel = 0;
     this.homeSel = 0;
     this.photos = [];
+    // photos are kept in IndexedDB (src/systems/PhotoStore.js); ones taken before the load finishes stay in front
+    loadPhotos().then((saved) => {
+      this.photos = [...this.photos, ...saved].slice(0, MAX_PHOTOS);
+      if (this.open && this.app === 'photos') this._photos();
+    });
     this.likes = new Set();
     this.myPosts = [];
     this.bought = {};
@@ -1495,16 +1501,9 @@ export class Phone {
       ['東京', hhmm(rm + 60)],
       ['倫敦', hhmm(rm + 1440 - 480)],
     ];
-    const nextB = (g.ballotList || [])
-      .filter((b) => b.taken)
-      .reduce((m, b) => Math.min(m, b.respawn), Infinity);
     const c = this._frame(
       '時鐘',
-      `${zones
-        .map(([n, t]) => `<div class="ck-row"><small>${n}</small><b>${t}</b></div>`)
-        .join(
-          ''
-        )}<div class="ph-sec">計時器</div><div class="ck-row"><small>下一張金色選票重生</small><b>${Number.isFinite(nextB) ? `${Math.floor(nextB / 60)}:${String(Math.floor(nextB % 60)).padStart(2, '0')}` : '—'}</b></div>`,
+      zones.map(([n, t]) => `<div class="ck-row"><small>${n}</small><b>${t}</b></div>`).join(''),
       { cls: 'ph-dark' }
     );
     clearTimeout(this._ckT);
@@ -1527,14 +1526,18 @@ export class Phone {
     );
     c.querySelector('.ph-shutter').onclick = () =>
       this.g.capture((url) => {
-        this.photos.unshift(url);
-        if (this.photos.length > 24) this.photos.pop();
+        this.addPhoto(url);
         this.g.audio.shutter?.();
         this.el.classList.add('flash');
         setTimeout(() => this.el.classList.remove('flash'), 180);
         if (this.app === 'camera') this._camera();
       });
     c.querySelector('.ph-thumb').onclick = () => this.openApp('photos');
+  }
+  addPhoto(url) {
+    this.photos.unshift(url);
+    if (this.photos.length > MAX_PHOTOS) this.photos.length = MAX_PHOTOS;
+    savePhotos(this.photos);
   }
   _photos() {
     const imgs = `${this.photos.map((u) => `<img src="${u}">`).join('')}<img src="assets/loading.jpg" onerror="this.remove()">`;

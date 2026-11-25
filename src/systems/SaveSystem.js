@@ -1,7 +1,7 @@
 // Game progress is kept in the browser (localStorage, this site only): votes, golden ballots, money,
 // story progress, easter eggs, where you were standing, your clothes, job / gate / race records and
 // the i-Piyan chats. Saved every 10 s while playing, on story steps and when the page is hidden.
-// Phone photos are not kept (they are large images).
+// Phone photos are too large for localStorage: they live in IndexedDB instead (src/systems/PhotoStore.js).
 const KEY = 'yanlinGTA.save.v1';
 
 export function readSave() {

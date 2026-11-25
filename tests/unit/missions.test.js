@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SPEECH, MANAGER, SENIOR, Missions } from '../../src/systems/MissionSystem.js';
+import { SPEECH, MONDAY, WEDNESDAY, Missions } from '../../src/systems/MissionSystem.js';
+import { HOLO_AI } from '../../src/graphics/HoloRing.js';
 
 function makeMockGame() {
   const pos = { x: 90, z: 130 };
@@ -51,14 +52,13 @@ describe('Campaign Story & Missions Tests (MissionSystem.js)', () => {
     expect(SPEECH[3][1]).toContain('資管要贏，票投彥霖');
   });
 
-  it('should export valid character visual presets for key story NPCs', () => {
-    expect(MANAGER.shirt).toBe('#ffd23f');
-    expect(MANAGER.hairStyle).toBe('pony');
-    expect(MANAGER.face).toBe(true);
-
-    expect(SENIOR.shirt).toBe('#2f6bff');
-    expect(SENIOR.glasses).toBe(true);
-    expect(SENIOR.face).toBe(true);
+  it('gives the missions through the two holographic story AIs, each in its own colour', () => {
+    expect(MONDAY).toBe('M.O.N.D.A.Y');
+    expect(WEDNESDAY).toBe('W.E.D.N.E.S.D.A.Y');
+    const cols = [HOLO_AI[MONDAY], HOLO_AI[WEDNESDAY], HOLO_AI['S.U.N.D.A.Y']].map((p) => p.main);
+    expect(new Set(cols).size).toBe(3);
+    const lines = Missions.prototype.steps.map(String).join(' ');
+    expect(lines).not.toMatch(/'小安'|'阿哲'/);
   });
 
   describe('Missions state machine', () => {
@@ -90,7 +90,7 @@ describe('Campaign Story & Missions Tests (MissionSystem.js)', () => {
       missions.steps = [
         () => {},
         function () {
-          this.talk([['阿哲', '出發吧']], () => {
+          this.talk([[WEDNESDAY, '出發吧']], () => {
             this.goto({ x: 10, z: 20 }, '任務一', '前往測試點', onArrive);
           });
         },

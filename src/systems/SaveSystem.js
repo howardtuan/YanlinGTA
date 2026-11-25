@@ -133,10 +133,10 @@ export function applySave(g, d) {
   g.concerts?.load(d.concerts);
   g.friends?.load(d.friends); // before the chats: friends' chat rooms come after the built-in ones
   for (const id of d.stories || []) g.phone.storySeen.add(id);
-  // by chat id; older saves have none, so match them by position, skipping chats added since (newer)
-  const legacy = g.phone.chats.filter((x) => !x.c.newer);
-  (d.chats || []).forEach((c, i) => {
-    const ch = c?.id ? g.phone.chats.find((x) => x.c.id === c.id) : legacy[i];
+  // by chat id. Older saves have none: their chats were matched by position to the first built-in rooms
+  // (競選小組、小涵、阿哲…), which have since been removed, so those entries are dropped.
+  (d.chats || []).forEach((c) => {
+    const ch = c?.id ? g.phone.chats.find((x) => x.c.id === c.id) : null;
     if (ch && c) {
       ch.round = c.round;
       ch.unread = c.unread;

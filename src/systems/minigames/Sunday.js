@@ -1,16 +1,19 @@
-// S.U.N.D.A.Y（名字前面有一個 AI 小圖示）：主線任務進行時，畫面右下角的小助手。按 J（或點她）打開提示，再按一次（或再點她）收起來；
+// S.U.N.D.A.Y（名字前面有一個 AI 小圖示）：主線任務進行時，畫面右下角的小助手。
+// 她的樣子是一個會轉的金色全息圓圈（src/graphics/HoloRing.js；M.O.N.D.A.Y、W.E.D.N.E.S.D.A.Y 是同一套，顏色不同）。按 J（或點她）打開提示，再按一次（或再點她）收起來；
 // 泡泡裡的「‹ 上一則」「下一則 ›」切換提示（打開時也可以按 , 和 . 鍵）。
 // 提示全部是寫好的（不是 AI），依「第幾個任務、任務裡的第幾個目標、對話看完了沒」切換；換到新階段時頭上會冒出「!」。
 // 只在主線進行中出現；自由探索、結局、用手機／大地圖、打工、站崗、比賽時都會收起來。
 // 用電腦時她搬到電腦畫面的右下角：終端機在偵探模式（SQL 查案）時給那個案件的提示（含支線案件），
 // 沒在查案時給主線提示，或提醒還有案件沒破；電腦裡只能用滑鼠點她（J 會打進終端機）。
 
+import { HoloRingView } from '../../graphics/HoloRing.js';
+
 // hints for mission idx (src/systems/MissionSystem.js), given the mission state; each returns a list shown one by one
 const HINTS = [
   // 0 序章
   (M) =>
     !M.talked
-      ? ['先跟 <b>小安</b> 把話說完（按 <kbd>E</kbd> 或 <kbd>Enter</kbd> 繼續）。']
+      ? ['先跟 <b>M.O.N.D.A.Y</b> 把話說完（按 <kbd>E</kbd> 或 <kbd>Enter</kbd> 繼續）。']
       : [
           '資訊管理學系館在 <b>二一鐘塔的東邊</b>，跟著地圖上的黃色 <b>★</b> 走就對了。',
           '按 <kbd>M</kbd> 打開大地圖，可以看到 ★ 在哪裡；點地圖還能插導航旗。',
@@ -19,19 +22,19 @@ const HINTS = [
   // 1 傳單大作戰
   (M) =>
     !M.talked
-      ? ['阿哲在交代任務，先聽他說完。']
+      ? ['W.E.D.N.E.S.D.A.Y 在交代任務，先聽它說完。']
       : M.sub > 1
-        ? ['傳單都送完了！回到 <b>資訊管理學系館</b> 跟阿哲回報。']
+        ? ['傳單都送完了！回到 <b>資訊管理學系館</b> 跟 W.E.D.N.E.S.D.A.Y 回報。']
         : [
             '5 個公布欄 <b>不用照順序</b>，地圖上的 📄 就是還沒送的公布欄。',
-            '只有 3 分鐘，騎你的 <b>JET SL</b>（阿哲幫你停在系館前面了）。',
+            '只有 3 分鐘，騎你的 <b>JET SL</b>（W.E.D.N.E.S.D.A.Y 幫你調度到系館前面了）。',
             '先跑離你最近的那個，再一路往下一個最近的清掉，最省時間。',
             '時間到也沒關係，任務會重新開始；已經拿過的票不會被扣回去。',
           ],
   // 2 早餐補給
   (M) =>
     !M.talked
-      ? ['大家還沒吃早餐，先聽小安說完。']
+      ? ['大家還沒吃早餐，先聽 M.O.N.D.A.Y 說完。']
       : M.sub > 1
         ? ['早餐買到了！趁熱送回 <b>資訊管理學系館</b>，蛋餅冷掉就不好吃了 🥞']
         : [
@@ -42,7 +45,7 @@ const HINTS = [
   // 3 掃街拉票
   (M) =>
     !M.talked
-      ? ['小安在說明怎麼拉票，先聽她說完。']
+      ? ['M.O.N.D.A.Y 在說明怎麼拉票，先聽它說完。']
       : [
           '走到同學旁邊按 <kbd>滑鼠左鍵</kbd>（手機按 📄）遞傳單，目標再拿 <b>15 票</b>。',
           '人多的地方比較好拉票：學生活動中心、圖書館前、校門口附近。',
@@ -51,7 +54,7 @@ const HINTS = [
   // 4 布條保衛戰
   (M) =>
     !M.talked
-      ? ['布條被拆了！先聽小安說要怎麼辦。']
+      ? ['布條被拆了！先聽 M.O.N.D.A.Y 說要怎麼辦。']
       : [
           '這次 <b>要照順序</b>：地圖上的數字就是順序，下一站會有光柱。',
           '只有 120 秒，一定要騎車。到了光柱裡面就算掛好了。',
@@ -64,10 +67,10 @@ const HINTS = [
       return [
         '線索是：在 <b>中北路</b> 上，樓下是一間 <b>牛肉拉麵店</b>。在地圖上粉紅色的範圍裡找。',
         '注意看店家的招牌，找一間 <b>紅色招牌的牛肉拉麵店</b>，從旁邊的樓梯上二樓。',
-        '真的找不到也別急，過一下子小安會傳訊息把位置標給你。',
+        '真的找不到也別急，過一下子 M.O.N.D.A.Y 會定位出來標給你。',
       ];
     if (g.detective?.solved('banner'))
-      return ['已經破案了！按 <kbd>Esc</kbd> 關掉電腦，回去跟小安說。'];
+      return ['已經破案了！按 <kbd>Esc</kbd> 關掉電腦，回去跟 M.O.N.D.A.Y 說。'];
     return [
       '上到二樓，坐到書桌前按 <kbd>E</kbd> 使用電腦，打開 <b>終端機</b> 輸入 <code>case</code>。',
       '不知道從哪裡下手？先看桌面上的 <b>🕵️ 案件檔案</b>，或在終端機輸入 <code>hint</code>。',
@@ -78,28 +81,13 @@ const HINTS = [
   // 6 政見發表會
   (M) =>
     !M.talked
-      ? ['發表會要開始了，先聽小安說。']
+      ? ['發表會要開始了，先聽 M.O.N.D.A.Y 說。']
       : ['前往 <b>學生活動中心</b>，跟著地圖上的 ★ 走。', '到了之後演講會自動開始，好好表現 ✌'],
 ];
 
 // the little AI chip in front of the name: a sparkle and "AI"
 const AI_ICON = `<span class="sd-ai" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M8 1.5l1.6 4.3 4.4 1.7-4.4 1.7L8 13.5 6.4 9.2 2 7.5l4.4-1.7z" fill="#fff"/><path d="M13 1l.6 1.5L15 3l-1.4.5L13 5l-.6-1.5L11 3l1.4-.5z" fill="#fff" opacity=".85"/></svg>AI</span>`;
 const NAME = 'S.U.N.D.A.Y';
-
-const AVATAR = `<svg viewBox="0 0 64 64" aria-hidden="true">
-  <circle cx="32" cy="32" r="31" fill="#ffe9a8"/>
-  <path d="M12 30c0-13 9-21 20-21s20 8 20 21v13H12z" fill="#3b2a4a"/>
-  <ellipse cx="32" cy="35" rx="15" ry="16" fill="#ffd8bf"/>
-  <path d="M17 29c3-9 9-13 15-13 7 0 13 5 15 13-6-1-11-4-14-8-3 4-9 7-16 8z" fill="#3b2a4a"/>
-  <circle cx="26" cy="36" r="2.4" fill="#2b1d33"/><circle cx="38" cy="36" r="2.4" fill="#2b1d33"/>
-  <circle cx="26.8" cy="35.2" r=".8" fill="#fff"/><circle cx="38.8" cy="35.2" r=".8" fill="#fff"/>
-  <ellipse cx="22" cy="41" rx="2.6" ry="1.5" fill="#ff9fb1" opacity=".7"/><ellipse cx="42" cy="41" rx="2.6" ry="1.5" fill="#ff9fb1" opacity=".7"/>
-  <path d="M28.5 43q3.5 3 7 0" stroke="#b5476a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  <path d="M14 34a18 18 0 0 1 36 0" stroke="#ffb400" stroke-width="3" fill="none"/>
-  <rect x="11" y="32" width="6" height="10" rx="3" fill="#ffb400"/><rect x="47" y="32" width="6" height="10" rx="3" fill="#ffb400"/>
-  <path d="M50 41q0 8-9 9" stroke="#ffb400" stroke-width="2" fill="none"/><circle cx="40" cy="50" r="2" fill="#ffb400"/>
-  <path d="M27 14l2.5-5 2.5 5 2.5-5 2.5 5" fill="#ffb400"/>
-</svg>`;
 
 export class Sunday {
   constructor(game) {
@@ -113,7 +101,9 @@ export class Sunday {
     el.className = 'hidden';
     el.innerHTML = `<div class="sd-bubble hidden"><div class="sd-head">${AI_ICON}<b>${NAME}</b><span class="sd-n"></span></div>
       <div class="sd-text"></div><div class="sd-foot"><button class="sd-prev">‹ 上一則</button><span class="sd-key"><kbd>,</kbd> <kbd>.</kbd> 切換・<kbd>J</kbd> 收起</span><button class="sd-next">下一則 ›</button></div></div>
-      <button class="sd-btn" title="${NAME} 小助手：按 J 打開／收起提示">${AVATAR}<span class="sd-bang">!</span><span class="sd-tag">${AI_ICON}${NAME} <kbd>J</kbd></span></button>`;
+      <button class="sd-btn" title="${NAME} 小助手：按 J 打開／收起提示"><span class="sd-ring"></span><span class="sd-bang">!</span><span class="sd-tag">${AI_ICON}${NAME} <kbd>J</kbd></span></button>`;
+    this.ring = new HoloRingView(NAME, 104);
+    el.querySelector('.sd-ring').appendChild(this.ring.canvas);
     document.getElementById('hud').appendChild(el);
     // the clicks must not reach the game (pointer lock / hand out a flyer)
     for (const ev of ['pointerdown', 'mousedown', 'touchstart'])
@@ -155,7 +145,7 @@ export class Sunday {
           c.id === 'jianyu'
             ? '破案了！按 <kbd>Esc</kbd> 關掉電腦，回去 278 跟劍玉說一聲。'
             : c.id === 'banner'
-              ? '已經破案了！按 <kbd>Esc</kbd> 關掉電腦，回去跟小安說。'
+              ? '已經破案了！按 <kbd>Esc</kbd> 關掉電腦，回去跟 M.O.N.D.A.Y 說。'
               : '這個案子破了！輸入 <code>cases</code> 看看還有沒有別的案子。',
         ];
       return [

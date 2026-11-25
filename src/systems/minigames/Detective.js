@@ -546,7 +546,7 @@ export class Detective {
       io.print(`💰 破案獎金 NT$ ${c.reward}`, 'tm-ok');
     }
     io.print(
-      c.main ? '按 Esc 關掉電腦，回去告訴小安吧！' : '輸入 cases 看看還有沒有其他案子。',
+      c.main ? '按 Esc 關掉電腦，回去告訴 M.O.N.D.A.Y 吧！' : '輸入 cases 看看還有沒有其他案子。',
       'tm-dim'
     );
     this.g.audio?.fanfare?.();

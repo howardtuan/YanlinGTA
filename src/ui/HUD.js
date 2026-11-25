@@ -1,4 +1,5 @@
 import { texScale } from '../graphics/GpuMemLifecycle.js';
+import { HoloRingView, holoOf } from '../graphics/HoloRing.js';
 
 const $ = (id) => document.getElementById(id);
 const AREA_C = {
@@ -616,6 +617,20 @@ export class HUD {
     const text = raw.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, kb, pad) => this.keyLabel(kb, pad)); // [[M|View]]
     d.classList.remove('hidden');
     $('dlgName').textContent = name;
+    // an AI talking (S.U.N.D.A.Y / M.O.N.D.A.Y / W.E.D.N.E.S.D.A.Y): its holographic ring next to the box
+    const ai = holoOf(name);
+    d.classList.toggle('ai', !!ai);
+    if (ai) {
+      if (!this._dlgRing) {
+        this._dlgRing = new HoloRingView(name, 112);
+        const box = document.createElement('div');
+        box.id = 'dlgRing';
+        box.appendChild(this._dlgRing.canvas);
+        d.prepend(box);
+      }
+      this._dlgRing.set(name);
+      d.style.setProperty('--ai', ai.main);
+    }
     this.fullText = text;
     this.typing = 0;
     $('dlgText').textContent = '';

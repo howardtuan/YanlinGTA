@@ -90,6 +90,7 @@ import { FirstPerson } from '../entities/FirstPerson.js';
 import { NewsDesk } from '../ui/phone/NewsUI.js';
 import { initKernels } from '../graphics/wasm/kernels.js';
 import { Physics, G } from '../physics/Physics.js';
+import { solvePersonImpact, solvePersonPersonImpact } from '../physics/ImpactPhysics.js';
 import { Chassis } from '../physics/VehPhysics.js';
 import { Ragdoll } from '../physics/Ragdoll.js';
 import { Walker } from '../entities/Walker.js';
@@ -1390,24 +1391,33 @@ class Game {
       else v.drive(dt, vin, w.collision, others, this._bump());
       pl.ch.update(dt, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
       const sp = Math.abs(v.speed);
-      if (sp > 3) {
+      if (sp > 2.2) {
+        const [fx, fz] = v.forward(),
+          sg = Math.sign(v.speed) || 1;
         for (const p of this.peds.active()) {
           const b = bodyGap(v, p.pos.x, p.pos.z);
           if (b.gap < 0.35 && sameLevel(p.y, v.mesh.position.y)) {
-            const [fx, fz] = v.forward(),
-              sg = Math.sign(v.speed) || 1,
-              ox = p.pos.x - b.qx,
+            const ox = p.pos.x - b.qx,
               oz = p.pos.z - b.qz,
               ol = Math.hypot(ox, oz) || 1;
-            let dx = fx * sg + (ox / ol) * 0.4,
-              dz = fz * sg + (oz / ol) * 0.4;
+            const nx = ox / ol,
+              nz = oz / ol;
+            let dx = fx * sg + nx * 0.35,
+              dz = fz * sg + nz * 0.35;
             const dl = Math.hypot(dx, dz) || 1;
             dx /= dl;
             dz /= dl;
-            if (this.peds.knock(p, dx, dz, sp)) {
+            const vRel = Math.max(0, fx * v.speed * dx + fz * v.speed * dz);
+            const sol = solvePersonImpact({ vehicleKind: v.kind, riderOnVehicle: true, vRel });
+            if (
+              sol.knockDown &&
+              this.peds.knock(p, dx, dz, vRel, { dv: sol.dvPerson, vy: sol.vyPerson })
+            ) {
               this.audio.hitPed();
               this.addVotes(-1, '撞到同學了！-1 票 😵');
-              v.speed *= v.kind === 'scooter' ? 0.55 : 0.8;
+              v.speed *= sol.kf;
+              if (sol.ejectRider1 && !v.crash)
+                v.crash = { impact: vRel, speed: sp, nx: -dx, nz: -dz };
             }
           }
         }
@@ -1443,24 +1453,86 @@ class Game {
         else if (k === 'jump') this.audio.jump();
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
-      if (!pl.rag) {
-        const pushed = this.parkedScooters?.resolveFoot(pl.pos, 0.35);
-        for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
+      if (!pl.rag && !pl.tumble) {
+        let movedFoot = !!this.parkedScooters?.resolveFoot(pl.pos, 0.35);
+        for (const v of [...this.vehicles, ...this.traffic.vehicles(), ...this.race.vehicles()]) {
           if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1)
             continue;
+          if (!sameLevel(pl.pos.y, v.mesh.position.y)) continue;
           const b = bodyGap(v, pl.pos.x, pl.pos.z),
             rr = v.hw + 0.35;
           if (b.gap < 0.35) {
             const dx = pl.pos.x - b.qx,
               dz = pl.pos.z - b.qz,
               d = Math.hypot(dx, dz);
+            const nx = d > 1e-4 ? dx / d : Math.sin(v.heading),
+              nz = d > 1e-4 ? dz / d : Math.cos(v.heading);
             if (d > 1e-4) {
-              pl.pos.x = b.qx + (dx / d) * rr;
-              pl.pos.z = b.qz + (dz / d) * rr;
+              pl.pos.x = b.qx + nx * rr;
+              pl.pos.z = b.qz + nz * rr;
+              movedFoot = true;
+            }
+            // Newtonian vehicle-vs-walking-player collision: fast vehicles knock the player down
+            const [vfx, vfz] = v.forward();
+            const vvx = vfx * (v.speed || 0),
+              vvz = vfz * (v.speed || 0);
+            const vRel = (vvx - pl.vel.x) * nx + (vvz - pl.vel.y) * nz;
+            if (vRel > 0.8 && Math.abs(v.speed || 0) > 0.8) {
+              const sol = solvePersonImpact({
+                vehicleKind: v.kind,
+                riderOnVehicle: !!(v.driver || v.rider || v.ai || v.racer),
+                vRel,
+              });
+              if (v.ai) v.ai.stunned = 2;
+              v.speed *= sol.kf;
+              if (sol.knockDown) {
+                this.audio.hitPed();
+                pl.throwOff(nx * sol.dvPerson, nz * sol.dvPerson, sol.vyPerson, 1.8);
+                hud.toast(`被車撞倒了！😵（${Math.round(vRel * 3.6)} km/h）`, 'bad', 2200);
+                break;
+              } else if (sol.dvPerson > 0.2) {
+                pl.vel.x += nx * sol.dvPerson;
+                pl.vel.y += nz * sol.dvPerson;
+              }
             }
           }
         }
-        if (pushed && pl.ch?.root) pl.ch.root.position.set(pl.pos.x, pl.pos.y, pl.pos.z);
+        // Person-vs-person collision (equal mass 70 kg vs 70 kg): solid separation + sprint tackle physics
+        if (!pl.rag && !pl.tumble) {
+          for (const p of this.peds.active()) {
+            if (p.state === 'fly' || p.state === 'down' || !sameLevel(pl.pos.y, p.y)) continue;
+            const dx = p.pos.x - pl.pos.x,
+              dz = p.pos.z - pl.pos.z;
+            const d = Math.hypot(dx, dz);
+            const minD = 0.68;
+            if (d < minD && d > 1e-4) {
+              const nx = dx / d,
+                nz = dz / d,
+                push = (minD - d) * 0.5;
+              pl.pos.x -= nx * push;
+              pl.pos.z -= nz * push;
+              p.pos.x += nx * push;
+              p.pos.z += nz * push;
+              movedFoot = true;
+              const pvx = p.state === 'walk' ? Math.sin(p.heading) * (p.speed || 0) : 0;
+              const pvz = p.state === 'walk' ? Math.cos(p.heading) * (p.speed || 0) : 0;
+              const vRel = (pl.vel.x - pvx) * nx + (pl.vel.y - pvz) * nz;
+              if (vRel > 1.2) {
+                const sol = solvePersonPersonImpact(vRel);
+                pl.vel.x -= nx * sol.dv1;
+                pl.vel.y -= nz * sol.dv1;
+                if (
+                  sol.knockDown &&
+                  this.peds.knock(p, nx, nz, vRel, { dv: sol.dv2, vy: sol.vy2 })
+                ) {
+                  this.audio.hitPed();
+                  this.addVotes(-1, '撞倒同學了！-1 票 😵');
+                }
+              }
+            }
+          }
+        }
+        if (movedFoot && pl.ch?.root) pl.ch.root.position.set(pl.pos.x, pl.pos.y, pl.pos.z);
       }
       hud.setSpeed(null);
       this.headlight.intensity = 0;

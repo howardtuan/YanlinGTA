@@ -17,6 +17,16 @@ export const RESTITUTION = 0.12; // inelastic crumple/plastic absorption in real
 export const RIDER_MASS = 70; // kg
 export const A_EJECT = 36; // m/s^2 (~3.67 G shock over dtImpact ejects a motorcycle rider)
 
+export const PERSON_PHYS = {
+  mass: RIDER_MASS, // 70 kg average adult
+  dtImpact: 0.1, // s soft-body contact duration
+  muStatic: 0.6, // sneaker static grip on pavement
+  eVehicle: 0.1, // inelastic vehicle-to-person impact
+  ePerson: 0.08, // inelastic person-to-person shoulder bump
+  knockDownV: 2.2, // m/s post-impact delta-V that knocks a standing person off their feet
+  tackleDownV: 2.8, // m/s post-impact delta-V for a sprint tackle between two people
+};
+
 export const VEHICLE_PHYS = {
   scooter: {
     mass: 110, // kg (dry + fuel, without rider)
@@ -128,4 +138,68 @@ export function solveVehicleImpact({
     },
     shape2: s2.shape,
   };
+}
+
+/**
+ * Solve a vehicle-vs-person collision using Newtonian impulse-momentum (SI units).
+ * Used for both player vehicle hitting pedestrians and moving traffic hitting the walking player.
+ */
+export function solvePersonImpact({ vehicleKind, riderOnVehicle = true, vRel }) {
+  const sv = vehicleSpec(vehicleKind);
+  const m1 = sv.mass + (riderOnVehicle ? RIDER_MASS : 0);
+  const m2 = PERSON_PHYS.mass;
+  const dt = PERSON_PHYS.dtImpact;
+  const v = Math.max(0, vRel || 0);
+
+  const mu = (m1 * m2) / (m1 + m2);
+  const impulse = (1 + PERSON_PHYS.eVehicle) * mu * v;
+  const force = impulse / dt;
+  const holdImpulse = PERSON_PHYS.muStatic * m2 * GRAVITY * dt;
+  const netImpulse = Math.max(0, impulse - holdImpulse);
+
+  const dv1 = impulse / m1;
+  const dv2 = netImpulse / m2;
+  const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
+  const knockDown = dv2 >= PERSON_PHYS.knockDownV;
+  // Low bumper pitch lifts a knocked person moderately rather than launching them into orbit
+  const vy2 = knockDown ? Math.min(3.4, 0.9 + dv2 * 0.2) : 0;
+  const accel1 = dv1 / sv.dtImpact;
+  const ejectRider1 = vehicleKind === 'scooter' && accel1 >= A_EJECT;
+
+  return {
+    m1,
+    m2,
+    impulse,
+    force,
+    holdImpulse,
+    netImpulse,
+    dvVehicle: dv1,
+    dvPerson: dv2,
+    vyPerson: vy2,
+    kf,
+    knockDown,
+    accel1,
+    ejectRider1,
+  };
+}
+
+/**
+ * Solve a person-vs-person collision (equal mass 70 kg vs 70 kg).
+ * Walking bumps separate solidly; full sprint tackles (>= ~6.2 m/s) can knock the other person down.
+ */
+export function solvePersonPersonImpact(vRel) {
+  const m = PERSON_PHYS.mass;
+  const dt = PERSON_PHYS.dtImpact;
+  const v = Math.max(0, vRel || 0);
+  const mu = m * 0.5;
+  const impulse = (1 + PERSON_PHYS.ePerson) * mu * v;
+  const force = impulse / dt;
+  const holdImpulse = PERSON_PHYS.muStatic * m * GRAVITY * dt;
+  const netImpulse = Math.max(0, impulse - holdImpulse);
+  const dv1 = impulse / m;
+  const dv2 = netImpulse / m;
+  const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
+  const knockDown = dv2 >= PERSON_PHYS.tackleDownV;
+  const vy2 = knockDown ? Math.min(2.0, 0.7 + dv2 * 0.15) : 0;
+  return { impulse, force, dv1, dv2, vy2, kf, knockDown };
 }

@@ -6,7 +6,13 @@ import * as THREE from 'three';
 import { ParkedScooters } from '../../src/core/ParkedScooters.js';
 import { VehicleSpawner } from '../../src/core/VehicleSpawner.js';
 import { Vehicle } from '../../src/entities/Vehicles.js';
-import { solveVehicleImpact, RESTITUTION, GRAVITY } from '../../src/physics/ImpactPhysics.js';
+import {
+  solveVehicleImpact,
+  solvePersonImpact,
+  solvePersonPersonImpact,
+  RESTITUTION,
+  GRAVITY,
+} from '../../src/physics/ImpactPhysics.js';
 
 function makeMockGame(opts = {}) {
   const scene = new THREE.Scene();
@@ -428,5 +434,35 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     const [rvx, rvz] = game.player.throwOff.mock.calls[0];
     expect(Math.hypot(rvx, rvz)).toBeGreaterThan(4.0);
     expect(game.hud.toast).toHaveBeenCalledWith(expect.stringContaining('被撞飛了'), 'bad', 2600);
+  });
+
+  it('applies Newtonian impulse-momentum to vehicle-vs-person and person-vs-person collisions', () => {
+    // Car (1320 kg) vs 70 kg person at 10 m/s: car barely slows (kf > 0.9), person knocked down cleanly
+    const carHit = solvePersonImpact({ vehicleKind: 'car', riderOnVehicle: true, vRel: 10 });
+    expect(carHit.knockDown).toBe(true);
+    expect(carHit.kf).toBeGreaterThan(0.93);
+    expect(carHit.dvPerson).toBeGreaterThan(8.5);
+    expect(carHit.vyPerson).toBeLessThanOrEqual(3.4);
+
+    // Scooter (180 kg) vs 70 kg person at 6 m/s: scooter loses ~31% speed, person knocked down, rider stays on
+    const scMed = solvePersonImpact({ vehicleKind: 'scooter', riderOnVehicle: true, vRel: 6 });
+    expect(scMed.knockDown).toBe(true);
+    expect(scMed.kf).toBeCloseTo(0.69, 1);
+    expect(scMed.ejectRider1).toBe(false);
+
+    // High-speed scooter (15 m/s = 54 km/h) hitting a 70 kg person: shock >= 3.6 G -> scooter rider crashes too
+    const scFast = solvePersonImpact({ vehicleKind: 'scooter', riderOnVehicle: true, vRel: 15 });
+    expect(scFast.knockDown).toBe(true);
+    expect(scFast.ejectRider1).toBe(true);
+
+    // Person vs person (70 kg vs 70 kg): walking bump (3 m/s) doesn't knock down; full sprint tackle (7.5 m/s) does
+    const walkBump = solvePersonPersonImpact(3.0);
+    expect(walkBump.knockDown).toBe(false);
+    expect(walkBump.dv1).toBeCloseTo((1.08 * 35 * 3) / 70, 3);
+
+    const sprintTackle = solvePersonPersonImpact(7.5);
+    expect(sprintTackle.knockDown).toBe(true);
+    expect(sprintTackle.dv2).toBeGreaterThan(2.8);
+    expect(sprintTackle.vy2).toBeLessThanOrEqual(2.0);
   });
 });

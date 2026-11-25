@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload E2E Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: story-bot-results
           path: tools/e2e/out/

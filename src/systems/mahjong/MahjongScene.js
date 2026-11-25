@@ -838,13 +838,8 @@ export class MahjongScene {
     if (a.type === 'mpCopy') {
       const code = this.lobby?.code || '';
       if (!code) return;
-      const text = a.link ? `${location.origin}${location.pathname}?mj=${code}` : code;
-      navigator.clipboard?.writeText(text).catch(() => {});
-      this.g.hud.toast(
-        a.link ? `🔗 已複製邀請連結（房號 ${code}）` : `📋 已複製房號 ${code}`,
-        'good',
-        2000
-      );
+      navigator.clipboard?.writeText(code).catch(() => {});
+      this.g.hud.toast(`📋 已複製房號 ${code}`, 'good', 2000);
       return;
     }
     if (a.type === 'mpStart') return this.mj.startMultiHost();
@@ -1139,7 +1134,7 @@ export class MahjongScene {
     el.innerHTML = `<h3>${isHost ? '🏠 麻將房間大廳' : '🚪 已加入麻將房間'}</h3>
       ${
         state.code
-          ? `<div class="mj-code-bar"><span>房號</span><b class="mj-code">${esc(state.code)}</b><button data-a='{"type":"mpCopy"}'>📋 複製房號</button><button data-a='{"type":"mpCopy","link":true}'>🔗 邀請連結</button></div>`
+          ? `<div class="mj-code-bar"><span>房號</span><b class="mj-code">${esc(state.code)}</b><button data-a='{"type":"mpCopy"}'>📋 複製房號</button></div>`
           : ''
       }
       <p class="mj-small">底 ${b}／一台 ${t}・${status}</p>

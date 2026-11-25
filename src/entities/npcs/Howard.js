@@ -5,7 +5,7 @@
 // 住力行宿舍 279 寢 3 號床（右手邊最裡面那張下舖，上舖 2 號是漢克；座位是右手邊最裡面的書桌）。
 // 一天（遊戲時鐘）：
 //   02:00–09:00 睡覺；09:00–12:00 在書桌前開發這個遊戲（任務、NPC、手機 App）；
-//   14:00–16:00 白天沒事，騎他的黑色忍 400（仿賽重機，src/entities/Vehicles.js buildBike sport）在學校附近兜風（跟著車流跑）；
+//   14:00–16:00 白天沒事，騎他的黑色忍 400（仿賽重機，src/entities/Vehicles.js buildNinja）在學校附近兜風（跟著車流跑）；
 //     車被你借走沒還的話，他就留在寢室寫程式；
 //   12:00–14:00 在寢室練撲克牌魔術手法（牌在兩手之間飛）；16:00–18:30 打 LOL；
 //   18:30–22:30 晚餐後跟女朋友 Tzuyu 手牽手在校園步道散步（在你附近出現，跟 YeeMing 和羊明衫一樣）；
@@ -24,7 +24,7 @@ import { DevNPC, M, angDiff, gameScreen, addCurls } from './DevNPC.js';
 import { Vehicle } from '../Vehicles.js';
 import { serviceWear } from './Service.js';
 
-const NINJA = { model: 'sport', color: '#141518' }; // his black 忍 400
+const NINJA = { model: 'ninja' }; // his black 忍 400 (src/entities/Vehicles.js buildNinja)
 
 export const HOWARD_LOOK = {
   skin: '#f2d6c2',

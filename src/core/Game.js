@@ -1660,7 +1660,7 @@ class Game {
             this.audio.fanfare();
             this.addVotes(34);
           }
-        } else this.addVotes(1, '重生的金色選票 +1 票（2 分鐘後再生）');
+        } else this.addVotes(1, '金色選票 +1 票');
       }
     }
     if (!this.race.active) this.missions.update(dt);

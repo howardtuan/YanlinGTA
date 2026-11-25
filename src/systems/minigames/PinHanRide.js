@@ -169,8 +169,9 @@ export class PinHanRide {
   place(key) {
     const P = RIDE_PLACES.find((p) => p.key === key);
     if (!P) return null;
-    const a = P.at ? P.at(this.g) : P;
-    return a ? { ...P, x: a.x, z: a.z } : null;
+    let a = P.at ? P.at(this.g) : P;
+    if (Array.isArray(a)) a = { x: a[0], z: a[1] }; // interior doors are [x, z] (src/world/Interiors.js)
+    return a && Number.isFinite(a.x) && Number.isFinite(a.z) ? { ...P, x: a.x, z: a.z } : null;
   }
   // the car and him at the wheel (built once)
   _car() {

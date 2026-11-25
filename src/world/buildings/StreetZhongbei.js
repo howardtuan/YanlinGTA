@@ -2425,6 +2425,7 @@ export function buildZhongbeiStreet(I, scene, X) {
     const k = vcKit(new Kit(I, ox, oz, ang));
     kits.push(k);
     k.box(0, w, -0.4, 0.55, 0.2, 1.3, '#c9c5ba'); // 花台
+    k.wallLine(0, 0.25, w, 0.25, -0.4, 2.0);
     k.box(0.1, w - 0.1, 0.55, 1.1, 0.35, 1.15, '#3f7a3a', { col: false }); // 灌木
     const n = Math.max(1, Math.round(w / 4)),
       bay = w / n;
@@ -2442,7 +2443,7 @@ export function buildZhongbeiStreet(I, scene, X) {
       // 大樹：樹幹加兩三團樹冠
       const h = 5 + r() * 2.5,
         s = 1.2 + r() * 0.6;
-      k.cyl(x, 0.85, 0.22, 0, h, '#6a4a30', { seg: 6 });
+      k.cyl(x, 0.85, 0.22, 0, h, '#6a4a30', { seg: 6, col: true });
       for (const [dx, dy, dz, q] of [
         [0, h + 0.6, 0, 1],
         [-1.2, h - 0.6, 0.4, 0.8],

@@ -356,7 +356,7 @@ export default {
           if (!i) {
             k.box(0.6, 1.6, 0, 2.1, -0.09, -0.06, '#e8e6e0', { col: false });
             for (const x of [2.6, 3.6]) c.ac(k, x, c.gf + 0.2, -0.5);
-            k.cyl(c.w - 0.6, -0.35, 0.11, 0, 7.5, '#5a4a3a', { seg: 6 });
+            k.cyl(c.w - 0.6, -0.35, 0.11, 0, 7.5, '#5a4a3a', { seg: 6, col: true });
           } // 白鐵門、冷氣室外機、貼牆的木電桿
         },
       },
@@ -610,7 +610,7 @@ export default {
         extra: (k, c) => {
           sideCage(k, c, c.w, 1, 3.0, 7.0, '#b5c24a');
           k.box(c.w + 0.05, c.w + 14.5, -0.6, 0.04, -1.5, 16, '#a9a69e', { col: false }); // 空地的水泥地
-          k.cyl(c.w + 0.7, -0.6, 0.14, 0, 9.5, '#5a4a3a', { seg: 6 });
+          k.cyl(c.w + 0.7, -0.6, 0.14, 0, 9.5, '#5a4a3a', { seg: 6, col: true });
           k.box(c.w + 0.3, c.w + 1.1, 6.6, 6.75, -0.68, -0.52, '#3a3a3a', { col: false }); // 牆角的電桿
           for (const dz of [-0.95, -0.25])
             k.box(c.w + 0.5, c.w + 0.9, 6.9, 7.3, dz - 0.25, dz + 0.25, '#b9bcbe', { col: false }); // 兩支擴音喇叭

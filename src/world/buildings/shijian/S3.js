@@ -207,7 +207,7 @@ const backHouse = (k, c, z0, nf, hex, o = {}) => {
 };
 // 樹：樹幹加三團樹冠
 const tree = (k, c, x, z, h, s) => {
-  k.cyl(x, z, 0.24, 0, h, '#6a4a30', { seg: 6 });
+  k.cyl(x, z, 0.24, 0, h, '#6a4a30', { seg: 6, col: true });
   for (const [dx, dy, dz, q, hex] of [
     [0, h + 0.8, 0, 1, '#3f7a3a'],
     [-1.3, h - 0.6, 0.5, 0.8, '#4b8a3e'],

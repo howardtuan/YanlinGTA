@@ -1556,7 +1556,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       k.box(x + s - 0.03, x + s + 0.03, y, y + 0.05, z, z + s, '#6a6d70', nb);
     }
   };
-  const polyPrism = (k, pts, y0, y1, hex) => {
+  const polyPrism = (k, pts, y0, y1, hex, col = true) => {
     // 凸多邊形柱（區域座標 [x,z]）：楔形基地用；跟 k.box 一樣併進頂點色材質
     const pos = [],
       nor = [],
@@ -1570,6 +1570,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         dx = b[0] - a[0],
         dz = b[1] - a[1],
         L = Math.hypot(dx, dz);
+      if (col && y0 < 2.2 && y1 > 0.35) k.wallLine(a[0], a[1], b[0], b[1], y0, y1);
       let nx = dz / L,
         nz = -dx / L;
       const flip = ((a[0] + b[0]) / 2 - cx) * nx + ((a[1] + b[1]) / 2 - cz) * nz < 0;

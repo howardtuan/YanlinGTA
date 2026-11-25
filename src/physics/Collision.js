@@ -189,14 +189,6 @@ export class CollisionWorld {
     let hit = false,
       nx = 0,
       nz = 0;
-    if (this.extra) {
-      const e = this.extra.resolve(pos, r, y);
-      if (e.hit) {
-        hit = true;
-        nx += e.nx;
-        nz += e.nz;
-      }
-    }
     const b = this.b;
     if (pos.x < b.minX + r) {
       pos.x = b.minX + r;
@@ -290,6 +282,14 @@ export class CollisionWorld {
           }
         }
       });
+      if (this.extra) {
+        const e = this.extra.resolve(pos, r, y);
+        if (e.hit) {
+          hit = moved = true;
+          nx += e.nx;
+          nz += e.nz;
+        }
+      }
       if (!moved) break;
     }
     const l = Math.hypot(nx, nz) || 1;

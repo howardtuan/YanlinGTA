@@ -396,7 +396,7 @@ export default {
       addG(k, g, hex);
     };
     const tree = (k, x, z, h, cr, r) => {
-      k.cyl(x, z, 0.26, -0.5, h - cr, '#5e4630', { seg: 6, r1: 0.16 });
+      k.cyl(x, z, 0.26, -0.5, h - cr, '#5e4630', { seg: 6, r1: 0.16, col: true });
       const G = ['#3f7a3a', '#4b8a3e', '#356b34'];
       ball(k, x, h - cr * 0.85, z, cr * 0.8, G[0], 0.75);
       for (let j = 0; j < 4; j++) {

@@ -27,7 +27,7 @@ const ball = (C, k, x, y, z, r, hex, sy = 1, sx = 1) => {
 };
 // 闊葉大樹：樹幹＋幾團樹冠（h 樹高、cr 樹冠半徑）
 const tree = (C, k, x, z, h, cr, r) => {
-  k.cyl(x, z, 0.28, -0.5, h - cr, '#5e4630', { seg: 6, r1: 0.18 });
+  k.cyl(x, z, 0.28, -0.5, h - cr, '#5e4630', { seg: 6, r1: 0.18, col: true });
   const G = ['#3f7a3a', '#4b8a3e', '#356b34'];
   ball(C, k, x, h - cr * 0.85, z, cr * 0.8, G[0], 0.75);
   for (let j = 0; j < 4; j++) {
@@ -469,7 +469,7 @@ export default {
       k.plane(tex, w, h, x, y, z, (dir * Math.PI) / 2);
     // 水泥電桿（底部黃黑斜紋）
     const pole = (k, x, z, h = 9.5) => {
-      k.cyl(x, z, 0.16, 0, h, '#a3a19b', { seg: 8, r1: 0.11 });
+      k.cyl(x, z, 0.16, 0, h, '#a3a19b', { seg: 8, r1: 0.11, col: true });
       for (let i = 0; i < 4; i++)
         k.cyl(x, z, 0.175, 0.2 + i * 0.3, 0.5 + i * 0.3, i % 2 ? '#1c1c1e' : '#e8c21e', { seg: 8 });
     };

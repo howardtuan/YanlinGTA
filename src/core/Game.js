@@ -97,6 +97,9 @@ import { Ragdoll } from '../physics/Ragdoll.js';
 import { Walker } from '../entities/Walker.js';
 import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 import { spawnWorldCones } from '../world/WorldProps.js';
+import { isLunarNewYear } from '../world/Season.js';
+import { buildNewYearDecor } from '../world/Festive.js';
+import { Firecrackers } from '../systems/Firecrackers.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
@@ -562,6 +565,16 @@ class Game {
 
     this._ballots();
     this._beam();
+    // 過年（1、2 月）：店家、校內建築掛燈籠和春聯，路人放鞭炮（src/world/Festive.js、src/systems/Firecrackers.js）
+    if (isLunarNewYear()) {
+      this.interiors.updaters.push(
+        buildNewYearDecor(this.scene, this.world, {
+          max: this.xlowQ ? 200 : this.lowQ ? 500 : Infinity,
+        })
+      );
+      const fc = (this.firecrackers = new Firecrackers(this.scene));
+      this.interiors.updaters.push((dt, g) => fc.update(dt, g));
+    }
 
     const gate = data.pois.find((p) => p.name === '舊校門') || { x: -231, z: 39 };
     const im = this.world.named['資訊管理學系'];
@@ -716,21 +729,50 @@ class Game {
     cv.width = 64;
     cv.height = 80;
     const g = cv.getContext('2d');
-    g.fillStyle = '#ffcc33';
-    g.fillRect(0, 0, 64, 80);
-    g.strokeStyle = '#a66b00';
-    g.lineWidth = 6;
-    g.strokeRect(3, 3, 58, 74);
-    g.fillStyle = '#7a3d00';
-    g.font = '900 40px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText('票', 32, 42);
+    // 過年（1、2 月，src/world/Season.js）換成紅包的樣子，但還是選票（中間的字照樣是「票」）
+    const cny = isLunarNewYear();
+    if (cny) {
+      g.fillStyle = '#c8101e';
+      g.fillRect(0, 0, 64, 80);
+      // envelope flap
+      g.fillStyle = '#a50c18';
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.lineTo(64, 0);
+      g.lineTo(64, 14);
+      g.quadraticCurveTo(32, 34, 0, 14);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = '#f2c14e';
+      g.lineWidth = 3;
+      g.strokeRect(3, 3, 58, 74);
+      // gold seal with the 票
+      g.fillStyle = '#f2c14e';
+      g.beginPath();
+      g.arc(32, 46, 19, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#b30d1a';
+      g.font = '900 28px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('票', 32, 47);
+    } else {
+      g.fillStyle = '#ffcc33';
+      g.fillRect(0, 0, 64, 80);
+      g.strokeStyle = '#a66b00';
+      g.lineWidth = 6;
+      g.strokeRect(3, 3, 58, 74);
+      g.fillStyle = '#7a3d00';
+      g.font = '900 40px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('票', 32, 42);
+    }
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({
       map: tex,
-      emissive: '#ffb300',
+      emissive: cny ? '#ff2a1a' : '#ffb300',
       emissiveIntensity: 0.5,
       metalness: 0.3,
       roughness: 0.4,

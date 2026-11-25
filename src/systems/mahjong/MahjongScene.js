@@ -848,6 +848,7 @@ export class MahjongScene {
       return;
     }
     if (a.type === 'mpStart') return this.mj.startMultiHost();
+    if (a.type === 'spectateNext') return this.mj.spectateNext();
     if (a.type === 'next') return this.mj.next();
     if (a.type === 'stake') return this._pickStake(a.i);
     if (a.type === 'view') return this._toggleView();
@@ -885,7 +886,9 @@ export class MahjongScene {
     }
     if (this.result) {
       if (!this.mj.isGuest && inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE'))
-        this._do({ type: this.resNext ? 'next' : 'leave' });
+        this._do({
+          type: this.resSpectate ? 'spectateNext' : this.resNext ? 'next' : 'leave',
+        });
       return;
     }
     const p = e.pending;
@@ -985,7 +988,7 @@ export class MahjongScene {
         : `碰到${R}、${S}的刻子各算 1 台`;
     const tier = this.mj.aiTier?.();
     const extra = this.mj.isMulti
-      ? `<dt>房號</dt><dd>${esc(this.mj.mp?.code || '連線')}</dd>`
+      ? `<dt>房號</dt><dd>${esc(this.mj.mp?.code || '連線')}</dd>${this.mj.sess?.spectating ? '<dt>狀態</dt><dd>👀 觀戰（AI 代打）</dd>' : ''}`
       : tier?.badge
         ? `<dt>牌風</dt><dd>${tier.badge}</dd>`
         : '';
@@ -1540,6 +1543,7 @@ export class MahjongScene {
     this.result = r;
     const end = this.mj.handOver(r);
     this.resNext = !end.over && !end.broke;
+    this.resSpectate = !end.over && !!end.canSpectate;
     this._layout();
     const money = (n) =>
       `${n > 0 ? '+' : n < 0 ? '−' : '±'}NT$ ${Math.abs(n).toLocaleString('en-US')}`;
@@ -1565,15 +1569,22 @@ export class MahjongScene {
     html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 ? 'me' : ''}">${esc(this.names[s])} ${money(d)}</span>`).join('')}</div>`;
     if (end.banter && !end.broke && !end.over)
       html += `<p class="mj-banter ${end.banter.dir}">💬 <b>${esc(end.banter.name)}</b>：「${esc(end.banter.text)}」</p>`;
-    if (end.broke) html += '<p class="neg">💸 錢包見底了，不能再打了</p>';
+    if (end.canSpectate)
+      html += '<p class="neg">💸 錢包見底了！可改為觀戰並由 AI 代打，讓朋友繼續打完這將</p>';
+    else if (end.broke) html += '<p class="neg">💸 錢包見底了，不能再打了</p>';
     else if (end.over) html += '<p>🀄 北風北打完了，一將結束！</p>';
+    else if (end.spectating)
+      html += '<p class="mj-small">👀 觀戰中（由 AI 代打，不再變動你的錢包）</p>';
     else if (this.mj.isGuest) html += '<p class="mj-small">⏳ 等待房主開下一局…</p>';
-    const nextBtn =
-      this.resNext && !this.mj.isGuest
+    const nextBtn = this.resSpectate
+      ? `<button data-a='{"type":"spectateNext"}'><kbd>Enter</kbd> 👀 觀戰繼續（AI 代打）</button>`
+      : this.resNext && !this.mj.isGuest
         ? `<button data-a='{"type":"next"}'><kbd>Enter</kbd> 下一局</button>`
         : '';
     const leaveLabel = this.mj.isMulti
-      ? '離開房間'
+      ? this.mj.mpMode === 'host'
+        ? '解散房間'
+        : '離開房間'
       : this.resNext
         ? '散場'
         : '<kbd>Enter</kbd> 散場';

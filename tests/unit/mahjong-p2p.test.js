@@ -338,4 +338,76 @@ describe('房主＋客端 P2P 房間流程與本機金錢結算（P2P.js + Mahjo
     expect(lobby?.seats?.[0]?.name).toBe('彥霖');
     host.close();
   });
+
+  it('方案 A：客端輸到沒錢會在下局自動退桌由 AI 接手；房主輸到沒錢可轉觀戰＋AI 代打', async () => {
+    const bus = createMockBus();
+    const hostGame = fakeGame(100);
+    const guestGame = fakeGame(50);
+    const hostMj = new DormMahjong(hostGame);
+    const guestMj = new DormMahjong(guestGame);
+    const stubScene = () => ({
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand() {},
+      _layout() {},
+      _showResult() {},
+      result: null,
+      names: [],
+    });
+    hostMj.scene = stubScene();
+    guestMj.scene = stubScene();
+
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+    await guestMj.joinRoom(code, '小明', bus);
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    hostMj.startMultiHost();
+    expect(hostMj.mp.peerCount).toBe(1);
+
+    // 1. 房主輸到負錢（money <= 0），但客端還在房內 → 回傳 canSpectate: true
+    const hostEnd = hostMj.handOver({
+      winner: 1,
+      from: 0,
+      tai: 4,
+      deltas: [-150, 150, 0, 0],
+      dealerStays: false,
+    });
+    expect(hostGame.money).toBe(-50);
+    expect(hostEnd.broke).toBe(true);
+    expect(hostEnd.canSpectate).toBe(true);
+
+    // 房主切為觀戰模式（AI 代打座位 0），再打一局不應再變動房主錢包
+    hostMj.spectateNext();
+    expect(hostMj.sess.spectating).toBe(true);
+    expect(hostMj.sess.human[0]).toBe(false);
+    const specEnd = hostMj.handOver({
+      winner: 0,
+      from: 2,
+      tai: 2,
+      deltas: [50, 0, -50, 0],
+      dealerStays: true,
+    });
+    expect(specEnd.spectating).toBe(true);
+    expect(specEnd.broke).toBe(false);
+    expect(hostGame.money).toBe(-50); // 觀戰不計錢
+
+    // 2. 客端輸到沒錢後，房主按下一局 → 客端自動退桌、房主立刻把客端座位轉交 AI
+    guestMj.handOver({
+      winner: 2,
+      from: 0,
+      tai: 3,
+      deltas: [-100, 0, 100, 0],
+      dealerStays: false,
+    });
+    expect(guestGame.money).toBe(-50);
+    hostMj.next(); // 廣播 next
+    expect(guestMj.mp).toBe(null); // 客端已自動離桌
+    expect(hostMj.sess.human[1]).toBe(false); // 房主已把座位 1 交給 AI
+    expect(hostGame.toasts.some((t) => t.includes('錢包見底離桌'))).toBe(true);
+
+    hostMj.leave(false);
+  });
 });

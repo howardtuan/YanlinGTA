@@ -20,6 +20,7 @@
     "test:wasm": "node tools/check_wasm.mjs",
     "check:dist": "node tools/check_dist.mjs",
     "profile:scene": "node tools/profile_scene.mjs",
+    "profile:mobile": "node tools/profile_scene.mjs --mobile --play --markdown",
     "test:e2e": "node tools/e2e/story-bot.mjs",
     "ci": "npm run format:check && npm run lint && npm test && npm run build && npm run check:dist"
   },

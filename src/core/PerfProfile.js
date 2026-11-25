@@ -1,5 +1,5 @@
 /**
- * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?stream=`, `?diag=`).
+ * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?stream=`, `?diag=`, `?safemode=`).
  * Visual quality settings (`far`, `fog`, `pr`, `shadows`, `view`, `PostFX`) remain owned solely by `GameLoop.js` (`QPROF`).
  */
 
@@ -141,8 +141,30 @@ function resolveDiagMode(params) {
   return 'off';
 }
 
+function resolveSafeModeOverride(params) {
+  if (!params.has('safemode')) return null;
+  const norm = (params.get('safemode') ?? '').trim().toLowerCase();
+  if (norm === '0' || norm === 'false' || norm === 'off') return false;
+  if (norm === '' || norm === '1' || norm === 'true' || norm === 'on') return true;
+  return null;
+}
+
 /**
- * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?stream=` / `?diag=` URL overrides.
+ * Clamp texture & atlas budgets when self-healing safe mode is active (preserving explicit `?texscale=`).
+ */
+export function applySafeMode(profile) {
+  if (!profile) return profile;
+  if (profile.flags?.texScale == null) {
+    profile.texScale = Math.min(profile.texScale, 0.375);
+  }
+  profile.atlasMaxW = Math.min(profile.atlasMaxW, 1024);
+  profile.atlasMaxH = Math.min(profile.atlasMaxH, 1024);
+  profile.safeMode = true;
+  return profile;
+}
+
+/**
+ * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?stream=` / `?diag=` / `?safemode=` URL overrides.
  */
 export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const search =
@@ -177,8 +199,9 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
 
   const diagParam = params.has('diag') ? params.get('diag') : null;
   const diagMode = resolveDiagMode(params);
+  const safeModeOverride = resolveSafeModeOverride(params);
 
-  return {
+  const profile = {
     tier,
     texScale,
     atlasMaxW: base.atlasMaxW,
@@ -188,6 +211,7 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
     streaming: STREAMING_PROFILES[stream],
     diagMode,
     diagEnabled: diagMode !== 'off',
+    safeMode: false,
     touch,
     gpuRenderer,
     flags: {
@@ -196,6 +220,12 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
         Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : null,
       stream: streamParam !== null ? streamParam : null,
       diag: diagParam,
+      safeMode: safeModeOverride,
     },
   };
+
+  if (safeModeOverride === true || (safeModeOverride === null && env.safeMode === true)) {
+    applySafeMode(profile);
+  }
+  return profile;
 }

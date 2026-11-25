@@ -1,10 +1,12 @@
 /**
- * Persistent boot-stage checkpoint tracker (`?diag=1` / `?diag=halt`).
- * Records the last reached startup stage in localStorage so mobile Jetsam reload loops
- * without USB Web Inspector still reveal which exact stage crashed or stalled.
+ * Persistent boot-stage checkpoint tracker & player self-healing safe-mode controller.
+ * - Developer mode (`?diag=1` / `?diag=halt`): shows crash breadcrumbs & breaks iOS reload loops.
+ * - Player self-healing (always on unless `?safemode=0`): activates low-memory `safeMode` after
+ *   2 unfinished boots or `webglcontextlost`, then auto-recovers after 180s of healthy play.
  */
 
 export const BOOT_DIAG_KEY = 'yanlinGTA.bootDiag.v1';
+export const HEALTHY_RECOVERY_SEC = 180;
 
 function readStored(storage) {
   if (!storage) return null;
@@ -30,6 +32,7 @@ function formatStages(stages = []) {
 
 export function createBootDiag({
   diagMode = 'off',
+  safeModeOverride = null,
   storage = typeof localStorage !== 'undefined' ? localStorage : null,
   doc = typeof document !== 'undefined' ? document : null,
   now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
@@ -40,6 +43,9 @@ export function createBootDiag({
     current: null,
     lastCrash: null,
     crashCount: 0,
+    safeMode: false,
+    contextLost: false,
+    healthySec: 0,
   };
   let box = null;
   let summaryEl = null;
@@ -81,16 +87,17 @@ export function createBootDiag({
   const renderOverlay = () => {
     if (!box) return;
     const lc = state.lastCrash;
+    const safeTag = state.safeMode ? ' · 🛡️ 安全降階模式(SAFE)' : '';
     if (lc) {
       const errText = lc.error ? `\n錯誤: ${lc.error}` : '';
       summaryEl.textContent =
-        `⚠ 上次未完成載入（連續 ${state.crashCount} 次）\n` +
+        `⚠ 上次未完成載入（連續 ${state.crashCount} 次${safeTag}）\n` +
         `停在: ${lc.step} (${Math.round((lc.pct || 0) * 100)}% ${lc.label || ''}) +${lc.elapsedMs || 0}ms${errText}\n` +
         `已過: ${formatStages(lc.stages)}`;
       summaryEl.style.color = '#ffd23f';
       summaryEl.style.marginBottom = '6px';
     } else {
-      summaryEl.textContent = '🩺 BootDiag 監控中（無前次異常）';
+      summaryEl.textContent = `🩺 BootDiag 監控中（無前次異常${safeTag}）`;
       summaryEl.style.color = '#9be7a8';
       summaryEl.style.marginBottom = '4px';
     }
@@ -128,19 +135,27 @@ export function createBootDiag({
   return {
     async begin() {
       const prev = readStored(storage);
+      let nextCrashCount = 0;
+      let lastCrash = prev?.lastCrash || null;
       if (prev?.current && !prev.current.completed) {
-        state = {
-          current: null,
-          lastCrash: { ...prev.current },
-          crashCount: (prev.crashCount || 0) + 1,
-        };
-      } else {
-        state = {
-          current: null,
-          lastCrash: prev?.lastCrash || null,
-          crashCount: 0,
-        };
+        lastCrash = { ...prev.current };
+        nextCrashCount = (prev.crashCount || 0) + 1;
       }
+
+      const prevSafe = Boolean(prev?.safeMode);
+      const prevCtxLost = Boolean(prev?.contextLost);
+      const autoSafe = prevSafe || prevCtxLost || nextCrashCount >= 2;
+      const safeMode =
+        safeModeOverride === false ? false : safeModeOverride === true ? true : autoSafe;
+
+      state = {
+        current: null,
+        lastCrash,
+        crashCount: nextCrashCount,
+        safeMode,
+        contextLost: safeModeOverride === false ? false : prevCtxLost,
+        healthySec: 0,
+      };
 
       stepStart = now();
       state.current = {
@@ -239,6 +254,34 @@ export function createBootDiag({
       writeStored(storage, state);
       renderOverlay();
       if (box) addDismissButton();
+    },
+
+    attachCanvas(canvas) {
+      if (!canvas?.addEventListener) return;
+      canvas.addEventListener('webglcontextlost', () => {
+        state.contextLost = true;
+        if (safeModeOverride !== false) state.safeMode = true;
+        writeStored(storage, state);
+        renderOverlay();
+      });
+    },
+
+    tickHealthy(dt) {
+      if (!(dt > 0)) return false;
+      if (!state.safeMode && !state.contextLost && state.crashCount === 0) return false;
+      state.healthySec += dt;
+      if (state.healthySec < HEALTHY_RECOVERY_SEC) return false;
+      state.safeMode = false;
+      state.contextLost = false;
+      state.crashCount = 0;
+      state.healthySec = 0;
+      writeStored(storage, state);
+      renderOverlay();
+      return true;
+    },
+
+    isSafeMode() {
+      return Boolean(state.safeMode);
     },
 
     getState() {

@@ -229,7 +229,8 @@ export class GameLoop {
         const ph = game.physics?.world;
         const mem = r.info.memory;
         const tier = game.perfProfile?.tier || '-';
-        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${game.quality}  WASM ${kernelsReady() ? '開' : '關'}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}\n紋理 ${mem.textures}  幾何 ${mem.geometries}  檔位 ${tier}\n${gpu}`;
+        const safeTag = game.perfProfile?.safeMode ? ' [SAFE]' : '';
+        el.textContent = `${fps.toFixed(0)} fps  ${(P.ms / Math.max(1, P.n - 1)).toFixed(1)} ms\n繪圖呼叫 ${P.calls}  三角形 ${(P.tris / 1000).toFixed(0)}k\n畫質 ${game.quality}  WASM ${kernelsReady() ? '開' : '關'}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}\n紋理 ${mem.textures}  幾何 ${mem.geometries}  檔位 ${tier}${safeTag}\n${gpu}`;
         P.n = 0;
         P.ms = 0;
         P.t0 = now;
@@ -271,8 +272,10 @@ export class GameLoop {
       game.prompts?.tick();
     }
     if (game.state === 'title') this.titleCam(dt);
-    else if (game.state === 'play') game._update(dt);
-    else if (game.state === 'ending') {
+    else if (game.state === 'play') {
+      game._update(dt);
+      game.bootDiag?.tickHealthy(dt);
+    } else if (game.state === 'ending') {
       game.rig.yaw += dt * 0.1;
       game.rig.update(dt, { mdx: 0, mdy: 0 }, game.player, game.world.collision, 1, game.interiors);
     }

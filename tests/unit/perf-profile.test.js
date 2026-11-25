@@ -3,6 +3,7 @@ import {
   TIERS,
   STREAMING_PROFILES,
   detectTier,
+  applySafeMode,
   resolveRuntimeProfile,
 } from '../../src/core/PerfProfile.js';
 
@@ -51,8 +52,8 @@ describe('PerfProfile', () => {
     });
   });
 
-  describe('resolveRuntimeProfile', () => {
-    it('uses hardware tier defaults and keeps streaming and diag disabled by default', () => {
+  describe('resolveRuntimeProfile & safeMode', () => {
+    it('uses hardware tier defaults and keeps streaming, diag, and safeMode disabled by default', () => {
       const profile = resolveRuntimeProfile(
         {},
         { search: '', touch: false, gpuRenderer: 'RTX 4060' }
@@ -66,6 +67,7 @@ describe('PerfProfile', () => {
       expect(profile.streaming).toEqual(STREAMING_PROFILES.off);
       expect(profile.diagMode).toBe('off');
       expect(profile.diagEnabled).toBe(false);
+      expect(profile.safeMode).toBe(false);
     });
 
     it('applies valid ?tier=, ?texscale=, ?stream=, and ?diag URL overrides without probing GPU', () => {
@@ -88,6 +90,34 @@ describe('PerfProfile', () => {
       expect(profile.streaming).toEqual(STREAMING_PROFILES.mobile);
       expect(profile.diagMode).toBe('on');
       expect(profile.diagEnabled).toBe(true);
+    });
+
+    it('supports ?safemode=1 / ?safemode=0 and clamps budgets via applySafeMode while honoring ?texscale=', () => {
+      const safe = resolveRuntimeProfile(
+        {},
+        { search: '?safemode=1', touch: false, gpuRenderer: 'NVIDIA GeForce RTX 4060' }
+      );
+      expect(safe.safeMode).toBe(true);
+      expect(safe.texScale).toBe(0.375);
+      expect(safe.atlasMaxW).toBe(1024);
+      expect(safe.atlasMaxH).toBe(1024);
+
+      const customTex = resolveRuntimeProfile(
+        {},
+        { search: '?texscale=0.5', touch: true, gpuRenderer: 'Apple GPU' }
+      );
+      applySafeMode(customTex);
+      expect(customTex.safeMode).toBe(true);
+      expect(customTex.texScale).toBe(0.5);
+      expect(customTex.atlasMaxW).toBe(1024);
+      expect(customTex.atlasMaxH).toBe(1024);
+
+      const bypassed = resolveRuntimeProfile(
+        {},
+        { search: '?safemode=0', touch: true, safeMode: true }
+      );
+      expect(bypassed.safeMode).toBe(false);
+      expect(bypassed.flags.safeMode).toBe(false);
     });
 
     it('supports bare ?diag and ?diag=halt flags', () => {
@@ -139,7 +169,7 @@ describe('PerfProfile', () => {
       const profile = resolveRuntimeProfile(
         {},
         {
-          search: '?tier=ultra&texscale=99&stream=unknown&diag=weird',
+          search: '?tier=ultra&texscale=99&stream=unknown&diag=weird&safemode=maybe',
           touch: false,
           gpuRenderer: 'Apple M2',
         }
@@ -153,6 +183,7 @@ describe('PerfProfile', () => {
         texScale: null,
         stream: 'unknown',
         diag: 'weird',
+        safeMode: null,
       });
     });
   });

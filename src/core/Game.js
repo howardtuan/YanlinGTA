@@ -95,7 +95,7 @@ import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
-import { resolveRuntimeProfile } from './PerfProfile.js';
+import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
 import { createBootDiag } from './BootDiag.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 
@@ -123,8 +123,12 @@ class Game {
     this.vehicleSpawner = new VehicleSpawner(this);
     this.settings = loadSettings();
     this.perfProfile = resolveRuntimeProfile(this.settings);
-    this.bootDiag = createBootDiag({ diagMode: this.perfProfile.diagMode });
+    this.bootDiag = createBootDiag({
+      diagMode: this.perfProfile.diagMode,
+      safeModeOverride: this.perfProfile.flags.safeMode,
+    });
     await this.bootDiag.begin();
+    if (this.bootDiag.isSafeMode()) applySafeMode(this.perfProfile);
 
     const stage = async (key, p, t) => {
       setLoad(p, t);
@@ -145,6 +149,9 @@ class Game {
     loadTerrain(terrain);
     this.data = data;
     this.quality = resolveQuality(this.settings.quality, this.settings);
+    if (this.bootDiag.isSafeMode() && (this.settings.quality || 'auto') === 'auto') {
+      this.quality = 'low';
+    }
     this.lowQ = this.quality === 'low' || this.quality === 'xlow';
     this.xlowQ = this.quality === 'xlow';
 
@@ -297,6 +304,7 @@ class Game {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     r.domElement.id = 'game';
+    this.bootDiag.attachCanvas(r.domElement);
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
     installShadowDepth(r, this.scene, () => this.quality !== 'high');
@@ -361,6 +369,9 @@ class Game {
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);
     this.hud = new HUD(this.world);
+    if (this.bootDiag.isSafeMode()) {
+      this.hud.toast('已自動啟用低記憶體安全模式，穩定遊玩 3 分鐘後將自動恢復', 'good', 4500);
+    }
     this.player = new Player(this.scene);
     this.rig = new CameraRig(this.camera);
     this.fpv = new FirstPerson(this);

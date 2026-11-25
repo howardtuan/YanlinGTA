@@ -112,9 +112,12 @@ const setLoad = (p, t) => {
   const tx = $('loadText');
   if (tx) tx.textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`;
 };
+// resolves after the browser has painted: an await on a bare requestAnimationFrame resumes inside that frame's
+// callbacks, before the paint, so the long synchronous step stage() starts next (buildWorld, buildInteriors) would
+// keep the previous loading text on screen for its whole run
 const nextFrame = () =>
   new Promise((r) => {
-    requestAnimationFrame(() => r());
+    requestAnimationFrame(() => setTimeout(r, 0));
   });
 
 class Game {

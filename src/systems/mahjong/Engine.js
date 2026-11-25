@@ -183,29 +183,77 @@ export class MahjongEngine {
     return true;
   }
 
-  // the human's answer to pending
-  decide(a) {
-    const p = this.pending;
-    if (!p) return false;
+  // pending decision for a specific seat (supports multiple humans answering claims concurrently)
+  pendingFor(s) {
+    if (this.phase === 'turn' && this.pending?.seat === s) return this.pending;
+    if (
+      (this.phase === 'claim' || this.phase === 'robkong') &&
+      this.answers &&
+      this.claimOpts?.[s] &&
+      !this.answers[s]
+    )
+      return { seat: s, kind: 'claim', options: this.claimOpts[s] };
+    return null;
+  }
+
+  // a specific human seat's answer to its pending turn or claim
+  decideFor(s, a) {
+    const p = this.pendingFor(s);
+    if (!p || !a) return false;
     if (p.kind === 'turn') {
       if (a.type === 'tsumo' && !p.options.tsumo) return false;
       if (a.type === 'kong' && !p.options.kongs.some((k) => k.t === a.t)) return false;
-      if (a.type === 'discard' && !this.players[p.seat].hand.includes(a.t)) return false;
+      if (a.type === 'discard' && !this.players[s].hand.includes(a.t)) return false;
       this.pending = null;
-      this._act(p.seat, a);
+      this._act(s, a);
     } else {
       if (
         a.type !== 'pass' &&
         !p.options.some((o) => o.type === a.type && (a.t == null || o.t === a.t))
       )
         return false;
-      this.pending = null;
-      this.answers[p.seat] =
+      this.answers[s] =
         a.type === 'pass'
           ? { type: 'pass' }
           : p.options.find((o) => o.type === a.type && (a.t == null || o.t === a.t));
+      this._syncClaimPending();
     }
     return true;
+  }
+
+  // the human's answer to pending (single-player convenience)
+  decide(a) {
+    return this.pending ? this.decideFor(this.pending.seat, a) : false;
+  }
+
+  // hand a disconnected human seat over to AI mid-hand without stalling the table
+  handOverToAI(s) {
+    this.human[s] = false;
+    if (this.phase === 'turn' && this.pending?.seat === s) {
+      this.pending = null;
+      return true;
+    }
+    if (
+      (this.phase === 'claim' || this.phase === 'robkong') &&
+      this.answers &&
+      this.claimOpts?.[s] &&
+      !this.answers[s]
+    ) {
+      this.answers[s] = this.ai(this, s, 'claim', this.claimOpts[s]) || { type: 'pass' };
+      this._syncClaimPending();
+      return true;
+    }
+    return false;
+  }
+
+  _syncClaimPending() {
+    for (const k in this.claimOpts) {
+      if (!this.answers[k]) {
+        this.pending = { seat: +k, kind: 'claim', options: this.claimOpts[k] };
+        return;
+      }
+    }
+    this.pending = null;
   }
 
   _act(s, a) {
@@ -222,6 +270,7 @@ export class MahjongEngine {
       this.emit({ type: 'discard', seat: s, t });
       this.phase = 'claim';
       this.answers = null;
+      this.claimOpts = null;
       return;
     }
     if (a.type === 'tsumo') return this._win(s, null, this.drawn);
@@ -244,6 +293,7 @@ export class MahjongEngine {
       this.last = { t: a.t, from: s, rob: true };
       this.phase = 'robkong';
       this.answers = null;
+      this.claimOpts = null;
     }
   }
 

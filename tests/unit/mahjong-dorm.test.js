@@ -123,11 +123,19 @@ describe('揪人', () => {
 });
 
 describe('開打條件', () => {
-  it('any time of day, as long as the wallet is above zero', () => {
+  it('any time of day, as long as the wallet is above zero (press opens mode menu; solo gathers)', () => {
     for (const h of [3, 9, 14, 22]) {
       const g = fakeGame({}, { clock: h * 60 });
       const mj = new DormMahjong(g);
+      let modeOpened = false;
+      mj.scene = {
+        open() {},
+        close() {},
+        chooseMode: () => (modeOpened = true),
+      };
       mj.press();
+      expect(modeOpened).toBe(true);
+      mj.pickMode('solo');
       expect(mj.state).toBe('gather');
     }
   });
@@ -144,7 +152,7 @@ describe('開打條件', () => {
   it('waits for everyone to arrive; E fast-forwards the clock', () => {
     const g = fakeGame({ zz: { mode: 'sleep' }, houshe: { mode: 'date' } });
     const mj = new DormMahjong(g);
-    mj.press();
+    mj.gather();
     const st = mj.party.map((p) => p.st);
     expect(st).toEqual(['dorm', 'dorm', 'dorm']); // jianyu, hank, gd are awake in their rooms
     expect(mj.label()).toContain('等');
@@ -160,7 +168,7 @@ describe('開打條件', () => {
     g2.howard.mode = 'walk';
     g2.richard.mode = 'walk';
     const m2 = new DormMahjong(g2);
-    m2.press();
+    m2.gather();
     const t0 = g2.clock;
     m2.press(); // not everyone is here yet: fast-forward
     expect(g2.clock).toBe(t0 + DELAY.out);
@@ -169,7 +177,7 @@ describe('開打條件', () => {
   it('the ones at the table are taken off their day, and back once you leave', () => {
     const g = fakeGame();
     const mj = new DormMahjong(g);
-    mj.press();
+    mj.gather();
     expect(mj.has('zz')).toBe(true);
     expect(mj.has('richard')).toBe(false);
     expect(mj.where('zz').status).toContain('277');
@@ -183,7 +191,7 @@ describe('開打條件', () => {
   it('walking away while they come calls it off', () => {
     const g = fakeGame();
     const mj = new DormMahjong(g);
-    mj.press();
+    mj.gather();
     g.player.pos = { x: 100, z: 0 };
     mj.update(0.016);
     expect(mj.state).toBe(null);
@@ -237,7 +245,7 @@ describe('抓位、擲骰定莊', () => {
   it('everyone moves to the seat of the wind they drew; whoever drew 東 throws for the first dealer', () => {
     const g = fakeGame();
     const mj = new DormMahjong(g);
-    mj.press();
+    mj.gather();
     mj.sess = { dealer: 0, streak: 0, passes: 0, hands: 0, net: 0 };
     const before = Object.fromEntries(mj.party.map((p) => [p.id, p.seat]));
     let call;
@@ -276,7 +284,7 @@ describe('動態難度與室友短台詞', () => {
   const setupTable = (skill = 0.5, stake = 1) => {
     const g = fakeGame({}, { money: 5000 });
     const mj = new DormMahjong(g);
-    mj.press();
+    mj.gather();
     mj.stats.skill = skill;
     mj.stats.stake = stake;
     mj.sess = {

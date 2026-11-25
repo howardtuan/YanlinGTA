@@ -8208,6 +8208,118 @@ body.mahjong #dialog {
   border-left-color: #7bdff2;
   background: rgba(123, 223, 242, 0.12);
 }
+#mjUI .mj-mode-btns {
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+#mjUI .mj-mode-btns button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 16px;
+}
+#mjUI .mj-mode-btns small {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+#mjUI .mj-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  text-align: left;
+}
+#mjUI .mj-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+#mjUI .mj-form input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 14px;
+}
+#mjUI .mj-mp-box {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#mjUI .mj-mp-box b {
+  font-size: 13px;
+  color: #ffd166;
+}
+#mjUI .mj-join-row {
+  display: flex;
+  gap: 8px;
+}
+#mjUI .mj-join-row input {
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-weight: 700;
+  text-align: center;
+}
+#mjUI .mj-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 209, 102, 0.14);
+}
+#mjUI .mj-code {
+  font-size: 22px;
+  letter-spacing: 4px;
+  color: #ffd166;
+}
+#mjUI .mj-code-bar button {
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+#mjUI .mj-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+  text-align: left;
+}
+#mjUI .mj-seat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 13px;
+}
+#mjUI .mj-seat-row i {
+  font-style: normal;
+  opacity: 0.7;
+  font-size: 12px;
+}
+#mjUI .mj-wait-slot {
+  opacity: 0.65;
+}
 #mjUI .mj-btns {
   display: flex;
   justify-content: center;

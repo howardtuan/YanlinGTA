@@ -20,7 +20,7 @@ function seeded(seed) {
   };
 }
 
-// 記憶體內模擬 Trystero 房間匯流排：多個節點不需真正 WebRTC 即可跑完整房間協定
+// 記憶體內模擬 trystero@0.27 房間匯流排（MessageAction: { send(data, { target }), onMessage(cb(data, ctx)) }）
 function createMockBus() {
   const rooms = new Map();
   let nextPeer = 1;
@@ -34,35 +34,47 @@ function createMockBus() {
     const node = {
       id,
       deliver(name, data, from) {
-        handlers.get(name)?.(structuredClone(data), from);
+        handlers.get(name)?.(structuredClone(data), { peerId: from, userId: from, roles: [] });
       },
       notifyJoin(other) {
-        for (const cb of joinCbs) cb(other);
+        for (const cb of joinCbs) cb({ peerId: other, userId: other, roles: [] });
       },
       notifyLeave(other) {
-        for (const cb of leaveCbs) cb(other);
+        for (const cb of leaveCbs) cb({ peerId: other, userId: other });
       },
     };
     const existing = [...peers.values()];
     peers.set(id, node);
     const api = {
       makeAction(name) {
-        const send = (data, target) => {
-          if (target) peers.get(target)?.deliver(name, data, id);
-          else for (const [pid, p] of peers) if (pid !== id) p.deliver(name, data, id);
+        return {
+          send(data, opts) {
+            const target = opts?.target;
+            if (target) peers.get(target)?.deliver(name, data, id);
+            else for (const [pid, p] of peers) if (pid !== id) p.deliver(name, data, id);
+            return Promise.resolve();
+          },
+          onMessage(cb) {
+            handlers.set(name, cb);
+            return () => handlers.delete(name);
+          },
         };
-        const on = (cb) => handlers.set(name, cb);
-        return [send, on];
       },
       onPeerJoin(cb) {
         joinCbs.push(cb);
+        return () => {};
       },
       onPeerLeave(cb) {
         leaveCbs.push(cb);
+        return () => {};
+      },
+      onError() {
+        return () => {};
       },
       leave() {
         peers.delete(id);
         for (const p of peers.values()) p.notifyLeave(id);
+        return Promise.resolve();
       },
     };
     // 模擬配對成功通知
@@ -305,5 +317,25 @@ describe('房主＋客端 P2P 房間流程與本機金錢結算（P2P.js + Mahjo
     hostRoom.close();
     guestRoom.close();
     expect(guestAI).toBeTypeOf('function');
+  });
+
+  it('實際呼叫 trystero joinRoom + createHostRoom 符合 0.27 API 不會拋錯', async () => {
+    const { joinRoom } = await import('trystero');
+    let lobby = null;
+    const host = await createHostRoom({
+      code: 'LIVE',
+      name: '彥霖',
+      stake: 0,
+      joinRoomFn: (roomId) =>
+        joinRoom(
+          { appId: 'yanlin-gta-mahjong-test', identity: 'none', relayConfig: { urls: [] } },
+          roomId
+        ),
+      onLobby: (l) => (lobby = l),
+    });
+    expect(host.code).toBe('LIVE');
+    expect(lobby?.code).toBe('LIVE');
+    expect(lobby?.seats?.[0]?.name).toBe('彥霖');
+    host.close();
   });
 });

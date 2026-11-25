@@ -10,7 +10,7 @@
 // - Pressing F nearby claims the slot and materializes a real drivable Vehicle of the exact same kind & color.
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
-import { sameLevel, getParkedCarAssets } from '../entities/Vehicles.js';
+import { sameLevel, getParkedCarAssets, CRASH_STOP, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
 import { vmass, KNOCK_E } from './VehicleSpawner.js';
 
@@ -116,6 +116,7 @@ export class ParkedScooters {
     this.carPaintIm = null;
     this.carTrimIm = null;
     this.chunks = [];
+    this._moverSlots = new Set();
     this._visX = 1e9;
     this._visZ = 1e9;
     this._build();
@@ -315,9 +316,14 @@ export class ParkedScooters {
           color: item.color,
           tilt: item.tilt,
           state: 'static',
-          physKey: { parked: true },
+          physKey: null,
           cx: 0,
           cz: 0,
+        };
+        slot.physKey = {
+          parkedSlot: slot,
+          label: isCar ? '路邊汽車' : '路邊機車',
+          onHit: (v, hit, onBump) => this.onChassisHit(slot, v, hit, onBump),
         };
         this.slots.push(slot);
         list.push(slot);
@@ -442,11 +448,11 @@ export class ParkedScooters {
     return anyHit;
   }
 
-  // Feed nearby static parked cars (and low-speed scooters) into Rapier's kinematic movers list
-  // so the player's Rapier Chassis physically collides with them instead of clipping through.
+  // Feed nearby parked cars & scooters (static or fallen) into Rapier's kinematic movers list at all speeds
+  // so the player's Rapier Chassis collides cleanly at 60 Hz with exact contact normals and zero overlap explosions.
   appendMovers(list, x, z, pv) {
+    this._moverSlots.clear();
     if (!this.slots.length || !pv?.body) return;
-    const sp = Math.abs(pv.speed || 0);
     const py = pv.mesh?.position?.y ?? 0;
     const nearCars = [];
     const nearScooters = [];
@@ -455,11 +461,12 @@ export class ParkedScooters {
       if (!sameLevel(s.y, py)) return;
       const d = Math.hypot(s.x - x, s.z - z);
       if (s.kind === 'car' && d < 20) nearCars.push([d, s]);
-      else if (s.kind === 'scooter' && sp < 0.5 && d < 10) nearScooters.push([d, s]);
+      else if (s.kind === 'scooter' && d < 14) nearScooters.push([d, s]);
     });
     nearCars.sort((a, b) => a[0] - b[0]);
     for (let i = 0; i < Math.min(8, nearCars.length); i++) {
       const s = nearCars[i][1];
+      this._moverSlots.add(s);
       list.push({
         key: s.physKey,
         x: s.x,
@@ -474,8 +481,9 @@ export class ParkedScooters {
     }
     if (nearScooters.length) {
       nearScooters.sort((a, b) => a[0] - b[0]);
-      for (let i = 0; i < Math.min(8, nearScooters.length); i++) {
+      for (let i = 0; i < Math.min(16, nearScooters.length); i++) {
         const s = nearScooters[i][1];
+        this._moverSlots.add(s);
         list.push({
           key: s.physKey,
           x: s.x,
@@ -484,8 +492,8 @@ export class ParkedScooters {
           yaw: s.yaw,
           r: s.hw,
           hl: s.hl,
-          cy: 0.5,
-          hh: 0.45,
+          cy: 0.45,
+          hh: 0.42,
         });
       }
     }
@@ -545,11 +553,12 @@ export class ParkedScooters {
     return v;
   }
 
-  knockSlot(slot, vx, vz, dv) {
+  knockSlot(slot, vx, vz, dv, opt = null) {
     if (!slot || (slot.state !== 'static' && slot.state !== 'fallen')) return false;
     const g = this.game;
     const isCar = slot.kind === 'car';
     slot.state = 'flying';
+    this._moverSlots.delete(slot);
     g.physics?.dropMover?.(slot.physKey);
     this._hideSlot(slot);
     if (!isCar && this._scrapeCd <= 0 && dv > 1.2) {
@@ -564,7 +573,8 @@ export class ParkedScooters {
       P?.ready && this.activeKnocks.size < MAX_FLYING ? this._makeDebrisMesh(slot) : null;
 
     if (mesh) {
-      mesh.position.set(slot.x, slot.y + 0.04, slot.z);
+      // Nudge 4 cm clear along push vector so spawning the dynamic body never causes a Rapier overlap explosion
+      mesh.position.set(slot.x + dx * 0.04, slot.y + 0.02, slot.z + dz * 0.04);
       if (slot.quat) {
         mesh.quaternion.copy(slot.quat);
       } else {
@@ -575,21 +585,28 @@ export class ParkedScooters {
       mesh.updateMatrix();
       g.scene?.add(mesh);
 
-      const sp = isCar ? Math.min(2.5, dv * 0.14) : Math.min(14, dv * 1.15);
+      const sp = isCar ? 0 : Math.min(4.2, dv * 0.65);
+      const yawSpin = isCar
+        ? (slot.idx % 2 ? 0.28 : -0.28) * Math.min(3.5, dv * 0.55)
+        : (slot.idx % 2 ? 0.16 : -0.16) * Math.min(4, dv);
+      const vy = isCar ? 0 : (opt?.vy ?? Math.min(0.38, Math.max(0, (dv - 2.5) * 0.07)));
       const shape = isCar
         ? { shape: 'box', hx: 0.9, hy: 0.7, hz: 2.15, cy: 0.75 }
         : { shape: 'box', hx: 0.3, hy: 0.48, hz: 0.82 };
+      const physOpt = isCar
+        ? { linDamp: 2.6, angDamp: 3.0, friction: 1.15, restitution: 0.04 }
+        : { linDamp: 1.35, angDamp: 1.6, friction: 1.05, restitution: 0.06 };
       const rec = { slot, mesh, x: slot.x, y: slot.y, z: slot.z, vx, vz, dv };
       this.activeKnocks.add(rec);
       const knocked = P.knock(
         mesh,
         shape,
         slot.mass,
-        { x: vx, y: isCar ? 0.3 : Math.min(2.4, 0.85 + dv * 0.12), z: vz },
-        { x: dz * sp, y: (slot.idx % 2 ? 0.35 : -0.35) * dv * (isCar ? 0.35 : 1), z: -dx * sp },
-        (p) => {
-          rec.vx = (p.x - rec.x) * 60;
-          rec.vz = (p.z - rec.z) * 60;
+        { x: vx, y: vy, z: vz },
+        { x: sp ? dz * sp : 0, y: yawSpin, z: sp ? -dx * sp : 0 },
+        (p, _q, lv) => {
+          rec.vx = lv ? lv.x : (p.x - rec.x) * 60;
+          rec.vz = lv ? lv.z : (p.z - rec.z) * 60;
           rec.x = p.x;
           rec.y = p.y;
           rec.z = p.z;
@@ -606,7 +623,8 @@ export class ParkedScooters {
           this._indexMove(slot, p.x, p.z);
           this._writeSlotPose(slot, p.x, p.y, p.z, q);
         },
-        rec
+        rec,
+        physOpt
       );
       if (knocked) return true;
       this.activeKnocks.delete(rec);
@@ -614,12 +632,12 @@ export class ParkedScooters {
     }
 
     // Fallback without physics or when flying debris pool is full: settle directly in InstancedMesh
-    const shift = isCar ? Math.min(1.6, 0.35 + dv * 0.12) : Math.min(1.4, 0.45 + dv * 0.08);
+    const shift = isCar ? Math.min(1.2, 0.25 + dv * 0.12) : Math.min(1.0, 0.25 + dv * 0.1);
     const nx = slot.x + dx * shift;
     const nz = slot.z + dz * shift;
     const ny = surfaceAt(nx, nz);
     const dirSign = slot.idx % 2 ? 1 : -1;
-    _E.set(0, slot.yaw + dirSign * (isCar ? 0.18 : 0.35), isCar ? 0 : dirSign * 1.32, 'YXZ');
+    _E.set(0, slot.yaw + dirSign * (isCar ? 0.14 : 0.28), isCar ? 0 : dirSign * 1.32, 'YXZ');
     _Q.setFromEuler(_E);
     slot.state = 'fallen';
     slot.y = ny + (isCar ? 0 : 0.14);
@@ -629,17 +647,73 @@ export class ParkedScooters {
     return true;
   }
 
+  // Called by VehPhysics.Chassis.frame() when the player's Rapier body hits a parked scooter/car mover.
+  // hit.nx, hit.nz point from the parked slot toward the player's vehicle; hit.impact is normal closing speed (m/s).
+  onChassisHit(slot, v, hit, onBump) {
+    if (!slot || (slot.state !== 'static' && slot.state !== 'fallen')) return;
+    const impact = hit.impact;
+    const sp = hit.sp;
+    const pushX = -hit.nx,
+      pushZ = -hit.nz;
+    const isCar = slot.kind === 'car';
+    const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
+    const m2 = slot.mass;
+
+    if (impact > 1.8 && v.bumpCooldown <= 0) {
+      onBump?.(impact);
+      v.bumpCooldown = 0.35;
+    }
+
+    if (isCar) {
+      // A 180 kg scooter can never launch a 1,250 kg parked car; even a car needs a hard ram (>= 6 m/s)
+      if (m1 < m2 * 0.4 || impact < 6.0) {
+        v.speed = impact > CRASH_STOP ? 0 : sp * 0.45;
+        if (impact > CRASH_THROW && !v.crash)
+          v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
+        return;
+      }
+      const dv = Math.min(5.0, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.48);
+      this.knockSlot(slot, pushX * dv, pushZ * dv, dv);
+      const kf = Math.max(0.12, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.72);
+      v.speed = sp * kf;
+      return;
+    }
+
+    // Parked scooter (110 kg)
+    if (impact < 1.2) {
+      v.speed *= 0.4;
+      return;
+    }
+    if (impact < 2.4) {
+      // Firm tap: tips over right where it stands without flying
+      const dv = Math.min(1.2, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.45);
+      this.knockSlot(slot, pushX * dv, pushZ * dv, dv, { vy: 0 });
+      v.speed = sp * (v.kind === 'scooter' ? 0.35 : 0.88);
+      return;
+    }
+    const cap = v.kind === 'scooter' ? 6.2 : 7.5;
+    const dv = Math.min(cap, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.52);
+    this.knockSlot(slot, pushX * dv, pushZ * dv, dv);
+    const kf =
+      v.kind === 'scooter'
+        ? Math.max(0.12, ((m1 - 0.35 * m2) / (m1 + m2)) * 0.55)
+        : Math.max(0.15, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.92);
+    v.speed = sp * kf;
+    if (impact > CRASH_THROW && !v.crash && kf < 0.3)
+      v.crash = { impact, speed: Math.abs(sp), nx: hit.nx, nz: hit.nz };
+  }
+
   _checkVehicle(v, isPlayer, dt = 0.016) {
     const sp = Math.abs(v.speed || 0);
     if (!isPlayer && sp < 1.5) return;
     const vy = v.mesh?.position?.y ?? 0;
     const [fx, fz] = v.forward();
-    const sg = Math.sign(v.speed) || 1;
     const vvx = fx * v.speed,
       vvz = fz * v.speed;
-    let hitScooters = 0;
-    let bumpedCar = false;
     let pushedArcade = false;
+    let maxImpact = 0;
+    let worstKf = null;
+    let blockedHard = false;
 
     // Build full front-to-back capsule(s): include swept midpoint on fast / low-FPS frames to prevent tunneling
     const stepDist = sp * dt;
@@ -653,6 +727,8 @@ export class ParkedScooters {
 
     this._near(v.pos.x, v.pos.z, searchR, (s) => {
       if (s.state !== 'static' && s.state !== 'fallen') return;
+      // Player with Rapier Chassis already gets exact 60 Hz collisions via onChassisHit for slots in movers
+      if (isPlayer && v.body && this._moverSlots.has(s)) return;
       if (!sameLevel(s.y, vy)) return;
       const isCar = s.kind === 'car';
       const sSeg = capsuleSeg(s.x, s.z, s.yaw, s.hl, s.hw);
@@ -668,63 +744,91 @@ export class ParkedScooters {
           bestPb = pb;
         }
       }
-      const sumR = v.hw + s.hw + (isPlayer && !isCar && sp >= 0.4 ? 0.16 : 0.1);
+      const sumR = v.hw + s.hw + 0.08;
       if (bestDist >= sumR) return;
 
       const ox = bestPb[0] - bestPa[0],
         oz = bestPb[1] - bestPa[1],
-        ol = Math.hypot(ox, oz) || 1;
-      const nx = ox / ol,
-        nz = oz / ol;
+        ol = Math.hypot(ox, oz);
+      const pushX = ol > 1e-4 ? ox / ol : fx * (Math.sign(v.speed) || 1);
+      const pushZ = ol > 1e-4 ? oz / ol : fz * (Math.sign(v.speed) || 1);
+      // True normal closing speed into the parked vehicle (not raw scalar speed)
+      const impact = ol > 1e-4 ? Math.max(0, vvx * pushX + vvz * pushZ) : sp;
       const m1 = vmass(v) + (v.kind === 'scooter' ? 70 : 0);
-      const dvRaw = (((1 + KNOCK_E) * m1) / (m1 + s.mass)) * sp;
+      const m2 = s.mass;
 
-      // Solid push-out when slow player creep (< 0.4) or gentle hit on a heavy parked car
-      if ((isPlayer && sp < 0.4) || (isCar && dvRaw < 1.2)) {
+      const pushOut = () => {
         if (isPlayer && !v.body) {
           const push = sumR - bestDist;
-          v.pos.x -= nx * push;
-          v.pos.z -= nz * push;
+          v.pos.x -= pushX * push;
+          v.pos.z -= pushZ * push;
           pushedArcade = true;
-          if (isCar && sp >= 0.4) {
-            v.speed *= 0.35;
-            bumpedCar = true;
+        }
+      };
+
+      if (isCar) {
+        if (m1 < m2 * 0.4 || impact < 6.0) {
+          pushOut();
+          if (isPlayer && impact > 0.4) {
+            blockedHard = true;
+            maxImpact = Math.max(maxImpact, impact);
+            if (impact > CRASH_THROW && !v.crash)
+              v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
           }
+          return;
+        }
+        const dv = Math.min(5.0, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.48);
+        if (this.knockSlot(s, pushX * dv, pushZ * dv, dv)) {
+          const kf = Math.max(0.12, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.72);
+          worstKf = worstKf === null ? kf : Math.min(worstKf, kf);
+          maxImpact = Math.max(maxImpact, impact);
         }
         return;
       }
 
-      let dx = fx * sg * 0.7 + nx * 0.6;
-      let dz = fz * sg * 0.7 + nz * 0.6;
-      const dl = Math.hypot(dx, dz) || 1;
-      dx /= dl;
-      dz /= dl;
-      const dv = Math.max(isCar ? 1.4 : 2.0, dvRaw);
-      if (this.knockSlot(s, dx * dv + vvx * 0.2, dz * dv + vvz * 0.2, dv)) {
-        if (isCar) bumpedCar = true;
-        else hitScooters++;
+      // Parked scooter
+      if (impact < 1.2) {
+        pushOut();
+        return;
+      }
+      if (impact < 2.4) {
+        const dv = Math.min(1.2, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.45);
+        if (this.knockSlot(s, pushX * dv, pushZ * dv, dv, { vy: 0 })) {
+          const kf = v.kind === 'scooter' ? 0.35 : 0.88;
+          worstKf = worstKf === null ? kf : Math.min(worstKf, kf);
+          maxImpact = Math.max(maxImpact, impact);
+        }
+        return;
+      }
+      const cap = v.kind === 'scooter' ? 6.2 : 7.5;
+      const dv = Math.min(cap, (((1 + KNOCK_E) * m1) / (m1 + m2)) * impact * 0.52);
+      if (this.knockSlot(s, pushX * dv, pushZ * dv, dv)) {
+        const kf =
+          v.kind === 'scooter'
+            ? Math.max(0.12, ((m1 - 0.35 * m2) / (m1 + m2)) * 0.55)
+            : Math.max(0.15, ((m1 - 0.15 * m2) / (m1 + m2)) * 0.92);
+        worstKf = worstKf === null ? kf : Math.min(worstKf, kf);
+        maxImpact = Math.max(maxImpact, impact);
+        if (isPlayer && impact > CRASH_THROW && !v.crash && kf < 0.3)
+          v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
       }
     });
 
     if (pushedArcade) v.sync?.();
 
-    if (isPlayer && (hitScooters > 0 || bumpedCar)) {
-      let factor = 1;
-      if (hitScooters > 0) {
-        const drag =
-          v.kind === 'scooter' ? Math.pow(0.9, hitScooters) : Math.pow(0.96, hitScooters);
-        factor *= Math.max(0.55, drag);
-      }
-      if (bumpedCar) factor *= 0.5;
-      v.speed *= factor;
+    if (isPlayer && (worstKf !== null || blockedHard)) {
+      if (blockedHard) v.speed = maxImpact > CRASH_STOP ? 0 : v.speed * 0.45;
+      else v.speed *= worstKf;
       if (v.body?.body) {
         const lv = v.body.body.linvel();
-        v.body.body.setLinvel({ x: lv.x * factor, y: lv.y, z: lv.z * factor }, true);
+        const f = blockedHard ? (maxImpact > CRASH_STOP ? 0 : 0.45) : worstKf;
+        v.body.body.setLinvel({ x: lv.x * f, y: lv.y, z: lv.z * f }, true);
       }
-      if (this._bumpCd <= 0) {
-        this._bumpCd = 0.16;
-        this.game.audio?.bump?.(Math.min(2.2, Math.max(0.4, sp / 5)), v.kind);
+      if (this._bumpCd <= 0 && maxImpact > 1.8) {
+        this._bumpCd = 0.25;
+        this.game.audio?.bump?.(Math.min(2.2, Math.max(0.4, maxImpact / 4)), v.kind);
       }
+      if (v.crash && v.kind === 'scooter') this.game._throwOff?.(v);
     }
   }
 
@@ -750,21 +854,21 @@ export class ParkedScooters {
       }
     }
 
-    // Domino chain knock: flying knocked scooters topple neighboring static scooters
+    // Domino chain knock: falling scooters gently topple adjacent parked scooters with energy dissipation (no pop-up)
     if (this.activeKnocks.size) {
       for (const rec of [...this.activeKnocks]) {
         const spd = Math.hypot(rec.vx, rec.vz);
-        if (spd < 1.0) continue;
-        this._near(rec.x, rec.z, 1.3, (s) => {
+        if (spd < 1.2) continue;
+        this._near(rec.x, rec.z, 1.2, (s) => {
           if (s.state !== 'static' || s.kind === 'car') return;
           const dx = s.x - rec.x,
             dz = s.z - rec.z;
           const d = Math.hypot(dx, dz);
-          if (d < 0.95 && Math.abs(s.y - rec.y) < 1.5) {
+          if (d < 0.85 && Math.abs(s.y - rec.y) < 1.5) {
             const nx = d > 1e-3 ? dx / d : rec.vx / spd;
             const nz = d > 1e-3 ? dz / d : rec.vz / spd;
-            const dv = Math.max(2.0, spd * 0.72);
-            this.knockSlot(s, nx * dv, nz * dv, dv);
+            const dv = Math.min(3.5, spd * 0.52);
+            if (dv >= 0.7) this.knockSlot(s, nx * dv, nz * dv, dv, { vy: 0 });
           }
         });
       }

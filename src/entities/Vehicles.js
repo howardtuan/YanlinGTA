@@ -3302,13 +3302,14 @@ export class Vehicle {
       onBump && onBump(bs);
       this.bumpCooldown = 0.5;
     }
-    if (kf !== null) this.speed *= kf;
+    if (o.ai) {
+      o.ai.stunned = 2;
+      const tkf = Vehicle.knockTraffic?.(o, this, nx, nz, rel);
+      if (typeof tkf === 'number') kf = tkf;
+    }
+    if (kf !== null) this.speed = Math.abs(v0) > 0.01 ? v0 * kf : this.speed * kf;
     else this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
     if (impact > CRASH_THROW && !this.crash && (kf === null || kf < 0.3))
       this.crash = { impact, speed: Math.abs(v0), nx, nz };
-    if (o.ai) {
-      o.ai.stunned = 2;
-      Vehicle.knockTraffic?.(o, this, nx, nz, rel);
-    }
   }
 }

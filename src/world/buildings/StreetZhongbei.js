@@ -2086,22 +2086,7 @@ export function buildZhongbeiStreet(I, scene, X) {
 
   const kits = [];
   const bikeCols = ['#2a2a30', '#c9c9c4', '#b02a2a', '#2f6db3', '#3f7a4c', '#d8b02a'];
-  const bike = (k, x, z, rot, col) => {
-    // 一台機車，順著立面停（rot 0）或垂直立面（rot 1）
-    if (rot) {
-      k.box(x - 0.14, x + 0.14, 0.28, 0.62, z, z + 1.5, col, { col: false });
-      k.box(x - 0.1, x + 0.1, 0.62, 0.72, z + 0.45, z + 1.0, '#1c1c1e', { col: false });
-      k.box(x - 0.3, x + 0.3, 0.9, 0.96, z + 1.28, z + 1.34, '#1c1c1e', { col: false });
-      k.box(x - 0.08, x + 0.08, 0.0, 0.5, z + 0.05, z + 0.5, '#1c1c1e', { col: false });
-      k.box(x - 0.08, x + 0.08, 0.0, 0.5, z + 1.2, z + 1.45, '#1c1c1e', { col: false });
-    } else {
-      k.box(x, x + 1.5, 0.28, 0.62, z - 0.14, z + 0.14, col, { col: false });
-      k.box(x + 0.45, x + 1.0, 0.62, 0.72, z - 0.1, z + 0.1, '#1c1c1e', { col: false });
-      k.box(x + 1.28, x + 1.34, 0.9, 0.96, z - 0.3, z + 0.3, '#1c1c1e', { col: false });
-      k.box(x + 0.05, x + 0.5, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', { col: false });
-      k.box(x + 1.2, x + 1.45, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', { col: false });
-    }
-  };
+  const bike = (k, x, z, rot, col) => k.scooter(x, z, rot, col);
 
   const exposed = (L, lo) =>
     !ZB_ST.lots.some(
@@ -2425,6 +2410,7 @@ export function buildZhongbeiStreet(I, scene, X) {
     const k = vcKit(new Kit(I, ox, oz, ang));
     kits.push(k);
     k.box(0, w, -0.4, 0.55, 0.2, 1.3, '#c9c5ba'); // 花台
+    k.wallLine(0, 0.25, w, 0.25, -0.4, 2.0);
     k.box(0.1, w - 0.1, 0.55, 1.1, 0.35, 1.15, '#3f7a3a', { col: false }); // 灌木
     const n = Math.max(1, Math.round(w / 4)),
       bay = w / n;
@@ -2442,7 +2428,7 @@ export function buildZhongbeiStreet(I, scene, X) {
       // 大樹：樹幹加兩三團樹冠
       const h = 5 + r() * 2.5,
         s = 1.2 + r() * 0.6;
-      k.cyl(x, 0.85, 0.22, 0, h, '#6a4a30', { seg: 6 });
+      k.cyl(x, 0.85, 0.22, 0, h, '#6a4a30', { seg: 6, col: true });
       for (const [dx, dy, dz, q] of [
         [0, h + 0.6, 0, 1],
         [-1.2, h - 0.6, 0.4, 0.8],

@@ -188,6 +188,20 @@ export class Ragdoll {
       local(l.hp, _iTr, t);
       local(l.kn, inv(t), s);
     }
+    // secondary ground impact sound (ragdoll_thud, max 2 thuds per fall)
+    const tv = this.trunk.linvel();
+    if (this._thudT > 0) this._thudT -= dt;
+    if (
+      (this._thuds || 0) < 2 &&
+      (this._thudT || 0) <= 0 &&
+      (this._prevVy || 0) < -2.4 &&
+      tv.y - (this._prevVy || 0) > 3.0
+    ) {
+      this._thuds = (this._thuds || 0) + 1;
+      this._thudT = 0.35;
+      this.P.onSound?.('ragdoll', Math.min(1, -this._prevVy / 8), tb.x, tb.z);
+    }
+    this._prevVy = tv.y;
     // still?
     this.t += dt;
     let fast = false;

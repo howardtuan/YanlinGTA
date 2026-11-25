@@ -3076,7 +3076,7 @@ export function buildDaren5Street(I, scene, X) {
     g.fillRect(0, 31, 64, 2);
   }); // 透明浪板
   const tree = (k, x, z, h, s, r) => {
-    k.cyl(x, z, 0.2, 0, h, '#6a4a30', { seg: 6 });
+    k.cyl(x, z, 0.2, 0, h, '#6a4a30', { seg: 6, col: true });
     for (const [dx, dy, dz, q] of [
       [0, h + 0.5, 0, 1],
       [-1.1, h - 0.5, 0.4, 0.8],
@@ -3113,13 +3113,7 @@ export function buildDaren5Street(I, scene, X) {
     k.box(x + 0.05, x + 0.75, y + 0.06, y + 0.44, z - 0.43, z - 0.42, '#9a9a94', NC);
   };
   const bikeCols = ['#2a2a30', '#c9c9c4', '#b02a2a', '#2f6db3', '#3f7a4c', '#d8b02a'];
-  const bike = (k, x, z, col) => {
-    k.box(x, x + 1.5, 0.28, 0.62, z - 0.14, z + 0.14, col, NC);
-    k.box(x + 0.45, x + 1.0, 0.62, 0.72, z - 0.1, z + 0.1, '#1c1c1e', NC);
-    k.box(x + 1.28, x + 1.34, 0.9, 0.96, z - 0.3, z + 0.3, '#1c1c1e', NC);
-    k.box(x + 0.05, x + 0.5, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', NC);
-    k.box(x + 1.2, x + 1.45, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', NC);
-  };
+  const bike = (k, x, z, col) => k.scooter(x, z, 0, col);
 
   // ---- 一樓一間店面：x0～x1、一樓高 gf、立面在 z（退縮時 z > 0）----
   const unit = (k, x0, x1, gf, sp, i, r, pier) => {
@@ -3454,8 +3448,7 @@ export function buildDaren5Street(I, scene, X) {
       for (let j = 0; j < 2; j++) bike(k, x0 + 0.3 + j * 1.7, z - 0.5, bikeCols[(i + j) % 6]);
       for (let j = 0; j < (sp.cones || 0); j++) {
         const cx = x0 + 0.5 + (j * (w - 1)) / Math.max(1, sp.cones - 1);
-        k.cyl(cx, z - 0.95, 0.16, 0, 0.6, '#e8642a', { seg: 8, r1: 0.03 });
-        k.box(cx - 0.18, cx + 0.18, 0, 0.04, z - 1.13, z - 0.77, '#e8642a', NC);
+        k.cone(cx, z - 0.95);
       }
     } else if (g === 'hatch') {
       // SW1：整面實牆加不鏽鋼圓舷窗與圓角艙門（PAPAFUN），門口太空人坐月球立牌

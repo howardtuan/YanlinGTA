@@ -40,11 +40,13 @@ export async function createHostRoom({
   code,
   name = '彥霖',
   stake = 0,
+  spectateReveal = true,
   joinRoomFn = defaultJoinRoom,
   onLobby,
   onAction,
   onPeerLeave,
   onNotice,
+  onSpectatorChange,
 } = {}) {
   const roomCode = normalizeRoomCode(code) || makeRoomCode();
   const room = await joinRoomFn(`room-${roomCode}`);
@@ -57,15 +59,41 @@ export async function createHostRoom({
 
   const seats = [{ seat: 0, peerId: 'host', name, isHost: true, isAI: false }, null, null, null];
   const peerToSeat = new Map();
+  const spectators = new Map(); // peerId -> { peerId, name, wantSeat, viewSeat, moneyOk, order }
   let curStake = stake;
+  let specReveal = spectateReveal !== false;
   let started = false;
   let closed = false;
   let seq = 0;
+  let specOrder = 0;
+
+  const fullNames = () => seats.map((s) => s?.name || 'AI');
+  const rotatedNames = (viewSeat) => {
+    const names = fullNames();
+    return [0, 1, 2, 3].map((ls) => names[unrotateSeat(ls, viewSeat)]);
+  };
+  const orderedSpectators = () => [...spectators.values()].sort((a, b) => a.order - b.order);
+  const queuePosOf = (peerId) => {
+    let pos = 0;
+    for (const s of orderedSpectators()) {
+      if (!s.wantSeat) continue;
+      pos++;
+      if (s.peerId === peerId) return pos;
+    }
+    return 0;
+  };
+  const spectatorSummary = () => ({
+    count: spectators.size,
+    queueCount: [...spectators.values()].filter((s) => s.wantSeat).length,
+    reveal: specReveal,
+  });
 
   const lobbyPayload = () => ({
     code: roomCode,
     stake: curStake,
     started,
+    spectateReveal: specReveal,
+    spectators: orderedSpectators().map((s) => ({ name: s.name, wantSeat: s.wantSeat })),
     seats: seats.map((s, i) =>
       s
         ? { seat: i, name: s.name, isHost: !!s.isHost, isAI: !!s.isAI }
@@ -75,33 +103,161 @@ export async function createHostRoom({
 
   const emitLobby = (targetPeerId) => {
     const p = lobbyPayload();
-    if (!closed) sendLobby(p, targetPeerId);
+    if (!closed) {
+      if (targetPeerId) {
+        const isSpec = spectators.has(targetPeerId);
+        const spec = spectators.get(targetPeerId);
+        sendLobby(
+          {
+            ...p,
+            yourRole: isSpec ? 'spectator' : 'player',
+            wantSeat: isSpec ? spec.wantSeat : true,
+          },
+          targetPeerId
+        );
+      } else {
+        for (const pid of peerToSeat.keys()) {
+          sendLobby({ ...p, yourRole: 'player', wantSeat: true }, pid);
+        }
+        for (const [pid, spec] of spectators.entries()) {
+          sendLobby({ ...p, yourRole: 'spectator', wantSeat: spec.wantSeat }, pid);
+        }
+      }
+    }
     onLobby?.(p);
+  };
+
+  const broadcastMeta = (extra = {}) => {
+    if (closed) return;
+    if (started) {
+      for (const [pid, seat] of peerToSeat.entries()) {
+        sendCtrl(
+          {
+            type: 'spectateInfo',
+            role: 'player',
+            seat,
+            spectateReveal: specReveal,
+            spectatorCount: spectators.size,
+          },
+          pid
+        );
+      }
+      for (const [pid, spec] of spectators.entries()) {
+        sendCtrl(
+          {
+            type: 'spectateInfo',
+            role: 'spectator',
+            viewSeat: spec.viewSeat,
+            wantSeat: spec.wantSeat,
+            queuePos: queuePosOf(pid),
+            spectateReveal: specReveal,
+            spectatorCount: spectators.size,
+            names: rotatedNames(spec.viewSeat),
+          },
+          pid
+        );
+      }
+    }
+    onSpectatorChange?.({ ...spectatorSummary(), ...extra });
+  };
+
+  const seatQueuedLobbySpectator = () => {
+    if (started) return;
+    const empty = seats.findIndex((s) => !s);
+    if (empty < 0) return;
+    const nextSpec = orderedSpectators().find((s) => s.wantSeat);
+    if (!nextSpec) return;
+    spectators.delete(nextSpec.peerId);
+    seats[empty] = {
+      seat: empty,
+      peerId: nextSpec.peerId,
+      name: nextSpec.name,
+      isHost: false,
+      isAI: false,
+    };
+    peerToSeat.set(nextSpec.peerId, empty);
+    onNotice?.(`🪑 ${nextSpec.name} 已遞補入座（${seats.filter(Boolean).length}/4）`);
   };
 
   onHello((data, peerId) => {
     if (closed || !peerId) return;
     if (peerToSeat.has(peerId)) {
-      sendLobby(lobbyPayload(), peerId);
+      if (!started) emitLobby(peerId);
       return;
     }
     const cleanName =
       String(data?.name || '朋友')
         .trim()
         .slice(0, 12) || '朋友';
-    if (started) {
-      sendCtrl({ type: 'reject', reason: '這桌已經開打了，請等下一將或開新房' }, peerId);
+    const spectateOnly = !!data?.spectateOnly;
+    const moneyOk = data?.moneyOk !== false;
+
+    if (spectators.has(peerId)) {
+      const spec = spectators.get(peerId);
+      spec.wantSeat = !spectateOnly;
+      spec.moneyOk = moneyOk;
+      if (!started) emitLobby(peerId);
+      else broadcastMeta({ needStatePeerId: peerId });
       return;
     }
-    const empty = seats.findIndex((s) => !s);
-    if (empty < 0) {
-      sendCtrl({ type: 'reject', reason: '房間已經滿 4 人了' }, peerId);
+
+    if (!started) {
+      const empty = spectateOnly ? -1 : seats.findIndex((s) => !s);
+      if (empty >= 0) {
+        seats[empty] = { seat: empty, peerId, name: cleanName, isHost: false, isAI: false };
+        peerToSeat.set(peerId, empty);
+        onNotice?.(`🌐 ${cleanName} 加入了房間（${seats.filter(Boolean).length}/4）`);
+        emitLobby();
+        return;
+      }
+      spectators.set(peerId, {
+        peerId,
+        name: cleanName,
+        wantSeat: !spectateOnly,
+        viewSeat: 0,
+        moneyOk,
+        order: ++specOrder,
+      });
+      onNotice?.(`👀 ${cleanName} 進入房間觀賽${!spectateOnly ? '（人滿候位中）' : ''}`);
+      emitLobby();
       return;
     }
-    seats[empty] = { seat: empty, peerId, name: cleanName, isHost: false, isAI: false };
-    peerToSeat.set(peerId, empty);
-    onNotice?.(`🌐 ${cleanName} 加入了房間（${seats.filter(Boolean).length}/4）`);
-    emitLobby();
+
+    // 對局進行中：不拒絕，直接以觀賽者身份加入；非純觀賽時排入下局取代 AI 佇列
+    const spec = {
+      peerId,
+      name: cleanName,
+      wantSeat: !spectateOnly,
+      viewSeat: 0,
+      moneyOk,
+      order: ++specOrder,
+    };
+    spectators.set(peerId, spec);
+    const hasAI = seats.some((s, i) => i > 0 && s?.isAI);
+    const qpos = queuePosOf(peerId);
+    sendStart(
+      {
+        role: 'spectator',
+        seat: 0,
+        viewSeat: 0,
+        wantSeat: spec.wantSeat,
+        queuePos: qpos,
+        spectateReveal: specReveal,
+        spectatorCount: spectators.size,
+        stake: curStake,
+        names: fullNames(),
+        code: roomCode,
+      },
+      peerId
+    );
+    const msg =
+      spec.wantSeat && hasAI
+        ? `👀 ${cleanName} 中途加入觀賽（下局將取代 AI 上桌）`
+        : `👀 ${cleanName} 加入觀賽`;
+    onNotice?.(msg);
+    for (const pid of peerToSeat.keys()) sendCtrl({ type: 'notice', msg }, pid);
+    for (const pid of spectators.keys()) if (pid !== peerId) sendCtrl({ type: 'notice', msg }, pid);
+    broadcastMeta({ needStatePeerId: peerId });
   });
 
   onAct((data, peerId) => {
@@ -113,6 +269,15 @@ export async function createHostRoom({
 
   const dropGuest = (peerId, broke = false) => {
     if (closed || !peerId) return;
+    if (spectators.has(peerId)) {
+      const spec = spectators.get(peerId);
+      spectators.delete(peerId);
+      const msg = `👋 ${spec.name} 離開了觀賽`;
+      onNotice?.(msg);
+      if (!started) emitLobby();
+      else broadcastMeta();
+      return;
+    }
     const seat = peerToSeat.get(peerId);
     if (seat == null) return;
     peerToSeat.delete(peerId);
@@ -120,6 +285,7 @@ export async function createHostRoom({
     if (!started) {
       seats[seat] = null;
       onNotice?.(`👋 ${who} 離開了房間`);
+      seatQueuedLobbySpectator();
       emitLobby();
     } else {
       seats[seat] = { ...seats[seat], peerId: null, isAI: true };
@@ -127,14 +293,38 @@ export async function createHostRoom({
         ? `💸 ${who} 錢包見底離桌，改由 AI 接手繼續打`
         : `⚠️ ${who} 斷線了，暫時由 AI 接手繼續打`;
       onNotice?.(msg);
-      if (peerToSeat.size > 0) sendCtrl({ type: 'notice', msg });
+      if (peerToSeat.size + spectators.size > 0) sendCtrl({ type: 'notice', msg });
       onPeerLeave?.(seat, who, broke);
     }
   };
 
   onCtrl((data, peerId) => {
     if (closed || !data || !peerId) return;
-    if (data.type === 'guestLeave') dropGuest(peerId, !!data.broke);
+    if (data.type === 'guestLeave') {
+      dropGuest(peerId, !!data.broke);
+      return;
+    }
+    if (data.type === 'setWantSeat' && spectators.has(peerId)) {
+      const spec = spectators.get(peerId);
+      spec.wantSeat = !!data.wantSeat;
+      if (data.moneyOk != null) spec.moneyOk = !!data.moneyOk;
+      if (!started) {
+        if (spec.wantSeat) seatQueuedLobbySpectator();
+        emitLobby();
+      } else {
+        broadcastMeta();
+      }
+      return;
+    }
+    if (data.type === 'setViewSeat' && spectators.has(peerId)) {
+      const spec = spectators.get(peerId);
+      spec.viewSeat = (((data.seat | 0) % 4) + 4) % 4;
+      if (started) broadcastMeta({ needStatePeerId: peerId });
+      return;
+    }
+    if (data.type === 'walletStatus' && spectators.has(peerId)) {
+      spectators.get(peerId).moneyOk = !!data.moneyOk;
+    }
   });
 
   room.onPeerLeave?.((ctx) => {
@@ -163,12 +353,26 @@ export async function createHostRoom({
     get peerCount() {
       return peerToSeat.size;
     },
+    get spectatorCount() {
+      return spectators.size;
+    },
+    get queueCount() {
+      return [...spectators.values()].filter((s) => s.wantSeat).length;
+    },
+    get spectateReveal() {
+      return specReveal;
+    },
     setStake(i) {
       if (started) return;
       curStake = i;
       emitLobby();
     },
-    // 開打：把空位補滿室友 AI，並通知所有客端各自座位與旋轉後的玩家名稱
+    setSpectateReveal(val) {
+      specReveal = !!val;
+      if (!started) emitLobby();
+      else broadcastMeta({ rebroadcast: true });
+    },
+    // 開打：把空位補滿室友 AI，並通知所有客端與觀賽者各自角色、座位與旋轉後的玩家名稱
     startGame(aiPool) {
       started = true;
       let aiIdx = 0;
@@ -188,12 +392,86 @@ export async function createHostRoom({
           aiSeats.push(i);
         }
       }
-      const fullNames = seats.map((s) => s.name);
+      const names = fullNames();
       for (const [peerId, seat] of peerToSeat.entries()) {
-        const rotNames = [0, 1, 2, 3].map((ls) => fullNames[unrotateSeat(ls, seat)]);
-        sendStart({ seat, stake: curStake, names: rotNames, code: roomCode }, peerId);
+        sendStart(
+          {
+            role: 'player',
+            seat,
+            stake: curStake,
+            names: rotatedNames(seat),
+            spectateReveal: specReveal,
+            spectatorCount: spectators.size,
+            code: roomCode,
+          },
+          peerId
+        );
       }
-      return { seats, names: fullNames, human: seats.map((s) => !s.isAI), aiSeats };
+      for (const [peerId, spec] of spectators.entries()) {
+        sendStart(
+          {
+            role: 'spectator',
+            seat: spec.viewSeat,
+            viewSeat: spec.viewSeat,
+            wantSeat: spec.wantSeat,
+            queuePos: queuePosOf(peerId),
+            stake: curStake,
+            names: rotatedNames(spec.viewSeat),
+            spectateReveal: specReveal,
+            spectatorCount: spectators.size,
+            code: roomCode,
+          },
+          peerId
+        );
+      }
+      return { seats, names, human: seats.map((s) => !s.isAI), aiSeats };
+    },
+    // 下一局開始前：依排隊順序讓想上桌且錢包足夠的觀賽者取代 AI 座位
+    promoteSpectators() {
+      const promoted = [];
+      if (!started) {
+        return { promoted, seats, names: fullNames(), human: seats.map((s) => !s.isAI) };
+      }
+      for (const spec of orderedSpectators()) {
+        if (!spec.wantSeat) continue;
+        const aiIdx = seats.findIndex((s, i) => i > 0 && s?.isAI);
+        if (aiIdx < 0) break;
+        if (spec.moneyOk === false) {
+          sendCtrl(
+            { type: 'notice', msg: '💸 錢包見底，暫時維持觀賽（無法取代 AI 上桌）' },
+            spec.peerId
+          );
+          continue;
+        }
+        spectators.delete(spec.peerId);
+        seats[aiIdx] = {
+          seat: aiIdx,
+          peerId: spec.peerId,
+          name: spec.name,
+          isHost: false,
+          isAI: false,
+        };
+        peerToSeat.set(spec.peerId, aiIdx);
+        promoted.push({ peerId: spec.peerId, seat: aiIdx, name: spec.name });
+      }
+      if (promoted.length) onSpectatorChange?.(spectatorSummary());
+      return { promoted, seats, names: fullNames(), human: seats.map((s) => !s.isAI) };
+    },
+    sendStateToPeer(peerId, engine) {
+      if (closed || !started || !engine) return;
+      seq++;
+      if (peerToSeat.has(peerId)) {
+        const seat = peerToSeat.get(peerId);
+        const snap = serializeStateFor(engine, seat);
+        sendState({ seq, snap, events: [] }, peerId);
+      } else if (spectators.has(peerId)) {
+        const spec = spectators.get(peerId);
+        const snap = serializeStateFor(engine, spec.viewSeat, {
+          spectate: true,
+          revealAll: specReveal,
+        });
+        sendState({ seq, snap, events: [] }, peerId);
+      }
     },
     broadcastState(engine, events = []) {
       if (closed || !started) return;
@@ -203,17 +481,59 @@ export async function createHostRoom({
         const rotEv = rotateEventsFor(events, seat);
         sendState({ seq, snap, events: rotEv }, peerId);
       }
+      for (const [peerId, spec] of spectators.entries()) {
+        const snap = serializeStateFor(engine, spec.viewSeat, {
+          spectate: true,
+          revealAll: specReveal,
+        });
+        const rotEv = rotateEventsFor(events, spec.viewSeat, {
+          spectate: true,
+          revealAll: specReveal,
+        });
+        sendState({ seq, snap, events: rotEv }, peerId);
+      }
     },
-    broadcastNext() {
-      if (!closed) sendCtrl({ type: 'next' });
+    broadcastNext(promotedPeerIds = []) {
+      if (closed) return;
+      const promoSet = new Set(promotedPeerIds);
+      for (const [peerId, seat] of peerToSeat.entries()) {
+        sendCtrl(
+          {
+            type: 'next',
+            role: 'player',
+            seat,
+            names: rotatedNames(seat),
+            promoted: promoSet.has(peerId),
+            spectateReveal: specReveal,
+            spectatorCount: spectators.size,
+          },
+          peerId
+        );
+      }
+      for (const [peerId, spec] of spectators.entries()) {
+        sendCtrl(
+          {
+            type: 'next',
+            role: 'spectator',
+            seat: spec.viewSeat,
+            viewSeat: spec.viewSeat,
+            wantSeat: spec.wantSeat,
+            queuePos: queuePosOf(peerId),
+            names: rotatedNames(spec.viewSeat),
+            spectateReveal: specReveal,
+            spectatorCount: spectators.size,
+          },
+          peerId
+        );
+      }
     },
     broadcastNotice(msg) {
-      if (!closed && peerToSeat.size > 0) sendCtrl({ type: 'notice', msg });
+      if (!closed && peerToSeat.size + spectators.size > 0) sendCtrl({ type: 'notice', msg });
     },
     close(reason = '房主已結束房間') {
       if (closed) return;
       closed = true;
-      if (peerToSeat.size > 0) sendCtrl({ type: 'end', reason });
+      if (peerToSeat.size + spectators.size > 0) sendCtrl({ type: 'end', reason });
       Promise.resolve(room.leave?.()).catch(() => {});
     },
   };
@@ -223,11 +543,14 @@ export async function createHostRoom({
 export async function joinGuestRoom({
   code,
   name = '朋友',
+  spectateOnly = false,
+  moneyOk = true,
   joinRoomFn = defaultJoinRoom,
   onLobby,
   onStart,
   onState,
   onNext,
+  onSpectateInfo,
   onEnd,
   onNotice,
 } = {}) {
@@ -248,7 +571,7 @@ export async function joinGuestRoom({
 
   const announce = (peerId) => {
     if (closed || started) return;
-    sendHello({ name }, peerId);
+    sendHello({ name, spectateOnly: !!spectateOnly, moneyOk: moneyOk !== false }, peerId);
   };
 
   onLobbyMsg((data, peerId) => {
@@ -282,7 +605,9 @@ export async function joinGuestRoom({
       close();
       onEnd?.(data.reason || '房主已解散房間');
     } else if (data.type === 'next') {
-      onNext?.();
+      onNext?.(data);
+    } else if (data.type === 'spectateInfo') {
+      onSpectateInfo?.(data);
     } else if (data.type === 'notice' && data.msg) {
       onNotice?.(data.msg);
     }
@@ -335,6 +660,18 @@ export async function joinGuestRoom({
     sendAction(act) {
       if (closed || !hostPeerId) return;
       sendAct({ act }, hostPeerId);
+    },
+    setWantSeat(wantSeat, ok = true) {
+      if (closed || !hostPeerId) return;
+      sendCtrl({ type: 'setWantSeat', wantSeat: !!wantSeat, moneyOk: !!ok }, hostPeerId);
+    },
+    setViewSeat(seat) {
+      if (closed || !hostPeerId) return;
+      sendCtrl({ type: 'setViewSeat', seat }, hostPeerId);
+    },
+    sendWalletStatus(ok) {
+      if (closed || !hostPeerId) return;
+      sendCtrl({ type: 'walletStatus', moneyOk: !!ok }, hostPeerId);
     },
     close,
   };

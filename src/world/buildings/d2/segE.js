@@ -117,7 +117,7 @@ function familyMart(k, T) {
   k.wallLine(0, 0, A[0][0], A[0][1], 0, H);
   k.wallLine(w, 0, w, -0.5, 0, H);
   // 轉角粗柱
-  for (const [x, z] of [A[1], A[2]]) k.cyl(x, z + 0.12, 0.3, 0, H, dark, { seg: 8 });
+  for (const [x, z] of [A[1], A[2]]) k.cyl(x, z + 0.12, 0.3, 0, H, dark, { seg: 8, col: true });
   // 三面：招牌帶、2F 格子窗、石牆溝縫
   const win2F = (n) => lattice(T, n, 4, '#eef0ec', '#4f6b63', 0.16);
   [f1, f2, f3].forEach((f, i) => {
@@ -192,6 +192,11 @@ function familyMart(k, T) {
     const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length,
       cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
     prismC(k, T, pts, PL, PL + 0.8, '#5a5a5c');
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i],
+        b = pts[(i + 1) % pts.length];
+      k.wallLine(a[0], a[1], b[0], b[1], PL, PL + 1.3);
+    }
     k.prism(
       pts.map(([x, z]) => [cx + (x - cx) * 0.9, cz + (z - cz) * 0.9]),
       PL + 0.8,

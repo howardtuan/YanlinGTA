@@ -24,7 +24,7 @@ const ball = (C, k, x, y, z, r, hex, sy = 1, sx = 1) => {
 };
 // 闊葉大樹：樹幹＋幾團樹冠（h 樹高、cr 樹冠半徑）
 const tree = (C, k, x, z, h, cr, r) => {
-  k.cyl(x, z, 0.28, -0.5, h - cr, '#5e4630', { seg: 6, r1: 0.18 });
+  k.cyl(x, z, 0.28, -0.5, h - cr, '#5e4630', { seg: 6, r1: 0.18, col: true });
   const G = ['#3f7a3a', '#4b8a3e', '#356b34'];
   ball(C, k, x, h - cr * 0.85, z, cr * 0.8, G[0], 0.75);
   for (let j = 0; j < 4; j++) {
@@ -850,7 +850,7 @@ export default {
         [1.6, -4.3],
         [5.2, -4.5],
       ])
-        k.cyl(x, z, 0.18, 0, 0.7, '#e0621e', { seg: 8, r1: 0.03 });
+        k.cone(x, z);
       for (let j = 0; j < 3; j++)
         k.plane(C.archWin, 1.3, 1.7, -0.03, 4.8, 4.5 + j * 4.5, -Math.PI / 2); // 西側牆 3 扇拱形窗
     }

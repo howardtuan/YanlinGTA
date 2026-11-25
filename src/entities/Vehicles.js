@@ -2487,7 +2487,7 @@ export class Vehicle {
         label: B.name,
       });
     } else if (kind === 'scooter') {
-      this.mesh = opt.jet ? buildJetSL() : buildCommuter(pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (src/entities/Scooters.js)
+      this.mesh = opt.jet ? buildJetSL() : buildCommuter(opt.color || pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (src/entities/Scooters.js)
       Object.assign(this, {
         wb: 1.25,
         radius: 0.75,

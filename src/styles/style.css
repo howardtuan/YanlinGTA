@@ -8376,6 +8376,42 @@ body.mahjong #dialog {
   padding: 5px 10px;
   background: rgba(0, 0, 0, 0.55);
 }
+#mjUI .mj-mp-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+  pointer-events: auto;
+}
+#mjUI .mj-mp-bar .mj-mp-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 209, 102, 0.45);
+  color: #ffd166;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#mjUI .mj-mp-bar button {
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+#mjUI .mj-mp-bar button.on {
+  background: rgba(224, 98, 47, 0.85);
+  border-color: #fff;
+}
+#mjUI .mj-spec-list {
+  margin: 6px 0 2px;
+  font-size: 12px;
+  color: #ffd166;
+  text-align: left;
+}
 #mjUI .mj-stakes {
   flex-wrap: wrap;
 }

@@ -679,21 +679,14 @@ function buildForecourt(I, scene) {
     k.box(0.7, 1.25, 5.78, 5.9, -0.13, 0.13, X.lamp, { col: false });
     k.box(0.74, 1.21, 5.77, 5.78, -0.1, 0.1, 'light', { col: false });
   });
-  // traffic cones (0.7 m, white band, black foot)
-  const cone = (k, x, z) => {
-    k.box(x - 0.19, x + 0.19, 0, 0.04, z - 0.19, z + 0.19, X.rubber, { col: false });
-    k.cyl(x, z, 0.15, 0.04, 0.38, X.orange, { r1: 0.095, seg: 12 });
-    k.cyl(x, z, 0.095, 0.38, 0.5, X.white, { r1: 0.07, seg: 12 });
-    k.cyl(x, z, 0.07, 0.5, 0.7, X.orange, { r1: 0.02, seg: 12 });
-    k.wallRect(x - 0.15, x + 0.15, z - 0.15, z + 0.15, 0, 0.7);
-  };
+  // traffic cones: registered as dynamic physics props (src/world/WorldProps.js)
   for (const [x, z] of [
     [-200.6, 90.2],
     [-193.6, 92.4],
     [-190.4, 93.2],
     [-202.3, 99],
   ])
-    one(x, z, 0, (k) => cone(k, 0, 0));
+    I.addCone(x, z);
   // white sign stand with a red arrow (pointing on toward the car park)
   one(-193.4, 95.4, facing([-0.99, -0.1]), (k) => {
     k.box(-0.25, 0.25, 0, 0.05, -0.2, 0.2, X.steel, { col: false });

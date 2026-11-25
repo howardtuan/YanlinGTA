@@ -364,11 +364,16 @@ export class Interiors {
     this.zones = [];
     this.actions = [];
     this.updaters = [];
+    this.cones = [];
     this.stamp = 0;
     this.wst = [];
+    this.scooters = [];
   }
   _key(ix, iz) {
     return ix * 73856 + iz;
+  }
+  addScooter(x, z, yaw, color = '#2a2a30') {
+    this.scooters.push([x, z, yaw, color]);
   }
   addWall(ax, az, bx, bz, y0, y1) {
     const wi = this.walls.length;
@@ -386,6 +391,9 @@ export class Interiors {
         if (!l) this.grid.set(k, (l = []));
         l.push(wi);
       }
+  }
+  addCone(x, z) {
+    this.cones.push([x, z]);
   }
   addSurface(pts, h) {
     let a = 1e9,
@@ -594,6 +602,10 @@ export class Kit {
   heading(localAngle = 0) {
     return localAngle - this.ang;
   } // three rotation.y for local-forward
+  scooter(lx, lz, rot = 0, color = '#2a2a30') {
+    const [wx, wz] = rot ? this.w(lx, lz + 0.75) : this.w(lx + 0.75, lz);
+    this.I.addScooter(wx, wz, this.heading(rot ? 0 : Math.PI / 2), color);
+  }
   box(x0, x1, y0, y1, z0, z1, mat, o = {}) {
     const W = x1 - x0,
       H = y1 - y0,
@@ -635,6 +647,10 @@ export class Kit {
     const a = this.w(x0, z0),
       b = this.w(x1, z1);
     this.I.addWall(a[0], a[1], b[0], b[1], y0 * this.sc, y1 * this.sc);
+  }
+  cone(lx, lz) {
+    const [wx, wz] = this.w(lx, lz);
+    this.I.addCone(wx, wz);
   }
   _part(mat, g) {
     if (!this.parts.has(mat)) this.parts.set(mat, []);

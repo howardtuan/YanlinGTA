@@ -45,6 +45,11 @@ const SFX_DECODED = [
   'paper',
   'door',
   'lift',
+  'prop_cone',
+  'prop_barrier',
+  'bike_scrape',
+  'ragdoll_thud',
+  'clock_chime',
 ];
 export function loadSettings() {
   // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
@@ -651,10 +656,11 @@ export class Audio {
   }
   // a looping recording somewhere in the world, kept at level v every frame (0: fades out, pauses after 2 s);
   // e.g. 女拳大帝's phone alarm ringing on his desk (src/entities/npcs/Gordon.js)
-  loopAt(key, src, v, dt, pan = 0) {
-    if (!this.ctx || !this.sfx) return;
+  loopAt(key, src, v, dt, pan = 0, dest = this.sfx) {
+    if (!this.ctx || !dest) return;
+    if (v <= 0.001 && !this._loops?.[key]) return;
     const L = (this._loops ||= {});
-    const b = (L[key] ||= this._stream(src, this.sfx));
+    const b = (L[key] ||= this._stream(src, dest));
     this._streamLevel(b, v, dt, pan);
   }
   // keep a stream at level v (fades out by itself when not called); pauses after 2 s of silence
@@ -747,6 +753,37 @@ export class Audio {
       ff: 750,
       q: 2,
       att: 0.03,
+    });
+  }
+  // Rapier physics impacts: cone bounce, water-filled barrier thud, knocked scooter scrape, ragdoll landing
+  physImpact(kind, mag = 0.7, x, z) {
+    const k = Math.min(1, Math.max(0.2, mag));
+    const map = {
+      cone: ['prop_cone', 0.45],
+      barrier: ['prop_barrier', 0.58],
+      bike_scrape: ['bike_scrape', 0.55],
+      ragdoll: ['ragdoll_thud', 0.52],
+    };
+    const spec = map[kind];
+    if (!spec) return;
+    const run = () => {
+      if (this._play(spec[0], spec[1] * k, 0, 0.92 + Math.random() * 0.16)) return;
+      if (kind === 'cone') this.tone(360, 0.09, 'triangle', 0.08 * k, 0, 0.65);
+      else if (kind === 'barrier') {
+        this.tone(95, 0.22, 'sine', 0.16 * k, 0, 0.5);
+        this.noise(0.16, 420, 0.7, 0.12 * k, 0, 'lowpass');
+      } else if (kind === 'bike_scrape') this.noise(0.35, 1600, 1.4, 0.14 * k, 0, 'bandpass');
+      else this.tone(85, 0.18, 'sine', 0.14 * k, 0, 0.55);
+    };
+    if (x != null && z != null) this.at(x, z, 36, run);
+    else run();
+  }
+  // 二一鐘塔整點鐘聲
+  clockChime(x, z) {
+    this.at(x, z, 160, () => {
+      if (this._play('clock_chime', 0.55, 0, 0.99 + Math.random() * 0.02)) return;
+      this.tone(293.66, 2.2, 'sine', 0.12, 0, 0.995);
+      this.tone(587.33, 1.4, 'sine', 0.05, 0, 0.99);
     });
   }
   // guardhouse boom barrier: motor whirr, then a clunk at the end stop
@@ -1077,6 +1114,46 @@ export class Audio {
       const syn = c.s.ready ? 0 : lvl;
       if (syn > 0 && !c.b) c.b = this._babble(6, this.sfx);
       if (c.b) this._babbleTick(c.b, dt, syn * 0.5, 0);
+    }
+    // 室內空間底噪（Room Tone）：教室／宿舍冷氣低頻、學活 B1／麥當勞用餐區人聲
+    const zn = o.indoorZone || '';
+    const cafe = !!o.indoor && /麥當勞|用餐|餐飲|美食|學生活動中心 B1/.test(zn);
+    this.loopAt('room_cafe', 'room_cafe', cafe ? 0.24 : 0, dt, 0, this.amb);
+    this.loopAt('room_ac', 'room_ac', o.indoor ? (cafe ? 0.08 : 0.18) : 0, dt, 0, this.amb);
+    // 校園地標點音源：噴水池水流聲
+    if (o.fountain) {
+      const dx = o.fountain.x - o.x,
+        dz = o.fountain.z - o.z,
+        d = Math.hypot(dx, dz);
+      const lv = d < 32 ? Math.pow(1 - d / 32, 1.5) * 0.34 * out : 0;
+      const pan =
+        d < 3
+          ? 0
+          : ((-dx * Math.cos(o.yaw) + dz * Math.sin(o.yaw)) / d) * 0.65 * Math.min(1, d / 12);
+      this.loopAt('fountain', 'fountain', lv, dt, pan, this.amb);
+    }
+    // 校園地標點音源：力行宿舍浴室淋浴水聲（晚間 18:00–01:00 或洗澡任務期間）
+    if (o.shower) {
+      const dx = o.shower.x - o.x,
+        dz = o.shower.z - o.z,
+        d = Math.hypot(dx, dz),
+        sameFloor = Math.abs((o.y ?? 0) - o.shower.y) < 2.4;
+      const hrNow = o.clock != null ? Math.floor((((o.clock % 1440) + 1440) % 1440) / 60) : 20;
+      const on = o.shower.active || hrNow >= 18 || hrNow < 1;
+      const lv = on && sameFloor && d < 14 ? Math.pow(1 - d / 14, 1.4) * 0.34 : 0;
+      const pan =
+        d < 1.5
+          ? 0
+          : ((-dx * Math.cos(o.yaw) + dz * Math.sin(o.yaw)) / d) * 0.6 * Math.min(1, d / 6);
+      this.loopAt('shower', 'shower', lv, dt, pan, this.amb);
+    }
+    // 校園地標點音源：二一鐘塔整點鐘聲（正常時間推進跨整點時觸發，快轉／睡覺不連響）
+    if (o.clock != null && o.clockTower) {
+      const hr = Math.floor(o.clock / 60);
+      if (this._lastHr != null && hr - this._lastHr === 1) {
+        this.clockChime(o.clockTower.x, o.clockTower.z);
+      }
+      this._lastHr = hr;
     }
   }
   _bird() {

@@ -23,7 +23,7 @@ export const rotateSeat = (s, mySeat) => (s - mySeat + 4) % 4;
 export const unrotateSeat = (ls, mySeat) => (ls + mySeat) % 4;
 
 // 建立所有 144 張牌的計數表，扣掉客端已可見的牌後，回傳剩下的「未知牌池」用來填充他家蓋著的手牌與牌牆
-function unseenPoolFor(engine, mySeat, reveal) {
+function unseenPoolFor(engine, visibleSeat, reveal) {
   const rem = new Array(FLOWER0 + 8).fill(0);
   for (let k = 0; k < KINDS; k++) rem[k] = 4;
   for (let k = FLOWER0; k < FLOWER0 + 8; k++) rem[k] = 1;
@@ -32,7 +32,7 @@ function unseenPoolFor(engine, mySeat, reveal) {
   };
   for (let s = 0; s < 4; s++) {
     const P = engine.players[s];
-    if (reveal || s === mySeat) for (const k of P.hand) take(k);
+    if (reveal || s === visibleSeat) for (const k of P.hand) take(k);
     for (const m of P.melds) for (const k of meldTiles(m)) take(k);
     for (const k of P.flowers) take(k);
     for (const k of P.discards) take(k);
@@ -42,10 +42,13 @@ function unseenPoolFor(engine, mySeat, reveal) {
   return pool;
 }
 
-export function serializeStateFor(engine, mySeat) {
+export function serializeStateFor(engine, mySeat, opts = {}) {
+  const spectate = !!opts.spectate;
+  const revealAll = !!(spectate && opts.revealAll);
   const rot = (s) => (s == null ? null : rotateSeat(s, mySeat));
-  const reveal = engine.phase === 'end';
-  const pool = unseenPoolFor(engine, mySeat, reveal);
+  const reveal = engine.phase === 'end' || revealAll;
+  const visibleSeat = spectate ? -1 : mySeat;
+  const pool = unseenPoolFor(engine, visibleSeat, reveal);
   let pi = 0;
   const takeDummy = (n) => {
     const out = [];
@@ -57,7 +60,7 @@ export function serializeStateFor(engine, mySeat) {
     const hs = unrotateSeat(ls, mySeat);
     const P = engine.players[hs];
     return {
-      hand: reveal || hs === mySeat ? [...P.hand] : takeDummy(P.hand.length),
+      hand: reveal || hs === visibleSeat ? [...P.hand] : takeDummy(P.hand.length),
       melds: P.melds.map((m) => ({
         type: m.type,
         t: m.t,
@@ -73,7 +76,7 @@ export function serializeStateFor(engine, mySeat) {
   });
 
   const wall = takeDummy(engine.wall.length);
-  const p = engine.pendingFor ? engine.pendingFor(mySeat) : null;
+  const p = !spectate && engine.pendingFor ? engine.pendingFor(mySeat) : null;
   const pending = p ? { seat: 0, kind: p.kind, options: p.options } : null;
   const waitingSeat = engine.pending ? rot(engine.pending.seat) : null;
 
@@ -98,7 +101,7 @@ export function serializeStateFor(engine, mySeat) {
     turn: rot(engine.turn),
     phase: engine.phase,
     justDrew: engine.justDrew,
-    drawn: engine.turn === mySeat || reveal ? engine.drawn : null,
+    drawn: reveal || (!spectate && engine.turn === mySeat) ? engine.drawn : null,
     last: engine.last
       ? { t: engine.last.t, from: rot(engine.last.from), rob: !!engine.last.rob }
       : null,
@@ -110,19 +113,23 @@ export function serializeStateFor(engine, mySeat) {
     wall,
     pending,
     waitingSeat,
-    tenpai: engine.tenpai ? engine.tenpai(mySeat) : [],
+    tenpai: (!spectate || revealAll) && engine.tenpai ? engine.tenpai(mySeat) : [],
+    spectate,
+    revealAll,
     result,
   };
 }
 
-export function rotateEventsFor(events, mySeat) {
+export function rotateEventsFor(events, mySeat, opts = {}) {
+  const spectate = !!opts.spectate;
+  const revealAll = !!(spectate && opts.revealAll);
   const rot = (s) => (s == null ? null : rotateSeat(s, mySeat));
   return (events || []).map((ev) => {
     const out = { ...ev };
     if ('seat' in out) out.seat = rot(out.seat);
     if ('from' in out) out.from = rot(out.from);
     if ('winner' in out) out.winner = rot(out.winner);
-    if (out.type === 'draw' && ev.seat !== mySeat) out.t = -1;
+    if (out.type === 'draw' && !revealAll && (spectate || ev.seat !== mySeat)) out.t = -1;
     if (out.deltas) out.deltas = [0, 1, 2, 3].map((ls) => ev.deltas[unrotateSeat(ls, mySeat)]);
     return out;
   });
@@ -159,6 +166,8 @@ export class RemoteMahjongEngine {
     this.live = 0;
     this.result = null;
     this._tenpai = [];
+    this.spectate = false;
+    this.revealAll = false;
     this.isRemote = true;
   }
   seatWind(s) {
@@ -177,7 +186,7 @@ export class RemoteMahjongEngine {
     return s === 0 ? this._tenpai : [];
   }
   decide(a) {
-    if (!this.pending || this.pending.seat !== 0) return false;
+    if (this.spectate || !this.pending || this.pending.seat !== 0) return false;
     this.pending = null;
     this.onDecide?.(a);
     return true;
@@ -202,6 +211,8 @@ export class RemoteMahjongEngine {
     this.pending = snap.pending;
     this.waitingSeat = snap.waitingSeat;
     this._tenpai = snap.tenpai || [];
+    this.spectate = !!snap.spectate;
+    this.revealAll = !!snap.revealAll;
     this.result = snap.result;
     this.events.length = 0;
     for (const ev of events) this.emit(ev);

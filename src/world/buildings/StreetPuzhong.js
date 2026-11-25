@@ -4280,6 +4280,7 @@ export function buildPuzhongStreet(I, scene, X) {
       slab: (x0, z0, x1, z1, th, y0, y1, m, o) =>
         q.slab(x0 - x, z0 - z, x1 - x, z1 - z, th, y0, y1, m, o),
       plane: (tex, pw, ph, px, py, pz, rot, o) => q.plane(tex, pw, ph, px - x, py, pz - z, rot, o),
+      scooter: (bx, bz, rot, col) => q.scooter(bx - x, bz - z, rot, col),
       _part: (m, g) => q._part(m, g.translate(-x, 0, -z)),
     };
   };
@@ -4313,22 +4314,7 @@ export function buildPuzhongStreet(I, scene, X) {
     return k._part(VC, paintGeo(g, hex));
   };
   const bikeCols = ['#2a2a30', '#c9c9c4', '#b02a2a', '#2f6db3', '#3f7a4c', '#d8b02a'];
-  const bike = (k, x, z, rot, col) => {
-    // 一台機車，順著立面停（rot 0）或垂直立面（rot 1）
-    if (rot) {
-      k.box(x - 0.14, x + 0.14, 0.28, 0.62, z, z + 1.5, col, { col: false });
-      k.box(x - 0.1, x + 0.1, 0.62, 0.72, z + 0.45, z + 1.0, '#1c1c1e', { col: false });
-      k.box(x - 0.3, x + 0.3, 0.9, 0.96, z + 1.28, z + 1.34, '#1c1c1e', { col: false });
-      k.box(x - 0.08, x + 0.08, 0.0, 0.5, z + 0.05, z + 0.5, '#1c1c1e', { col: false });
-      k.box(x - 0.08, x + 0.08, 0.0, 0.5, z + 1.2, z + 1.45, '#1c1c1e', { col: false });
-    } else {
-      k.box(x, x + 1.5, 0.28, 0.62, z - 0.14, z + 0.14, col, { col: false });
-      k.box(x + 0.45, x + 1.0, 0.62, 0.72, z - 0.1, z + 0.1, '#1c1c1e', { col: false });
-      k.box(x + 1.28, x + 1.34, 0.9, 0.96, z - 0.3, z + 0.3, '#1c1c1e', { col: false });
-      k.box(x + 0.05, x + 0.5, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', { col: false });
-      k.box(x + 1.2, x + 1.45, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', { col: false });
-    }
-  };
+  const bike = (k, x, z, rot, col) => k.scooter(x, z, rot, col);
 
   // ================= kind 'site'／'shed' 的零件（座標都是 Kit 區域座標：x 沿立面、z 離開街道、立面線 z = 0） =================
   const shutterFine = (hex) =>
@@ -4399,7 +4385,7 @@ export function buildPuzhongStreet(I, scene, X) {
   const tree = (k, x, z, h, r) => {
     // 樹幹加三團樹冠
     const s = h * 0.24;
-    k.cyl(x, z, 0.2, -0.4, h * 0.7, '#6a4a30', { seg: 6 });
+    k.cyl(x, z, 0.2, -0.4, h * 0.7, '#6a4a30', { seg: 6, col: true });
     for (const [dx, dy, dz, q] of [
       [0, h * 0.78, 0, 1],
       [-s * 0.7, h * 0.62, s * 0.3, 0.8],
@@ -4831,9 +4817,15 @@ export function buildPuzhongStreet(I, scene, X) {
         const [x0, x1] = span(a, b),
           o = f || {},
           z0 = lz(c),
+          z1 = lz(e),
+          y0 = o.y0 ?? -1.2,
           y1 = o.y1 || 3,
-          q = sub(k, (x0 + x1) / 2, (z0 + lz(e)) / 2);
-        q.box(x0, x1, o.y0 ?? -1.2, y1, z0, lz(e), o.col || '#c9c8c2', { col: !!o.solid });
+          q = sub(k, (x0 + x1) / 2, (z0 + z1) / 2),
+          solid =
+            o.solid !== undefined
+              ? !!o.solid
+              : y0 < 1.2 && y1 > 0.35 && Math.abs(x1 - x0) >= 0.35 && Math.abs(z1 - z0) >= 0.35;
+        q.box(x0, x1, y0, y1, z0, z1, o.col || '#c9c8c2', { col: solid });
         for (let j = 0; j < (o.win || 0); j++)
           for (const u of [0.28, 0.72])
             q.plane(YHT.win(), 1.6, 1.2, x0 + (x1 - x0) * u, y1 - 1.7 - j * 3.3, z0 - 0.03, FRONT);

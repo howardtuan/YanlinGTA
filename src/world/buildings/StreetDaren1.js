@@ -1291,22 +1291,7 @@ export function buildDaren1Street(I, scene, X) {
 
   const kits = [];
   const bikeCols = ['#2a2a30', '#c9c9c4', '#b02a2a', '#2f6db3', '#3f7a4c', '#d8b02a'];
-  const bike = (k, x, z, rot, col) => {
-    // 一台機車，順著立面停（rot 0）或垂直立面（rot 1）
-    if (rot) {
-      k.box(x - 0.14, x + 0.14, 0.28, 0.62, z, z + 1.5, col, { col: false });
-      k.box(x - 0.1, x + 0.1, 0.62, 0.72, z + 0.45, z + 1.0, '#1c1c1e', { col: false });
-      k.box(x - 0.3, x + 0.3, 0.9, 0.96, z + 1.28, z + 1.34, '#1c1c1e', { col: false });
-      k.box(x - 0.08, x + 0.08, 0.0, 0.5, z + 0.05, z + 0.5, '#1c1c1e', { col: false });
-      k.box(x - 0.08, x + 0.08, 0.0, 0.5, z + 1.2, z + 1.45, '#1c1c1e', { col: false });
-    } else {
-      k.box(x, x + 1.5, 0.28, 0.62, z - 0.14, z + 0.14, col, { col: false });
-      k.box(x + 0.45, x + 1.0, 0.62, 0.72, z - 0.1, z + 0.1, '#1c1c1e', { col: false });
-      k.box(x + 1.28, x + 1.34, 0.9, 0.96, z - 0.3, z + 0.3, '#1c1c1e', { col: false });
-      k.box(x + 0.05, x + 0.5, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', { col: false });
-      k.box(x + 1.2, x + 1.45, 0, 0.5, z - 0.08, z + 0.08, '#1c1c1e', { col: false });
-    }
-  };
+  const bike = (k, x, z, rot, col) => k.scooter(x, z, rot, col);
 
   // ---- B 段新增的樣式：格子地磚、凹陽台、住宅大門、門廳 ----
   const paveMat = () =>
@@ -1909,7 +1894,7 @@ export function buildDaren1Street(I, scene, X) {
         k.box(x - 1.6, x, 2.6, 2.68, -0.13, -0.04, '#b9b3a6', { col: false });
       } // 生鏽的立管與一段橫管
       else if (kind === 'pole') {
-        k.cyl(x, -0.3, 0.13, 0, 9.2, '#8a8478', { seg: 8 });
+        k.cyl(x, -0.3, 0.13, 0, 9.2, '#8a8478', { seg: 8, col: true });
         k.box(x - 0.9, x + 0.9, 8.3, 8.4, -0.36, -0.24, '#6f6a60', { col: false });
       } // 路邊的電線桿
       else if (kind === 'duct') {
@@ -2035,7 +2020,8 @@ export function buildDaren1Street(I, scene, X) {
       k.cyl(x, z, 0.8, th * 0.48, th * 0.78, gc, { r1: 1.45, seg: 8 });
       k.cyl(x, z, 1.45, th * 0.78, th * 1.15, gc, { r1: 0.35, seg: 8 });
     }
-    for (const s of sp.poles || []) k.cyl(sx(s), -0.15, 0.14, 0, 8.6, '#8a8478', { seg: 8 });
+    for (const s of sp.poles || [])
+      k.cyl(sx(s), -0.15, 0.14, 0, 8.6, '#8a8478', { seg: 8, col: true });
     if (sp.board) {
       const [a, b] = [sx(sp.board[0]), sx(sp.board[1])].sort((p, q) => p - q);
       k.box(a, b, 1.3, 2.9, 0.26, 0.31, '#f1efe8', { col: false });

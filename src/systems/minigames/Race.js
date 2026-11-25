@@ -508,6 +508,7 @@ export class Race {
               friction: 0.8,
               damping: 0.7,
               angularDamping: 0.8,
+              sound: 'cone',
             }
           : {
               shape: 'box',
@@ -519,6 +520,7 @@ export class Race {
               damping: 1.5,
               angularDamping: 2,
               maxSpeed: 2.5,
+              sound: 'barrier',
             }
       );
       this.obst.push({

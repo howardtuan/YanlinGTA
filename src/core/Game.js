@@ -93,6 +93,7 @@ import { Chassis } from '../physics/VehPhysics.js';
 import { Ragdoll } from '../physics/Ragdoll.js';
 import { Walker } from '../entities/Walker.js';
 import { buildPhysicsWorld } from '../physics/PhysWorld.js';
+import { spawnWorldCones } from '../world/WorldProps.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
@@ -102,6 +103,7 @@ import { configureGpuMem, releaseAtlasSources } from '../graphics/GpuMemLifecycl
 import { TEX } from '../world/Kit.js';
 import { PerfHud } from './PerfHud.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
+import { ParkedScooters } from './ParkedScooters.js';
 
 const $ = (id) => document.getElementById(id);
 const onClick = (id, fn) => {
@@ -145,6 +147,7 @@ class Game {
 
     await stage('fetch-and-wasm', 0.02, '載入地圖資料');
     this.physics = new Physics();
+    this.physics.onSound = (kind, mag, x, z) => this.audio?.physImpact?.(kind, mag, x, z);
     const [data, terrain] = await Promise.all([
       fetch(`data/cycu.json${window.__q || ''}`).then((r) => r.json()),
       fetch(`data/terrain.json${window.__q || ''}`)
@@ -382,6 +385,7 @@ class Game {
       } catch (_e2) {}
       this.physics.world = null;
     }
+    this.worldCones = spawnWorldCones(this.scene, this.physics, this.interiors.cones);
     await stage('spawn-entities', 0.82, '召喚同學與機車');
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);
@@ -520,6 +524,7 @@ class Game {
     }
 
     this.vehicleSpawner.spawnParked();
+    this.parkedScooters = new ParkedScooters(this);
     Vehicle.knock = (o, by, nx, nz, impact) =>
       this.vehicleSpawner.knockVehicle(o, by, nx, nz, impact);
     Vehicle.knockTraffic = (o, by, nx, nz, impact) =>
@@ -1306,10 +1311,14 @@ class Game {
           this.audio.mount();
         } else hud.toast('先減速才能下車！', 'bad');
       } else {
-        const v = this._nearestVehicle(3.2),
-          locked = v?.lock?.();
+        let v = this._nearestVehicle(3.2);
+        const locked = v?.lock?.();
         if (locked) hud.toast(locked, 'bad', 2800);
         else if (v) {
+          if (v.isParkedSpot) {
+            v = this.parkedScooters.claimAsVehicle(v.spot);
+            if (!v) return;
+          }
           if (v.ai !== null && v.ai !== undefined) {
             this.traffic.hijack(v);
             this.vehicles.push(v);
@@ -1416,6 +1425,7 @@ class Game {
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
       if (!pl.rag) {
+        this.parkedScooters?.resolveFoot(pl.pos, 0.35);
         for (const v of [...this.vehicles, ...this.traffic.vehicles()]) {
           if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1)
             continue;
@@ -1478,13 +1488,29 @@ class Game {
     this.traffic.update(dt, info, this.audio);
     this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
+    const inZn = !pl.vehicle ? this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) : null;
+    if (!this._showerSpot && this.interiors.lixing?.bathW) {
+      const L = this.interiors.lixing,
+        bw = L.bathW,
+        [sx, sz] = L.W((bw.x0 + bw.x1) / 2, (bw.z0 + bw.z1) / 2);
+      this._showerSpot = { x: sx, z: sz, y: L.FL?.[1] ?? 3.4 };
+    }
+    const shower = this._showerSpot
+      ? { ...this._showerSpot, active: !!this.zzQuest?.bathActive }
+      : null;
     this.audio.ambient(dt, {
       x: wp.x,
+      y: pl.y,
       z: wp.z,
       yaw: this.rig.yaw,
       night: this.night,
-      indoor: !pl.vehicle && !!this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y),
+      indoor: !!inZn,
+      indoorZone: inZn?.name || '',
       market: w.nightMarket,
+      fountain: w.fountain,
+      clockTower: w.named?.['鐘塔'],
+      clock: this.clock,
+      shower,
       crowd: this.speechOn,
       job: this.job.active,
       timed: this.missions.timer !== null || this.race.active,
@@ -1544,6 +1570,7 @@ class Game {
       this.audio.pickup();
     }
 
+    this.parkedScooters?.update(dt);
     if (inp.hit('KeyV') && !this.phone.open && !hud.inDialog && !hud.bigOpen && !this._modalOpen)
       this.fpv.toggle();
     this.rig.update(

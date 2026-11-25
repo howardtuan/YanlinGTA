@@ -521,9 +521,9 @@ export function buildMassageShop(k, { D = 12, GF = 3.4, shutterCol = '#e2d3a8' }
     reception: at((CX0 + W - T) / 2, (CZ1 + 3.0) / 2, 0, Math.PI), // behind the counter, facing the door
     // where you stand up after the massage (the aisle, facing the door)
     exit: at(W / 2, 3.4, 0, Math.PI),
-    // the therapists between customers
-    // (out of the aisle: where you stand up afterwards is the middle of it)
-    idle: [at(W - 1.15, 3.4, 0, Math.PI), at(GAP1 - 0.25, CZ - 0.35, 0, Math.PI)],
+    // the therapists between customers: 阿德師 behind the counter next to the receptionist (in sight from the door,
+    // not behind the slatted screen at z 3.0-3.1), 小珍師 by the curtain; both out of the aisle, where you stand up
+    idle: [at(CX0 + 0.2, (CZ1 + 3.0) / 2, 0, Math.PI), at(GAP1 - 0.25, CZ - 0.35, 0, Math.PI)],
     // foot massage: you on the recliner (facing the front), the therapist on the stool facing you;
     // cam / look: the shot while it lasts (over the back rest, toward the therapist and the TV)
     recliners: recliners.map(({ xc }) => ({

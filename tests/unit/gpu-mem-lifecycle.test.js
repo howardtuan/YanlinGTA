@@ -4,6 +4,9 @@ import {
   blankTexture,
   canvasTexture,
   configureGpuMem,
+  flushShared,
+  gcNudge,
+  markStaticGeometry,
   markAtlasSource,
   releaseAtlasSources,
   resetGpuMem,
@@ -28,17 +31,17 @@ afterEach(() => {
 });
 
 describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
-  it('only phones, the safe mode and ?texscale= scale textures; desktops keep every pixel', () => {
+  it('every tier stores textures at its PerfProfile texScale, atlas sheets within atlasMaxW x atlasMaxH', () => {
     expect(configureGpuMem(profile('desktop-dgpu'))).toEqual({
       texScale: 1,
       atlasScale: 1,
       atlasMaxH: 4096,
     });
-    // desktop-igpu says texScale 0.75 in PerfProfile, but the laptop keeps its look
+    // M-series / Iris Xe laptops: 0.75, sheets at most 2048 tall (stored 1536 x 1536)
     expect(configureGpuMem(profile('desktop-igpu'))).toEqual({
-      texScale: 1,
-      atlasScale: 1,
-      atlasMaxH: 4096,
+      texScale: 0.75,
+      atlasScale: 0.75,
+      atlasMaxH: 2048,
     });
     expect(configureGpuMem(profile('mobile-lite'))).toEqual({
       texScale: 0.5,
@@ -47,7 +50,7 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     });
     const safe = applySafeMode(profile('mobile-lite'));
     expect(configureGpuMem(safe)).toEqual({ texScale: 0.375, atlasScale: 0.375, atlasMaxH: 2048 });
-    const flagged = profile('desktop-igpu', { texScale: 0.6, flags: { texScale: 0.6 } });
+    const flagged = profile('desktop-dgpu', { texScale: 0.6, flags: { texScale: 0.6 } });
     expect(configureGpuMem(flagged).texScale).toBe(0.6);
   });
 
@@ -117,5 +120,51 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     expect(releaseAtlasSources(new THREE.Scene(), { t })).toBe(0);
     expect(texScale()).toBe(1);
     expect(t.image.width).toBe(16);
+  });
+  it('flushShared: shared canvases go to the GPU (clones too) and are released; dynamic ones stay; a later upload redraws', () => {
+    fakeContext();
+    const r = fakeRenderer();
+    configureGpuMem(profile('desktop-dgpu'), r);
+    const draw = vi.fn();
+    const shared = canvasTexture(64, 64, draw),
+      clone = shared.clone(),
+      dynamic = canvasTexture(64, 64, () => {}, true, { dynamic: true }),
+      unused = canvasTexture(32, 32, () => {});
+    const scene = new THREE.Scene();
+    for (const map of [shared, clone, dynamic])
+      scene.add(new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshBasicMaterial({ map })));
+    expect(flushShared(scene)).toBe(1);
+    expect(r.initTexture).toHaveBeenCalledWith(shared);
+    expect(r.initTexture).toHaveBeenCalledWith(clone);
+    expect(r.initTexture).not.toHaveBeenCalledWith(dynamic);
+    expect(shared.image.width).toBe(1);
+    expect(shared.userData.gpuW).toBe(64);
+    expect(dynamic.image.width).toBe(64);
+    expect(unused.image.width).toBe(32); // not in the scene: kept
+    // something asks for the pixels again: drawn again first, not uploaded as a blank
+    draw.mockClear();
+    shared.needsUpdate = true;
+    expect(draw).toHaveBeenCalledOnce();
+    expect(shared.image.width).toBe(64);
+  });
+
+  it('markStaticGeometry: bounds first, arrays dropped once uploaded, the vertex count stays', () => {
+    const geo = markStaticGeometry(new THREE.BoxGeometry(2, 2, 2));
+    expect(geo.boundingSphere.radius).toBeGreaterThan(1.7);
+    const pos = geo.attributes.position,
+      n = pos.count;
+    pos.onUploadCallback(); // what WebGLAttributes calls right after bufferData
+    expect(pos.array.length).toBe(0);
+    expect(pos.count).toBe(n);
+    geo.index.onUploadCallback();
+    expect(geo.index.array.length).toBe(0);
+    expect(markStaticGeometry(geo)).toBe(geo); // marked once
+  });
+
+  it('gcNudge only runs on Apple WebKit, at most once every 5 s', () => {
+    expect(gcNudge()).toBe(false); // happy-dom is not Apple
+    vi.spyOn(navigator, 'vendor', 'get').mockReturnValue('Apple Computer, Inc.');
+    expect(gcNudge()).toBe(true);
+    expect(gcNudge()).toBe(false);
   });
 });

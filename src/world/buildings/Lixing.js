@@ -143,7 +143,9 @@ export function lixingVegHide() {
 }
 
 // canvas from src/graphics/GpuMemLifecycle.js (stored at the phone texture scale), not repeating
-const canvasTex = (w, h, draw) => canvasTexture(w, h, draw, false);
+function canvasTex(w, h, draw) {
+  return canvasTexture(w, h, draw, false);
+}
 const FONT = '"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif';
 const signTex = (text, bg, fg, w = 512, h = 128, px = 64) =>
   canvasTex(w, h, (g) => {

@@ -2,6 +2,7 @@
 // Everything is generated, so the game stays a pure static site with no image assets to download.
 import * as THREE from 'three';
 import { fbmWasm, normalWasm } from './wasm/kernels.js';
+import { texScale, releaseCanvas, markShared } from './GpuMemLifecycle.js';
 
 const CACHE = {};
 const cached = (k, f) => CACHE[k] || (CACHE[k] = f());
@@ -73,8 +74,24 @@ function canvas(w, h) {
 }
 // canvases whose pixels are read back (getImageData) stay on the CPU: a GPU readback stalls for seconds under software rendering
 const READBACK = { willReadFrequently: true };
+// every texture here is generated at its full size (the patterns are drawn in pixels), then stored at the tier's
+// texture scale (PerfProfile texScale: desktop-igpu 0.75, phones 0.5; src/graphics/GpuMemLifecycle.js): same look,
+// fewer pixels; the full-size canvas is released at once
+function forTier(cv) {
+  const s = texScale();
+  if (s >= 1 || cv.width <= 64 || cv.height <= 64) return cv;
+  const out = canvas(Math.max(1, Math.round(cv.width * s)), Math.max(1, Math.round(cv.height * s))),
+    g = out.getContext('2d');
+  if (!g) return cv;
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(cv, 0, 0, out.width, out.height);
+  releaseCanvas(cv);
+  return out;
+}
 function toTex(cv, { srgb = true, repeat = true, aniso = 8 } = {}) {
-  const t = new THREE.CanvasTexture(cv);
+  const img = forTier(cv);
+  markShared(img); // static: on the GPU after loading, then released (GpuMemLifecycle.flushShared)
+  const t = new THREE.CanvasTexture(img);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = aniso;
@@ -239,6 +256,7 @@ export const groundTex = {
       }
       g.putImageData(img, 0, 0);
       const hf = heightFromCanvas(hc);
+      releaseCanvas(hc); // scratch: only its heights were needed
       const rough = paint(S, (x, y, i) => [
         255,
         clamp255(hf[i] > 0.1 ? 190 + grime[i] * 50 : 245),
@@ -287,6 +305,7 @@ export const groundTex = {
       }
       g.putImageData(img, 0, 0);
       const hf = heightFromCanvas(hc);
+      releaseCanvas(hc); // scratch: only its heights were needed
       return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 3), { srgb: false }) };
     }),
   grass: () =>
@@ -696,13 +715,17 @@ function facade(style, seed, px = 128) {
     const dc = canvas(256, 256);
     dc.getContext('2d').putImageData(di, 0, 0);
     g.drawImage(dc, 0, 0, W, W);
+    releaseCanvas(dc); // scratch: copied into the facade above
     g.globalCompositeOperation = 'source-over';
-    const hf = heightFromCanvas(hc);
+    const hf = heightFromCanvas(hc),
+      hw = hc.width,
+      hh = hc.height;
+    releaseCanvas(hc); // scratch: only its heights were needed
     return {
       map: toTex(col),
       emi: toTex(em),
       rm: toTex(rm, { srgb: false }),
-      normalMap: toTex(normalFromHeight(hf, hc.width, hc.height, 5), { srgb: false }),
+      normalMap: toTex(normalFromHeight(hf, hw, hh, 5), { srgb: false }),
     };
   });
 }
@@ -986,13 +1009,17 @@ export function facadeParam(base, px = 128) {
     const dc = canvas(128, 128);
     dc.getContext('2d').putImageData(di, 0, 0);
     for (let y = 0; y < HH; y += W) g.drawImage(dc, 0, y, W, W);
+    releaseCanvas(dc); // scratch: copied into the facade above
     g.globalCompositeOperation = 'source-over';
-    const hf = heightFromCanvas(hc);
+    const hf = heightFromCanvas(hc),
+      hw = hc.width,
+      hh = hc.height;
+    releaseCanvas(hc); // scratch: only its heights were needed
     return {
       map: toTex(col),
       emi: toTex(em),
       rm: toTex(rm, { srgb: false }),
-      normalMap: toTex(normalFromHeight(hf, hc.width, hc.height, 5), { srgb: false }),
+      normalMap: toTex(normalFromHeight(hf, hw, hh, 5), { srgb: false }),
     };
   });
 }
@@ -1086,6 +1113,7 @@ export function shopTex() {
       }
     }
     const hf = heightFromCanvas(hc);
+    releaseCanvas(hc); // scratch: only its heights were needed
     const t = (cv, srgb) => {
       const tx = toTex(cv, { srgb });
       tx.wrapT = THREE.ClampToEdgeWrapping;

@@ -23,6 +23,7 @@
 import * as THREE from 'three';
 import { Kit, regMat } from '../Kit.js';
 import { MAIN_GATE } from '../MainGateSpec.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 // ---- frames -------------------------------------------------------------------------------------
 // 維澈樓 west terrace (tools/overrides.json 「維澈樓西側抬高平台」): o = the building's west corner, u along
@@ -119,17 +120,9 @@ export function gateExtrasFootprints() {
 
 // ---- textures / materials -------------------------------------------------------------------------
 const TEX = {};
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale); this file keeps its own keys
 function tex(key, w, h, draw, repeat = false) {
-  if (TEX[key]) return TEX[key];
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return (TEX[key] = t);
+  return TEX[key] || (TEX[key] = canvasTexture(w, h, draw, repeat));
 }
 const font = (px, w = 900, fam = '"Noto Sans TC","Microsoft JhengHei",sans-serif') =>
   `${w} ${px}px ${fam}`;

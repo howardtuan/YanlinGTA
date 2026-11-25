@@ -99,7 +99,12 @@ import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
 import { createBootDiag } from './BootDiag.js';
-import { configureGpuMem, releaseAtlasSources } from '../graphics/GpuMemLifecycle.js';
+import {
+  configureGpuMem,
+  releaseAtlasSources,
+  flushShared,
+  gcNudge,
+} from '../graphics/GpuMemLifecycle.js';
 import { TEX } from '../world/Kit.js';
 import { PerfHud } from './PerfHud.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
@@ -381,6 +386,7 @@ class Game {
       afterZone: () => releaseAtlasSources(this.scene, TEX),
     });
     releaseAtlasSources(this.scene, TEX);
+    gcNudge(); // Apple WebKit: collect the build's garbage now (GpuMemLifecycle)
 
     await stage('build-physics', 0.79, '建立物理碰撞世界');
     try {
@@ -609,6 +615,9 @@ class Game {
     );
     if (/[?&]physdebug\b/.test(location.search)) this.physics.enableDebug(this.scene);
 
+    // static canvas textures: on the GPU now, their canvases released (src/graphics/GpuMemLifecycle.js)
+    flushShared(this.scene);
+    gcNudge();
     this.last = performance.now();
     this.state = 'title';
     this.titleT = 0;

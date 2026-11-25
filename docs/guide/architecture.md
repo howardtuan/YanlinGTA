@@ -172,16 +172,21 @@ sequenceDiagram
 
 ### 4. 畫布貼圖記憶體 (`src/graphics/GpuMemLifecycle.js`，效能重構 Phase 1A)
 iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB 就會把頁面殺掉；原本一次載入會留下約 1.75 GB 的畫布（光是 28 張 2048×4096 的街屋招牌圖集就 896 MB）。規格見 `perf-refactor/specs/phase-1-ios-memory-rescue.md`。
-- **設定**：`Game.init()` 建好 renderer 後呼叫 `configureGpuMem(perfProfile, renderer)`。只有手機（`mobile-lite`，`texScale` 0.5）、BootDiag 安全模式（0.375）或網址 `?texscale=` 會縮小貼圖；**電腦一律 1 倍，畫面與以前逐像素相同**（`desktop-igpu` 在 `PerfProfile` 的 0.75 刻意不套用，筆電畫質不降）。
+- **設定**：`Game.init()` 建好 renderer 後呼叫 `configureGpuMem(perfProfile, renderer)`。每個檔位都照 `PerfProfile` 的 `texScale` 存放畫布貼圖：獨顯電腦（`desktop-dgpu`）1 倍、內顯電腦（`desktop-igpu`，含 Apple M 系列）0.75、手機（`mobile-lite`）0.5、BootDiag 安全模式 0.375，網址 `?texscale=` 可覆寫；圖集依 `atlasMaxW` × `atlasMaxH` 限制大小。
 - **建立畫布**：`canvasTexture(w, h, draw, repeat)` / `scaledCanvas(w, h)`。畫布以 `texScale` 存放，但 context 已縮放，`draw(g, w, h)` 照原本的 w × h 畫；縮小的畫布用 `cv.lw` / `cv.lh` 記住原尺寸。拿不到 2D context（記憶體不足）時回傳共用的 1×1 `blankTexture()`，不會當掉。`Kit.ctex`、各區（ZoneA～H）、`Dorms`、`Lixing`、`Sac` 的貼圖都走這裡。
 - **釋放**：
   - 街屋圖集（`finishRow` 的 sheet）一畫完就 `uploadAndRelease()`：上傳 GPU、畫布縮成 1×1。`Sac` 的門牌／招牌圖集、`Lixing` 的門牌圖集也在全部畫完後這樣處理。
   - 被複製進圖集的小招牌畫布，每蓋完一個 zone 由 `releaseAtlasSources(scene, TEX)` 放掉（場景裡還有別的 mesh 直接用的會留著），並從 `TEX` 移除；之後再要同一個 key 會重畫一張（畫法沒有亂數，像素相同）。
-  - WebGL context 遺失後還原時，已釋放的畫布傳不回 GPU，所以會直接重新整理頁面（離開前會自動存檔；BootDiag 會在下次啟動進安全模式）。
+  - 共用的靜態貼圖（`canvasTexture`、`src/graphics/Textures.js` 產生的地面／立面、車牌、地名標籤、家具招牌圖集、校門牆面）：載入最後（進標題前）由 `flushShared(scene)` 把場景裡用到的全部上傳 GPU（同一張畫布的複製貼圖也一起），再釋放畫布。之後若有人對它設 `needsUpdate`，`canvasTexture` 做的會先重畫一次，其他的會在主控台警告。
+  - `Textures.js` 一律先照原尺寸生成（花紋是以像素畫的），再縮到 `texScale` 才做成貼圖，外觀相同、像素變少；高度圖 `hc`、髒污暫存 `dc` 用完立刻釋放。
+  - 合併過的靜態幾何（`MapBuilder` 的 `Geo.mesh()`、`Kit.finish()`、`finishRow()`）用 `markStaticGeometry()`：先算好包圍球／盒，WebGL 上傳後就把 JS 端的頂點陣列換成空陣列（`count` 保留）。物件第一次被畫到時才會上傳，所以是邊玩邊釋放。
+  - Apple WebKit（iPhone Safari、LINE / IG）建完世界與進標題前各呼叫一次 `gcNudge()`，提醒 JavaScriptCore 回收建置期的垃圾（5 秒內最多一次）。
+  - WebGL context 遺失後還原時，已釋放的畫布與頂點陣列傳不回 GPU，所以會直接重新整理頁面（離開前會自動存檔；BootDiag 會在下次啟動進安全模式）。
 - **新增貼圖時請遵守**：
   - 靜態的畫布貼圖用 `Kit.ctex` 或 `canvasTexture`，不要自己 `document.createElement('canvas')`，手機才會縮小。
   - 畫圖時用傳進來的 `w`、`h`，不要用 `g.canvas.width`／`cv.width`（縮小後只會畫到四分之一）；需要 `getImageData` 逐像素處理的貼圖（例如 `src/graphics/Textures.js` 的法線圖）不要走 `scaledCanvas`。
-  - 之後還會重畫的貼圖（螢幕、門牌、計分板）不要用 `k.plane()` 放進街屋：`finishRow` 會把 `k.plane()` 建的平面打包進圖集，原畫布之後會被釋放。請自己建 mesh 放進 `k.group`（只有 `k.plane()` 的平面會被打包）。
+  - 之後還會重畫的貼圖（螢幕、門牌、計分板、等圖片載入才畫上的貼圖）要標成動態：`canvasTexture(w, h, draw, repeat, { dynamic: true })` 或 `markDynamic(ctex(...))`，否則載入完成後畫布會被 `flushShared` 釋放。也不要用 `k.plane()` 放進街屋：`finishRow` 會把 `k.plane()` 建的平面打包進圖集，原畫布之後會被釋放；請自己建 mesh 放進 `k.group`（只有 `k.plane()` 的平面會被打包）。
+  - 世界的靜態網格（`Geo.mesh()`、`Kit.finish()`、`finishRow()` 的輸出）在畫過之後沒有頂點資料可讀：不要對它們做 raycast、`Box3.setFromObject()`、合併或改頂點；要用請在建置時（第一次畫之前）做，或改用碰撞資料（`world.collision`、`interiors`）。
 - **量測**：`npm run profile:mobile -- --assert-ios-budget`（進標題時畫布 ≤ 220 MB）；數據記在 `perf-refactor/agent-handoff-log.md`。
 - **載入時不做的事（Phase 1B）**：
   - renderer 不要 stencil buffer（專案沒有任何地方用到；three r160 預設會要），非開發、非 `?diag` 時關掉 `debug.checkShaderErrors`（讀每支著色器的編譯紀錄是同步的 GPU 往返）。之後若要用 stencil，記得把 `Game.init()` 的 `stencil: false` 拿掉。

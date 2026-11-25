@@ -19,19 +19,16 @@ const S = {
 const clampScale = (v) => Math.min(1, Math.max(0.25, Number(v) || 1));
 const floorPow2 = (v) => 2 ** Math.floor(Math.log2(Math.max(16, v)));
 
-// called once by src/core/Game.js after the renderer exists and before the world builds.
-// Only phones (PerfProfile tier 'mobile-lite'), the self-healing safe mode and an explicit ?texscale= scale the
-// textures down: desktops keep 1 so they draw exactly the pixels they always did (desktop-igpu's texScale 0.75 in
-// PerfProfile is not applied here on purpose: the laptop keeps its look, its RAM is not the problem).
+// called once by src/core/Game.js after the renderer exists and before the world builds: every tier stores its
+// canvas textures at PerfProfile's texScale (desktop-dgpu 1, desktop-igpu 0.75, mobile-lite 0.5, safe mode 0.375,
+// or ?texscale=) and its atlas sheets within atlasMaxW x atlasMaxH (perf-refactor/specs/phase-1-ios-memory-rescue.md)
 export function configureGpuMem(profile = {}, renderer = null) {
-  const scaled =
-    profile.tier === 'mobile-lite' || profile.safeMode || profile.flags?.texScale != null;
-  const s = scaled ? clampScale(profile.texScale) : 1;
+  const s = clampScale(profile.texScale ?? 1);
   const maxW = profile.atlasMaxW || 2048,
     maxH = profile.atlasMaxH || 4096;
   S.texScale = s;
-  S.atlasScale = scaled ? Math.min(s, maxW / 2048) : 1;
-  S.atlasMaxH = scaled ? Math.min(4096, floorPow2(maxH / S.atlasScale)) : 4096;
+  S.atlasScale = Math.min(s, maxW / 2048);
+  S.atlasMaxH = Math.min(4096, floorPow2(maxH / S.atlasScale));
   S.renderer = renderer;
   return { texScale: S.texScale, atlasScale: S.atlasScale, atlasMaxH: S.atlasMaxH };
 }
@@ -72,14 +69,27 @@ export function scaledCanvas(w, h, scale = S.texScale) {
 
 // the canvas texture every builder makes: draw(g, w, h) on a w x h canvas (stored at texScale), sRGB, anisotropy 4,
 // repeating unless `repeat` is false. The builders keep their own key caches (Kit.ctex, the zones' ctex ...).
-export function canvasTexture(w, h, draw, repeat = true) {
-  const { cv, g } = scaledCanvas(w, h);
+// dynamic: something draws into the canvas again later (e.g. the arena ribbon, Concert.js, through the same scaled
+// context): never released (flushShared skips it)
+export function canvasTexture(w, h, draw, repeat = true, { dynamic = false } = {}) {
+  const scale = S.texScale;
+  const { cv, g } = scaledCanvas(w, h, scale);
   if (!g) return blankTexture();
   draw(g, w, h);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (dynamic) t.userData.dynamic = true;
+  else {
+    markShared(cv);
+    // the same pixels again, should the GPU copy ever be needed after flushShared() released the canvas
+    t.userData.redraw = () => {
+      const r = scaledCanvas(w, h, scale);
+      if (r.g) draw(r.g, w, h);
+      return r.cv;
+    };
+  }
   return t;
 }
 
@@ -133,6 +143,103 @@ export function releaseAtlasSources(scene, cache = null) {
   if (cache && gone.size) for (const k in cache) if (gone.has(cache[k])) delete cache[k];
   PACKED.clear();
   return gone.size;
+}
+
+// a texture something draws into again later (a screen that gets its wallpaper when it loads ...): never released
+export function markDynamic(t) {
+  if (t?.userData) t.userData.dynamic = true;
+  return t;
+}
+
+// ---- shared: static canvas textures (canvasTexture, src/graphics/Textures.js), on the GPU for the rest of the game ----
+const SHARED = new WeakSet(); // their canvases
+export function markShared(cv) {
+  if (cv && typeof cv.getContext === 'function') SHARED.add(cv);
+}
+// After loading (src/core/Game.js, just before the title): every texture the scene shows whose canvas is shared and not
+// dynamic goes to the GPU (each texture object using that canvas: clones have their own wrap / repeat) and the canvas is
+// released. A texture asked to upload again afterwards (needsUpdate) redraws itself first if it can (canvasTexture),
+// otherwise it warns. Returns how many canvases were released.
+export function flushShared(scene) {
+  if (!S.renderer) return 0;
+  const byCanvas = new Map();
+  scene.traverse((o) => {
+    if (!o.material) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      const add = (t) => {
+        const cv = t?.isTexture ? t.image : null;
+        if (!cv || !SHARED.has(cv)) return;
+        if (!byCanvas.has(cv)) byCanvas.set(cv, new Set());
+        byCanvas.get(cv).add(t);
+      };
+      for (const k in m) add(m[k]);
+      if (m.uniforms) for (const u of Object.values(m.uniforms)) add(u?.value);
+    }
+  });
+  let n = 0;
+  for (const [cv, texs] of byCanvas) {
+    if (cv.width <= 1 && cv.height <= 1) continue;
+    if ([...texs].some((t) => t.userData.dynamic)) continue;
+    for (const t of texs) {
+      S.renderer.initTexture(t);
+      t.userData.gpuW = cv.width;
+      t.userData.gpuH = cv.height;
+      t.userData.canvasReleased = true;
+      guardUpload(t);
+    }
+    releaseCanvas(cv);
+    n++;
+  }
+  return n;
+}
+const NEEDS_UPDATE = Object.getOwnPropertyDescriptor(THREE.Texture.prototype, 'needsUpdate');
+function guardUpload(t) {
+  Object.defineProperty(t, 'needsUpdate', {
+    configurable: true,
+    set(v) {
+      if (v && t.userData.canvasReleased) {
+        if (t.userData.redraw) {
+          t.image = t.userData.redraw();
+          t.userData.canvasReleased = false;
+        } else console.warn('[GpuMemLifecycle] a released texture was asked to upload again', t);
+      }
+      NEEDS_UPDATE.set.call(t, v);
+    },
+  });
+}
+
+// ---- static geometry: the CPU copy of its vertex arrays is dropped once WebGL has it ----
+// Only for merged, never-changing world geometry (MapBuilder's Geo meshes, Kit.finish, finishRow): nothing reads those
+// arrays after loading (no raycasts against the world; physics is built from the collision data). The four rules of
+// perf-refactor/pitfalls-and-memory.md (pitfall #9): bounds first (frustum culling and ShadowFix use them), a whitelist,
+// count stays (draw ranges use it), and a lost WebGL context reloads the page (src/core/Game.js).
+function dropAfterUpload() {
+  this.array = new this.array.constructor(0);
+}
+export function markStaticGeometry(geo) {
+  if (!geo?.isBufferGeometry || geo.userData.staticGeometry) return geo;
+  geo.userData.staticGeometry = true;
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  for (const a of Object.values(geo.attributes))
+    if (!a.isInterleavedBufferAttribute) a.onUploadCallback = dropAfterUpload;
+  if (geo.index) geo.index.onUploadCallback = dropAfterUpload;
+  return geo;
+}
+
+// ---- Apple WebKit: a nudge for the JavaScriptCore garbage collector after a big build (perf-refactor Phase 1) ----
+// Making and removing a hidden iframe prompts JSC to collect; only on Apple's engine, at most once every 5 s.
+let lastNudge = -Infinity;
+export function gcNudge() {
+  if (typeof document === 'undefined' || !/^Apple/.test(navigator.vendor || '')) return false;
+  const now = performance.now();
+  if (now - lastNudge < 5000) return false;
+  lastNudge = now;
+  const f = document.createElement('iframe');
+  f.style.display = 'none';
+  document.body.appendChild(f);
+  f.remove();
+  return true;
 }
 
 // unit tests: back to the unconfigured state

@@ -1249,10 +1249,10 @@ export function getParkedCarAssets() {
     [-0.82, -1.35],
     [0.82, -1.35],
   ]) {
-    const tire = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 14).rotateZ(Math.PI / 2);
+    const tire = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 10).rotateZ(Math.PI / 2);
     tire.translate(x, 0.34, z);
     trimParts.push(prepGeo(tire, '#1a1a1a'));
-    const hub = new THREE.CylinderGeometry(0.17, 0.17, 0.25, 10).rotateZ(Math.PI / 2);
+    const hub = new THREE.CylinderGeometry(0.17, 0.17, 0.25, 6).rotateZ(Math.PI / 2);
     hub.translate(x, 0.34, z);
     trimParts.push(prepGeo(hub, '#9aa0a6'));
   }

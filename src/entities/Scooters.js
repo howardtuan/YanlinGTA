@@ -1059,29 +1059,12 @@ export function buildScooter(color) {
 let GP = null;
 const genericPlate = () => GP || (GP = plateTex('MAN-34'));
 
-// Shared geometry + materials for ParkedScooters InstancedMesh (exact same 3D model as buildScooter,
-// zero DOM/canvas usage so it also works cleanly in headless unit tests).
-const PARKED_TRIM_COLORS = {
-  dark: '#1a1b1e',
-  floor: '#1d1e20',
-  seat: '#1b1b1d',
-  chrome: '#e8ebee',
-  alu: '#b9bec4',
-  grey: '#3a3d42',
-  exhaust: '#2a2c30',
-  spring: '#1d1e21',
-  led: '#eef6ff',
-  tail: '#d01828',
-  rubber: '#141415',
-  blackMatte: '#1a1b1e',
-  blackGloss: '#0e0f11',
-  mirror: '#c8d2dc',
-  tire: '#18181a',
-  rim: '#0e0e10',
-  rimLip: '#d7dbe0',
-  disc: '#c9ccd0',
-  plate: '#f4f4f0',
-};
+// Shared geometry + materials for ParkedScooters InstancedMesh:
+// - Reuses the exact curved painted bodywork loft from buildScooter (498 tris) so the scooter
+//   silhouette matches the drivable model seamlessly with zero visual swap on mount.
+// - Uses a lean, matching-coordinate trim geometry (~370 tris instead of 13,600+ micro-detail tris
+//   from beveled brake discs / coil springs / high-seg lathe wheels) and MeshStandardMaterial so
+//   mobile WebKit GPUs never hit OOM / watchdog timeout when rendering hundreds of parked scooters.
 function paintNonIndexed(src, hex) {
   const g = src.index ? src.toNonIndexed() : src.clone();
   for (const attr of Object.keys(g.attributes)) {
@@ -1105,48 +1088,66 @@ export function getParkedScooterAssets() {
   const G = genericGeometry();
   const paintGeo = G.parts.geometry('paint');
   const trimList = [];
-  for (const [key, list] of G.parts.map) {
-    if (key === 'paint') continue;
-    const hex = PARKED_TRIM_COLORS[key] || '#1a1b1e';
-    for (const geo of list) trimList.push(paintNonIndexed(geo, hex));
-  }
-  const wheelParts = buildWheelParts({
-    R: 0.205,
-    rimR: 0.128,
-    W: 0.09,
-    disc: { r: 0.1, x: 0.045 },
-    lo: true,
-  });
+  const addBox = (w, h, d, x, y, z, hex, rx = 0) => {
+    const g = new THREE.BoxGeometry(w, h, d);
+    if (rx) g.rotateX(rx);
+    g.translate(x, y, z);
+    trimList.push(paintNonIndexed(g, hex));
+  };
+  // Wheels at exact FA / RA axles (lean 10-seg cylinders instead of high-poly lathe + wave disc)
   for (const ax of [G.FA, G.RA]) {
-    for (const [key, list] of wheelParts.map) {
-      const hex = PARKED_TRIM_COLORS[key] || '#18181a';
-      for (const geo of list) {
-        const g = paintNonIndexed(geo, hex);
-        g.translate(0, ax.y, ax.z);
-        trimList.push(g);
-      }
-    }
+    const tire = new THREE.CylinderGeometry(0.205, 0.205, 0.09, 10);
+    tire.rotateZ(Math.PI / 2);
+    tire.translate(0, ax.y, ax.z);
+    trimList.push(paintNonIndexed(tire, '#18181a'));
+    const rim = new THREE.CylinderGeometry(0.125, 0.125, 0.094, 8);
+    rim.rotateZ(Math.PI / 2);
+    rim.translate(0, ax.y, ax.z);
+    trimList.push(paintNonIndexed(rim, '#24262b'));
+    const cap = new THREE.CylinderGeometry(0.04, 0.04, 0.098, 6);
+    cap.rotateZ(Math.PI / 2);
+    cap.translate(0, ax.y, ax.z);
+    trimList.push(paintNonIndexed(cap, '#c8cdd2'));
   }
-  const plateGeo = new THREE.PlaneGeometry(0.19, 0.095);
-  plateGeo.rotateY(Math.PI);
-  plateGeo.rotateX(-0.15);
-  plateGeo.translate(0, 0.52, -0.985);
-  trimList.push(paintNonIndexed(plateGeo, PARKED_TRIM_COLORS.plate));
+  // Seat, floorboard, inner leg shield & under-seat dark plastics
+  addBox(0.28, 0.11, 0.84, 0, 0.77, -0.41, '#1b1b1d');
+  addBox(0.34, 0.11, 0.48, 0, 0.3, 0.1, '#1d1e20');
+  addBox(0.36, 0.6, 0.06, 0, 0.65, 0.28, '#1a1b1e');
+  addBox(0.26, 0.3, 0.62, 0, 0.52, -0.36, '#1a1b1e');
+  // Handlebar, grips & mirrors
+  const bar = new THREE.CylinderGeometry(0.015, 0.015, 0.62, 6);
+  bar.rotateZ(Math.PI / 2);
+  bar.translate(0, 1.0, 0.36);
+  trimList.push(paintNonIndexed(bar, '#151517'));
+  for (const s of [-1, 1]) {
+    addBox(0.012, 0.16, 0.012, s * 0.21, 1.11, 0.38, '#1a1b1e');
+    addBox(0.1, 0.065, 0.025, s * 0.24, 1.19, 0.38, '#1a1b1e');
+    addBox(0.036, 0.52, 0.036, s * 0.065, 0.44, 0.5, '#b9bec4', -0.4);
+  }
+  // CVT case & exhaust muffler
+  addBox(0.09, 0.18, 0.56, 0.11, 0.26, -0.38, '#1a1b1e');
+  const muff = new THREE.CylinderGeometry(0.048, 0.052, 0.38, 8);
+  muff.rotateX(Math.PI / 2 - 0.2);
+  muff.translate(-0.17, 0.3, -0.55);
+  trimList.push(paintNonIndexed(muff, '#2a2c30'));
+  // Headlight, taillight, grab rail & license plate
+  addBox(0.13, 0.075, 0.03, 0, 0.995, 0.515, '#eef6ff');
+  addBox(0.16, 0.05, 0.025, 0, 0.7, -0.935, '#d01828');
+  addBox(0.24, 0.024, 0.24, 0, 0.8, -0.82, '#e8ebee');
+  addBox(0.2, 0.1, 0.012, 0, 0.52, -0.985, '#f4f4f0', -0.15);
 
   PARKED_SCOOTER_ASSETS = {
     paintGeo,
     trimGeo: mergeGeometries(trimList),
-    paintMat: new THREE.MeshPhysicalMaterial({
+    paintMat: new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.32,
       metalness: 0.15,
-      clearcoat: 1,
-      clearcoatRoughness: 0.08,
     }),
     trimMat: new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.52,
-      metalness: 0.22,
+      roughness: 0.55,
+      metalness: 0.2,
     }),
   };
   return PARKED_SCOOTER_ASSETS;

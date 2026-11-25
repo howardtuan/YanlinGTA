@@ -53,8 +53,9 @@
 2. [agent-handoff-log.md](agent-handoff-log.md) — 讀取最新一筆交接紀錄，確認上一棒已合入的 PR、實機／Headless 測試數字與當前第一順位的待辦項目。
 3. [pitfalls-and-memory.md](pitfalls-and-memory.md) — 必讀！記錄全專案 86 處 Canvas、`finishRow` 依賴、`QPROF` 單一真相、Vite 真拆包、Rapier `Walker.js` 碰撞標籤與 `tools/floorplan` 相容紅線。
 4. [git-and-transition-plan.md](git-and-transition-plan.md) — 確認與內容組並行的短生命週期 PR 切分、Linux/Mac 雙環境測試與遠端部署驗證 SOP。
-5. 對應目標階段的 `specs/phase-X-*.md`（先讀 [specs/00-master-architecture.md](specs/00-master-architecture.md)）。
-6. 實作完成發 PR 前，**必須更新 [agent-handoff-log.md](agent-handoff-log.md) 與本表的狀態欄位**。
+5. [baseline-environments.md](baseline-environments.md) — 量測環境登記與模板；**只能拿同環境的基線做比較**，新機器先填表並建立自己的基線。
+6. 對應目標階段的 `specs/phase-X-*.md`（先讀 [specs/00-master-architecture.md](specs/00-master-architecture.md)）。
+7. 實作完成發 PR 前，**必須更新 [agent-handoff-log.md](agent-handoff-log.md) 與本表的狀態欄位**。
 
 ### 2. 如果你是「開發新 NPC／建築／支線／小遊戲」的內容組開發者或 AI Agent
 - **日常開發完全不需要閱讀 `specs/`**！請照舊遵循 [AGENT.md](../AGENT.md) 與 [docs/README.md](../docs/README.md)。

@@ -7,18 +7,13 @@
 import * as THREE from 'three';
 import { H, Hgrid } from '../Terrain.js';
 import { FORE, STAIR2F } from '../zones/ZoneG.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const SAC_B1 = { ox: -152, oz: -114, W: 16, D: 19.58, stallW: 9.3, stallD: 24.5, H: 2.8 }; // stallD stays 5 cm inside PIT.stall: a wall on the pit edge would count from the plaza (H() there)
 
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale)
 function tex(w, h, draw) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
+  return canvasTexture(w, h, draw, false);
 }
 const signTex = (text, bg, fg, w = 512, h = 128, px = 64) =>
   tex(w, h, (g) => {

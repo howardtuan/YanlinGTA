@@ -6,6 +6,7 @@
 // 鋪面和線畫在 src/world/MapBuilder.js 的 areas 圖層（原本是草地），籃架、球網、頂棚在這裡蓋。
 import * as THREE from 'three';
 import { terrainGrid, surfaceAt } from './Terrain.js';
+import { scaledCanvas } from '../graphics/GpuMemLifecycle.js';
 
 // east side: local frame with its origin at the middle court's centre, u along the courts (south +), v across (east +)
 const E = { o: [191.14, -371.82], d: [0.2234, 0.9747] },
@@ -176,10 +177,7 @@ function buildNets(I, scene) {
     ),
     m4 = new THREE.Matrix4();
   const t = (() => {
-    const cv = document.createElement('canvas');
-    cv.width = 64;
-    cv.height = 64;
-    const c = cv.getContext('2d');
+    const { cv, g: c } = scaledCanvas(64, 64); // tier's texture scale (src/graphics/GpuMemLifecycle.js)
     c.strokeStyle = '#222';
     c.lineWidth = 5;
     c.strokeRect(0, 0, 64, 64);
@@ -234,9 +232,7 @@ export const COLUMNS = COLS.map(([u, v]) => EW(u, v));
 function buildRoof(I, scene, Kit, regMat) {
   const k = new Kit(I, E.o[0], E.o[1], Math.atan2(-E.d[0], E.d[1]), 1); // local x = v, z = u
   const pv = (() => {
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = 256;
-    const c = cv.getContext('2d');
+    const { cv, g: c } = scaledCanvas(256, 256);
     c.fillStyle = '#1b2a4a';
     c.fillRect(0, 0, 256, 256);
     c.strokeStyle = 'rgba(150,170,205,.35)';
@@ -382,9 +378,7 @@ export function buildCourts(I, scene, Kit, regMat) {
     parts.net.push(g);
   }
   const netTex = (() => {
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = 128;
-    const c = cv.getContext('2d');
+    const { cv, g: c } = scaledCanvas(128, 128);
     c.strokeStyle = '#fff';
     c.lineWidth = 5;
     for (let i = -4; i < 8; i++) {

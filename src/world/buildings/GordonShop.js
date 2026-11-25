@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { H } from '../Terrain.js';
 import { ctex, MATS, M, Kit, lcg, YHT } from '../Kit.js';
 import { pointInPoly } from '../../physics/Collision.js';
+import { scaledCanvas } from '../../graphics/GpuMemLifecycle.js';
 
 // =====================================================================
 // 戈登肉鋪 Gordon Meat Shop: 一層樓的獨棟店面，蓋在校史館西南側、緊鄰校史館的那片椰子樹草坪上（不是鐘塔那片大草坪），
@@ -750,11 +751,9 @@ export function buildGordon(I, scene) {
   //      店長 at the counter is gone; buying is off (src/entities/npcs/Gordon.js). If you are inside when it shuts, the shutter lets you out.
   const OPEN0 = 8 * 60,
     OPEN1 = 23 * 60;
-  const shc = document.createElement('canvas');
-  shc.width = 64;
-  shc.height = 128;
-  {
-    const s2 = shc.getContext('2d');
+  // canvases stored at the tier's texture scale (src/graphics/GpuMemLifecycle.js), drawn in full-size units
+  const { cv: shc, g: s2 } = scaledCanvas(64, 128);
+  if (s2) {
     s2.fillStyle = '#8f949a';
     s2.fillRect(0, 0, 64, 128);
     for (let y = 0; y < 128; y += 8) {
@@ -775,11 +774,9 @@ export function buildGordon(I, scene) {
   shutter.position.set(W / 2, CH / 2, -0.12);
   shutter.visible = false;
   k.group.add(shutter);
-  const sgc = document.createElement('canvas');
-  sgc.width = 1024;
-  sgc.height = 256;
-  {
-    const s2 = sgc.getContext('2d');
+  const { cv: sgc, g: s3 } = scaledCanvas(1024, 256);
+  if (s3) {
+    const s2 = s3;
     s2.fillStyle = '#1b1b1b';
     s2.fillRect(0, 0, 1024, 256);
     s2.fillStyle = '#c9a24e';

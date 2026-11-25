@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { H, groundY } from '../../world/Terrain.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const WEICHE_ID = 'w392023424';
 // OSM outline (data/cycu.json): A, B, C, D, E (west corner), F, G (north corner)
@@ -123,17 +124,9 @@ export function weicheFootprints() {
 
 // ---------------- textures / materials (shared, built once) ----------------
 const TEX = {};
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale); this file keeps its own keys
 function ctex(key, w, h, draw, repeat = true) {
-  if (TEX[key]) return TEX[key];
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return (TEX[key] = t);
+  return TEX[key] || (TEX[key] = canvasTexture(w, h, draw, repeat));
 }
 const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 // red-brown timber cladding: vertical boards ~0.16 m wide (one texture repeat = 4 x 4 m)

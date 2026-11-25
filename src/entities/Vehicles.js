@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { buildScooter as buildCommuter } from './Scooters.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
 
 const MC = {};
 const m = (c, o = {}) => {
@@ -30,10 +31,11 @@ function wheel(r, w, x, y, z) {
 }
 
 function plateTex(text, bg = '#fff', fg = '#111') {
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = 96;
-  const g = cv.getContext('2d');
+  // stored at the tier's texture scale, drawn in 256 x 96 units; static, so released once on the GPU
+  // (src/graphics/GpuMemLifecycle.js flushShared)
+  const { cv, g } = scaledCanvas(256, 96);
+  markShared(cv);
+  if (!g) return new THREE.CanvasTexture(cv);
   g.fillStyle = bg;
   g.fillRect(0, 0, 256, 96);
   g.fillStyle = fg;
@@ -150,12 +152,13 @@ function panel(pts, width, mat, { taper = null, bevel = 0.02, x = 0 } = {}) {
   return o;
 }
 function decalTex(draw, w = 256, h = 96) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  const g = cv.getContext('2d');
-  g.clearRect(0, 0, w, h);
-  draw(g, w, h);
+  // stored at the tier's texture scale, drawn in w x h units; static (GpuMemLifecycle.flushShared)
+  const { cv, g } = scaledCanvas(w, h);
+  markShared(cv);
+  if (g) {
+    g.clearRect(0, 0, w, h);
+    draw(g, w, h);
+  }
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;

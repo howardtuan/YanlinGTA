@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { H } from '../Terrain.js';
 import { makeLightstick, CONCERTS } from '../../systems/minigames/Concert.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const GARRY = { X0: 5.82, X1: 13.8, DZ: 10.4, D: 8.7, F2: 4.617, FH: 3.3, NF: 3 };
 const RX0 = 7.1,
@@ -64,18 +65,9 @@ export function garryOutline(YH) {
   return [w(GARRY.X0, z0 - 0.4), w(GARRY.X1, z0 - 0.4), w(GARRY.X1, z1), w(GARRY.X0, z1)];
 }
 
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale)
 function tex(w, h, draw, rep) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  if (rep) {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  }
-  return t;
+  return canvasTexture(w, h, draw, !!rep);
 }
 const lcg = (s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 

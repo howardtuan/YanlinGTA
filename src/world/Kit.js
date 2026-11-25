@@ -9,6 +9,8 @@ import { pointInPoly, closestOnSeg } from '../physics/Collision.js';
 import { H } from './Terrain.js';
 import {
   canvasTexture,
+  markDynamic,
+  markStaticGeometry,
   scaledCanvas,
   blankTexture,
   drawnW,
@@ -209,55 +211,58 @@ export const T = {
       false
     ),
   // monitors show the desktop of src/ui/PC.js (blue wallpaper, icons, taskbar)
+  // dynamic: the wallpaper is drawn in when it has loaded, so its canvas is never released (GpuMemLifecycle)
   screen: () =>
-    ctex(
-      'screen',
-      256,
-      144,
-      (g) => {
-        const gr = g.createRadialGradient(180, 40, 10, 150, 60, 200);
-        gr.addColorStop(0, '#3a7bd5');
-        gr.addColorStop(0.5, '#1c3f7a');
-        gr.addColorStop(1, '#0f2147');
-        g.fillStyle = gr;
-        g.fillRect(0, 0, 256, 144);
-        const ic = ['#4da3ff', '#ffd23f', '#e8323c', '#3fae49', '#9aa3b5', '#b06bff', '#2b2b2b'];
-        ic.forEach((c, i) => {
-          const x = 8 + (i % 2) * 22,
-            y = 8 + Math.floor(i / 2) * 22;
-          g.fillStyle = c;
-          g.fillRect(x, y, 14, 12);
-          g.fillStyle = 'rgba(255,255,255,.7)';
-          g.fillRect(x, y + 14, 14, 2);
-        });
-        g.fillStyle = 'rgba(255,255,255,.18)';
-        g.font = font(16);
-        g.textAlign = 'right';
-        g.fillText('資管要贏　票投彥霖', 246, 118);
-        g.fillStyle = 'rgba(18,20,28,.92)';
-        g.fillRect(0, 128, 256, 16);
-        g.fillStyle = '#2f6bff';
-        g.fillRect(3, 131, 34, 10);
-        g.fillStyle = '#fff';
-        g.font = font(8, 700);
-        g.fillText('17:40', 250, 139);
-        const im = new Image(); // the same wallpaper as the computer desktop (src/ui/PC.js), if the file is there
-        im.onload = () => {
-          const s = Math.max(256 / im.width, 128 / im.height),
-            w = im.width * s,
-            h = im.height * s;
-          g.drawImage(im, (256 - w) / 2, (128 - h) / 2, w, h);
+    markDynamic(
+      ctex(
+        'screen',
+        256,
+        144,
+        (g) => {
+          const gr = g.createRadialGradient(180, 40, 10, 150, 60, 200);
+          gr.addColorStop(0, '#3a7bd5');
+          gr.addColorStop(0.5, '#1c3f7a');
+          gr.addColorStop(1, '#0f2147');
+          g.fillStyle = gr;
+          g.fillRect(0, 0, 256, 144);
+          const ic = ['#4da3ff', '#ffd23f', '#e8323c', '#3fae49', '#9aa3b5', '#b06bff', '#2b2b2b'];
+          ic.forEach((c, i) => {
+            const x = 8 + (i % 2) * 22,
+              y = 8 + Math.floor(i / 2) * 22;
+            g.fillStyle = c;
+            g.fillRect(x, y, 14, 12);
+            g.fillStyle = 'rgba(255,255,255,.7)';
+            g.fillRect(x, y + 14, 14, 2);
+          });
+          g.fillStyle = 'rgba(255,255,255,.18)';
+          g.font = font(16);
+          g.textAlign = 'right';
+          g.fillText('資管要贏　票投彥霖', 246, 118);
           g.fillStyle = 'rgba(18,20,28,.92)';
           g.fillRect(0, 128, 256, 16);
           g.fillStyle = '#2f6bff';
           g.fillRect(3, 131, 34, 10);
           g.fillStyle = '#fff';
+          g.font = font(8, 700);
           g.fillText('17:40', 250, 139);
-          if (TEX.screen) TEX.screen.needsUpdate = true;
-        };
-        im.src = 'assets/pc/wallpaper.jpg';
-      },
-      false
+          const im = new Image(); // the same wallpaper as the computer desktop (src/ui/PC.js), if the file is there
+          im.onload = () => {
+            const s = Math.max(256 / im.width, 128 / im.height),
+              w = im.width * s,
+              h = im.height * s;
+            g.drawImage(im, (256 - w) / 2, (128 - h) / 2, w, h);
+            g.fillStyle = 'rgba(18,20,28,.92)';
+            g.fillRect(0, 128, 256, 16);
+            g.fillStyle = '#2f6bff';
+            g.fillRect(3, 131, 34, 10);
+            g.fillStyle = '#fff';
+            g.fillText('17:40', 250, 139);
+            if (TEX.screen) TEX.screen.needsUpdate = true;
+          };
+          im.src = 'assets/pc/wallpaper.jpg';
+        },
+        false
+      )
     ),
   cctv: () =>
     ctex(
@@ -721,7 +726,7 @@ export class Kit {
   }
   finish(scene, shadow = true) {
     for (const [mat, list] of this.parts) {
-      const geo = mergeGeometries(list, false);
+      const geo = markStaticGeometry(mergeGeometries(list, false)); // CPU arrays go once on the GPU
       const mesh = new THREE.Mesh(geo, M(mat));
       mesh.castShadow = shadow && mat !== 'glass';
       mesh.receiveShadow = false;
@@ -995,6 +1000,8 @@ export function finishRow(scene, kits, shadow = true) {
   }
   // the sheets are this row's alone: straight to the GPU, their canvases are not needed again
   for (const sh of new Set([...at.values()].map((A) => A.sheet))) uploadAndRelease(sh.tex);
+  // the row's merged geometry never changes: its CPU arrays go once on the GPU (GpuMemLifecycle)
+  for (const m of out.children) markStaticGeometry(m.geometry);
   scene.add(out);
   for (const k of kits) if (k.group.children.length) scene.add(k.group);
   // a row never moves (that is what finishRow is for): matrices once, not every frame

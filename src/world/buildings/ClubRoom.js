@@ -5,19 +5,14 @@
 // Local frame: origin at the NW corner of 活動中心 (-195, -128.6), x east, z SOUTH (as everywhere in the game).
 import * as THREE from 'three';
 import { H as Hg } from '../Terrain.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const CLUB = { ox: -195, oz: -128.6, W: 14, D: 10.4, H: 4.6, top: 13.8 };
 export const CLUB_DOOR = [-188.4, -187.3]; // 3F door in the corridor's north wall (world x)
 
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale)
 function tex(w, h, draw) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
+  return canvasTexture(w, h, draw, false);
 }
 function materials(regMat, pre) {
   const std = (o, lift = 0) => {

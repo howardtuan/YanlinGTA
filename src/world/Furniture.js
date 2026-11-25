@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { pointInPoly, closestOnSeg, CollisionWorld } from '../physics/Collision.js';
 import { Hmin, groundY, nearStair } from './Terrain.js';
+import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
 
 const UP = [0, 1, 0],
   DOWN = [0, -1, 0];
@@ -169,10 +170,9 @@ const SIGN_COL = [
 ];
 
 function makeAtlas(cols, rows) {
-  const cv = document.createElement('canvas');
-  cv.width = cols * CW;
-  cv.height = rows * CH;
-  const g = cv.getContext('2d');
+  // stored at the tier's texture scale (src/graphics/GpuMemLifecycle.js); cells and UVs stay in CW x CH units
+  const { cv, g } = scaledCanvas(cols * CW, rows * CH);
+  markShared(cv); // static once the signs are in (GpuMemLifecycle.flushShared)
   const cells = new Map();
   let used = 0;
   const atlas = {
@@ -183,7 +183,7 @@ function makeAtlas(cols, rows) {
     cell(text, bg, fg, horiz) {
       const key = `${text}|${bg}|${horiz ? 'h' : 'v'}`;
       if (cells.has(key)) return cells.get(key);
-      if (used >= cols * rows) return null;
+      if (used >= cols * rows || !g) return null;
       const cx = (used % cols) * CW,
         cy = Math.floor(used / cols) * CH;
       used++;

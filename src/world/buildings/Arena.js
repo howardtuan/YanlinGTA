@@ -7,6 +7,7 @@
 // Local frame (metres): origin at the centre of the floor, +z toward the stage, y up from the floor.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { canvasTexture, scaledCanvas, blankTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const ARENA = { ox: 3000, oz: -3000, FX: 24, FZ: 34, R: 10, ROOF: 26 };
 const { FX, FZ, R: CR } = ARENA;
@@ -142,15 +143,10 @@ const mergeAll = (list) => {
   );
 }; // a concrete stair every 7th piece (the seats split into wedges)
 
-function tex(w, h, draw) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale); dynamic: Concert.js draws into it
+// again (the ribbon, the side screens; in 1024 x 64 / 512 x 288 units, the context stays scaled): never released
+function tex(w, h, draw, dynamic = false) {
+  return canvasTexture(w, h, draw, false, { dynamic });
 }
 
 // Kit / regMat come from src/world/Interiors.js (passed in to keep the modules acyclic)
@@ -383,10 +379,8 @@ export function buildArena(I, scene, Kit, regMat) {
   // section plates: 黃 (west side), 藍 (back), 橙 (east side); lower ring on the maroon wall, upper on the white band
   const wedges = [];
   for (let i = 0; i < NPTS - 1; i++) if (!aisle(i)) wedges.push(i);
-  const atlas = document.createElement('canvas');
-  atlas.width = 1024;
-  atlas.height = 512;
-  const ag = atlas.getContext('2d');
+  // stored at the tier's texture scale; the cells and their UVs stay in 1024 x 512 units
+  const { cv: atlas, g: ag } = scaledCanvas(1024, 512);
   let cell = 0;
   const signGeos = [];
   const sign = (text, colr, d, y, i0, i1, w = 1.1, h = 0.42) => {
@@ -397,7 +391,7 @@ export function buildArena(I, scene, Kit, regMat) {
       L = Math.hypot(bx - ax, bz - az);
     const cx = cell % 8,
       cy = Math.floor(cell / 8);
-    if (cy >= 8) return;
+    if (cy >= 8 || !ag) return;
     cell++;
     ag.fillStyle = colr;
     ag.fillRect(cx * 128 + 4, cy * 64 + 6, 120, 52);
@@ -435,7 +429,7 @@ export function buildArena(I, scene, Kit, regMat) {
     sign(`${nm}${no}${ab}`, colr, -0.01, LOW.y0 * 0.55, i0, i1);
     sign(`${nm}${no + 1}${ab}`, colr, CONC.d0 - 0.01, CONC.y + 0.62, i0, i1, 0.9, 0.34);
   }
-  const signTex = new THREE.CanvasTexture(atlas);
+  const signTex = ag ? new THREE.CanvasTexture(atlas) : blankTexture();
   signTex.colorSpace = THREE.SRGBColorSpace;
   if (signGeos.length)
     shell.add(
@@ -445,10 +439,15 @@ export function buildArena(I, scene, Kit, regMat) {
       )
     );
   // LED ribbon board along the front of the upper ring (src/systems/minigames/Concert.js scrolls it)
-  const ribbonTex = tex(1024, 64, (g) => {
-    g.fillStyle = '#05060a';
-    g.fillRect(0, 0, 1024, 64);
-  });
+  const ribbonTex = tex(
+    1024,
+    64,
+    (g) => {
+      g.fillStyle = '#05060a';
+      g.fillRect(0, 0, 1024, 64);
+    },
+    true
+  );
   ribbonTex.wrapS = THREE.RepeatWrapping;
   const ledRibbon = new THREE.Mesh(
     ribbonUV(ring(CONC.d0 - 0.03), CONC.y + 0.86, ring(CONC.d0 - 0.03), CONC.y + 1.32, 16),
@@ -746,10 +745,15 @@ export function buildArena(I, scene, Kit, regMat) {
   const fx = new THREE.Group();
   fx.position.copy(shell.position);
   scene.add(fx);
-  const sideTex = tex(512, 288, (g) => {
-    g.fillStyle = '#05060a';
-    g.fillRect(0, 0, 512, 288);
-  });
+  const sideTex = tex(
+    512,
+    288,
+    (g) => {
+      g.fillStyle = '#05060a';
+      g.fillRect(0, 0, 512, 288);
+    },
+    true
+  );
   const sideMat = new THREE.MeshBasicMaterial({ map: sideTex, toneMapped: false });
   for (const s of [1, -1]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 5.4), sideMat);

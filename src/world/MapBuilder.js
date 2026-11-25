@@ -34,6 +34,12 @@ import {
   concreteTex,
 } from '../graphics/Textures.js';
 import { plantVegetation } from './Vegetation.js';
+import {
+  canvasTexture,
+  scaledCanvas,
+  markShared,
+  markStaticGeometry,
+} from '../graphics/GpuMemLifecycle.js';
 
 export function mulberry32(a) {
   return function () {
@@ -366,6 +372,7 @@ class Geo {
       g.setAttribute('aGlass', new THREE.Float32BufferAttribute(this.c3, 3));
     }
     g.computeBoundingSphere();
+    markStaticGeometry(g); // merged world geometry: its CPU arrays go once WebGL has them (GpuMemLifecycle)
     return new THREE.Mesh(g, mat);
   }
   get tris() {
@@ -866,19 +873,9 @@ const hashStr = (s) => {
 };
 
 // ---------- textures ----------
+// canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale)
 function canvasTex(w, h, draw, repeat = true) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  const g = cv.getContext('2d');
-  draw(g, w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  if (repeat) {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  }
-  t.anisotropy = 4;
-  return t;
+  return canvasTexture(w, h, draw, repeat);
 }
 
 // facade base patterns for OSM building:material; drawn light grey so the
@@ -1240,32 +1237,46 @@ const farmTex = () =>
     g.fillRect(0, S / 2 - 3, S, 6);
   });
 
+// one tiny canvas only for measuring label text
+let labelMeasure = null;
 export function labelTexture(text, opt = {}) {
   const fs = opt.size || 44,
-    pad = 14;
-  const cv = document.createElement('canvas');
-  const g = cv.getContext('2d');
-  g.font = `900 ${fs}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
-  const w = Math.ceil(g.measureText(text).width) + pad * 2 + (opt.icon ? fs : 0);
-  cv.width = w;
-  cv.height = fs + pad * 2;
-  g.font = `900 ${fs}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
-  g.fillStyle = opt.bg || 'rgba(12,14,26,0.78)';
-  const r = 12;
-  g.beginPath();
-  g.roundRect(0, 0, cv.width, cv.height, r);
-  g.fill();
-  if (opt.border) {
-    g.strokeStyle = opt.border;
-    g.lineWidth = 4;
-    g.stroke();
+    pad = 14,
+    font = `900 ${fs}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+  if (!labelMeasure) {
+    const mc = document.createElement('canvas');
+    mc.width = mc.height = 1;
+    labelMeasure = mc.getContext('2d');
   }
-  g.fillStyle = opt.color || '#fff';
-  g.textBaseline = 'middle';
-  g.fillText((opt.icon || '') + text, pad, cv.height / 2 + 2);
+  let tw = text.length * fs;
+  if (labelMeasure) {
+    labelMeasure.font = font;
+    tw = labelMeasure.measureText(text).width;
+  }
+  const W = Math.ceil(tw) + pad * 2 + (opt.icon ? fs : 0),
+    Hh = fs + pad * 2;
+  // stored at the tier's texture scale (src/graphics/GpuMemLifecycle.js), drawn in W x Hh units
+  const { cv, g } = scaledCanvas(W, Hh);
+  markShared(cv); // static (relabel makes a new one)
+  if (g) {
+    g.font = font;
+    g.fillStyle = opt.bg || 'rgba(12,14,26,0.78)';
+    const r = 12;
+    g.beginPath();
+    g.roundRect(0, 0, W, Hh, r);
+    g.fill();
+    if (opt.border) {
+      g.strokeStyle = opt.border;
+      g.lineWidth = 4;
+      g.stroke();
+    }
+    g.fillStyle = opt.color || '#fff';
+    g.textBaseline = 'middle';
+    g.fillText((opt.icon || '') + text, pad, Hh / 2 + 2);
+  }
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
-  return { tex: t, aspect: cv.width / cv.height };
+  return { tex: t, aspect: W / Hh };
 }
 
 export function makeLabel(text, opt = {}) {
@@ -6127,10 +6138,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     const g = new THREE.Group();
     const CW = 1024,
       CH = Math.round((CW * HW) / W);
-    const cv = document.createElement('canvas');
-    cv.width = CW;
-    cv.height = CH;
-    const c = cv.getContext('2d');
+    // stored at the tier's texture scale, drawn in CW x CH units; both faces are static (GpuMemLifecycle.flushShared)
+    const { cv, g: c } = scaledCanvas(CW, CH);
+    markShared(cv);
     const gr = c.createLinearGradient(0, 0, 0, CH);
     gr.addColorStop(0, '#2a2c30');
     gr.addColorStop(1, '#141518');
@@ -6146,10 +6156,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     for (let i = 1; i < 8; i++) c.fillRect((i * CW) / 8 - 1, 0, 3, CH);
     for (let i = 1; i < 5; i++) c.fillRect(0, (i * CH) / 5 - 1, CW, 3);
     // the back (campus side) is plain jointed granite: copy before the emblem and the name go on
-    const cvB = document.createElement('canvas');
-    cvB.width = CW;
-    cvB.height = CH;
-    cvB.getContext('2d').drawImage(cv, 0, 0);
+    const { cv: cvB, g: cB } = scaledCanvas(CW, CH);
+    cB?.drawImage(cv, 0, 0, CW, CH);
+    markShared(cvB);
     // emblem + name on the east half (toward the kiosk), the west half plain (街景 2018-11 特寫): a ~0.95 m
     // mid-blue disc (white rim, white laurel, rings on top, red shield with a white cross, atom below) at
     // 47 % of the face, 「中原大學」 in silver-white ~0.5 m characters from 55 % to 88 %, the English

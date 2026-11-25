@@ -6,7 +6,7 @@
 // 上桌的人在各自的程式裡看 has(id)／hold()：作息先停下、人坐在桌邊（src/entities/npcs/*.js），定位與「你在哪？」都說在 277 打麻將。
 // 散場後他們照當下時間的作息回去（該睡的回床、該上班的回店裡）。輸贏用 g.earn／g.pay 記帳；戰績存檔（src/systems/SaveSystem.js 的 mahjong）。
 import { MahjongEngine } from './Engine.js';
-import { makeAI } from './AI.js';
+import { makeAI, SKILL_DEFAULT, effectiveSkill, skillTier, adjustSkill } from './AI.js';
 import { MahjongScene } from './MahjongScene.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import {
@@ -75,12 +75,78 @@ const CALL = {
   sleep: (n) => `🚪 敲門叫醒${n}：「幹嘛啦……好啦，打幾圈 😪」`,
 };
 
+// 動態難度切換時的室友短台詞：連贏讓室友認真起來，連輸時室友放輕鬆陪你打
+export const BANTER = {
+  up2: {
+    zz: '靠，你今天手氣也太順了吧，我坐直認真打了 😤',
+    houshe: '不行不行，再讓你贏下去錢包要見底，開始算牌！',
+    jianyu: '你這把牌風很兇喔……我也該認真防守了 🧐',
+    hank: '欸你太強了吧，先不聊天了，下把認真盯你！',
+    gd: '連胡成這樣？好啊，接下來我可不手軟了 😤',
+    howard: '數據顯示你勝率偏高，我決定把演算法開認真一點 🤓',
+    richard: '靠，一直被你胡，我要開始記你打過的牌了 😤',
+  },
+  up3: {
+    zz: '太扯了吧！全員警戒，這把絕不能再放槍給你 🔥',
+    houshe: '再讓你連莊我們要睡公園了，全力盯死你 🔥',
+    jianyu: '好，不裝了——278 寢龜王防守模式全開 🔥',
+    hank: '今天遇到牌神喔？不行，這把拼全力擋你 🔥',
+    gd: '想把我們全桌掃光？門都沒有，全力開幹 🔥',
+    howard: '認真模式拉滿，別想再輕鬆摸大牌了 🔥',
+    richard: '你開掛喔？好啦我也不划水了，全力盯牌 🔥',
+  },
+  hot: {
+    zz: '你今天到底拜哪間廟，連胡成這樣太離譜了吧 🔥',
+    houshe: '我們都全力打了你還能胡，這手氣真的服了 😅',
+    jianyu: '防成這樣還給你摸到……你是力行雀聖喔 🔥',
+    hank: '救命啊，這桌已經變彥霖提款機了 😭',
+    gd: '可惡，全力還擋不住，下一把一定討回來 🔥',
+    howard: '這勝率已經超出模型預測了，太扯 🔥',
+    richard: '連全力記牌都擋不住你，今天你最大 🙇',
+  },
+  down1: {
+    zz: '呼，總算追回一點，大家可以先喘口氣囉 😅',
+    houshe: '好啦緊張感退一點，恢復平常心慢慢打。',
+    jianyu: '穩下來了，不用盯那麼死，正常打就好 😌',
+    hank: '有止血就好，氣氛放鬆點邊聊邊打吧！',
+    gd: '哼，總算輪到我們出氣了，先收一點力。',
+    howard: '局勢回到均衡了，切回一般節奏打。',
+    richard: '好啦先不那麼緊繃，正常節奏繼續摸。',
+  },
+  down0: {
+    zz: '欸別氣餒啦，大家放輕鬆邊聊天邊打比較好玩 😌',
+    houshe: '手氣背的時候最需要放鬆，這幾把輕鬆打就好！',
+    jianyu: '剛剛太緊繃了啦，接下來放軟陪你慢慢摸 😌',
+    hank: '哈哈別在意，我們也隨便打當作拉賽聊天 🎵',
+    gd: '看你臉都綠了，好啦這幾把不盯那麼兇 😌',
+    howard: '幫你調回休閒模式，順便聊點別的吧 😂',
+    richard: '手氣差難免的啦，大家放輕鬆陪你打幾圈 😌',
+  },
+  cold: {
+    zz: '沒事沒事，運氣隨時會反彈，下把一定讓你胡回來 💪',
+    houshe: '都輕鬆打了手氣還是有點背，喝口水換個手氣啦 ☕',
+    jianyu: '牌運就是這樣一陣一陣的，等下就輪到你連莊了 😌',
+    hank: '別急，越急越難摸，慢慢來一定會胡！',
+    gd: '我已經放超鬆了欸，快胡一把振作起來啊 😂',
+    howard: '根據大數法則，你下一把應該快轉運了 🍀',
+    richard: '幫你集氣啦，這把穩穩摸一定有機會 🍀',
+  },
+};
+
 export class DormMahjong {
   constructor(game) {
     this.g = game;
     this.state = null; // null | 'gather' | 'play'
     this.party = [];
-    this.stats = { hands: 0, wins: 0, self: 0, net: 0, best: 0, stake: 0 }; // stake: the 底／台 picked last time (STAKES index)
+    this.stats = {
+      hands: 0,
+      wins: 0,
+      self: 0,
+      net: 0,
+      best: 0,
+      stake: 0,
+      skill: SKILL_DEFAULT,
+    }; // stake: the 底／台 picked last time (STAKES index); skill: 動態 AI 強度 (0.15–1.0)
     const L = game.interiors.lixing,
       M = L?.rooms?.[277]?.mahjong;
     if (!M) {
@@ -251,7 +317,16 @@ export class DormMahjong {
   start() {
     const g = this.g;
     this.state = 'play';
-    this.sess = { dealer: 0, streak: 0, passes: 0, hands: 0, net: 0 };
+    this.sess = {
+      dealer: 0,
+      streak: 0,
+      passes: 0,
+      hands: 0,
+      net: 0,
+      heat: 0,
+      winStreak: 0,
+      loseStreak: 0,
+    };
     this._seatAIs();
     document.exitPointerLock?.();
     this.scene ||= new MahjongScene(g, this);
@@ -263,6 +338,15 @@ export class DormMahjong {
       Object.assign(this.sess, { base, perTai });
       this.seatDraw();
     });
+  }
+  aiSkill() {
+    return effectiveSkill(this.stats.skill, {
+      stake: this.stats.stake || 0,
+      heat: this.sess?.heat || 0,
+    });
+  }
+  aiTier() {
+    return skillTier(this.aiSkill());
   }
   // 抓位 (draw the four winds, sit by them) → whoever drew 東 throws the dice for the first dealer → the first hand
   seatDraw(rng = Math.random) {
@@ -283,7 +367,15 @@ export class DormMahjong {
   }
   _seatAIs() {
     this.ais = [null];
-    for (const p of this.party) this.ais[p.seat] = makeAI(p.style);
+    const getSkill = () => this.aiSkill();
+    for (const p of this.party) this.ais[p.seat] = makeAI({ ...p.style, skill: getSkill });
+  }
+  _pickBanter(key, dir, preferSeat) {
+    if (!this.party.length) return null;
+    const pref = preferSeat ? this.party.find((p) => p.seat === preferSeat) : null;
+    const who = pref || this.party[Math.floor(Math.random() * this.party.length)];
+    const text = BANTER[key]?.[who.id];
+    return text ? { id: who.id, name: who.name, text, dir, key } : null;
   }
   seatNames() {
     const n = ['彥霖'];
@@ -309,15 +401,23 @@ export class DormMahjong {
     this.scene.startHand(this.engine);
     this.scene.roll(s.dealer, dice, 'cut');
   }
-  // the scene calls this when a hand is over: pay up, move the dealer on
+  // the scene calls this when a hand is over: pay up, move the dealer on, and adapt AI difficulty
   handOver(r) {
     const g = this.g,
       s = this.sess,
       d = r.deltas[0];
+    const prevTier = this.aiTier().id;
     if (d > 0) g.earn(d, '277 麻將');
     else if (d < 0) g.pay(-d, '277 麻將');
     s.hands++;
     s.net += d;
+    if (!r.draw && r.winner === 0) {
+      s.winStreak = (s.winStreak || 0) + 1;
+      s.loseStreak = 0;
+    } else if (!r.draw && d < 0) {
+      s.loseStreak = (s.loseStreak || 0) + 1;
+      s.winStreak = 0;
+    }
     const st = this.stats;
     st.hands++;
     st.net += d;
@@ -326,13 +426,38 @@ export class DormMahjong {
       if (r.self) st.self++;
       st.best = Math.max(st.best, r.tai);
     }
+    const adj = adjustSkill(st.skill, s.heat || 0, {
+      winner: r.winner,
+      from: r.from,
+      self: !!r.self,
+      tai: r.tai || 0,
+      delta: d,
+      draw: !!r.draw,
+      winStreak: s.winStreak || 0,
+      loseStreak: s.loseStreak || 0,
+    });
+    st.skill = adj.skill;
+    s.heat = adj.heat;
+    const tier = this.aiTier();
+    let banter = null;
+    if (tier.id > prevTier) {
+      const key = tier.id >= 3 ? 'up3' : tier.id === 2 ? 'up2' : null;
+      if (key) banter = this._pickBanter(key, 'up', r.from);
+    } else if (tier.id < prevTier) {
+      const key = tier.id <= 0 ? 'down0' : tier.id === 1 ? 'down1' : null;
+      if (key) banter = this._pickBanter(key, 'down', r.winner);
+    } else if (tier.id === 3 && s.winStreak >= 3 && s.winStreak % 3 === 0) {
+      banter = this._pickBanter('hot', 'up', r.from);
+    } else if (tier.id === 0 && s.loseStreak >= 3 && s.loseStreak % 3 === 0) {
+      banter = this._pickBanter('cold', 'down', r.winner);
+    }
     if (r.dealerStays) s.streak++;
     else {
       s.dealer = (s.dealer + 1) % 4;
       s.streak = 0;
       s.passes++;
     }
-    return { over: s.passes >= 16, broke: g.money <= 0 };
+    return { over: s.passes >= 16, broke: g.money <= 0, banter, tier };
   }
   next() {
     if (this.sess.passes >= 16 || this.g.money <= 0) return this.leave();

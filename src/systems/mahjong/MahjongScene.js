@@ -929,10 +929,12 @@ export class MahjongScene {
       e.round === e.seatWind(0)
         ? `碰到${R}的刻子算 2 台（圈風＋門風）`
         : `碰到${R}、${S}的刻子各算 1 台`;
+    const tier = this.mj.aiTier?.();
+    const mood = tier?.badge ? `<dt>牌風</dt><dd>${tier.badge}</dd>` : '';
     const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>你的門風</span></div></div>
       <div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div><div class="mj-tai">${tai}</div>
       <div class="mj-dealer"><i class="mj-zhuang">莊</i>${this.names[e.dealer]}${e.dealer === 0 ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
-      <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>
+      <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>${mood}
       <dt>錢包</dt><dd class="mj-cash ${g.money < 0 ? 'neg' : ''}">NT$ ${g.money.toLocaleString('en-US')}</dd></dl>`;
     if (html !== this._info) this.$('.mj-info').innerHTML = this._info = html;
   }
@@ -1371,6 +1373,8 @@ export class MahjongScene {
         <p>共 ${r.tai} 台</p>`;
     }
     html += `<div class="mj-money">${r.deltas.map((d, s) => `<span class="${s === 0 ? 'me' : ''}">${this.names[s]} ${money(d)}</span>`).join('')}</div>`;
+    if (end.banter && !end.broke && !end.over)
+      html += `<p class="mj-banter ${end.banter.dir}">💬 <b>${end.banter.name}</b>：「${end.banter.text}」</p>`;
     if (end.broke) html += '<p class="neg">💸 錢包見底了，不能再打了</p>';
     else if (end.over) html += '<p>🀄 北風北打完了，一將結束！</p>';
     html += `<div class="mj-btns">${this.resNext ? `<button data-a='{"type":"next"}'><kbd>Enter</kbd> 下一局</button>` : ''}<button data-a='{"type":"leave"}'>${this.resNext ? '散場' : '<kbd>Enter</kbd> 散場'}</button></div>`;

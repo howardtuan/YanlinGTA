@@ -8190,6 +8190,24 @@ body.mahjong #dialog {
 #mjUI .mj-money .me {
   color: #ffd166;
 }
+#mjUI .mj-banter {
+  margin: 8px 0 4px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  background: rgba(255, 255, 255, 0.08);
+  border-left: 3px solid #ffd166;
+  text-align: left;
+}
+#mjUI .mj-banter.up {
+  border-left-color: #ff7b54;
+  background: rgba(255, 123, 84, 0.14);
+}
+#mjUI .mj-banter.down {
+  border-left-color: #7bdff2;
+  background: rgba(123, 223, 242, 0.12);
+}
 #mjUI .mj-btns {
   display: flex;
   justify-content: center;

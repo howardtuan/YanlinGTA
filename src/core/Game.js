@@ -49,6 +49,7 @@ import { Prompts, dual } from '../ui/Prompts.js';
 import { writeSave } from '../systems/SaveSystem.js';
 import { PC } from '../ui/PC.js';
 import { Detective } from '../systems/minigames/Detective.js';
+import { AutoSolve } from '../systems/AutoSolve.js';
 import { Sunday } from '../systems/minigames/Sunday.js';
 import { CustomNpcs } from '../entities/npcs/CustomNPCs.js';
 import { Wardrobe } from '../ui/Wardrobe.js';
@@ -450,6 +451,7 @@ class Game {
     this.race = new Race(this);
     this.pc = new PC(this);
     this.detective = new Detective(this);
+    this.autoSolve = new AutoSolve(this); // 一鍵通關 for the SQL cases and Two Sum (src/systems/AutoSolve.js)
     this.wardrobe = new Wardrobe(this);
     this.nav = new Nav(this);
     this.airdrop = new Airdrop(this);

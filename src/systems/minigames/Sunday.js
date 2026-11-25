@@ -152,6 +152,7 @@ export class Sunday {
         '不知道從哪開始？輸入 <code>tables</code> 看有哪些資料表、<code>schema 表名</code> 看欄位，<code>notes</code> 看已經找到的線索。',
         ...(c.hints || []),
         '證據找齊了再輸入 <code>accuse 名字</code> 指認；卡住了也可以輸入 <code>hint</code>。',
+        '不會 SQL 也沒關係：按終端機右上角的 <b>🎬 一鍵通關</b>，我一步一步播給你看，順便教你每一行在做什麼。',
       ];
     }
     const story = this.hints();

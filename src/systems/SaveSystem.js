@@ -46,6 +46,7 @@ export function writeSave(g) {
       prog: M.progress(),
     },
     detective: g.detective?.toJSON() || null,
+    autoSolve: g.autoSolve?.toJSON() || null,
     jianyu: g.jianyu?.toJSON() || null,
     mingshan: g.mingshan?.toJSON() || null,
     yeeming: g.yeeming?.toJSON() || null,
@@ -160,6 +161,7 @@ export function applySave(g, d) {
     g.bringMyScooter(d.pos.x, d.pos.z);
   }
   g.detective?.load(d.detective);
+  g.autoSolve?.load(d.autoSolve);
   g.jianyu?.load(d.jianyu);
   g.mingshan?.load(d.mingshan);
   g.yeeming?.load(d.yeeming);

@@ -32,6 +32,21 @@
 - `MapBuilder` 120m 網格分塊、CPU 切洞移除 `discard`、`Kit.finish()` 平面圖集合批與室內家具遮擋屬於**純渲染底層封裝**，**不需拆動任何建築檔或 NPC 錨點**，與內容組近乎零衝突，能立刻幫電腦內顯拿回 60 FPS，也大幅減輕手機 GPU 負擔。
 - 接著在 Phase 3 專心處理「輕重檔案拆檔真 Code-Splitting ＋ 動態 Rapier 碰撞體」的動態串流工程，整體風險大幅下降。
 
+### 3. 借鏡《臺北狂飆》篩選後納入 vs 明確排除的架構技術
+經實證比對 `Three.js r160` 與 `YanlinGTA` 既有實作後，本藍圖吸收以下高投報設計並明確拒絕過度工程：
+- **納入設計**：
+  1. **Phase 0**：`BootDiag` 玩家端無感自動降階（連死 2 次或 `webglcontextlost` 自動進低記憶體 `safeMode`，穩玩 3 分鐘恢復）＋ 免插線 `--mobile --assert-ios-budget` 自動化軟體記憶體門禁。
+  2. **Phase 1**：`GpuMemLifecycle` 除了 `<canvas>` 兩階段縮 `1×1`，連同靜態合併幾何之 CPU 端 `TypedArray` 透過 `onUploadCallback` 清空、`ImageBitmap.close()`、`WebGLRenderer({ alpha: false, stencil: false })`、`checkShaderErrors = false` 與條件式 Apple `gcNudge` 一併納管。
+  3. **Phase 2**：`low` 畫質自動切換 `MeshLambertMaterial` 並跳過法線／RM 貼圖生成、`opaqueSort` 按 `program.id` 排序、高負載 30Hz 隔幀陰影更新，以及維持零額外 npm 相依的 `PostFX.js` 瘦身（延遲 `import()`、`samples: 0`、1/4 Bloom）。
+  4. **Phase 3 & 4**：`Three.js r160` 相容分帶 `texSubImage2D`（`3ms/frame`）、`pinPrograms()` 防重編、分批讓幀 `.dispose()`、`MessageChannel` 動態幀預算排程，以及 KTX2（ETC1S + UASTC）上傳後清空 `mipmaps` CPU 陣列。
+- **明確排除（避免誤用或過度工程）**：
+  - ❌ 不在 `r160` 使用單通道 `slimShadowMaps`（`r160` 陰影用 `RGBADepthPacking` 四通道，改單通道會直接毀掉陰影）。
+  - ❌ 不重寫 2D `uLampMap` 路燈貼圖（`MapBuilder.js#L7164` 在 `low` 已是 `0` 盞 `PointLight`，`desktop-igpu` 封頂 `0–2` 盞即可）。
+  - ❌ 不引入 `pmndrs/postprocessing` 套件、不替換 Rapier 物理、不上原生 WebGL2 `TilePool` 私有欄位魔改、不急推 worker `OffscreenCanvas` 繪圖。
+- 實測顯示 Apple M1 Pro 在懷恩樓前靜止僅 `50 fps`（1,729 Draw Calls / 424 萬三角形）。
+- `MapBuilder` 120m 網格分塊、CPU 切洞移除 `discard`、`Kit.finish()` 平面圖集合批與室內家具遮擋屬於**純渲染底層封裝**，**不需拆動任何建築檔或 NPC 錨點**，與內容組近乎零衝突，能立刻幫電腦內顯拿回 60 FPS，也大幅減輕手機 GPU 負擔。
+- 接著在 Phase 3 專心處理「輕重檔案拆檔真 Code-Splitting ＋ 動態 Rapier 碰撞體」的動態串流工程，整體風險大幅下降。
+
 ---
 
 ## 三、 統一三層世界模型（Three-Tier World Architecture）

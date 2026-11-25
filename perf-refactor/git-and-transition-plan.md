@@ -47,22 +47,25 @@ flowchart TB
 
 ---
 
-## 三、 雙環境測試與實機驗收工作流（Linux / Mac / iPhone）
+## 三、 免插線手機自動化驗證與雙環境測試工作流（Linux / Mac / iPhone）
 
-### 1. 開發機自動化基準剖析（無需接手機即可跑的量化門禁）
-- 除 `npm run ci` 外，Phase 0 新增 `tools/profile_scene.mjs`（複用 [tools/e2e/serve.mjs](../tools/e2e/serve.mjs) 與 [tools/e2e/cdp.mjs](../tools/e2e/cdp.mjs)）。
-- 在具備 Chrome / Chromium 的 Linux 或 Mac 上可直接透過 CDP 自動量測：
-  - 啟動過程累積與存活的 `<canvas>` 總數、非 `1×1` 未釋放畫布數量與 MB 估算；
-  - `renderer.info.memory`（`textures`、`geometries`）與 `calls` / `triangles`；
-  - `BootDiag` 每個啟動階段的真實耗時（ms）。
+為了讓日常開發在 **Mac 或 Linux 上完全不插手機線**也能跑出可量化、可自動抄表、甚至可做 CI 門禁的手機基準數據，採用**三層免插線驗證架構**：
 
-### 2. 區網聯調 ＋ `?diag=1` 麵包屑 ＋ USB Safari Web Inspector
-- [vite.config.js](../vite.config.js#L164) 已設定 `host: '0.0.0.0'`，開發機執行 `npm run dev` 後，同區網 iPhone Safari 可直連 `http://<LAN-IP>:5173/?perf&diag=1`。
-- 若遇到 iPhone 在載入期就撞上 Jetsam 重整而無法掛載 USB Web Inspector，**`?diag=1` 會讀取持久化於 `localStorage` 的上一次未完成檢查點**並在連續失敗 2 次時自動暫停重載循環，直接顯示死在哪個階段、同時保留頁面供 Mac Safari Web Inspector 掛載除錯。
-- 成功進入標題頁後，Mac USB **Safari → 開發 (Develop) → iPhone → 該分頁** 可進一步在 **Graphics → Canvases** 與 **Timelines → Memory** 確認所有離屏 Canvas 是否成功縮至 `1×1`。
+### 1. Tier 1：日常全自動 CLI 手機模擬 ＋ 軟體 WebKit 記憶體門禁（零手機、零人工抄表）
+- 使用 `npm run profile:mobile`（等同 `node tools/profile_scene.mjs --mobile --play --markdown`），可加上 `--assert-ios-budget` 當作自動失敗門禁：
+  - 透過 CDP 模擬 `430×932`、`DPR=3`、`touch=true` 與 iOS Safari UA，強制走入 `mobile-lite` / `low` 執行路徑；
+  - 同時監控 `HTMLCanvasElement` 的 `getContext` 與 `width/height` 變更，一次精確統計 **`peakBackingStoreMB`（啟動尖峰歷史最高總 2D 緩衝區 MB）** 與 **`liveBackingStoreMB`（進場後殘留 MB）**、FPS、Draw Calls、Triangles、Textures、Geometries 與 `BootDiag` 各階段耗時；
+  - 加上 `--markdown` 直接輸出可貼進 [agent-handoff-log.md](agent-handoff-log.md) 的標準 Markdown 表格，徹底省去人工抄表。
+  - *(註：若於受限的 AI Terminal Sandbox 內執行，`google-chrome` 目標檔 `/opt/google/chrome/google-chrome` 可能未被掛載而回報 `ENOENT`，此時改在一般本機終端機執行即可。)*
 
-### 3. 階段驗收：個人 Fork GitHub Pages ＋ LINE / IG `WKWebView`
-- [.github/workflows/deploy.yml](../.github/workflows/deploy.yml#L13) 已原生支援 **`workflow_dispatch`**。將工作分支推至個人 Fork 後，到 GitHub Actions 手動觸發 Deploy 選擇該分支，即可於 `https://<your-account>.github.io/YanlinGTA/` 供 iPhone LINE / IG 內建瀏覽器實測，完全不污染上游。
+### 2. Tier 2：Mac 免插線真實 Apple WebKit + Metal 引擎自動驗證
+- 當需要驗證真實 **Apple WebKit / JavaScriptCore / Metal WebGL**（例如檢查 WebKit GLSL 編譯相容性或 `Canvas` 釋放行為）時，在 Mac 上無須接線即可使用兩條免插線途徑：
+  1. **Playwright `webkit`**（`webkit.launch()` + `iPhone 15 Pro Max` 裝置描述）：直接以 Mac 原生 WebKit + Metal 引擎無頭跑完開機與漫遊腳本，自動抓 Console 錯誤與指標。
+  2. **Xcode `iOS Simulator`**（`xcrun simctl boot` + `xcrun simctl openurl booted http://127.0.0.1:5173/?perf&diag=1`）：執行真實 iOS Safari / `WKWebView` 容器，不需任何實體手機與 USB 線。
+  - **誠實邊界**：Mac WebKit / Simulator 共用 Mac 實體記憶體，**不會觸發 iOS 實體手機的 Jetsam 殺行程與 ~256–384 MB Canvas 硬上限閃退**，因此記憶體是否超標一律以 Tier 1 的 `--assert-ios-budget`（`peakBackingStoreMB <= 220`、`liveBackingStoreMB <= 24`）做硬性把關。
+
+### 3. Tier 3：里程碑無線真機驗收（個人 Fork GitHub Pages ＋ LINE / IG `WKWebView`）
+- 僅在 **Phase 1 完成** 與 **Phase 3 完成** 等重大里程碑時，將分支推上個人 Fork，利用 [.github/workflows/deploy.yml](../.github/workflows/deploy.yml#L13) 原生支援的 **`workflow_dispatch`** 一鍵部署至個人 GitHub Pages，在 iPhone 的 **LINE / IG 內建瀏覽器**無線開啟連結連玩 10 分鐘做最終 Jetsam 真機壓力驗收（無須插 USB 線；若發生意外閃退，內建 `BootDiag` 會自動記下檢查點並在下次自動進入低記憶體 `safeMode`）。
 
 ### 4. 日常開發與發 PR 標準指令流
 
@@ -104,7 +107,7 @@ gh pr merge <PR編號> --repo howardtuan/YanlinGTA --auto --merge
 | :--- | :--- | :--- | :--- | :--- |
 | **PR #1** | `docs/perf-refactor-plan`（已合併）＋ `docs/revise-perf-refactor-plan` | 規劃文件 | `AGENT.md` + `perf-refactor/**` | 🟢 完全零執行期風險 |
 | **PR #2** | `chore/perf-flags-and-metrics` | Phase 0 | `src/core/PerfProfile.js`、`BootDiag.js`、`Game.js` 讓幀與檢查點、`GameLoop.js` `?perf`、`tools/profile_scene.mjs` | 🟢 預設無副作用、完全向後相容 |
-| **PR #3** | `fix/ios-canvas-lifecycle` | Phase 1A | `src/graphics/CanvasLifecycle.js`、消除頂層 `ctex`（`Dorms`/`Weiche` 等）、統一 20+ 私有 helper、兩階段釋放與 `hc`/`dc` 回收 | 🟢 API 不變，內容組無感 |
+| **PR #3** | `fix/ios-canvas-lifecycle` | Phase 1A | `src/graphics/GpuMemLifecycle.js`、消除頂層 `ctex`（`Dorms`/`Weiche` 等）、統一 20+ 私有 helper、兩階段釋放、`hc`/`dc` 與靜態 VBO CPU 陣列回收 | 🟢 API 不變，內容組無感 |
 | **PR #4** | `fix/ios-lazy-noncore-assets` | Phase 1B | `AudioSystem.js`、`FirstPerson.js`、`Arena.js`、`Game.js`/`SkySystem.js` `lowQ` 啟動不建陰影貼圖 | 🟢 消除明顯資源浪費 |
 | **PR #5** | `refactor/mapbuilder-chunking` | Phase 2A | `src/world/MapBuilder.js` 120m `ChunkedGeo` 分塊 ＋ CPU 地形/鋪面切洞移除 `cutMask()` `discard` | 🟡 需跑完 `tests/unit/` 與洞口視覺比對 |
 | **PR #6** | `refactor/kit-plane-batch-and-igpu` | Phase 2B | `Kit.finish()` 靜態平面圖集化＋純色頂點合批、室內家具距離剔除、`HUD.js` 小地圖節流、`guessGpu()`/`autoQuality()`/`PostFX` 重校 | 🟢 顯著砍 Draw Calls、內顯穩 60 FPS |

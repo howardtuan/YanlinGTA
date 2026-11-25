@@ -42,15 +42,23 @@
 - **解法**：
   - 將 `finishRow()` 已驗證成功的兩大合批技術下放共享給 `Kit.finish()`：
     1. **純色材質合併**：不帶貼圖、不透明、無發光的靜態部件（`plainKey(mat)`），寫入頂點色屬性後合併為單一 `row:painted` Mesh；
-    2. **靜態 `k.plane()` 打包進 Atlas**：凡符合 `atlasable(m)`（未改動 UV repeat/offset、無動態更新標記且無子物件）的平面，打包進該建築（或共享區）的紋理圖集並合併為少數幾個 Mesh（按透明/發光/雙面分組），並透過 Phase 1 `CanvasLifecycle` 釋放原始畫布。
+    2. **靜態 `k.plane()` 打包進 Atlas**：凡符合 `atlasable(m)`（未改動 UV repeat/offset、無動態更新標記且無子物件）的平面，打包進該建築（或共享區）的紋理圖集並合併為少數幾個 Mesh（按透明/發光/雙面分組），並透過 Phase 1 `GpuMemLifecycle` 釋放原始畫布。
   - **保護例外**：明確設有 `m.userData.dynamic === true`（例如 `T.screen()` 待壁紙更新或可動部件）或 `k.group` 內含動畫群組（例如資管系館電梯 `cab`、警衛室柵欄）維持獨立 Mesh，功能 100% 不受影響。
 
-### 4. 室內家具距離剔除、小地圖節流與內顯畫質重校
+### 4. 室內家具距離剔除與小地圖節流
 - **室內家具子群組（`Kit.furnitureGroup` 或建築群組分離）**：將 `IM`（101/301 電腦教室百台螢幕桌椅）、`Sac`（培英廳 425 張座椅）、`Lixing`（寢室床組書桌）等高密度小物件拆入 `furnitureGroup`，當玩家在該建築外圍且距離 `> 45m` 時設 `visible = false`（近距離或進門瞬間秒開）。
 - **小地圖節流（`HUD.js`）**：僅在玩家座標變化 `> 0.35m`、相機偏航 `> 0.02 rad`、或距上次繪製 `> 50ms` 時重繪 `minimap`。
-- **`guessGpu()` / `PostFX` / `autoQuality()` 重校**：
-  - 保留 `GameLoop.js` `QPROF` 單一畫質真相，細調 `desktop-igpu` 下的 `medium`：新世代內顯／Apple M 系列維持合理視距與 1024 陰影，但**預設關閉高頻寬消耗的 `HalfFloat` MSAA 2x + `UnrealBloomPass` 後製鏈**（僅 `high` 電影感或明確的 `desktop-dgpu` 啟用完整 PostFX）；舊款 Intel UHD 620/630 等文書內顯由 `guessGpu()` 直接判為 `low`。
-  - 將 `autoQuality()` 暖機時間由 `8000ms` 縮為 `3000ms`、取樣視窗由 `6000ms` 縮為 `3000ms`，開局若仍卡頓 6 秒內自動降階。
+
+### 5. 材質降階 (`MeshLambertMaterial`)、渲染排序、隔幀陰影與零相依 `PostFX` 瘦身
+- **`low` / `xlow` 畫質切換 `MeshLambertMaterial` ＋ 跳過法線/RM 紋理**：
+  - 在 `low` / `xlow`（包含手機預設與舊款 Intel UHD 文書機）下，[MapBuilder.js](../../src/world/MapBuilder.js) 的建築外牆與地面材質改用 **`MeshLambertMaterial`**（已確認 `Three.js r160` 之 `MeshLambertMaterial` 原生相容 `emissiveMap` 與 `facadeParam` 的 `#include <color_fragment>` 著色器注入），並且**直接跳過 `normalFromHeight()` 與 `rm`（粗糙/金屬度）貼圖生成**，同時省下片元著色運算、起動 CPU 耗時與 50% 建築貼圖 VRAM。
+- **自訂 `opaqueSort`（依 `program.id` 排序）＋ 30Hz 隔幀陰影**：
+  - 透過 `renderer.setOpaqueSort(...)` 優先依 `material` 編譯後 Program ID 排序再由前到後繪製，顯著降低 WebGL Shader Program 切換次數。
+  - 在中低階 GPU 或負載較高時啟用 `shadowMap.autoUpdate = false` 並每 2 幀更新一次陰影（對建築與太陽緩慢移動幾乎無感，直接減半 Shadow Pass 開銷）。**（注意：`Three.js r160` 採 `RGBADepthPacking` 四通道，嚴禁套用單通道 `slimShadowMaps`！）**
+- **`guessGpu()`、`lampLights` 與零相依 `PostFX.js` 瘦身**：
+  - `desktop-igpu` 下將 `MapBuilder` 夜間池化 `PointLight` 由 `4` 盞調降至 `0` 或 `2` 盞；
+  - 保留單一 runtime 相依性（不引入 `pmndrs/postprocessing`），直接改造 [PostFX.js](../../src/graphics/PostFX.js) 為**動態 `import()` 延遲載入**（`low` 連 1 條指令都不載入），並在 `medium` 設 `samples: 0`（關閉高頻寬 MSAA Resolve）、將 `UnrealBloomPass` 尺寸降至 `1/4` 解析度（`w/4, h/4`）、合併 `OutputPass` 與 `GradeShader`。
+  - 縮短 `autoQuality()` 暖機至 `3000ms`、取樣視窗至 `3000ms`（開局 6 秒內自動降階）。
 
 ---
 

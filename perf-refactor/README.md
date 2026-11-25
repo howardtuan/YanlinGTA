@@ -37,11 +37,11 @@
 | 階段 | 任務名稱 | 目前狀態 | 預定分支前綴 | 核心交付物 | 關鍵驗收指標 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **規劃** | 架構體檢、可行性評估與規格修正 | ✅ 規格修正完成 | `docs/perf-refactor-plan`、`docs/revise-perf-refactor-plan` | 本目錄 10 份檔案與 `AGENT.md` 公告（修正目標模糊、順序與技術破洞） | `npm run ci` 與連結檢查全過 |
-| **Phase 0** | 可觀測基準、載入檢查點與實驗旗標 | 🔄 實作就緒，待實機補測確認崩潰點 | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`BootDiag.js`、`Game.js` 讓幀修復、`?perf`、`tools/profile_scene.mjs` | `npm run ci` 全綠；用 `?perf&diag=1` 鎖定 iPhone 17 Pro Max 真正死因階段 |
-| **Phase 1** | iOS 記憶體止血與全專案 Canvas 生命週期修復 | ⏳ 待動工 | `fix/ios-canvas-lifecycle`、`fix/ios-lazy-noncore-assets` | `CanvasLifecycle.js` 兩階段安全釋放、消除頂層 `ctex`、86 處 Canvas 納管、延遲載入 | iPhone 17 Pro Max Safari / LINE / IG `<= 5s` 進場且連玩 `>= 10m` 不閃退 |
-| **Phase 2** | 渲染空間分塊、去 `discard` 與 `Kit.finish` 平面合批 | ⏳ 待動工 | `refactor/mapbuilder-chunking`、`refactor/kit-plane-batch-and-igpu` | `MapBuilder` 120m 分塊＋CPU 切洞、`Kit.finish()` 平面圖集合批、室內家具遮擋、內顯調校 | 主場景三角形降 **60%+**、Draw Calls 顯著下降、M 系列 / Iris Xe 穩 **55–60 FPS** |
-| **Phase 3** | 真拆包全局空間動態載入與動態物理碰撞 | ⏳ 待動工 | `refactor/world-streamer-*` | 輕量 Spec/Anchor 與重型建模檔物理分離、分步驟 `WorldStreamer`、`PhysWorld` 動態 Chunk 碰撞 | 外圍街屋/體育館/室內真正拆出 async chunks、進屋不穿牆、`tools/floorplan` 相容 |
-| **Phase 4** | 建置期貼圖烘焙管線（長期進階） | ⏳ 待動工 | `feat/build-time-texture-baking` | `tools/bake_textures.mjs` 預烘 `.webp` / `.ktx2`（保留 `dev` 即時 Fallback） | 冷啟動紋理生成耗時降 **> 85%**、VRAM 降 **> 60%** |
+| **Phase 0** | 可觀測基準、載入檢查點與實驗旗標 | 🔄 規格對齊中 | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`BootDiag.js`（含自動降階 `safeMode`）、`Game.js` 讓幀修復、`?perf`、`tools/profile_scene.mjs`（含 `--mobile` 與預算門禁） | 消除「假卡 2%」盲區、免插線 `--mobile --assert-ios-budget` 自動抄表、崩潰自動進安全模式 |
+| **Phase 1** | iOS 記憶體止血與資源生命週期修復 | ⏳ 待動工 | `fix/ios-canvas-lifecycle`、`fix/ios-lazy-noncore-assets` | `GpuMemLifecycle.js`（Canvas 兩階段釋放 + 靜態幾何 `onUploadCallback` 清空 CPU 陣列 + `ImageBitmap.close()`）、WebGL 輕量初始化、條件式 Apple `gcNudge`、延遲載入 | iPhone Safari / LINE / IG `<= 5s` 進場且連玩 `>= 10m` 不閃退；`peak <= 220 MB`、`live <= 24 MB` |
+| **Phase 2** | 渲染空間分塊、去 `discard` 與 `Kit.finish` 平面合批 | ⏳ 待動工 | `refactor/mapbuilder-chunking`、`refactor/kit-plane-batch-and-igpu` | `MapBuilder` 120m 分塊＋CPU 切洞、`Kit.finish()` 平面合批、`low` 切 `MeshLambertMaterial`（跳過法線/RM）、`opaqueSort`、30Hz 隔幀陰影、零相依 `PostFX` 瘦身 | 主場景三角形降 **60%+**、Draw Calls 顯著下降、M 系列 / Iris Xe 穩 **55–60 FPS**、UHD `>= 45 FPS` |
+| **Phase 3** | 真拆包全局空間動態載入與動態物理碰撞 | ⏳ 待動工 | `refactor/world-streamer-*` | 輕重檔案物理分離、分步驟 `WorldStreamer`（`MessageChannel` 幀預算 + `r160` 分帶 `texSubImage2D` 3ms 上傳 + `pinPrograms()` + 分批 `dispose`）、`PhysWorld` 動態 Chunk 碰撞 | 外圍街屋/體育館/室內真正拆出 async chunks、進屋不穿牆、`tools/floorplan` 相容 |
+| **Phase 4** | 建置期貼圖烘焙管線（長期進階） | ⏳ 待動工 | `feat/build-time-texture-baking` | `tools/bake_textures.mjs` 預烘 `.webp` / `.ktx2`（ETC1S + UASTC 實證省 5.3×–7.9× VRAM，上傳後清空 `mipmaps` CPU 陣列，保留 `dev` Fallback） | 冷啟動紋理生成耗時降 **> 85%**、VRAM 降 **> 60%** |
 
 ---
 

@@ -24,18 +24,17 @@
 
 ---
 
-### Session #004｜2026-11-25｜負責階段：Phase 0 依新規格修正完成（`chore/perf-flags-and-metrics`）
-- **工作分支 / PR**：`chore/perf-flags-and-metrics`（已合入 `docs/revise-perf-refactor-plan`）
+### Session #005｜2026-11-25｜負責階段：吸收《臺北狂飆》實證架構分析 ＋ 確立免插線手機自動化驗證方案
+- **工作分支 / PR**：`docs/revise-perf-refactor-plan`
 - **本輪已完成**：
-  1. 重構 [`src/core/PerfProfile.js`](../src/core/PerfProfile.js)：移除與 `GameLoop.js` `QPROF` 重複的 `shadowSize` / `maxDpr` / `postFx`，專注 `texScale` / `atlasMaxW` / `atlasMaxH` / `physTileRadius` 與 `?tier=` / `?texscale=` / `?stream=` / `?diag=` 解析。
-  2. 新增 [`src/core/BootDiag.js`](../src/core/BootDiag.js) 並修改 [`src/core/Game.js`](../src/core/Game.js)：修復 `await nextFrame()` 放在 `setLoad(0.08)` 之前的假停 `2%` 時序 Bug，將啟動拆為 9 個明確檢查點並支援 `?diag=1` / `?diag=halt` 防重整死循環斷路器。
-  3. 新增 `tools/profile_scene.mjs`（`npm run profile:scene`）：複用 `tools/e2e/` CDP 基礎設施自動量測存活 `<canvas>` 數與 Backing Store MB、紋理/幾何數、Draw Calls / 三角形與啟動階段耗時。
-  4. 更新 [`tests/unit/perf-profile.test.js`](../tests/unit/perf-profile.test.js) 與新增 [`tests/unit/boot-diag.test.js`](../tests/unit/boot-diag.test.js)，本機 `npm run ci` 全綠。
-- **實機與量化數據變化**：
-  - 延續 Session #002 M1 Pro 與 iPhone 17 Pro Max 基線；本機環境未安裝 Chrome/Chromium，待於 Mac/iPhone 或有瀏覽器環境補跑 `?perf&diag=1` 與 `npm run profile:scene`。
+  1. 逐項比對《臺北狂飆》（Three.js `r186`）與 `YanlinGTA`（`Three.js r160`）實際原始碼，完成技術篩選並回寫 `perf-refactor/`：
+     - **納入**：`BootDiag` 玩家端無感自動降階 `safeMode`（Phase 0）；靜態幾何 `onUploadCallback` 清空 CPU `TypedArray` + `ImageBitmap.close()` + `WebGLRenderer({ alpha: false, stencil: false })` + 條件式 `gcNudge`（Phase 1）；`low` 切換 `MeshLambertMaterial` 跳過法線/RM 貼圖 + `opaqueSort` + 30Hz 隔幀陰影 + 零相依 `PostFX` 瘦身（Phase 2）；`r160` 相容分帶 `texSubImage2D` + `pinPrograms()` + 分批 `dispose` + `MessageChannel` 幀預算（Phase 3）；KTX2 上傳後清空 `mipmaps`（Phase 4）。
+     - **拒絕**：`slimShadowMaps`（`r160` 用四通道 `RGBADepthPacking`，改單通道必壞陰影）、2D `uLampMap` 重寫、`pmndrs/postprocessing` 套件、替換 Rapier 物理與原生 `TilePool` 私有魔改。
+  2. 確立**三層免插線手機自動化驗證架構**（Tier 1 `npm run profile:mobile -- --assert-ios-budget` 量測 `peakBackingStoreMB`/`liveBackingStoreMB` ＋ `--markdown` 自動抄表；Tier 2 Mac Playwright `webkit` / `xcrun simctl` Simulator；Tier 3 里程碑無線真機 LINE/IG 驗收）。
+  3. **更正本機環境紀錄**：確認 Linux 本機已安裝 Google Chrome（`/usr/bin/google-chrome-stable -> /opt/google/chrome/google-chrome`），前次 `ENOENT` 係因受限終端沙盒未掛載 `/opt/google/chrome/` 所致，於本機一般終端機即可直接執行 `npm run profile:scene -- --play`。
 - **下一棒確切待辦（Next Actionable Step）**：
-  1. 將 `chore/perf-flags-and-metrics` 推上遠端並用 iPhone 17 Pro Max 開啟 `?perf&diag=1`，鎖定真實卡死階段後合併回 `main`。
-  2. 從最新 `main` 切出 `fix/ios-canvas-lifecycle` 執行 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**。
+  1. 將本輪規劃同步合入 `chore/perf-flags-and-metrics`，實作 `BootDiag` `safeMode` 自動降階與 `profile_scene.mjs` `--mobile` / `peakBackingStoreMB` / `--markdown` / `--assert-ios-budget`。
+  2. 於一般本機終端機執行 `npm run profile:mobile` 取得修正後第一份自動化手機模擬基線數據。
 
 ---
 

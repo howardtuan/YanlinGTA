@@ -59,15 +59,18 @@ sequenceDiagram
   - `ctx.walls` / `ctx.surfaces` / `ctx.actions` / `ctx.updaters`：透過 `Interiors.beginScope(chunkId)` / `endScope()` 自動標記歸屬並收集牆面與樓板清單（供同步送入 `PhysWorld`）。
   - **`ctx.dispose()`**：卸載時從 `scene` 移除群組、`.dispose()` 專屬幾何/材質/貼圖、呼叫 `Interiors.removeByChunk(chunkId)` 清理空間雜湊 `grid` 與互動動作，並通知 `PhysWorld.unmountChunkPhysics(chunkId)`。
 
-### 3. 步驟級時間切片調度器：`WorldStreamer` (`src/world/WorldStreamer.js`)
+### 3. 步驟級時間切片調度器與平滑資源上下架：`WorldStreamer` (`src/world/WorldStreamer.js`)
 - **依賴合規**：放置於 `src/world/`，**嚴禁 `import` `entities/` 或 `ui/`**，由 `GameLoop` 傳入 `{ x, y, z, vx, vz }`。
-- **解決同步大函式無法搶佔的問題**：
-  - JS 主執行緒不可搶佔，若 `mount()` 是單一同步大函式就無法切進 `3.5 ms` 預算。
-  - 因此 `WorldStreamer` 要求串流建造器回傳**離散微步驟（Step Generator / Task Array）**或按棟分批：
-    1. **Step 1**：逐棟／逐段執行 `Kit` 幾何組裝（每幀依時間預算執行數棟）；
-    2. **Step 2**：執行 `finishRow()` / `Kit.finish()` 的 `packAtlas()` 繪製；
-    3. **Step 3**：逐張呼叫 `renderer.initTexture()` 上傳 VRAM 並透過 `CanvasLifecycle` 釋放畫布；
-    4. **Step 4**：掛入 `scene` 並註冊 `PhysWorld` Chunk Colliders。
+- **動態幀預算排程（`MessageChannel` + `15 - frameCpu`）**：
+  - 依主渲染執行緒實際 CPU 耗時 EMA 動態核發預算（60Hz 取 `clamp(3, 6, 15 - frameCpu)` ms），避免 `setTimeout(..., 0)` 的 4ms 強制延遲。
+- **步驟切分 ＋ `Three.js r160` 相容分帶紋理上傳（`3ms/frame`）**：
+  - 將大街屋的建置拆成離散微步驟，特別是 `Step 3` 上傳 `1024×2048` / `2048×4096` 圖集時**不可整張同步 `initTexture()`**：
+    1. 在 `r160`（無 `tex.source.dataReady`）中先以 `new THREE.DataTexture(null, W, H)` 呼叫 `renderer.initTexture(tex)` 僅配置 GPU 空紋理，取得 `renderer.properties.get(tex).__webglTexture`；
+    2. 透過條帶 `<canvas>` 每幀以 `gl.texSubImage2D()` 上傳一組橫條（動態控在 `~3 ms` 內）；
+    3. 最後一條帶完成後才呼叫 `gl.generateMipmap(gl.TEXTURE_2D)`，隨即透過 `GpuMemLifecycle` 回收原畫布，徹底消滅騎車高速進區時的微卡頓。
+- **平滑卸載保護（`pinPrograms()` ＋ 分批讓幀 `.dispose()`）**：
+  - 卸載區塊前先呼叫 `pinPrograms()` 保護仍會複用的 GLSL Shader Program 不被 Three.js 誤驅逐；
+  - 釋放大量 Mesh / Geometry / Texture 時採每幀分批（例如每 16～32 個資源讓幀），避免單幀觸發 iOS JSC GC 尖峰。
 - **遲滯環 ＋ 冷卻 ＋ LRU ＋ 傳送預載**：
   - 雙半徑 `enterR < exitR`（前瞻點 `pos + vel * 2.5s`）、最少駐留 `12s` 冷卻、依 `PerfProfile.streaming.maxActiveChunks` 執行 LRU 卸載。
   - 瞬間傳送 Hook（`toGate()`、`PinHanRide`、`Concert.js` 搭接駁車去體育館）必須 `await streamer.ensureAt(targetX, targetZ)` 完成掛載後才放行畫面。

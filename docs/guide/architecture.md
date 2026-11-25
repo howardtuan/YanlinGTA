@@ -183,6 +183,12 @@ iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB
   - 畫圖時用傳進來的 `w`、`h`，不要用 `g.canvas.width`／`cv.width`（縮小後只會畫到四分之一）；需要 `getImageData` 逐像素處理的貼圖（例如 `src/graphics/Textures.js` 的法線圖）不要走 `scaledCanvas`。
   - 之後還會重畫的貼圖（螢幕、門牌、計分板）不要用 `k.plane()` 放進街屋：`finishRow` 會把 `k.plane()` 建的平面打包進圖集，原畫布之後會被釋放。請自己建 mesh 放進 `k.group`（只有 `k.plane()` 的平面會被打包）。
 - **量測**：`npm run profile:mobile -- --assert-ios-budget`（進標題時畫布 ≤ 220 MB）；數據記在 `perf-refactor/agent-handoff-log.md`。
+- **載入時不做的事（Phase 1B）**：
+  - renderer 不要 stencil buffer（專案沒有任何地方用到；three r160 預設會要），非開發、非 `?diag` 時關掉 `debug.checkShaderErrors`（讀每支著色器的編譯紀錄是同步的 GPU 往返）。之後若要用 stencil，記得把 `Game.init()` 的 `stencil: false` 拿掉。
+  - low／xlow 一開始就不開陰影（`shadowMap.enabled`、太陽 `castShadow`），畫質升上去時 `GameLoop.applyQuality()` 會打開。
+  - 歌劇背景音樂（3 MB）`preload = 'none'`，第一次播放時才下載。
+  - 第一人稱後照鏡的 render target 第一次坐上車才建立（`FirstPerson.rt`）；`renderer.localClippingEnabled` 只在坐進汽車、車艙被切開時才打開（每一幀每個繪圖呼叫都會多一次檢查）。
+  - 林口體育館（`src/world/buildings/Arena.js`）：座椅 `A1`／`A2` 與螢光棒恢復視錐剔除（原本人在校園時每幀也畫 4 公里外約 46 萬個三角形）；場館外殼平常隱藏，`Concert.js` 搭接駁車去時才顯示、回中原時再隱藏。
 
 ### 5. 可共用的小工具（隨涼韌足體養生加入）
 - **`hud.fade(text, mid, after, { midText, dark, hold })`**（`src/ui/HUD.js`）：全螢幕黑幕加一行字（跟睡覺同一層 `#sleepFade`）。變黑後執行 `mid()`，文字可換成 `midText`，再淡回來後執行 `after()`。適合「時間往後跳」「瞬間移動」的轉場。

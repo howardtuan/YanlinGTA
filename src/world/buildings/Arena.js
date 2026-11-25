@@ -722,7 +722,11 @@ export function buildArena(I, scene, Kit, regMat) {
         C.set(rg ? '#26365f' : '#2f8a4c').offsetHSL(0, 0, (((i * 7919) % 11) - 5) / 200)
       );
     });
-    A1.frustumCulled = A2.frustumCulled = false;
+    // culled by the bounds of all the seats (three.js tests an InstancedMesh's own boundingSphere, computed from the
+    // instance matrices above, which never change): with culling off the ~460k seat triangles were drawn every frame
+    // from campus, 4 km away (Phase 1B)
+    A1.computeBoundingSphere();
+    A2.computeBoundingSphere();
     shell.add(A1, A2);
   }
   I.zones.push({
@@ -817,7 +821,10 @@ export function buildArena(I, scene, Kit, regMat) {
     sticks.setMatrixAt(i, M4);
     sticks.setColorAt(i, C.set('#ffffff'));
   });
-  sticks.frustumCulled = false;
+  // culled by the bounds of all the sticks, grown by how far the shader moves them (uAmp is at most 0.24 in
+  // src/systems/minigames/Concert.js; 0.5 leaves room)
+  sticks.computeBoundingSphere();
+  sticks.boundingSphere.radius += 0.5;
   fx.add(sticks);
   fx.visible = false;
 
@@ -847,9 +854,13 @@ export function buildArena(I, scene, Kit, regMat) {
     return { ...xz(k, x, zz), y: R0.y0 + z.row * RISE };
   };
   const plaza = buildPlaza(I, scene, k);
+  // the arena is 4 km off campus and only reached on the concert shuttle: hidden until then (Concert.js shows it on the
+  // way there and hides it on the way back)
+  shell.visible = false;
   return {
     k,
     base: k.base,
+    shell,
     fx,
     beams,
     sticks,

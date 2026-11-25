@@ -140,7 +140,7 @@ export class SkySystem {
     this.hemi = new THREE.HemisphereLight('#bcd4ff', '#4d4636', 0.5);
     scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight('#fff1de', 3);
-    this.sun.castShadow = true;
+    this.sun.castShadow = quality !== 'low'; // low / xlow: no shadows (GameLoop.applyQuality switches them later)
     this.shadowR = 85;
     this.setShadowQuality(quality);
     const sc = this.sun.shadow.camera;

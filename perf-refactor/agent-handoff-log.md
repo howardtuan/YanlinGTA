@@ -24,6 +24,26 @@
 
 ---
 
+### Session #008｜2026-11-25｜負責階段：Phase 1B（延後載入非必要資源、剔除修正）
+- **工作分支 / PR**：`fix/ios-lazy-noncore-assets`（規劃表的 PR #4）
+- **本輪已完成**（`docs/guide/architecture.md`〈畫布貼圖記憶體〉一節的「載入時不做的事」）：
+  1. `Game.js`：renderer 加 `alpha: false, stencil: false`（全專案沒有 stencil 使用處；three r160 預設 `stencil = true`）；非開發、非 `?diag` 時 `debug.checkShaderErrors = false`；`shadowMap.enabled = !lowQ`。`SkySystem.js`：太陽 `castShadow` 在 low 時一開始就是 false。畫質升級時 `GameLoop.applyQuality()` 原本就會把兩者打開，行為不變。
+  2. `AudioSystem.js`：歌劇背景音樂（3 MB）`preload = 'none'`，第一次播放時才下載；其他程式只用 `play` / `pause` / `volume`，不依賴預先載入。
+  3. `FirstPerson.js`：後照鏡 render target 改為第一次用到才建立（getter `rt`）；`localClippingEnabled` 只在 `_clipCar` 切開車艙時打開，`_unhide` 關回。
+     - 誠實註記：three.js 的 render target 本來就是第一次 `setRenderTarget` 才配置 GPU 記憶體，所以 render target 延後建立的實際收益很小；`localClippingEnabled` 的收益是每個繪圖呼叫少一次 `clipping.setState`。
+  4. `Arena.js`：座椅 `A1` / `A2` 用 instance 矩陣算出的 `boundingSphere` 做剔除（拿掉 `frustumCulled = false`）；螢光棒的 `boundingSphere` 加大 0.5 m（shader 的擺動 `uAmp` 最大 0.24）後也開剔除；場館外殼 `shell` 預設隱藏並放進回傳值，`Concert.js` 搭接駁車去時顯示、回中原時隱藏（體育館只有接駁車能到）。
+- **實機與量化數據變化**：
+  - **電腦**：低畫質下與 main 逐像素比對 95 個機位（含 4 個體育館機位：強制顯示外殼與螢光棒，從看台看舞台、從外面看場館）**95/95 完全相同**。中畫質這套比對連 main 對 main 都是 0/95（MSAA / 半精度後製本身不確定），不能用來判斷。
+  - **每幀 WebGL 呼叫**（91 個校園機位合計，低畫質）：`drawArraysInstanced` 4119 → 3937（每個機位少 2 個，就是兩組座椅，約 46 萬三角形），`useProgram` 29372 → 29180，`bindTexture` 60471 → 60423，`enable` / `disable` 3214 → 3125；`drawElements` 等其餘不變。
+  - **手機模擬**（`profile:mobile`）：與 Session #007 相比，每個機位三角形少約 34 萬（title-orbit 2021k → 1678k、鐘塔 1908k → 1560k、張靜愚紀念圖書館 1873k → 1524k、學生活動中心 1769k → 1422k、中原大學體育館 1535k → 1202k）；載入資源 32 個／11703 KB → **31 個／8722 KB**（歌劇音樂不再預載）；Canvas 165.65 MB、貼圖估算 538.45 MB 不變，JS heap 436.6 MB；啟動到標題 70.9 s（軟體渲染，在量測浮動範圍內）。
+- **新發現的技術細節或踩雷**：體育館在校園 4.4 km 外，已在相機遠裁切面（1.5–2.6 km）之外，所以只有關掉剔除的物件（座椅）會真的被畫；外殼平常隱藏主要是少一次剔除走訪，收益小。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. Phase 1A 剩餘（見 Session #007）。
+  2. Phase 2：`refactor/mapbuilder-chunking`（PR #5）、`refactor/kit-plane-batch-and-igpu`（PR #6）。
+  3. iPhone 的 `build-world` 51 s（保留區判斷），建議另開小 PR。
+
+---
+
 ### Session #007｜2026-11-25｜負責階段：Phase 1A 第一部分（畫布生命週期：圖集、招牌、私有畫布、手機縮圖）
 - **工作分支 / PR**：`fix/ios-canvas-lifecycle`（規劃表的 PR #3；Phase 1A 剩下的項目見文末，下一個 PR 接續）
 - **本輪已完成**：

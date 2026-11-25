@@ -6,6 +6,8 @@
 // 23:00–24:00 在 4 號床下的書桌打 LOL。
 // 起床鬧鐘：06:00 起他放在床下書桌上的手機一直響（assets/sfx/gd/alarm.mp3，越靠近越大聲），他自己從來不關，響到 08:00 去上班；
 // 你可以走到書桌前按 E 幫他關掉（也可以不管它）。室友漢克、霍華德很困擾，但大家都習慣了。
+// 關掉的話他會睡過頭：那天 08:40 才醒、戈登肉鋪晚 40 分鐘開（src/world/buildings/GordonShop.js 看 overslept）；
+// 是好友的話，他醒來會很生氣地私訊你，問你為什麼要關，害他上班遲到。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵。
 // 有些晚上 23:00–23:40 他跟吱吱各騎自己的 BW'S 去兜風（src/entities/npcs/Zz.js 的 gdOut），那段時間不在寢室。
 import * as THREE from 'three';
@@ -71,6 +73,14 @@ const KEEPER = '女拳大帝';
 const ALARM_SRC = 'assets/sfx/gd/alarm.mp3';
 const ALARM_AT = 6 * 60; // 06:00, rings until he gets up for work at 08:00
 const ALARM_R = 22; // metres: how far down the corridor you can still hear it
+const LATE = 40; // minutes he oversleeps when you turned his alarm off
+const ANGRY = [
+  '誰把我的鬧鐘關掉的！！😡',
+  '漢克說是你？？彥霖你幹嘛關啦',
+  '我就是靠那個鬧鐘起床的欸，沒響我根本聽不到',
+  '現在上班要遲到了啦！！店長遲到很難看你知道嗎 😤',
+  '下次不准再關，不然肉不賣你',
+];
 // 店長的個性：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞
 const IDLE = [
   [[KEEPER, '要買就快點挑，我等等還要排位！🔥']],
@@ -312,8 +322,12 @@ export class Gordon {
   }
   get asleep() {
     const m = ((this.g.clock % 1440) + 1440) % 1440;
-    return this.night && m < 8 * 60;
-  } // 00:00–08:00 on his bed
+    return this.night && m < 8 * 60 + (this.overslept ? LATE : 0);
+  } // 00:00–08:00 on his bed (08:40 if you turned his alarm off)
+  // you turned his alarm off this morning: he sleeps through to 08:40 and opens the shop late
+  get overslept() {
+    return this.alarmOff === this._day;
+  }
   get _day() {
     return Math.floor(this.g.clock / 1440);
   }
@@ -491,6 +505,7 @@ export class Gordon {
   }
   // the alarm: louder the closer you are, much quieter from another floor; blinking screen
   _alarmTick(dt, g) {
+    this._angry(g);
     const { phone, pscr } = this.dorm,
       on = this.ringing && !g.zz?.gdOut;
     let lv = 0;
@@ -507,6 +522,25 @@ export class Gordon {
     }
     g.audio.loopAt?.('gdAlarm', ALARM_SRC, lv * 0.9, dt);
     pscr.material.color.set(on ? (Math.sin(g.time * 9) > -0.2 ? '#ffffff' : '#5a5a66') : '#0d1020');
+  }
+  // he wakes up late after you turned his alarm off: an angry message (only if you are friends: his chat)
+  _angry(g) {
+    const day = this._day,
+      m = ((g.clock % 1440) + 1440) % 1440;
+    if (!this.overslept || this._angryDay === day || m < 8 * 60 + LATE) return;
+    if (!g.friends?.added.has('gd')) {
+      this._angryDay = day;
+      return;
+    }
+    const st = g.phone?.chats.find((c) => c.c.id === 'gd');
+    if (!st || st.busy) return; // try again next frame
+    this._angryDay = day;
+    g.phone._deliver(
+      st,
+      ANGRY.map((text) => ({ who: 'gd', text })),
+      0,
+      500
+    );
   }
   // you turn it off for him (he sleeps on)
   alarmStop() {

@@ -9,13 +9,33 @@ import { pointInPoly, closestOnSeg } from '../physics/Collision.js';
 import { H } from './Terrain.js';
 
 // ---------------- textures ----------------
+// Canvas memory, set by src/core/Game.js (configureTextures) before the world builds. Left unset (tests, tools)
+// everything works as before.
+//  - scale: phones (PerfProfile mobile-lite, or ?texscale=) store ctex canvases and the shop-row sheets at texScale
+//    (0.5: a quarter of the canvas and GPU memory, signs a little softer). The drawing code still draws at the full
+//    size (the context is scaled), so nothing else changes. Desktops keep 1: the same pixels as before.
+//  - upload: (texture) => renderer.initTexture(texture). Shop-row sheets go to the GPU as soon as they are drawn and
+//    their canvases are dropped (see finishRow / releaseAtlasSources).
+// An iPhone's Safari gets killed with ~0.8-1.8 GB of canvases; the full set is ~1.9 GB.
+const TEX_OPTS = { scale: 1, upload: null };
+export function configureTextures({ scale = 1, upload = null } = {}) {
+  TEX_OPTS.scale = Math.min(1, Math.max(0.25, Number(scale) || 1));
+  TEX_OPTS.upload = upload;
+}
 export const TEX = {};
 export function ctex(key, w, h, draw, repeat = true) {
   if (TEX[key]) return TEX[key];
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
+  const cv = document.createElement('canvas'),
+    s = TEX_OPTS.scale;
+  cv.width = s === 1 ? w : Math.max(1, Math.round(w * s));
+  cv.height = s === 1 ? h : Math.max(1, Math.round(h * s));
+  const g = cv.getContext('2d');
+  if (s !== 1) {
+    g.setTransform(cv.width / w, 0, 0, cv.height / h, 0, 0);
+    cv.lw = w; // the size it was drawn at (finishRow's atlas packs by it)
+    cv.lh = h;
+  }
+  draw(g, w, h);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -732,6 +752,18 @@ const ATLAS_W = 2048,
   ATLAS_MAX_H = 4096,
   ATLAS_GAP = 16;
 const alignUp = (v) => Math.ceil(v / ATLAS_GAP) * ATLAS_GAP;
+// size an image was drawn at: a ctex canvas stored smaller on phones (configureTextures) keeps it in lw / lh
+const drawnW = (img) => img.lw || img.width,
+  drawnH = (img) => img.lh || img.height;
+// a canvas texture already on the GPU: drop the canvas's pixels (WebKit frees the backing store of a 1x1 canvas)
+function dropCanvas(t) {
+  const cv = t.image;
+  if (!cv || typeof cv.getContext !== 'function') return;
+  cv.width = 1;
+  cv.height = 1;
+}
+// sub-images packed into a sheet by finishRow (see releaseAtlasSources)
+const PACKED = new Set();
 function atlasable(m) {
   const kp = m.userData.kitPlane;
   if (!kp || !m.visible || m.children.length) return false;
@@ -752,7 +784,7 @@ function atlasable(m) {
 }
 // pack images (unique) into one or more sheets; returns Map image -> { sheet, x, y, w, h }
 function packAtlas(images) {
-  const list = [...images].sort((a, b) => b.height - a.height || b.width - a.width);
+  const list = [...images].sort((a, b) => drawnH(b) - drawnH(a) || drawnW(b) - drawnW(a));
   const sheets = [],
     at = new Map();
   let sheet = null,
@@ -768,8 +800,8 @@ function packAtlas(images) {
   };
   newSheet();
   for (const img of list) {
-    const w = alignUp(img.width) + ATLAS_GAP * 2,
-      h = alignUp(img.height) + ATLAS_GAP * 2; // slot: gap, image, gap
+    const w = alignUp(drawnW(img)) + ATLAS_GAP * 2,
+      h = alignUp(drawnH(img)) + ATLAS_GAP * 2; // slot: gap, image, gap
     if (x + w > ATLAS_W) {
       x = 0;
       y += rowH;
@@ -779,32 +811,37 @@ function packAtlas(images) {
     const ix = x + ATLAS_GAP,
       iy = y + ATLAS_GAP;
     sheet.items.push({ img, x: ix, y: iy });
-    at.set(img, { sheet, x: ix, y: iy, w: img.width, h: img.height });
+    at.set(img, { sheet, x: ix, y: iy, w: drawnW(img), h: drawnH(img) });
     x += w;
     rowH = Math.max(rowH, h);
     sheet.h = Math.max(sheet.h, y + rowH);
   }
+  const s = TEX_OPTS.scale;
   for (const sh of sheets) {
-    const cv = document.createElement('canvas');
-    cv.width = ATLAS_W;
-    cv.height = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h)));
+    const cv = document.createElement('canvas'),
+      H = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h)));
+    cv.width = ATLAS_W * s;
+    cv.height = H * s;
     const g = cv.getContext('2d'),
       P = ATLAS_GAP;
+    if (s !== 1) g.setTransform(s, 0, 0, s, 0, 0); // drawn in full-size pixels, stored smaller
     for (const { img, x: X, y: Y } of sh.items) {
-      const w = img.width,
-        h = img.height;
-      g.drawImage(img, X, Y);
+      const w = drawnW(img),
+        h = drawnH(img),
+        iw = img.width, // its own pixels (smaller than w x h on phones)
+        ih = img.height;
+      g.drawImage(img, X, Y, w, h);
       // repeat the edge pixels into the gap so mipmaps do not pull in the neighbours
-      g.drawImage(img, 0, 0, w, 1, X, Y - P, w, P);
-      g.drawImage(img, 0, h - 1, w, 1, X, Y + h, w, P);
-      g.drawImage(img, 0, 0, 1, h, X - P, Y, P, h);
-      g.drawImage(img, w - 1, 0, 1, h, X + w, Y, P, h);
+      g.drawImage(img, 0, 0, iw, 1, X, Y - P, w, P);
+      g.drawImage(img, 0, ih - 1, iw, 1, X, Y + h, w, P);
+      g.drawImage(img, 0, 0, 1, ih, X - P, Y, P, h);
+      g.drawImage(img, iw - 1, 0, 1, ih, X + w, Y, P, h);
     }
     const t = new THREE.CanvasTexture(cv);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     sh.tex = t;
-    sh.H = cv.height;
+    sh.H = H; // full-size height: finishRow's UVs
   }
   return at;
 }
@@ -954,6 +991,8 @@ export function finishRow(scene, kits, shadow = true) {
       uv.setXY(i, (A.x + uv.getX(i) * A.w) / W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
     groups.get(key).geos.push(g);
     p.mesh.geometry.dispose();
+    PACKED.add(m.map);
+    if (m.emissiveMap) PACKED.add(m.emissiveMap);
     m.dispose();
   }
   for (const { src, sheet, geos } of groups.values()) {
@@ -964,12 +1003,45 @@ export function finishRow(scene, kits, shadow = true) {
     mesh.name = 'row:planes';
     out.add(mesh);
   }
+  // the sheets are this row's alone: on the GPU now, their canvases are not needed again (see configureTextures)
+  if (TEX_OPTS.upload)
+    for (const sh of new Set([...at.values()].map((A) => A.sheet))) {
+      TEX_OPTS.upload(sh.tex);
+      dropCanvas(sh.tex);
+    }
   scene.add(out);
   for (const k of kits) if (k.group.children.length) scene.add(k.group);
   // a row never moves (that is what finishRow is for): matrices once, not every frame
   freezeStatic(out);
   for (const k of kits) if (k.group.parent) freezeStatic(k.group);
   return out;
+}
+
+// Once every shop row is built (src/core/Game.js, after buildInteriors): the sub-images finishRow copied into its sheets
+// that nothing in the scene shows on its own any more lose their canvases (~520 MB), and their TEX entries go, so a later
+// ctex() with the same key draws a fresh one (the drawings are deterministic: the same pixels). Returns how many.
+export function releaseAtlasSources(scene) {
+  if (!TEX_OPTS.upload || !PACKED.size) return 0;
+  const used = new Set(); // images some material in the scene still shows
+  scene.traverse((o) => {
+    if (!o.material) return;
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+      for (const k in m) if (m[k]?.isTexture && m[k].image) used.add(m[k].image);
+      if (m.uniforms)
+        for (const u of Object.values(m.uniforms))
+          if (u?.value?.isTexture && u.value.image) used.add(u.value.image);
+    }
+  });
+  let n = 0;
+  for (const t of PACKED) {
+    if (!t.image || used.has(t.image)) continue;
+    for (const k in TEX) if (TEX[k] === t) delete TEX[k];
+    t.dispose();
+    dropCanvas(t);
+    n++;
+  }
+  PACKED.clear();
+  return n;
 }
 
 // ---------------- shared by several builders ----------------

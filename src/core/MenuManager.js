@@ -59,6 +59,8 @@ export class MenuManager {
       if (game.input.touch) $('touch').classList.remove('hidden');
       game.state = 'play';
       game.input.enabled = true;
+      game.bootTrace?.mark('play: start');
+      game.bootTrace?.afterFrames('play: first frames drawn');
       // pointer lock needs a fresh click after the splash
       if (!game.input.touch && !game.prompts.pad)
         game.hud.toast('點一下畫面鎖定滑鼠視角', 'good', 3000);

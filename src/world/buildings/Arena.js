@@ -722,11 +722,7 @@ export function buildArena(I, scene, Kit, regMat) {
         C.set(rg ? '#26365f' : '#2f8a4c').offsetHSL(0, 0, (((i * 7919) % 11) - 5) / 200)
       );
     });
-    // culled by the bounds of all the seats (three.js tests an InstancedMesh's own boundingSphere, computed from the
-    // instance matrices above, which never change): with culling off the ~460k seat triangles were drawn every frame
-    // from campus, 4 km away
-    A1.computeBoundingSphere();
-    A2.computeBoundingSphere();
+    A1.frustumCulled = A2.frustumCulled = false;
     shell.add(A1, A2);
   }
   I.zones.push({

@@ -2,7 +2,7 @@
 // poles, cabinets, parking bays, parked scooters and data-driven shop signs.
 // Static props share one vertex-coloured mesh; nothing here casts shadows.
 import * as THREE from 'three';
-import { pointInPoly, inAnyPoly, closestOnSeg, CollisionWorld } from '../physics/Collision.js';
+import { pointInPoly, closestOnSeg, CollisionWorld } from '../physics/Collision.js';
 import { Hmin, groundY, nearStair } from './Terrain.js';
 
 const UP = [0, 1, 0],
@@ -338,13 +338,14 @@ export function buildFurniture(scene, world, data, ctx) {
     const p = world.nearestRoadPoint(it.x, it.z);
     if (p) keepPts.push({ x: p.x, z: p.z, r: 4 });
   }
-  // the point, or (pad > 0) any of 8 points pad around it, inside a reserved outline
   const nearReserved = (x, z, pad) => {
-    if (inAnyPoly(x, z, coll.reserved)) return true;
-    if (pad > 0)
-      for (let k = 0; k < 8; k++)
-        if (inAnyPoly(x + Math.cos(k * 0.785) * pad, z + Math.sin(k * 0.785) * pad, coll.reserved))
-          return true;
+    for (const p of coll.reserved) {
+      if (pointInPoly(x, z, p)) return true;
+      if (pad > 0)
+        for (let k = 0; k < 8; k++)
+          if (pointInPoly(x + Math.cos(k * 0.785) * pad, z + Math.sin(k * 0.785) * pad, p))
+            return true;
+    }
     return false;
   };
   const keepClear = (x, z, pad = 0) => {

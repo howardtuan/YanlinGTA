@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import wasm from 'vite-plugin-wasm';
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -122,58 +121,6 @@ function npcDashboardPlugin() {
   };
 }
 
-// ?boottrace（src/core/BootTrace.js）：手機載入時每走一步就 POST 一筆到 /__boot，這裡印在終端機並附加到
-// 系統暫存資料夾的 yanlin-boot-trace.jsonl。被系統殺掉、自動重整的那一次，也看得到最後走到哪一步。
-// 只在 npm run dev 有效；只收小筆 JSON，不寫專案裡的任何檔案。
-const BOOT_LOG = path.join(os.tmpdir(), 'yanlin-boot-trace.jsonl');
-const BOOT_MAX = 16 * 1024;
-function bootTracePlugin() {
-  return {
-    name: 'boot-trace',
-    apply: 'serve',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.method !== 'POST' || !req.url.split('?')[0].endsWith('/__boot')) return next();
-        const chunks = [];
-        let size = 0;
-        req.on('data', (c) => {
-          size += c.length;
-          if (size <= BOOT_MAX) chunks.push(c);
-        });
-        req.on('end', () => {
-          res.statusCode = 204;
-          res.end();
-          if (size > BOOT_MAX) return;
-          let r;
-          try {
-            r = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-          } catch (_e) {
-            return;
-          }
-          if (!r || typeof r !== 'object') return;
-          // one line per record: control characters (newlines, escapes) become spaces
-          const s = (v) =>
-            Array.from(String(v ?? '').slice(0, 300), (ch) =>
-              ch.charCodeAt(0) < 32 || ch === '\u007f' ? ' ' : ch
-            ).join('');
-          const num = (v) => (Number.isFinite(v) ? v : '?');
-          const heap = Number.isFinite(r.heap) ? `  heap ${r.heap}MB` : '';
-          const extra = r.extra ? `  ${s(r.extra)}` : '';
-          server.config.logger.info(
-            `[boot ${s(r.sid)}] ${String(num(r.t)).padStart(6)}ms  ${s(r.label)}  canvas ${num(r.cmb)}MB/${num(r.cn)}${heap}${extra}`,
-            { timestamp: true }
-          );
-          fs.appendFile(
-            BOOT_LOG,
-            `${JSON.stringify({ at: new Date().toISOString(), ...r })}\n`,
-            () => {}
-          );
-        });
-      });
-    },
-  };
-}
-
 // Copy static game data to dist on build
 function staticAssetsPlugin() {
   return {
@@ -211,7 +158,7 @@ function staticAssetsPlugin() {
 export default defineConfig({
   root: '.',
   base: './',
-  plugins: [wasm(), npcDashboardPlugin(), bootTracePlugin(), staticAssetsPlugin()],
+  plugins: [wasm(), npcDashboardPlugin(), staticAssetsPlugin()],
   server: {
     port: 5173,
     host: '0.0.0.0',

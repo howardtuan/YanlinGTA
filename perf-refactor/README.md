@@ -30,8 +30,8 @@
 | 階段 | 任務名稱 | 目前狀態 | 預定分支前綴 | 核心交付物 | 關鍵驗收指標 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **規劃** | 架構體檢、可行性評估與規格確立 | ✅ 已合併 | `docs/perf-refactor-plan` | 本目錄 10 份檔案與 `AGENT.md` 公告 | PR #147 已合併至 `main` |
-| **Phase 0** | 基準量測與極簡實驗旗標 | ✅ 已完成（基準已建檔） | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`?perf` 補 `renderer.info.memory`、`perf-profile.test.js`、實機基準報告；Session #003 補 `?boottrace` 開機追蹤 | iPhone 17 Pro Max 確認卡 2% 重整循環；Mac M1 Pro 實測 `1,729` calls / `4,240k` tris / `659` textures / `50 fps` |
-| **Phase 1** | iOS 記憶體止血與資源生命週期修復 | 🔶 進行中（Session #003：畫布釋放、手機半解析度、載入加速已完成；iPhone 仍在第一幀被殺） | `fix/ios-canvas-lifecycle` | `renderer.initTexture` 後 `1×1` 釋放 Canvas、圖集降維、延遲載入音訊/後照鏡 | iPhone 17 Pro Max Safari / LINE / IG 成功載入不閃退 |
+| **Phase 0** | 基準量測與極簡實驗旗標 | ✅ 已完成（基準已建檔） | `chore/perf-flags-and-metrics` | `PerfProfile.js`、`?perf` 補 `renderer.info.memory`、`perf-profile.test.js`、實機基準報告 | iPhone 17 Pro Max 確認卡 2% 重整循環；Mac M1 Pro 實測 `1,729` calls / `4,240k` tris / `659` textures / `50 fps` |
+| **Phase 1** | iOS 記憶體止血與資源生命週期修復 | ⏳ 待動工 | `fix/ios-canvas-lifecycle` | `renderer.initTexture` 後 `1×1` 釋放 Canvas、圖集降維、延遲載入音訊/後照鏡 | iPhone 17 Pro Max Safari / LINE / IG 成功載入不閃退 |
 | **Phase 2** | 全局空間動態載入（Global Streaming） | ⏳ 待動工 | `refactor/world-streaming-*` | 錨點分離、`ScopedChunkContext`、`WorldStreamer`、Rapier Tile 動態掛載 | 啟動僅載入骨架與玩家周邊，外圍街屋/室內/體育館動態進出 |
 | **Phase 3** | 渲染分塊與電腦無獨顯 60 FPS 優化 | ⏳ 待動工 | `refactor/render-igpu-*` | `MapBuilder` 120m 空間分塊、移除地板 `discard`、室內外剔除、GPU 檔位重校 | 內顯設備三角形/Draw Call 降 60%+，主場景穩 55–60 FPS |
 | **Phase 4** | 建置期貼圖烘焙管線（長期進階） | ⏳ 待動工 | `feat/build-time-texture-baking` | `tools/bake_textures.mjs` 預烘 `.webp` / `.ktx2`（保留 `dev` 即時 Fallback） | 冷啟動不再現場繪製數百張 Canvas，啟動 < 2 秒 |

@@ -24,38 +24,6 @@
 
 ---
 
-### Session #003｜2026-11-25｜負責階段：Phase 0 補強 ＋ Phase 1 部分（找出 iPhone 掛掉的位置、載入加速、畫布記憶體）
-- **工作分支 / PR**：`fix/mobile-loading-memory`（基於 `main` `588e352`）
-- **本輪已完成**：
-  1. **開機追蹤 `?boottrace`**：新增 [`src/core/BootTrace.js`](../src/core/BootTrace.js) ＋ `vite.config.js` 的 `bootTracePlugin`。載入每一步（`buildWorld` 內 12 段、每個 zone、物理、NPC、shader 編譯、第一幀、開始遊戲）都用 `sendBeacon` 回報到 Mac 上 `npm run dev` 的終端機，附存活 `<canvas>` 張數與 MB。手機被系統殺掉重整後，終端機仍留著最後一步。用法見 [architecture.md 第四節 4](../docs/guide/architecture.md)。
-  2. **載入畫面文字修正**：`Game.init()` 改成先 `setLoad()`，再等畫面真的畫完（`nextFrame` 改成 rAF 後再 `setTimeout`）。
-  3. **林口體育館座椅恢復視錐剔除**（`Arena.js`）：校園裡每幀少畫約 46 萬個三角形（GPU 約少 4 ms）。
-  4. **保留區判斷改用格子索引**（`Collision.js` 的 `inAnyPoly`，用在 `Furniture.js`、`MapBuilder.js`、`CollisionWorld.blocked`）：`buildWorld` 桌機 4.9 → 1.7 秒，iPhone 那段約 45 秒 → 約 3 秒。答案與 `polys.some(pointInPoly)` 相同，有單元測試，實測 127 萬點 0 不一致，世界 mesh 也逐一比對過。
-  5. **畫布記憶體**（`Kit.js` 的 `configureTextures` / `releaseAtlasSources`）：
-     - 街屋圖集一畫完就 `renderer.initTexture()` 上傳 GPU，再把畫布縮成 1×1。
-     - 每蓋完一個 zone，就把已複製進圖集、場景沒人在用的子畫布縮掉，並從 `TEX` 移除。
-     - 手機（`mobile-lite`）的 `ctex` 畫布和圖集用 `texScale` 0.5 倍存放。
-     - 畫布高峰：桌機 1.96 → 0.46 GB、手機設定 1.83 → 0.32 GB。
-- **實機與量化數據變化**：
-  - **「卡在 2%」其實是「慢」**：舊版 `buildWorld` 整段同步執行、畫面不會更新。iPhone 14 Pro 上「路燈＋街道家具」那段要 27 秒、「樹」那段要 17 秒，看起來就像卡住。Phase 0 寫的「2% 對應 `cycu.json`／Rapier／renderer」不成立：那段實測只花 0.3 秒。
-  - **iPhone 14 Pro（Safari，`?boottrace`）**：修完速度後約 10 秒建完世界、約 30 秒進到 shader 編譯完成。但仍會被系統殺掉重整，最常見的位置是 **shader 編譯完、畫第一幀時**（5 次中 3 次；第一幀會把全部模型與貼圖一次上傳）；另有 1 次死在 `world: buildings`（JS heap 高峰）。死時畫布只剩約 0.3 GB，**畫布已經不是主因**。（手機回報的 `screen` 是 414×896@3x，跟 14 Pro 的 393×852 對不上，原因不明。）
-  - **桌機（headless Chrome，Apple M1 8 GB）**：自動畫質會在約 14 秒後從中降到低。中畫質約 16–20 fps（render CPU 約 34 ms、GPU 約 31 ms）。每幀 1,915 calls／429 萬三角形；陰影 pass 佔 534 calls／145 萬三角形（陰影範圍只有 ±85 m，被 138 個半徑超過 250 m 的巨型 mesh 拖進去）；300 m 外小物件佔 460 個 draw call；bloom 約 10 ms GPU、MSAA 約 5–7 ms。
-- **驗證**：`npm run ci` 全綠（142 tests）。用原始版本 `588e352` 對照做了兩輪確定性逐像素比對（固定亂數、逐幀同步、凍結 CSS 動畫），涵蓋 96 個視角（15 條街屋、18 個室內、角色、車輛、演唱會、夜景）加遊玩流程（開車第一／第三人稱、手機 6 個 App、電腦、麻將）。
-  - 桌機：113 張中 105 張完全相同，其餘最多 22/255（一張招牌文字邊緣）或 1–7/255。
-  - 手機設定：差異只有貼圖變軟（縮小比對無缺件）。
-  - 空白貼圖程式檢查：桌機與手機都是 0。
-- **新發現的技術細節或踩雷**：
-  - 約 20 處動態畫布貼圖之後還會重畫（例：`Sac.js` 門牌、`McKitchen.js` KVS、`Concert.js` 側螢幕、`Kit.js` 的 `TEX.screen`）。所以畫布只釋放「已複製進圖集、場景沒人用」的，不做全域「上傳後縮 1×1」。
-  - 街屋／zone／Kit 的畫法都沒有 `Math.random`，被移出 `TEX` 的 key 再被要時重畫，像素完全一樣。但重畫會多建立 three.js 物件，而 three 的 UUID 會用到 `Math.random`。做固定亂數的畫面比對時，要把 UUID 的亂數另外分開，否則後面所有隨機內容都會位移（體育館地板斑點就是這樣）。
-  - 圖集畫布縮掉後，WebGL context 還原時畫不回來，所以 `webglcontextrestored` 改成重新整理頁面（離開前自動存檔）。
-  - `FirstPerson.js` 的 `WebGLRenderTarget` 第一次用到才配置；`localClippingEnabled` 對沒有 clipping plane 的材質沒有影響。Phase 1 這一項建議刪除。
-- **下一棒確切待辦（Next Actionable Step）**：
-  1. **iPhone 第一幀被殺**：把 GPU 上傳分散到載入過程（分批 `initTexture`、分批預先渲染幾何），模型上傳後釋放 CPU 端的 attribute 陣列（目前只有麻將用 Raycaster，要確認沒有其他地方讀）。
-  2. **`world: buildings` 的 JS heap 高峰**：`MapBuilder` 的 `Geo` 改用成長式 `Float32Array` 累積頂點。
-  3. **桌機畫質不變、效能要好（使用者要求）**：巨型 mesh 粗分塊（陰影 pass 受益最大）、遠處次像素小物件剔除、bloom 改省的寫法（逐像素比對確認外觀不變）。
-
----
-
 ### Session #002｜2026-11-24｜負責階段：Phase 0 實作（旗標解析與記憶體遙測）
 - **工作分支 / PR**：`chore/perf-flags-and-metrics`（基於合併 PR #147 後之 `main` `7a00e81` 建立，目前本地已提交待量測補數據）
 - **本輪已完成**：

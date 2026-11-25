@@ -11,52 +11,6 @@ export function pointInPoly(x, z, pts) {
   return inside;
 }
 
-// Is (x, z) inside any of these polygons? The same answer as polys.some((p) => pointInPoly(x, z, p)), found through
-// a coarse grid of their bounding boxes (as CollisionWorld.insideAny does for footprints). The reserved outlines
-// (~1,400, src/core/Game.js) are tested at every wall step, lamp, tree and shrub spot while the map builds; testing
-// every one each time took most of buildWorld (2-3 s on a desktop, ~45 s on an iPhone). The array may grow (custom-
-// built parts push outlines while they build): new entries are indexed on the next query.
-// Boxes: z is exact (outside a polygon's z range no edge is crossed, so pointInPoly is false). x gets POLY_SLACK
-// each side: pointInPoly's 1e-12 guard can count a point a few nm past a vertex as inside, and the layout must not
-// change for such a point either.
-const POLY_CELL = 32,
-  POLY_SLACK = 0.01;
-const polyIndexes = new WeakMap();
-const cellKey = (i, j) => (i + 32768) * 65536 + (j + 32768);
-export function inAnyPoly(x, z, polys) {
-  let ix = polyIndexes.get(polys);
-  if (!ix || ix.n > polys.length) polyIndexes.set(polys, (ix = { n: 0, grid: new Map() }));
-  for (; ix.n < polys.length; ix.n++) {
-    const pts = polys[ix.n];
-    let minx = Infinity,
-      minz = Infinity,
-      maxx = -Infinity,
-      maxz = -Infinity;
-    for (const p of pts) {
-      if (p[0] < minx) minx = p[0];
-      if (p[0] > maxx) maxx = p[0];
-      if (p[1] < minz) minz = p[1];
-      if (p[1] > maxz) maxz = p[1];
-    }
-    minx -= POLY_SLACK;
-    maxx += POLY_SLACK;
-    const e = { pts, minx, minz, maxx, maxz };
-    for (let i = Math.floor(minx / POLY_CELL); i <= Math.floor(maxx / POLY_CELL); i++)
-      for (let j = Math.floor(minz / POLY_CELL); j <= Math.floor(maxz / POLY_CELL); j++) {
-        const k = cellKey(i, j);
-        const list = ix.grid.get(k);
-        if (list) list.push(e);
-        else ix.grid.set(k, [e]);
-      }
-  }
-  const list = ix.grid.get(cellKey(Math.floor(x / POLY_CELL), Math.floor(z / POLY_CELL)));
-  if (!list) return false;
-  for (const e of list)
-    if (x >= e.minx && x <= e.maxx && z >= e.minz && z <= e.maxz && pointInPoly(x, z, e.pts))
-      return true;
-  return false;
-}
-
 export function closestOnSeg(px, pz, ax, az, bx, bz) {
   const dx = bx - ax,
     dz = bz - az;
@@ -199,7 +153,8 @@ export class CollisionWorld {
   // this.muted = [i0, i1): segments blocked() skips for now (src/world/MapBuilder.js lays the trees out as without them)
   blocked(x, z, r, y = 0, ya) {
     if (this.extra && this.extra.blocked(x, z, r, y)) return true;
-    if (this.reserved && !this.noReserved && inAnyPoly(x, z, this.reserved)) return true;
+    if (this.reserved && !this.noReserved && this.reserved.some((p) => pointInPoly(x, z, p)))
+      return true;
     if (this.insideAny(x, z)) return true;
     let hit = false;
     const st = ++this.stamp;

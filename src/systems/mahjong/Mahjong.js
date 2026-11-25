@@ -342,6 +342,7 @@ export class DormMahjong {
         onAction: (seat, act) => this._onRemoteAction(seat, act),
         onPeerLeave: (seat) => this._onGuestDisconnect(seat),
         onSpectatorChange: (info) => this._onHostSpectatorChange(info),
+        onReact: (ev) => this.scene?.showReaction?.(ev),
       });
     } catch (e) {
       this.mpMode = null;
@@ -364,12 +365,22 @@ export class DormMahjong {
     );
   }
   _onHostSpectatorChange(info) {
+    if (this.sess && Array.isArray(info?.spectators)) {
+      this.sess.spectators = info.spectators;
+    }
     if (this.mpMode !== 'host' || !this.mp || !this.engine) return;
     if (info?.needStatePeerId) {
       this.mp.sendStateToPeer?.(info.needStatePeerId, this.engine);
     } else if (info?.rebroadcast) {
       this.mp.broadcastState(this.engine, []);
     }
+  }
+  sendReaction(text) {
+    if (!this.mp || !this.sess?.multi) return false;
+    const now = Date.now();
+    if (now - (this._reactAt || 0) < 1000) return false;
+    this._reactAt = now;
+    return this.mp.sendReact?.(text);
   }
   async joinRoom(code, nick, joinRoomFn, opts = {}) {
     const g = this.g;
@@ -405,6 +416,7 @@ export class DormMahjong {
         onState: (snap, events) => this._onGuestState(snap, events),
         onNext: (data) => this._onGuestNext(data),
         onSpectateInfo: (info) => this._onGuestSpectateInfo(info),
+        onReact: (ev) => this.scene?.showReaction?.(ev),
         onNotice: (msg) => g.hud.toast(msg, 'good', 2600),
         onEnd: (reason) => this._onGuestEnd(reason),
       });
@@ -466,6 +478,7 @@ export class DormMahjong {
       multi: true,
       human: info.human,
       names: info.names,
+      spectators: info.spectators || [],
     };
     this._seatAIs();
     this.scene.names = info.names;
@@ -505,6 +518,7 @@ export class DormMahjong {
       viewSeat: data.viewSeat ?? data.seat ?? 0,
       spectateReveal: data.spectateReveal !== false,
       spectatorCount: data.spectatorCount || 0,
+      spectators: data.spectators || [],
       seat: data.seat,
       names: data.names,
     };
@@ -526,6 +540,7 @@ export class DormMahjong {
     if (!this.sess || this.mpMode !== 'guest') return;
     if (info.spectateReveal != null) this.sess.spectateReveal = !!info.spectateReveal;
     if (info.spectatorCount != null) this.sess.spectatorCount = info.spectatorCount;
+    if (Array.isArray(info.spectators)) this.sess.spectators = info.spectators;
     if (info.role === 'spectator') {
       this.sess.spectating = true;
       if (info.wantSeat != null) this.sess.wantSeat = !!info.wantSeat;
@@ -543,6 +558,7 @@ export class DormMahjong {
     const nextRole = data?.role || (s.spectating ? 'spectator' : 'player');
     if (data?.spectateReveal != null) s.spectateReveal = !!data.spectateReveal;
     if (data?.spectatorCount != null) s.spectatorCount = data.spectatorCount;
+    if (Array.isArray(data?.spectators)) s.spectators = data.spectators;
 
     if (nextRole === 'player') {
       if (this.g.money <= 0) {

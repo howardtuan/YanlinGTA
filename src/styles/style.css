@@ -8412,6 +8412,60 @@ body.mahjong #dialog {
   color: #ffd166;
   text-align: left;
 }
+#mjUI .mj-react-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 240px;
+}
+#mjUI .mj-react-row button {
+  padding: 4px 7px;
+  font-size: 12px;
+  border-radius: 999px;
+}
+#mjUI .mj-spec-tag {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(16, 20, 26, 0.72);
+  border: 1px solid rgba(255, 209, 102, 0.45);
+  color: #ffe699;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#mjUI .mj-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1a1c20;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  transition: opacity 0.25s ease;
+}
+#mjUI .mj-bubble small {
+  font-weight: 500;
+  opacity: 0.65;
+  margin-right: 4px;
+  font-size: 11px;
+}
+#mjUI .mj-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  border-width: 6px 5px 0 5px;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.94) transparent transparent transparent;
+}
 #mjUI .mj-stakes {
   flex-wrap: wrap;
 }

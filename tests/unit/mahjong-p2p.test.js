@@ -619,4 +619,67 @@ describe('中途加入（下局取代 AI）與觀賽模式（Issue #170）', () 
     hostMj.leave(false);
     for (const m of [pureSpec, brokeSpec, p1, p2, p3, p5]) m.leave(false);
   });
+
+  it('全桌同步圍觀名單（含穩定 id）與彈幕反應廣播（帶發送者 id 以便對應站位顯示）', async () => {
+    const bus = createMockBus();
+    const hostReacts = [];
+    const seatedReacts = [];
+    const specReacts = [];
+    const stubScene = (bucket) => ({
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand() {},
+      _layout() {},
+      _showResult() {},
+      showReaction: (ev) => bucket.push(ev),
+      result: null,
+      names: [],
+    });
+
+    const hostMj = new DormMahjong(fakeGame(1000));
+    const seatedMj = new DormMahjong(fakeGame(800));
+    const spec1 = new DormMahjong(fakeGame(600));
+    const spec2 = new DormMahjong(fakeGame(600));
+    hostMj.scene = stubScene(hostReacts);
+    seatedMj.scene = stubScene(seatedReacts);
+    spec1.scene = stubScene(specReacts);
+    spec2.scene = stubScene([]);
+
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+    await seatedMj.joinRoom(code, '小明', bus);
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    hostMj.startMultiHost();
+
+    // 兩位觀賽者中途加入 → 房主與座位玩家都能即時看到兩人的名單與不同穩定 id
+    await spec1.joinRoom(code, '圍觀甲', bus, { spectateOnly: true });
+    await spec2.joinRoom(code, '圍觀乙', bus);
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+
+    expect(hostMj.sess.spectators.map((s) => s.name)).toEqual(['圍觀甲', '圍觀乙']);
+    expect(seatedMj.sess.spectators.map((s) => s.name)).toEqual(['圍觀甲', '圍觀乙']);
+    expect(hostMj.sess.spectators[0].id).not.toBe(hostMj.sess.spectators[1].id);
+
+    // 圍觀甲與圍觀乙各自發反應彈幕 → 全桌收到各自獨立的 fromId（對應各自 3D 站位頭頂）
+    spec1.sendReaction('👏 好牌！');
+    spec2.sendReaction('😱 放槍了');
+    expect(hostReacts.length).toBe(2);
+    expect(seatedReacts.length).toBe(2);
+    expect(specReacts.length).toBe(2);
+    expect(hostReacts[0]).toMatchObject({ name: '圍觀甲', text: '👏 好牌！', seat: null });
+    expect(hostReacts[1]).toMatchObject({ name: '圍觀乙', text: '😱 放槍了', seat: null });
+    expect(hostReacts[0].fromId).not.toBe(hostReacts[1].fromId);
+    expect(hostReacts[0].fromId).toBe(hostMj.sess.spectators[0].id);
+    expect(hostReacts[1].fromId).toBe(hostMj.sess.spectators[1].id);
+
+    hostMj.leave(false);
+    seatedMj.leave(false);
+    spec1.leave(false);
+    spec2.leave(false);
+  });
 });

@@ -83,7 +83,8 @@ export class Audio {
     this.settings = settings;
     this.opera = new window.Audio('assets/music/yanlin-opera.m4a');
     this.opera.loop = true;
-    this.opera.preload = 'auto';
+    // 3 MB: fetched when it first plays (title music on, or 設定 → 音樂), not while the world builds (Phase 1B)
+    this.opera.preload = 'none';
     this.bgmTimer = null;
     this.ducked = false;
     this.scene = 'title';

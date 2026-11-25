@@ -489,6 +489,7 @@ export class Concerts {
         g.clock = Math.max(g.clock + 50, n.show * DAY + 17 * 60 + 30);
         g.hud.setClock?.(g.clock);
         this.inArena = { c, show: n.show, zone: tk.zone, start: n.start, back, inside: false };
+        this.ar.shell.visible = true; // the arena is hidden while nobody is there (src/world/buildings/Arena.js)
         this._outside(c);
         pl.place(P.arrive.x, P.arrive.z, P.arrive.h);
         pl.y = 0;
@@ -841,6 +842,7 @@ export class Concerts {
         if (this.state === 'live') g.audio.duck(false);
         this.state = 'off';
         this.ar.fx.visible = false;
+        this.ar.shell.visible = false;
         this._showPeople(false);
         this._myStick(false);
         this._fp(false);

@@ -303,13 +303,20 @@ class Game {
     }
 
     await stage('renderer-and-sky', 0.05, '初始化渲染管線');
+    // Phase 1B (perf-refactor/specs/phase-1-ios-memory-rescue.md): no stencil buffer (nothing uses one; three r160
+    // asks for it by default), an opaque canvas
     const r = (this.renderer = new THREE.WebGLRenderer({
       antialias: !this.lowQ,
       powerPreference: 'high-performance',
+      alpha: false,
+      stencil: false,
     }));
+    // reading back every shader's compile log is a synchronous GPU round trip: only in development and ?diag
+    r.debug.checkShaderErrors = import.meta.env.DEV || this.perfProfile.diagEnabled;
     r.setPixelRatio(this._pixelRatio());
     r.setSize(innerWidth, innerHeight);
-    r.shadowMap.enabled = true;
+    // low / xlow draw no shadows (GameLoop QPROF): start without them, applyQuality() turns them on if the quality rises
+    r.shadowMap.enabled = !this.lowQ;
     r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;

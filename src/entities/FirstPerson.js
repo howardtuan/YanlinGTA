@@ -31,14 +31,20 @@ export class FirstPerson {
   constructor(game) {
     this.g = game;
     this.on = !!game.settings.fpv;
-    this.rt = new THREE.WebGLRenderTarget(480, 160, { depthBuffer: true });
-    this.rt.texture.colorSpace = THREE.SRGBColorSpace;
+    this._rt = null; // the mirror target, made the first time a cockpit with mirrors is built (see rt)
     this.mcam = new THREE.PerspectiveCamera(62, 3, 0.3, 160);
     this.frame = 0;
     this.kit = null;
     this.kitFor = null;
     this.hidden = null;
-    game.renderer.localClippingEnabled = true; // the car's cabin is cut out of its body while you sit in it (_hide)
+  }
+  // rear-view mirror render target (480 x 160): only made once you first sit in a vehicle in first person (Phase 1B)
+  get rt() {
+    if (!this._rt) {
+      this._rt = new THREE.WebGLRenderTarget(480, 160, { depthBuffer: true });
+      this._rt.texture.colorSpace = THREE.SRGBColorSpace;
+    }
+    return this._rt;
   }
   toggle() {
     this.on = !this.on;
@@ -296,6 +302,8 @@ export class FirstPerson {
     this.parts = null;
     this.mats = null;
     this.clip = null;
+    // local clipping costs a check per draw call every frame: on only while a car's cabin is cut out (_clipCar)
+    this.g.renderer.localClippingEnabled = false;
   }
   // the cabin of car v in its own frame: firewall at z 0.95..1.0, back to zb (behind the rear bench, or right behind
   // the seats of a two-seater), between the doors, from just above the floor up
@@ -335,6 +343,7 @@ export class FirstPerson {
     this.mats = mats;
     this.parts = null;
     this.clip = { local, world };
+    this.g.renderer.localClippingEnabled = true; // the cabin is cut out of the body while you sit in it
   }
   _kitFor(v) {
     if (this.kitFor === v && this.kit) return this.kit;

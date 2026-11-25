@@ -119,27 +119,9 @@ export default {
       q.k._part(VC, paintGeo(g, hex));
     };
     const car = (q, s, off, alongS, hex) => {
-      // 停著的車（方盒）
+      // 停著的車 → 交給統一停放車輛系統
       const [ds, dz] = alongS ? [4.2, 1.75] : [1.75, 4.2];
-      q.B(s, s + ds, 0.28, 0.9, off, off + dz, hex);
-      if (alongS) q.B(s + 0.9, s + 3.2, 0.9, 1.42, off + 0.12, off + dz - 0.12, '#27303a', NC);
-      else q.B(s + 0.12, s + ds - 0.12, 0.9, 1.42, off + 0.9, off + 3.2, '#27303a', NC);
-      for (const [a, b] of [
-        [0.12, 0.12],
-        [0.88, 0.12],
-        [0.12, 0.88],
-        [0.88, 0.88],
-      ])
-        q.B(
-          s + ds * a - 0.3,
-          s + ds * a + 0.3,
-          -0.1,
-          0.55,
-          off + dz * b - 0.3,
-          off + dz * b + 0.3,
-          '#1c1c1e',
-          NC
-        );
+      q.k.car((q.X(s) + q.X(s + ds)) / 2, q.Z(off + dz / 2), alongS ? Math.PI / 2 : Math.PI, hex);
     };
     const pole = (q, s, off, h = 9, lampTo = 0) => {
       // 水泥電桿；lampTo 不是 0 就加一支往路中伸的路燈

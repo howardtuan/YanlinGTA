@@ -137,18 +137,8 @@ const standBoard = (k, tex, x, z, w, h, frame = '#3a3a3c') => {
   for (const sd of [-1, 1])
     k.plane(tex, w - 0.06, h - 0.06, x + sd * 0.035, 0.15 + h / 2, z, sd * RT, { emissive: 0.15 });
 };
-const car = (k, x0, x1, z0, z1, hex) => {
-  // 車頭朝 +z（朝屋內）
-  k.box(x0, x1, 0.32, 1.0, z0, z1, hex);
-  k.box(x0 + 0.1, x1 - 0.1, 1.0, 1.62, z0 + 0.15, z1 - 1.2, hex, NC);
-  k.box(x0 + 0.06, x1 - 0.06, 1.08, 1.5, z0 + 0.3, z1 - 1.3, '#1d2226', NC);
-  k.box(x0 + 0.2, x1 - 0.2, 1.08, 1.5, z0 + 0.12, z1 - 1.12, '#1d2226', NC);
-  for (const z of [z0 + 0.5, z1 - 1.2])
-    for (const x of [x0 - 0.03, x1 - 0.2])
-      k.box(x, x + 0.23, 0.05, 0.7, z, z + 0.66, '#151515', NC);
-  for (const x of [x0 + 0.15, x1 - 0.45])
-    k.box(x, x + 0.3, 0.72, 0.9, z0 - 0.02, z0, '#c8202c', NC);
-};
+// 車頭朝 +z（朝屋內）→ 交給統一停放車輛系統
+const car = (k, x0, x1, z0, z1, hex) => k.car((x0 + x1) / 2, (z0 + z1) / 2, 0, hex);
 
 // 後牆的窗（從後面或高處看才不會是一整面素牆）
 const backWins = (k, T, ys, n = 2) => {

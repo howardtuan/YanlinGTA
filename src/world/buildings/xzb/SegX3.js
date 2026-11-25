@@ -51,18 +51,9 @@ const conifer = (C, k, x, z, h, rad) => {
   k.cyl(x, z, rad, h * 0.22, h * 0.62, '#2f5a36', { seg: 8, r1: rad * 0.55 });
   k.cyl(x, z, rad * 0.62, h * 0.55, h, '#356b3c', { seg: 8, r1: 0.05 });
 };
-// 一輛車（len 車長、wid 車寬；turn 為真時車頭朝區域 z，否則順著區域 x）
-const car = (k, x, z, len, wid, hgt, body, roof, turn) => {
-  const B = (a0, a1, y0, y1, b0, b1, m, o) =>
-    turn
-      ? k.box(x + b0, x + b1, y0, y1, z + a0, z + a1, m, o)
-      : k.box(x + a0, x + a1, y0, y1, z + b0, z + b1, m, o);
-  B(0, len, 0.3, hgt * 0.55, 0, wid, body);
-  B(len * 0.08, len * 0.92, hgt * 0.55, hgt * 0.92, 0.06, wid - 0.06, '#27323a', { col: false });
-  B(len * 0.06, len * 0.94, hgt * 0.92, hgt, 0.02, wid - 0.02, roof || body, { col: false });
-  for (const a of [len * 0.2, len * 0.8])
-    for (const b of [-0.02, wid - 0.2])
-      B(a - 0.32, a + 0.32, 0, 0.64, b, b + 0.22, '#1c1c1e', { col: false });
+// 一輛車 → 交給統一停放車輛系統
+const car = (k, x, z, len, wid, _hgt, body, _roof, turn) => {
+  k.car(x + (turn ? wid : len) / 2, z + (turn ? len : wid) / 2, turn ? Math.PI : Math.PI / 2, body);
 };
 // 一片一片平面組成的實體（斜屋頂用）：F 是多邊形陣列（每個點 [x, y, z]），法線自動朝外（背對 ctr）
 const faces = (C, k, F, hex, ctr) => {

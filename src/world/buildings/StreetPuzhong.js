@@ -4371,17 +4371,8 @@ export function buildPuzhongStreet(I, scene, X) {
     '#c9c9c4',
     '#17181a',
   ];
-  const car = (k, x, z, col) => {
-    // 一台待售車：x 是車身中線、z 是車頭（朝街），車尾在 z + 4.3
-    k.box(x - 0.88, x + 0.88, 0.3, 0.86, z, z + 4.3, col);
-    k.box(x - 0.78, x + 0.78, 0.86, 1.36, z + 1.25, z + 3.55, '#23272c', { col: false });
-    k.box(x - 0.8, x + 0.8, 1.36, 1.42, z + 1.4, z + 3.4, col, { col: false });
-    for (const wz of [z + 0.55, z + 3.1])
-      for (const wx of [x - 0.92, x + 0.72])
-        k.box(wx, wx + 0.2, 0.02, 0.64, wz, wz + 0.64, '#141416', { col: false });
-    for (const lx of [x - 0.8, x + 0.5])
-      k.box(lx, lx + 0.3, 0.6, 0.74, z - 0.02, z, '#f4f1e6', { col: false });
-  };
+  // 一台待售車：x 是車身中線、z 是車頭（朝街），車尾在 z + 4.3 → 交給統一停放車輛系統
+  const car = (k, x, z, col) => k.car(x, z + 2.15, Math.PI, col);
   const tree = (k, x, z, h, r) => {
     // 樹幹加三團樹冠
     const s = h * 0.24;

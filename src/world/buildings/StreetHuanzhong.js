@@ -1520,12 +1520,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
     ])
       blob(k, x + dx, y + dy, z + dz, s * q, r() < 0.5 ? '#3f7a3a' : '#4b8a3e');
   }; // y = 樹腳的地面高度（植栽帶的樹用）
-  const car = (k, x, z, hex) => {
-    k.box(x, x + 1.8, 0.3, 0.95, z, z + 4.3, hex);
-    k.box(x + 0.12, x + 1.68, 0.95, 1.48, z + 1.0, z + 3.3, '#2a2d33', nb);
-    for (const zz of [0.55, 3.15])
-      k.box(x - 0.03, x + 1.83, 0, 0.62, z + zz, z + zz + 0.62, '#1c1c1e', nb);
-  };
+  const car = (k, x, z, hex) => k.car(x + 0.9, z + 2.15, Math.PI, hex);
   const lattice = (k, x, z, y0, h, s = 0.8) => {
     for (const [dx, dz] of [
       [0, 0],

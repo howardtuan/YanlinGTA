@@ -429,27 +429,8 @@ export default {
           emissive: 0.3,
         });
     };
-    const carK = (k, x, z, hex) => {
-      // 垂直立面停著的車（方盒）
-      k.box(x, x + 1.75, 0.28, 0.9, z, z + 4.2, hex);
-      k.box(x + 0.12, x + 1.63, 0.9, 1.42, z + 0.9, z + 3.2, '#27303a', NC);
-      for (const [a, b] of [
-        [0.12, 0.12],
-        [0.88, 0.12],
-        [0.12, 0.88],
-        [0.88, 0.88],
-      ])
-        k.box(
-          x + 1.75 * a - 0.12,
-          x + 1.75 * a + 0.12,
-          0,
-          0.55,
-          z + 4.2 * b - 0.3,
-          z + 4.2 * b + 0.3,
-          '#1c1c1e',
-          NC
-        );
-    };
+    // 垂直立面停著的車 → 交給統一停放車輛系統
+    const carK = (k, x, z, hex) => k.car(x + 0.875, z + 2.1, Math.PI, hex);
     const pot = (k, x, z, h = 0.9) => {
       k.cyl(x, z, 0.2, 0, 0.4, '#8a5a40', { seg: 8 });
       const g = new THREE.SphereGeometry(0.34, 7, 5);

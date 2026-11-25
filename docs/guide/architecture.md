@@ -170,7 +170,13 @@ sequenceDiagram
   - 開發者：再加 邏輯／物理／繪製 各自耗時、`renderer.info.memory` 紋理與幾何數、著色器數、車流／行人／NPC 數量、剛體與碰撞體、畫質與效能檔位、WASM、解析度×像素比、玩家座標與所在區域、GPU 名稱。
 - `GameLoop.loop()` 只在開啟時呼叫 `frameStart` / `renderStart` / `frameEnd`；文字每 0.5 秒更新一次。關閉時不做任何量測。效能重構要加的新數據（例如串流區塊數）請加在 `PerfHud._draw()` 的開發者層級。
 
-### 4. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
+### 4. 可共用的小工具（隨涼韌足體養生加入）
+- **`hud.fade(text, mid, after, { midText, dark, hold })`**（`src/ui/HUD.js`）：全螢幕黑幕加一行字（跟睡覺同一層 `#sleepFade`）。變黑後執行 `mid()`，文字可換成 `midText`，再淡回來後執行 `after()`。適合「時間往後跳」「瞬間移動」的轉場。
+- **`player.sitAt(x, z, h, { mode, dy })`**（`src/entities/Player.js`）：除了坐下（預設 `'sit'`），也可以 `'down'` 仰躺或 `'prone'` 趴著（`Character.js` 的姿勢）。`dy` 是把身體抬高多少（床的高度）。躺下時根節點的旋轉順序會暫時改成 `YXZ`，身體才會順著朝向躺（預設的 `XYZ` 會固定沿世界座標軸躺）；`standUp()` 會改回來。
+- **新中北路街屋的 `inside: true`**（`src/world/buildings/StreetXinzhongbei.js`）：那一格只蓋二樓以上的外殼，一樓的立面、店內與碰撞由那段的 `custom()` 自己蓋（範例：`src/world/buildings/MassageShop.js`）。街屋是整排合併的 mesh，會動、會亮、會隱藏的東西（門、燈、鐵捲門）要用自己的 mesh 放進 `k.group`，移動後要呼叫 `updateMatrix()`（整排已經 freeze）。
+- **系統接管鏡頭**：跟打工、門禁、羊明衫一樣，在 `Game._update` 的 `rig.update` 之後呼叫 `X.camera(this.camera, dt)`（例：`massage.camera`）；要讓玩家暫時不能動，把旗標加進 `busy` 清單（例：`massage?.busy`）。
+
+### 5. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
 - 遊玩中失去滑鼠鎖定（`pointerlockchange`）會被當成玩家按了 Esc 而打開暫停選單（`MenuManager.js`）。
 - 任何「自己放開滑鼠」的畫面（成績單、商店、電腦、手機、麻將……）必須讓 `Game.mouseOwnedByUI()` 回傳 true（`g.modal()` 會自動設 `_modalOpen`；其他畫面請加進該清單或設 `g._overlay`），否則一放開滑鼠就會誤跳暫停選單。例：障礙賽成績單（`race.state === 'results'`）。
 

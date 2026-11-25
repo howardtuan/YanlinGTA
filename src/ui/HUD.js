@@ -550,6 +550,26 @@ export class HUD {
     t.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     t.classList.toggle('danger', s <= 10);
   }
+  // Full-screen black with a line of text (the #sleepFade layer, as when sleeping): mid() runs once it is dark,
+  // then the text can change to o.midText while it stays dark for o.hold ms, and after() runs once it has cleared.
+  fade(text, mid, after, o = {}) {
+    let el = $('sleepFade');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'sleepFade';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.classList.add('on');
+    setTimeout(() => {
+      mid?.();
+      if (o.midText) el.textContent = o.midText;
+      setTimeout(() => {
+        el.classList.remove('on');
+        after?.();
+      }, o.hold ?? 1500);
+    }, o.dark ?? 1300);
+  }
   toast(text, kind = 'good', ms = 1800) {
     const el = document.createElement('div');
     el.className = `toast-item ${kind}`;

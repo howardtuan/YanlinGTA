@@ -44,6 +44,7 @@ import { AimGlow } from '../graphics/AimGlow.js';
 import { Phone } from '../ui/phone/Phone.js';
 import { GateDuty } from '../systems/minigames/GateDuty.js';
 import { McShift } from '../systems/minigames/McShift.js';
+import { Massage } from '../systems/minigames/Massage.js';
 import { Prompts, dual } from '../ui/Prompts.js';
 import { writeSave } from '../systems/SaveSystem.js';
 import { PC } from '../ui/PC.js';
@@ -432,6 +433,7 @@ class Game {
     this.hank = new Hank(this);
     this.concerts = new Concerts(this);
     this.tea = new TeaShop(this);
+    this.massage = new Massage(this); // 涼韌足體養生（新中北路）：付錢按摩，走路跑步加速一段時間
 
     this.hud.onPin = (p) => {
       if (p) this.nav.set(p.x, p.z);
@@ -1018,6 +1020,7 @@ class Game {
       !this.mahjong?.playing &&
       !this.job.active &&
       !this.gate.active &&
+      !this.massage?.busy &&
       !this._sleeping &&
       (dr || fp || !pl.vehicle);
     el.classList.toggle('hidden', !show);
@@ -1237,6 +1240,7 @@ class Game {
       this.mingshan?.cinema ||
       this.pinhanRide?.cinema ||
       this.zzQuest?.busy ||
+      this.massage?.busy || // 涼韌足體養生: from paying until you stand up again
       this.mahjong?.playing ||
       this.speechOn ||
       hud.bigOpen ||
@@ -1267,7 +1271,7 @@ class Game {
       act.fn(this);
       inp.pressed.delete('KeyE');
     }
-    if (pl.seat && !act && inp.hit('KeyE')) {
+    if (pl.seat && !act && !pl.frozen && inp.hit('KeyE')) {
       pl.standUp();
       this.audio.interact();
     } else if (!act && !pl.seat && !inDialog && !pl.frozen && inp.hit('KeyE')) {
@@ -1546,6 +1550,7 @@ class Game {
     this.drone.camera(this.camera, dt);
     this.mingshan?.camera(this.camera, dt);
     this.pinhanRide?.camera(this.camera, dt);
+    this.massage?.camera(this.camera, dt);
     this._aim();
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];

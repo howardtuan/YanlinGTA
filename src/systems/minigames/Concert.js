@@ -824,7 +824,7 @@ export class Concerts {
           return;
         }
         if (it.key) this.bought.add(it.key);
-        if (it.boost) g.player.boost = it.boost;
+        if (it.boost) g.player.boost = Math.max(g.player.boost || 0, it.boost);
         g.audio.pickup?.();
         g.hud.toast(`🛍️ ${it.n}：${it.t}`, 'good', 2600);
       };

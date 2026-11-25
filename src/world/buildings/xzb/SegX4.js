@@ -2,10 +2,12 @@
 //   這段路是直的，兩側都是正對著路的一樓鐵皮店面（少數 2 樓），所以本體用 lots，招牌、側招、屋頂看板與空地小物在 custom 補。
 //   實際的路比遊戲窄，屋簷前緣離中心線約 5.2 m，所以整段立面都放在 set 6.2（預設 7.4 太退後）。
 //   北側（+1）由東到西：469 巷口西北轉角露天停車場（靠新中北路這側；靠巷子那側在 SegL1.js）→ 多多嗨 → 春園快餐 → 7-ELEVEN → 馬丘自助桌遊 →
-//     ZU'S HAIR → 良任 足體保健（2 樓）→ 石片柱鐵捲門 → 屋頂深灰格柵的鐵捲門 → 加一減一 → 白色一樓
+//     ZU'S HAIR → 涼韌 足體保健（2 樓；原型是當地的良任足體保健，遊戲裡改用諧音店名）→ 石片柱鐵捲門 → 屋頂深灰格柵的鐵捲門 → 加一減一 → 白色一樓
 //   南側（-1）由東到西（東端接 SegX1.js 的初樂，s 370.2）：米色鐵捲門鐵皮屋 → 夾娃娃機店（舊招牌第一快餐、側招平價串燒）→ 囍勒烤 → 光頭叔叔の簡單麵包店 →
 //     雜草空地 → 便宜租車 → 八方來 → 韓老爺 → 憶阿嬤 → PPLAN BEE → 銀灰浪板 2 樓雜貨店 → 米色浪板 2 樓 → 紅茶洋行 → 山東餃子館 → 日嚐麵飯館
 //   Kit 的區域座標：北側 x=0 在東端（s 小的那端），南側 x=0 在西端（s 大的那端）；-z 是街道。
+import { buildMassageShop, massagePriceBoard } from '../MassageShop.js';
+
 const R = 'X',
   SET = 6.2;
 const FNT = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
@@ -111,8 +113,9 @@ export default {
         roof: 'tank',
         door: 0,
         bikes: 1,
+        inside: true, // 一樓可以走進去（src/world/buildings/MassageShop.js）
       },
-    ], // 良任（比兩邊退後一點；一樓與招牌在 custom）
+    ], // 涼韌（比兩邊退後一點；一樓、店內與招牌在 custom）
     [
       R,
       410.4,
@@ -999,7 +1002,7 @@ export default {
         }),
       lr2f: () =>
         sg('xzX4lr2f', 256, 80, (g) => {
-          // 良任二樓：整排白色格子窗框、淺綠色玻璃
+          // 涼韌二樓：整排白色格子窗框、淺綠色玻璃
           g.fillStyle = '#f2f1ec';
           g.fillRect(0, 0, 256, 80);
           for (let i = 0; i < 4; i++) {
@@ -1020,27 +1023,6 @@ export default {
               g.stroke();
             }
           }
-        }),
-      lr1f: () =>
-        sg('xzX4lr1f2', 256, 144, (g) => {
-          // 良任一樓：米黃牆、中間深色鋁框玻璃門、兩側各一扇窗
-          g.fillStyle = '#e2d3a8';
-          g.fillRect(0, 0, 256, 144);
-          for (const [x, y, w, h] of [
-            [98, 30, 60, 114],
-            [12, 30, 76, 96],
-            [168, 30, 68, 96],
-          ]) {
-            g.fillStyle = '#4a4d50';
-            g.fillRect(x - 4, y - 4, w + 8, h + 8);
-            const gr = g.createLinearGradient(0, y, 0, y + h);
-            gr.addColorStop(0, '#5f6f70');
-            gr.addColorStop(1, '#2f3a3c');
-            g.fillStyle = gr;
-            g.fillRect(x, y, w, h);
-          }
-          g.fillStyle = '#4a4d50';
-          g.fillRect(126, 30, 4, 114);
         }),
       dark: () =>
         sg('xzX4dark', 256, 144, (g) => {
@@ -1261,15 +1243,17 @@ export default {
       k.box(1.0, 1.8, 4.2, 4.7, 4.6, 5.0, '#e4e1d8', NC);
     }
     {
-      // N6：良任 足體保健（一樓米黃牆與玻璃門、一二樓之間的紅色橫招、二樓東端的紅色直立招牌、門口立牌）
+      // N6：涼韌 足體保健（一樓米黃牆與玻璃門、一二樓之間的紅色橫招、二樓東端的紅色直立招牌、門口立牌）。
+      // 原型是當地的良任足體保健，遊戲裡改用諧音店名「涼韌」；門口按 E 可以付錢按摩（src/systems/minigames/Massage.js）
       const k = K(405.6, 410.4, 1, 6.7),
         w = k.W;
-      k.plane(T.lr1f(), w - 0.3, 2.4, w / 2, 1.2, -0.045, FRONT);
+      // 一樓整層（米黃立面、玻璃門與兩側窗、店內、營業時間）：src/world/buildings/MassageShop.js
+      k.I.massage = buildMassageShop(k, { D: 12, GF: 3.4, shutterCol: '#e2d3a8' });
       k.box(0.12, w - 0.12, 3.9, 6.4, -0.05, 0, '#eeece4', NC);
       k.plane(T.lr2f(), w - 0.5, 1.35, w / 2, 5.25, -0.06, FRONT); // 二樓實景是白牆與整排格子窗
       board(
         k,
-        paint('良任', '#d8344a', '#ffffff', '足體保健・全身推拿', w - 0.2, 1.3),
+        paint('涼韌', '#d8344a', '#ffffff', '足體保健・全身推拿', w - 0.2, 1.3),
         w - 0.2,
         1.3,
         w / 2,
@@ -1278,7 +1262,7 @@ export default {
       );
       flag(
         k,
-        C.ROWT.vert('xzX4liangren', '#d8344a', '#ffffff', '良任足體養生'),
+        C.ROWT.vert('xzX4liangren', '#d8344a', '#ffffff', '涼韌足體養生'),
         0.9,
         3.0,
         0.2,
@@ -1286,7 +1270,9 @@ export default {
         -0.6,
         { edge: '#d8344a' }
       );
+      // 門口立牌：紅框裡是價目表
       k.box(3.2, 3.7, 0, 1.0, -1.3, -1.24, '#d8232a', NC);
+      k.plane(massagePriceBoard(), 0.44, 0.66, 3.45, 0.6, -1.305, FRONT);
     }
     {
       // N7：石片柱鐵捲門（兩根深灰文化石方柱往前凸、西側凹進去的門廊、往路邊斜下的鐵皮雨遮；後面高出一截灰藍色 2 樓牆）

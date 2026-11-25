@@ -50,10 +50,11 @@ export class Player {
     this.heading = h;
     this.ch.root.rotation.y = h;
   }
-  sitAt(x, z, h) {
+  // o.mode: the pose while seated ('sit'; 'down' on the back or 'prone' face down, on a bed); o.dy: raise the body that much
+  sitAt(x, z, h, o = {}) {
     this._unrag();
-    this.seat = { x, z, h };
-    this.pos.set(x, this.y + surfaceAt(x, z), z);
+    this.seat = { x, z, h, mode: o.mode || 'sit', dy: o.dy || 0 };
+    this.pos.set(x, this.y + surfaceAt(x, z) + this.seat.dy, z);
     this.heading = h;
     this.vel.set(0, 0);
   }
@@ -61,16 +62,21 @@ export class Player {
     if (!this.seat) return;
     const s = this.seat;
     this.seat = null;
+    this.ch.root.rotation.order = 'XYZ';
     this.pos.x += Math.sin(s.h) * -0.7;
     this.pos.z += Math.cos(s.h) * -0.7;
   }
   updateFoot(dt, input, camYaw, collision, interiors) {
     if (this.seat) {
-      this.pos.set(this.seat.x, this.y + surfaceAt(this.seat.x, this.seat.z), this.seat.z);
-      this.heading = this.seat.h;
+      const s = this.seat;
+      this.pos.set(s.x, this.y + surfaceAt(s.x, s.z) + (s.dy || 0), s.z);
+      this.heading = s.h;
+      // lying down tips the root over its x axis: turn to the heading first (YXZ), so the body lies along it
+      // (in the default XYZ order it would lie along a world axis whatever the heading)
+      this.ch.root.rotation.order = s.mode === 'down' || s.mode === 'prone' ? 'YXZ' : 'XYZ';
       this.ch.root.rotation.y = this.heading;
       this.speed = 0;
-      this.ch.update(dt, { mode: 'sit' });
+      this.ch.update(dt, { mode: s.mode || 'sit' });
       return;
     }
     if (this.tumble > 0) {

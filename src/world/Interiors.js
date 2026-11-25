@@ -2040,7 +2040,7 @@ function buildMcD(I, scene, createCharacter = null) {
             ordered = true;
             g.addVotes(2, '店員的室友 +2 票');
           }
-          g.player.boost = 30;
+          g.player.boost = Math.max(g.player.boost || 0, 30);
         }
       );
     },

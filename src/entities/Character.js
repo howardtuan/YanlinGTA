@@ -2038,8 +2038,9 @@ function animate(ch, dt, st) {
     torsoY: 0,
     rootRotX: 0,
   };
-  if (st.mode === 'down') {
-    t.rootRotX = (-Math.PI / 2) * 0.95;
+  if (st.mode === 'down' || st.mode === 'prone') {
+    // down: on the back (asleep in bed); prone: face down (the massage bed in src/systems/minigames/Massage.js)
+    t.rootRotX = (st.mode === 'prone' ? 1 : -1) * (Math.PI / 2) * 0.95;
     t.hipsY = 0.2;
   } else if (st.mode === 'sit') {
     t.hipsY = 0.5;

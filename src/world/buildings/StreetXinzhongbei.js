@@ -4,6 +4,7 @@
 //   side +1 = 順著 s 走的右手邊（X 的北側＝靠校園側、L 的東側＝靠校園側），-1 = 左手邊
 //   spec 欄位與 src/world/buildings/StreetZhongbei.js 相同（nf、gf、fh、d、wall、low、sign、ground、sh、awn、bal、glass、hood、vert、round、banner、
 //        roof、bill、tin、arch、fins、big、sign2、noband、roofCol、door、tower、bikes、set）
+//   inside: true  一樓可以走進去：這裡只蓋二樓以上的外殼，一樓（立面、室內、碰撞）由那段的 custom 自己蓋（例：SegX4 的涼韌足體養生）
 // 一段路一個資料檔（src/world/buildings/xzb/Seg*.js），各自 export default { lots, drop, ownSign, custom, footprints }：
 //   custom(C)      不是街屋的東西（機車棚、圍牆、大樓…）用 Kit 自己蓋；C 有 kit(ref, s0, s1, side, set) 開一個對著街的 Kit、paint 招牌貼圖等工具
 //   footprints(F)  custom 佔的地（多邊形陣列），F(ref, s0, s1, side, set, d) 回傳一格的四個角
@@ -475,7 +476,11 @@ export function buildXinzhongbeiStreet(I, scene, X) {
       d = sp.d || 10;
     const glassWall = sp.bal === 'glass';
     const wm = glassWall && sp.glass ? sp.glass : wallMat(sp.wall);
-    shell(k, w, d, top, wm);
+    if (sp.inside) {
+      // the ground floor is a shop you can walk into, built by the segment's custom(): shell the floors above only
+      k.box(0, w, gf, top, 0, d, wm, { tile: [0.6, 0.6], col: false });
+      k.box(-0.02, w + 0.02, top, top + 0.12, -0.04, d, 'gray', { col: false });
+    } else shell(k, w, d, top, wm);
     if (sp.low && !glassWall)
       k.box(-0.01, w + 0.01, 0, gf, -0.05, 0, wallMat(sp.low), { col: false, tile: [0.6, 0.6] });
     for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊
@@ -523,7 +528,9 @@ export function buildXinzhongbeiStreet(I, scene, X) {
     if (doorW) k.plane(YHT.win(), doorW - 0.1, 2.2, w - doorW / 2 - 0.1, 1.1, -0.03, FRONT);
     const gh = gf - 1.0;
     const gk = sp.ground || 'shop';
-    if (gk === 'shop' || gk === 'stall') {
+    if (sp.inside) {
+      // ground floor front: the segment's custom() builds it
+    } else if (gk === 'shop' || gk === 'stall') {
       shopGlass(k, 0.15, bodyW - 0.2 + (doorW ? 0 : 0.2), 0, gh, shopTex(i));
       if (gk === 'stall') {
         k.box(0.3, bodyW - 0.3, 0, 0.95, -0.55, -0.05, '#c9c9c4', { col: false });

@@ -372,6 +372,11 @@ export class DormMahjong {
         onStart: (data) => this._startGuestSession(data),
         onState: (snap, events) => this._onGuestState(snap, events),
         onNext: () => {
+          if (this.g.money <= 0) {
+            this.g.hud.toast('💸 錢包見底了，已自動退桌（由 AI 接手你的座位）', 'bad', 3200);
+            this.leave(false, { broke: true });
+            return;
+          }
           if (this.engine?.isRemote && this.scene) this.scene.startHand(this.engine);
         },
         onNotice: (msg) => g.hud.toast(msg, 'good', 2600),
@@ -485,7 +490,14 @@ export class DormMahjong {
   }
   _onGuestState(snap, events) {
     if (!this.engine?.isRemote || !this.scene) return;
-    if (this.scene.result && snap.phase !== 'end') this.scene.startHand(this.engine);
+    if (this.scene.result && snap.phase !== 'end') {
+      if (this.g.money <= 0) {
+        this.g.hud.toast('💸 錢包見底了，已自動退桌（由 AI 接手你的座位）', 'bad', 3200);
+        this.leave(false, { broke: true });
+        return;
+      }
+      this.scene.startHand(this.engine);
+    }
     this.engine.applySnapshot(snap, events);
     this.scene._layout();
     if (snap.phase === 'end' && !this.scene.result) this.scene._showResult();
@@ -653,28 +665,32 @@ export class DormMahjong {
       s = this.sess,
       d = r.deltas[0];
     const prevTier = this.aiTier().id;
-    const label = s.multi ? '277 多人麻將' : '277 麻將';
-    if (d > 0) g.earn(d, label);
-    else if (d < 0) g.pay(-d, label);
-    s.hands++;
-    s.net += d;
-    if (!r.draw && r.winner === 0) {
-      s.winStreak = (s.winStreak || 0) + 1;
-      s.loseStreak = 0;
-    } else if (!r.draw && d < 0) {
-      s.loseStreak = (s.loseStreak || 0) + 1;
-      s.winStreak = 0;
-    }
-    const st = this.stats;
-    st.hands++;
-    st.net += d;
-    if (r.winner === 0) {
-      st.wins++;
-      if (r.self) st.self++;
-      st.best = Math.max(st.best, r.tai);
+    const spectating = !!s.spectating;
+    if (!spectating) {
+      const label = s.multi ? '277 多人麻將' : '277 麻將';
+      if (d > 0) g.earn(d, label);
+      else if (d < 0) g.pay(-d, label);
+      s.hands++;
+      s.net += d;
+      if (!r.draw && r.winner === 0) {
+        s.winStreak = (s.winStreak || 0) + 1;
+        s.loseStreak = 0;
+      } else if (!r.draw && d < 0) {
+        s.loseStreak = (s.loseStreak || 0) + 1;
+        s.winStreak = 0;
+      }
+      const st = this.stats;
+      st.hands++;
+      st.net += d;
+      if (r.winner === 0) {
+        st.wins++;
+        if (r.self) st.self++;
+        st.best = Math.max(st.best, r.tai);
+      }
     }
     let banter = null;
-    if (!s.multi) {
+    if (!s.multi && !spectating) {
+      const st = this.stats;
       const adj = adjustSkill(st.skill, s.heat || 0, {
         winner: r.winner,
         from: r.from,
@@ -706,20 +722,42 @@ export class DormMahjong {
       s.streak = 0;
       s.passes++;
     }
-    return { over: s.passes >= 16, broke: g.money <= 0, banter, tier: this.aiTier() };
+    const broke = !spectating && g.money <= 0;
+    const canSpectate = !!(
+      broke &&
+      s.multi &&
+      this.mpMode === 'host' &&
+      (this.mp?.peerCount || 0) > 0
+    );
+    return { over: s.passes >= 16, broke, spectating, canSpectate, banter, tier: this.aiTier() };
+  }
+  // 多人房主破產時轉為觀戰＋AI 代打（讓房內朋友能把這將打完）
+  spectateNext() {
+    const s = this.sess;
+    if (!s?.multi || this.mpMode !== 'host') return;
+    if (s.passes >= 16) return this.leave();
+    s.spectating = true;
+    if (s.human) s.human[0] = false;
+    this.ais ||= [null];
+    this.ais[0] = makeAI({ attack: 0.5, defense: 0.5, skill: () => this.aiSkill() });
+    const msg = `👀 房主 ${s.names?.[0] || '彥霖'} 錢包見底改為觀戰，由 AI 代打！`;
+    this.g.hud.toast(msg, 'good', 2800);
+    this.mp?.broadcastNotice?.(msg);
+    this.mp?.broadcastNext?.();
+    this.deal();
   }
   next() {
     if (this.isGuest) return;
-    if (this.sess.passes >= 16 || this.g.money <= 0) return this.leave();
+    if (this.sess.passes >= 16 || (!this.sess.spectating && this.g.money <= 0)) return this.leave();
     if (this.mpMode === 'host') this.mp?.broadcastNext();
     this.deal();
   }
   // raid: left with Esc in the middle of a hand —「舍監來查寢了，快躲起來，這把不算」
-  leave(raid = false) {
+  leave(raid = false, opts = {}) {
     const g = this.g,
       s = this.sess,
       wasMulti = !!s?.multi || !!this.mpMode;
-    this.mp?.close();
+    this.mp?.close(this.mpMode === 'guest' ? { broke: !!opts.broke || g.money <= 0 } : undefined);
     this.mp = null;
     this.mpMode = null;
     this.scene?.close();

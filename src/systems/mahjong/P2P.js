@@ -51,7 +51,7 @@ export async function createHostRoom({
   const [sendLobby] = bindAction(room, 'lobby');
   const [sendStart] = bindAction(room, 'start');
   const [sendState] = bindAction(room, 'state');
-  const [sendCtrl] = bindAction(room, 'ctrl');
+  const [sendCtrl, onCtrl] = bindAction(room, 'ctrl');
   const [, onHello] = bindAction(room, 'hello');
   const [, onAct] = bindAction(room, 'act');
 
@@ -111,10 +111,8 @@ export async function createHostRoom({
     onAction?.(seat, data.act);
   });
 
-  room.onPeerLeave?.((ctx) => {
-    if (closed) return;
-    const peerId = peerIdOf(ctx);
-    if (!peerId) return;
+  const dropGuest = (peerId, broke = false) => {
+    if (closed || !peerId) return;
     const seat = peerToSeat.get(peerId);
     if (seat == null) return;
     peerToSeat.delete(peerId);
@@ -125,11 +123,22 @@ export async function createHostRoom({
       emitLobby();
     } else {
       seats[seat] = { ...seats[seat], peerId: null, isAI: true };
-      const msg = `⚠️ ${who} 斷線了，暫時由 AI 接手繼續打`;
+      const msg = broke
+        ? `💸 ${who} 錢包見底離桌，改由 AI 接手繼續打`
+        : `⚠️ ${who} 斷線了，暫時由 AI 接手繼續打`;
       onNotice?.(msg);
-      sendCtrl({ type: 'notice', msg });
-      onPeerLeave?.(seat, who);
+      if (peerToSeat.size > 0) sendCtrl({ type: 'notice', msg });
+      onPeerLeave?.(seat, who, broke);
     }
+  };
+
+  onCtrl((data, peerId) => {
+    if (closed || !data || !peerId) return;
+    if (data.type === 'guestLeave') dropGuest(peerId, !!data.broke);
+  });
+
+  room.onPeerLeave?.((ctx) => {
+    dropGuest(peerIdOf(ctx), false);
   });
 
   room.onError?.((err) => {
@@ -150,6 +159,9 @@ export async function createHostRoom({
     },
     get seats() {
       return seats;
+    },
+    get peerCount() {
+      return peerToSeat.size;
     },
     setStake(i) {
       if (started) return;
@@ -195,6 +207,9 @@ export async function createHostRoom({
     broadcastNext() {
       if (!closed) sendCtrl({ type: 'next' });
     },
+    broadcastNotice(msg) {
+      if (!closed && peerToSeat.size > 0) sendCtrl({ type: 'notice', msg });
+    },
     close(reason = '房主已結束房間') {
       if (closed) return;
       closed = true;
@@ -224,7 +239,7 @@ export async function joinGuestRoom({
   const [, onLobbyMsg] = bindAction(room, 'lobby');
   const [, onStartMsg] = bindAction(room, 'start');
   const [, onStateMsg] = bindAction(room, 'state');
-  const [, onCtrlMsg] = bindAction(room, 'ctrl');
+  const [sendCtrl, onCtrlMsg] = bindAction(room, 'ctrl');
 
   let hostPeerId = null;
   let closed = false;
@@ -304,10 +319,13 @@ export async function joinGuestRoom({
   }, 1200);
   announce();
 
-  function close() {
+  function close(opts) {
     if (closed) return;
     closed = true;
     clearInterval(retry);
+    if (hostPeerId) {
+      sendCtrl({ type: 'guestLeave', broke: !!opts?.broke }, hostPeerId);
+    }
     Promise.resolve(room.leave?.()).catch(() => {});
   }
 

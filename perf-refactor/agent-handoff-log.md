@@ -13,7 +13,7 @@
 - **工作分支 / PR**：`refactor/...`（PR #... / 個人 Fork 測試網址：...）
 - **本輪已完成**：
   - ...
-- **實機與量化數據變化**（Mac Safari Web Inspector / iPhone LINE/IG / `?perf`）：
+- **實機與量化數據變化**（`profile_scene.mjs` / Mac Web Inspector / iPhone `?diag=1` & `?perf`）：
   - 載入結果：...
   - Memory / Canvases / Texture / Draw Calls / Tris / FPS：...
 - **新發現的技術細節或踩雷**：
@@ -24,75 +24,91 @@
 
 ---
 
-### Session #003｜2026-11-25｜負責階段：Phase 0 補強 ＋ Phase 1 部分（找出 iPhone 掛掉的位置、載入加速、畫布記憶體）
-- **工作分支 / PR**：`fix/mobile-loading-memory`（基於 `main` `588e352`）
+### Session #006｜2026-11-25｜負責階段：Phase 0 合併收尾（接手 hank1224）
+- **工作分支 / PR**：`chore/merge-perf-phase0`（把 `chore/perf-flags-and-metrics`，含 `docs/revise-perf-refactor-plan`，合併回 `main` @ #161）
 - **本輪已完成**：
-  1. **開機追蹤 `?boottrace`**：新增 [`src/core/BootTrace.js`](../src/core/BootTrace.js) ＋ `vite.config.js` 的 `bootTracePlugin`。載入每一步（`buildWorld` 內 12 段、每個 zone、物理、NPC、shader 編譯、第一幀、開始遊戲）都用 `sendBeacon` 回報到 Mac 上 `npm run dev` 的終端機，附存活 `<canvas>` 張數與 MB。手機被系統殺掉重整後，終端機仍留著最後一步。用法見 [architecture.md 第四節 4](../docs/guide/architecture.md)。
-  2. **載入畫面文字修正**：`Game.init()` 改成先 `setLoad()`，再等畫面真的畫完（`nextFrame` 改成 rAF 後再 `setTimeout`）。
-  3. **林口體育館座椅恢復視錐剔除**（`Arena.js`）：校園裡每幀少畫約 46 萬個三角形（GPU 約少 4 ms）。
-  4. **保留區判斷改用格子索引**（`Collision.js` 的 `inAnyPoly`，用在 `Furniture.js`、`MapBuilder.js`、`CollisionWorld.blocked`）：`buildWorld` 桌機 4.9 → 1.7 秒，iPhone 那段約 45 秒 → 約 3 秒。答案與 `polys.some(pointInPoly)` 相同，有單元測試，實測 127 萬點 0 不一致，世界 mesh 也逐一比對過。
-  5. **畫布記憶體**（`Kit.js` 的 `configureTextures` / `releaseAtlasSources`）：
-     - 街屋圖集一畫完就 `renderer.initTexture()` 上傳 GPU，再把畫布縮成 1×1。
-     - 每蓋完一個 zone，就把已複製進圖集、場景沒人在用的子畫布縮掉，並從 `TEX` 移除。
-     - 手機（`mobile-lite`）的 `ctex` 畫布和圖集用 `texScale` 0.5 倍存放。
-     - 畫布高峰：桌機 1.96 → 0.46 GB、手機設定 1.83 → 0.32 GB。
-- **實機與量化數據變化**：
-  - **「卡在 2%」其實是「慢」**：舊版 `buildWorld` 整段同步執行、畫面不會更新。iPhone 14 Pro 上「路燈＋街道家具」那段要 27 秒、「樹」那段要 17 秒，看起來就像卡住。Phase 0 寫的「2% 對應 `cycu.json`／Rapier／renderer」不成立：那段實測只花 0.3 秒。
-  - **iPhone 14 Pro（Safari，`?boottrace`）**：修完速度後約 10 秒建完世界、約 30 秒進到 shader 編譯完成。但仍會被系統殺掉重整，最常見的位置是 **shader 編譯完、畫第一幀時**（5 次中 3 次；第一幀會把全部模型與貼圖一次上傳）；另有 1 次死在 `world: buildings`（JS heap 高峰）。死時畫布只剩約 0.3 GB，**畫布已經不是主因**。（手機回報的 `screen` 是 414×896@3x，跟 14 Pro 的 393×852 對不上，原因不明。）
-  - **桌機（headless Chrome，Apple M1 8 GB）**：自動畫質會在約 14 秒後從中降到低。中畫質約 16–20 fps（render CPU 約 34 ms、GPU 約 31 ms）。每幀 1,915 calls／429 萬三角形；陰影 pass 佔 534 calls／145 萬三角形（陰影範圍只有 ±85 m，被 138 個半徑超過 250 m 的巨型 mesh 拖進去）；300 m 外小物件佔 460 個 draw call；bloom 約 10 ms GPU、MSAA 約 5–7 ms。
-- **驗證**：`npm run ci` 全綠（142 tests）。用原始版本 `588e352` 對照做了兩輪確定性逐像素比對（固定亂數、逐幀同步、凍結 CSS 動畫），涵蓋 96 個視角（15 條街屋、18 個室內、角色、車輛、演唱會、夜景）加遊玩流程（開車第一／第三人稱、手機 6 個 App、電腦、麻將）。
-  - 桌機：113 張中 105 張完全相同，其餘最多 22/255（一張招牌文字邊緣）或 1–7/255。
-  - 手機設定：差異只有貼圖變軟（縮小比對無缺件）。
-  - 空白貼圖程式檢查：桌機與手機都是 0。
+  1. **以本規劃為準，拿掉 #156 的內容**（`?boottrace` 開機追蹤、`nextFrame` 調整、`Kit.configureTextures` / `releaseAtlasSources` 手機畫布縮放與釋放、保留區格子索引、林口體育館座椅剔除）：#156 改過的 16 個檔案回到 #155 合併時的內容。對應工作改由 Phase 0 `BootDiag` / `stage()`、Phase 1A 畫布生命週期、Phase 1B `Arena.js` 剔除處理。#157、#159、#160、#161（麻將）未受影響。
+  2. **合併本分支**：分支建在 #153 之前，#153 已用 `src/core/PerfHud.js`（設定 → 效能顯示，四段式）取代 `GameLoop.perfOverlay()`。衝突處理保留 `PerfHud`、不帶回舊浮層；`[SAFE]` 標記改掛在 `PerfHud` 開發者層級的「檔位」後面；`?perf` 會直接開 `PerfHud` 的開發者層級。其餘 25 個檔案與分支一字不差。
+  3. **`nextFrame()` 改為 `requestAnimationFrame(() => setTimeout(r, 0))`**：原本只等 rAF，`stage()` 寫好的文字仍要等下一段同步建置跑完才畫得出來（見 [pitfalls-and-memory.md](pitfalls-and-memory.md) 踩雷 #2 補充）。
+- **實機與量化數據變化**（`npm run profile:mobile`，Apple M1 本機 Chrome，SwiftShader 軟體渲染，`mobile-lite` / `low`，3 次取中位數；幀時間僅供相對比較）：
+
+  | 記憶體 / 啟動 | 值 |
+  | :--- | :--- |
+  | Canvas | **1748.43 MB**（3133 個，DOM 內 3） |
+  | 貼圖估算（GPU，含 mip） | 1640.24 MB（763 張） |
+  | JS heap | 437.64 MB |
+  | 啟動到標題 | 70694 ms（範圍 68401–73859，軟體渲染） |
+  | 載入資源 | 32 個 / 11683 KB |
+
+  | 機位 | Calls | Tris | Tex | Geo |
+  | :--- | ---: | ---: | ---: | ---: |
+  | title-orbit | 700 | 2018k | 240 | 766 |
+  | 鐘塔 | 399 | 1905k | 414 | 1202 |
+  | 張靜愚紀念圖書館 | 262 | 1574k | 469 | 1403 |
+  | 學生活動中心 | 418 | 1739k | 486 | 1441 |
+  | 中原大學體育館 | 209 | 1532k | 488 | 1441 |
+  | 真知教學大樓 | 348 | 1698k | 534 | 1687 |
+
+  - 最大宗 canvas：`2048x4096 × 28 = 896 MB`（街屋圖集）、`2048x2048 × 5 = 80 MB`、`256x192 × 334 = 62.63 MB`、`512x512 × 45 = 45 MB`、`1024x192 × 43 = 32.25 MB`。
+  - 距離 Phase 1 門禁（`peakBackingStoreMB <= 220`）約差 8 倍。
 - **新發現的技術細節或踩雷**：
-  - 約 20 處動態畫布貼圖之後還會重畫（例：`Sac.js` 門牌、`McKitchen.js` KVS、`Concert.js` 側螢幕、`Kit.js` 的 `TEX.screen`）。所以畫布只釋放「已複製進圖集、場景沒人用」的，不做全域「上傳後縮 1×1」。
-  - 街屋／zone／Kit 的畫法都沒有 `Math.random`，被移出 `TEX` 的 key 再被要時重畫，像素完全一樣。但重畫會多建立 three.js 物件，而 three 的 UUID 會用到 `Math.random`。做固定亂數的畫面比對時，要把 UUID 的亂數另外分開，否則後面所有隨機內容都會位移（體育館地板斑點就是這樣）。
-  - 圖集畫布縮掉後，WebGL context 還原時畫不回來，所以 `webglcontextrestored` 改成重新整理頁面（離開前自動存檔）。
-  - `FirstPerson.js` 的 `WebGLRenderTarget` 第一次用到才配置；`localClippingEnabled` 對沒有 clipping plane 的材質沒有影響。Phase 1 這一項建議刪除。
+  - `nextFrame()` 只等 rAF 不會讓畫面先繪製（已補進踩雷 #2）。
+  - `applySafeMode()` 設的 `texScale <= 0.375` 與 `atlasMaxW/H = 1024` 目前**沒有任何貼圖程式讀取**，安全模式實際只有「`auto` 畫質鎖 `low`」，而手機本來就是 `low`。Phase 1A 必須把 `Kit.js` / `Textures.js` 接上這兩個值，安全模式才有實際效果。
 - **下一棒確切待辦（Next Actionable Step）**：
-  1. **iPhone 第一幀被殺**：把 GPU 上傳分散到載入過程（分批 `initTexture`、分批預先渲染幾何），模型上傳後釋放 CPU 端的 attribute 陣列（目前只有麻將用 Raycaster，要確認沒有其他地方讀）。
-  2. **`world: buildings` 的 JS heap 高峰**：`MapBuilder` 的 `Geo` 改用成長式 `Float32Array` 累積頂點。
-  3. **桌機畫質不變、效能要好（使用者要求）**：巨型 mesh 粗分塊（陰影 pass 受益最大）、遠處次像素小物件剔除、bloom 改省的寫法（逐像素比對確認外觀不變）。
+  1. 從最新 `main` 切出 `fix/ios-canvas-lifecycle`，依 [Phase 1 規格書](specs/phase-1-ios-memory-rescue.md) 實作 Phase 1A；第一優先是 28 張 `2048x4096` 街屋圖集（896 MB）與 `texScale` / `atlasMaxW/H` 接線，每步以 `npm run profile:mobile -- --assert-ios-budget` 對照本筆基線。
+  2. Phase 1B（`fix/ios-lazy-noncore-assets`）補回 `Arena.js` 座椅 `frustumCulled`（人在校園時每幀多畫 4 km 外約 46 萬三角形，M1 GPU 約 4 ms）。
+
+---
+
+### Session #005｜2026-11-25｜負責階段：吸收《臺北狂飆》實證優化 ＋ 免插線手機驗證與 Phase 0 自癒落實
+- **工作分支 / PR**：`chore/perf-flags-and-metrics`（已合併 `docs/revise-perf-refactor-plan`）
+- **本輪已完成**：
+  1. 逐項比對《臺北狂飆》（Three.js `r186`）與 `YanlinGTA`（`Three.js r160`）實際原始碼，完成技術篩選並回寫 `perf-refactor/`：
+     - **納入**：`BootDiag` 玩家端無感自動降階 `safeMode`（Phase 0）；靜態幾何 `onUploadCallback` 清空 CPU `TypedArray` + `ImageBitmap.close()` + `WebGLRenderer({ alpha: false, stencil: false })` + 條件式 `gcNudge`（Phase 1）；`low` 切換 `MeshLambertMaterial` 跳過法線/RM 貼圖 + `opaqueSort` + 30Hz 隔幀陰影 + 零相依 `PostFX` 瘦身（Phase 2）；`r160` 相容分帶 `texSubImage2D` + `pinPrograms()` + 分批 `dispose` + `MessageChannel` 幀預算（Phase 3）；KTX2 上傳後清空 `mipmaps`（Phase 4）。
+     - **拒絕**：`slimShadowMaps`（`r160` 用四通道 `RGBADepthPacking`，改單通道必壞陰影）、2D `uLampMap` 重寫、`pmndrs/postprocessing` 套件、替換 Rapier 物理與原生 `TilePool` 私有魔改。
+  2. 確立**三層免插線手機自動化驗證架構**（Tier 1 `npm run profile:mobile -- --assert-ios-budget`；Tier 2 Mac Playwright `webkit` / `xcrun simctl` Simulator；Tier 3 里程碑無線真機 LINE/IG 驗收）。
+  3. 實作 Phase 0 新規格：`BootDiag.js` 玩家端自動降階 `safeMode`（連死 2 次或 `webglcontextlost` 自動鎖 `low` + `texScale <= 0.375`、穩玩 180 秒自動恢復）、`PerfProfile.js` `?safemode=`、`GameLoop.js` `[SAFE]` 標記與健康計時，以及 `tools/profile_scene.mjs` 支援 `--mobile`、`peakBackingStoreMB` / `liveBackingStoreMB`、`--markdown`、`--assert-ios-budget`（同步於 `package.json` 新增 `profile:mobile`）。
+  4. **更正本機環境紀錄**：確認 Linux 本機已安裝 Google Chrome（`/usr/bin/google-chrome-stable -> /opt/google/chrome/google-chrome`），前次 `ENOENT` 係因受限終端沙盒未掛載 `/opt/google/chrome/` 所致，於本機一般終端機即可直接執行 `npm run profile:scene -- --play` 或 `npm run profile:mobile`。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 於一般本機終端機執行 `npm run profile:mobile` 取得修正後第一份自動化手機模擬基線表格並補入本紀錄（或 `phase-0-baseline-and-flags.md`），隨即合併 `chore/perf-flags-and-metrics` 回 `main`。
+  2. 從最新 `main` 切出 `fix/ios-canvas-lifecycle` 展開 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**。
+
+---
+
+### Session #003｜2026-11-25｜負責階段：規劃體檢、目標定錨與技術規格全面修正
+- **工作分支 / PR**：`docs/revise-perf-refactor-plan`（接續檢視 PR #147 合入後之 `perf-refactor/` 與未合併分支 `chore/perf-flags-and-metrics`）
+- **本輪已完成**：
+  1. **交叉比對全專案 155,393 行原始碼（`src/world/` 佔 102,379 行）**，揪出並修正原規劃的 10 項模糊空間、事實錯誤與致命技術破洞：
+     - **明確雙端分級 KPI**：手機端定錨為 iOS Safari & LINE/IG `WKWebView` `<= 5s` 進場、連續漫遊騎車 `>= 10m` 零閃退、`WKWebView >= 30 FPS` / Safari `45–60 FPS`；電腦無獨顯拆為「Apple M 系列 / Iris Xe / 780M 在 1080p 穩 55–60 FPS」與「舊款 UHD 620 等級自動 `low` 穩 `>= 45 FPS`」。
+     - **釐清單一職責**：`GameLoop.js` (`QPROF`) 維持畫質唯一真相；移除 `PerfProfile.js` 重複且衝突的 `shadowSize` / `maxDpr` / `postFx`。
+     - **修正程式碼事實誤判**：確認手機預設早就是 `low`（`MapBuilder` 已用 `texPx = 64`、`PostFX` 已關閉），真正主因是全專案 **86 處 `createElement('canvas')`**（含 20+ 私有 helper、4 支頂層立即執行 `ctex`、中間畫布 `hc`/`dc`）與 `Game.js` 在 `setLoad(0.08)` 之前才讓幀導致畫面永遠假停在 `2%`。
+     - **防破圖／防假拆包／防穿牆修正**：設計四角色兩階段 Canvas 釋放協定（保護 `finishRow`、`ROWT`/`YHT` 共用與 `T.screen` 非同步圖）；將原 Phase 2 與 Phase 3 對調，先做低衝突渲染分塊與 `Kit.finish()` 平面合批（砍掉 1,258 個散裝平面 Draw Calls），再做輕重物理拆檔真 Code-Splitting ＋ `PhysWorld` 動態 Rapier 碰撞體（保護 `Walker.js` 與 `tools/floorplan`）。
+  2. 完成重寫 `perf-refactor/` 全部 10 份檔案，並將 `phase-2` / `phase-3` 規格對調命名（`phase-2-render-and-igpu-opt.md`、`phase-3-global-dynamic-streaming.md`）。
+- **實機與量化數據變化**：
+  - 本輪為規格修正（無執行期程式改動），沿用 2026-11-24 M1 Pro 實測基線（懷恩樓前 `50 fps` / `1,729` calls / `4,240k` tris / `659` tex / `2,747` geo）與 iPhone 17 Pro Max 失敗基線，靜態盤點補入 `86` 處 `createElement('canvas')` 與 `1,258` 處 `k.plane()` 數據。
+- **新發現的技術細節或踩雷**：
+  - 全部 8 項新技術紅線已系統性寫入 [pitfalls-and-memory.md](pitfalls-and-memory.md)。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. 依修正後規格更新 `chore/perf-flags-and-metrics`（重構 `PerfProfile.js`、實作 `BootDiag.js`、`Game.js` 階段讓幀與檢查點、`tools/profile_scene.mjs` 並補齊單元測試）。
+  2. 合入 Phase 0 後於 iPhone 17 Pro Max 跑 `?perf&diag=1` 鎖定精準崩潰階段，隨即進入 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**。
 
 ---
 
 ### Session #002｜2026-11-24｜負責階段：Phase 0 實作（旗標解析與記憶體遙測）
-- **工作分支 / PR**：`chore/perf-flags-and-metrics`（基於合併 PR #147 後之 `main` `7a00e81` 建立，目前本地已提交待量測補數據）
+- **工作分支 / PR**：`chore/perf-flags-and-metrics`（PR 待按 Session #003 新規格對齊更新）
 - **本輪已完成**：
-  1. 完成規劃分支合併：`docs/perf-refactor-plan` 已透過 PR #147 合併至上游 `howardtuan/YanlinGTA` (`main`)，並已清理本地舊分支與同步最新 `main`。
-  2. 新增 [`src/core/PerfProfile.js`](../src/core/PerfProfile.js)：實作 `TIERS`、`STREAMING_PROFILES`、`detectTier()` 與 `resolveRuntimeProfile()`，支援 `?tier=`、`?texscale=`、`?stream=` 實驗參數解析（預設不啟用串流，確保既有行為零改變，且於 GPU 探測後主動呼叫 `WEBGL_lose_context`）。
-  3. 修改 [`src/core/Game.js`](../src/core/Game.js)：於 `init()` 掛載 `this.perfProfile = resolveRuntimeProfile(this.settings)`。
-  4. 修改 [`src/core/GameLoop.js`](../src/core/GameLoop.js)：於 `?perf` HUD 新增 `紋理 {textures}  幾何 {geometries}  檔位 {tier}` 遙測列。
-  5. 新增單元測試 [`tests/unit/perf-profile.test.js`](../tests/unit/perf-profile.test.js) 並更新狀態看板；本地 `npm run format && npm run ci` 全數通過。
+  1. 完成規劃分支合併：`docs/perf-refactor-plan` 已透過 PR #147 合併至上游 `howardtuan/YanlinGTA` (`main` `7a00e81`)。
+  2. 新增初版 `src/core/PerfProfile.js`、`GameLoop.js` `?perf` 記憶體行與 `tests/unit/perf-profile.test.js`。
 - **實機與量化數據變化**（2026-11-24 實測，`chore/perf-flags-and-metrics` `9daa340`）：
-  - **iPhone 17 Pro Max（iOS Safari）**：❌ 載入失敗，持續卡在「載入地圖資料 2%」停滯後觸發頁面自動重整循環，無法進入標題頁（Web Inspector 未能掛載，Console/Canvases/Memory/Call Trees 未取得）。
+  - **iPhone 17 Pro Max（iOS Safari）**：❌ 載入失敗，畫面停在「載入地圖資料 2%」後觸發頁面自動重整循環（Web Inspector 未能掛載；後於 Session #003 發現因 `Game.js` 未在 `setLoad(0.08)` 後讓幀，無法區分停在 2% 還是卡在 `buildWorld`）。
   - **MacBook Pro Apple M1 Pro（`desktop-igpu` 對照組，`medium` 畫質、WASM 開）**：
     - 標題頁：`65 fps` (`15.3 ms`)｜Draw Calls `1,763`（峰值 `1,774`）｜Triangles `4,590k`（峰值 `4,638k`）｜Textures `432`｜Geometries `1,963`｜物理 `0 剛體 2,557 碰撞體`
     - 進校園（懷恩樓前靜止）：`50 fps` (`20.0 ms`)｜Draw Calls `1,729`｜Triangles `4,240k`｜Textures `659`｜Geometries `2,747`｜物理 `2 剛體 2,559 碰撞體`
-- **新發現的技術細節或踩雷**：
-  - 上游 `main` 在規劃合併期間新增了 Mahjong 音效與 `Kit.js` 等內容，`Game.js` 亦小幅調整；Phase 0 因僅於 `loadSettings()` 後掛載 `this.perfProfile`，完全零衝突並存。
-  - M1 Pro 單幀已高達 **1,729 Draw Calls / 424 萬三角形 / 659 張紋理 / 2,747 個幾何體**，連 M1 Pro 在懷恩樓前靜止都掉到 `50 fps`，直接印證 Phase 1（釋放 Canvas 與圖集降維）與 Phase 2/3（空間串流與視錐體分塊剔除）的必要性。
-  - iPhone 17 Pro Max 在 **2%（「載入地圖資料」）** 即重整循環，Phase 1 開工時需優先定位 `Game.js#L124-L311`（`cycu.json` + Rapier WASM + `WebGLRenderer`/`PostFX`）與後續貼圖建置的實際崩潰點。
-- **下一棒確切待辦（Next Actionable Step）**：
-  1. 確認本 PR（`chore/perf-flags-and-metrics`）合併進 `main` 後，從最新 `main` 切出 `refactor/phase1-ios-memory-rescue` 展開 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)**。
 
 ---
 
-### Session #001｜2026-11-24｜負責階段：架構診斷、可行性評估與規劃書確立
-- **工作分支 / PR**：`docs/perf-refactor-plan`（待審核與合入上游 `howardtuan/YanlinGTA`）
+### Session #001｜2026-11-24｜負責階段：架構診斷與初版規劃書確立
+- **工作分支 / PR**：`docs/perf-refactor-plan`（已透過 PR #147 合併至 `main`）
 - **本輪已完成**：
-  1. 完成全專案 15.4 萬行原始碼與資產體檢（`src/world/` 佔 10.2 萬行，啟動期全量同步建立 3,279 棟建物與 769 處 Canvas 呼叫）。
-  2. 釐清雙端根因：
-     - **iPhone 17 Pro Max 打不開**：非單純硬體 RAM 不足，而是撞上 iOS WebKit 單頁 `<canvas>` 2D 緩衝區硬上限（~384 MB）與 `finishRow()` 2048×4096 圖集雙重駐留，加上啟動同步塞入全量室內與 4.2 km 外林口體育館。
-     - **電腦無獨顯卡頓**：非框架（Three.js）問題，而是過度合併為跨公里巨型 Mesh 導致 Frustum Culling 失效、林口體育館 `frustumCulled = false`、地板 `cutMask()` 使用 `discard` 破壞 Early-Z，以及內顯預設開啟 `PostFX` + 軟陰影。
-  3. 確立純底層最佳化範圍（Phase 0 ～ Phase 4）：
-     - **保留 Vite + Three.js + 雙 WASM 單一程式碼庫**，採**「全局空間動態載入（`WorldStreamer` + 120m 網格分塊）」**搭配雙端 `StreamingProfile` 控制視距與資源上限。
-     - **排除所有 UI/UX 介面改動**與**主線第五章劇情改動**。
-     - 因實機環境**具備 Mac + iPhone 17 Pro Max USB Safari Web Inspector**，精簡 Phase 0 僅保留 Web Inspector 基準 SOP、極簡實驗旗標（`PerfProfile.js`）與 `?perf` 的 `renderer.info.memory` 輸出。
-  4. 建立根目錄獨立指揮部 `perf-refactor/`（共 10 份檔案），並於 `AGENT.md` 頂部加上不干擾內容組的過渡期公告。
-- **目前環境與重要限制（下一棒必看）**：
-  - **測試設備與工具**：具備 **Mac ＋ iPhone 17 Pro Max**，日常可用 Mac `npm run dev` + USB Safari Web Inspector 精確抓 Memory / Canvases / Flame Chart；階段驗收用個人 Fork GitHub Pages 在 LINE / IG `WKWebView` 實測。
-  - **本機狀態**：目前 Sandbox 無網路與 `node_modules/`，若本機無 `node_modules` 需先在有依賴的環境執行 `npm ci && npm run ci`。
-- **下一棒確切待辦（Next Actionable Step）**：
-  1. 待本分支 `docs/perf-refactor-plan` 合入上游 `main` 後，將 iPhone 17 Pro Max 透過 USB 接上 Mac Safari Web Inspector，依 **[Phase 0 規格書](specs/phase-0-baseline-and-flags.md)** 實測記錄現況的 Memory 峰值、Canvases 總數/MB 與 `Game.init()` Flame Chart 基準數據，並完成 `chore/perf-flags-and-metrics` 小 PR。
-  2. 接著進入 **[Phase 1 規格書](specs/phase-1-ios-memory-rescue.md)** 實作 GPU 上傳後釋放 Canvas、圖集降維與延遲載入，先在 iPhone 17 Pro Max Safari / LINE / IG 打通秒開不閃退。
+  1. 確立保留 Vite + Three.js + 雙 WASM 單一程式碼庫、排除 UI/UX 與主線第五章改動。
+  2. 建立 `perf-refactor/` 目錄與 `AGENT.md` 過渡期公告。

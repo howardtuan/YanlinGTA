@@ -220,8 +220,10 @@ export class GameLoop {
       game.prompts?.tick();
     }
     if (game.state === 'title') this.titleCam(dt);
-    else if (game.state === 'play') game._update(dt);
-    else if (game.state === 'ending') {
+    else if (game.state === 'play') {
+      game._update(dt);
+      game.bootDiag?.tickHealthy(dt);
+    } else if (game.state === 'ending') {
       game.rig.yaw += dt * 0.1;
       game.rig.update(dt, { mdx: 0, mdy: 0 }, game.player, game.world.collision, 1, game.interiors);
     }

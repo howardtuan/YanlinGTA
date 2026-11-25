@@ -1,0 +1,229 @@
+{
+  "meta": {
+    "engine": "chrome",
+    "mobile": false,
+    "browser": "Chrome/158.0.8127.38",
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+    "tier": "desktop-igpu",
+    "quality": "medium",
+    "safeMode": false,
+    "viewport": "1280x720",
+    "uncapped": true,
+    "frameTimeReliable": true,
+    "seed": 1337,
+    "sampleSec": 4,
+    "date": "2026-11-25T04:52:40.228Z",
+    "commit": "3282a83",
+    "branch": "chore/perf-flags-and-metrics",
+    "runs": 3,
+    "env": {
+      "os": "Darwin 27.2.0 (darwin/arm64)",
+      "cpu": "Apple M1 Pro",
+      "cores": 8,
+      "ramGB": 16,
+      "node": "v24.21.0"
+    }
+  },
+  "boot": {
+    "toTitleMs": 11562,
+    "bootDiagMs": 10139,
+    "resourceCount": 32,
+    "transferKB": 11645,
+    "toTitleRange": [11253, 11598]
+  },
+  "memory": {
+    "canvasMB": 1835.83,
+    "canvasCount": 3137,
+    "canvasInDom": 3,
+    "textureEstMB": 1754.04,
+    "textureCount": 768,
+    "jsHeapMB": 617.2,
+    "domNodes": 490,
+    "topCanvasSizes": [
+      {
+        "size": "2048x4096",
+        "count": 28,
+        "mb": 896
+      },
+      {
+        "size": "2048x2048",
+        "count": 5,
+        "mb": 80
+      },
+      {
+        "size": "1024x1024",
+        "count": 17,
+        "mb": 68
+      },
+      {
+        "size": "256x192",
+        "count": 334,
+        "mb": 62.63
+      },
+      {
+        "size": "1024x1280",
+        "count": 9,
+        "mb": 45
+      },
+      {
+        "size": "1024x192",
+        "count": 43,
+        "mb": 32.25
+      },
+      {
+        "size": "512x512",
+        "count": 25,
+        "mb": 25
+      },
+      {
+        "size": "256x256",
+        "count": 85,
+        "mb": 21.25
+      },
+      {
+        "size": "2366x2132",
+        "count": 1,
+        "mb": 19.24
+      },
+      {
+        "size": "128x128",
+        "count": 227,
+        "mb": 14.19
+      }
+    ]
+  },
+  "spots": [
+    {
+      "name": "title-orbit",
+      "frame": {
+        "fps": 76.6,
+        "p50": 13,
+        "p95": 14.5,
+        "p99": 15.6,
+        "max": 30.2,
+        "stalls50": 0,
+        "p95Range": [14.2, 14.6]
+      },
+      "cpu": {
+        "renderMean": 12.09,
+        "updateMean": null
+      },
+      "render": {
+        "calls": 2157,
+        "triangles": 4985257,
+        "textures": 532,
+        "geometries": 2467
+      }
+    },
+    {
+      "name": "鐘塔",
+      "frame": {
+        "fps": 93.6,
+        "p50": 10.7,
+        "p95": 11.6,
+        "p99": 12.7,
+        "max": 13.4,
+        "stalls50": 0,
+        "p95Range": [11.5, 11.9]
+      },
+      "cpu": {
+        "renderMean": 7.49,
+        "updateMean": 0.82
+      },
+      "render": {
+        "calls": 1044,
+        "triangles": 3910493,
+        "textures": 723,
+        "geometries": 3076
+      }
+    },
+    {
+      "name": "張靜愚紀念圖書館",
+      "frame": {
+        "fps": 81.7,
+        "p50": 12.2,
+        "p95": 13.2,
+        "p99": 14,
+        "max": 14.6,
+        "stalls50": 0,
+        "p95Range": [13.1, 13.6]
+      },
+      "cpu": {
+        "renderMean": 9.25,
+        "updateMean": 0.7
+      },
+      "render": {
+        "calls": 1433,
+        "triangles": 4129663,
+        "textures": 730,
+        "geometries": 3082
+      }
+    },
+    {
+      "name": "學生活動中心",
+      "frame": {
+        "fps": 78,
+        "p50": 12.8,
+        "p95": 13.7,
+        "p99": 14.5,
+        "max": 15.5,
+        "stalls50": 0,
+        "p95Range": [13.6, 14.2]
+      },
+      "cpu": {
+        "renderMean": 9.85,
+        "updateMean": 0.73
+      },
+      "render": {
+        "calls": 1630,
+        "triangles": 4262253,
+        "textures": 732,
+        "geometries": 3082
+      }
+    },
+    {
+      "name": "中原大學體育館",
+      "frame": {
+        "fps": 104.8,
+        "p50": 9.5,
+        "p95": 10.3,
+        "p99": 10.8,
+        "max": 12.1,
+        "stalls50": 0,
+        "p95Range": [10.1, 10.8]
+      },
+      "cpu": {
+        "renderMean": 6.57,
+        "updateMean": 0.64
+      },
+      "render": {
+        "calls": 784,
+        "triangles": 3515897,
+        "textures": 737,
+        "geometries": 3086
+      }
+    },
+    {
+      "name": "真知教學大樓",
+      "frame": {
+        "fps": 91.3,
+        "p50": 10.9,
+        "p95": 11.8,
+        "p99": 12.4,
+        "max": 13.9,
+        "stalls50": 0,
+        "p95Range": [11.8, 13.7]
+      },
+      "cpu": {
+        "renderMean": 7.86,
+        "updateMean": 0.77
+      },
+      "render": {
+        "calls": 1075,
+        "triangles": 4017233,
+        "textures": 741,
+        "geometries": 3136
+      }
+    }
+  ]
+}

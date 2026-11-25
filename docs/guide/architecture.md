@@ -170,23 +170,7 @@ sequenceDiagram
   - 開發者：再加 邏輯／物理／繪製 各自耗時、`renderer.info.memory` 紋理與幾何數、著色器數、車流／行人／NPC 數量、剛體與碰撞體、畫質與效能檔位、WASM、解析度×像素比、玩家座標與所在區域、GPU 名稱。
 - `GameLoop.loop()` 只在開啟時呼叫 `frameStart` / `renderStart` / `frameEnd`；文字每 0.5 秒更新一次。關閉時不做任何量測。效能重構要加的新數據（例如串流區塊數）請加在 `PerfHud._draw()` 的開發者層級。
 
-### 4. 載入進度與開機追蹤 (`src/core/BootTrace.js`，網址 `?boottrace`)
-- **載入畫面的文字**：`buildWorld()`、`buildInteriors()` 都是一口氣跑完的同步程式，跑的期間瀏覽器不會重畫。`Game.init()` 一律先 `setLoad()` 再 `await nextFrame()`（等畫面真的畫完才繼續），所以畫面上的「搭建中原大學 8%」「蓋資管系館… 78%」就是當下正在跑的那一大段；同一段裡面的細分進度不會出現在畫面上。
-- **開機追蹤**：網址帶 `?boottrace` 時，載入流程每走一步（`buildWorld` 內各段、`buildInteriors` 內每個 zone、物理、NPC、著色器編譯、載入完成後的前幾幀、按下開始遊戲）都會用 `sendBeacon` 回報給 Vite 開發伺服器（`vite.config.js` 的 `bootTracePlugin`，路徑 `/__boot`），印在跑 `npm run dev` 的終端機，並附加到系統暫存資料夾的 `yanlin-boot-trace.jsonl`。每筆含：距開頁毫秒數、存活中 `<canvas>` 的張數與像素記憶體（MB）、JS heap（僅 Chromium）；另外記錄錯誤、`getContext` 回傳 null、WebGL context 遺失。
-  - 用途：手機（iPhone Safari／LINE／IG）載入到一半被系統殺掉並自動重整時，終端機裡仍留著前一次的最後一步，可以知道是死在哪一段。
-  - 用法：Mac 跑 `npm run dev`，手機連同一個 Wi-Fi，開 `http://<Mac 的區網 IP>:5173/?boottrace`。
-  - 沒帶參數時 `mark()` 是空函式，也不攔截 `document.createElement`；正式版（GitHub Pages）沒有 `/__boot`，不要在那裡開。新增載入步驟時，在 `Game.init()` 補一行 `trace.mark('...')` 即可。
-
-### 5. 載入期的記憶體與速度（手機能不能打開的關鍵）
-- **畫布貼圖**（`src/world/Kit.js`）：`Game.init()` 建好 renderer 後立刻呼叫 `configureTextures()`。
-  - **街屋招牌圖集**（`finishRow` / `packAtlas`）：每條街的圖集一畫完就用 `renderer.initTexture()` 上傳 GPU，然後把畫布縮成 1×1。每蓋完一個 zone（`buildZones` 的 `afterZone`）就呼叫 `releaseAtlasSources()`，把「已複製進圖集、場景裡沒有別人在用」的子畫布縮掉並從 `TEX` 快取移除；之後有人再要同一個 key 會重畫一張（畫法沒有亂數，畫出來一模一樣），所以畫布不會越蓋越多。
-  - **手機**（`PerfProfile` 的 `mobile-lite`，或網址 `?texscale=`）：`ctex()` 的畫布和圖集都以 `texScale`（0.5）倍存放，畫圖程式仍照原尺寸畫（context 先縮放），畫布與 GPU 記憶體剩四分之一，招牌稍微軟一點。圖集照「原本畫的尺寸」排版（`lw` / `lh`），所以不會被縮兩次。桌機一律 1 倍，畫面與改動前逐像素相同（只差每次載入本來就不同的雲）。
-  - 畫布高峰（`?boottrace`）：桌機 1.96 GB → 0.46 GB；手機設定 1.83 GB → 0.32 GB。
-  - 圖集的畫布已經縮掉，WebGL context 被還原時畫不回來，所以 `webglcontextrestored` 會直接重新整理頁面（離開前會自動存檔）。
-  - 動態貼圖（螢幕、門牌、KVS 等之後還會重畫的 canvas）不在圖集裡，不受影響；新增會重畫的貼圖時，不要讓它走 `finishRow` 的圖集。
-- **保留區判斷**（`src/physics/Collision.js` 的 `inAnyPoly`）：路燈、牆、樹、灌木擺放時要檢查有沒有壓到約 1,400 個保留區多邊形，原本每個點都把全部多邊形算一遍（桌機 3 秒、iPhone 約 45 秒）。現在用 32 m 格子索引只算附近的，答案與 `polys.some(pointInPoly)` 完全相同（有單元測試保證），地圖擺設一棵樹都不會變。
-
-### 6. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
+### 4. 滑鼠鎖定與 Esc 暫停 (Pointer Lock)
 - 遊玩中失去滑鼠鎖定（`pointerlockchange`）會被當成玩家按了 Esc 而打開暫停選單（`MenuManager.js`）。
 - 任何「自己放開滑鼠」的畫面（成績單、商店、電腦、手機、麻將……）必須讓 `Game.mouseOwnedByUI()` 回傳 true（`g.modal()` 會自動設 `_modalOpen`；其他畫面請加進該清單或設 `g._overlay`），否則一放開滑鼠就會誤跳暫停選單。例：障礙賽成績單（`race.state === 'results'`）。
 

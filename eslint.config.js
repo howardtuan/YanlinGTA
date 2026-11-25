@@ -62,6 +62,7 @@ export default [
       'tools/e2e/serve.mjs',
       'tools/e2e/story-bot.mjs',
       'tools/e2e/cdp.mjs',
+      'tools/perf/*.mjs',
       'tools/floorplan/**/*.mjs',
     ],
     languageOptions: {
@@ -80,6 +81,18 @@ export default [
         __e2e: 'writable', // page-init.js 掛的 window.__e2e
         __e2eSend: 'readonly', // story-bot.mjs 用 Runtime.addBinding 加的回傳通道
         __E2E_CFG__: 'readonly', // 佔位字串，story-bot.mjs 注入前換成 JSON 設定
+      },
+    },
+  },
+  {
+    // 效能量測腳本注入遊戲頁面：一般 script，__BENCH_CFG__ 由 profile_scene.mjs 換成 JSON
+    files: ['tools/perf/page-hook.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        __BENCH_CFG__: 'readonly',
+        __bench: 'writable',
       },
     },
   },

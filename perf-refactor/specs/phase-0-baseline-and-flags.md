@@ -1,76 +1,90 @@
-# Phase 0 規格書：Mac Web Inspector 基準量測與極簡實驗旗標 (`phase-0-baseline-and-flags.md`)
+# Phase 0 規格書：可觀測基準、啟動檢查點與實驗旗標 (`phase-0-baseline-and-flags.md`)
 
-## 一、 階段目的與精簡原則（Why）
-開發團隊具備 **Mac ＋ iPhone 17 Pro Max（USB 連接 Safari Web Inspector）**，因此**不需要在遊戲程式碼內重造肥大的自製除錯畫面**：
-- ❌ **不做**螢幕頂端自製 Crash Banner DOM
-- ❌ **不做** `HTMLCanvasElement.prototype.getContext` 全域猴子補丁（Monkey Patch）與手寫像素估算
-- ❌ **不改動**載入畫面 UI 與 `#loadText`
+## 一、 階段目的（Why）
+原版 Phase 0 假設「完全依賴 Mac USB Safari Web Inspector 即可抓出 iPhone 崩潰點，不需動到載入畫面與診斷紀錄」。但 2026-11-24 實機測試直接推翻此假設：iPhone 17 Pro Max 持續卡在「載入地圖資料 · 2%」並觸發頁面自動重整循環，**導致 Web Inspector 根本無法掛載，所有指標空白**；同時也揭露 [Game.js](../../src/core/Game.js#L308-L337) 存在 `await nextFrame()` 放在 `setLoad(0.08)` 之前的時序 Bug，造成整個 8,286 行 `buildWorld()` 阻塞期間畫面永遠凍結在 `2%`。
 
-本階段專注兩件事：**建立 Mac Safari Web Inspector 的標準量測基準 SOP**，以及在程式碼中加入極精簡（總計 `< 40` 行）的**URL 實驗參數解析器**與 **`?perf` 記憶體行**，供後續 A/B 對照與第三方 `WKWebView`（LINE/IG）無接線驗收使用。
-
----
-
-## 二、 Mac Safari Web Inspector 標準基準量測 SOP
-
-每次優化前後，皆於 Mac 執行 `npm run dev`（或連個人 Fork Pages），將 iPhone 17 Pro Max 透過 USB 連接 Mac，開啟 **Mac Safari → 開發 (Develop) → iPhone → 該網頁** 進行以下 4 項標準採樣並回填 [agent-handoff-log.md](../agent-handoff-log.md)：
-
-1. **Graphics → Canvases**：
-   - 記錄載入完成進入標題頁時（或崩潰前最後一刻）的存活 `<canvas>` 總數量、最大單張尺寸（應會看到 `2048×4096` 與多張 `1024×1024`）以及 WebKit 回報的總 Canvas 記憶體。
-2. **Timelines → Memory**：
-   - 開啟錄製後重新整理頁面，記錄 `Page` / `Layers` / `Images` / `JavaScript` 各分類峰值 MB 與 Jetsam 重整發生的臨界水位。
-3. **Timelines → JavaScript & Events**：
-   - 錄製 `Game.init()` 火焰圖，拆解並記錄 `buildWorld`、`buildInteriors`、`Textures`、`buildPhysicsWorld`、`compileAsync` 各自真實 CPU 耗時（ms）。
-4. **Console**：
-   - 檢查是否出現 `"Total canvas memory use exceeds the maximum limit"`、`WebGL: CONTEXT_LOST_WEBGL` 或任何未捕捉錯誤。
+因此本階段聚焦於建立**「無盲區、免插手機線、跨平台（Linux / Mac / iPhone WebView）」的可觀測基準與自癒安全網**：
+1. 修復 `Game.js` 載入階段的讓幀順序（先更新 DOM ＋ 檢查點，再 `await nextFrame()`）。
+2. 加入極輕量 `BootDiag.js` 持久化檢查點與 **玩家端自動降階自癒（`safeMode`）**：支援 `?diag=1` / `?diag=halt` 斷路器讓開發者看清崩潰階段，同時在**一般玩家不帶任何參數**遇到連續 2 次閃退或 `webglcontextlost` 時，自動進入低記憶體安全模式（`low` + `texScale <= 0.375` + `atlas <= 1024`），穩玩 180 秒後自動恢復。
+3. 建立單一職責的 `PerfProfile.js`（不重複定義 `QPROF` 視覺畫質欄位）。
+4. 擴充 `?perf` 記憶體行，並升級 `tools/profile_scene.mjs` 支援 `--mobile`（手機模擬）、`peakBackingStoreMB` / `liveBackingStoreMB` 雙指標、`--markdown` 自動抄表與 `--assert-ios-budget` 軟體記憶體門禁。
 
 ---
 
-## 三、 極簡程式碼規格（總改動 < 40 行）
+## 二、 程式碼規格
 
 | 檔案 | 變更性質 | 說明 |
 | :--- | :--- | :--- |
-| `src/core/PerfProfile.js` | **新增** | 純函式解析裝置等級與 URL 實驗參數，產出 `StreamingProfile`（供 Phase 1～3 共用）。 |
-| [src/core/GameLoop.js](../../src/core/GameLoop.js#L228-L231) | **微調** | 在既有 `?perf` 浮層文字末尾補上一行 `renderer.info.memory` 數據，方便在無法掛載 Web Inspector 的 LINE / IG `WKWebView` 內快速對照 GPU 物件數。 |
+| `src/core/PerfProfile.js` | **新增** | 純函式硬體分級偵測與 URL 實驗參數解析（`?tier=` / `?texscale=` / `?stream=` / `?diag=`），**不重複定義 `QPROF` 的 `shadowSize`、`maxDpr`、`postFx`**。 |
+| `src/core/BootDiag.js` | **新增** | `localStorage['yanlinGTA.bootDiag.v1']` 啟動檢查點記錄器；在 `?diag=1` 或 `?diag=halt` 下顯示前次崩潰階段與耗時，並具備防無限重整斷路器。 |
+| [src/core/Game.js](../../src/core/Game.js) | **修改** | 統一使用 `stage(key, pct, label)`（先 `setLoad` ＋ `bootDiag.checkpoint` 再 `await nextFrame()`），細分 `fetch-and-wasm (2%)` → `renderer-and-sky (5%)` → `build-world (8%)` → `build-interiors (78%)` → `build-physics (79%)` → `spawn-entities (82%)` → `init-npcs (95%)` → `compile-shaders (98%)` → `complete (100%)`。 |
+| [src/core/GameLoop.js](../../src/core/GameLoop.js#L228-L234) | **修改** | 在既有 `?perf` 浮層補上 `紋理 ${mem.textures}  幾何 ${mem.geometries}  檔位 ${tier}`，不帶 `?perf` 零開銷。 |
+| `tools/profile_scene.mjs` | **新增** | 複用 [tools/e2e/serve.mjs](../../tools/e2e/serve.mjs) 與 [tools/e2e/cdp.mjs](../../tools/e2e/cdp.mjs) 的零相依 Headless CDP 剖析腳本，統計存活 `<canvas>` 數與總 MB、`textures`、`geometries`、`calls`/`triangles` 與 `BootDiag` 各階段耗時。 |
 
-### 1. `src/core/PerfProfile.js` 規格
-輸出 `resolveRuntimeProfile(settings)`，支援透過 URL 覆寫參數在 iPhone Safari 一鍵切換做對照測試：
-- `?tier=mobile-lite | desktop-igpu | desktop-dgpu`（未指定時：觸控裝置預設 `mobile-lite`；桌面依 GPU 名稱區分 `desktop-igpu` / `desktop-dgpu`）
-- `?texscale=0.25 | 0.5 | 0.75 | 1`（控制 Phase 1 程序貼圖與圖集倍率）
-- `?stream=0 | 1`（Phase 2 全局動態串流功能開關）
+### 1. `src/core/PerfProfile.js` 規格（單一職責）
+輸出 `resolveRuntimeProfile(settings, env)`：
+- `TIERS` 僅定義與材質/圖集/串流預算相關之設定：
+  - `mobile-lite`：`{ tier: 'mobile-lite', texScale: 0.5, atlasMaxW: 1024, atlasMaxH: 2048, streaming: 'mobile' }`（向下相容 `?tier=mobile-ios` 別名）
+  - `desktop-igpu`：`{ tier: 'desktop-igpu', texScale: 0.75, atlasMaxW: 2048, atlasMaxH: 2048, streaming: 'balanced' }`
+  - `desktop-dgpu`：`{ tier: 'desktop-dgpu', texScale: 1, atlasMaxW: 2048, atlasMaxH: 4096, streaming: 'high' }`
+- `STREAMING_PROFILES`（`off` / `mobile` / `balanced` / `high`）：含 `streetEnter` / `streetExit` / `interiorEnter` / `interiorExit` / `maxActiveChunks` / `physTileRadius`。
+- URL 覆寫旗標：
+  - `?tier=mobile-lite | desktop-igpu | desktop-dgpu`
+  - `?texscale=0.25 .. 2`
+  - `?stream=0 | 1 | off | mobile | balanced | high`
+  - `?diag` / `?diag=1` / `?diag=halt` / `?diag=0`
+  - `?safemode=0 | 1`（強制開啟或略過自動低記憶體安全模式）
 
-### 2. `?perf` 浮層擴充一行 GPU Memory
-在 [src/core/GameLoop.js](../../src/core/GameLoop.js#L230) 既有 `el.textContent` 最後補上：
-```js
-\n紋理 ${r.info.memory.textures}  幾何 ${r.info.memory.geometries}
-```
-（待 Phase 2 加入 `WorldStreamer` 後再補上 `串流 ${active}/${total}`）。不帶 `?perf` 開啟遊戲時 0 額外執行成本。
+### 2. `src/core/BootDiag.js` 規格（不觸犯 `dom-ids.test.js` 與 `import-graph.test.js`）
+- 嚴禁引入 `systems/` 或 `ui/` 模組；嚴禁使用 `document.getElementById()` 或 `$()` 查詢新 ID（需建立浮層時直接用 `doc.createElement('div')` 掛載於 `doc.body`）。
+- 每次 `begin()` 若發現前次 `current.completed === false`，將其升格為 `lastCrash` 並累加 `crashCount`：
+  - **開發者斷路器（需 `?diag=1` / `?diag=halt`）**：當 `diagMode === 'halt'` 且有 `lastCrash`，或 `diagMode === 'on'` 且 `crashCount >= 2` 時暫停執行並顯示 `[▶ 繼續單次載入]` 按鈕，打破重整死循環。
+  - **一般玩家自動自癒（無須任何 URL 參數）**：當 `crashCount >= 2` 或偵測過 `webglcontextlost`（透過 `attachCanvas(canvas)` 監聽）時自動啟用 `safeMode = true`，強制將 `quality` 降為 `'low'` 並呼叫 `applySafeMode(perfProfile)` 把 `texScale` 鎖至 `<= 0.375`、`atlasMaxW/H` 鎖至 `1024`；進入遊戲後於 `GameLoop` 呼叫 `tickHealthy(dt)` 累計穩定遊玩達 `180 秒` 即自動清除 `safeMode` 與 `crashCount`。
+
+---
+
+## 三、 免插線自動化量測 SOP（Tier 1 ＋ Tier 2 ＋ 里程碑 Tier 3）
+
+1. **Tier 1：本機免插線手機模擬 ＋ 自動抄表 ＋ 記憶體門禁（任何 Linux / Mac 本機終端機）**：
+   ```bash
+   npm run build
+   npm run profile:mobile
+   # 加上記憶體預算閘門（Phase 1 起啟用驗收）：
+   node tools/profile_scene.mjs --mobile --play --markdown --assert-ios-budget
+   ```
+   透過攔截 `HTMLCanvasElement.prototype` 的 `getContext` 與 `width`/`height` setter，自動量測 **`peakBackingStoreMB`（啟動尖峰）** 與 **`liveBackingStoreMB`（進場殘留）**、平均 FPS、Draw Calls、Triangles、Textures、Geometries 與 `BootDiag` 各階段耗時，並可直接輸出 Markdown 表格。
+   > **環境備註**：本機 Linux 若於 AI 受限沙盒內執行，`google-chrome` 指向之 `/opt/google/chrome/google-chrome` 未掛載，會以 `--if-available` 跳過；請於一般本機終端機執行上述指令。
+2. **Tier 2：Mac 免插線 Apple WebKit / Metal 回歸（Playwright `webkit` / `xcrun simctl` Simulator）**：
+   - 免插手機線即可在 Mac 上跑真實 WebKit + Metal GLSL 編譯與 JS 行為驗證（因無實體 iOS Jetsam，記憶體上限仍由 Tier 1 `--assert-ios-budget` 精準把關）。
+3. **Tier 3：里程碑無線真機驗收（LINE / IG `WKWebView` ＋ `?perf&diag=1`）**：
+   - Phase 1 / Phase 3 里程碑時於 iPhone 無線開啟 Fork GitHub Pages（或區網 `http://<LAN-IP>:5173/?perf&diag=1`）連玩 10 分鐘，確認零閃退。
 
 ---
 
 ## 四、 PR 切分與驗收標準
 
-- **建議分支**：`chore/perf-flags-and-metrics`
+- **工作分支**：`chore/perf-flags-and-metrics`（✅ 程式碼與單元測試已對齊本規格完成，待實機補測 `?diag=1` 鎖定 iPhone 崩潰檢查點後合併）
 - **驗收清單**：
-  1. `npm run ci` 全綠通過（確認 [import-graph.test.js](../../tests/unit/import-graph.test.js) 與 [dom-ids.test.js](../../tests/unit/dom-ids.test.js) 無違規）。
-  2. Mac Safari Web Inspector 成功對現況（未優化基線）錄得第一份真實數據（Canvas 數、記憶體峰值、失敗點 Console 訊息），並寫入 [agent-handoff-log.md](../agent-handoff-log.md)。
+  1. `npm run ci` 全綠（含 `perf-profile.test.js`、`boot-diag.test.js`、`import-graph.test.js`、`dom-ids.test.js`）。
+  2. `Game.js` 載入進度條可逐階段繪出 `2% → 5% → 8% → 78% → 79% → 82% → 95% → 98% → 100%`。
+  3. 回填最新實測數據至 [agent-handoff-log.md](../agent-handoff-log.md)。
 
 ---
 
-## 五、 Phase 0 實機基準數據紀錄（2026-11-24）
+## 五、 Phase 0 實機基準數據紀錄（2026-11-24 初版基線）
 
-- **量測分支 / Commit**：`chore/perf-flags-and-metrics` (`9daa340`)
+- **量測條件**：`chore/perf-flags-and-metrics` (`9daa340`，尚未套用 `stage()` 讓幀修復與 `BootDiag` 檢查點）
 - **測試網址**：Mac 本機 `http://localhost:5173/?perf`；iPhone 區網 `http://172.20.10.2:5173/?perf`
 
 ### 1. iPhone 17 Pro Max（iOS Safari）
 - **載入結果**：❌ **失敗（穩定重整循環，無法開啟）**
-- **現象**：持續卡在載入頁面的 **「載入地圖資料 2%」**，停滯一段時間後觸發 WebKit 頁面自動重整，始終無法進入標題頁或顯示 `?perf`。
-- **Web Inspector 狀態**：因 iPhone 無法掛載 Mac Safari Web Inspector 遠端偵錯且於 2% 即觸發重整循環，Console / Canvases / Timelines Memory / Call Trees 均標記為未取得。
-- **關鍵線索（對齊 `Game.js#L124-L311`）**：`setLoad(0.02, '載入地圖資料')` 到下一個 `setLoad(0.08, '搭建中原大學')` 之間包含 `cycu.json` / `terrain.json` 下載解析、`initKernels()`、`physics.init()`（Rapier WASM 3.08 MB）、`zonesFix/Add/Terrain`、`WebGLRenderer` 與 `PostFX` 初始化；Phase 1 需同步排查此區間記憶體與同步阻塞熱點，以及後續 `buildWorld` / `Textures` 的 Canvas 釋放。
+- **現象**：畫面停在「載入地圖資料 · 2%」後觸發 WebKit 自動重整循環，未能掛載 Web Inspector。
+- **補充診斷**：經核對 `Game.js#L308-L337` 確認原版在 `setLoad(0.08, '搭建中原大學')` 與 `buildWorld()` 之間未曾讓幀，因此「停在 2%」實際上涵蓋了 `fetch/WASM`、`WebGLRenderer/SkySystem` 直到整段 `buildWorld()` 同步建置區間；合入新版 `BootDiag` + `stage()` 修復後，Phase 1 開工時可於 10 秒內精準鎖定真正的死因階段。
 
 ### 2. MacBook Pro Apple M1 Pro（`desktop-igpu` 對照組）
-- **環境**：macOS `27.2.1` (Build `26B131`)｜GPU：`Apple, ANGLE Metal Renderer: Apple M1 Pro`｜畫質：`medium`｜WASM：`開`｜Console 全程無錯誤。
+- **環境**：macOS `27.2.1`｜GPU：`Apple, ANGLE Metal Renderer: Apple M1 Pro`｜畫質：`medium`｜WASM：`開`｜Console 全程無錯誤。
 
-| 場景階段 | FPS / Frame Time | Draw Calls | 三角形 | 物理碰撞體 | 紋理 (`textures`) | 幾何 (`geometries`) | 檔位 (`tier`) |
+| 場景階段 | FPS / Frame Time | Draw Calls (多 Pass 累計) | 三角形 | 物理碰撞體 | 紋理 (`textures`) | 幾何 (`geometries`) | 檔位 (`tier`) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **標題頁（載入 100% 穩定）** | `65 fps` / `15.3 ms` | `1,763`（峰值 `1,774`） | `4,590k`（峰值 `4,638k`） | `0 剛體 2,557 碰撞體` | `432`（峰值 `434`） | `1,963`（峰值 `1,976`） | `desktop-igpu` |
 | **進校園初期（開場對話開啟中）** | `60 fps` / `16.6 ms` | `1,744` | `4,287k` | `1 剛體 2,558 碰撞體` | `653` | `2,724` | `desktop-igpu` |

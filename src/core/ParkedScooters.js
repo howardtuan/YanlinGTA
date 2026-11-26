@@ -12,7 +12,13 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { sameLevel, getParkedCarAssets, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
-import { vehicleSpec, solveVehicleImpact, solvePersonImpact } from '../physics/ImpactPhysics.js';
+import {
+  vehicleSpec,
+  solveVehicleImpact,
+  solvePersonImpact,
+  RESTITUTION,
+  GRAVITY,
+} from '../physics/ImpactPhysics.js';
 
 const CELL = 10;
 const CHUNK = 120;
@@ -33,6 +39,15 @@ const _S = new THREE.Vector3(1, 1, 1);
 const _ZERO_S = new THREE.Vector3(0, 0, 0);
 const _C = new THREE.Color();
 const _F = new THREE.Vector3();
+const _U = new THREE.Vector3();
+const _Rq = new THREE.Quaternion();
+// height of the collision box centre in the body's own frame (ImpactPhysics VEHICLE_PHYS shape, Physics._shape)
+const boxCy = (spec) => spec.shape.cy ?? spec.shape.hy;
+// a parked scooter balances on its stand leaning ~8°; one tipped over by a neighbour leaning on it starts
+// toppling at TIP_W rad/s with its base barely moving (TIP_V m/s), gravity doing the rest
+const STAND_LEAN = 0.14,
+  TIP_W = 0.9,
+  TIP_V = 0.1;
 
 function closestOnSeg(px, pz, ax, az, bx, bz) {
   const dx = bx - ax,
@@ -389,6 +404,17 @@ export class ParkedScooters {
     }
   }
 
+  // a knocked slot coming to rest with its body origin at p, rotation q: the slot is indexed (collision, foot
+  // blocking, stand-in, F to ride) at the centre of its collision box, which for a scooter on its side is 0.44 m
+  // beside the origin on the ground contact line; the mesh is still drawn from the origin (slot.ox / oz)
+  _settleAt(slot, p, q) {
+    _U.set(0, boxCy(vehicleSpec(slot.kind)), 0).applyQuaternion(q);
+    slot.ox = -_U.x;
+    slot.oz = -_U.z;
+    this._indexMove(slot, p.x + _U.x, p.z + _U.z);
+    this._writeSlotPose(slot, p.x, p.y, p.z, q);
+  }
+
   _writeSlotPose(slot, x, y, z, quat) {
     const [paintIm, trimIm] = this._pairFor(slot);
     if (!paintIm) return;
@@ -484,16 +510,19 @@ export class ParkedScooters {
       for (let i = 0; i < Math.min(24, nearScooters.length); i++) {
         const s = nearScooters[i][1];
         this._moverSlots.add(s);
+        // upright: 0.68 m wide, 0.84 m tall; on its side (centred on its box, see _settleAt): the 0.88 m height
+        // lies across the ground and the 0.24 m width stands up
+        const flat = s.state === 'fallen';
         list.push({
           key: s.physKey,
           x: s.x,
           y: s.y,
           z: s.z,
           yaw: s.yaw,
-          r: s.hw,
+          r: flat ? 0.44 : s.hw,
           hl: s.hl,
-          cy: 0.45,
-          hh: 0.42,
+          cy: flat ? 0.13 : 0.45,
+          hh: flat ? 0.12 : 0.42,
         });
       }
     }
@@ -557,6 +586,7 @@ export class ParkedScooters {
     if (!slot || (slot.state !== 'static' && slot.state !== 'fallen')) return false;
     const g = this.game;
     const isCar = slot.kind === 'car';
+    const wasFallen = slot.state === 'fallen';
     slot.state = 'flying';
     this._moverSlots.delete(slot);
     g.physics?.dropMover?.(slot.physKey);
@@ -580,7 +610,11 @@ export class ParkedScooters {
       const lat = dx * sfz - dz * sfx;
       const tipSign = Math.abs(lat) > 0.15 ? -Math.sign(lat) : slot.tilt >= 0 ? 1 : -1;
       // Nudge 4 cm clear along push vector; lean upright scooter past ~15° stand balance point so gravity tips it cleanly onto its side
-      mesh.position.set(slot.x + dx * 0.04, slot.y + 0.02, slot.z + dz * 0.04);
+      mesh.position.set(
+        slot.x + (slot.ox || 0) + dx * 0.04,
+        slot.y + 0.02,
+        slot.z + (slot.oz || 0) + dz * 0.04
+      );
       if (slot.quat) {
         mesh.quaternion.copy(slot.quat);
       } else {
@@ -592,7 +626,7 @@ export class ParkedScooters {
       g.scene?.add(mesh);
 
       const rollMag = opt?.rollSpeed ?? (isCar ? 0 : Math.max(3.6, Math.min(6.5, 3.0 + dv * 0.55)));
-      const rollSp = isCar ? 0 : rollMag * tipSign;
+      const rollSp = isCar || wasFallen ? 0 : rollMag * tipSign; // already on its side: just slides
       const yawSpin = isCar
         ? (slot.idx % 2 ? 0.28 : -0.28) * Math.min(3.0, dv * 0.45)
         : (slot.idx % 2 ? 0.22 : -0.22) * Math.min(4.0, dv * 0.6);
@@ -627,8 +661,7 @@ export class ParkedScooters {
           slot.quat = q.clone();
           _F.set(0, 0, 1).applyQuaternion(q);
           slot.yaw = Math.atan2(_F.x, _F.z);
-          this._indexMove(slot, p.x, p.z);
-          this._writeSlotPose(slot, p.x, p.y, p.z, q);
+          this._settleAt(slot, p, q);
         },
         rec,
         physOpt
@@ -652,8 +685,7 @@ export class ParkedScooters {
     slot.state = 'fallen';
     slot.y = ny + (isCar ? 0 : 0.14);
     slot.quat = _Q.clone();
-    this._indexMove(slot, nx, nz);
-    this._writeSlotPose(slot, nx, slot.y, nz, _Q);
+    this._settleAt(slot, { x: nx, y: slot.y, z: nz }, _Q);
     return true;
   }
 
@@ -816,6 +848,97 @@ export class ParkedScooters {
     }
   }
 
+  // see update(): rec is a knocked slot flying in Rapier, spec1 its VEHICLE_PHYS
+  _dominoFrom(rec, spec1) {
+    const b = rec.body,
+      q = b.rotation(),
+      lv = b.linvel(),
+      aw = b.angvel();
+    _Rq.set(q.x, q.y, q.z, q.w);
+    const cy1 = boxCy(spec1);
+    // r: from the box centre (centre of mass) to its top, where a tipping scooter meets its neighbour
+    _U.set(0, 1, 0).applyQuaternion(_Rq);
+    const ux = _U.x,
+      uy = _U.y,
+      uz = _U.z;
+    const cx = rec.x + ux * cy1,
+      cz = rec.z + uz * cy1;
+    _F.set(0, 0, 1).applyQuaternion(_Rq);
+    const yaw1 = Math.atan2(_F.x, _F.z);
+    const tilt = Math.hypot(ux, uz); // sin of the lean
+    const hw1 = Math.max(rec.slot.hw, spec1.shape.hy * tilt);
+    const seg1 = capsuleSeg(cx, cz, yaw1, rec.slot.hl, hw1);
+    const rx = ux * cy1,
+      ry = uy * cy1,
+      rz = uz * cy1;
+    const vcx = lv.x + (aw.y * rz - aw.z * ry),
+      vcz = lv.z + (aw.x * ry - aw.y * rx);
+    if (Math.hypot(vcx, vcz) < 0.3) return;
+    const m1 = spec1.mass,
+      I1 = spec1.iRoll > 0 ? spec1.iRoll : Infinity;
+    this._near(cx, cz, rec.slot.hl + CAR_HL + 1, (s) => {
+      if (s === rec.slot || (s.state !== 'static' && s.state !== 'fallen')) return;
+      if (Math.abs(s.y - rec.y) > 1.5) return;
+      const [pa, pb] = segSeg(seg1, capsuleSeg(s.x, s.z, s.yaw, s.hl, s.hw));
+      let nx = pb[0] - pa[0],
+        nz = pb[1] - pa[1];
+      const d = Math.hypot(nx, nz);
+      if (d >= hw1 + s.hw - 0.04) return; // not touching yet
+      if (d > 1e-4) {
+        nx /= d;
+        nz /= d;
+      } else {
+        const l = Math.hypot(vcx, vcz);
+        nx = vcx / l;
+        nz = vcz / l;
+      }
+      const vRel = vcx * nx + vcz * nz; // contact point closing on the neighbour
+      if (vRel <= 0) return;
+      const spec2 = vehicleSpec(s.kind),
+        m2 = spec2.mass;
+      // |r x n|^2 for horizontal n: (ry nz)^2 + (rz nx - rx nz)^2 + (ry nx)^2
+      const rxn2 = ry * ry + (rz * nx - rx * nz) ** 2;
+      const mEff = 1 / (1 / m1 + rxn2 / I1);
+      const physOpt2 = {
+        linDamp: spec2.linDamp,
+        angDamp: spec2.angDamp,
+        friction: spec2.muKinetic,
+        restitution: spec2.restitution,
+      };
+      let J = (1 + RESTITUTION) * ((mEff * m2) / (mEff + m2)) * vRel;
+      const hold = spec2.muStatic * m2 * GRAVITY * Math.max(spec1.dtImpact, spec2.dtImpact);
+      const net = Math.max(0, J - hold);
+      let dv2 = net / m2,
+        roll2 = s.kind === 'scooter' ? Math.min(6.5, (net * spec2.hCm) / spec2.iRoll) : 0;
+      if (dv2 < spec2.minMoveV) {
+        // too soft a blow to shove it off its stand. A scooter leaning on a parked scooter still tips it,
+        // though: its weight keeps pressing (torque m1 g hCm1 sin lean about its tyres) while the neighbour
+        // only balances on its stand (m2 g hCm2 sin STAND_LEAN). It starts toppling slowly (TIP_W), the
+        // energy coming from the falling one, which gets the reaction J = I2 TIP_W / (contact height).
+        if (s.kind !== 'scooter' || s.state !== 'static' || !(spec1.iRoll > 0)) return;
+        if (m1 * spec1.hCm * tilt <= m2 * spec2.hCm * Math.sin(STAND_LEAN)) return;
+        const hc = Math.max(0.3, 2 * cy1 * uy);
+        J = (spec2.iRoll * TIP_W) / hc;
+        dv2 = TIP_V;
+        roll2 = TIP_W;
+      }
+      const opt = { rollSpeed: roll2, shape2: spec2.shape, physOpt2 };
+      if (!this.knockSlot(s, nx * dv2, nz * dv2, dv2, opt)) return;
+      // equal and opposite impulse -n * J at r: linear J / m1, angular r x (-n J) / I1
+      const lv2 = b.linvel(),
+        aw2 = b.angvel(),
+        k = J / I1;
+      b.setLinvel({ x: lv2.x - (nx * J) / m1, y: lv2.y, z: lv2.z - (nz * J) / m1 }, true);
+      if (Number.isFinite(k) && k > 0)
+        b.setAngvel(
+          { x: aw2.x - ry * nz * k, y: aw2.y + (rx * nz - rz * nx) * k, z: aw2.z + ry * nx * k },
+          true
+        );
+      rec.vx -= (nx * J) / m1;
+      rec.vz -= (nz * J) / m1;
+    });
+  }
+
   update(dt) {
     if (!this.slots.length) return;
     if (this._scrapeCd > 0) this._scrapeCd -= dt;
@@ -907,47 +1030,14 @@ export class ParkedScooters {
           }
         }
 
-        // 2. Domino knock on neighboring static scooters
-        this._near(rec.x, rec.z, 1.4, (s) => {
-          if (s.state !== 'static' || s.kind === 'car') return;
-          const dx = s.x - rec.x,
-            dz = s.z - rec.z;
-          const d = Math.hypot(dx, dz);
-          if (d < 1.05 && Math.abs(s.y - rec.y) < 1.5) {
-            const nx = d > 1e-3 ? dx / d : vcx / spd;
-            const nz = d > 1e-3 ? dz / d : vcz / spd;
-            const vRel = vcx * nx + vcz * nz;
-            if (vRel <= 0) return;
-            const sol = solveVehicleImpact({
-              kind1: rec.slot.kind,
-              rider1: false,
-              kind2: 'scooter',
-              rider2: false,
-              parked2: true,
-              vRel,
-            });
-            if (sol.moves && this.knockSlot(s, nx * sol.dv2, nz * sol.dv2, sol.dv2, sol)) {
-              // Newton's 3rd Law: subtract exact equal-and-opposite normal impulse J/m1 along n (tangential conserved!)
-              if (rec.body) {
-                const lv = rec.body.linvel();
-                rec.body.setLinvel(
-                  { x: lv.x - nx * sol.dv1, y: lv.y, z: lv.z - nz * sol.dv1 },
-                  true
-                );
-                if (rec.body.angvel && spec1.iRoll > 0) {
-                  const aw = rec.body.angvel();
-                  const dw = Math.min(
-                    1,
-                    (sol.impulse * spec1.hCm) / (spec1.iRoll * Math.max(1, Math.hypot(aw.x, aw.z)))
-                  );
-                  rec.body.setAngvel({ x: aw.x * (1 - dw), y: aw.y, z: aw.z * (1 - dw) }, true);
-                }
-              }
-              rec.vx -= nx * sol.dv1;
-              rec.vz -= nz * sol.dv1;
-            }
-          }
-        });
+        // 2. Domino knock on neighbouring parked or fallen vehicles. Contact is geometric: the knocked body's
+        //    footprint (its collision box centre, which moves toward the neighbour as a scooter tips, and its
+        //    width growing as it lies down) must reach into the neighbour's capsule, so a chain runs at the
+        //    speed things really fall, not one scooter per frame. The impulse is a rigid-body one at the
+        //    contact point (r from the centre of mass): J = (1 + e) * mu_eff * vRel with
+        //    1/m_eff = 1/m1 + |r x n|^2 / I1, and the body gets back -J both in its linear (J/m1) and angular
+        //    (r x -nJ / I1) velocity (Newton's 3rd law), so momentum and energy are never created.
+        if (rec.body?.rotation) this._dominoFrom(rec, spec1);
       }
     }
   }

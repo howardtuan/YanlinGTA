@@ -53,7 +53,28 @@ function makeMockGame(opts = {}) {
       ready: opts.physicsReady ?? true,
       dropMover: vi.fn(),
       knock: vi.fn((mesh, shape, mass, vel, spin, onMove, onRest, key, opt) => {
-        const rec = { mesh, shape, mass, vel, spin, onMove, onRest, key, opt };
+        const q = mesh.quaternion;
+        const body = {
+          lv: { ...vel },
+          aw: spin ? { ...spin } : { x: 0, y: 0, z: 0 },
+          q: { x: q.x, y: q.y, z: q.z, w: q.w },
+          rotation() {
+            return this.q;
+          },
+          linvel() {
+            return this.lv;
+          },
+          angvel() {
+            return this.aw;
+          },
+          setLinvel(v) {
+            this.lv = { ...v };
+          },
+          setAngvel(w) {
+            this.aw = { ...w };
+          },
+        };
+        const rec = { mesh, shape, mass, vel, spin, onMove, onRest, key, opt, body };
         knocks.push(rec);
         return rec;
       }),
@@ -125,7 +146,11 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     const restQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.5, 1.4));
     knocks[0].onRest(restPos, restQuat);
     expect(s0.state).toBe('fallen');
-    expect(s0.x).toBeCloseTo(12.5, 3);
+    // indexed at its collision box centre (0.44 m up the body = beside the origin when lying on its side),
+    // drawn from the body origin
+    expect(s0.x + s0.ox).toBeCloseTo(12.5, 3);
+    expect(s0.z + s0.oz).toBeCloseTo(10.4, 3);
+    expect(Math.hypot(s0.ox, s0.oz)).toBeCloseTo(0.44 * Math.sin(1.4), 2);
     expect(game.scene.children.includes(knocks[0].mesh)).toBe(false);
   });
 
@@ -622,5 +647,96 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(knockedPeds[0].p).toBe(ped2);
     expect(knockedPeds[0].opt.dv).toBeGreaterThan(2.5);
     expect(game.audio.hitPed).toHaveBeenCalled();
+  });
+});
+
+describe('domino chain physics (contact geometry, rigid-body impulse, no free energy)', () => {
+  const tipQ = (roll) => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, roll, 'YXZ'));
+
+  it('a light hit gives the physical roll rate, no 3.4 rad/s floor', () => {
+    const sol = solveVehicleImpact({
+      kind1: 'scooter',
+      rider1: false,
+      kind2: 'scooter',
+      rider2: false,
+      parked2: true,
+      vRel: 2,
+    });
+    expect(sol.moves).toBe(true);
+    expect(sol.rollSpeed).toBeGreaterThan(0);
+    expect(sol.rollSpeed).toBeLessThan(3.4);
+    expect(sol.rollSpeed).toBeCloseTo((sol.netImpulse * 0.52) / 38.4, 9);
+  });
+
+  it('a neighbour 0.8 m away is not knocked until the falling scooter really reaches it', () => {
+    const { game, knocks } = makeMockGame({
+      motoSpots: [
+        [10, 10, 0, '#b8282a', 0, 0],
+        [10.8, 10, 0, '#2c5aa0', 0, 0],
+      ],
+      streetScooters: [],
+    });
+    const ps = new ParkedScooters(game);
+    const [s0, s1] = ps.slots;
+    expect(ps.knockSlot(s0, 0.6, 0, 0.6)).toBe(true);
+    const k = knocks[0];
+    // tipping toward +x at the rate gravity gives it by ~0.7 rad: ½Iω² = m g hCm (cos 0.26 - cos 0.7) -> ω ≈ 2.4
+    k.body.aw = { x: 0, y: 0, z: -2.4 };
+    // just knocked: leaning ~17°, its box still 0.67 m from the neighbour's centre
+    k.body.q = tipQ(-0.3);
+    ps.update(0.016);
+    expect(s1.state).toBe('static');
+    // fallen further (0.7 rad): its box reaches the neighbour
+    k.body.q = tipQ(-0.7);
+    ps.update(0.016);
+    expect(s1.state).toBe('flying');
+  });
+
+  it('the knock is a rigid-body impulse: e of the closing speed comes back, no energy is created', () => {
+    const { game, knocks } = makeMockGame({
+      motoSpots: [
+        [10, 10, 0, '#b8282a', 0, 0],
+        [10.8, 10, 0, '#2c5aa0', 0, 0],
+      ],
+      streetScooters: [],
+    });
+    const ps = new ParkedScooters(game);
+    const [s0, s1] = ps.slots;
+    ps.knockSlot(s0, 0.85, 0, 0.85);
+    const b = knocks[0].body;
+    const q = tipQ(-0.7);
+    b.q = q;
+    b.lv = { x: 0.85, y: 0, z: 0 };
+    b.aw = { x: 0, y: 0, z: -4 }; // its top swings into the neighbour much faster than its base slides
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+    const ry = up.y * 0.44; // box centre (centre of mass) to its top, vertical part
+    const vc = () => b.lv.x - b.aw.z * ry; // contact point velocity along n = +x
+    const ke = () => 0.5 * 110 * b.lv.x ** 2 + 0.5 * 38.4 * b.aw.z ** 2;
+    const vRel = vc(),
+      ke0 = ke();
+    ps.update(0.016);
+    expect(s1.state).toBe('flying');
+    const dv2 = knocks[1].vel.x;
+    const hold = 0.5 * 110 * 9.81 * 0.12; // the neighbour's stand (muStatic m g dt)
+    // Newton's restitution law at the contact: separation = e * approach (less what the stand held)
+    expect(vc() - dv2).toBeCloseTo(-0.12 * vRel + hold / 110, 6);
+    // energy: what both have after never exceeds what the falling one had
+    expect(ke() + 0.5 * 110 * dv2 ** 2).toBeLessThan(ke0);
+  });
+
+  it('a thrown car reaches a scooter beside it (capsules, not a 1.05 m centre distance)', () => {
+    const { game, knocks } = makeMockGame({
+      motoSpots: [[32.5, 30, 0, '#b8282a', 0, 0]],
+      streetScooters: [],
+      streetCars: [[30, 30, 0, '#3f6fb0']],
+    });
+    const ps = new ParkedScooters(game);
+    const car = ps.carSlots[0];
+    const sc = ps.slots.find((s) => s.kind === 'scooter');
+    expect(ps.knockSlot(car, 5, 0, 5)).toBe(true);
+    // the car slid 1.4 m: centres 1.1 m apart (a 1.05 m centre-distance rule missed it), its side touching
+    knocks[0].onMove({ x: 31.4, y: 0, z: 30 }, new THREE.Quaternion());
+    ps.update(0.016);
+    expect(sc.state).toBe('flying');
   });
 });

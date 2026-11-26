@@ -9,7 +9,9 @@ import {
   wornParts,
   characterOpts,
   pickItem,
+  canWear,
 } from '../../src/systems/OutfitData.js';
+import { FRIENDS } from '../../src/ui/phone/Friends.js';
 import { wearLook } from '../../src/systems/Outfits.js';
 import { readSave, writeSave } from '../../src/systems/SaveSystem.js';
 
@@ -144,6 +146,32 @@ describe('同學穿搭（OutfitData.js SETS group friend）', () => {
       expect(o.shirt).toBe(f.shirt);
       expect(o.plain).toBe(true);
     }
+  });
+  it('加了好友才穿得到：每套都對應到一位可加好友的同學', () => {
+    for (const f of friends) expect(FRIENDS[f.friend]).toBeTruthy();
+    const none = new Set();
+    const some = new Set(['richard']);
+    for (const f of friends) expect(canWear(f, none)).toBe(false);
+    expect(
+      canWear(
+        SETS.find((x) => x.id === 'fRichard'),
+        some
+      )
+    ).toBe(true);
+    expect(
+      canWear(
+        SETS.find((x) => x.id === 'fZz'),
+        some
+      )
+    ).toBe(false);
+    // 一般套裝、單件不需要好友
+    expect(
+      canWear(
+        SETS.find((x) => x.id === 'pilot'),
+        none
+      )
+    ).toBe(true);
+    expect(canWear(TOPS[0], undefined)).toBe(true);
   });
   it('理查的深綠漁夫帽、女拳大帝的皮衣、YeeMing 的迷彩鋼盔跟著套裝走', () => {
     expect(wornParts({ set: 'fRichard', hat: 'capRed' })).toMatchObject({

@@ -1,7 +1,6 @@
 .claude/
 node_modules/
 dist/
-dist-wiki/
 .vite/
 .DS_Store
 Thumbs.db

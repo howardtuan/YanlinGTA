@@ -1,13 +1,14 @@
 // YanlinGTA Wiki 產生器：讀 data/npcs.json + wiki/people.json + wiki/quests.json + wiki/shops.json，
-// 輸出一個不需要 JavaScript 也能看的靜態網站到 dist-wiki/（部署到 wiki.yanlin-gta.com）。
-// 用法：npm run wiki:build
+// 輸出一個不需要 JavaScript 也能看的靜態網站到 dist/wiki/，跟遊戲一起部署（yanlin-gta.com/wiki/）。
+// npm run build 會自動產生（vite.config.js）；只改 Wiki 時可以單獨跑 npm run wiki:build。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
-const GAME_URL = 'https://yanlin-gta.com/';
+// Wiki 在遊戲網站的 /wiki/ 底下：用相對路徑回到遊戲，本機預覽和正式站都能用
+const GAME_URL = '../';
 const REPO_URL = 'https://github.com/howardtuan/YanlinGTA';
 
 export const GROUPS = [
@@ -294,7 +295,7 @@ ${questSection('case', 'SQL 偵探案件', '在電腦終端機輸入 case 開啟
 `;
 }
 
-export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist-wiki') } = {}) {
+export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki') } = {}) {
   const data = loadWikiData(root);
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'img'), { recursive: true });

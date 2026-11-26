@@ -1,5 +1,4 @@
 // WebAudio synth (engine, horn, pickups) + background music:
-//   'default' — built-in synthesized loop
 //   'opera'   — 彥霖歌劇 (assets/music/yanlin-opera.m4a), looped forever
 //   'scene'   — 情境配樂: assets/music/scene-<name>.m4a picked by where you are / what you're doing,
 //               cross-faded; each file is fetched the first time its scene comes up
@@ -55,7 +54,7 @@ export function loadSettings() {
   // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
   // amb: 環境音 (birds / insects / night market), 'on' | 'off' — still under sfxVol
   const def = {
-    music: 'opera',
+    music: 'scene', // 情境配樂 is the default; the old synthesized 'default' loop was removed
     musicVol: 0.6,
     sfxVol: 0.8,
     sens: 1,
@@ -65,7 +64,9 @@ export function loadSettings() {
     perfHud: 'off', // 效能顯示 (src/core/PerfHud.js): 'off' | 'fps' | 'detail' | 'dev'
   };
   try {
-    return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    const s = { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    if (s.music === 'default') s.music = 'scene'; // 預設音樂 (the synthesized loop) no longer exists
+    return s;
   } catch (e) {
     return def;
   }
@@ -85,7 +86,6 @@ export class Audio {
     this.opera.loop = true;
     // 3 MB: fetched when it first plays (title music on, or 設定 → 音樂), not while the world builds (Phase 1B)
     this.opera.preload = 'none';
-    this.bgmTimer = null;
     this.ducked = false;
     this.scene = 'title';
     this.sceneEls = {};
@@ -113,8 +113,6 @@ export class Audio {
     this.master.connect(this.ctx.destination);
     this.sfx = this.ctx.createGain();
     this.sfx.connect(this.master);
-    this.bgm = this.ctx.createGain();
-    this.bgm.connect(this.master);
     // engine
     const o = this.ctx.createOscillator();
     o.type = 'sawtooth';
@@ -152,7 +150,6 @@ export class Audio {
       duck = this.ducked ? 0 : 1;
     if (this.sfx) this.sfx.gain.value = s.sfxVol * 0.6;
     if (this.amb) this.amb.gain.value = s.amb === 'off' ? 0 : 1;
-    if (this.bgm) this.bgm.gain.value = s.musicVol * 0.5 * duck;
     this.opera.volume = Math.min(1, s.musicVol) * duck;
     for (const el of Object.values(this.sceneEls)) el.volume = this._sceneVol(el);
   }
@@ -170,8 +167,6 @@ export class Audio {
     if (m === 'opera') {
       this.opera.play().catch(() => {});
     } else this.opera.pause();
-    if (m === 'default') this._startBgm();
-    else this._stopBgm();
     if (m === 'scene') this._startScene();
     else this._stopScene();
     this.applyVolumes();
@@ -217,95 +212,6 @@ export class Audio {
       else if (el.lvl === 0 && !el.paused) el.pause();
     }
   }
-  // ---------- built-in BGM: upbeat 8-bar loop at 116 BPM ----------
-  _startBgm() {
-    if (!this.ctx || this.bgmTimer) return;
-    const bpm = 116,
-      step = 60 / bpm / 2; // 8th notes
-    const chords = [
-      [57, 60, 64],
-      [53, 57, 60],
-      [48, 52, 55],
-      [55, 59, 62],
-    ]; // Am F C G
-    const bass = [45, 41, 36, 43];
-    const mel = [
-      76, 0, 74, 72, 74, 0, 69, 0, 72, 0, 72, 74, 76, 0, 79, 0, 76, 0, 74, 72, 69, 0, 67, 0, 69, 72,
-      74, 0, 72, 0, 0, 0, 76, 0, 74, 72, 74, 0, 69, 0, 72, 0, 74, 76, 79, 0, 81, 0, 79, 76, 74, 0,
-      72, 0, 74, 0, 76, 0, 74, 72, 69, 0, 0, 0,
-    ];
-    const hz = (n) => 440 * Math.pow(2, (n - 69) / 12);
-    let i = 0,
-      next = this.ctx.currentTime + 0.1;
-    const note = (f, t, dur, type, vol) => {
-      const o = this.ctx.createOscillator(),
-        g = this.ctx.createGain();
-      o.type = type;
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g);
-      g.connect(this.bgm);
-      o.start(t);
-      o.stop(t + dur + 0.05);
-    };
-    const drum = (t, kind) => {
-      if (kind === 'k') {
-        const o = this.ctx.createOscillator(),
-          g = this.ctx.createGain();
-        o.frequency.setValueAtTime(130, t);
-        o.frequency.exponentialRampToValueAtTime(40, t + 0.15);
-        g.gain.setValueAtTime(0.5, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-        o.connect(g);
-        g.connect(this.bgm);
-        o.start(t);
-        o.stop(t + 0.2);
-      } else {
-        const len = kind === 's' ? 0.15 : 0.04;
-        const b = this.ctx.createBuffer(1, this.ctx.sampleRate * len, this.ctx.sampleRate);
-        const d = b.getChannelData(0);
-        for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * (1 - j / d.length);
-        const s = this.ctx.createBufferSource();
-        s.buffer = b;
-        const f = this.ctx.createBiquadFilter();
-        f.type = 'highpass';
-        f.frequency.value = kind === 's' ? 1500 : 7000;
-        const g = this.ctx.createGain();
-        g.gain.value = kind === 's' ? 0.25 : 0.12;
-        s.connect(f);
-        f.connect(g);
-        g.connect(this.bgm);
-        s.start(t);
-      }
-    };
-    const tick = () => {
-      while (next < this.ctx.currentTime + 0.25) {
-        const bar = Math.floor(i / 8) % 4,
-          beat = i % 8;
-        if (beat % 2 === 0) note(hz(bass[bar]), next, step * 1.6, 'square', 0.12);
-        if (beat === 0 || beat === 3 || beat === 6)
-          for (const c of chords[bar]) note(hz(c), next, step * 2.5, 'triangle', 0.05);
-        const mn = mel[i % mel.length];
-        if (mn) note(hz(mn), next, step * 1.4, 'square', 0.06);
-        if (beat === 0 || beat === 4) drum(next, 'k');
-        if (beat === 2 || beat === 6) drum(next, 's');
-        drum(next, 'h');
-        next += step;
-        i++;
-      }
-    };
-    this.bgmTimer = setInterval(tick, 60);
-    tick();
-  }
-  _stopBgm() {
-    if (this.bgmTimer) {
-      clearInterval(this.bgmTimer);
-      this.bgmTimer = null;
-    }
-  }
-
   setEngine(on, speed01, kind) {
     if (!this.engine) return;
     const t = this.ctx.currentTime,

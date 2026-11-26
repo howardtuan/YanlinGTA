@@ -801,7 +801,7 @@ export class Phone {
       const c = this._frame(
         '音樂',
         `<div class="ph-album">🎭</div><div class="ph-sec">播放清單</div>
-        ${opt('opera', '彥霖歌劇', '彥霖 · 競選主題曲')}${opt('default', '遊戲配樂', '中原順起來 OST')}${opt('scene', '情境配樂', '依場景自動換曲')}${opt('off', '靜音', '關閉背景音樂')}`
+        ${opt('scene', '情境配樂', '依場景自動換曲')}${opt('opera', '彥霖歌劇', '彥霖 · 競選主題曲')}${opt('off', '靜音', '關閉背景音樂')}`
       );
       for (const b of c.querySelectorAll('[data-m]'))
         b.onclick = () => {

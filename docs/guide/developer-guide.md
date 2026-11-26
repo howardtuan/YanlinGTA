@@ -55,6 +55,7 @@ npm run dev
 | `npm run format:check` | 檢查受納管檔案（`.prettierignore` 以外）是否符合 Prettier 標準。 | CI 靜態品質門禁。 |
 | `npm run ci` | 一鍵串聯：`format:check && lint && test && build && check:dist`。 | **Push / 送 PR 前必跑**，模擬 CI 完整門禁。 |
 | `node tools/floorplan/make.mjs` | 依建模程式重新產生 [docs/references/floorplans/](../references/floorplans/README.md) 室內 SVG 平面圖。 | 調整可進入室內建築與牆線後同步驗圖。 |
+| `node tools/street_corner_check.mjs [--out 報告.md] [--json 結果.json]` | 重建遊戲實際會畫的建物（OSM、填充樓、各街屋檔佔地，扣掉 drop／hide），跟車道、人行道比對：列出侵入車道的建物（哪個檔、侵入幾公尺）、每個路口轉角有沒有建物、兩個檔重複蓋的地方、路口附近的街面空缺。 | 照街景補街屋、改路寬之後檢查路口有沒有越界、漏蓋或重複蓋。 |
 
 ---
 
@@ -83,6 +84,7 @@ flowchart TD
 - **`import-graph.test.js`**：靜態解析 `src/` 匯入圖，阻擋循環引用與違反 `AGENT.md` 分層規則的跨層依賴。
 - **`benchmark.test.js`**：測試遊戲內效能測試的統計（平均 FPS、1% / 0.1% 低幀、卡頓次數）與瓶頸判斷。
 - **`data-consistency.test.js`**：驗證 `data/npcs.json`、`data/cycu.json`、`data/terrain.json` 結構完整與資源路徑有效。
+- **`street-encroach.test.js`**：用 `tools/street_corner_check.mjs` 檢查建物不得侵入車道（允許 1 m 誤差，地圖邊緣 30 m 內不算）；OSM 建物與填充樓的修正放在 `src/world/buildings/RoadClearance.js`，自建街屋改各自的檔案。
 
 ### 遊戲內效能測試（`src/systems/Benchmark.js`）
 - 給玩家用的硬體測試：標題畫面 →「📊 效能測試」，選畫質後鏡頭照固定路線跑約 100 秒（校園街道白天 → 空拍 → 夜間街道，每段前 3 秒暖機不計），跑完顯示平均 FPS、1% / 0.1% 低幀、最低／最高、畫面時間分佈、卡頓次數、主執行緒每幀耗時、繪圖呼叫與三角形，並依「每幀間隔 vs. 遊戲 JS 耗時」判斷瓶頸是 CPU、GPU 還是螢幕更新率；可複製文字或下載 JSON，上一次結果存在 `localStorage`（`cycu-bench-last`）。

@@ -632,6 +632,9 @@ export class DormMahjong {
     }
     this.engine.applySnapshot(snap, events);
     this.scene._layout();
+    // 房主擲骰開門：播同一組點數的擲骰動畫（座位已旋轉成本地視角）
+    const roll = events.find((ev) => ev.type === 'roll' && Array.isArray(ev.dice));
+    if (roll) this.scene.roll?.(roll.seat, roll.dice, 'cut', undefined, { auto: true });
     if (snap.phase === 'end' && !this.scene.result) this.scene._showResult();
   }
   _onGuestEnd(reason) {
@@ -781,15 +784,11 @@ export class DormMahjong {
       ai: (e, seat, kind, o) => this.ais[seat](e, seat, kind, o),
     });
     this.scene.startHand(this.engine);
-    if (s.multi && this.mpMode === 'host') {
-      // 多人房主直接發牌並同步給全桌客端，確保開局節奏一致
-      this.engine.events.length = 0;
-      this.engine.start();
-      this.mp?.broadcastState(this.engine, [...this.engine.events]);
-      this.scene._layout(true);
-    } else {
-      this.scene.roll(s.dealer, dice, 'cut');
-    }
+    const multiHost = s.multi && this.mpMode === 'host';
+    // 多人：點數由房主決定，連同還沒發牌的牌桌一起廣播（roll 事件），客端與觀戰者播同一組擲骰動畫；
+    // 房主這邊動畫播完，畫面的 step() 才發牌並廣播，全桌節奏一致
+    if (multiHost) this.mp?.broadcastState(this.engine, [{ type: 'roll', seat: s.dealer, dice }]);
+    this.scene.roll?.(s.dealer, dice, 'cut', undefined, { auto: !!s.multi });
   }
   // the scene calls this when a hand is over: pay up, move the dealer on, and adapt AI difficulty
   handOver(r) {

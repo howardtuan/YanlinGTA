@@ -171,6 +171,179 @@ function shopCard(s, byId) {
 </article>`;
 }
 
+// 操作教學：跟遊戲裡「⌨ 操作說明」（src/core/Controls.js）同一套按鍵；改按鍵時兩邊一起改
+const K = (...keys) => keys.map((k) => `<kbd>${esc(k)}</kbd>`).join('');
+const W = (t) => `<span class="ctl-word">${esc(t)}</span>`;
+export const CONTROLS = {
+  kb: [
+    [
+      '步行',
+      [
+        ['移動', K('W', 'A', 'S', 'D')],
+        ['視角', W('滑鼠移動（先點一下畫面鎖定游標）')],
+        ['衝刺', K('Shift')],
+        ['跳躍', K('Space')],
+        ['發傳單拉票', W('滑鼠左鍵')],
+        ['比 ✌', K('G')],
+        ['互動・對話', K('E')],
+        ['📱 拿出手機（附近沒有可互動的東西時）', K('E')],
+        ['S.U.N.D.A.Y 提示', K('J')],
+      ],
+    ],
+    [
+      '駕駛 · 機車與汽車',
+      [
+        ['上車 / 下車', K('F')],
+        ['油門 / 煞車・倒車', `${K('W')} / ${K('S')}`],
+        ['轉向', K('A', 'D')],
+        ['手煞車（甩尾）', K('Space')],
+        ['喇叭', K('H')],
+      ],
+    ],
+    [
+      '手機與打工',
+      [
+        ['訊息：選擇回覆 / 傳送', `${K('↑', '↓')} 或 ${K('1', '2')} / ${K('Tab')}`],
+        ['手機：返回 / 收起', `${K('Esc')} / ${K('E')}`],
+        ['麥當勞：放餐點 / 出餐', `${K('1')}～${K('6')} / ${K('Enter')}`],
+        ['側門門禁：放行 / 擋下', `${K('1')} / ${K('2')}`],
+      ],
+    ],
+    [
+      '介面',
+      [
+        ['對話：下一句', `${K('E')} ${K('Enter')} 或 ${W('點一下滑鼠')}`],
+        ['大地圖', K('M')],
+        ['第一人稱 / 第三人稱', K('V')],
+        ['暫停・設定', K('Esc')],
+      ],
+    ],
+  ],
+  pad: [
+    [
+      '步行',
+      [
+        ['移動 / 視角', `${W('左搖桿')} / ${W('右搖桿')}`],
+        ['衝刺', K('L3')],
+        ['跳躍', K('RB')],
+        ['發傳單拉票', K('X')],
+        ['比 ✌', K('Y')],
+        ['互動・對話・手機', K('A')],
+      ],
+    ],
+    [
+      '駕駛',
+      [
+        ['上車 / 下車', K('B')],
+        ['油門 / 煞車・倒車', `${K('RT')} / ${K('LT')}`],
+        ['轉向', W('左搖桿')],
+        ['手煞車（甩尾） / 喇叭', `${K('RB')} / ${K('LB')}`],
+      ],
+    ],
+    [
+      '介面',
+      [
+        ['大地圖', K('View')],
+        ['暫停・設定', K('Menu')],
+        ['手機：選擇 / 開啟 / 返回', `${W('十字鍵')} / ${K('A')} / ${K('B')}`],
+      ],
+    ],
+  ],
+  touch: [
+    [
+      '步行',
+      [
+        ['移動', W('左下角虛擬搖桿')],
+        ['視角', W('畫面右半邊拖曳')],
+        ['衝刺 / 跳躍', `${W('»')} / ${W('⤒')}`],
+        ['發傳單拉票', W('📄 發傳單')],
+        ['互動・手機', W('E')],
+      ],
+    ],
+    [
+      '駕駛',
+      [
+        ['上車 / 下車', W('F')],
+        ['油門 / 煞車', W('搖桿往上 / 往下')],
+        ['轉向', W('搖桿左右')],
+        ['甩尾 / 喇叭', `${W('⤒')} / ${W('📯')}`],
+      ],
+    ],
+    [
+      '介面',
+      [
+        ['對話：下一句', W('點一下畫面')],
+        ['地圖 / 設定', `${W('🗺')} / ${W('⚙')}`],
+        ['地圖：標點導航', W('點一下地圖')],
+      ],
+    ],
+  ],
+};
+const ctlTables = (groups) =>
+  `<div class="ctl-grid">${groups
+    .map(
+      ([title, rows]) =>
+        `<table class="ctl-table"><caption>${esc(title)}</caption><tbody>${rows
+          .map(([what, how]) => `<tr><th scope="row">${esc(what)}</th><td>${how}</td></tr>`)
+          .join('')}</tbody></table>`
+    )
+    .join('')}</div>`;
+const shot = (src, alt, caption) =>
+  `<figure class="shot"><img src="${src}" alt="${esc(alt)}" loading="lazy"><figcaption>${caption}</figcaption></figure>`;
+
+function controlsSection() {
+  return `
+<section id="controls" class="block">
+  <h2>操作教學</h2>
+  <p class="lead">電腦（鍵盤滑鼠或手把）和手機都能玩，免安裝、打開網頁就開始。遊戲裡隨時可以在標題畫面或暫停選單按「⌨ 操作說明」再看一次。</p>
+  ${shot('shots/desktop-title.jpg', '遊戲標題畫面', '標題畫面：<b>▶ 開始遊戲</b>、操作說明、設定 / 音樂、效能測試，還有這個 <b>📖 彥霖GTA WIKI</b>。')}
+  <h3 id="controls-kb">電腦：鍵盤滑鼠</h3>
+  <p>先點一下畫面鎖定滑鼠游標，就能用滑鼠轉動視角；按 <kbd>Esc</kbd> 放開游標並暫停。</p>
+  ${shot('shots/desktop-play.jpg', '電腦版遊戲畫面', '電腦版畫面：左上角是目前可以用的按鍵提示，正上方是目前任務，右上角是時間、得票、金色選票和錢包，左下角是小地圖，下方是對話框。')}
+  ${ctlTables(CONTROLS.kb)}
+  <h3 id="controls-pad">手把</h3>
+  <p>支援 Xbox、PlayStation、Switch Pro 手把：插上或藍牙連線後按任一鍵，畫面上的按鍵提示就會換成手把按鈕；碰一下鍵盤或滑鼠就換回來。下表以 Xbox 按鍵標示。</p>
+  ${ctlTables(CONTROLS.pad)}
+  <h3 id="controls-touch">手機觸控</h3>
+  <p>建議把手機<b>橫放</b>。左下角是虛擬搖桿，往上推就是騎車／開車的油門；右下角是動作按鈕。</p>
+  ${shot('shots/mobile-play.jpg', '手機版遊戲畫面', '手機版畫面（橫放）：左下角虛擬搖桿，右下角 F 上下車、E 互動、📄 發傳單、⤒ 跳／甩尾、» 衝刺、🗺 地圖、📯 喇叭、⚙ 設定。')}
+  ${ctlTables(CONTROLS.touch)}
+</section>`;
+}
+
+export const NAV = [
+  ['overview', '遊戲概覽'],
+  [
+    'controls',
+    '操作教學',
+    [
+      ['controls-kb', '鍵盤滑鼠'],
+      ['controls-pad', '手把'],
+      ['controls-touch', '手機觸控'],
+    ],
+  ],
+  ['characters', '角色介紹'],
+  ['main-quests', '主線任務'],
+  ['side-quests', '支線任務'],
+  ['cases', 'SQL 偵探案件'],
+  ['shops', '合作店家'],
+  ['team', '開發團隊'],
+];
+const sidebar = () => `<aside class="sidebar" id="sidebar">
+  <nav aria-label="目錄">
+    <p class="side-title">目錄</p>
+    <ul>${NAV.map(
+      ([id, label, subs]) =>
+        `<li><a href="#${id}" data-spy="${id}">${esc(label)}</a>${
+          subs
+            ? `<ul class="sub">${subs.map(([sid, sl]) => `<li><a href="#${sid}" data-spy="${sid}">${esc(sl)}</a></li>`).join('')}</ul>`
+            : ''
+        }</li>`
+    ).join('')}</ul>
+    <a class="side-play" href="${GAME_URL}">▶ 開始玩遊戲</a>
+  </nav>
+</aside>`;
+
 export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {}) {
   const byId = new Map(chars.map((c) => [c.id, c]));
   const devs = chars.filter((c) => c.group === 'dev');
@@ -216,12 +389,13 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
 <a class="skip" href="#content">跳到內容</a>
 <header class="top">
   <a class="brand" href="#top"><img src="img/wiki-icon-192.png" alt="" width="28" height="28"> YanlinGTA <span>Wiki</span></a>
-  <nav aria-label="主選單">
-    <a href="#overview">概覽</a><a href="#characters">角色</a><a href="#main-quests">主線</a><a href="#side-quests">支線</a><a href="#shops">合作店家</a><a href="#team">開發團隊</a>
-  </nav>
+  <button class="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false">☰ 目錄</button>
+  <span class="top-gap"></span>
   <a class="play" href="${GAME_URL}">▶ 開始玩</a>
 </header>
 
+<div class="layout">
+${sidebar()}
 <main id="content">
 <section class="hero" id="top">
   ${
@@ -259,6 +433,8 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
     <p class="hint">電腦用鍵盤滑鼠或手把、手機用觸控都能玩：<kbd>WASD</kbd> 移動、<kbd>E</kbd> 互動、<kbd>F</kbd> 上下車、<kbd>M</kbd> 大地圖、滑鼠左鍵發傳單、<kbd>G</kbd> 比 ✌。</p>
   </div>
 </section>
+
+${controlsSection()}
 
 <section id="characters" class="block">
   <h2>角色介紹</h2>
@@ -300,6 +476,8 @@ ${questSection('case', 'SQL 偵探案件', '在電腦終端機輸入 case 開啟
   <p class="repo">原始碼：<a href="${REPO_URL}" target="_blank" rel="noopener">github.com/howardtuan/YanlinGTA</a></p>
 </section>
 </main>
+</div>
+<div class="scrim" hidden></div>
 
 <footer class="foot">
   <p>YanlinGTA Wiki · 角色皆由真人改編。</p>
@@ -333,6 +511,11 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
     for (const [src, dest] of promoFiles) {
       fs.copyFileSync(path.join(promoDir, src), path.join(outDir, 'media', dest));
     }
+  }
+  // 操作教學的遊戲截圖（wiki/shots/，用 headless Chrome 截的電腦版與手機橫放畫面）
+  fs.mkdirSync(path.join(outDir, 'shots'), { recursive: true });
+  for (const f of fs.readdirSync(path.join(root, 'wiki', 'shots'))) {
+    fs.copyFileSync(path.join(root, 'wiki', 'shots', f), path.join(outDir, 'shots', f));
   }
   // Wiki 自己的網頁圖示與「加入主畫面」圖示（wiki/icons/），manifest 放在 /wiki/ 底下，start_url 開回 Wiki
   for (const f of fs.readdirSync(path.join(root, 'wiki', 'icons'))) {

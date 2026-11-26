@@ -46,5 +46,35 @@
     el.classList.add('flash');
   };
   window.addEventListener('hashchange', reveal);
+
+  // 左側目錄：手機版的抽屜開關
+  const side = document.getElementById('sidebar');
+  const toggle = document.querySelector('.nav-toggle');
+  const scrim = document.querySelector('.scrim');
+  const openSide = (on) => {
+    side.classList.toggle('open', on);
+    toggle.setAttribute('aria-expanded', String(on));
+    scrim.hidden = !on;
+  };
+  toggle.addEventListener('click', () => openSide(!side.classList.contains('open')));
+  scrim.addEventListener('click', () => openSide(false));
+  side.addEventListener('click', (e) => {
+    if (e.target.closest('a')) openSide(false);
+  });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') openSide(false);
+  });
+
+  // 目錄跟著捲動標出目前讀到的段落
+  const links = [...side.querySelectorAll('a[data-spy]')];
+  const targets = links.map((a) => document.getElementById(a.dataset.spy)).filter(Boolean);
+  const spy = () => {
+    const y = scrollY + innerHeight * 0.25;
+    let cur = targets[0];
+    for (const t of targets) if (t.getBoundingClientRect().top + scrollY <= y) cur = t;
+    for (const a of links) a.classList.toggle('active', a.dataset.spy === cur?.id);
+  };
+  addEventListener('scroll', spy, { passive: true });
+  spy();
   reveal();
 })();

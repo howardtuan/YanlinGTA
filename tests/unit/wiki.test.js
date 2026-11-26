@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { buildWiki, loadWikiData, renderWiki } from '../../wiki/build.mjs';
+import { NAV, buildWiki, loadWikiData, renderWiki } from '../../wiki/build.mjs';
 
 const npcs = JSON.parse(fs.readFileSync('data/npcs.json', 'utf-8')).npcs;
 const people = JSON.parse(fs.readFileSync('wiki/people.json', 'utf-8')).people;
@@ -57,6 +57,20 @@ describe('wiki', () => {
     expect(noVideo).toContain('img/cover.jpg');
   });
 
+  it('左側目錄的每個連結都對得到頁面上的段落；操作教學有截圖', () => {
+    const html = renderWiki(loadWikiData());
+    for (const [id, , subs = []] of NAV) {
+      for (const target of [id, ...subs.map(([sid]) => sid)]) {
+        expect(html, target).toContain(`id="${target}"`);
+        expect(html, target).toContain(`href="#${target}"`);
+      }
+    }
+    for (const f of ['desktop-title', 'desktop-play', 'mobile-play']) {
+      expect(html).toContain(`shots/${f}.jpg`);
+      expect(fs.existsSync(`wiki/shots/${f}.jpg`), f).toBe(true);
+    }
+  });
+
   it('build 產出完整的靜態網站', () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'wiki-'));
     try {
@@ -72,6 +86,8 @@ describe('wiki', () => {
         'img/wiki-favicon.ico',
         'manifest.webmanifest',
         'media/promo.mp4',
+        'shots/desktop-play.jpg',
+        'shots/mobile-play.jpg',
         'media/promo-poster.jpg',
       ])
         expect(fs.existsSync(path.join(out, f)), f).toBe(true);

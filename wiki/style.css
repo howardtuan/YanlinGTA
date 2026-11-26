@@ -11,6 +11,7 @@
   --side: #1f9a6b;
   --case: #b4651c;
   --dev: #7a4fd6;
+  --shop: #c2413a;
   --radius: 14px;
   --shadow: 0 1px 2px rgb(40 20 30 / 6%), 0 6px 18px rgb(40 20 30 / 6%);
   color-scheme: light dark;
@@ -28,6 +29,7 @@
     --side: #5fd3a3;
     --case: #f0a35e;
     --dev: #b79bff;
+    --shop: #d9534a;
     --shadow: none;
   }
 }
@@ -150,12 +152,24 @@ main {
   align-items: center;
   padding: clamp(28px, 6vw, 64px) 0;
 }
+.hero-media {
+  margin: 0;
+  min-width: 0;
+}
 .hero-img {
+  display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 18px;
   box-shadow: var(--shadow);
+  background: #000;
+}
+.hero-media figcaption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
 }
 .kicker {
   margin: 0 0 6px;
@@ -286,7 +300,7 @@ main {
 }
 .char-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -488,11 +502,11 @@ dd {
   background: var(--case);
 }
 .qt.shop {
-  background: var(--ink);
+  background: var(--shop);
 }
 .quest-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -549,7 +563,7 @@ dd {
 /* 開發團隊 */
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
 .dev {
@@ -603,4 +617,12 @@ dd {
     min-width: 0;
     width: 100%;
   }
+}
+
+/* 很窄的螢幕或手機放大字級：長名字、長職稱換行，不把卡片撐出螢幕 */
+.char-id,
+.quest header h3,
+.dev > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

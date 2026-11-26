@@ -683,3 +683,87 @@ describe('中途加入（下局取代 AI）與觀賽模式（Issue #170）', () 
     spec2.leave(false);
   });
 });
+
+describe('多人擲骰開門動畫（Issue #207）', () => {
+  const rollScene = () => {
+    const sc = {
+      rolls: [],
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand(e) {
+        sc.e = e;
+      },
+      _layout() {},
+      _showResult() {},
+      roll(thrower, dice, what, done, opts) {
+        sc.rolls.push({ thrower, dice: [...dice], what, auto: !!opts?.auto });
+      },
+      result: null,
+      names: [],
+    };
+    return sc;
+  };
+
+  it('房主決定點數並廣播，房主、客端、觀戰者都播同一組點數（座位依各自視角旋轉），換莊後下一局再擲一次', async () => {
+    const bus = createMockBus();
+    const hostMj = new DormMahjong(fakeGame(1000));
+    const guestMj = new DormMahjong(fakeGame(1000));
+    const specMj = new DormMahjong(fakeGame(1000));
+    hostMj.scene = rollScene();
+    guestMj.scene = rollScene();
+    specMj.scene = rollScene();
+
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+    await guestMj.joinRoom(code, '小明', bus);
+    await specMj.joinRoom(code, '阿觀', bus, { spectateOnly: true });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    hostMj.startMultiHost();
+
+    const h = hostMj.scene.rolls;
+    expect(h).toHaveLength(1);
+    expect(h[0].what).toBe('cut');
+    expect(h[0].auto).toBe(true); // 多人不等人按，全桌同時擲
+    expect(h[0].thrower).toBe(hostMj.sess.dealer);
+    // 擲骰時還沒發牌：動畫播完才由畫面 step() 發牌
+    expect(hostMj.engine.phase).toBe('deal');
+
+    const g = guestMj.scene.rolls;
+    expect(g).toHaveLength(1);
+    expect(g[0].dice).toEqual(h[0].dice);
+    expect(g[0].thrower).toBe((h[0].thrower - guestMj.sess.seat + 4) % 4);
+    expect(guestMj.engine.phase).toBe('deal');
+
+    const s = specMj.scene.rolls;
+    expect(s).toHaveLength(1);
+    expect(s[0].dice).toEqual(h[0].dice);
+    expect(s[0].thrower).toBe((h[0].thrower - specMj.sess.viewSeat + 4) % 4);
+
+    // 這局莊家下莊 → 下一局換莊，再擲一次並同步
+    hostMj.handOver({ winner: 1, from: 2, tai: 1, deltas: [0, 40, -40, 0], dealerStays: false });
+    guestMj.handOver({ winner: 0, from: 1, tai: 1, deltas: [40, -40, 0, 0], dealerStays: false });
+    hostMj.next();
+    expect(h).toHaveLength(2);
+    expect(h[1].thrower).toBe(1);
+    expect(g).toHaveLength(2);
+    expect(g[1].dice).toEqual(h[1].dice);
+    expect(g[1].thrower).toBe((1 - guestMj.sess.seat + 4) % 4);
+    expect(s).toHaveLength(2);
+    expect(s[1].dice).toEqual(h[1].dice);
+
+    hostMj.leave(false);
+    guestMj.leave(false);
+    specMj.leave(false);
+  });
+
+  it('rotateEventsFor 會旋轉 roll 事件的擲骰座位、點數原樣保留', () => {
+    const ev = [{ type: 'roll', seat: 2, dice: [3, 5, 6] }];
+    expect(rotateEventsFor(ev, 1)).toEqual([{ type: 'roll', seat: 1, dice: [3, 5, 6] }]);
+    expect(rotateEventsFor(ev, 3, { spectate: true })).toEqual([
+      { type: 'roll', seat: 3, dice: [3, 5, 6] },
+    ]);
+  });
+});

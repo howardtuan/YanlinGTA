@@ -1537,12 +1537,13 @@ export class MahjongScene {
   }
   // 擲骰: thrower throws dice (values decided already); count from them round to the right; what: 'dealer' (定莊)
   // or 'cut' (開門, this.e is the hand about to be dealt). You press to throw; the others throw by themselves.
-  roll(thrower, dice, what, done) {
+  // auto: everyone's dice fly by themselves (多人：點數由房主決定、全桌同時播，不等任何人按)
+  roll(thrower, dice, what, done, { auto = false } = {}) {
     const sum = diceSum(dice);
     const name = this.names[thrower];
     this.intro = {
       kind: 'roll',
-      phase: thrower === 0 ? 'wait' : 'pre',
+      phase: thrower === 0 && !auto ? 'wait' : 'pre',
       t: 0,
       thrower,
       dice,

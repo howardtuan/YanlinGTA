@@ -13,6 +13,28 @@ for (const root of document.querySelectorAll('.game-ctl')) {
   }
 }
 
+// 右上角背景顏色：自動（跟系統）／亮色／暗色。<head> 裡的小程式在畫面出來前就先套用，避免閃一下
+(() => {
+  const KEY = 'yanlinWiki.theme';
+  const btns = [...document.querySelectorAll('[data-theme-set]')];
+  let cur = 'auto';
+  try {
+    cur = localStorage.getItem(KEY) || 'auto';
+  } catch (e) {}
+  const set = (t) => {
+    cur = t;
+    if (t === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
+    try {
+      if (t === 'auto') localStorage.removeItem(KEY);
+      else localStorage.setItem(KEY, t);
+    } catch (e) {}
+    for (const b of btns) b.setAttribute('aria-pressed', String(b.dataset.themeSet === t));
+  };
+  for (const b of btns) b.addEventListener('click', () => set(b.dataset.themeSet));
+  set(['light', 'dark'].includes(cur) ? cur : 'auto');
+})();
+
 // 舊網址（Wiki 還是單頁時）的 #characters、#npc-zz、#q-m1 … 轉到對應的頁面
 (() => {
   if (document.body.dataset.page !== 'home' || !location.hash) return;

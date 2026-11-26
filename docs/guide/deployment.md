@@ -66,6 +66,7 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 - **部署**：`npm run build` 時 `vite.config.js` 會自動產生 `dist/wiki/`，跟遊戲一起由 GitHub Pages 發布，不需要額外設定；`check:dist` 會確認 `wiki/index.html` 有產出。
 - **本機預覽**：`npm run build` 後 `npm run preview`，開 `http://localhost:4173/wiki/`；只改 Wiki 時可以 `npm run wiki:build` 單獨重產 `dist/wiki/`。Wiki 的「開始玩」用相對路徑 `../` 回到遊戲。
 - **遊戲裡的入口**：標題畫面的「📖 彥霖GTA WIKI」按鈕（取代原本的「關於彥霖」，`src/core/MenuManager.js` 的 `btnWiki`）開新分頁到 `wiki/`。YanlinGTA 的 GTA = **Great Times Adventure**，Wiki 頁首與概覽都有寫。
+- **背景顏色**：表頭右上角「自動／亮色／暗色」切換（`wiki/build.mjs` 的 `THEME_SWITCH`、`wiki.js`），選擇存在 `localStorage` 的 `yanlinWiki.theme`，換頁也記得；`<head>` 的小程式在畫面出來前就套用，不會先閃一下別的顏色。自動＝跟著系統的深淺色。
 - **快取**：`style.css`、`game-controls.css`、`wiki.js` 的網址會加上內容雜湊 `?v=…`（`buildWiki`），更新後瀏覽器一定拿到新版，不會新 HTML 配舊 JS。
 - **版面**：技術文件式多頁網站（`wiki/build.mjs` 的 `PAGES`），每個主題一頁：`/wiki/`（介紹）、`controls/`、`characters/`、`main-quests/`、`side-quests/`、`cases/`、`shops/`、`team/`。三欄整塊置中：左邊分組編號的目錄、中間麵包屑＋標題＋內容＋上一頁／下一頁、右邊「本頁內容」（捲動時標出目前段落；1200px 以下收起，900px 以下左邊目錄收成「☰ 目錄」抽屜）。舊的單頁網址（`/wiki/#characters`、`#npc-zz`、`#q-m1`…）會由 `wiki.js` 轉到對應的頁面。「操作教學」的按鍵圖直接用遊戲「⌨ 操作說明」的同一份 HTML（`src/core/Controls.js` 的 `controlsHTML`，手把以 Xbox 標示）和同一份樣式（build 時從 `src/styles/style.css` 抽出相關規則、加上 `.game-ctl` 前綴，輸出成 `dist/wiki/game-controls.css`），遊戲改按鍵 Wiki 重建就跟著變。截圖在 `wiki/shots/`，改了 HUD／觸控按鈕／標題畫面後 `npm run build && node tools/wiki_shots.mjs` 重截。
 - **虛構角色**：`wiki/people.json` 的 `group: "fiction"`（Tzuyu），只出現在手機聊天室、沒有遊戲 NPC 的 Winter 放在 `extras`（欄位跟 `data/npcs.json` 一樣）；虛構角色不放社群連結，卡片只標「虛構角色」。

@@ -12,7 +12,8 @@
 //  - 生物科技館 w392023428：主體＋東側窄塔＋南翼（正射），東側淡綠玻璃樓梯塔從地面到頂（2026-05），
 //    與學活之間空橋寬 3.3 m，牆米灰偏紫磁磚，西南玻璃門廳（2017-09）；東北角金色直書館名。
 //  - 全人教育村 w392023429：北棟西段褐磚（2026-05）；南棟圓柱玻璃磚樓梯塔、半圓玻璃磚低量體、主牆褐紅磚
-//    （官方街景 2026-05）。北棟金屬盒、圓形中棟照 PLAN 先保持。
+//    （官方街景 2026-05）。中棟是瑞麗堂：3F 褐磚底座＋淺灰圓筒、深色窗帶、淺圓頂（Google 衛星標名、正射 2024、評論相片）；
+//    北棟西段的半圓端部是雨嘉演藝廳（藝術中心），先保持。
 //  - 室內游泳池 w392023430：屋脊偏北的不對稱雙坡、玫瑰紅浪板，東西兩端各一條約 5 m 藍灰玻璃帶（正射）；
 //    西面橘紅門框（兩根方柱加橫樑、直書白字）、右側玻璃帶、左側黑色拱形雕塑，沒有小披簷（2017-09）。
 //  - 體育館 w392023437：紅瓦斜裙主要在西側（約 7 m 寬），其他邊窄（正射）；西北角米褐圓柱樓梯塔、直立縫窗、
@@ -25,6 +26,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { H, Hgrid, groundY, surfaceAt, addPit, addBridge, LV_DECK } from '../Terrain.js';
 import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
+// 瑞麗堂（全人中棟）：底座高、圓筒頂高（底座以上）、圓心與半徑（正射 2024）
+const QR_RL = { baseH: 11.5, drumH: 17.0, cx: -6.5, cz: -89.9, r: 8.5 };
 export const G_IDS = {
   sac: 'w392023427',
   bio: 'w392023428',
@@ -96,6 +99,13 @@ export function zoneGLook(b) {
     }
   } else if (b.id === G_IDS.qr) {
     if (b.look?.wall) b.look.wall.colour = '#7a675f'; // 暗褐色面磚
+    // 中棟就是瑞麗堂（Google 衛星標名；正射 2024：約 20 m 見方的平頂底座上一個直徑約 17 m 的圓頂）：
+    // 底座 3F 褐磚（評論相片：從中庭水池看三層、牆上十字架），圓筒與圓頂由 buildZoneG 蓋
+    const mid = b.parts?.find((q) => q.label === '中棟');
+    if (mid) {
+      mid.h = QR_RL.baseH;
+      mid.floors = 3;
+    }
   } else if (b.id === G_IDS.pool) {
     // 單層挑高（簷高約 8.5 m）、大型鋼框窗間距約 9 m；屋頂由 buildZoneG 蓋不對稱雙坡
     b.h = 8.5;
@@ -838,6 +848,8 @@ function mat(key) {
     tileRoof: () => std({ map: tileRoofTex(), roughness: 0.8 }),
     solar: () => std({ color: '#2b3550', roughness: 0.3, metalness: 0.6 }),
     drum: () => std({ color: '#a8957f', roughness: 0.9 }),
+    ruiliDrum: () => std({ color: '#9c978f', roughness: 0.9 }),
+    ruiliDome: () => std({ color: '#b9b09f', roughness: 0.9 }),
     slit: () => std({ color: '#2a3036', roughness: 0.2, metalness: 0.4 }),
     steel: () => std({ color: '#c2c6ca', metalness: 0.8, roughness: 0.3 }),
     greyCol: () => std({ color: '#9c9fa1', roughness: 0.6 }),
@@ -2053,6 +2065,25 @@ export function buildZoneG(I, scene, data, collision = null) {
       k.slab('brownBrick', a[0], a[1], c[0], c[1], 0.3, hy, hy + 0.5);
     }
     shapes.push({ name: 'qrHalf', pts: P, y0: B, y1: hy + 0.5 });
+  }
+
+  // ===== 全人中棟＝瑞麗堂：3F 底座上的淺灰石材圓筒、頂下一圈深色窗帶、淺圓頂 =====
+  // 正射 2024 圓心約 (-6.5, -89.9)、直徑約 17 m；Google 地圖「瑞麗堂」相片（中庭水池往東看）：圓筒比底座高約兩層，頂上淺圓頂
+  if (qr) {
+    const B = baseOf(qr, QR_RL.cx, QR_RL.cz),
+      { cx, cz, r } = QR_RL,
+      y0 = B + QR_RL.baseH - 0.3,
+      y1 = B + QR_RL.drumH,
+      yg = y1 + 1.0;
+    k.cyl('ruiliDrum', cx, cz, r, y0, y1, 40);
+    k.cyl('win', cx, cz, r - 0.15, y1, yg, 40);
+    k.cyl('ruiliDrum', cx, cz, r + 0.1, yg, yg + 0.35, 40);
+    // 淺圓頂：高 1.6 m 的球冠
+    const hd = 1.6,
+      R = (r * r + hd * hd) / (2 * hd),
+      dome = new THREE.SphereGeometry(R, 40, 6, 0, Math.PI * 2, 0, Math.asin(r / R));
+    dome.translate(cx, yg + 0.35 + hd - R, cz);
+    k.add('ruiliDome', dome);
   }
 
   // ===== 室內游泳池：不對稱雙坡、兩端玻璃帶、西面橘紅門框 =====

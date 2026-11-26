@@ -115,7 +115,6 @@ export default [
   {
     ignores: [
       'dist/**',
-      'dist-wiki/**',
       'vendor/**',
       // tools/ 只忽略產出物
       'tools/npc-dashboard/photos/**',

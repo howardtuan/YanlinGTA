@@ -47,6 +47,7 @@ for (const need of [
   'vendor/rapier/rapier.wasm',
   'manifest.webmanifest',
   'assets/icon',
+  'wiki/index.html',
 ]) {
   if (!fs.existsSync(path.join(dist, need))) problems.push(`${need} is missing from dist/`);
 }

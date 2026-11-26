@@ -46,7 +46,12 @@ import {
 import { D5_ST, d5Footprints, buildDaren5Street } from '../buildings/StreetDaren5.js';
 import { SJ_ST, sjFootprints, buildShijianStreet } from '../buildings/StreetShijian.js';
 import { D2_ST, d2Footprints, d2Look, buildDaren2Street } from '../buildings/StreetDaren2.js';
-import { XZ_ST, xzFootprints, buildXinzhongbeiStreet } from '../buildings/StreetXinzhongbei.js';
+import {
+  XZ_ST,
+  xzFootprints,
+  xzLook,
+  buildXinzhongbeiStreet,
+} from '../buildings/StreetXinzhongbei.js';
 import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
 import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
@@ -319,20 +324,17 @@ export const ZONES = [
     // 新中北路（校園西南側）與新中北路469巷兩側街屋、圍牆
     name: '新中北路街屋',
     drop: XZ_ST.drop,
+    look: xzLook,
     ownSign: XZ_ST.ownSign,
     footprints: xzFootprints,
-    build: (I, scene) =>
-      buildXinzhongbeiStreet(I, scene, {
-        THREE,
-        Kit,
-        finishRow,
-        rowTools,
-        ROWT,
-        YHT,
-        sg,
-        lcg,
-        MATS,
-      }),
+    build: (I, scene, data, collision) =>
+      buildXinzhongbeiStreet(
+        I,
+        scene,
+        { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS },
+        data,
+        collision
+      ),
   },
   {
     // 日新路兩側街屋（中原夜市，中山東路口到實踐路口；實踐路口兩個轉角在實踐路街屋）

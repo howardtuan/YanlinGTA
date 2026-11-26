@@ -1,11 +1,12 @@
 // 新中北路（校園西南側那段）與新中北路469巷（校園西側）兩側的街屋與圍牆（照 Google 街景 2026-05、國土測繪 2024 正射與 Google 衛星建模，只做外觀，不能進入）。
 // 寫法比照 src/world/buildings/StreetZhongbei.js，每一格是 [ref, s0, s1, side, spec]
-//   ref  參考線：'X' 新中北路（s=0 在環中東路口，往西走；469巷口在 s≈350）、'L' 新中北路469巷（s=0 在新中北路巷口，往北走）
+//   ref  參考線：'X' 新中北路（s=0 在環中東路口，往西走；469巷口在 s≈350、實踐路口 s≈1014、中北橋 s 1078～1089、信陽街口 s≈1222、西端中山東路口 s≈1515）、'L' 新中北路469巷（s=0 在新中北路巷口，往北走）
 //   side +1 = 順著 s 走的右手邊（X 的北側＝靠校園側、L 的東側＝靠校園側），-1 = 左手邊
 //   spec 欄位與 src/world/buildings/StreetZhongbei.js 相同（nf、gf、fh、d、wall、low、sign、ground、sh、awn、bal、glass、hood、vert、round、banner、
 //        roof、bill、tin、arch、fins、big、sign2、noband、roofCol、door、tower、bikes、set）
 //   inside: true  一樓可以走進去：這裡只蓋二樓以上的外殼，一樓（立面、室內、碰撞）由那段的 custom 自己蓋（例：SegX4 的涼韌足體養生）
-// 一段路一個資料檔（src/world/buildings/xzb/Seg*.js），各自 export default { lots, drop, ownSign, custom, footprints }：
+// 一段路一個資料檔（src/world/buildings/xzb/Seg*.js），各自 export default { lots, drop, hide, ownSign, custom, footprints }：
+//   hide           不能 drop 的建物 id（OSM 建物、有店面牆的填充樓）：資料留著、不畫、碰撞收成一點（見 xzLook）
 //   custom(C)      不是街屋的東西（機車棚、圍牆、大樓…）用 Kit 自己蓋；C 有 kit(ref, s0, s1, side, set) 開一個對著街的 Kit、paint 招牌貼圖等工具
 //   footprints(F)  custom 佔的地（多邊形陣列），F(ref, s0, s1, side, set, d) 回傳一格的四個角
 // 每一格自成一個 Kit，立面對著街道；收尾用 finishRow 一次合併。
@@ -22,8 +23,29 @@ import SegX5 from './xzb/SegX5.js';
 import SegX6 from './xzb/SegX6.js';
 import SegX7 from './xzb/SegX7.js';
 import SegX8 from './xzb/SegX8.js';
+import SegX0 from './xzb/SegX0.js';
+import SegX9 from './xzb/SegX9.js';
+import SegX10 from './xzb/SegX10.js';
+import SegX11 from './xzb/SegX11.js';
 
-const SEGS = [SegL1, SegL2, SegX1, SegX2, SegX3, SegX4, SegL3, SegX5, SegX6, SegX7, SegX8];
+// SegX0、SegX9～SegX11 加在最後面，前面各段的亂數種子（seed 用 SEGS 的索引）才不會變
+const SEGS = [
+  SegL1,
+  SegL2,
+  SegX1,
+  SegX2,
+  SegX3,
+  SegX4,
+  SegL3,
+  SegX5,
+  SegX6,
+  SegX7,
+  SegX8,
+  SegX0,
+  SegX9,
+  SegX10,
+  SegX11,
+];
 
 // 參考線（data/cycu.json 的道路中心線，遊戲座標 x 東、z 南）
 export const XZ_REF = {
@@ -72,6 +94,28 @@ export const XZ_REF = {
     [-231.5, -142.1],
     [-249.0, -138.9],
     [-264.1, -134.1],
+    [-294.3, -117.0],
+    [-318.3, -103.5],
+    [-342.6, -90.2],
+    [-348.7, -86.7],
+    [-358.2, -82.6],
+    [-364.2, -79.2],
+    [-382.6, -69.0],
+    [-388.6, -65.4],
+    [-394.8, -62.0],
+    [-408.3, -54.8],
+    [-414.5, -51.6],
+    [-423.9, -47.3],
+    [-441.5, -35.0],
+    [-530.7, 32.9],
+    [-563.4, 56.6],
+    [-587.9, 74.9],
+    [-626.6, 108.0],
+    [-657.1, 131.7],
+    [-676.9, 149.1],
+    [-713.3, 176.0],
+    [-750.2, 206.9],
+    [-759.1, 215.3],
   ],
   L: [
     [247.6, 15.7],
@@ -99,6 +143,41 @@ export const XZ_ST = {
   drop: SEGS.flatMap((S) => S.drop || []), // 被自建街屋取代的填充樓（全部是 synthetic，各自用自己的亂數，刪掉不影響別的東西）
   lots: LOTS,
 };
+// 不能 drop 的建物（OSM 建物、有店面牆的填充樓）：各段在自己的 hide 列出 id。照環中東路 hzLook／大仁二街 d2Look 的做法，
+// 資料原封不動（全圖共用亂數、world.shopWalls 的牆數都不變，停放機車不會重排），只叫 src/world/MapBuilder.js 不畫牆和屋頂
+// （look.open.bare＋noShop），碰撞輪廓在 buildXinzhongbeiStreet 最後收成一個點（xzUncollide），由各段自建的街屋取代
+const XZ_HIDE = new Set(SEGS.flatMap((S) => S.hide || []));
+export function xzLook(b) {
+  if (!XZ_HIDE.has(b.id)) return;
+  // 原本就 noShop、沒有 look 的填充樓本來不產生店面牆；一加 look，MapBuilder 會把它當成「有店面但不畫」推進 world.shopWalls，
+  // 牆數一變全圖停放機車就重排。facade 設成 glass 只換樣式（rb() 照抽），店面牆照舊不產生
+  if (b.noShop && !b.look) b.facade = 'glass';
+  b.look = {
+    ...(b.look || {}),
+    wall: { base: 'smooth', colour: '#d9d9d6' },
+    open: { bare: true },
+    roof: { ac: false, extras: false },
+  };
+  b.noShop = true;
+}
+function xzUncollide(data, collision) {
+  if (!data || !collision || !collision.polys) return;
+  for (const b of data.buildings) {
+    if (!XZ_HIDE.has(b.id)) continue;
+    const pi = collision.polys.findIndex((q) => q.pts === b.pts);
+    if (pi < 0) {
+      console.warn(`[xinzhongbei] 找不到 ${b.id} 的碰撞輪廓`);
+      continue;
+    }
+    const Q = collision.polys[pi],
+      n = b.pts.length,
+      c0 = b.pts[0];
+    Q.pts = b.pts.map(() => [c0[0], c0[1]]);
+    Q.top = -Infinity;
+    for (let k = 0; k < n; k++)
+      collision.segs[Q.s0 + k] = [c0[0], c0[1], c0[0], c0[1], 1e8, 1e8 + 1];
+  }
+}
 export function xzAt(ref, s) {
   const R = XZ_REF[ref];
   let acc = 0;
@@ -160,7 +239,7 @@ export function xzFootprints() {
 const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 const r16 = (v) => Math.max(16, Math.ceil(v / 16) * 16);
 
-export function buildXinzhongbeiStreet(I, scene, X) {
+export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
   const { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS } = X;
   const { MR, FRONT, shopGlass, ac, win, shell } = rowTools();
   const def = (key, f) => {
@@ -798,4 +877,5 @@ export function buildXinzhongbeiStreet(I, scene, X) {
   };
   for (const S of SEGS) if (S.custom) S.custom(C);
   finishRow(scene, kits);
+  xzUncollide(data, collision);
 }

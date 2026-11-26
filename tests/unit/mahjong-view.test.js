@@ -6,6 +6,7 @@ import {
   discardScale,
   fitCamera,
   MahjongScene,
+  specEdge,
   specSpot,
   zoneRank,
 } from '../../src/systems/mahjong/MahjongScene.js';
@@ -126,6 +127,33 @@ describe('specSpot：觀戰者繞桌站的位置', () => {
       expect(p.z).toBeGreaterThan(-1.6 + 0.3); // 後牆
       expect(p.z).toBeLessThan(2.2 - 0.3);
       expect(Math.max(Math.abs(p.x), Math.abs(p.z))).toBeGreaterThan(1.2); // 在坐著的玩家（0.9）後面
+    }
+  });
+});
+
+describe('specEdge：畫面外的觀戰者名牌貼在畫面邊緣、對著他的方向', () => {
+  it('背後在下緣、下家那側在右緣、對家在上緣、上家那側在左緣', () => {
+    const [bx, by] = specEdge(0),
+      [rx, ry] = specEdge(90),
+      [tx, ty] = specEdge(180),
+      [lx, ly] = specEdge(270);
+    expect(bx).toBeCloseTo(50);
+    expect(tx).toBeCloseTo(50);
+    expect(by).toBeGreaterThan(ty);
+    expect(rx).toBeGreaterThan(90);
+    expect(lx).toBeLessThan(10);
+    expect(ry).toBeCloseTo(ly);
+  });
+  it('一路繞一圈都在畫面內（避開頂端資訊列與手牌），而且連續移動', () => {
+    let prev = specEdge(0);
+    for (let d = 1; d <= 360; d++) {
+      const [x, y] = specEdge(d);
+      expect(x).toBeGreaterThanOrEqual(3.99);
+      expect(x).toBeLessThanOrEqual(96.01);
+      expect(y).toBeGreaterThanOrEqual(13.99);
+      expect(y).toBeLessThanOrEqual(74.01);
+      expect(Math.hypot(x - prev[0], y - prev[1])).toBeLessThan(3);
+      prev = [x, y];
     }
   });
 });

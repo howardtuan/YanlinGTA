@@ -1,4 +1,4 @@
-// YanlinGTA Wiki 產生器：讀 data/npcs.json + wiki/people.json + wiki/quests.json，
+// YanlinGTA Wiki 產生器：讀 data/npcs.json + wiki/people.json + wiki/quests.json + wiki/shops.json，
 // 輸出一個不需要 JavaScript 也能看的靜態網站到 dist/wiki/，跟遊戲一起部署（yanlin-gta.com/wiki/）。
 // npm run build 會自動產生（vite.config.js）；只改 Wiki 時可以單獨跑 npm run wiki:build。
 import fs from 'node:fs';
@@ -15,9 +15,7 @@ export const GROUPS = [
   { id: 'main', label: '主角' },
   { id: 'dev', label: '開發者' },
   { id: 'classmate', label: '同學與室友' },
-  { id: 'campus', label: '校園人物' },
   { id: 'ai', label: 'AI 夥伴' },
-  { id: 'guest', label: '致敬客串' },
 ];
 
 const QUEST_TYPES = {
@@ -42,28 +40,37 @@ export function loadWikiData(root = ROOT) {
   const npcs = readJson(path.join(root, 'data', 'npcs.json')).npcs;
   const people = readJson(path.join(root, 'wiki', 'people.json')).people;
   const quests = readJson(path.join(root, 'wiki', 'quests.json')).quests;
+  const shops = readJson(path.join(root, 'wiki', 'shops.json')).shops;
   const avatarDir = path.join(root, 'assets', 'gram');
 
-  const chars = npcs.map((n) => {
-    const p = people[n.id] || {};
-    const avatar = fs.existsSync(path.join(avatarDir, `${n.id}_av.jpg`))
-      ? `img/${n.id}_av.jpg`
-      : '';
-    return {
-      ...n,
-      group: p.group || 'campus',
-      social: p.social !== false,
-      ig: safeUrl(p.ig),
-      linkedin: safeUrl(p.linkedin),
-      devRole: p.devRole || '',
-      note: p.note || '',
-      avatar,
-      quests: quests.filter((q) => q.npcs.includes(n.id)),
-    };
-  });
+  // wiki: false 的角色只在遊戲裡，不放上 Wiki
+  const chars = npcs
+    .filter((n) => people[n.id]?.wiki !== false)
+    .map((n) => {
+      const p = people[n.id] || {};
+      // 頭貼：真人角色用遊戲裡的 Peachgram 頭貼，AI 用 wiki/img/ 裡畫好的全息圓圈
+      const avatarSrc = [
+        path.join(avatarDir, `${n.id}_av.jpg`),
+        path.join(root, 'wiki', 'img', `${n.id}_av.jpg`),
+      ].find((f) => fs.existsSync(f));
+      const avatar = avatarSrc ? `img/${n.id}_av.jpg` : '';
+      return {
+        ...n,
+        relations: p.relations ?? n.relations,
+        group: p.group || 'classmate',
+        social: p.social !== false,
+        ig: safeUrl(p.ig),
+        linkedin: safeUrl(p.linkedin),
+        devRole: p.devRole || '',
+        note: p.note || '',
+        avatar,
+        avatarSrc,
+        quests: quests.filter((q) => q.npcs.includes(n.id)),
+      };
+    });
   const order = GROUPS.map((g) => g.id);
   chars.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
-  return { chars, quests };
+  return { chars, quests, shops };
 }
 
 function avatarHtml(c, size = '') {
@@ -147,7 +154,24 @@ function questCard(q, byId) {
 </article>`;
 }
 
-export function renderWiki({ chars, quests }) {
+function shopCard(s, byId) {
+  const people = (s.npcs || [])
+    .map((id) => byId.get(id))
+    .filter(Boolean)
+    .map((c) => `<a class="chip" href="#npc-${c.id}">${esc(c.name)}</a>`)
+    .join('');
+  const url = safeUrl(s.url);
+  return `
+<article class="quest shop" id="shop-${esc(s.id)}">
+  <header><span class="qt shop">合作店家</span><h3>${esc(s.icon)} ${esc(s.name)}</h3></header>
+  <p class="trigger"><b>遊戲裡：</b>${esc(s.where)}</p>
+  <ul>${s.features.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>
+  ${url ? `<p class="reward"><a href="${url}" target="_blank" rel="noopener">店家連結 ↗</a></p>` : ''}
+  ${people ? `<div class="chips">${people}</div>` : ''}
+</article>`;
+}
+
+export function renderWiki({ chars, quests, shops = [] }) {
   const byId = new Map(chars.map((c) => [c.id, c]));
   const devs = chars.filter((c) => c.group === 'dev');
   const counts = Object.fromEntries(
@@ -188,7 +212,7 @@ export function renderWiki({ chars, quests }) {
 <header class="top">
   <a class="brand" href="#top"><img src="img/icon-192.png" alt="" width="28" height="28"> YanlinGTA <span>Wiki</span></a>
   <nav aria-label="主選單">
-    <a href="#overview">概覽</a><a href="#characters">角色</a><a href="#main-quests">主線</a><a href="#side-quests">支線</a><a href="#team">開發團隊</a>
+    <a href="#overview">概覽</a><a href="#characters">角色</a><a href="#main-quests">主線</a><a href="#side-quests">支線</a><a href="#shops">合作店家</a><a href="#team">開發團隊</a>
   </nav>
   <a class="play" href="${GAME_URL}">▶ 開始玩</a>
 </header>
@@ -214,7 +238,7 @@ export function renderWiki({ chars, quests }) {
     <div class="ov"><span class="ov-n">34</span><span>金色選票</span></div>
   </div>
   <div class="prose">
-    <p>投票日就在明天。玩家扮演候選人<b>彥霖</b>，跟著兩個全息 AI 夥伴 M.O.N.D.A.Y 與 W.E.D.N.E.S.D.A.Y 完成競選主線：貼傳單、買早餐、掃街拉票、搶救布條，最後用真正的 SQL 查出是誰割了競選布條。</p>
+    <p>投票日就在明天。玩家扮演候選人<b>彥霖</b>，跟著兩個全息 AI 夥伴 M.O.N.D.A.Y 與 W.E.D.N.E.S.D.A.Y 完成競選主線：貼傳單、買早餐、掃街拉票、搶救布條，最後用真正的 SQL 查出是誰割了競選布條。卡關的時候，右下角的金色小助手 S.U.N.D.A.Y 會給提示。</p>
     <p>主線之外，校園裡每個角色都有自己的 24 小時作息、宿舍床位、對白和手機社群動態。跟他們聊天加好友，就會觸發各自的支線劇情。另外還有麥當勞打工、新中北路障礙賽、力行 277 寢 3D 台灣麻將（可以跟朋友連線）、資管學堂程式課、靈感股市和直升機空投等玩法。</p>
     <p class="hint">電腦用鍵盤滑鼠或手把、手機用觸控都能玩：<kbd>WASD</kbd> 移動、<kbd>E</kbd> 互動、<kbd>F</kbd> 上下車、<kbd>M</kbd> 大地圖、滑鼠左鍵發傳單、<kbd>G</kbd> 比 ✌。</p>
   </div>
@@ -234,6 +258,12 @@ export function renderWiki({ chars, quests }) {
 ${questSection('main', '主線任務', '五個競選任務依序推進，主要由 M.O.N.D.A.Y 與 W.E.D.N.E.S.D.A.Y 交代。')}
 ${questSection('side', '支線任務', '跟角色加好友後，在手機私訊或當面聊天時觸發。')}
 ${questSection('case', 'SQL 偵探案件', '在電腦終端機輸入 case 開啟，要寫真的 SQL 查資料；不會寫程式也可以「🎬 一鍵通關」。')}
+
+<section id="shops" class="block">
+  <h2>合作店家</h2>
+  <p class="lead">跟我們合作、被搬進遊戲裡的真實店家，走進去就能逛、能買東西。</p>
+  <div class="quest-grid">${shops.map((s) => shopCard(s, byId)).join('')}</div>
+</section>
 
 <section id="team" class="block">
   <h2>開發團隊</h2>
@@ -256,7 +286,7 @@ ${questSection('case', 'SQL 偵探案件', '在電腦終端機輸入 case 開啟
 </main>
 
 <footer class="foot">
-  <p>YanlinGTA Wiki · 角色皆由真人改編，致敬角色僅取外型特徵、不代表本人。</p>
+  <p>YanlinGTA Wiki · 角色皆由真人改編。</p>
   <p><a href="${GAME_URL}">yanlin-gta.com</a></p>
 </footer>
 <script src="wiki.js" defer></script>
@@ -278,19 +308,14 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
     path.join(outDir, 'img', 'icon-192.png')
   );
   for (const c of data.chars) {
-    if (c.avatar) {
-      fs.copyFileSync(
-        path.join(root, 'assets', 'gram', `${c.id}_av.jpg`),
-        path.join(outDir, c.avatar)
-      );
-    }
+    if (c.avatar) fs.copyFileSync(c.avatarSrc, path.join(outDir, c.avatar));
   }
-  return { outDir, chars: data.chars.length, quests: data.quests.length };
+  return { outDir, chars: data.chars.length, quests: data.quests.length, shops: data.shops.length };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const r = buildWiki();
   console.log(
-    `Wiki 已輸出到 ${path.relative(ROOT, r.outDir)}/（${r.chars} 個角色、${r.quests} 個任務）`
+    `Wiki 已輸出到 ${path.relative(ROOT, r.outDir)}/（${r.chars} 個角色、${r.quests} 個任務、${r.shops} 家合作店家）`
   );
 }

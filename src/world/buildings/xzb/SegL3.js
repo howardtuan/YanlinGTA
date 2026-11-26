@@ -100,16 +100,12 @@ const wFence = (s) =>
       : s <= 380
         ? 5.0
         : 5.0 + (0.6 * (s - 380)) / 6;
-// 紅磚色大樓（校內，離巷子 22～32 m，正射量到約 9 m 見方、斜 45°）與果園鐵皮屋的位置
-const BRICK = { c: [264.9, -364.7], half: 4.4, h: 12.2 },
-  HUT_E = { s: 423.3, o: 13.8, half: 3.25, w: 5.4 };
 // 安全島東邊的米色長條平房（屋頂鋪滿太陽能板，正射 17×4.5 m，長邊朝東北；Google 地圖標「污水處理場」的設施）
 const LONG = { c: [250.6, -344.4], d: [0.85, -0.527], half: 8.5, w: 4.5 };
 const longPt = (t, v) => [
   LONG.c[0] + LONG.d[0] * t - LONG.d[1] * v,
   LONG.c[1] + LONG.d[1] * t + LONG.d[0] * v,
 ];
-const brickPt = (t, v) => [BRICK.c[0] + DD[0] * t + DP[0] * v, BRICK.c[1] + DD[1] * t + DP[1] * v];
 
 export default {
   // f701（標 3 樓）實景是灰色帆布圍籬、綠籬與榕樹排；f700（標 1 樓）實景是菜園後面的草地
@@ -997,56 +993,7 @@ export default {
       ])
         tree(A(s, o), h, rr, rt, rt() < 0.5 ? GREEN : ['#4b8a3e', '#5a8f45', '#3f7a3a']);
     }
-    // ---- E6 後面果園裡的淺黃色鐵皮頂小屋（正射約 6.5×5.4 m），幾乎被果樹擋住，只做量體 ----
-    {
-      const { s, o, half, w } = HUT_E,
-        k = K(A(s, o)),
-        a = A(s - half, o),
-        b = A(s + half, o);
-      slab(k, a, b, w, -1.5, 2.3, '#aeb0a4');
-      slab(k, lerp(a, b, -0.04), lerp(a, b, 1.04), w + 0.6, 2.3, 2.44, '#cfc79a', false);
-    }
-    // ---- E6b 校內的紅磚色大樓（4 樓、屋頂綠色球場，離巷子 22～32 m）：面向巷子這面幾乎沒有窗；西北側一間灰色平頂附屬屋；只做量體 ----
-    {
-      const H = BRICK.half,
-        T0 = BRICK.h,
-        k = K(BRICK.c),
-        BR = '#b0583f';
-      slab(k, brickPt(-H, 0), brickPt(H, 0), H * 2, -2, T0, BR);
-      slab(
-        k,
-        brickPt(-H - 0.15, 0),
-        brickPt(H + 0.15, 0),
-        H * 2 + 0.3,
-        T0,
-        T0 + 0.8,
-        '#a04e3a',
-        false
-      );
-      slab(
-        k,
-        brickPt(-H + 0.3, 0),
-        brickPt(H - 0.3, 0),
-        H * 2 - 0.6,
-        T0 + 0.6,
-        T0 + 0.85,
-        '#3f9a5a',
-        false
-      );
-      for (const f of [1, 2, 3])
-        slab(
-          k,
-          brickPt(-H - 0.04, 0),
-          brickPt(H + 0.04, 0),
-          H * 2 + 0.08,
-          3.05 * f - 0.07,
-          3.05 * f + 0.07,
-          '#9a4a38',
-          false
-        );
-      slab(k, brickPt(-H - 2.2, 0.5), brickPt(-H, 0.5), 5.5, -1.5, 3.0, '#8a8d90');
-      slab(k, brickPt(-H - 2.5, 0.5), brickPt(-H, 0.5), 6.1, 3.0, 3.18, '#4a4d50', false); // 灰色附屬屋
-    }
+    // E6 果園鐵皮屋、E6b 紅磚色大樓由普忠路那邊蓋（src/world/buildings/StreetPuzhong.js），這裡不再重複
     // ---- E7 s432–436：路口轉角的黃漆水泥矮牆（高 0.9）＋銀色鋼管框鐵網（下半蓋黑色遮陽網），轉角沿普忠路往東南；
     //      s≈433 黃黑斜紋水泥電桿掛「禁止左轉」圓牌、白色附牌（字看不清，不寫）、綠底白字直式路名牌、頂端喇叭；旁邊路燈桿與交通錐 ----
     {
@@ -1391,9 +1338,6 @@ export default {
       }
       return out;
     };
-    const H = BRICK.half + 0.6,
-      hs = HUT_E.s,
-      ho = HUT_E.o;
     return [
       band(348.6, 355.4, 10.5, 15.5), // 鋼架棚
       [
@@ -1416,8 +1360,6 @@ export default {
       band(406.6, 432, 4.0, ESET + 0.3),
       band(432, 436.2, 4.0, ESET + 0.3),
       band(435.8, 436.2, ESET, 15.2), // 花磚圍籬與溝蓋路肩、黃矮牆
-      band(hs - 3.7, hs + 3.7, ho - 3.1, ho + 3.1), // 果園鐵皮屋
-      [brickPt(-H - 3, -H), brickPt(H, -H), brickPt(H, H), brickPt(-H - 3, H)], // 紅磚色大樓與附屬屋
       ...bandF(344.8, 386, (s) => -wFence(s), -0.3, 0.3), // 鋼管網圍籬
       band(344.2, 350.4, -11.7, -8.1),
       band(350.3, 358.7, -13.3, -8.8), // 電箱鋪面、褐色小屋

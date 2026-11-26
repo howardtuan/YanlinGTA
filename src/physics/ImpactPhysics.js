@@ -170,12 +170,13 @@ export function solveVehicleImpact({
   const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
 
   // 5. Target tipping roll angular velocity (rad/s) around its own longitudinal axis:
-  //    Scooter: omega = (J_net * hCm) / I_roll (narrow 2-wheel base tips over; gravity completes fall past 15°)
+  //    Scooter: omega = (J_net * hCm) / I_roll (narrow 2-wheel base tips over; gravity completes fall past 15°).
+  //    No floor: a knocked scooter already starts leaning past its balance angle (ParkedScooters.knockSlot), so
+  //    gravity tips it over anyway; a floor (it was 3.4 rad/s) put in rotational energy no impulse gave, which
+  //    kept every domino chain going down a whole row however lightly the first scooter was touched.
   //    Car: SSF > muKinetic -> slides flat (rollSpeed = 0)
   const rollSpeed =
-    kind2 === 'scooter' && moves
-      ? Math.max(3.4, Math.min(6.5, (netImpulse * s2.hCm) / s2.iRoll))
-      : 0;
+    kind2 === 'scooter' && moves ? Math.min(6.5, (netImpulse * s2.hCm) / s2.iRoll) : 0;
 
   return {
     m1,
@@ -262,6 +263,72 @@ export function solvePersonImpact({
   };
 }
 
+export const PERSON_R = 0.3; // m: a person's body as a circle in plan (shoulders)
+
+/**
+ * Gap from point (px, pz) to an oriented rectangle in plan: centre (cx, cz), heading yaw (forward = (sin, cos)),
+ * half extents hx (sideways) and hz (along). gap < 0 inside; (nx, nz) the unit normal from the box toward the point.
+ */
+export function obbGap(px, pz, cx, cz, yaw, hx, hz) {
+  const s = Math.sin(yaw),
+    c = Math.cos(yaw);
+  const dx = px - cx,
+    dz = pz - cz;
+  const lf = dx * s + dz * c,
+    lr = dx * c - dz * s;
+  const qf = Math.max(-hz, Math.min(hz, lf)),
+    qr = Math.max(-hx, Math.min(hx, lr));
+  const ex = px - (cx + s * qf + c * qr),
+    ez = pz - (cz + c * qf - s * qr);
+  const d = Math.hypot(ex, ez);
+  if (d > 1e-6) return { gap: d, nx: ex / d, nz: ez / d };
+  // inside: out through the nearest face
+  const penF = hz - Math.abs(lf),
+    penR = hx - Math.abs(lr);
+  if (penR < penF) {
+    const sg = lr < 0 ? -1 : 1;
+    return { gap: -penR, nx: c * sg, nz: -s * sg };
+  }
+  const sg = lf < 0 ? -1 : 1;
+  return { gap: -penF, nx: s * sg, nz: c * sg };
+}
+
+/**
+ * A knocked (riderless, physics-driven) vehicle of kind `kind` sliding with velocity lv against a person standing
+ * at (px, pz) with velocity (pvx, pvz): the footprint of its collision box (centre cx, cz, heading yaw) against the
+ * person's circle. Returns null when they do not touch or are not closing; else the normal (vehicle -> person),
+ * the closing speed and the solvePersonImpact solution.
+ */
+export function debrisVsPerson({
+  kind,
+  lv,
+  cx,
+  cz,
+  yaw,
+  px,
+  pz,
+  pvx = 0,
+  pvz = 0,
+  personMass,
+  personHeight,
+  hw = 0,
+}) {
+  const sh = vehicleSpec(kind).shape;
+  // hw: the vehicle's real half width when wider than its collision box (a scooter's handlebars and mirrors)
+  const g = obbGap(px, pz, cx, cz, yaw, Math.max(sh.hx, hw), sh.hz);
+  if (g.gap >= PERSON_R) return null;
+  const vRel = (lv.x - pvx) * g.nx + (lv.z - pvz) * g.nz;
+  if (vRel <= 0) return null;
+  const sol = solvePersonImpact({
+    vehicleKind: kind,
+    riderOnVehicle: false,
+    personMass,
+    personHeight,
+    vRel,
+  });
+  return { nx: g.nx, nz: g.nz, vRel, gap: g.gap, sol };
+}
+
 /**
  * Solve motorcycle rider ejection velocity from Newton's 1st Law (inertia), handlebar grip break impulse,
  * and handlebar/seat pivot vault geometry (zero arbitrary floors or hardcoded speed multipliers).
@@ -285,11 +352,14 @@ export function solveRiderEjection({
   const sinT = Math.sin(theta);
 
   if (pushed) {
+    // hit by something else: the rider keeps the velocity they had (1st law) and gets the shove past what the
+    // grip absorbs on top of it (n: the direction the vehicle was shoved), vaulting off the seat at theta
     const vBase = Math.max(0, (dv1 ?? impact * 0.5) - dvGrip);
     const vEff = vBase * PERSON_PHYS.vaultEff;
+    const sp = speed || 0;
     return {
-      vx: nx * vEff * cosT,
-      vz: nz * vEff * cosT,
+      vx: fx * sp + nx * vEff * cosT,
+      vz: fz * sp + nz * vEff * cosT,
       vy: vEff * sinT,
     };
   }

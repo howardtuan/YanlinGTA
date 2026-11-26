@@ -11,6 +11,12 @@ import {
 } from '../../src/systems/mahjong/Net.js';
 import { createHostRoom, joinGuestRoom } from '../../src/systems/mahjong/P2P.js';
 import { DormMahjong, ROSTER } from '../../src/systems/mahjong/Mahjong.js';
+import {
+  TurnTimer,
+  TURN_LIMIT_MS,
+  humanDecisions,
+  timeoutAction,
+} from '../../src/systems/mahjong/TurnTimer.js';
 
 function seeded(seed) {
   let s = seed >>> 0;
@@ -681,5 +687,296 @@ describe('中途加入（下局取代 AI）與觀賽模式（Issue #170）', () 
     seatedMj.leave(false);
     spec1.leave(false);
     spec2.leave(false);
+  });
+});
+
+describe('多人擲骰開門動畫（Issue #207）', () => {
+  const rollScene = () => {
+    const sc = {
+      rolls: [],
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand(e) {
+        sc.e = e;
+      },
+      _layout() {},
+      _showResult() {},
+      roll(thrower, dice, what, done, opts) {
+        sc.rolls.push({ thrower, dice: [...dice], what, auto: !!opts?.auto });
+      },
+      result: null,
+      names: [],
+    };
+    return sc;
+  };
+
+  it('房主決定點數並廣播，房主、客端、觀戰者都播同一組點數（座位依各自視角旋轉），換莊後下一局再擲一次', async () => {
+    const bus = createMockBus();
+    const hostMj = new DormMahjong(fakeGame(1000));
+    const guestMj = new DormMahjong(fakeGame(1000));
+    const specMj = new DormMahjong(fakeGame(1000));
+    hostMj.scene = rollScene();
+    guestMj.scene = rollScene();
+    specMj.scene = rollScene();
+
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+    await guestMj.joinRoom(code, '小明', bus);
+    await specMj.joinRoom(code, '阿觀', bus, { spectateOnly: true });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    hostMj.startMultiHost();
+
+    const h = hostMj.scene.rolls;
+    expect(h).toHaveLength(1);
+    expect(h[0].what).toBe('cut');
+    expect(h[0].auto).toBe(true); // 多人不等人按，全桌同時擲
+    expect(h[0].thrower).toBe(hostMj.sess.dealer);
+    // 擲骰時還沒發牌：動畫播完才由畫面 step() 發牌
+    expect(hostMj.engine.phase).toBe('deal');
+
+    const g = guestMj.scene.rolls;
+    expect(g).toHaveLength(1);
+    expect(g[0].dice).toEqual(h[0].dice);
+    expect(g[0].thrower).toBe((h[0].thrower - guestMj.sess.seat + 4) % 4);
+    expect(guestMj.engine.phase).toBe('deal');
+
+    const s = specMj.scene.rolls;
+    expect(s).toHaveLength(1);
+    expect(s[0].dice).toEqual(h[0].dice);
+    expect(s[0].thrower).toBe((h[0].thrower - specMj.sess.viewSeat + 4) % 4);
+
+    // 這局莊家下莊 → 下一局換莊，再擲一次並同步
+    hostMj.handOver({ winner: 1, from: 2, tai: 1, deltas: [0, 40, -40, 0], dealerStays: false });
+    guestMj.handOver({ winner: 0, from: 1, tai: 1, deltas: [40, -40, 0, 0], dealerStays: false });
+    hostMj.next();
+    expect(h).toHaveLength(2);
+    expect(h[1].thrower).toBe(1);
+    expect(g).toHaveLength(2);
+    expect(g[1].dice).toEqual(h[1].dice);
+    expect(g[1].thrower).toBe((1 - guestMj.sess.seat + 4) % 4);
+    expect(s).toHaveLength(2);
+    expect(s[1].dice).toEqual(h[1].dice);
+
+    hostMj.leave(false);
+    guestMj.leave(false);
+    specMj.leave(false);
+  });
+
+  it('rotateEventsFor 會旋轉 roll 事件的擲骰座位、點數原樣保留', () => {
+    const ev = [{ type: 'roll', seat: 2, dice: [3, 5, 6] }];
+    expect(rotateEventsFor(ev, 1)).toEqual([{ type: 'roll', seat: 1, dice: [3, 5, 6] }]);
+    expect(rotateEventsFor(ev, 3, { spectate: true })).toEqual([
+      { type: 'roll', seat: 3, dice: [3, 5, 6] },
+    ]);
+  });
+});
+
+describe('多人出牌限時 20 秒（Issue #208）', () => {
+  const stub = () => ({
+    open() {},
+    close() {},
+    showLobby() {},
+    startHand() {},
+    _layout() {},
+    _showResult() {},
+    roll() {},
+    result: null,
+    names: [],
+  });
+  // 推進引擎直到有人要決定（房主照實廣播）
+  const runUntilPending = (mj) => {
+    const e = mj.engine;
+    let guard = 0;
+    while (!e.pending && e.phase !== 'end' && guard++ < 400) {
+      e.events.length = 0;
+      e.step();
+      mj.onHostStep([...e.events]);
+    }
+    return e.pending;
+  };
+
+  it('TurnTimer：真人輪到出牌開始計時，20 秒到期；只算真人，換一手重新計時', () => {
+    let now = 1000;
+    const t = new TurnTimer({ now: () => now });
+    const ai = makeAI({ attack: 0.5, defense: 0.5 });
+    const e = new MahjongEngine({
+      rng: seeded(7),
+      dealer: 0,
+      human: [true, false, false, false],
+      ai,
+    });
+    while (!e.pending && e.phase !== 'end') e.step();
+    expect(e.pending.kind).toBe('turn');
+    expect(humanDecisions(e)).toHaveLength(1);
+    const [d] = t.sync(e);
+    expect(d).toMatchObject({ seat: 0, kind: 'turn', until: 1000 + TURN_LIMIT_MS });
+    now += TURN_LIMIT_MS - 1;
+    expect(t.expired(e)).toHaveLength(0);
+    expect(t.left(e)[0].left).toBe(1);
+    now += 1;
+    expect(t.expired(e)).toHaveLength(1);
+
+    // 超時：打出剛摸的那張
+    const act = timeoutAction(e, 0, 'turn');
+    expect(act).toEqual({ type: 'discard', t: e.drawn });
+    expect(e.decideFor(0, act)).toBe(true);
+    expect(e.players[0].discards.at(-1)).toBe(act.t);
+    expect(t.sync(e)).toHaveLength(0);
+
+    // AI 座位從來不計時
+    e.human = [false, false, false, false];
+    expect(humanDecisions(e)).toHaveLength(0);
+  });
+
+  it('timeoutAction：回應一律「過」；吃碰後沒摸牌時由 AI 挑一張（挑到不合法的就打最後一張）', () => {
+    const e = {
+      justDrew: false,
+      turn: 1,
+      drawn: 5,
+      players: [{ hand: [] }, { hand: [1, 2, 3, 9] }],
+    };
+    expect(timeoutAction(e, 1, 'claim')).toEqual({ type: 'pass' });
+    expect(timeoutAction(e, 1, 'turn', () => 2)).toEqual({ type: 'discard', t: 2 });
+    expect(timeoutAction(e, 1, 'turn', () => 33)).toEqual({ type: 'discard', t: 9 });
+    expect(
+      timeoutAction(e, 1, 'turn', () => {
+        throw new Error('x');
+      })
+    ).toEqual({ type: 'discard', t: 9 });
+  });
+
+  it('房主計時並判定、倒數跟著快照送到客端與觀戰者（座位旋轉），時間到替客端出牌並通知；單人模式不限時', async () => {
+    const bus = createMockBus();
+    const hostGame = fakeGame(1000);
+    const guestGame = fakeGame(1000);
+    const hostMj = new DormMahjong(hostGame);
+    const guestMj = new DormMahjong(guestGame);
+    const specMj = new DormMahjong(fakeGame(1000));
+    hostMj.scene = stub();
+    guestMj.scene = stub();
+    specMj.scene = stub();
+    let now = 50000;
+    hostMj.turnTimer = new TurnTimer({ now: () => now });
+
+    await hostMj.hostRoom('彥霖', 0, bus);
+    const code = hostMj.mp.code;
+    await guestMj.joinRoom(code, '小明', bus);
+    await specMj.joinRoom(code, '阿觀', bus, { spectateOnly: true });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    hostMj.startMultiHost();
+    const e = hostMj.engine;
+    const gSeat = guestMj.sess.seat;
+
+    // 推到輪到客端（出牌或回應）為止；途中房主自己的決定也會計時，到期就自動處理
+    let guard = 0;
+    let target = null;
+    while (guard++ < 200 && e.phase !== 'end') {
+      runUntilPending(hostMj);
+      target = humanDecisions(e).find((d) => d.seat === gSeat);
+      if (target) break;
+      now += TURN_LIMIT_MS;
+      expect(hostMj.tickTurnTimers()).toBeGreaterThan(0); // 房主自己超時也照規則處理
+      expect(hostGame.toasts.some((t) => t.includes('時間到'))).toBe(true);
+    }
+    expect(target).toBeTruthy();
+
+    // 客端看到自己（本地座位 0）在倒數 20 秒；觀戰者看到同一個座位依視角旋轉
+    const gt = guestMj.turnTimers().find((d) => d.seat === 0);
+    expect(gt).toBeTruthy();
+    expect(gt.kind).toBe(target.kind);
+    expect(gt.until - Date.now()).toBeGreaterThan(TURN_LIMIT_MS - 2000);
+    const st = specMj.engine.timers.find((d) => d.seat === (gSeat - specMj.sess.viewSeat + 4) % 4);
+    expect(st).toBeTruthy();
+
+    // 19 秒還沒到；20 秒到了房主替客端處理
+    const before = e.players[gSeat].discards.length;
+    const drawn = e.drawn;
+    now += TURN_LIMIT_MS - 1000;
+    hostMj.tickTurnTimers();
+    expect(humanDecisions(e).some((d) => d.seat === gSeat)).toBe(true);
+    now += 1000;
+    hostMj.tickTurnTimers();
+    expect(humanDecisions(e).some((d) => d.key === target.key)).toBe(false);
+    if (target.kind === 'turn') {
+      expect(e.players[gSeat].discards.length).toBe(before + 1);
+      expect(e.players[gSeat].discards.at(-1)).toBe(drawn);
+    } else {
+      expect(e.answers[gSeat]).toEqual({ type: 'pass' });
+    }
+    expect(guestGame.toasts.some((t) => t.includes('時間到'))).toBe(true);
+    // 客端超時後不再顯示自己的倒數
+    expect(guestMj.turnTimers().some((d) => d.seat === 0 && d.kind === target.kind)).toBe(false);
+
+    hostMj.leave(false);
+    guestMj.leave(false);
+    specMj.leave(false);
+
+    // 單人模式：完全沒有計時
+    const solo = new DormMahjong(fakeGame(1000));
+    solo.sess = { multi: false };
+    solo.engine = new MahjongEngine({ rng: seeded(3), human: [true, false, false, false] });
+    expect(solo.turnTimers()).toEqual([]);
+    expect(solo.tickTurnTimers()).toBe(0);
+  });
+
+  it('serializeStateFor 把限時座位旋轉成客端視角，RemoteMahjongEngine 換算成本機到期時刻', () => {
+    const e = new MahjongEngine({ rng: seeded(11), human: [true, true, false, false] });
+    e.start();
+    const snap = serializeStateFor(e, 1, { timers: [{ seat: 1, kind: 'turn', left: 12000 }] });
+    expect(snap.timers).toEqual([{ seat: 0, kind: 'turn', left: 12000 }]);
+    const r = new RemoteMahjongEngine();
+    const t0 = Date.now();
+    r.applySnapshot(snap);
+    expect(r.timers[0].seat).toBe(0);
+    expect(r.timers[0].until).toBeGreaterThanOrEqual(t0 + 12000);
+    expect(serializeStateFor(e, 0).timers).toEqual([]);
+  });
+});
+
+describe('觀戰者左右切換視角（Issue #209）', () => {
+  it('cycleSpectatorView(-1/1) 往上家／下家切換並同步房主送來的視角', async () => {
+    const bus = createMockBus();
+    const hostMj = new DormMahjong(fakeGame(1000));
+    const specGame = fakeGame(1000);
+    const specMj = new DormMahjong(specGame);
+    const stub = () => ({
+      open() {},
+      close() {},
+      showLobby() {},
+      startHand() {},
+      _layout() {},
+      _showResult() {},
+      roll() {},
+      result: null,
+      names: [],
+    });
+    hostMj.scene = stub();
+    specMj.scene = stub();
+    await hostMj.hostRoom('彥霖', 0, bus);
+    hostMj.startMultiHost();
+    await specMj.joinRoom(hostMj.mp.code, '阿觀', bus, { spectateOnly: true });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    expect(specMj.sess.viewSeat).toBe(0);
+    const names = [...specMj.sess.names];
+
+    specMj.cycleSpectatorView(-1); // ← 上家
+    expect(specMj.sess.viewSeat).toBe(3);
+    expect(specMj.scene.names[0]).toBe(names[3]);
+    expect(specGame.toasts.at(-1)).toContain(names[3]);
+
+    specMj.cycleSpectatorView(1); // → 下家（回到房主）
+    specMj.cycleSpectatorView(1);
+    expect(specMj.sess.viewSeat).toBe(1);
+    expect(specMj.scene.names[0]).toBe(names[1]);
+
+    hostMj.leave(false);
+    specMj.leave(false);
   });
 });

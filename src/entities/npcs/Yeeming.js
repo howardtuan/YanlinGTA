@@ -130,6 +130,11 @@ export class YeeMing {
     this.state.met = true;
     g.friends?.talk('yeeming', where, () => {
       this.pause = 0.6;
+      // on the walk 羊明衫 is right there too: she asks to add you as well (she has no E of her own while walking)
+      if (where === 'walk' && g.friends && !g.friends.added.has('mingshan')) {
+        this.pause = 4;
+        g.friends.talk('mingshan', 'walk', () => (this.pause = 0.6));
+      }
     });
   }
   // a footpath node 30–90 m from you, on campus (like 漢克's walks); false if none

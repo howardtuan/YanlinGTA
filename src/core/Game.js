@@ -484,7 +484,7 @@ class Game {
 
     this.input.padDriving = () => !!this.player.vehicle;
     this.input.padContext = () =>
-      this.race.state === 'results'
+      this.race.state === 'results' || this.race.state === 'pick'
         ? 'race'
         : this.hud.bigOpen
           ? 'map'
@@ -953,7 +953,8 @@ class Game {
       this.pc?.isOpen ||
       this.wardrobe?.isOpen ||
       this.mahjong?.playing ||
-      this.race?.state === 'results'
+      this.race?.state === 'results' ||
+      this.race?.state === 'pick'
     );
   }
 
@@ -1310,6 +1311,8 @@ class Game {
       if (hud.bigOpen) this.closeMap();
       // Esc on the race results = 繼續, not the pause menu
       else if (this.race.state === 'results') this.race.close(false);
+      // Esc while choosing your bike for the race = 取消
+      else if (this.race.state === 'pick') this.race.cancelPick();
       else if (!this._modalOpen) {
         document.exitPointerLock?.();
         this.pause();
@@ -1438,7 +1441,7 @@ class Game {
       else v.drive(dt, vin, w.collision, others, this._bump());
       pl.ch.update(dt, { mode: v.kind === 'scooter' ? 'ride' : 'drive' });
       const sp = Math.abs(v.speed);
-      if (sp > 2.2) {
+      if (sp > 0.3) {
         const [fx, fz] = v.forward(),
           sg = Math.sign(v.speed) || 1;
         for (const p of this.peds.active()) {
@@ -1454,7 +1457,11 @@ class Game {
             const dl = Math.hypot(dx, dz) || 1;
             dx /= dl;
             dz /= dl;
-            const vRel = Math.max(0, fx * v.speed * dx + fz * v.speed * dz);
+            // closing speed against the pedestrian's own stumble (Peds.shove), so a shove is not repeated
+            const vRel = Math.max(
+              0,
+              (fx * v.speed - (p.shove?.x || 0)) * dx + (fz * v.speed - (p.shove?.z || 0)) * dz
+            );
             const sol = solvePersonImpact({
               vehicleKind: v.kind,
               riderOnVehicle: true,
@@ -1469,9 +1476,21 @@ class Game {
             ) {
               this.audio.hitPed();
               this.addVotes(-1, '撞到同學了！-1 票 😵');
-              v.speed *= sol.kf;
+              // the reaction -d * J / m1 on your velocity f * speed (Newton's 3rd law), not a ratio of all of it
+              v.speed -= (fx * dx + fz * dz) * sol.dvVehicle;
               if (sol.ejectRider1 && !v.crash)
                 v.crash = { impact: vRel, speed: sp, nx: -dx, nz: -dz };
+            } else if (b.gap < 0.3) {
+              // too slow to knock them down: they are shoved aside out of your body instead of you
+              // driving through them, and take the impulse as a stumble (you lose its reaction)
+              p.pos.x += nx * (0.3 - b.gap);
+              p.pos.z += nz * (0.3 - b.gap);
+              if (
+                !sol.knockDown &&
+                sol.dvTotal > 0 &&
+                this.peds.shove?.(p, dx * sol.dvTotal, dz * sol.dvTotal)
+              )
+                v.speed -= (fx * dx + fz * dz) * sol.dvVehicle;
             }
           }
         }
@@ -1541,7 +1560,8 @@ class Game {
                 vRel,
               });
               if (v.ai) v.ai.stunned = 2;
-              v.speed *= sol.kf;
+              // the reaction -n * J / m1 on its velocity along its heading (a glancing touch barely slows it)
+              v.speed -= (vfx * nx + vfz * nz) * sol.dvVehicle;
               if (sol.knockDown) {
                 this.audio.hitPed();
                 pl.throwOff(nx * sol.dvPerson, nz * sol.dvPerson, sol.vyPerson, 1.8);
@@ -1563,16 +1583,21 @@ class Game {
             const d = Math.hypot(dx, dz);
             const minD = 0.68;
             if (d < minD && d > 1e-4) {
+              // the overlap is shared by mass: the lighter one gives way more (m2 / (m1 + m2) for you)
+              const m1 = pl.ch?.weight || 70,
+                m2 = p.ch?.weight || 70;
               const nx = dx / d,
                 nz = dz / d,
-                push = (minD - d) * 0.5;
-              pl.pos.x -= nx * push;
-              pl.pos.z -= nz * push;
-              p.pos.x += nx * push;
-              p.pos.z += nz * push;
+                over = minD - d;
+              pl.pos.x -= nx * over * (m2 / (m1 + m2));
+              pl.pos.z -= nz * over * (m2 / (m1 + m2));
+              p.pos.x += nx * over * (m1 / (m1 + m2));
+              p.pos.z += nz * over * (m1 / (m1 + m2));
               movedFoot = true;
-              const pvx = p.state === 'walk' ? Math.sin(p.heading) * (p.speed || 0) : 0;
-              const pvz = p.state === 'walk' ? Math.cos(p.heading) * (p.speed || 0) : 0;
+              const pvx =
+                (p.state === 'walk' ? Math.sin(p.heading) * (p.speed || 0) : 0) + (p.shove?.x || 0);
+              const pvz =
+                (p.state === 'walk' ? Math.cos(p.heading) * (p.speed || 0) : 0) + (p.shove?.z || 0);
               const vRel = (pl.vel.x - pvx) * nx + (pl.vel.y - pvz) * nz;
               if (vRel > 1.2) {
                 const sol = solvePersonPersonImpact(vRel, pl.ch?.weight, p.ch?.weight);
@@ -1584,7 +1609,7 @@ class Game {
                 ) {
                   this.audio.hitPed();
                   this.addVotes(-1, '撞倒同學了！-1 票 😵');
-                }
+                } else if (!sol.knockDown) this.peds.shove?.(p, nx * sol.dv2, nz * sol.dv2); // equal and opposite
               }
             }
           }

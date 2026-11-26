@@ -21,6 +21,7 @@ import {
   pitList,
 } from './Terrain.js';
 import { makeGroundCut } from './GroundCut.js';
+import { alongWay, centreStyles, lineRuns } from './RoadMarks.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFurniture } from './Furniture.js';
 import { isCourt, paintCourts } from './Court.js';
@@ -2629,25 +2630,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       if (l < 0.3 || (!inPlay(a) && !inPlay(b))) continue;
       const nx = -dz / l,
         nz = dx / l;
-      let runs = [[D[i], Math.min(D[i + 1], maxD)]];
-      for (const [g0, g1] of gaps)
-        runs = runs.flatMap(([u0, u1]) =>
-          g1 <= u0 || g0 >= u1
-            ? [[u0, u1]]
-            : [
-                [u0, g0],
-                [g1, u1],
-              ].filter(([v0, v1]) => v1 - v0 > 0.3)
-        );
-      if (dash)
-        runs = runs.flatMap(([u0, u1]) => {
-          const o = [];
-          for (let u = Math.ceil(u0 / 10) * 10; u < u1; u += 10)
-            if (Math.min(u + 4, u1) - Math.max(u, u0) > 0.3)
-              o.push([Math.max(u, u0), Math.min(u + 4, u1)]);
-          return o;
-        });
-      for (const [u0, u1] of runs) {
+      for (const [u0, u1] of lineRuns(D[i], Math.min(D[i + 1], maxD), gaps, dash)) {
         const s0 = u0 - D[i],
           s1 = u1 - D[i],
           o0 = O(i, s0 / l),
@@ -2721,21 +2704,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         { G, D } = streetGaps(r),
         n = Math.max(1, M.lanes || 1);
       // distance along r (as drawn, shifted or not) of the point nearest (x, z)
-      const along = (x, z) => {
-        let best = Infinity,
-          s = 0;
-        for (let i = 0; i < r.pts.length - 1; i++) {
-          const a = r.pts[i],
-            b = r.pts[i + 1],
-            c = closestOnSeg(x, z, a[0], a[1], b[0], b[1]),
-            d = Math.hypot(c[0] - x, c[1] - z);
-          if (d < best) {
-            best = d;
-            s = D[i] + Math.hypot(c[0] - a[0], c[1] - a[1]);
-          }
-        }
-        return s;
-      };
+      const along = (x, z) => alongWay(r.pts, D, x, z);
       // span {from, to}: only this stretch of the way is surveyed as painted (the orthophoto cannot show the rest):
       // no centre, edge or lane line outside it
       if (M.span) {
@@ -2799,20 +2768,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       };
       // segs [{from: [x, z], to: [x, z], centre}]: stretches of the way painted with another centre line
       // (the ends projected onto the way as it is now, shifted or not); the rest keeps M.centre
-      const segs = (M.segs || []).map((g) => {
-        const a = along(...g.from),
-          b = along(...g.to);
-        return [Math.min(a, b), Math.max(a, b), g.centre];
-      });
-      centre(M.centre, G[0].concat(segs.map(([a, b]) => [a, b])));
-      for (const [a, b, st] of segs)
-        centre(
-          st,
-          G[0].concat([
-            [-Infinity, a],
-            [b, Infinity],
-          ])
-        );
+      for (const [st, gaps] of centreStyles(M.centre, M.segs, along, G[0])) centre(st, gaps);
       if (two)
         for (const sd of [1, -1]) {
           const lw = (i, t) => (at(sd > 0 ? eP : eN, i, t) - sd * cv) / n;

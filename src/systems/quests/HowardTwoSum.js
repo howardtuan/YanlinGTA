@@ -6,7 +6,9 @@
 //      - 正確性：題目的三個範例、負數／零／重複數字，加上 60 組隨機測資（答案唯一，回傳的兩個索引順序不限）；
 //      - O(N)：先看程式結構（迴圈裡又有迴圈、在迴圈裡用 in 查 list、.index()／.count()、排序 sort／sorted 都不行），
 //        再實際量時間（n = 2,000 和 20,000、答案在最後兩個，O(N²) 一定超時）。
-//   5. 通過（Accepted）後霍華德私訊恭喜你，忍 400 從此可以按 F 騎。
+//   5. 通過（Accepted）後霍華德私訊恭喜你（訊息 App），忍 400 從此可以按 F 騎；他也在訊息裡說：
+//      手機「呼叫載具」可以叫彥霖航空直升機把忍 400 空投過來（src/systems/minigames/Airdrop.js），
+//      新中北路障礙賽報名時也可以選騎忍 400（src/systems/minigames/Race.js）。
 // 進度（還有你寫到一半的程式）存在 src/systems/SaveSystem.js 的 howardQuest。
 import { runPython } from '../minigames/Learn.js';
 
@@ -224,18 +226,34 @@ export class HowardTwoSum {
     const g = this.g;
     this.state.stage = 'done';
     g.audio.pickup?.();
-    g.hud.bigToast?.('✅ Accepted！Two Sum', '霍華德的忍 400 可以騎了（停在力行宿舍大門前，按 F）');
-    const st = g.phone?.chats.find((c) => c.c.id === 'howard');
-    if (st && !st.busy)
+    g.hud.bigToast?.(
+      '✅ Accepted！Two Sum',
+      '霍華德的忍 400 可以騎了（停在力行宿舍大門前按 F，或用手機呼叫直升機空投）'
+    );
+    // 霍華德's message (訊息 App): the bike, the helicopter and the race. If the chat is busy (a reply still on its way),
+    // it waits until it's free so the message is never dropped
+    const lines = [
+      'AC 了！O(N)，不錯嘛 😎',
+      '忍 400 停在力行宿舍大門前，鑰匙在上面，想騎就騎 🏍️',
+      '懶得走過來的話，打開手機的「呼叫載具」，彥霖航空的直升機也可以把忍 400 吊到你旁邊 🚁',
+      '新中北路障礙賽也可以騎它去比，報名的時候選車就好 🏁',
+      '騎慢一點，摔車我會心疼（車）',
+    ];
+    let n = 0;
+    const send = () => {
+      const st = g.phone?.chats.find((c) => c.c.id === 'howard');
+      if (!st) return;
+      if (st.busy) {
+        if (++n < 40) setTimeout(send, 1500);
+        return;
+      }
       g.phone._deliver(
         st,
-        [
-          'AC 了！O(N)，不錯嘛 😎',
-          '忍 400 停在力行宿舍大門前，鑰匙在上面，想騎就騎 🏍️',
-          '騎慢一點，摔車我會心疼（車）',
-        ].map((text) => ({ who: 'howard', text })),
+        lines.map((text) => ({ who: 'howard', text })),
         0,
-        500
+        1800 // after the Accepted banner
       );
+    };
+    send();
   }
 }

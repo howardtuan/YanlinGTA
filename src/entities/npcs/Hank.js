@@ -234,6 +234,11 @@ export class Hank {
       ]);
       return;
     }
+    // on the phone: not friends yet → he covers the phone and still asks to add you (only asleep he can't)
+    if (this.call && !g.friends?.added.has('hank')) {
+      g.friends?.talk('hank', 'call');
+      return;
+    }
     if (this.call) {
       g.dialog([
         ['漢克', '（摀住手機）欸彥霖，我在跟女朋友講電話，等等找你 🤫'],

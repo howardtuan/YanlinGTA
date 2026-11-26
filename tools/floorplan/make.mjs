@@ -171,6 +171,11 @@ for (const floor of list) {
     : path.join(ROOT, 'docs/references/floorplans', cfg.id, `${cfg.id}-${floor.id}.svg`);
   if (opt.out && (list.length > 1 || !out.endsWith('.svg')))
     out = path.join(out, `${cfg.id}-${floor.id}.svg`);
+  // 設定檔的 reference：docs 裡這幾層放的是人工給的參考圖，不讓預設輸出蓋掉
+  if (!opt.out && (cfg.reference || []).includes(floor.id)) {
+    console.log(`${floor.id}：docs 裡是參考圖，不覆蓋（要輸出模型切出來的圖請加 --out）`);
+    continue;
+  }
   mkdirSync(path.dirname(out), { recursive: true });
   writeFileSync(out, svg);
   if (opt.json) {

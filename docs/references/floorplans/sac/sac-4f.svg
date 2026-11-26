@@ -1,90 +1,246 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="822" height="537.4" viewBox="0 0 822 537.4" role="img" aria-label="學生活動中心 四樓平面圖">
-<title>學生活動中心 四樓平面圖</title>
-<desc>依目前模型產生；配置大多是推測，待使用者確認　·　產生日期：2026-11-23　·　來源：src/world/buildings/Sac.js</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="822" height="570" viewBox="0 0 822 570" role="img" aria-labelledby="title desc">
+<title id="title">學生活動中心 四樓平面圖（修訂版）</title>
+<desc id="desc">依手繪參考圖修訂。圖上方為北，沿用原圖外牆與比例尺，室內位置依手繪相對配置。</desc>
 <defs>
-<pattern id="fp-solid" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#dcdcdf"/><path d="M0 0v5" stroke="#a9a9b0" stroke-width="1.2"/></pattern>
-<pattern id="fp-void" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#eef5fb"/><circle cx="3.5" cy="3.5" r="0.7" fill="#a9c3d8"/></pattern>
+<pattern id="void" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#eef5fb"/><circle cx="3.5" cy="3.5" r=".7" fill="#a9c3d8"/></pattern>
+<marker id="up" markerWidth="6" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M1 1L5 3.5L1 6" fill="none" stroke="#284d72"/></marker>
 </defs>
-<rect width="100%" height="100%" fill="#ffffff"/>
-<g id="header" font-family='"PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Heiti TC",sans-serif'><text x="16.1" y="26" font-size="18" font-weight="700" fill="#1d1d1f">學生活動中心 四樓平面圖</text><text x="16.1" y="45" font-size="10" fill="#5a6070">依目前模型產生；配置大多是推測，待使用者確認　·　產生日期：2026-11-23　·　來源：src/world/buildings/Sac.js</text></g>
-<g id="north" font-family='"PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Heiti TC",sans-serif'><circle cx="788" cy="32" r="17" fill="#fff" stroke="#8a8f98" stroke-width="0.8"/><g transform="rotate(0 788 32)"><path d="M788 17L793 38L788 34L783 38Z" fill="#1d1d1f"/></g><text x="766" y="32" font-size="11" font-weight="700" text-anchor="end" dominant-baseline="central" fill="#1d1d1f">北</text><text x="788" y="58" font-size="6.5" text-anchor="middle" fill="#8a8f98">正上方</text></g>
-<g id="axes" font-family='"PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Heiti TC",sans-serif' font-size="6.5" fill="#8a8f98" stroke="none"><path d="M85.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="85.4" y="72" text-anchor="middle">-190</text><path d="M175.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="175.4" y="72" text-anchor="middle">-180</text><path d="M265.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="265.4" y="72" text-anchor="middle">-170</text><path d="M355.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="355.4" y="72" text-anchor="middle">-160</text><path d="M445.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="445.4" y="72" text-anchor="middle">-150</text><path d="M535.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="535.4" y="72" text-anchor="middle">-140</text><path d="M625.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="625.4" y="72" text-anchor="middle">-130</text><path d="M715.4 74v4" stroke="#8a8f98" stroke-width="0.5"/><text x="715.4" y="72" text-anchor="middle">-120</text><path d="M12.1 189.6h4" stroke="#8a8f98" stroke-width="0.5"/><text x="10.1" y="189.6" text-anchor="end" dominant-baseline="central">-120</text><path d="M12.1 279.6h4" stroke="#8a8f98" stroke-width="0.5"/><text x="10.1" y="279.6" text-anchor="end" dominant-baseline="central">-110</text><path d="M12.1 369.6h4" stroke="#8a8f98" stroke-width="0.5"/><text x="10.1" y="369.6" text-anchor="end" dominant-baseline="central">-100</text><text x="809.9" y="72" text-anchor="end">本地座標 x（公尺）</text><text transform="translate(7.1 443.4) rotate(-90)" text-anchor="start">本地座標 z（公尺）</text></g>
+<rect width="822" height="570" fill="#fff"/>
+<g font-family="Microsoft JhengHei, Noto Sans TC, sans-serif">
+<text x="18" y="31" text-anchor="start" font-size="19" fill="#25262a" font-weight="700">學生活動中心 四樓平面圖</text>
+<text x="18" y="51" text-anchor="start" font-size="11" fill="#5a6070" >依手繪參考圖調整配置・沿用原圖外牆與比例尺</text>
+<circle cx="788" cy="32" r="17" fill="#fff" stroke="#8a8f98" stroke-width=".8"/>
+<path d="M788 18l5 22-5-4-5 4Z" fill="#25262a" stroke="#25262a" stroke-width="0.5" />
+<text x="763" y="36" text-anchor="middle" font-size="11" fill="#25262a" >北</text>
 <g id="floor">
-<path d="M41.75 213L786.05 213L786.05 240.9L41.75 240.9Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M268.1 240.9L299.6 240.9L299.6 254.4L268.1 254.4Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M752.3 199.5L785.15 199.5L785.15 213L752.3 213Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M300.5 240.9L332 240.9L332 417.75L300.5 417.75Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M450.8 240.9L481.4 240.9L481.4 417.75L450.8 417.75Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M332 240.9L450.8 240.9L450.8 266.1L332 266.1Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M332 392.1L450.8 392.1L450.8 417.75L332 417.75Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M41.75 240.9L67.4 240.9L67.4 374.1L41.75 374.1Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M393.2 366.9L413 366.9L413 392.1L393.2 392.1Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M167.75 115.8L220.4 115.8L220.4 213L167.75 213Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M220.4 115.8L269.9 115.8L269.9 213L220.4 213Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M269.9 115.8L319.4 115.8L319.4 213L269.9 213Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M481.4 168L512.9 168L512.9 213L481.4 213Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-<path d="M665.9 115.8L751.4 115.8L751.4 213L665.9 213Z" fill="#f4efe4" stroke="#f4efe4" stroke-width="0.8"/>
-</g><g id="zones">
-<path d="M332 266.1L450.8 266.1L450.8 392.1L332 392.1Z" fill="url(#fp-void)" stroke="#9db7cc" stroke-width="0.8" stroke-dasharray="4 2"/>
+<path d="M43.1 112.2L326.6 114L787.4 100.5L786.5 420.9L38.6 419.1Z" fill="#f4efe4" stroke="#25262a" stroke-width="2.1" />
+<path d="M43.1 112.2L135 112.78V331H39.89Z" fill="url(#void)" stroke="#718299" stroke-width="1.1" />
+<path d="M135 197H245Q229 263 245 331H135Z" fill="url(#void)" stroke="#718299" stroke-width="1.1" />
+<path d="M285 197H428V219H493V197H531V331H493V309H428V331H285Q269 263 285 197Z" fill="url(#void)" stroke="#718299" stroke-width="1.1" />
+<path d="M634 197H692V331H634Z" fill="url(#void)" stroke="#718299" stroke-width="1.1" />
+</g><g id="rooms">
+<path d="M181 113.08L242 113.46V155H181Z" fill="#f4efe4" stroke="#25262a" stroke-width="1.35" />
+<path d="M242 113.46L284 113.73V155H242Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M284 113.73L341 113.58V155H284Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M341 113.58L374 112.61V155H341Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M374 112.61L406 111.67V155H374Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M406 111.67L437 110.77V155H406Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M437 110.77L463 110.00V155H437Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M463 110.00L489 109.24V155H463Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M489 109.24L521 108.30V155H489Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M521 108.30L568 106.93V155H521Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M568 106.93L602 105.93V155H568Z" fill="#f4efe4" stroke="#25262a" stroke-width="1.35" />
+<path d="M602 105.93L626 105.23V155H602Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M626 105.23L706 102.88V155H626Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M706 102.88L745 101.74V155H706Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M745 101.74L787.22 100.51V155H745Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M181 134h8m12 0h20m12 0h9M211.5 113.27V134" fill="none" stroke="#25262a" stroke-width="1.35" />
+<path d="M181 155h10m39 0h12" fill="none" stroke="#25262a" stroke-width="1.35" />
+<rect x="575" y="197" width="59" height="134" fill="#fff" stroke="#25262a" stroke-width="1.35"/>
+<path d="M692 197H787.13L786.75 331H692Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<rect x="694" y="285" width="13" height="30" fill="#f4efe4" stroke="#8a8f98" stroke-width="0.8"/>
+<path d="M135 368H202V419.49L135 419.33Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M202 368H218V419.53L202 419.49Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M218 368H284V419.69L218 419.53Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M284 368H341V419.83L284 419.69Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M341 368H376V419.91L341 419.83Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M376 368H411V420.00L376 419.91Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M411 368H444V420.08L411 420.00Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M444 368H473V420.15L444 420.08Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M473 368H505V420.22L473 420.15Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M505 368H516V420.25L505 420.22Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M516 368H572V420.38L516 420.25Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M572 368H632V420.53L572 420.38Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M632 368H692V420.67L632 420.53Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M93 389H135V419.33L93 419.23Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M692 368H720V401H735V420.78L692 420.67Z M735 368H756V407L764 420.84L735 420.78Z M767 368H786.65L786.5 420.9L760 420.83L767 407Z" fill="#fff" stroke="#25262a" stroke-width="1.35" />
+<path d="M692 382h28 M692 401h28 M735 388h21 M735 406h21 M767 393h19.58 M767 405h19.55" fill="none" stroke="#25262a" stroke-width="1.35" />
+<path d="M135 331v37M692 331v37" fill="none" stroke="#25262a" stroke-width="1.35" />
+</g><g id="stairs">
+<rect x="191" y="150" width="39" height="5" fill="#d6e0ee" stroke="#71829a" stroke-width="0.8"/>
+<path d="M191 152.50h39" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M210.5 153V152" fill="none" stroke="#284d72" stroke-width="1.2" marker-end="url(#up)"/>
+<rect x="569" y="117" width="17" height="38" fill="#d6e0ee" stroke="#71829a" stroke-width="0.8"/>
+<path d="M569 120.17h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 123.33h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 126.50h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 129.67h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 132.83h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 136.00h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 139.17h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 142.33h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 145.50h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 148.67h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M569 151.83h17" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M577.5 119V153" fill="none" stroke="#284d72" stroke-width="1.2" marker-end="url(#up)"/>
+<path d="M586 117h14v38" fill="none" stroke="#8395ad" stroke-width="0.8" stroke-dasharray="3 2"/>
+<g id="central-north-stair">
+<rect x="450" y="197" width="43" height="22" fill="#d6e0ee" stroke="#71829a" stroke-width="0.8"/>
+<path d="M453.58 197v22M457.17 197v22M460.75 197v22M464.33 197v22M467.92 197v22M471.50 197v22M475.08 197v22M478.67 197v22M482.25 197v22M485.83 197v22M489.42 197v22" fill="none" stroke="#8395ad" stroke-width="0.45"/>
+<path d="M490 208H453" fill="none" stroke="#284d72" stroke-width="1.25" marker-end="url(#up)"/>
 </g>
-<g id="stairs">
-<clipPath id="fp-st0"><path d="M284.48 254.4L299.6 254.4L299.6 299.4L284.48 299.4Z"/></clipPath><path d="M284.48 254.4L299.6 254.4L299.6 299.4L284.48 299.4Z" fill="#d6e0ee" stroke="#7f90a8" stroke-width="0.5"/>
-<path d="M284.48 296.75L299.6 296.75M284.48 294.11L299.6 294.11M284.48 291.46L299.6 291.46M284.48 288.81L299.6 288.81M284.48 286.16L299.6 286.16M284.48 283.52L299.6 283.52M284.48 280.87L299.6 280.87M284.48 278.22L299.6 278.22M284.48 275.58L299.6 275.58M284.48 272.93L299.6 272.93M284.48 270.28L299.6 270.28M284.48 267.64L299.6 267.64M284.48 264.99L299.6 264.99M284.48 262.34L299.6 262.34M284.48 259.69L299.6 259.69M284.48 257.05L299.6 257.05" stroke="#7f90a8" stroke-width="0.35" fill="none" clip-path="url(#fp-st0)"/>
-<path d="M292.04 297.15L292.04 256.65M294.64 260.81L292.04 256.65L289.44 260.81" stroke="#2c4a73" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="292.04" cy="297.15" r="1.1" fill="#2c4a73"/>
-<clipPath id="fp-st1"><path d="M769.35 154.5L785.15 154.5L785.15 199.5L769.35 199.5Z"/></clipPath><path d="M769.35 154.5L785.15 154.5L785.15 199.5L769.35 199.5Z" fill="#d6e0ee" stroke="#7f90a8" stroke-width="0.5"/>
-<path d="M785.15 157.15L769.35 157.15M785.15 159.79L769.35 159.79M785.15 162.44L769.35 162.44M785.15 165.09L769.35 165.09M785.15 167.74L769.35 167.74M785.15 170.38L769.35 170.38M785.15 173.03L769.35 173.03M785.15 175.68L769.35 175.68M785.15 178.32L769.35 178.32M785.15 180.97L769.35 180.97M785.15 183.62L769.35 183.62M785.15 186.26L769.35 186.26M785.15 188.91L769.35 188.91M785.15 191.56L769.35 191.56M785.15 194.21L769.35 194.21M785.15 196.85L769.35 196.85" stroke="#7f90a8" stroke-width="0.35" fill="none" clip-path="url(#fp-st1)"/>
-<path d="M777.25 156.75L777.25 197.25M774.65 193.09L777.25 197.25L779.85 193.09" stroke="#2c4a73" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="777.25" cy="156.75" r="1.1" fill="#2c4a73"/>
-<clipPath id="fp-st2"><path d="M332 366.9L393.2 366.9L393.2 385.8L332 385.8Z"/></clipPath><path d="M332 366.9L393.2 366.9L393.2 385.8L332 385.8Z" fill="#d6e0ee" stroke="#7f90a8" stroke-width="0.5"/>
-<path d="M334.66 366.9L334.66 385.8M337.32 366.9L337.32 385.8M339.98 366.9L339.98 385.8M342.64 366.9L342.64 385.8M345.3 366.9L345.3 385.8M347.97 366.9L347.97 385.8M350.63 366.9L350.63 385.8M353.29 366.9L353.29 385.8M355.95 366.9L355.95 385.8M358.61 366.9L358.61 385.8M361.27 366.9L361.27 385.8M363.93 366.9L363.93 385.8M366.59 366.9L366.59 385.8M369.25 366.9L369.25 385.8M371.91 366.9L371.91 385.8M374.57 366.9L374.57 385.8M377.23 366.9L377.23 385.8M379.9 366.9L379.9 385.8M382.56 366.9L382.56 385.8M385.22 366.9L385.22 385.8M387.88 366.9L387.88 385.8M390.54 366.9L390.54 385.8" stroke="#7f90a8" stroke-width="0.35" fill="none" clip-path="url(#fp-st2)"/>
-<path d="M334.25 376.35L390.95 376.35M386.79 378.95L390.95 376.35L386.79 373.75" stroke="#2c4a73" stroke-width="0.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="334.25" cy="376.35" r="1.1" fill="#2c4a73"/>
+<rect x="450" y="309" width="43" height="22" fill="#d6e0ee" stroke="#71829a" stroke-width="0.8"/>
+<path d="M453.58 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M457.17 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M460.75 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M464.33 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M467.92 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M471.50 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M475.08 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M478.67 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M482.25 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M485.83 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M489.42 309v22" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M490 320H453" fill="none" stroke="#284d72" stroke-width="1.2" marker-end="url(#up)"/>
+<path d="M428 331V309H450" fill="none" stroke="#718299" stroke-width="1.1" />
+<rect x="40" y="362" width="26" height="48" fill="#d6e0ee" stroke="#71829a" stroke-width="0.8"/>
+<path d="M40 365.69h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 369.38h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 373.08h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 376.77h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 380.46h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 384.15h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 387.85h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 391.54h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 395.23h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 398.92h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 402.62h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M40 406.31h26" fill="none" stroke="#8395ad" stroke-width="0.55" />
+<path d="M53 408V364" fill="none" stroke="#284d72" stroke-width="1.2" marker-end="url(#up)"/>
+<path d="M66 362h24v48H66" fill="none" stroke="#718299" stroke-width="0.8" />
+</g><g id="doors">
+<path d="M291 155h13" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M321 155h13" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M350 155h14" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M384 155h13" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M416 155h13" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M495 155h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M465 155h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M629 155h14" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M716 155h15" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M759 155h17" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M578 197h16" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M578 331h15" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M760 331h23" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M142 368h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M180 368h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M222 368h13" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M264 368h13" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M289 368h11" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M327 368h11" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M348 368h16" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M381 368h15" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M416 368h15" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M480 368h16" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M519 368h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M552 368h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M577 368h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M615 368h12" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M637 368h15" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M674 368h14" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M720 388v9 M722 401h11 M756 398v7 M756 408l5 9 M767 408l-5 9 M767 377v8" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M692 332v22" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<path d="M135 331v37" fill="none" stroke="#397992" stroke-width="3.2" />
+<path d="M634 247v31" fill="none" stroke="#397992" stroke-width="2.8" />
+<path d="M634 247a15.5 15.5 0 0 1 0 31" fill="none" stroke="#397992" stroke-width="1" stroke-dasharray="2.5 2"/>
+<path d="M43.1 112.2L326.6 114L787.4 100.5L786.5 420.9L38.6 419.1Z" fill="none" stroke="#25262a" stroke-width="2.1" />
+</g><g id="columns" fill="#fff" stroke="#25262a" stroke-width="1.35">
+  <circle id="column-nw" cx="324" cy="218.02" r="3.02"/>
+  <circle id="column-ne" cx="396" cy="218.02" r="3.02"/>
+  <circle id="column-sw" cx="324" cy="325.14" r="3.02"/>
+  <circle id="column-se" cx="396" cy="325.14" r="3.02"/>
 </g>
-<path id="low-walls" d="M268.1 254.4L283.22 254.4M752.3 199.5L768.09 199.5M332 266.1L426.95 266.1M426.95 266.1L450.8 266.1M332 392.1L393.2 392.1M413 392.1L426.95 392.1M426.95 392.1L450.8 392.1M332 266.1L332 392.1M450.8 266.1L450.8 392.1M332 366.9L393.2 366.9M332 385.8L393.2 385.8M393.2 366.9L413 366.9M413 366.9L413 392.1M393.2 385.8L393.2 392.1M215.27 121.2L219.32 121.2M219.32 121.2L219.32 142.8M219.32 142.8L215.27 142.8M215.27 142.8L215.27 121.2M264.77 121.2L268.82 121.2M268.82 121.2L268.82 142.8M268.82 142.8L264.77 142.8M264.77 142.8L264.77 121.2M314.27 121.2L318.32 121.2M318.32 121.2L318.32 142.8M318.32 142.8L314.27 142.8M314.27 142.8L314.27 121.2M483.2 169.08L496.7 169.08M496.7 169.08L496.7 174.48M496.7 174.48L483.2 174.48M483.2 174.48L483.2 169.08" stroke="#6f7c8c" stroke-width="1.1" fill="none" stroke-linecap="square"/>
-<path id="walls" d="M41.75 213L167.75 213M167.75 213L189.12 213M199.02 213L240.2 213M250.1 213L289.7 213M299.6 213L426.95 213M426.95 213L492.2 213M502.1 213L572.3 213M572.3 213L703.7 213M713.6 213L751.4 213M67.4 240.9L267.2 240.9M481.4 240.9L572.3 240.9M572.3 240.9L786.05 240.9M41.75 213L41.75 240.9M786.05 213L786.05 240.9M300.5 417.75L426.95 417.75M426.95 417.75L481.4 417.75M267.2 396.15L300.5 396.15M300.5 396.15L300.5 417.75M300.5 417.75L267.2 417.75M267.2 417.75L267.2 396.15M283.85 254.4L283.85 299.4M267.2 312.9L300.5 312.9M267.2 240.9L267.2 243.15M267.2 243.15L267.2 312.9M300.5 240.9L300.5 243.15M300.5 243.15L300.5 312.9M768.72 154.5L768.72 199.5M751.4 141L786.05 141M751.4 141L751.4 213M786.05 141L786.05 213M751.4 115.8L786.05 115.8M328.98 263.08L335.02 263.08M335.02 263.08L335.02 269.12M335.02 269.12L328.98 269.12M328.98 269.12L328.98 263.08M328.98 389.08L335.02 389.08M335.02 389.08L335.02 395.12M335.02 395.12L328.98 395.12M328.98 395.12L328.98 389.08M447.78 263.08L453.82 263.08M453.82 263.08L453.82 269.12M453.82 269.12L447.78 269.12M447.78 269.12L447.78 263.08M447.78 389.08L453.82 389.08M453.82 389.08L453.82 395.12M453.82 395.12L447.78 395.12M447.78 395.12L447.78 389.08M300.5 312.9L300.5 396.15M481.4 240.9L481.4 243.15M481.4 243.15L481.4 417.75M41.75 374.1L67.4 374.1M67.4 240.9L67.4 243.15M67.4 243.15L67.4 374.1M41.75 240.9L41.75 243.15M41.75 243.15L41.75 374.1M167.75 115.8L167.75 213M220.4 115.8L220.4 213M167.75 115.8L220.4 115.8M269.9 115.8L269.9 213M220.4 115.8L269.9 115.8M319.4 115.8L319.4 213M269.9 115.8L319.4 115.8M481.4 168L481.4 213M512.9 168L512.9 213M481.4 168L512.9 168M665.9 115.8L665.9 213M751.4 115.8L751.4 213M665.9 115.8L751.4 115.8M43.1 112.2L315.8 113.93M315.8 113.93L326.6 114M326.6 114L337.4 113.68M337.4 113.68L426.95 111.06M426.95 111.06L456.2 110.2M456.2 110.2L470.6 109.78M470.6 109.78L572.3 106.8M572.3 106.8L787.4 100.5M787.4 100.5L787 243.15M787 243.15L786.5 419.82M786.5 419.82L786.5 420.9M786.5 420.9L572.3 420.24M572.3 420.24L571.4 420.23M571.4 420.23L495.8 420M495.8 420L462.05 419.93M462.05 419.93L443.69 419.9M443.69 419.9L426.95 419.86M426.95 419.86L425.87 419.86M425.87 419.86L404.36 419.82M404.36 419.82L332.9 419.68M332.9 419.68L38.6 419.1M38.6 419.1L39.42 363.31M39.42 363.31L39.75 340.81M39.75 340.81L41.18 243.15M41.18 243.15L43.1 112.2" stroke="#1d1d1f" stroke-width="2.16" fill="none" stroke-linecap="square"/>
-<path id="doors" d="M337.4 213.11L328.4 213.11M362.15 213.11L353.15 213.11M429.65 213.11L420.65 213.11M533.15 213.11L524.15 213.11M564.65 213.11L555.65 213.11M609.65 213.11L600.65 213.11M654.65 213.11L645.65 213.11M112.4 240.79L121.4 240.79M212.3 240.79L221.3 240.79M300.61 402.45L300.61 411.45M300.61 350.02L300.61 359.02M481.29 273.75L481.29 264.75M481.29 333.6L481.29 324.6M481.29 393.68L481.29 384.68M67.29 278.25L67.29 269.25M67.29 344.85L67.29 335.85" stroke="#b5651d" stroke-width="3.06" fill="none"/>
-<g id="labels" font-family='"PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Heiti TC",sans-serif'>
-<text font-size="8" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="2.24" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="643.4" y="226.95">主走廊</tspan></text>
-<text font-size="9" fill="#5a6070" text-anchor="middle" stroke="#ffffff" stroke-width="2.52" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="391.4" y="284.1">挑空（下面是二樓中庭）</tspan></text>
-<text font-size="8.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="2.38" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="466.1" y="324.09">迴</tspan><tspan x="466.1" y="334.12">廊</tspan></text>
-<text font-size="7.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="2.1" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="386" y="354.3">三樓上來的樓梯</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="194.07" y="194.89">401</tspan><tspan x="194.07" y="202.56">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="245.15" y="194.89">403</tspan><tspan x="245.15" y="202.56">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="294.65" y="194.89">405</tspan><tspan x="294.65" y="202.56">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="497.15" y="194.89">412</tspan><tspan x="497.15" y="202.56">琴房</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="708.65" y="194.89">419</tspan><tspan x="708.65" y="202.56">武術練習室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="332.9" y="198.71">男廁</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="357.65" y="198.71">女廁</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="425.15" y="194.87">411</tspan><tspan x="425.15" y="202.54">大音樂練習室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="528.65" y="194.87">413</tspan><tspan x="528.65" y="202.54">琴房</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="560.15" y="194.87">414</tspan><tspan x="560.15" y="202.54">琴房</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="605.15" y="194.87">417</tspan><tspan x="605.15" y="202.54">小音樂練習室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="650.15" y="194.87">418</tspan><tspan x="650.15" y="202.54">琴房</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="116.9" y="255.19">倉儲室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="216.8" y="255.19">樂器室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="286.21" y="406.95">電梯</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="283.85" y="250.75">樓梯</tspan><tspan x="283.85" y="258.42">↑↓</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="768.72" y="195.49">樓梯</tspan><tspan x="768.72" y="203.16">↑↓</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="286.21" y="350.69">425</tspan><tspan x="286.21" y="358.36">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="495.69" y="265.41">431</tspan><tspan x="495.69" y="273.08">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="495.69" y="325.27">433</tspan><tspan x="495.69" y="332.94">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="495.69" y="385.34">435</tspan><tspan x="495.69" y="393.01">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="81.69" y="269.91">421</tspan><tspan x="81.69" y="277.58">社團辦公室</tspan></text>
-<text font-size="6.5" fill="#1d1d1f" text-anchor="middle" stroke="#ffffff" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" dominant-baseline="central"><tspan x="81.69" y="336.52">423</tspan><tspan x="81.69" y="344.19">社團辦公室</tspan></text>
-</g>
-<g id="legend" font-family='"PingFang TC","Noto Sans TC","Noto Sans CJK TC","Microsoft JhengHei","Heiti TC",sans-serif' font-size="9" fill="#1d1d1f">
-<path d="M16.1 457.4h16" stroke="#1d1d1f" stroke-width="2.2"/>
-<text x="37.1" y="457.4" dominant-baseline="central">牆（擋住人的）</text>
-<path d="M115.1 457.4h16" stroke="#6f7c8c" stroke-width="1.1"/>
-<text x="136.1" y="457.4" dominant-baseline="central">矮牆／欄杆／女兒牆</text>
-<rect x="232.1" y="452.4" width="16" height="10" fill="#f4efe4" stroke="#cfc8b8" stroke-width="0.6"/>
-<text x="253.1" y="457.4" dominant-baseline="central">可以走的地板</text>
-<rect x="322.1" y="452.4" width="16" height="10" fill="#d6e0ee" stroke="#7f90a8" stroke-width="0.5"/><path d="M326.1 452.4v10M330.1 452.4v10M334.1 452.4v10" stroke="#7f90a8" stroke-width="0.35"/>
-<text x="343.1" y="457.4" dominant-baseline="central">樓梯（箭頭指向高的那一頭）</text>
-<path d="M475.1 457.4h16" stroke="#b5651d" stroke-width="3"/>
-<text x="496.1" y="457.4" dominant-baseline="central">關著的門</text>
-<rect x="547.1" y="452.4" width="16" height="10" fill="url(#fp-void)" stroke="#9db7cc" stroke-width="0.6" stroke-dasharray="4 2"/>
-<text x="568.1" y="457.4" dominant-baseline="central">挑空</text>
-<text x="16.1" y="473.4" dominant-baseline="central">白色區塊：模型裡只有走廊牆上關著的門，沒有做室內。401、403、405、412 琴房、419 武術練習室可以走進去。</text>
-<text x="16.1" y="489.4" dominant-baseline="central">待確認：各社辦、琴房的位置與大小（房號取自場地借用說明，位置是推測）。</text>
-<g id="scale"><rect x="16.1" y="511.4" width="90" height="4" fill="#1d1d1f"/><rect x="106.1" y="511.4" width="90" height="4" fill="#fff" stroke="#1d1d1f" stroke-width="0.6"/><rect x="16.1" y="511.4" width="180" height="4" fill="none" stroke="#1d1d1f" stroke-width="0.6"/><text x="16.1" y="524.4" text-anchor="middle">0</text><text x="106.1" y="524.4" text-anchor="middle">10</text><text x="196.1" y="524.4" text-anchor="middle">20 公尺</text><text x="230.1" y="515.4" fill="#8a8f98">比例尺：1 公尺 = 9 像素　切面：地板上方 1 公尺　樓層地板高度：建築基準面上 10.10 公尺</text></g>
-</g>
-</svg>
+<g id="labels">
+<text x="88" y="249" text-anchor="middle" font-size="13" fill="#4d637b" >招待所上空</text>
+<text x="196" y="128" text-anchor="middle" font-size="9" fill="#25262a" >女廁</text>
+<text x="227" y="128" text-anchor="middle" font-size="9" fill="#25262a" >男廁</text>
+<text x="210" y="170" text-anchor="middle" font-size="9" fill="#25262a" >廁所階梯（2 階）</text>
+<text x="312" y="133" text-anchor="middle" font-size="11" fill="#25262a" >攝影社</text>
+<text x="357" y="133" text-anchor="middle" font-size="11" fill="#25262a" >403</text>
+<text x="390" y="133" text-anchor="middle" font-size="11" fill="#25262a" >404</text>
+<text x="422" y="133" text-anchor="middle" font-size="11" fill="#25262a" >405</text>
+<text x="476" y="133" text-anchor="middle" font-size="11" fill="#25262a" >406</text>
+<text x="505" y="133" text-anchor="middle" font-size="11" fill="#25262a" >407</text>
+<text x="666" y="133" text-anchor="middle" font-size="11" fill="#25262a" >408</text>
+<text x="725" y="133" text-anchor="middle" font-size="11" fill="#25262a" >409</text>
+<text x="766" y="133" text-anchor="middle" font-size="11" fill="#25262a" >410</text>
+<text x="297" y="170" text-anchor="middle" font-size="8" fill="#25262a" >後門</text>
+<text x="329" y="170" text-anchor="middle" font-size="8" fill="#25262a" >前門</text>
+<text x="579" y="170" text-anchor="middle" font-size="9" fill="#25262a" >三樓上來的樓梯</text>
+<text x="404" y="183" text-anchor="middle" font-size="10" fill="#55545a" >北側走廊</text>
+<text x="181" y="232" text-anchor="middle" font-size="12" fill="#4d637b" >挑空</text>
+<text x="471.5" y="191" text-anchor="middle" font-size="9" fill="#25262a">三樓上來的樓梯</text>
+<text x="388" y="237" text-anchor="middle" font-size="13" fill="#4d637b" >挑空</text>
+<text x="663" y="225" text-anchor="middle" font-size="11" fill="#4d637b" >挑空</text>
+<text x="258" y="262" text-anchor="middle" font-size="10" fill="#25262a" transform="rotate(-90 258 262)">四樓空橋</text>
+<text x="272" y="262" text-anchor="middle" font-size="8" fill="#5a6070" transform="rotate(-90 272 262)">圓弧示意</text>
+<text x="461" y="302" text-anchor="middle" font-size="9" fill="#25262a" >三樓上來的樓梯</text>
+<text x="603" y="230" text-anchor="middle" font-size="14" fill="#25262a" >419</text>
+<text x="603" y="245" text-anchor="middle" font-size="9" fill="#25262a" >武術練習室</text>
+<text x="622" y="283" text-anchor="middle" font-size="8" fill="#397992" transform="rotate(-90 622 283)">半圓形玻璃窗</text>
+<text x="586" y="191" text-anchor="middle" font-size="8" fill="#25262a" >前門</text>
+<text x="586" y="344" text-anchor="middle" font-size="8" fill="#25262a" >後門</text>
+<text x="740" y="240" text-anchor="middle" font-size="15" fill="#25262a" >411</text>
+<text x="740" y="255" text-anchor="middle" font-size="10" fill="#25262a" >大音樂練習室</text>
+<text x="700.5" y="297" text-anchor="middle" font-size="8" fill="#25262a" >鋼</text>
+<text x="700.5" y="308" text-anchor="middle" font-size="8" fill="#25262a" >琴</text>
+<text x="766" y="344" text-anchor="middle" font-size="8" fill="#25262a" >411 大門</text>
+<text x="700" y="350" text-anchor="start" font-size="8" fill="#25262a" >練習室大門</text>
+<text x="142" y="344" text-anchor="start" font-size="9" fill="#25262a" >樓梯間門（透明玻璃自動門）</text>
+<text x="385" y="350" text-anchor="middle" font-size="10" fill="#55545a" >南側走廊</text>
+<text x="84" y="350" text-anchor="middle" font-size="9" fill="#25262a" >三樓上來</text>
+<text x="84" y="360" text-anchor="middle" font-size="9" fill="#25262a" >的樓梯</text>
+<text x="114" y="406" text-anchor="middle" font-size="10" fill="#25262a" >電梯</text>
+<text x="169" y="398" text-anchor="middle" font-size="11" fill="#25262a" >433</text>
+<text x="251" y="398" text-anchor="middle" font-size="11" fill="#25262a" >431</text>
+<text x="312" y="398" text-anchor="middle" font-size="11" fill="#25262a" >429</text>
+<text x="359" y="398" text-anchor="middle" font-size="11" fill="#25262a" >428</text>
+<text x="393.5" y="398" text-anchor="middle" font-size="11" fill="#25262a" >427</text>
+<text x="427.5" y="398" text-anchor="middle" font-size="11" fill="#25262a" >426</text>
+<text x="489" y="398" text-anchor="middle" font-size="9" fill="#25262a" >儲藏室</text>
+<text x="544" y="398" text-anchor="middle" font-size="11" fill="#25262a" >424</text>
+<text x="602" y="398" text-anchor="middle" font-size="11" fill="#25262a" >422</text>
+<text x="662" y="398" text-anchor="middle" font-size="9" fill="#25262a" >古箏社</text>
+<text x="148" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >前門</text>
+<text x="186" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >後門</text>
+<text x="228" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >前門</text>
+<text x="271" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >後門</text>
+<text x="295" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >前門</text>
+<text x="332" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >後門</text>
+<text x="525" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >前門</text>
+<text x="558" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >後門</text>
+<text x="583" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >前門</text>
+<text x="621" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >後門</text>
+<text x="645" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >前門</text>
+<text x="681" y="362" text-anchor="middle" font-size="7.5" fill="#25262a" >後門</text>
+<text x="706" y="395" text-anchor="middle" font-size="9" fill="#25262a" >416</text>
+<text x="713.5" y="414" text-anchor="middle" font-size="9" fill="#25262a" >417</text>
+<text x="745" y="399" text-anchor="middle" font-size="9" fill="#25262a" >415</text>
+<text x="746" y="416" text-anchor="middle" font-size="9" fill="#25262a" >414</text>
+<text x="777" y="386" text-anchor="middle" font-size="9" fill="#25262a" >412</text>
+<text x="776" y="416" text-anchor="middle" font-size="9" fill="#25262a" >413</text>
+</g><g id="legend">
+<path d="M18 451h19" fill="none" stroke="#25262a" stroke-width="2" />
+<text x="43" y="455" text-anchor="start" font-size="10" fill="#25262a" >牆</text>
+<rect x="87" y="445" width="19" height="11" fill="#f4efe4" stroke="#c9bea9" stroke-width="0.8"/>
+<text x="112" y="455" text-anchor="start" font-size="10" fill="#25262a" >可行走地板</text>
+<rect x="193" y="445" width="19" height="11" fill="url(#void)" stroke="#718299" stroke-width="0.8"/>
+<text x="218" y="455" text-anchor="start" font-size="10" fill="#25262a" >挑空／上空</text>
+<rect x="305" y="445" width="19" height="11" fill="#d6e0ee" stroke="#71829a" stroke-width="0.8"/>
+<text x="330" y="455" text-anchor="start" font-size="10" fill="#25262a" >樓梯（箭頭指向高處）</text>
+<path d="M460 451h19" fill="none" stroke="#ad611e" stroke-width="3.2" />
+<text x="485" y="455" text-anchor="start" font-size="10" fill="#25262a" >門</text>
+<path d="M530 451h19" fill="none" stroke="#397992" stroke-width="3.2" />
+<text x="555" y="455" text-anchor="start" font-size="10" fill="#25262a" >透明玻璃自動門</text>
+<path d="M673 451h19" fill="none" stroke="#397992" stroke-width="1" stroke-dasharray="2.5 2"/>
+<text x="698" y="455" text-anchor="start" font-size="10" fill="#25262a" >玻璃窗</text>
+<path d="M18 468H804" fill="none" stroke="#dcdfe4" stroke-width="0.8" />
+<text x="18" y="487" text-anchor="start" font-size="10" fill="#25262a" >中央挑空南、北兩側各有一座樓梯從三樓上來。北側走廊另一端與西南角也各有一座。四樓空橋連接南北走廊。</text>
+<text x="18" y="506" text-anchor="start" font-size="10" fill="#5a6070" >手繪稿未標尺寸的隔牆、門位與空橋曲線依相對位置示意。白色區塊表示室內細部未繪製。</text>
+<rect x="18" y="534" width="90" height="6" fill="#25262a" stroke="#25262a" stroke-width="0.8"/>
+<rect x="108" y="534" width="90" height="6" fill="#fff" stroke="#25262a" stroke-width="0.8"/>
+<text x="18" y="528" text-anchor="middle" font-size="8" fill="#25262a" >0</text>
+<text x="108" y="528" text-anchor="middle" font-size="8" fill="#25262a" >10</text>
+<text x="198" y="528" text-anchor="middle" font-size="8" fill="#25262a" >20 公尺</text>
+<text x="233" y="540" text-anchor="start" font-size="10" fill="#5a6070" >比例尺：1 公尺＝9 像素　切面：地板上方 1 公尺　樓層地板高度：建築基準面上 10.10 公尺</text>
+</g></g></svg>

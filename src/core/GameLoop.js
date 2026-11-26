@@ -151,7 +151,10 @@ export class GameLoop {
 
   updateSky(dt) {
     const game = this.game;
-    const t = game.state === 'title' && game._titlePos ? game._titlePos : game.player.worldPos();
+    const t =
+      (game.state === 'title' || game.state === 'bench') && game._titlePos
+        ? game._titlePos
+        : game.player.worldPos();
     const p = { x: t.x, y: surfaceAt(t.x, t.z), z: t.z };
     game.skySys.update(dt, game.clock, p, game.time || 0);
     game.night = game.skySys.night;
@@ -210,6 +213,9 @@ export class GameLoop {
     const now = performance.now();
     const perf = game.perfHud?.level !== 'off' ? game.perfHud : null; // 設定 → 效能顯示 (src/core/PerfHud.js)
     perf?.frameStart(now);
+    // 效能測試 (src/systems/Benchmark.js) measures every frame of its run
+    const bench = game.state === 'bench' ? game.bench : null;
+    bench?.frameStart(now);
     if (game.state === 'play') this.autoQuality(now - game.last);
     const dt = Math.min(0.05, (now - game.last) / 1000);
     game.last = now;
@@ -220,6 +226,7 @@ export class GameLoop {
       game.prompts?.tick();
     }
     if (game.state === 'title') this.titleCam(dt);
+    else if (game.state === 'bench') game.bench.update(dt);
     else if (game.state === 'play') {
       game._update(dt);
       game.bootDiag?.tickHealthy(dt);
@@ -229,7 +236,10 @@ export class GameLoop {
     }
     // physics (unless _update already stepped it for the vehicle you ride, see _stepPhysics)
     if (!game._physStepped)
-      game._stepPhysics(game.state === 'play' || game.state === 'title' ? dt : 0, null);
+      game._stepPhysics(
+        game.state === 'play' || game.state === 'title' || game.state === 'bench' ? dt : 0,
+        null
+      );
     game._physStepped = false;
     this.updateSky(dt);
     this.vehicleLod(dt);
@@ -237,7 +247,7 @@ export class GameLoop {
       game.time,
       game.night,
       game.clock,
-      game.state === 'title' ? game._titlePos : game.player.worldPos()
+      game.state === 'title' || game.state === 'bench' ? game._titlePos : game.player.worldPos()
     );
     for (const b of game.ballotList) {
       if (!b.taken) {
@@ -249,6 +259,7 @@ export class GameLoop {
       if (b.visible) b.material.opacity = 0.22 + Math.sin(game.time * 4) * 0.06;
     }
     perf?.renderStart();
+    bench?.renderStart();
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
     const yieldGpu =
@@ -279,6 +290,7 @@ export class GameLoop {
       }
     }
     perf?.frameEnd(now);
+    bench?.frameEnd(now);
     if (game._shot) {
       const cb = game._shot;
       game._shot = null;

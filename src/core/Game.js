@@ -113,6 +113,7 @@ import {
 } from '../graphics/GpuMemLifecycle.js';
 import { TEX } from '../world/Kit.js';
 import { PerfHud } from './PerfHud.js';
+import { Benchmark } from '../systems/Benchmark.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 import { ParkedScooters } from './ParkedScooters.js';
 
@@ -632,6 +633,7 @@ class Game {
       /[?&]perf\b/.test(location.search) ? 'dev' : this.settings.perfHud || 'off'
     );
     if (/[?&]physdebug\b/.test(location.search)) this.physics.enableDebug(this.scene);
+    this.bench = new Benchmark(this); // 標題 → 📊 效能測試 (src/systems/Benchmark.js)
 
     // static canvas textures: on the GPU now, their canvases released (src/graphics/GpuMemLifecycle.js)
     flushShared(this.scene);
@@ -644,6 +646,9 @@ class Game {
     $('loading').classList.add('hidden');
     $('title').classList.remove('hidden');
     this.gameLoop.start();
+    // ?bench: run the benchmark straight away (?bench=low picks the quality for the run)
+    const bq = location.search.match(/[?&]bench(?:=(\w+))?/);
+    if (bq) this.bench.start(bq[1]);
   }
 
   // ---------- delegations ----------

@@ -65,6 +65,7 @@ export default [
       'tools/e2e/cdp.mjs',
       'tools/perf/*.mjs',
       'tools/floorplan/**/*.mjs',
+      'tools/promo/*.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node },
@@ -82,6 +83,19 @@ export default [
         __e2e: 'writable', // page-init.js 掛的 window.__e2e
         __e2eSend: 'readonly', // story-bot.mjs 用 Runtime.addBinding 加的回傳通道
         __E2E_CFG__: 'readonly', // 佔位字串，story-bot.mjs 注入前換成 JSON 設定
+      },
+    },
+  },
+  {
+    // 宣傳片錄影注入遊戲頁面的腳本（tools/promo/）：一般 script，由 rec.mjs 在遊戲載入前／開始遊戲後注入
+    files: ['tools/promo/rec-init.js', 'tools/promo/director.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        game: 'readonly', // 遊戲本體掛在 window.game
+        __rec: 'writable', // rec-init.js 掛的 window.__rec（虛擬時鐘與逐格步進）
+        __D: 'writable', // director.js 掛的 window.__D（導演工具）
       },
     },
   },
@@ -104,6 +118,8 @@ export default [
       // tools/ 只忽略產出物
       'tools/npc-dashboard/photos/**',
       'tools/e2e/out/**',
+      'tools/promo/out/**',
+      'tools/promo/video/**',
       'tools/.cache/**',
       'tools/wasm-kernels/target/**',
       'docs/**',

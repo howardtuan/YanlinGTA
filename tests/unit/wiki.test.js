@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { NAV, buildWiki, loadWikiData, renderWiki } from '../../wiki/build.mjs';
+import {
+  PAGES,
+  buildWiki,
+  loadWikiData,
+  pageFile,
+  renderPages,
+  renderWiki,
+} from '../../wiki/build.mjs';
 
 const npcs = JSON.parse(fs.readFileSync('data/npcs.json', 'utf-8')).npcs;
 const { people, extras = [] } = JSON.parse(fs.readFileSync('wiki/people.json', 'utf-8'));
@@ -70,28 +77,29 @@ describe('wiki', () => {
     expect(noVideo).toContain('img/cover.jpg');
   });
 
-  it('左側目錄的每個連結都對得到頁面上的段落；操作教學有截圖', () => {
-    const html = renderWiki(loadWikiData());
-    for (const [id, , subs = []] of NAV) {
-      for (const target of [id, ...subs.map(([sid]) => sid)]) {
-        expect(html, target).toContain(`id="${target}"`);
-        expect(html, target).toContain(`href="#${target}"`);
-      }
+  it('每一頁的「本頁內容」都對得到頁面上的段落；操作教學有截圖', () => {
+    const pages = renderPages(loadWikiData());
+    for (const p of PAGES) {
+      const html = pages[pageFile(p.slug)];
+      expect(html, p.slug).toBeTruthy();
+      const toc = [...html.matchAll(/data-spy="([^"]+)"/g)].map((m) => m[1]);
+      for (const id of toc) expect(html, `${p.slug}#${id}`).toContain(`id="${id}"`);
     }
     for (const f of ['desktop-title', 'desktop-play', 'mobile-play']) {
-      expect(html).toContain(`shots/${f}.jpg`);
+      expect(pages[pageFile('controls')]).toContain(`shots/${f}.jpg`);
       expect(fs.existsSync(`wiki/shots/${f}.jpg`), f).toBe(true);
     }
   });
 
-  it('build 產出完整的靜態網站', () => {
+  it('build 產出每一頁，站內連結和錨點都找得到', () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'wiki-'));
     try {
       buildWiki({ outDir: out });
       for (const f of [
-        'index.html',
+        ...PAGES.map((p) => pageFile(p.slug)),
         'style.css',
         'wiki.js',
+        'game-controls.css',
         'img/cover.jpg',
         'img/wiki-icon-192.png',
         'img/wiki-icon-512.png',
@@ -104,6 +112,23 @@ describe('wiki', () => {
         'media/promo-poster.jpg',
       ])
         expect(fs.existsSync(path.join(out, f)), f).toBe(true);
+
+      const idsOf = (file) =>
+        new Set([...fs.readFileSync(file, 'utf-8').matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
+      for (const p of PAGES) {
+        const file = path.join(out, pageFile(p.slug));
+        const html = fs.readFileSync(file, 'utf-8');
+        for (const [, url] of html.matchAll(/(?:href|src|poster)="([^"]+)"/g)) {
+          if (/^(https?:|mailto:|data:)/.test(url)) continue;
+          const [pathPart, hash] = url.split('#');
+          const clean = pathPart.split('?')[0];
+          let target = clean ? path.resolve(path.dirname(file), clean) : file;
+          if (!target.startsWith(path.resolve(out))) continue; // ../ 回到遊戲首頁
+          if (clean.endsWith('/')) target = path.join(target, 'index.html');
+          expect(fs.existsSync(target), `${pageFile(p.slug)} → ${url}`).toBe(true);
+          if (hash) expect(idsOf(target).has(hash), `${pageFile(p.slug)} → ${url}`).toBe(true);
+        }
+      }
     } finally {
       fs.rmSync(out, { recursive: true, force: true });
     }

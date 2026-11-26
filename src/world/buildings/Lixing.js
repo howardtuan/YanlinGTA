@@ -1576,6 +1576,8 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
               x: mid(X(0, 0.6)),
               z: mid(Z(t0, t1)),
               chair: { x: mid(X(0.66, 0.98)), z: mid(Z(t0 + 0.25, t0 + 0.65)) },
+              // the wardrobe next to this desk (its doors face the aisle): front = where you stand to open it
+              wardrobe: { x: mid(X(0, 0.6)), z: mid(Z(t1, t1 + WD)), front: X(0.95, 0.95)[0] },
               face: Math.atan2(-s, 0),
             });
           }

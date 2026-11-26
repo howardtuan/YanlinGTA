@@ -2,6 +2,8 @@
 // story progress, easter eggs, where you were standing, your clothes, job / gate / race records and
 // the i-Piyan chats. Saved every 10 s while playing, on story steps and when the page is hidden.
 // Phone photos are too large for localStorage: they live in IndexedDB instead (src/systems/PhotoStore.js).
+import { wearLook } from './Outfits.js';
+
 const KEY = 'yanlinGTA.save.v1';
 
 export function readSave() {
@@ -152,7 +154,7 @@ export function applySave(g, d) {
   if (d.pin && g.nav) g.nav.set(d.pin.x, d.pin.z);
   if (d.stocks && g.market) g.market.load(d.stocks);
   g.news?.load(d.news);
-  if (d.look) g.player.setLook(d.look);
+  if (d.look) wearLook(g.player, d.look); // old saves (shirt / shorts / pants / top only) still fit: src/systems/OutfitData.js
   if (d.pos) {
     g.player.place(d.pos.x, d.pos.z, d.pos.h || 0);
     g.player.y = d.pos.y || 0;

@@ -90,7 +90,7 @@ flowchart TD
 | **3. 視覺圖形層** | `src/graphics/` | Three.js 場景與燈光管理、日夜循環動態天空、程序化瀝青/草地貼圖生成（Rust WASM 雙軌）。 | `SkySystem.js`, `Textures.js`, `kernels.wasm` |
 | **4. 世界生成層** | `src/world/` | OpenStreetMap 座標轉換、校園建築幾何拼裝、分區（Zone A~H）、室內空間與植被生成。 | `MapBuilder.js`, `Interiors.js`, `zones/*`, `buildings/*` |
 | **5. 遊戲實體層** | `src/entities/` | 玩家第三人稱/第一人稱控制、骨骼姿勢網格、機車與汽車操控實體、校園巡邏路人與劇情 NPC。 | `Player.js`, `Character.js`, `Vehicles.js`, `Traffic.js`, `npcs/*` |
-| **6. 業務系統層** | `src/systems/` | 競選任務推進狀態機、本機 LocalStorage 存讀檔、A* 路線規劃、Web Audio 音效、校園打工迷你遊戲。 | `MissionSystem.js`, `SaveSystem.js`, `Navigation.js`, `minigames/*`, `mahjong/*`（277 台式麻將） |
+| **6. 業務系統層** | `src/systems/` | 競選任務推進狀態機、本機 LocalStorage 存讀檔、A* 路線規劃、Web Audio 音效、校園打工迷你遊戲。 | `MissionSystem.js`, `SaveSystem.js`, `Navigation.js`, `OutfitData.js`／`Outfits.js`（衣櫃造型資料與穿上身）, `minigames/*`, `mahjong/*`（277 台式麻將） |
 | **7. 介面互動層** | `src/ui/` | 速度表與得票 HUD、手機作業系統（Peachgram、新聞、動態）、電腦桌面系統（終端機、瀏覽器）、對話介面。 | `HUD.js`, `PC.js`, `phone/Phone.js`, `Prompts.js` |
 
 ---

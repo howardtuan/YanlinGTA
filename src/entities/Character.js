@@ -711,7 +711,8 @@ export function createCharacter(opts = {}) {
         0
       )
     );
-  if (hero && !opts.polo && !opts.imTee && !opts.volleyTee) {
+  // opts.plain: no little face logo (wardrobe sets, src/systems/OutfitData.js)
+  if (hero && !opts.polo && !opts.imTee && !opts.volleyTee && !opts.plain) {
     const patch = new THREE.Mesh(
       geo('patch', () => new THREE.PlaneGeometry(0.06, 0.06)),
       new THREE.MeshStandardMaterial({ map: logoTexture(), roughness: 0.8 })
@@ -1896,7 +1897,7 @@ export function createCharacter(opts = {}) {
     bodyMesh = buildSkinnedBody(
       { root, hips, torso, head, arms, legs },
       {
-        longSleeve: !!opts.jacket,
+        longSleeve: !!(opts.jacket || opts.longSleeve), // longSleeve: a long-sleeved top (wardrobe)
         shirt: opts.jacket || opts.shirt || '#161616',
         bottom: opts.shorts || '#f1f0ea',
         skin: opts.skin || '#e8c3a2',

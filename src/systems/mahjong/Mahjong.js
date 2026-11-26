@@ -308,6 +308,13 @@ export class DormMahjong {
     }
     return n;
   }
+  // 多人：每個座位（自己視角，0 = 自己）的衣櫃造型，真人座位牌桌上畫成穿那套的彥霖（src/systems/mahjong/MahjongScene.js）；
+  // null 或舊版房主沒送 looks 時，那個座位照舊是室友模型
+  _setLooks(looks) {
+    const L = Array.isArray(looks) && looks.length === 4 ? looks : null;
+    if (this.sess) this.sess.looks = L;
+    if (this.scene) this.scene.looks = L;
+  }
   get isMulti() {
     return !!this.sess?.multi || !!this.mpMode;
   }
@@ -332,6 +339,7 @@ export class DormMahjong {
     try {
       this.mp = await createHostRoom({
         name: clean,
+        look: g.player.look, // 衣櫃造型（src/systems/OutfitData.js），牌桌上別人看到的你
         stake,
         spectateReveal,
         joinRoomFn,
@@ -408,6 +416,7 @@ export class DormMahjong {
       this.mp = await joinGuestRoom({
         code: roomCode,
         name: clean,
+        look: g.player.look,
         spectateOnly,
         moneyOk: g.money > 0,
         joinRoomFn,
@@ -522,6 +531,7 @@ export class DormMahjong {
     };
     this._seatAIs();
     this.scene.names = info.names;
+    this._setLooks(info.looks);
     this.scene.lobby = null;
     this.deal();
   }
@@ -566,6 +576,7 @@ export class DormMahjong {
     };
     this.engine = new RemoteMahjongEngine((act) => this.mp?.sendAction(act));
     this.scene.names = data.names;
+    this._setLooks(data.looks);
     this.scene.lobby = null;
     this.scene.startHand(this.engine);
     if (spectating) {
@@ -593,6 +604,7 @@ export class DormMahjong {
       if (info.names) {
         this.sess.names = info.names;
         if (this.scene) this.scene.names = info.names;
+        this._setLooks(info.looks);
       }
     }
   }
@@ -620,6 +632,7 @@ export class DormMahjong {
       if (data?.names) {
         s.names = data.names;
         if (this.scene) this.scene.names = data.names;
+        this._setLooks(data.looks);
       }
       if (wasSpec || data?.promoted) {
         this.g.hud.toast('🀄 輪到你上桌了！已取代 AI 開始本局', 'good', 3000);
@@ -632,6 +645,7 @@ export class DormMahjong {
       if (data?.names) {
         s.names = data.names;
         if (this.scene) this.scene.names = data.names;
+        this._setLooks(data.looks);
       }
       this.mp?.sendWalletStatus?.(this.g.money > 0);
     }
@@ -700,6 +714,8 @@ export class DormMahjong {
   _onGuestDisconnect(seat) {
     if (!this.sess?.multi || this.mpMode !== 'host') return;
     if (this.sess.human) this.sess.human[seat] = false;
+    // AI 接手：那個座位換回室友模型
+    if (this.sess.looks) this._setLooks(this.sess.looks.map((l, i) => (i === seat ? null : l)));
     if (!this.ais?.[seat])
       this.ais[seat] = makeAI({ attack: 0.5, defense: 0.5, skill: () => this.aiSkill() });
     const e = this.engine;
@@ -969,6 +985,7 @@ export class DormMahjong {
     this.sess.names = promo.names;
     for (const p of this.party) if (promo.names[p.seat]) p.name = promo.names[p.seat];
     if (this.scene) this.scene.names = promo.names;
+    this._setLooks(promo.looks);
     const joined = promo.promoted.map((x) => x.name).join('、');
     const msg = `🪑 ${joined} 取代 AI 上桌了！`;
     this.g.hud.toast(msg, 'good', 2800);

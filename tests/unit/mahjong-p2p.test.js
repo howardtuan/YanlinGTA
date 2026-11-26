@@ -11,6 +11,7 @@ import {
 } from '../../src/systems/mahjong/Net.js';
 import { createHostRoom, joinGuestRoom } from '../../src/systems/mahjong/P2P.js';
 import { DormMahjong, ROSTER } from '../../src/systems/mahjong/Mahjong.js';
+import { normalizeLook } from '../../src/systems/OutfitData.js';
 import {
   TurnTimer,
   TURN_LIMIT_MS,
@@ -1060,3 +1061,89 @@ describe('觀戰者繞著牌桌走，全桌都看得到他移動', () => {
 function angDiffDeg(a, b) {
   return ((((a - b) % 360) + 540) % 360) - 180;
 }
+describe('多人麻將同步衣櫃造型（P2P.js looks）', () => {
+  it('房主與客端的造型照各自視角旋轉送到每個人，AI 座位是 null；舊版客端沒帶造型就是預設服裝，亂傳的欄位被擋掉', async () => {
+    const bus = createMockBus();
+    const pilot = { set: 'pilot' };
+    const mc = { set: 'mc', hat: 'capRed' };
+    let s1 = null;
+    let s2 = null;
+    let lobby = null;
+    const host = await createHostRoom({
+      code: 'LOOK',
+      name: '彥霖',
+      look: pilot,
+      joinRoomFn: bus,
+      onLobby: (l) => (lobby = l),
+    });
+    await joinGuestRoom({
+      code: 'LOOK',
+      name: '小明',
+      look: mc,
+      joinRoomFn: bus,
+      onStart: (d) => (s1 = d),
+    });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    // 舊版客端：hello 不帶 look
+    await joinGuestRoom({
+      code: 'LOOK',
+      name: '舊版',
+      joinRoomFn: bus,
+      onStart: (d) => (s2 = d),
+    });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    expect(lobby.seats.filter((s) => s.name).length).toBe(3);
+
+    const info = host.startGame(ROSTER.slice(0, 3));
+    expect(info.looks[0]).toMatchObject({ set: 'pilot' });
+    expect(info.looks[1]).toMatchObject({ set: 'mc', hat: 'capRed' });
+    expect(info.looks[2]).toEqual(normalizeLook(null)); // 舊版客端：預設服裝
+    expect(info.looks[3]).toBe(null); // AI 補位
+
+    // 小明坐 1：自己是 0、舊版是 1、AI 是 2、房主是 3
+    expect(s1.names).toEqual(['小明', '舊版', ROSTER[0].name, '彥霖']);
+    expect(s1.looks[0]).toMatchObject({ set: 'mc' });
+    expect(s1.looks[1]).toEqual(normalizeLook(null));
+    expect(s1.looks[2]).toBe(null);
+    expect(s1.looks[3]).toMatchObject({ set: 'pilot' });
+    // 舊版坐 2：房主在 2、小明在 3
+    expect(s2.looks[2]).toMatchObject({ set: 'pilot' });
+    expect(s2.looks[3]).toMatchObject({ set: 'mc' });
+
+    // 下一局的通知也帶 looks
+    const nexts = [];
+    const busNext = createMockBus();
+    const h2 = await createHostRoom({ code: 'NEXT', look: { hat: 'bucket' }, joinRoomFn: busNext });
+    await joinGuestRoom({
+      code: 'NEXT',
+      name: '亂傳',
+      look: { shirt: 'url(javascript:x)', set: 'hack', hat: 'capBlack' },
+      joinRoomFn: busNext,
+      onNext: (d) => nexts.push(d),
+    });
+    await new Promise((r) => {
+      setTimeout(r, 20);
+    });
+    const i2 = h2.startGame(ROSTER.slice(0, 3));
+    expect(i2.looks[1]).toEqual({ ...normalizeLook(null), hat: 'capBlack' });
+    h2.broadcastNext();
+    expect(nexts[0].looks[0]).toEqual({ ...normalizeLook(null), hat: 'capBlack' });
+    expect(nexts[0].looks[3]).toMatchObject({ hat: 'bucket' });
+  });
+
+  it('DormMahjong 收到 looks 交給牌桌場景；長度不對（舊版房主沒送）就照舊用室友模型', () => {
+    const mj = new DormMahjong(fakeGame(1000));
+    mj.sess = {};
+    mj.scene = {};
+    const looks = [null, normalizeLook({ set: 'cabin' }), null, null];
+    mj._setLooks(looks);
+    expect(mj.scene.looks).toBe(looks);
+    expect(mj.sess.looks).toBe(looks);
+    mj._setLooks(undefined);
+    expect(mj.scene.looks).toBe(null);
+  });
+});

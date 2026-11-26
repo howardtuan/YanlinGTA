@@ -1,6 +1,9 @@
 // 免後端伺服器的 WebRTC P2P 麻將房間層（延遲載入 trystero@0.27，不影響主遊戲首屏載入）：
 // - 房主當權威主機（createHostRoom）：分配 4 個座位（不足 4 人開打時自動補 AI）、廣播過濾旋轉後的牌局快照、處理斷線交給 AI 接手
 // - 客端（joinGuestRoom）：輸入 4 碼房號連上房主、接收專屬視角快照、送回出牌／吃碰槓胡指令
+// - 造型（衣櫃，src/systems/OutfitData.js）：客端在 hello 帶上自己的 look，房主整理後跟 names 一樣旋轉成各自視角的 looks
+//   陣列一起送（start／next／spectateInfo）；AI 座位是 null。舊版客端沒帶 look 時當預設服裝；舊版房主不送 looks 時，
+//   新版客端照舊用室友模型。
 import {
   makeRoomCode,
   normalizeRoomCode,
@@ -8,6 +11,7 @@ import {
   rotateEventsFor,
   unrotateSeat,
 } from './Net.js';
+import { normalizeLook } from '../OutfitData.js';
 
 const APP_ID = 'yanlin-gta-mahjong-v1';
 const peerIdOf = (ctx) => (typeof ctx === 'string' ? ctx : ctx?.peerId || null);
@@ -55,6 +59,7 @@ export const specStartAng = (order) => normAng(((order * 47) % 70) - 35);
 export async function createHostRoom({
   code,
   name = '彥霖',
+  look = null,
   stake = 0,
   spectateReveal = true,
   joinRoomFn = defaultJoinRoom,
@@ -76,7 +81,12 @@ export async function createHostRoom({
   const [, onHello] = bindAction(room, 'hello');
   const [, onAct] = bindAction(room, 'act');
 
-  const seats = [{ seat: 0, peerId: 'host', name, isHost: true, isAI: false }, null, null, null];
+  const seats = [
+    { seat: 0, peerId: 'host', name, look: normalizeLook(look), isHost: true, isAI: false },
+    null,
+    null,
+    null,
+  ];
   const peerToSeat = new Map();
   const spectators = new Map(); // peerId -> { peerId, name, wantSeat, viewSeat, moneyOk, order, ang }
   const reactCd = new Map(); // peerId -> last ms
@@ -91,6 +101,12 @@ export async function createHostRoom({
   const rotatedNames = (viewSeat) => {
     const names = fullNames();
     return [0, 1, 2, 3].map((ls) => names[unrotateSeat(ls, viewSeat)]);
+  };
+  // 每個座位的造型：真人一定有（沒帶就是預設服裝），AI 是 null
+  const fullLooks = () => seats.map((s) => (s && !s.isAI ? normalizeLook(s.look) : null));
+  const rotatedLooks = (viewSeat) => {
+    const looks = fullLooks();
+    return [0, 1, 2, 3].map((ls) => looks[unrotateSeat(ls, viewSeat)]);
   };
   const orderedSpectators = () => [...spectators.values()].sort((a, b) => a.order - b.order);
   const spectatorList = () => {
@@ -189,6 +205,7 @@ export async function createHostRoom({
             names: rotatedNames(spec.viewSeat),
             you: pid,
             ang: spec.ang,
+            looks: rotatedLooks(spec.viewSeat),
           },
           pid
         );
@@ -229,6 +246,7 @@ export async function createHostRoom({
       seat: empty,
       peerId: nextSpec.peerId,
       name: nextSpec.name,
+      look: nextSpec.look,
       isHost: false,
       isAI: false,
     };
@@ -239,6 +257,7 @@ export async function createHostRoom({
   onHello((data, peerId) => {
     if (closed || !peerId) return;
     if (peerToSeat.has(peerId)) {
+      if (!started && data?.look) seats[peerToSeat.get(peerId)].look = normalizeLook(data.look);
       if (!started) emitLobby(peerId);
       return;
     }
@@ -248,11 +267,13 @@ export async function createHostRoom({
         .slice(0, 12) || '朋友';
     const spectateOnly = !!data?.spectateOnly;
     const moneyOk = data?.moneyOk !== false;
+    const look = normalizeLook(data?.look);
 
     if (spectators.has(peerId)) {
       const spec = spectators.get(peerId);
       spec.wantSeat = !spectateOnly;
       spec.moneyOk = moneyOk;
+      spec.look = look;
       if (!started) emitLobby(peerId);
       else broadcastMeta({ needStatePeerId: peerId });
       return;
@@ -261,7 +282,7 @@ export async function createHostRoom({
     if (!started) {
       const empty = spectateOnly ? -1 : seats.findIndex((s) => !s);
       if (empty >= 0) {
-        seats[empty] = { seat: empty, peerId, name: cleanName, isHost: false, isAI: false };
+        seats[empty] = { seat: empty, peerId, name: cleanName, look, isHost: false, isAI: false };
         peerToSeat.set(peerId, empty);
         onNotice?.(`🌐 ${cleanName} 加入了房間（${seats.filter(Boolean).length}/4）`);
         emitLobby();
@@ -270,6 +291,7 @@ export async function createHostRoom({
       spectators.set(peerId, {
         peerId,
         name: cleanName,
+        look,
         wantSeat: !spectateOnly,
         viewSeat: 0,
         moneyOk,
@@ -285,6 +307,7 @@ export async function createHostRoom({
     const spec = {
       peerId,
       name: cleanName,
+      look,
       wantSeat: !spectateOnly,
       viewSeat: 0,
       moneyOk,
@@ -306,6 +329,7 @@ export async function createHostRoom({
         spectators: spectatorList(),
         stake: curStake,
         names: fullNames(),
+        looks: fullLooks(),
         code: roomCode,
         you: peerId,
         ang: spec.ang,
@@ -484,6 +508,7 @@ export async function createHostRoom({
             seat,
             stake: curStake,
             names: rotatedNames(seat),
+            looks: rotatedLooks(seat),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
             spectators: specs,
@@ -502,6 +527,7 @@ export async function createHostRoom({
             queuePos: queuePosOf(peerId),
             stake: curStake,
             names: rotatedNames(spec.viewSeat),
+            looks: rotatedLooks(spec.viewSeat),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
             spectators: specs,
@@ -512,13 +538,26 @@ export async function createHostRoom({
           peerId
         );
       }
-      return { seats, names, human: seats.map((s) => !s.isAI), aiSeats, spectators: specs };
+      return {
+        seats,
+        names,
+        looks: fullLooks(),
+        human: seats.map((s) => !s.isAI),
+        aiSeats,
+        spectators: specs,
+      };
     },
     // 下一局開始前：依排隊順序讓想上桌且錢包足夠的觀賽者取代 AI 座位
     promoteSpectators() {
       const promoted = [];
       if (!started) {
-        return { promoted, seats, names: fullNames(), human: seats.map((s) => !s.isAI) };
+        return {
+          promoted,
+          seats,
+          names: fullNames(),
+          looks: fullLooks(),
+          human: seats.map((s) => !s.isAI),
+        };
       }
       for (const spec of orderedSpectators()) {
         if (!spec.wantSeat) continue;
@@ -536,6 +575,7 @@ export async function createHostRoom({
           seat: aiIdx,
           peerId: spec.peerId,
           name: spec.name,
+          look: spec.look,
           isHost: false,
           isAI: false,
         };
@@ -543,7 +583,13 @@ export async function createHostRoom({
         promoted.push({ peerId: spec.peerId, seat: aiIdx, name: spec.name });
       }
       if (promoted.length) onSpectatorChange?.(spectatorSummary());
-      return { promoted, seats, names: fullNames(), human: seats.map((s) => !s.isAI) };
+      return {
+        promoted,
+        seats,
+        names: fullNames(),
+        looks: fullLooks(),
+        human: seats.map((s) => !s.isAI),
+      };
     },
     sendStateToPeer(peerId, engine) {
       if (closed || !started || !engine) return;
@@ -597,6 +643,7 @@ export async function createHostRoom({
             role: 'player',
             seat,
             names: rotatedNames(seat),
+            looks: rotatedLooks(seat),
             promoted: promoSet.has(peerId),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
@@ -615,6 +662,7 @@ export async function createHostRoom({
             wantSeat: spec.wantSeat,
             queuePos: queuePosOf(peerId),
             names: rotatedNames(spec.viewSeat),
+            looks: rotatedLooks(spec.viewSeat),
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
             spectators: specs,
@@ -644,6 +692,7 @@ export async function createHostRoom({
 export async function joinGuestRoom({
   code,
   name = '朋友',
+  look = null,
   spectateOnly = false,
   moneyOk = true,
   joinRoomFn = defaultJoinRoom,
@@ -674,7 +723,15 @@ export async function joinGuestRoom({
 
   const announce = (peerId) => {
     if (closed || started) return;
-    sendHello({ name, spectateOnly: !!spectateOnly, moneyOk: moneyOk !== false }, peerId);
+    sendHello(
+      {
+        name,
+        look: look ? normalizeLook(look) : undefined,
+        spectateOnly: !!spectateOnly,
+        moneyOk: moneyOk !== false,
+      },
+      peerId
+    );
   };
 
   onLobbyMsg((data, peerId) => {

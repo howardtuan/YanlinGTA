@@ -24,6 +24,7 @@ import { DiceSet } from './Dice.js';
 import { normalizeRoomCode } from './Net.js';
 import { SPECTATE_REACTS } from './P2P.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
+import { makeOutfitFigure } from '../Outfits.js';
 
 // 觀戰者繞著牌桌站：角度 deg（本地框架，0 = 你背後、90 = 下家背後…），站在桌子外一圈（避開床、牆）。
 // 兩側是下舖：坐在床上；前後和角落：站在地上
@@ -725,6 +726,8 @@ export class MahjongScene {
     }
     this._mpBar = '';
     this._clearSpectators();
+    this._clearSeatFigures();
+    this.looks = null;
     this._clearBubbles();
     this._hidePop();
     this.$('.mj-hand').classList.add('hidden');
@@ -745,6 +748,11 @@ export class MahjongScene {
   // an NPC's figure at seat s (called from its own update while it is in the game)
   place(s, ch, dt) {
     if (ch.root.parent !== this.set.scene) this.set.scene.add(ch.root);
+    // a real player sits here (multiplayer): their own 彥霖 in their wardrobe look takes the seat (_syncSeatFigures)
+    if (this.looks?.[s]) {
+      ch.root.visible = false;
+      return;
+    }
     const p = new THREE.Vector3().addScaledVector(FWD[s], -SEAT_R);
     // 觀戰者的鏡頭就在這家背後：不畫他（不然整個畫面是他的後腦勺和手臂）
     if (this._orbiting() && Math.abs(angDiff(s * 90, this._camYaw ?? 0)) < 55) {
@@ -790,6 +798,7 @@ export class MahjongScene {
   update(dt, inp) {
     this._dt = dt;
     this.mj.flushSpecPos?.(); // (觀戰者停下來時補送最後的位置)
+    this._syncSeatFigures(dt);
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
     if (!typing && inp.hit('KeyV')) this._toggleView();
     this._viewBtn();
@@ -1472,6 +1481,49 @@ export class MahjongScene {
     const v = new THREE.Vector3(0.27, Y0 + 0.05, 0.36).project(this.cam);
     el.style.left = `${Math.min(99, ((v.x + 1) / 2) * 100)}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
+  }
+  // 多人：真人座位（this.looks[s]，src/systems/mahjong/Mahjong.js _setLooks）畫成穿著他衣櫃造型的彥霖，
+  // 坐的位置和姿勢跟 place() 的室友一樣；造型變了就換一個模型。繞桌走的觀戰者連座位 0（正在看的那家）也畫，
+  // 鏡頭正前方那家一樣不畫
+  _syncSeatFigures(dt) {
+    if (!this.set?.scene) return;
+    this._seatFigs ||= new Map();
+    const orbit = this._orbiting();
+    for (let s = 0; s < 4; s++) {
+      const look = (s > 0 || orbit) && this.looks?.[s] ? this.looks[s] : null,
+        key = look ? JSON.stringify(look) : '';
+      let f = this._seatFigs.get(s);
+      if (f && f.key !== key) {
+        this._dropSeatFigure(s);
+        f = null;
+      }
+      if (!look) continue;
+      if (!f) {
+        const ch = makeOutfitFigure(look);
+        ch.setDetail?.(true);
+        this.set.scene.add(ch.root);
+        f = { key, ch };
+        this._seatFigs.set(s, f);
+      }
+      const ch = f.ch,
+        p = new THREE.Vector3().addScaledVector(FWD[s], -SEAT_R);
+      ch.root.visible = !(orbit && Math.abs(angDiff(s * 90, this._camYaw ?? 0)) < 55);
+      if (!ch.root.visible) continue;
+      ch.root.position.set(p.x, 0, p.z);
+      ch.root.rotation.y = Math.atan2(-p.x, -p.z);
+      const busy = this.e && this.e.turn === s && this.t > 0;
+      ch.update(dt, { speed: 0, mode: 'sit', pose: busy ? 'type' : null });
+    }
+  }
+  _dropSeatFigure(s) {
+    const f = this._seatFigs?.get(s);
+    if (!f) return;
+    this.set?.scene.remove(f.ch.root);
+    f.ch.dispose?.();
+    this._seatFigs.delete(s);
+  }
+  _clearSeatFigures() {
+    for (const s of [...(this._seatFigs?.keys() || [])]) this._dropSeatFigure(s);
   }
   _clearSpectators() {
     if (this._specActors) {

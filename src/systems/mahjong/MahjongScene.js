@@ -499,6 +499,21 @@ const DISC_BIG = 1.3,
 // 近景（手機版）像麻將手遊一樣不擺牌牆（剩幾張寫在桌子中間），海底可以一路放大到花那排前面
 const DISC_BIG_NOWALL = 1.55,
   FLOWER_D = 0.335;
+// 一組吃碰槓桌上怎麼排：tiles 由左到右的牌種（吃的那張放中間），down 哪幾張蓋著。
+// 暗槓：自己的（還有攤牌、觀戰全開時）兩頭蓋、中間兩張翻開；別家的暗槓對你四張全蓋，看不出槓什麼。
+// 多人客端收到的別家暗槓房主已經遮掉（Net.js serializeStateFor：hidden、牌種是假牌 tiles）
+export function meldFaces(e, s, m) {
+  let tiles = meldTiles(m);
+  if (m.type === 'chow' && m.take != null) {
+    const rest = tiles.filter((x) => x !== m.take);
+    tiles = [rest[0], m.take, rest[1]];
+  }
+  const covered =
+    !!m.closed && (!!m.hidden || (e.phase !== 'end' && !e.revealAll && (s !== 0 || !!e.spectate)));
+  const down = tiles.map((_, j) => !!m.closed && (covered || j === 0 || j === 3));
+  return { tiles, down, covered };
+}
+
 export function discardScale(maxCount, wall = true) {
   const rows = Math.max(3, Math.ceil(maxCount / DROW));
   const edge = wall ? WALL_D - TD / 2 - 0.004 : FLOWER_D - TH / 2 - 0.004;
@@ -1059,12 +1074,8 @@ export class MahjongScene {
       .join('')}</div>`;
     if (P.melds.length || P.flowers.length) {
       const melds = P.melds.map((m) => {
-        let tiles = meldTiles(m);
-        if (m.type === 'chow' && m.take != null) {
-          const rest = tiles.filter((x) => x !== m.take);
-          tiles = [rest[0], m.take, rest[1]];
-        }
-        return `<span>${tiles.map((k, j) => (m.closed && (j === 0 || j === 3) ? '<i class="back"></i>' : img(k))).join('')}</span>`;
+        const { tiles, down } = meldFaces(e, 0, m);
+        return `<span>${tiles.map((k, j) => (down[j] ? '<i class="back"></i>' : img(k))).join('')}</span>`;
       });
       if (P.flowers.length)
         melds.push(`<span class="fl">${P.flowers.map((k) => img(k)).join('')}</span>`);
@@ -1182,13 +1193,10 @@ export class MahjongScene {
       B = false;
       for (const m of P.melds) {
         u += TW * 0.3;
-        let tiles = meldTiles(m);
-        if (m.type === 'chow' && m.take != null) {
-          const rest = tiles.filter((x) => x !== m.take);
-          tiles = [rest[0], m.take, rest[1]];
-        }
+        const { tiles, down: downs } = meldFaces(e, s, m);
+        B = !!m.hidden; // (房主遮掉的別家暗槓：假牌)
         tiles.forEach((k, j) => {
-          const down = m.closed && (j === 0 || j === 3);
+          const down = downs[j];
           put(
             k,
             slot(s, u + (TW * mk) / 2, 0.39 - (TH * (mk - 1)) / 2, down ? 'down' : 'up', 0, mk),
@@ -1201,6 +1209,7 @@ export class MahjongScene {
       }
       // flowers in a row between the wall and the hand
       Z = `f${s}`;
+      B = false;
       P.flowers.forEach((k, i) =>
         put(k, slot(s, -0.27 + i * TW, FLOWER_D, 'up'), null, bar, { seat: s, what: '花' })
       );
@@ -1335,6 +1344,9 @@ export class MahjongScene {
       const t = e.last.t;
       for (const o of p.options) {
         if (o.type === 'hu') out.push({ ...o, label: '胡！', key: 'H', mine: [], inc: t });
+        // 過水中能胡也不給胡：胡的位置換成一張註記（不是按鈕，Engine.js claimOptions）
+        else if (o.type === 'guoshui')
+          out.push({ type: 'guoshui', label: '過水中', note: '摸牌打牌一次後解除', inc: t });
         else if (o.type === 'pon') out.push({ ...o, label: '碰', key: 'P', mine: [t, t], inc: t });
         else if (o.type === 'kong')
           out.push({ ...o, label: '槓', key: 'K', mine: [t, t, t], inc: t });
@@ -1520,7 +1532,7 @@ export class MahjongScene {
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
-      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}${s || e.spectate ? this._meldStrip(e.players[s]) : ''}`;
+      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}${s || e.spectate ? this._meldStrip(e, s) : ''}`;
       if (el.dataset.h !== html) {
         el.innerHTML = el.dataset.h = html;
         el._size = null; // (measured again by _placeTag)
@@ -1538,6 +1550,8 @@ export class MahjongScene {
       const img = (k, inc) => `<img src="${this._tileImg(k)}" class="${inc ? 'inc' : ''}" alt="">`;
       this.$('.mj-acts').innerHTML = opts
         .map((o) => {
+          if (o.type === 'guoshui')
+            return `<div class="mj-gs" title="過水：剛剛能胡沒胡，要自己摸牌打牌一次才能再胡別人打的牌（自摸照常）"><span class="mj-tiles">${img(o.inc)}</span><span class="mj-lab">🚫 ${o.label}</span><small>${o.note}</small></div>`;
           const tiles = o.mine
             ? `<span class="mj-tiles">${o.mine.map((k) => img(k)).join('')}${o.inc != null ? `${o.mine.length ? '<i>＋</i>' : ''}${img(o.inc, true)}` : ''}</span>`
             : '';
@@ -2007,16 +2021,13 @@ export class MahjongScene {
     el.style.cssText = `left:${cx.toFixed(1)}px;top:${cy.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;--cw:${w.toFixed(1)}px`;
   }
   // 別家的吃碰槓（和花）也用小圖排在名牌底下：桌上的 3D 牌在手機上太小、側面兩家又是斜的
-  _meldStrip(P) {
+  _meldStrip(e, s) {
+    const P = e?.players[s];
     if (!P || (!P.melds.length && !P.flowers.length)) return '';
     const img = (k) => `<img src="${this._tileImg(k)}" alt="${tileName(k)}">`;
     const melds = P.melds.map((m) => {
-      let tiles = meldTiles(m);
-      if (m.type === 'chow' && m.take != null) {
-        const rest = tiles.filter((x) => x !== m.take);
-        tiles = [rest[0], m.take, rest[1]];
-      }
-      return `<span>${tiles.map((k, j) => (m.closed && (j === 0 || j === 3) ? '<i class="back"></i>' : img(k))).join('')}</span>`;
+      const { tiles, down } = meldFaces(e, s, m);
+      return `<span>${tiles.map((k, j) => (down[j] ? '<i class="back"></i>' : img(k))).join('')}</span>`;
     });
     if (P.flowers.length) melds.push(`<span class="fl">${P.flowers.map(img).join('')}</span>`);
     return `<div class="mj-tag-m">${melds.join('')}</div>`;

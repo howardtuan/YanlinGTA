@@ -230,6 +230,21 @@ export class Zz {
       label: () => '按 <kbd>E</kbd> 使用自己的筆電',
       fn: (gm) => gm.pc?.open('彥霖的筆電'),
     });
+    // 彥霖's own wardrobe next to that desk: the same wardrobe as at home (src/ui/Wardrobe.js)
+    const WR = myDesk.wardrobe,
+      wf = world(WR.front, WR.z, R.y);
+    g.interiors.actions.push({
+      x: wf.x,
+      z: wf.z,
+      r: 0.75,
+      y: floorY(wf.x, wf.z),
+      ...(() => {
+        const [ax, az] = W(WR.x, WR.z);
+        return { aimX: ax, aimZ: az, aimY: B + R.y + 1.2, glow: 0.6 };
+      })(),
+      label: () => '按 <kbd>E</kbd> 打開自己的衣櫥換衣服',
+      fn: (gm) => gm.wardrobe?.open('dorm'),
+    });
     // 彥霖's bed: 3 (lower), or 2 (upper) while 吱吱 is hurt and sleeps in 3
     for (const n of [2, 3]) {
       const b = R.beds[n],

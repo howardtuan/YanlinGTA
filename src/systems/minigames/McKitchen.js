@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../../world/MapBuilder.js';
 import { dressCrew } from './McUniform.js';
+import { hideOutfit } from '../Outfits.js';
 import { dual } from '../../core/KeyHints.js';
 
 // station key as shown to the player: 1 / 2 / 3 on keyboard, D-pad on a gamepad (src/core/Input.js job layout)
@@ -303,7 +304,12 @@ export class McKitchen {
     pl.vel.set(0, 0);
     pl.heading = this.k.heading(-Math.PI / 2);
     pl.ch.root.rotation.y = pl.heading;
-    this._undress = dressCrew(pl.ch, { name: '彥霖' });
+    const back = hideOutfit(pl.ch), // the wardrobe's hat / uniform off for the shift (src/systems/Outfits.js)
+      off = dressCrew(pl.ch, { name: '彥霖' });
+    this._undress = () => {
+      off();
+      back();
+    };
     this._camT = 0;
     this._camFrom.copy(g.camera.position);
     g.camera.getWorldDirection(this._lookFrom).multiplyScalar(5).add(g.camera.position);

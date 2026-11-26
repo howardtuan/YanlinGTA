@@ -358,26 +358,25 @@ export class Player {
     this.vy = 0;
     this.vel.set(0, 0);
   }
-  // change clothes (wardrobe at 彥霖's old room): rebuild the figure with the new colours, keep where it stands
-  setLook(look) {
+  // change clothes (wardrobe, src/ui/Wardrobe.js; look fields in src/systems/OutfitData.js): rebuild the figure in the
+  // new clothes, keep where it stands. make(look) builds the figure (src/systems/Outfits.js makeOutfitFigure adds the
+  // hats and uniform pieces); without it only the top / bottom colours and the printed tees are used.
+  setLook(look, make = null) {
     if (this.vehicle) return;
-    // top: 'polo' = 系學會幹部T (collar, placket, lion logo), 'im' = 資管系服 (front lion, back code print);
-    // anything else is a plain tee in the shirt colour
-    this.look = {
-      shirt: look.shirt,
-      shorts: look.shorts,
-      pants: !!look.pants,
-      top: look.top || null,
-    };
+    this.look = { ...look, pants: !!look.pants, top: look.top || null };
     const old = this.ch,
       parent = old.root.parent;
-    const ch = createCharacter({
-      ...YANLIN_LOOK,
-      ...this.look,
-      polo: this.look.top === 'polo',
-      imTee: this.look.top === 'im',
-      volleyTee: this.look.top === 'volley',
-    });
+    const ch = make
+      ? make(this.look)
+      : createCharacter({
+          ...YANLIN_LOOK,
+          shirt: this.look.shirt,
+          shorts: this.look.shorts,
+          pants: this.look.pants,
+          polo: this.look.top === 'polo',
+          imTee: this.look.top === 'im',
+          volleyTee: this.look.top === 'volley',
+        });
     ch.root.position.copy(old.root.position);
     ch.root.rotation.copy(old.root.rotation);
     ch.root.visible = old.root.visible;

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { mulberry32, makeLabel } from '../../world/MapBuilder.js';
 import { dressCrew } from './McUniform.js';
+import { hideOutfit } from '../Outfits.js';
 import { McKitchen } from './McKitchen.js';
 import { dual } from '../../core/KeyHints.js';
 
@@ -518,8 +519,16 @@ export class McShift {
 
   // ------------------------------------------------------------------ crew uniform (src/systems/minigames/McUniform.js)
   _uniform(on) {
-    if (on && !this._undress) this._undress = dressCrew(this.g.player.ch, { name: '彥霖' });
-    else if (!on && this._undress) {
+    if (on && !this._undress) {
+      // the wardrobe's hat / uniform comes off for the shift and goes back on after (src/systems/Outfits.js)
+      const ch = this.g.player.ch,
+        back = hideOutfit(ch),
+        off = dressCrew(ch, { name: '彥霖' });
+      this._undress = () => {
+        off();
+        back();
+      };
+    } else if (!on && this._undress) {
       this._undress();
       this._undress = null;
     }

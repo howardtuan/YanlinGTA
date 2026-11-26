@@ -1,29 +1,19 @@
-// Wardrobe in 彥霖's old room: the pine doors swing open and you pick a top and a bottom.
-// The look is applied right away (player.setLook) and kept in the save.
-const TOPS = [
-  ['黑色素 T', '#121212', '預設'],
-  ['白色素 T', '#f4f4f0'],
-  ['資管系服', '#4a5131', '深綠', 'im'],
-  ['霧藍 T', '#6b7f99'],
-  ['海軍藍 T', '#2f3e5c'],
-  ['卡其襯衫', '#d8c9a8'],
-  ['灰色帽 T', '#5b5d63'],
-  ['森林綠 T', '#2f5d46'],
-  ['系學會幹部T', '#1d2340', 'Polo', 'polo'], // 深藍 polo，左胸白色獅子（34TH、CYIMSA）
-  // 資管系服：深綠短袖，左胸幾何線條獅子頭，背後 Information Management 程式碼印花（Since.1988）
-  ['排球 T', '#c8102e', '吱吱送的', 'volley', 'volleyTee'], // 胸前 CYCU VOLLEYBALL、背後「中原排球」7 號；幫吱吱洗完 10 次殘廢澡才有（src/systems/quests/ZzInjury.js）
-];
-// [名稱, 顏色, 標籤, 款式, 解鎖條件]：有解鎖條件的上衣要拿到才會出現在衣櫃
+// 衣櫃：彥霖舊家（松木雙門衣櫃，換衣服時門會打開）和力行 276 寢自己書桌旁的衣櫥（src/entities/npcs/Zz.js）都能打開。
+// 可以整套換（套裝：麥當勞制服、彥霖航空機長／空服員），也可以只換上衣、褲子或戴頂帽子；換單件會脫下套裝。
+// 點一下就換上（src/systems/Outfits.js wearLook），造型存在存檔裡，多人麻將時別人也看得到（src/systems/mahjong/P2P.js）。
+// 服裝清單在 src/systems/OutfitData.js。
+import { TOPS, BOTTOMS, HATS, SETS, normalizeLook, pickItem } from '../systems/OutfitData.js';
+import { wearLook } from '../systems/Outfits.js';
+
+// 有解鎖條件的上衣要拿到才會出現在衣櫃
 const owned = (g, key) => !key || (key === 'volleyTee' && !!g.zzQuest?.state.tee);
-const BOTTOMS = [
-  ['白色短褲', '#f3f2ec', false, '預設'],
-  ['卡其短褲', '#c9b48a', false],
-  ['黑色短褲', '#202022', false],
-  ['牛仔長褲', '#3d5a80', true],
-  ['黑色長褲', '#1c1c1e', true],
-  ['灰色運動褲', '#7c7f86', true],
-];
 const $ = (id) => document.getElementById(id);
+// 套裝、帽子的色塊：兩種顏色斜切（上衣色／褲子色），帽子用帽子本身的顏色
+const SWATCH = {
+  mc: 'linear-gradient(135deg,#6a6d72 55%,#ffbc0d 55%)',
+  pilot: 'linear-gradient(135deg,#f4f5f7 50%,#1b2233 50%)',
+  cabin: 'linear-gradient(135deg,#1f4d3a 60%,#e07b39 60%)',
+};
 
 export class Wardrobe {
   constructor(game) {
@@ -34,13 +24,31 @@ export class Wardrobe {
     el.className = 'wd hidden';
     el.innerHTML = `<div class="wd-card">
       <div class="wd-head"><b>👕 衣櫃</b><small>WARDROBE</small><button class="wd-x" title="關閉">✕</button></div>
+      <div class="wd-sec">套裝 <small>整套換上</small></div><div class="wd-grid" id="wdSets"></div>
       <div class="wd-sec">上衣</div><div class="wd-grid" id="wdTops"></div>
       <div class="wd-sec">褲子</div><div class="wd-grid" id="wdBottoms"></div>
-      <div class="wd-foot"><span>點一下就會換上，按 <kbd>Esc</kbd> 或「穿好了」關上衣櫃</span><button class="menu-btn primary wd-ok"><span>穿好了</span><small>DONE</small></button></div>
+      <div class="wd-sec">帽子</div><div class="wd-grid" id="wdHats"></div>
+      <div class="wd-foot"><span>點一下就會換上；換單件會脫下套裝。按 <kbd>Esc</kbd> 或「穿好了」關上衣櫃</span><button class="menu-btn primary wd-ok"><span>穿好了</span><small>DONE</small></button></div>
     </div>`;
     document.body.appendChild(el);
     el.querySelector('.wd-x').onclick = () => this.close();
     el.querySelector('.wd-ok').onclick = () => this.close();
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-k]');
+      if (!b) return;
+      const k = b.dataset.k,
+        i = +b.dataset.i;
+      const item =
+        k === 'set'
+          ? SETS[i] || null
+          : k === 'top'
+            ? TOPS[i]
+            : k === 'bottom'
+              ? BOTTOMS[i]
+              : HATS[i] || null;
+      if (k !== 'set' && k !== 'hat' && !item) return;
+      this._wear(pickItem(this._look(), k, item));
+    });
     addEventListener('keydown', (e) => {
       if (this.isOpen && (e.code === 'Escape' || e.code === 'Enter')) {
         e.preventDefault();
@@ -49,53 +57,55 @@ export class Wardrobe {
     });
   }
   _look() {
-    const l = this.g.player.look || {};
-    return {
-      shirt: l.shirt || TOPS[0][1],
-      shorts: l.shorts || BOTTOMS[0][1],
-      pants: !!l.pants,
-      top: l.top || null,
-    };
+    return normalizeLook(this.g.player.look);
   }
   _render() {
     const L = this._look();
-    const item = (name, col, on, tag, data) =>
-      `<button class="wd-item${on ? ' on' : ''}" ${data}><i style="background:${col}"></i><span>${name}</span>${tag ? `<small>${tag}</small>` : ''}</button>`;
-    $('wdTops').innerHTML = TOPS.filter((t) => owned(this.g, t[4]))
-      .map(([n, c, t, top]) =>
-        item(
-          n,
-          c,
-          c === L.shirt && (top || null) === L.top,
-          t,
-          `data-shirt="${c}" data-top="${top || ''}"`
-        )
-      )
-      .join('');
-    $('wdBottoms').innerHTML = BOTTOMS.map(([n, c, p, t]) =>
+    const item = (k, i, name, bg, on, tag) =>
+      `<button class="wd-item${on ? ' on' : ''}" data-k="${k}" data-i="${i}"><i style="background:${bg}"></i><span>${name}</span>${tag ? `<small>${tag}</small>` : ''}</button>`;
+    $('wdSets').innerHTML =
+      SETS.map((s, i) =>
+        item('set', i, s.name, SWATCH[s.id] || s.shirt, L.set === s.id, s.tag)
+      ).join('') + item('set', -1, '不穿套裝', '#2a2e40', !L.set, '單件');
+    // 穿著套裝時，單件的「已選」仍標出來：脫下套裝後會回到這些
+    $('wdTops').innerHTML = TOPS.map((t, i) =>
+      owned(this.g, t.unlock)
+        ? item(
+            'top',
+            i,
+            t.name,
+            t.shirt,
+            t.shirt === L.shirt && (t.top || null) === L.top && !!t.long === L.long,
+            t.tag
+          )
+        : ''
+    ).join('');
+    $('wdBottoms').innerHTML = BOTTOMS.map((b, i) =>
       item(
-        n,
-        c,
-        c === L.shorts && p === L.pants,
-        t || (p ? '長褲' : '短褲'),
-        `data-bottom="${c}" data-pants="${p ? 1 : 0}"`
+        'bottom',
+        i,
+        b.name,
+        b.shorts,
+        b.shorts === L.shorts && b.pants === L.pants,
+        b.tag || (b.pants ? '長褲' : '短褲')
       )
     ).join('');
-    for (const b of this.el.querySelectorAll('[data-shirt]'))
-      b.onclick = () => this._wear({ shirt: b.dataset.shirt, top: b.dataset.top || null });
-    for (const b of this.el.querySelectorAll('[data-bottom]'))
-      b.onclick = () => this._wear({ shorts: b.dataset.bottom, pants: b.dataset.pants === '1' });
+    $('wdHats').innerHTML =
+      item('hat', -1, '不戴帽子', '#2a2e40', !L.hat, '') +
+      HATS.map((h, i) => item('hat', i, h.name, h.color, L.hat === h.id, '')).join('');
+    this.el.querySelector('.wd-card').classList.toggle('wd-set-on', !!L.set);
   }
-  _wear(part) {
-    const look = { ...this._look(), ...part };
-    this.g.player.setLook(look);
+  _wear(look) {
+    wearLook(this.g.player, look);
     this.g.audio.pop?.();
     this._render();
   }
-  open() {
+  // at: 'dorm' = 力行 276 (the home wardrobe's doors stay shut)
+  open(at = 'home') {
     if (this.isOpen || this.g.player.vehicle) return;
     this.isOpen = true;
-    this.g.interiors.yh?.setWardrobe(true);
+    this.at = at;
+    if (at === 'home') this.g.interiors.yh?.setWardrobe(true);
     this.g.input.enabled = false;
     this.g.input.releaseAll();
     document.exitPointerLock?.();

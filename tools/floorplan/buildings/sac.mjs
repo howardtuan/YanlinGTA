@@ -33,24 +33,24 @@ function planB1(sl) {
     { x0: xSt, x1: PIT.court[2], z0: PIT.court[1], z1: PIT.flatW, style: 'outdoor' }, // 入口前的戶外平地（下沉區）
   ];
   const labels = [
-    { text: '樓梯廳', x: x0 + 11, z: z0 + 2.2, size: 11, bold: true },
+    { text: '樓梯廳', x: x0 - 6, z: z0 + 2.6, size: 11, bold: true },
     {
       text: '旋轉梯\n往上到一樓、二樓',
-      x: x0 + 9.4,
-      z: z0 + 6.4,
-      leader: [x0 + 7.6, z0 + 5.4],
+      x: x0 + 3.6,
+      z: z0 + 3.6,
+      leader: [x0 + 1.8, z0 + 0.9], // the stair stands where the 1F plan has it (SacB1.js SPIRAL)
       size: 8,
       anchor: 'start',
     },
-    { text: '學餐用餐區', x: x0 + 12.7, z: z0 + 13.5, size: 12, bold: true },
-    { text: '四人桌 × 16', x: x0 + 5.9, z: z0 + 8.9, size: 7.5, color: dim },
+    { text: '學餐用餐區', x: x0 + 0.4, z: z0 + 8.6, size: 12, bold: true },
+    { text: '四人桌 × 36', x: x0 + 0.4, z: z0 + 9.4, size: 7.5, color: dim },
     {
       text: '餐具回收\n飲水機\n資源回收',
-      x: x0 - 0.5,
+      x: x0 - 12.2,
       z: z0 + 13,
       size: 7,
       color: dim,
-      anchor: 'end',
+      anchor: 'start',
     },
     { text: '學餐攤販（在廣場底下）', x: mid(x0, xSt), z: zD + 1.3, size: 8.5, bold: true },
     {
@@ -84,7 +84,7 @@ function planB1(sl) {
     { text: '內場\n（不開放）', x: mx(4.8), z: mz(4), size: 9, color: dim },
   ];
   const legend = [
-    '西半（樓梯廳、用餐區、學餐攤販、入口位置）照使用者給的 B1 平面圖；東半是麥當勞。攤販區站在坑底，上面是廣場的甲板。',
+    '西半（樓梯廳、用餐區、學餐攤販、入口位置）照使用者給的 B1 平面圖，往西、往北擴到整個一樓大廳底下，旋轉梯照一樓平面圖的位置；東半是麥當勞。攤販區站在坑底，上面是廣場的甲板。',
     '待確認：麥當勞店內的格局（櫃台、廚房、用餐區的位置）、用餐區的桌椅擺法、三個攤販的名稱。',
   ];
   return {
@@ -93,7 +93,7 @@ function planB1(sl) {
     legend,
     autoLabels: true,
     zoneNames: { open: '學餐攤販區', outdoor: '下沉廣場（戶外）' },
-    bounds: { x0: x0 - 1, x1: M.x1 + 1, z0: z0 - 1, z1: zS + 1.5 },
+    bounds: { x0: PIT.west[0] - 1, x1: M.x1 + 1, z0: PIT.west[1] - 1, z1: zS + 1.5 },
   };
 }
 

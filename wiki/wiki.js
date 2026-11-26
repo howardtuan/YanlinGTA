@@ -35,6 +35,67 @@ for (const root of document.querySelectorAll('.game-ctl')) {
   set(['light', 'dark'].includes(cur) ? cur : 'auto');
 })();
 
+// 分享這一頁：打開小視窗顯示連結；複製到剪貼簿；手機有系統分享時多一顆「更多…」
+(() => {
+  const btn = document.querySelector('.share-btn');
+  const pop = document.getElementById('share-pop');
+  if (!btn || !pop) return;
+  const input = pop.querySelector('.share-url');
+  const copy = pop.querySelector('.share-copy');
+  const native = pop.querySelector('.share-native');
+  const open = (on) => {
+    pop.hidden = !on;
+    btn.setAttribute('aria-expanded', String(on));
+    if (on) input.select();
+  };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    open(pop.hidden);
+  });
+  document.addEventListener('click', (e) => {
+    if (!pop.hidden && !pop.contains(e.target)) open(false);
+  });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') open(false);
+  });
+  copy.addEventListener('click', async () => {
+    const url = copy.dataset.url;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (e) {
+      input.select();
+      document.execCommand?.('copy');
+    }
+    copy.textContent = '已複製 ✓';
+    setTimeout(() => (copy.textContent = '複製'), 1800);
+  });
+  if (navigator.share) {
+    native.hidden = false;
+    native.addEventListener('click', () => {
+      const { url, title, text } = native.dataset;
+      navigator.share({ url, title, text }).catch(() => {});
+    });
+  }
+})();
+
+// 最新消息列表：每篇的「複製文章連結」
+for (const b of document.querySelectorAll('.copy-link')) {
+  b.addEventListener('click', async () => {
+    const label = b.textContent;
+    try {
+      await navigator.clipboard.writeText(b.dataset.url);
+    } catch (e) {
+      const t = Object.assign(document.createElement('textarea'), { value: b.dataset.url });
+      document.body.append(t);
+      t.select();
+      document.execCommand?.('copy');
+      t.remove();
+    }
+    b.textContent = '已複製 ✓';
+    setTimeout(() => (b.textContent = label), 1800);
+  });
+}
+
 // 舊網址（Wiki 還是單頁時）的 #characters、#npc-zz、#q-m1 … 轉到對應的頁面
 (() => {
   if (document.body.dataset.page !== 'home' || !location.hash) return;

@@ -323,7 +323,8 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     ps.onChassisHit(ps.carSlots[0], playerScooter, { impact: 15, sp: 15, nx: -1, nz: 0 }, onBump);
     expect(ps.carSlots[0].state).toBe('static');
     expect(knocks.length).toBe(0);
-    expect(playerScooter.speed).toBe(0);
+    // rigid barrier: the approach is taken and e of it comes back (slight rebound, not a stop dead in mid-air)
+    expect(playerScooter.speed).toBeCloseTo(-RESTITUTION * 15, 5);
     expect(playerScooter.crash).not.toBeNull();
 
     // 2. Car (15 m/s) ramming a 1,250 kg parked car: obeys J = (1+e)*mu*vRel - J_hold, slides flat on 4 wheels (vy=0, roll=0)

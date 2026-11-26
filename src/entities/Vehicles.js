@@ -3294,30 +3294,48 @@ export class Vehicle {
   }
   // your speed, bump and crash after hitting vehicle o (kf from _knockKf); traffic gets stunned, or thrown
   // when hit hard (Vehicle.knockTraffic, src/core/Game.js). bs: your speed for the bump, rel: the closing speed of
-  // the two (impact counts your own motion only)
-  _hitVehicle(o, kf, impact, nx, nz, v0, onBump, bs, rel) {
+  // the two (impact counts your own motion only). pre: your velocity before the hit { vx, vz, ang }.
+  // When the solver gives your Δv (dv1, src/physics/ImpactPhysics.js: J / m1 along the contact normal n, which
+  // points from o toward you) the velocity after the hit is pre + n * dv1: hitting slower traffic from behind
+  // takes dv1 off your speed, being rear-ended adds it, a T-bone shoves you sideways by dv1 (Newton's 3rd law,
+  // masses from VEHICLE_PHYS). Without dv1 (o did not move: a parked car held by its handbrake) o is a barrier.
+  _hitVehicle(o, kf, impact, nx, nz, v0, onBump, bs, rel, pre = null) {
     const hitSpd = Math.max(bs, impact);
     if (hitSpd > 2.0 && this.bumpCooldown <= 0) {
       onBump && onBump(hitSpd);
       this.bumpCooldown = 0.45;
     }
-    const pushed = Math.abs(v0) < impact * 0.5;
-    let eject = false;
+    const ang = pre?.ang ?? this.moveAng,
+      pvx = pre ? pre.vx : Math.sin(ang) * v0,
+      pvz = pre ? pre.vz : Math.cos(ang) * v0;
+    // your own motion into o: small next to the closing speed when it is o that ran into you
+    const ownIn = -(pvx * nx + pvz * nz);
+    const pushed = ownIn < Math.max(rel ?? impact, impact) * 0.5;
+    let eject = false,
+      dv1 = null;
     if (o.ai) {
       o.ai.stunned = 2;
-      const res = Vehicle.knockTraffic?.(o, this, nx, nz, rel);
+      const res = Vehicle.knockTraffic?.(o, this, nx, nz, rel ?? impact);
       if (res && typeof res === 'object') {
         if (typeof res.kf === 'number') kf = res.kf;
+        if (typeof res.dv1 === 'number') dv1 = res.dv1;
         if (res.eject) eject = true;
       } else if (typeof res === 'number') kf = res;
     }
     if (kf && typeof kf === 'object') {
       if (kf.eject) eject = true;
-      kf = kf.kf;
+      if (typeof kf.dv1 === 'number') dv1 = kf.dv1;
+      kf = kf.kf ?? null;
     }
-    if (kf !== null) this.speed = Math.abs(v0) > 0.01 ? v0 * kf : this.speed * kf;
+    if (dv1 !== null) {
+      const vx = pvx + nx * dv1,
+        vz = pvz + nz * dv1;
+      this.speed = vx * Math.sin(ang) + vz * Math.cos(ang);
+      if (this.body) this._hitVel = { x: vx, z: vz, ang };
+    } else if (kf !== null) this.speed = Math.abs(v0) > 0.01 ? v0 * kf : this.speed * kf;
     else if (!pushed) this.speed = impact > CRASH_STOP ? 0 : this.speed * 0.6;
-    if (!this.crash && (eject || (impact > CRASH_THROW && (kf === null || kf < 0.55))))
-      this.crash = { impact, speed: Math.max(Math.abs(v0), impact), nx, nz, pushed };
+    const hard = dv1 !== null ? dv1 > 0.45 * impact : kf === null || kf < 0.55;
+    if (!this.crash && (eject || (impact > CRASH_THROW && hard)))
+      this.crash = { impact, speed: Math.abs(v0), nx, nz, pushed, dv1: dv1 ?? undefined };
   }
 }

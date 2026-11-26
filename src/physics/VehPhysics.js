@@ -232,7 +232,8 @@ export class Chassis {
     const v = this.v,
       b = this.body,
       va = b.linvel(),
-      yaw = yawOf(b.rotation());
+      yaw = yawOf(b.rotation()),
+      ang0 = v.moveAng; // movement direction before this step's contacts turned it (see _setVel)
     v.heading = yaw;
     const Lx = this.vset.x - va.x,
       Lz = this.vset.z - va.z,
@@ -246,12 +247,12 @@ export class Chassis {
       v.moveAng = wrap(v.moveAng + Math.max(-SLIP_MAX, Math.min(SLIP_MAX, off)));
     }
     v.speed = sp;
-    if (hit) this._collect(Lx, Lz);
+    if (hit) this._collect(Lx, Lz, ang0);
     if (!Number.isFinite(va.x) || !Number.isFinite(b.translation().y)) this._rescue();
   }
   // contacts of the chassis this step: impact (m/s into the obstacle) per object, the largest kept, with the
   // velocity / speed from before the step (vx, vz, sp)
-  _collect(Lx, Lz) {
+  _collect(Lx, Lz, ang0) {
     const P = this.P,
       W = P.world;
     W.contactPairsWith(this.col, (other) => {
@@ -294,6 +295,7 @@ export class Chassis {
             nz: nz / hl,
             vx: vs.x,
             vz: vs.z,
+            ang: ang0,
             sp: this.spSet,
           });
       });
@@ -378,13 +380,20 @@ export class Chassis {
         const [ofx, ofz] = key.forward(),
           os = key.speed || 0;
         const rel = -((hit.vx - ofx * os) * hit.nx + (hit.vz - ofz * os) * hit.nz);
-        v._hitVehicle(key, kf, hit.impact, hit.nx, hit.nz, sp, onBump, Math.abs(sp), rel);
+        v._hitVehicle(key, kf, hit.impact, hit.nx, hit.nz, sp, onBump, Math.abs(sp), rel, {
+          vx: hit.vx,
+          vz: hit.vz,
+          ang: hit.ang,
+        });
         deflect();
       }
       this.lastHits = this.hits;
       this.hits = new Map();
     }
-    if (v.speed !== before) this._setSpeed(v.speed);
+    if (v._hitVel) {
+      this._setVel(v._hitVel);
+      v._hitVel = null;
+    } else if (v.speed !== before) this._setSpeed(v.speed);
     this.wsp = v.speed;
     this.wx = v.pos.x;
     this.wz = v.pos.z;
@@ -416,6 +425,18 @@ export class Chassis {
       b.setLinvel({ x: dx * s + px, y: va.y, z: dz * s + pz }, true);
     }
     this.v.speed = this.wsp = s;
+  }
+  // the velocity after hitting a vehicle that moves (Vehicle._hitVehicle: the velocity before the hit plus the
+  // momentum-exchange Δv along the contact normal). The stand-in of moving traffic is kinematic (infinite mass) in
+  // Rapier, so the step's own contact response is replaced as a whole; the movement direction goes back to the
+  // one before the contact turned it, and the tyres (pre's servo) take any sideways part off over the next steps
+  _setVel(h) {
+    const b = this.body,
+      va = b.linvel(),
+      v = this.v;
+    if (Number.isFinite(h.ang)) v.moveAng = h.ang;
+    b.setLinvel({ x: h.x, y: va.y, z: h.z }, true);
+    v.speed = this.wsp = h.x * Math.sin(v.moveAng) + h.z * Math.cos(v.moveAng);
   }
   // Vehicle.place: moved by the game (race grid, tow, bot fallback, brought to you)
   teleport(x, z, h) {

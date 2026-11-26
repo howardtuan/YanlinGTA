@@ -166,7 +166,7 @@ export class VehicleSpawner {
     if (!sol.moves) return false;
     if (!this.throwVehicle(o, -nx * sol.dv2, -nz * sol.dv2, sol.dv2, null, sol)) return false;
     if (by === this.game.player.vehicle) this.game.audio.bump(Math.min(3, impact / 4), by.kind);
-    return { kf: sol.kf, eject: sol.ejectRider1 };
+    return { kf: sol.kf, dv1: sol.dv1, eject: sol.ejectRider1 };
   }
 
   // Traffic vehicle collision solved by Newtonian impulse-momentum (src/physics/ImpactPhysics.js).
@@ -185,10 +185,15 @@ export class VehicleSpawner {
       parked2: false,
       vRel: impact,
     });
-    // Require meaningful shock before knocking a moving traffic vehicle out of its lane
+    // Require meaningful shock before knocking a moving traffic vehicle out of its lane. Below it the two still
+    // trade momentum (Newton's 3rd law): traffic keeps driving with its speed changed by its share, -n * dv2
+    // along its heading, and the hitter gets dv1 (Vehicle._hitVehicle)
     const minDv2 = sc ? 2.2 : 3.2;
-    if (sol.dv2 < minDv2) return false;
     const [fx, fz] = o.forward();
+    if (sol.dv2 < minDv2) {
+      o.speed = Math.max(0, (o.speed || 0) - sol.dv2 * (nx * fx + nz * fz));
+      return { kf: sol.kf, dv1: sol.dv1, eject: false, thrown: false };
+    }
     // Newton's 1st & 3rd Laws: preserve target's full pre-impact velocity and add exact normal impulse -n * dv2
     const tvx = fx * o.speed - nx * sol.dv2;
     const tvz = fz * o.speed - nz * sol.dv2;
@@ -208,7 +213,7 @@ export class VehicleSpawner {
     });
     game.traffic.throwRider(o, rEj.vx, rEj.vy, rEj.vz);
     if (by === game.player.vehicle) game.audio.bump(Math.min(3, impact / 4), by.kind);
-    return { kf: sol.kf, eject: sol.ejectRider1 };
+    return { kf: sol.kf, dv1: sol.dv1, eject: sol.ejectRider1, thrown: true };
   }
 
   // Hand vehicle o to Rapier with real Coulomb sliding friction & rigid-body roll torque from ImpactPhysics.
@@ -396,14 +401,16 @@ export class VehicleSpawner {
     // tangential velocity is largely preserved; normal velocity changes by +c.nx * dv1 (rebound = e*v_n on rigid hit)
     let bvx, bvz;
     if (c.pushed) {
+      // hit by something else: your own velocity carries on (1st law) plus the shove along n
       const bk = c.dv1 ?? c.impact * 0.5;
-      bvx = c.nx * bk;
-      bvz = c.nz * bk;
+      bvx = fx * s + c.nx * bk;
+      bvz = fz * s + c.nz * bk;
     } else {
       const vn = fx * s * c.nx + fz * s * c.nz; // negative when approaching obstacle
       const tangX = fx * s - vn * c.nx;
       const tangZ = fz * s - vn * c.nz;
-      const dv1 = c.dv1 ?? (1 + KNOCK_E) * Math.abs(vn);
+      // Δv is along +n (away from what you hit): a rigid obstacle takes the approach and gives back e of it
+      const dv1 = c.dv1 ?? (1 + KNOCK_E) * Math.max(0, -vn);
       const vnPost = vn + dv1; // >0 slight inelastic rebound against rigid wall/car, <0 slower forward follow-through after moving another scooter
       bvx = tangX * 0.8 + c.nx * vnPost;
       bvz = tangZ * 0.8 + c.nz * vnPost;

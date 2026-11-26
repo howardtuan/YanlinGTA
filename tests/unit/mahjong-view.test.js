@@ -5,6 +5,8 @@ import {
   camPoints,
   discardScale,
   fitCamera,
+  MahjongScene,
+  specSpot,
 } from '../../src/systems/mahjong/MahjongScene.js';
 
 // 麻將桌的鏡頭自動取景與海底放大（src/systems/mahjong/MahjongScene.js）
@@ -67,4 +69,76 @@ describe('discardScale：海底放大但不壓到牌牆', () => {
       expect(k * (0.072 + rows * 0.043)).toBeLessThanOrEqual(0.3 - 0.011);
     }
   });
+});
+
+describe('discardScale：近景不擺牌牆時海底放更大', () => {
+  it('前三排放大到約 1.5 倍，最外排在花那排（0.335）前面', () => {
+    expect(discardScale(14, false)).toBeGreaterThan(1.5);
+    for (const n of [21, 28, 35]) {
+      const k = discardScale(n, false),
+        rows = Math.max(3, Math.ceil(n / 7));
+      expect(k).toBeGreaterThanOrEqual(discardScale(n, true));
+      expect(k * (0.072 + rows * 0.043)).toBeLessThanOrEqual(0.335 - 0.02);
+    }
+  });
+});
+
+describe('_lastDiscard：最後打出的那張被吃碰走就不再標記', () => {
+  const last = MahjongScene.prototype._lastDiscard;
+  const mk = () => ({
+    players: [0, 1, 2, 3].map(() => ({ discards: [] })),
+    last: null,
+  });
+  it('打出來時標記、被碰走後取消、下一張打出又標記', () => {
+    const sc = {},
+      e = mk();
+    expect(last.call(sc, e)).toBe(null);
+    e.players[1].discards.push(5);
+    e.last = { t: 5, from: 1 };
+    expect(last.call(sc, e)).toBe(1);
+    e.players[1].discards.pop(); // 被碰走（引擎不會清掉 e.last）
+    expect(last.call(sc, e)).toBe(null);
+    expect(last.call(sc, e)).toBe(null);
+    e.players[2].discards.push(9);
+    e.last = { t: 9, from: 2 };
+    expect(last.call(sc, e)).toBe(2);
+  });
+  it('搶槓的牌不在海底，不標記', () => {
+    const e = mk();
+    e.last = { t: 3, from: 0, rob: true };
+    expect(last.call({}, e)).toBe(null);
+  });
+});
+
+describe('specSpot：觀戰者繞桌站的位置', () => {
+  it('前後站在地上、兩側坐在下舖，都在牆內、桌子外', () => {
+    expect(specSpot(0).mode).toBe('stand');
+    expect(specSpot(180).mode).toBe('stand');
+    expect(specSpot(90).mode).toBe('sit');
+    expect(specSpot(270).mode).toBe('sit');
+    for (let d = 0; d < 360; d += 7.5) {
+      const p = specSpot(d);
+      expect(Math.abs(p.x)).toBeLessThanOrEqual(1.31); // 牆在 ±1.68
+      expect(p.z).toBeGreaterThan(-1.6 + 0.3); // 後牆
+      expect(p.z).toBeLessThan(2.2 - 0.3);
+      expect(Math.max(Math.abs(p.x), Math.abs(p.z))).toBeGreaterThan(1.2); // 在坐著的玩家（0.9）後面
+    }
+  });
+});
+
+describe('fitCamera：觀戰者繞桌轉鏡頭也塞得下', () => {
+  for (const yaw of [0, 30, -45, 90, 180]) {
+    it(`yaw ${yaw}°`, () => {
+      const c = new THREE.PerspectiveCamera(50, 16 / 9, 0.05, 30);
+      fitCamera(c, { ...CAM_VIEW.far(16 / 9), yaw }, { w: 1280, h: 720, mine: true });
+      for (const p of camPoints(true)) {
+        const v = p.clone().project(c);
+        expect(Math.abs(v.x)).toBeLessThanOrEqual(1.001);
+        expect(Math.abs(v.y)).toBeLessThanOrEqual(1.001);
+      }
+      // 鏡頭在那個方向那一側
+      const a = (yaw * Math.PI) / 180;
+      expect(c.position.x * Math.sin(a) + c.position.z * Math.cos(a)).toBeGreaterThan(0.3);
+    });
+  }
 });

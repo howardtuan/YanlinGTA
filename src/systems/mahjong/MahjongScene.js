@@ -25,14 +25,32 @@ import { normalizeRoomCode } from './Net.js';
 import { SPECTATE_REACTS } from './P2P.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 
-const SPEC_SPOTS = [
-  { x: -0.58, y: -0.1, z: -0.84, mode: 'stand', headY: 1.48 },
-  { x: 0.58, y: -0.1, z: -0.84, mode: 'stand', headY: 1.48 },
-  { x: -0.86, y: 0, z: -0.54, mode: 'sit', headY: 1.18 },
-  { x: 0.86, y: 0, z: -0.54, mode: 'sit', headY: 1.18 },
-  { x: -0.32, y: -0.08, z: -1.14, mode: 'stand', headY: 1.5 },
-  { x: 0.32, y: -0.08, z: -1.14, mode: 'stand', headY: 1.5 },
-];
+// 觀戰者繞著牌桌站：角度 deg（本地框架，0 = 你背後、90 = 下家背後…），站在桌子外一圈（避開床、牆）。
+// 兩側是下舖：坐在床上；前後和角落：站在地上
+const SPEC_RX = 1.3,
+  SPEC_RZ = 1.25;
+// 四家坐的位置離桌子中心多遠（板凳也在這裡）：坐太近的話手伸到桌上會擋住牌
+const SEAT_R = 0.9;
+export function specSpot(deg) {
+  const a = (deg * Math.PI) / 180,
+    dx = Math.sin(a),
+    dz = Math.cos(a);
+  const t = Math.min(
+    SPEC_RX / Math.max(1e-6, Math.abs(dx)),
+    SPEC_RZ / Math.max(1e-6, Math.abs(dz))
+  );
+  const x = dx * t,
+    z = dz * t;
+  const bed = Math.abs(x) > 0.75 && z > -1.2 && z < 0.8;
+  return { x, z, y: bed ? 0 : -0.1, mode: bed ? 'sit' : 'stand', headY: bed ? 1.18 : 1.48 };
+}
+// 舊版房主沒送角度時：站在對面一排（跟原本一樣）
+const SPEC_DEFAULT = [200, 160, 235, 125, 180, 250, 110, 270];
+const SPEC_MAX = 8;
+const ORBIT_SPEED = 80; // 觀戰者按住 ← → 繞桌走的速度（度／秒）
+const ORBIT_DRAG = 0.35; // 拖曳畫面：每像素轉幾度
+// 兩個角度相差多少（-180～180）
+const angDiff = (a, b) => ((((a - b) % 360) + 540) % 360) - 180;
 
 function specRng(str) {
   let s = 2166136261 >>> 0;
@@ -385,7 +403,7 @@ function buildSet(atlas) {
         M('#b4b8bc', { metalness: 0.7, roughness: 0.3 })
       );
   const orange = M('#e0622f');
-  for (const z of [-0.78, 0.78]) {
+  for (const z of [-SEAT_R, SEAT_R]) {
     box(0.34, 0.03, 0.34, 0, 0.43, z, orange);
     for (const a of [-1, 1])
       for (const b of [-1, 1]) box(0.025, 0.42, 0.025, a * 0.13, 0.21, z + b * 0.13, orange);
@@ -442,9 +460,13 @@ const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, WALL_D
 // 牌放大：海底與別家吃碰槓的牌比實際大一點，手機上也看得清楚。海底放大到碰到牌牆為止（排到第四排時自動縮回一點）
 const DISC_BIG = 1.3,
   MELD_BIG = 1.2;
-export function discardScale(maxCount) {
+// 近景（手機版）像麻將手遊一樣不擺牌牆（剩幾張寫在桌子中間），海底可以一路放大到花那排前面
+const DISC_BIG_NOWALL = 1.55,
+  FLOWER_D = 0.335;
+export function discardScale(maxCount, wall = true) {
   const rows = Math.max(3, Math.ceil(maxCount / DROW));
-  return Math.min(DISC_BIG, (WALL_D - TD / 2 - 0.004) / (DISC + rows * (TH + GAP)));
+  const edge = wall ? WALL_D - TD / 2 - 0.004 : FLOWER_D - TH / 2 - 0.004;
+  return Math.min(wall ? DISC_BIG : DISC_BIG_NOWALL, edge / (DISC + rows * (TH + GAP)));
 }
 
 // ---------------- 鏡頭自動取景 ----------------
@@ -456,6 +478,7 @@ export const CAM_VIEW = {
   far: (aspect) =>
     aspect < 0.8 ? { fov: 58, elev: 66, tz: 0.02 } : { fov: 42, elev: 47, tz: 0.02 },
 };
+const MJ_PIXELS = 2.6e6; // 牌桌最多畫這麼多像素（約 2560×1000）
 const CAM_MAX_Y = 2.55; // 天花板的燈（y 2.73）在桌子正上方，鏡頭不能高過它
 export function camPoints(mine) {
   const pts = [];
@@ -495,8 +518,10 @@ export function fitCamera(
   const aw = x1 - x0,
     ah = y1 - y0;
   const e = (view.elev * Math.PI) / 180,
-    dir = new THREE.Vector3(0, Math.sin(e), Math.cos(e)),
-    tgt = new THREE.Vector3(0, Y0, view.tz);
+    // yaw：鏡頭繞桌子轉幾度（觀戰者繞桌走；0 = 從你這邊看）
+    yaw = ((view.yaw || 0) * Math.PI) / 180,
+    dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(e), Math.sin(e), Math.cos(yaw) * Math.cos(e)),
+    tgt = new THREE.Vector3(Math.sin(yaw) * view.tz, Y0, Math.cos(yaw) * view.tz);
   c.aspect = w / h;
   if (c.view?.enabled) c.clearViewOffset();
   const box = (d, fov) => {
@@ -584,7 +609,7 @@ export class MahjongScene {
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div><div class="mj-center hidden"></div>
       <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>
       <div class="mj-hand hidden"></div>
       <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
@@ -611,6 +636,16 @@ export class MahjongScene {
     const cv = this.g.renderer.domElement;
     this._move = (e) => {
       if (!this.active) return;
+      // 觀戰者拖曳畫面＝繞著牌桌走（手指往左拖，人往右走）
+      if (this._drag) {
+        const dx = e.clientX - this._drag.x;
+        this._drag.x = e.clientX;
+        if (dx) {
+          this._drag.moved = true;
+          this.mj.orbitSpectator(-dx * ORBIT_DRAG);
+        }
+        return;
+      }
       const t = this._pick(e);
       if (t != null && e.pointerType === 'mouse') this.sel = t;
       if (e.pointerType === 'mouse' && e.target === cv) {
@@ -621,6 +656,7 @@ export class MahjongScene {
     this._down = (e) => {
       if (!this.active || e.target !== cv) return;
       if (this.intro) return this._introGo(); // a click throws the dice / skips the animation
+      if (this._orbiting()) this._drag = { x: e.clientX, moved: false };
       if (e.pointerType !== 'mouse') {
         this._peekTap = true;
         this._peek(e, true);
@@ -631,8 +667,11 @@ export class MahjongScene {
       if (e.pointerType === 'mouse' || this.sel === t) this._discard(t);
       else this.sel = t;
     };
+    this._up = () => (this._drag = null);
     addEventListener('pointermove', this._move);
     addEventListener('pointerdown', this._down);
+    addEventListener('pointerup', this._up);
+    addEventListener('pointercancel', this._up);
   }
   // which of your concealed tiles is under the pointer (index into this.mine)
   _pick(e) {
@@ -651,6 +690,7 @@ export class MahjongScene {
 
   open(names) {
     if (!this.set) this._build();
+    this._fps = null; // (每次上桌重新量一次畫面順不順，見 _pixelRatio)
     this.names = names;
     this.active = true;
     this.ui.classList.remove('hidden');
@@ -674,6 +714,7 @@ export class MahjongScene {
     this._waitKey = '';
     this.$('.mj-timer').classList.add('hidden');
     this.$('.mj-zoom').classList.add('hidden');
+    this.$('.mj-center').classList.add('hidden');
     this._peekAt = null;
     this._timerKey = '';
     this.$('.mj-info').innerHTML = this._info = '';
@@ -704,7 +745,12 @@ export class MahjongScene {
   // an NPC's figure at seat s (called from its own update while it is in the game)
   place(s, ch, dt) {
     if (ch.root.parent !== this.set.scene) this.set.scene.add(ch.root);
-    const p = new THREE.Vector3().addScaledVector(FWD[s], -0.78);
+    const p = new THREE.Vector3().addScaledVector(FWD[s], -SEAT_R);
+    // 觀戰者的鏡頭就在這家背後：不畫他（不然整個畫面是他的後腦勺和手臂）
+    if (this._orbiting() && Math.abs(angDiff(s * 90, this._camYaw ?? 0)) < 55) {
+      ch.root.visible = false;
+      return;
+    }
     ch.root.visible = true;
     ch.root.position.set(p.x, 0, p.z);
     ch.root.rotation.y = Math.atan2(-p.x, -p.z);
@@ -713,12 +759,13 @@ export class MahjongScene {
     ch.update(dt, {
       speed: 0,
       mode: 'sit',
-      pose: busy || Math.sin(this.g.time * 0.7 + s) > 0.2 ? 'type' : null,
+      pose: busy ? 'type' : null, // (只有輪到他時才伸手摸牌、打牌，平常手放著不擋牌)
     });
   }
 
   startHand(engine) {
     this.e = engine;
+    this._ld = null;
     // every move the engine makes (yours too) goes past _onEvent: a discard or a call pops up big
     const emit = engine.emit.bind(engine);
     engine.emit = (ev) => {
@@ -741,6 +788,8 @@ export class MahjongScene {
 
   // ---------------- every frame ----------------
   update(dt, inp) {
+    this._dt = dt;
+    this.mj.flushSpecPos?.(); // (觀戰者停下來時補送最後的位置)
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
     if (!typing && inp.hit('KeyV')) this._toggleView();
     this._viewBtn();
@@ -792,7 +841,8 @@ export class MahjongScene {
       });
     }
     const L = e.last;
-    this.set.mark.visible = !!L && e.phase === 'claim';
+    // 最後打出的那張一直有紅色小箭頭（被吃碰走就不標），跟麻將手遊一樣
+    this.set.mark.visible = !!L && !!this.lastMesh && e.phase !== 'end';
     if (this.set.mark.visible && this.lastMesh) {
       this.set.mark.position.copy(this.lastMesh.position);
       this.set.mark.position.y += 0.03 + Math.sin(this.g.time * 5) * 0.004;
@@ -835,12 +885,33 @@ export class MahjongScene {
     }
     return t;
   }
+  // 牌桌的像素比：牌很小，比校園畫得細（最高 2 倍），但不會讓手機吃不消——
+  // ① 總像素不超過 MJ_PIXELS（大平板、4K 螢幕不會畫到上千萬像素）② 畫質選低／極低的裝置上限再降
+  // ③ 實際跑起來 3 秒平均不到 30 fps 就自己再降一級（最低 1 倍），之後這次牌局都照降過的畫
+  _pixelRatio() {
+    const now = performance.now(),
+      F = (this._fps ||= { last: now, t: 0, n: 0, warm: 0, cap: 2 });
+    const dt = now - F.last;
+    F.last = now;
+    if (dt > 0 && dt < 250 && (F.warm += dt) > 3000) {
+      F.t += dt;
+      F.n++;
+      if (F.t >= 3000) {
+        if (F.n / (F.t / 1000) < 30 && F.cap > 1) F.cap = Math.max(1, F.cap - 0.5);
+        F.t = F.n = 0;
+      }
+    }
+    const q = this.g.quality,
+      qCap = q === 'xlow' ? 1.25 : q === 'low' ? 1.5 : 2,
+      budget = Math.sqrt(MJ_PIXELS / Math.max(1, innerWidth * innerHeight));
+    return Math.max(1, Math.min(window.devicePixelRatio || 1, qCap, budget, F.cap));
+  }
   render(renderer) {
     if (!this.active || !this.set) return;
-    // the tiles are small on screen: draw the table at up to 2x the screen's pixels even when the quality setting draws
-    // the campus coarser (phones: 0.8). The table is cheap; src/core/GameLoop.js puts the pixel ratio back afterwards.
-    const sharp = Math.min(window.devicePixelRatio || 1, 2);
-    if (renderer.getPixelRatio() < sharp) renderer.setPixelRatio(sharp);
+    // the tiles are small on screen: draw the table sharper than the campus (see _pixelRatio);
+    // src/core/GameLoop.js puts the quality's pixel ratio back afterwards.
+    const sharp = this._pixelRatio();
+    if (Math.abs(renderer.getPixelRatio() - sharp) > 0.01) renderer.setPixelRatio(sharp);
     const c = this.cam;
     c.aspect = innerWidth / innerHeight;
     this._mobileUI();
@@ -849,15 +920,30 @@ export class MahjongScene {
     // (watching someone's hand, or the hand is over and everybody's tiles are laid down: the usual camera)
     const mobCam = this._mobile && !this.e?.spectate && !this.result,
       bar = mobCam ? this._barH || 0 : 0;
-    const key = `${mobCam ? 'm' : 'f'}|${innerWidth}|${innerHeight}|${bar}`;
+    // 觀戰者：鏡頭跟著他繞桌走到的角度，慢慢轉過去（換框架時 _syncSpectators 會一起換算）
+    let yaw = 0;
+    const now = performance.now(),
+      rdt = Math.min(0.1, (now - (this._renderAt || now)) / 1000);
+    this._renderAt = now;
+    if (this._orbiting()) {
+      const want = (this.mj.sess.myAng ?? 0) - this._frame() * 90;
+      if (this._camYaw == null) this._camYaw = want;
+      this._camYaw += angDiff(want, this._camYaw) * Math.min(1, rdt * 8);
+      yaw = Math.round(this._camYaw * 4) / 4;
+    } else this._camYaw = null;
+    const key = `${mobCam ? 'm' : 'f'}|${innerWidth}|${innerHeight}|${bar}|${yaw}`;
     if (key !== this._camKey) {
       this._camKey = key;
-      fitCamera(c, CAM_VIEW[mobCam ? 'close' : 'far'](c.aspect), {
-        w: innerWidth,
-        h: innerHeight,
-        bar,
-        mine: !mobCam,
-      });
+      fitCamera(
+        c,
+        { ...CAM_VIEW[mobCam ? 'close' : 'far'](c.aspect), yaw },
+        {
+          w: innerWidth,
+          h: innerHeight,
+          bar,
+          mine: !mobCam,
+        }
+      );
     }
     renderer.render(this.set.scene, c);
   }
@@ -960,6 +1046,17 @@ export class MahjongScene {
     this._barH = el.offsetHeight;
   }
 
+  // 最後打出的那張還在海底嗎？（被吃碰槓拿走後 e.last 不會清掉，看那家海底的張數有沒有變少）回傳打的人或 null
+  _lastDiscard(e) {
+    const L = e.last;
+    if (!L || L.rob || L.from == null || !e.players[L.from]) return null;
+    const n = e.players[L.from].discards.length,
+      st = this._ld;
+    if (!st || st.e !== e || st.from !== L.from || st.t !== L.t || n > st.n)
+      this._ld = { e, from: L.from, t: L.t, n, ok: e.players[L.from].discards[n - 1] === L.t };
+    else if (n < st.n) st.ok = false;
+    return this._ld.ok && n === this._ld.n ? L.from : null;
+  }
   // ---------------- where every tile goes ----------------
   _layout(snap = false) {
     const e = this.e,
@@ -967,7 +1064,11 @@ export class MahjongScene {
     const put = (k, at, tag, hide = false, who = null) => want.push({ k, at, tag, hide, who });
     const done = e.phase === 'end';
     const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
-    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)));
+    // 近景（手機版）打牌時不擺牌牆，騰出來的位置給海底；開門動畫、觀戰、攤牌照樣有牌牆
+    const noWall = this._mobile && !e.spectate && !reveal && !this.intro;
+    this.wallHidden = noWall;
+    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)), !noWall);
+    const lastFrom = this._lastDiscard(e);
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
       // concealed hand in order; the tile just drawn waits on the right, one tile's width apart, until a tile is
@@ -1019,7 +1120,7 @@ export class MahjongScene {
       }
       // flowers in a row between the wall and the hand
       P.flowers.forEach((k, i) =>
-        put(k, slot(s, -0.27 + i * TW, 0.335, 'up'), null, bar, { seat: s, what: '花' })
+        put(k, slot(s, -0.27 + i * TW, FLOWER_D, 'up'), null, bar, { seat: s, what: '花' })
       );
       // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
       // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
@@ -1038,7 +1139,7 @@ export class MahjongScene {
             0,
             dk
           ),
-          i === P.discards.length - 1 && e.last?.from === s ? 'last' : null,
+          i === P.discards.length - 1 && lastFrom === s ? 'last' : null,
           false,
           { seat: s, what: '海底' }
         );
@@ -1053,7 +1154,7 @@ export class MahjongScene {
     for (let i = head; i < N - tail; i++) {
       const top = i % 2 === 0 && i + 1 < N - tail; // the lower tile stays on the table when the top one is gone
       const { seat: ws, si } = stackAt(e.cut, Math.floor(i / 2));
-      put(e.wall[j++], wallSlot(ws, si, top ? TD : 0));
+      put(e.wall[j++], wallSlot(ws, si, top ? TD : 0), null, noWall);
     }
     // match each wanted spot with a tile of that kind (the nearest one, so equal tiles don't swap places)
     const free = this.pool.map((a) => [...a]);
@@ -1228,10 +1329,11 @@ export class MahjongScene {
       this.g.hud.toast('再按一次 Esc 離開牌桌（這一局不算）', 'bad', 1800);
       return;
     }
-    // 觀戰者：← → 換看別家的視角
+    // 觀戰者：按住 ← → 繞著牌桌走（走到誰背後就看誰的手牌）
     if (this.mj.isGuest && this.mj.sess?.spectating) {
-      if (inp.hit('ArrowLeft', 'KeyA')) this.mj.cycleSpectatorView(-1);
-      if (inp.hit('ArrowRight', 'KeyD')) this.mj.cycleSpectatorView(1);
+      const dir =
+        (inp.down('ArrowRight', 'KeyD') ? 1 : 0) - (inp.down('ArrowLeft', 'KeyA') ? 1 : 0);
+      if (dir) this.mj.orbitSpectator(dir * ORBIT_SPEED * (this._dt || 1 / 60));
     }
     if (this.result) {
       if (!this.mj.isGuest && inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE'))
@@ -1285,6 +1387,7 @@ export class MahjongScene {
     const topEl = this.$('.mj-top');
     if (topEl.textContent) topEl.textContent = this._top = '';
     this._infoCard();
+    this._centerHud();
     this._mpBarHud();
     this._tickBubbles();
     // name tags over each seat (the dealer's with a red 莊)
@@ -1331,10 +1434,10 @@ export class MahjongScene {
     const hint = this.result
       ? ''
       : e.spectate
-        ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}${g.input.touch ? '・◀ ▶ 切換視角' : '・← → 切換視角'}・Esc 離開`
+        ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}${g.input.touch ? '・拖曳畫面繞著牌桌走' : '・按住 ← → 繞著牌桌走'}・Esc 離開`
         : p?.seat === 0 && p.kind === 'turn'
           ? g.input.touch || this._barH
-            ? '點一下選牌、再點一次打出'
+            ? '' // (手機：手牌就在眼前，怎麼打一看就懂，不用再寫一行字擋畫面)
             : g.prompts?.pad
               ? '十字鍵選牌・A 打出'
               : '← → 選牌・Enter／空白鍵打出（滑鼠點牌直接打）・Esc 離開'
@@ -1389,18 +1492,35 @@ export class MahjongScene {
     const box = this.$?.('.mj-bubbles');
     if (box) box.innerHTML = '';
   }
+  // 這份牌桌是以房主的哪個座位當本地座位 0（房主自己 0；客端玩家是自己的座位；觀戰者是正在看的那家）
+  _frame() {
+    return this.e?.isRemote ? this.e.frame || 0 : 0;
+  }
+  // 我是不是正在繞桌走的觀戰者
+  _orbiting() {
+    return !!(this.mj.isGuest && this.mj.sess?.spectating && this.e?.spectate);
+  }
   _syncSpectators(dt) {
     if (!this.set?.scene || !this.cam) return;
-    const list = this.mj.sess?.spectators || [];
+    const sess = this.mj.sess;
+    const list = (sess?.spectators || []).filter((x) => !sess?.myId || x.id !== sess.myId);
     this._specActors ||= new Map();
     const keep = new Set();
     const tagWrap = this.$('.mj-spec-tags');
+    // 快照換了框架（觀戰者走到另一家背後，整桌轉 90°）：大家的角度一起換算，畫面才不會跳
+    const frame = this._frame();
+    if (this._lastFrame != null && frame !== this._lastFrame) {
+      const d = (frame - this._lastFrame) * 90;
+      for (const a of this._specActors.values()) a.phi -= d;
+      if (this._camYaw != null) this._camYaw -= d;
+    }
+    this._lastFrame = frame;
 
-    // Sync up to SPEC_SPOTS.length 3D spectator models standing/sitting around the 277 table
-    const visible = list.slice(0, SPEC_SPOTS.length);
-    visible.forEach((spec, idx) => {
+    // 最多 SPEC_MAX 個觀戰者的 3D 人，照各自的角度站在桌邊（他走動時大家都看得到）
+    list.slice(0, SPEC_MAX).forEach((spec, idx) => {
       const id = spec.id || spec.name;
       keep.add(id);
+      const want = (spec.ang ?? SPEC_DEFAULT[idx % SPEC_DEFAULT.length]) - frame * 90;
       let a = this._specActors.get(id);
       if (!a) {
         const ch = createCharacter({ ...randomStudent(specRng(id)), id, bag: null });
@@ -1409,10 +1529,10 @@ export class MahjongScene {
         const tagEl = document.createElement('div');
         tagEl.className = 'mj-spec-tag';
         tagWrap?.appendChild(tagEl);
-        a = { id, ch, spotIdx: idx, tagEl };
+        a = { id, ch, phi: want, tagEl, seed: idx };
         this._specActors.set(id, a);
       }
-      a.spotIdx = idx;
+      a.want = want;
       a.name = spec.name;
       a.wantSeat = !!spec.wantSeat;
       a.queuePos = spec.queuePos || 0;
@@ -1433,19 +1553,35 @@ export class MahjongScene {
     const v = new THREE.Vector3();
 
     for (const a of this._specActors.values()) {
-      const sp = SPEC_SPOTS[a.spotIdx];
-      const sway = Math.sin(this.g.time * 1.4 + a.spotIdx * 1.9) * 0.02;
+      // 慢慢走到他現在的角度（房主每 0.1 秒轉一次位置，中間補起來）
+      const d = angDiff(a.want, a.phi);
+      const step = Math.sign(d) * Math.min(Math.abs(d), Math.max(Math.abs(d) * dt * 6, 70 * dt));
+      a.phi += step;
+      const moving = Math.abs(d) > 1;
+      const sp = specSpot(a.phi);
+      a.spot = sp;
+      if (moving) {
+        // 走路：面向前進的方向，腳踩地上
+        const ahead = specSpot(a.phi + Math.sign(d) * 4);
+        a.ch.root.position.set(sp.x, 0, sp.z);
+        a.ch.root.rotation.y = Math.atan2(ahead.x - sp.x, ahead.z - sp.z);
+        a.ch.update(dt, { speed: 1.1 });
+      } else {
+        const sway = Math.sin(this.g.time * 1.4 + a.seed * 1.9) * 0.02;
+        a.ch.root.position.set(sp.x + sway, sp.y, sp.z);
+        a.ch.root.rotation.y = Math.atan2(fx - sp.x, fz - sp.z);
+        a.ch.update(dt, { speed: 0, mode: sp.mode });
+      }
       a.ch.root.visible = true;
-      a.ch.root.position.set(sp.x + sway, sp.y, sp.z);
-      a.ch.root.rotation.y = Math.atan2(fx - sp.x, fz - sp.z);
-      a.ch.update(dt, { speed: 0, mode: sp.mode });
 
       if (a.tagEl) {
         v.set(sp.x, sp.headY, sp.z).project(this.cam);
+        const behind = v.z > 1;
         const px = Math.max(8, Math.min(92, ((v.x + 1) / 2) * 100));
         const py = Math.max(11, Math.min(82, ((1 - v.y) / 2) * 100));
         a.tagEl.style.left = `${px}%`;
         a.tagEl.style.top = `${py}%`;
+        a.tagEl.style.visibility = behind ? 'hidden' : '';
         const label = `👀 ${a.name}${a.wantSeat && a.queuePos ? ` #${a.queuePos}` : ''}`;
         if (a.tagEl.textContent !== label) a.tagEl.textContent = label;
       }
@@ -1479,7 +1615,7 @@ export class MahjongScene {
   _anchorFor(fromId, seat) {
     const a = this._specActors?.get(fromId);
     if (a) {
-      const sp = SPEC_SPOTS[a.spotIdx];
+      const sp = a.spot || specSpot(a.phi);
       return new THREE.Vector3(sp.x, sp.headY + 0.08, sp.z);
     }
     if (seat != null && seat >= 0 && seat < 4) {
@@ -1536,7 +1672,7 @@ export class MahjongScene {
       html = `<div class="mj-mp-pill">${status}（${eye}）</div>
         ${specs.length > 1 ? `<div class="mj-mp-pill">圍觀：${specNames}</div>` : ''}
         ${reactRow}
-        <div class="mj-spec-view"><button data-a='{"type":"specView","dir":-1}' title="上一家（←）">◀</button><span>👀 ${WINDS[this.e.seatWind(0)]}・${esc(this.names[0])}${this.g.input.touch ? '' : '<kbd>←</kbd><kbd>→</kbd>'}</span><button data-a='{"type":"specView","dir":1}' title="下一家（→）">▶</button></div>
+        <div class="mj-spec-view"><button data-a='{"type":"specView","dir":-1}' title="走到上家背後">◀</button><span>👀 ${WINDS[this.e.seatWind(0)]}・${esc(this.names[0])}${this.g.input.touch ? '' : '<kbd>←</kbd><kbd>→</kbd>'}</span><button data-a='{"type":"specView","dir":1}' title="走到下家背後">▶</button></div>
         <button data-a='{"type":"specToggleQueue"}' class="${s.wantSeat ? 'on' : ''}">${s.wantSeat ? '👀 改為純觀賽' : '🪑 排隊下局上桌'}</button>
         <button data-a='{"type":"leave"}'>🚪 離開觀賽</button>`;
     } else if (this.mj.isGuest && this.e && specs.length > 0) {
@@ -1626,6 +1762,52 @@ export class MahjongScene {
     const v = new THREE.Vector3(-0.25, Y0 + 0.05, 0.36).project(this.cam);
     el.style.left = `${Math.max(1, ((v.x + 1) / 2) * 100)}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
+  }
+  // 桌子正中間的面板（像麻將手遊）：圈風、牌牆剩幾張，四邊是各家的門風，輪到誰那一邊亮橘色、莊家的字是紅的。
+  // 蓋在海底中間空出來的那塊（四家海底風車狀排開，中間留一個正方形）
+  _centerHud() {
+    const el = this.$('.mj-center'),
+      e = this.e;
+    const show =
+      !!e?.players &&
+      !this.intro &&
+      !this.menu &&
+      !this.lobby &&
+      !this.choosing &&
+      !this.result &&
+      e.phase !== 'end' &&
+      e.phase !== 'deal';
+    if (!show) {
+      if (!el.classList.contains('hidden')) el.classList.add('hidden');
+      return;
+    }
+    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)), !this.wallHidden);
+    const a = DISC * dk - 0.006,
+      c = new THREE.Vector3(0, Y0, 0).project(this.cam);
+    const px = (v) => [((v.x + 1) / 2) * innerWidth, ((1 - v.y) / 2) * innerHeight];
+    const [cx, cy] = px(c),
+      [lx] = px(new THREE.Vector3(-a, Y0, 0).project(this.cam)),
+      [rx] = px(new THREE.Vector3(a, Y0, 0).project(this.cam)),
+      [, ty] = px(new THREE.Vector3(0, Y0, -a).project(this.cam)),
+      [, by] = px(new THREE.Vector3(0, Y0, a).project(this.cam));
+    const w = rx - lx,
+      h = by - ty;
+    if (w < 36) {
+      if (!el.classList.contains('hidden')) el.classList.add('hidden');
+      return;
+    }
+    const side = ['b', 'r', 't', 'l'];
+    const html = `<b class="r">${WINDS[e.round]}</b><span>剩 <em>${Math.max(0, e.live)}</em></span>${[
+      0, 1, 2, 3,
+    ]
+      .map(
+        (s) =>
+          `<i class="${side[s]}${e.turn === s ? ' on' : ''}${e.dealer === s ? ' z' : ''}">${WINDS[e.seatWind(s)]}</i>`
+      )
+      .join('')}`;
+    if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
+    el.classList.remove('hidden');
+    el.style.cssText = `left:${cx.toFixed(1)}px;top:${cy.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;--cw:${w.toFixed(1)}px`;
   }
   // 別家的吃碰槓（和花）也用小圖排在名牌底下：桌上的 3D 牌在手機上太小、側面兩家又是斜的
   _meldStrip(P) {
@@ -2058,6 +2240,7 @@ export class MahjongScene {
     this._say('');
     this._actKey = this._top = this._hint = '';
     I.done?.();
+    if (this.e?.players && this.active) this._layout(); // (近景：開門動畫結束後收起牌牆)
   }
   _introUpdate(dt, inp) {
     const I = this.intro;

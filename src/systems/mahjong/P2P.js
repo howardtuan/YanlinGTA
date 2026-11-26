@@ -43,6 +43,14 @@ async function defaultJoinRoom(roomId) {
   return mod.joinRoom({ appId: APP_ID, identity: 'none' }, roomId);
 }
 
+// 觀戰者繞著牌桌站的角度（度）：房主座位框架，座位 s 在 s × 90°（0 = 房主背後）
+export const normAng = (a) => {
+  const n = Number(a);
+  return Number.isFinite(n) ? Math.round((((n % 360) + 360) % 360) * 10) / 10 : null;
+};
+// 新來的觀戰者先站在房主背後附近（看房主那家），一個一個錯開
+export const specStartAng = (order) => normAng(((order * 47) % 70) - 35);
+
 // ---------------- 房主端 ----------------
 export async function createHostRoom({
   code,
@@ -56,6 +64,7 @@ export async function createHostRoom({
   onNotice,
   onSpectatorChange,
   onReact,
+  onSpecPos,
   getTimers,
 } = {}) {
   const roomCode = normalizeRoomCode(code) || makeRoomCode();
@@ -69,7 +78,7 @@ export async function createHostRoom({
 
   const seats = [{ seat: 0, peerId: 'host', name, isHost: true, isAI: false }, null, null, null];
   const peerToSeat = new Map();
-  const spectators = new Map(); // peerId -> { peerId, name, wantSeat, viewSeat, moneyOk, order }
+  const spectators = new Map(); // peerId -> { peerId, name, wantSeat, viewSeat, moneyOk, order, ang }
   const reactCd = new Map(); // peerId -> last ms
   let curStake = stake;
   let specReveal = spectateReveal !== false;
@@ -91,6 +100,7 @@ export async function createHostRoom({
       name: s.name,
       wantSeat: s.wantSeat,
       queuePos: s.wantSeat ? ++q : 0,
+      ang: s.ang,
     }));
   };
   const queuePosOf = (peerId) => {
@@ -177,6 +187,8 @@ export async function createHostRoom({
             spectatorCount: spectators.size,
             spectators: specs,
             names: rotatedNames(spec.viewSeat),
+            you: pid,
+            ang: spec.ang,
           },
           pid
         );
@@ -262,6 +274,7 @@ export async function createHostRoom({
         viewSeat: 0,
         moneyOk,
         order: ++specOrder,
+        ang: specStartAng(specOrder),
       });
       onNotice?.(`👀 ${cleanName} 進入房間觀賽${!spectateOnly ? '（人滿候位中）' : ''}`);
       emitLobby();
@@ -276,6 +289,7 @@ export async function createHostRoom({
       viewSeat: 0,
       moneyOk,
       order: ++specOrder,
+      ang: specStartAng(specOrder),
     };
     spectators.set(peerId, spec);
     const hasAI = seats.some((s, i) => i > 0 && s?.isAI);
@@ -293,6 +307,8 @@ export async function createHostRoom({
         stake: curStake,
         names: fullNames(),
         code: roomCode,
+        you: peerId,
+        ang: spec.ang,
       },
       peerId
     );
@@ -366,6 +382,17 @@ export async function createHostRoom({
       const spec = spectators.get(peerId);
       spec.viewSeat = (((data.seat | 0) % 4) + 4) % 4;
       if (started) broadcastMeta({ needStatePeerId: peerId });
+      return;
+    }
+    // 觀戰者繞著牌桌走：記下他站的角度（房主座位框架），轉給其他人，大家都看到他移動
+    if (data.type === 'specPos' && spectators.has(peerId)) {
+      const ang = normAng(data.ang);
+      if (ang == null) return;
+      spectators.get(peerId).ang = ang;
+      if (!started) return;
+      for (const pid of [...peerToSeat.keys(), ...spectators.keys()])
+        if (pid !== peerId) sendCtrl({ type: 'specPos', id: peerId, ang }, pid);
+      onSpecPos?.({ id: peerId, ang });
       return;
     }
     if (data.type === 'walletStatus' && spectators.has(peerId)) {
@@ -479,6 +506,8 @@ export async function createHostRoom({
             spectatorCount: spectators.size,
             spectators: specs,
             code: roomCode,
+            you: peerId,
+            ang: spec.ang,
           },
           peerId
         );
@@ -589,6 +618,8 @@ export async function createHostRoom({
             spectateReveal: specReveal,
             spectatorCount: spectators.size,
             spectators: specs,
+            you: peerId,
+            ang: spec.ang,
           },
           peerId
         );
@@ -622,6 +653,7 @@ export async function joinGuestRoom({
   onNext,
   onSpectateInfo,
   onReact,
+  onSpecPos,
   onEnd,
   onNotice,
 } = {}) {
@@ -681,6 +713,9 @@ export async function joinGuestRoom({
       onSpectateInfo?.(data);
     } else if (data.type === 'react') {
       onReact?.(data);
+    } else if (data.type === 'specPos') {
+      const ang = normAng(data.ang);
+      if (ang != null && data.id) onSpecPos?.({ id: data.id, ang });
     } else if (data.type === 'notice' && data.msg) {
       onNotice?.(data.msg);
     }
@@ -741,6 +776,11 @@ export async function joinGuestRoom({
     setViewSeat(seat) {
       if (closed || !hostPeerId) return;
       sendCtrl({ type: 'setViewSeat', seat }, hostPeerId);
+    },
+    // 觀戰者繞桌走到的角度（度，房主座位框架：座位 s 在 s × 90°）
+    setSpecPos(ang) {
+      if (closed || !hostPeerId) return;
+      sendCtrl({ type: 'specPos', ang }, hostPeerId);
     },
     sendWalletStatus(ok) {
       if (closed || !hostPeerId) return;

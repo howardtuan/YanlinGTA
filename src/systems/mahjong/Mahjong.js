@@ -9,7 +9,7 @@ import { MahjongEngine } from './Engine.js';
 import { makeAI, SKILL_DEFAULT, effectiveSkill, skillTier, adjustSkill } from './AI.js';
 import { MahjongScene } from './MahjongScene.js';
 import { RemoteMahjongEngine, normalizeRoomCode } from './Net.js';
-import { createHostRoom, joinGuestRoom } from './P2P.js';
+import { createHostRoom, joinGuestRoom, normAng } from './P2P.js';
 import { TurnTimer, timeoutAction } from './TurnTimer.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import {
@@ -344,6 +344,7 @@ export class DormMahjong {
         onPeerLeave: (seat) => this._onGuestDisconnect(seat),
         onSpectatorChange: (info) => this._onHostSpectatorChange(info),
         onReact: (ev) => this.scene?.showReaction?.(ev),
+        onSpecPos: (p) => this._onSpecPos(p),
         getTimers: () => this._turnTimersLeft(),
       });
     } catch (e) {
@@ -419,6 +420,7 @@ export class DormMahjong {
         onNext: (data) => this._onGuestNext(data),
         onSpectateInfo: (info) => this._onGuestSpectateInfo(info),
         onReact: (ev) => this.scene?.showReaction?.(ev),
+        onSpecPos: (p) => this._onSpecPos(p),
         onNotice: (msg) => g.hud.toast(msg, 'good', 2600),
         onEnd: (reason) => this._onGuestEnd(reason),
       });
@@ -443,7 +445,7 @@ export class DormMahjong {
       2200
     );
   }
-  // 觀戰者切換要看哪一家（dir = 1 往下家、-1 往上家；鍵盤 ← →、觸控 ◀ ▶）
+  // 觀戰者切換要看哪一家（dir = 1 往下家、-1 往上家；◀ ▶ 按鈕）：直接走到那家背後
   cycleSpectatorView(dir = 1) {
     if (!this.mp || this.mpMode !== 'guest' || !this.sess?.spectating) return;
     const step = dir < 0 ? -1 : 1;
@@ -451,7 +453,39 @@ export class DormMahjong {
     const who = this.sess.names?.[step > 0 ? 1 : 3];
     this.sess.viewSeat = nextSeat;
     this.mp.setViewSeat?.(nextSeat);
+    this.sess.myAng = nextSeat * 90;
+    this._sendSpecPos(true);
     if (who) this.g.hud.toast(`👀 切到 ${who} 的視角`, 'good', 1200);
+  }
+  // 觀戰者繞著牌桌走（按住 ← →、拖曳畫面）：deg 正的往下家那邊。站到誰背後就看誰的手牌（最近的那家）
+  orbitSpectator(deg) {
+    const s = this.sess;
+    if (!this.mp || this.mpMode !== 'guest' || !s?.spectating || !deg) return;
+    const ang = normAng((s.myAng ?? (s.viewSeat || 0) * 90) + deg);
+    s.myAng = ang;
+    const seat = Math.round(ang / 90) % 4;
+    if (seat !== (s.viewSeat || 0)) {
+      s.viewSeat = seat;
+      this.mp.setViewSeat?.(seat);
+    }
+    this._sendSpecPos(false);
+  }
+  // 位置最多每 0.1 秒送一次給房主（房主轉給全桌）；停下來時一定補送最後的位置（MahjongScene 每幀呼叫 flush）
+  _sendSpecPos(now) {
+    const t = Date.now();
+    if (now || t - (this._specSentAt || 0) >= 100) {
+      this._specSentAt = t;
+      this._specDirty = false;
+      this.mp?.setSpecPos?.(this.sess.myAng);
+    } else this._specDirty = true;
+  }
+  flushSpecPos() {
+    if (this._specDirty && Date.now() - (this._specSentAt || 0) >= 100) this._sendSpecPos(true);
+  }
+  // 別的觀戰者走動了（房主轉來的）：更新名單裡他的角度，牌桌場景會讓他的人慢慢走過去
+  _onSpecPos({ id, ang }) {
+    const sp = this.sess?.spectators?.find((x) => x.id === id);
+    if (sp) sp.ang = ang;
   }
   startMultiHost() {
     if (!this.mp || this.mpMode !== 'host') return;
@@ -527,6 +561,8 @@ export class DormMahjong {
       spectators: data.spectators || [],
       seat: data.seat,
       names: data.names,
+      myId: data.you || null,
+      myAng: data.ang ?? (data.viewSeat ?? 0) * 90,
     };
     this.engine = new RemoteMahjongEngine((act) => this.mp?.sendAction(act));
     this.scene.names = data.names;
@@ -549,6 +585,8 @@ export class DormMahjong {
     if (Array.isArray(info.spectators)) this.sess.spectators = info.spectators;
     if (info.role === 'spectator') {
       this.sess.spectating = true;
+      if (info.you) this.sess.myId = info.you;
+      if (this.sess.myAng == null && info.ang != null) this.sess.myAng = info.ang;
       if (info.wantSeat != null) this.sess.wantSeat = !!info.wantSeat;
       if (info.queuePos != null) this.sess.queuePos = info.queuePos;
       if (info.viewSeat != null) this.sess.viewSeat = info.viewSeat;
@@ -565,6 +603,8 @@ export class DormMahjong {
     if (data?.spectateReveal != null) s.spectateReveal = !!data.spectateReveal;
     if (data?.spectatorCount != null) s.spectatorCount = data.spectatorCount;
     if (Array.isArray(data?.spectators)) s.spectators = data.spectators;
+    if (data?.you) s.myId = data.you;
+    if (s.myAng == null && data?.ang != null) s.myAng = data.ang;
 
     if (nextRole === 'player') {
       if (this.g.money <= 0) {

@@ -55,7 +55,7 @@
   - `chore/*`：CI/CD、設定檔、工具腳本、相依套件與測試補強
 - **短生命週期**：所有分支從最新 `main` 切出，合併後即刪除。
 
-### 2. Push 前本機自驗 CI
+### 2. Push 前本機自驗 CI 與 Headless Smoke / 效能紀錄規範
 追求流程自動化並避免將失敗的 PR 留給使用者善後，**Push 前必須先在本機跑完 CI 並確認全綠**：
 
 ```bash
@@ -63,12 +63,16 @@ npm run ci
 # 等同依序執行：format:check -> lint -> test -> build -> check:dist
 ```
 
+- **Headless Chrome Smoke Test（CI 雲端固定配置優先，本機選配）**：
+  - `npm run ci` 維持純 Node 快速檢查、不綁定個人硬體；PR CI 的 `Verify` job 固定使用 `ubuntu-24.04` + SwiftShader + `960x540` + `low`（`timeout-minutes: 5`）自動執行 `npm run test:smoke`（[tools/e2e/smoke.mjs](tools/e2e/smoke.mjs)，掛載於 `/YanlinGTA/`），驗證「過初始讀取條進主畫面 (`title`) → 點擊開始過進場讀取條進入遊玩 (`play`)」且 0 執行期錯誤，並將**運行硬體與確定性效能摘要**寫入 GitHub Actions Job Summary（不設效能上限門檻）與上傳截圖／JSON artifact。
+  - **效能基線以 CI 雲端固定配置為優先依據**：凡 PR 涉及 `src/core/`、`src/graphics/`、`src/world/`、`src/physics/`、`data/`、`assets/`、`vite.config.js` 或任何影響載入／記憶體／渲染之改動，**必須依 [.github/pull_request_template.md](.github/pull_request_template.md) 填寫固定結構化的「效能與運行環境紀錄」表格**（優先取用 CI `Verify` Job Summary，本機 `npm run test:smoke` / `npm run profile:*` 僅作為輔助或真實 GPU FPS 補充）；無論數據來源為何，**禁止只貼效能數字而不附完整運行硬體表**（執行來源、OS、CPU 型號×核心數、RAM、瀏覽器版本、WebGL Renderer、視窗與畫質）。
+
 若改動涉及特定子系統的進階驗證（如 WASM 精度測試、E2E 劇本測試、室內平面圖產圖等），請依改動性質視需要補跑，完整指令清冊見 [docs/guide/developer-guide.md](docs/guide/developer-guide.md)。
 
 ### 3. PR 策略與全自動合併 (Auto-merge)
 - **僅允許 Merge Commit**：上游鎖定 **Create a merge commit**（禁用 Squash / Rebase）。送出 PR 前請在分支內整理好乾淨、有意義的 Commit，避免把雜亂的 `wip` 歷史帶入 `main`。
-- **CI 必過才可合併**：須通過 [ci.yml](.github/workflows/ci.yml) 全部 2 項平行檢查（`Verify`、`Docker Build Verification`）。
-- **建立 PR 後立即啟用 Auto-merge**：上游已開放 Auto-merge（`Required approvals = 0`），建立 PR 後**務必立即設定自動合併**，讓 CI 全綠後直接合併，不需使用者手動同意：
+- **CI 必過才可合併**：須通過 [ci.yml](.github/workflows/ci.yml) 全部 2 項平行檢查（`Verify` 含 Headless Chrome Smoke Test、`Docker Build Verification`）。
+- **PR 內文須遵循模板並立即啟用 Auto-merge**：建立 PR 時須依 [.github/pull_request_template.md](.github/pull_request_template.md) 完整勾選驗證項（含獨立的 Auto-merge 確認項）與效能／硬體紀錄；上游已開放 Auto-merge（`Required approvals = 0`），建立 PR 後**務必立即設定自動合併**，讓 CI 全綠後直接合併，不需使用者手動同意：
 
 ```bash
 gh pr create --repo howardtuan/YanlinGTA --base main --head <owner>:<branch> --title "<type>(<scope>): <簡述>" --body-file <pr-body.md>

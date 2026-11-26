@@ -1,0 +1,168 @@
+{
+  "_doc": [
+    "Wiki 的任務清單。npcs 列出跟這個任務有關的角色 id（data/npcs.json），角色卡會自動列出他參與的任務。",
+    "type：main 主線／side 支線／case SQL 偵探案件。內容改動時請對照 docs/guide/game-design.md。"
+  ],
+  "quests": [
+    {
+      "id": "m1",
+      "type": "main",
+      "icon": "📄",
+      "title": "任務一 · 傳單大作戰",
+      "npcs": ["wednesday", "yanlin"],
+      "trigger": "到資訊管理學系館前找 W.E.D.N.E.S.D.A.Y。",
+      "steps": [
+        "限時 3 分鐘，把傳單送到 5 個公布欄：圖書館、學生活動中心、全人教育村、體育館、良善樓宿舍。",
+        "W.E.D.N.E.S.D.A.Y 已經把你的 JET SL 遠端調度到系館前，騎車比較快。",
+        "回到資管系館回報。"
+      ],
+      "reward": "主線推進"
+    },
+    {
+      "id": "m2",
+      "type": "main",
+      "icon": "🥞",
+      "title": "任務二 · 早餐補給",
+      "npcs": ["monday", "wednesday", "yanlin"],
+      "trigger": "傳單任務完成後自動接續。",
+      "steps": ["騎去中原夜市那條街的早餐店買蛋餅和豆漿。", "限時 2 分鐘來回，趁熱送回資管系館。"],
+      "reward": "幹部士氣大增 +5 票"
+    },
+    {
+      "id": "m3",
+      "type": "main",
+      "icon": "🗳️",
+      "title": "任務三 · 掃街拉票",
+      "npcs": ["monday", "wednesday", "yanlin"],
+      "trigger": "早餐送到後自動接續。",
+      "steps": [
+        "到路上找同學聊聊，按滑鼠左鍵（手機按 📄）遞傳單。",
+        "再拿到 15 票就完成；騎車撞到同學會掉票。"
+      ],
+      "reward": "+15 票"
+    },
+    {
+      "id": "m4",
+      "type": "main",
+      "icon": "🚩",
+      "title": "任務四 · 布條保衛戰",
+      "npcs": ["monday", "yanlin"],
+      "trigger": "M.O.N.D.A.Y 偵測到校園各處的競選布條訊號中斷。",
+      "steps": ["依照順序騎去 6 個地點把布條掛回去，限時 120 秒。"],
+      "reward": "主線推進"
+    },
+    {
+      "id": "m5",
+      "type": "main",
+      "icon": "🕵️",
+      "title": "任務五 · 布條失竊案",
+      "npcs": ["monday", "wednesday", "yanlin"],
+      "trigger": "布條掛回去之後，M.O.N.D.A.Y 要你查出是誰拆的。",
+      "steps": [
+        "找回彥霖以前住的地方：中北路上、樓下是一間牛肉拉麵店（自己先逛到過的話會跳過這段）。",
+        "坐到書桌前用電腦，打開終端機輸入 case，用真正的 SQL 查監視器、門禁、發票和貼文。",
+        "用 accuse 名字 指認犯人；不會寫 SQL 也可以用「🎬 一鍵通關」。"
+      ],
+      "reward": "真相大白 +8 票，並解鎖兩個 SQL 支線案件"
+    },
+    {
+      "id": "zz-injury",
+      "type": "side",
+      "icon": "🏍️",
+      "title": "吱吱武嶺跑山受傷",
+      "npcs": ["zz", "gd", "houshe"],
+      "trigger": "跟吱吱、女拳大帝都加好友後，吱吱私訊邀你週末上武嶺跑山。",
+      "steps": [
+        "回絕邀約（要拜票）後，吱吱打來緊急電話，傳來武嶺翻車的影片。",
+        "每天 20:00–24:00 到力行二樓浴廁幫手骨折的吱吱洗澡，侯舌在旁邊扶，總共洗 10 次。",
+        "之後問他傷勢，有機會復發要再洗一次。"
+      ],
+      "reward": "排球 T（中原排球 7 號），復發那次 NT$100"
+    },
+    {
+      "id": "tzuyu-wagyu",
+      "type": "side",
+      "icon": "🥩",
+      "title": "幫 Winter 帶和牛",
+      "npcs": ["tzuyu", "howard", "gd"],
+      "trigger": "晚餐後跟霍華德散步的 Tzuyu 加好友。",
+      "steps": [
+        "到戈登肉鋪買任一樣和牛（M9 菲力、A5 沙朗、和牛漢堡排）。",
+        "晚上她跟霍華德散步時，把和牛交給她。"
+      ],
+      "reward": "aespo 成員應援 +5 票"
+    },
+    {
+      "id": "yulu-tea",
+      "type": "side",
+      "icon": "🧋",
+      "title": "幫 Yulu 送無糖茶給吱吱",
+      "npcs": ["yulu", "zz"],
+      "trigger": "在商業設計館前跟 Yulu 加好友。",
+      "steps": [
+        "到茶學苑點任何一杯，甜度一定要選「無糖」。",
+        "送到力行 276 寢，吱吱醒著時在他書桌旁交給他。"
+      ],
+      "reward": "NT$200 小費"
+    },
+    {
+      "id": "pinhan-car",
+      "type": "side",
+      "icon": "🚗",
+      "title": "幫品漢堡找一台車",
+      "npcs": ["pinhan", "jianyu"],
+      "trigger": "跟 278 寢的品漢堡加好友，他想載大家去 IKEA 但沒有車。",
+      "steps": [
+        "找一台汽車（機車不算、劍玉的超跑他不收）開到正門口。",
+        "停在他旁邊、下車，按 E 把車交給他。"
+      ],
+      "reward": "專屬 App「漢堡車」：每天免費載你到一個地點"
+    },
+    {
+      "id": "howard-twosum",
+      "type": "side",
+      "icon": "🧩",
+      "title": "霍華德的 LeetCode：Two Sum",
+      "npcs": ["howard"],
+      "trigger": "跟霍華德加好友後當面聊天，他把 Two Sum 傳到你的電腦。",
+      "steps": [
+        "用 Python3 寫出 O(N) 解法，不准複製貼上。",
+        "執行範例、提交批改；寫不出來也可以「🎬 一鍵通關」。"
+      ],
+      "reward": "解鎖霍華德的黑色忍 400：可以騎、可以叫直升機空投、障礙賽可以選"
+    },
+    {
+      "id": "case-jianyu",
+      "type": "case",
+      "icon": "💰",
+      "title": "劍玉的班費失竊案",
+      "npcs": ["jianyu"],
+      "trigger": "認識劍玉後，電腦終端機的案件檔案多一個案子。",
+      "steps": [
+        "三甲班費 2000 元放在 278 寢書桌上，下午就不見了。",
+        "用 SQL 查寢室門禁、室友名單、超商發票和寢室群組對話，指認拿走的人。"
+      ],
+      "reward": "破案獎金"
+    },
+    {
+      "id": "case-fries",
+      "type": "case",
+      "icon": "🍟",
+      "title": "麥當勞薯條失蹤案",
+      "npcs": [],
+      "trigger": "主線任務五破案後解鎖。",
+      "steps": ["比對炸台紀錄和各時段銷售，找出是誰在偷吃薯條。"],
+      "reward": "NT$300"
+    },
+    {
+      "id": "case-seat",
+      "type": "case",
+      "icon": "📚",
+      "title": "圖書館占位之謎",
+      "npcs": [],
+      "trigger": "主線任務五破案後解鎖。",
+      "steps": ["查出是誰用好幾個帳號預約座位卻從不報到。"],
+      "reward": "NT$300"
+    }
+  ]
+}

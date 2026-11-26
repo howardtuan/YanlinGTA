@@ -1,0 +1,52 @@
+{
+  "_doc": [
+    "Wiki 用的角色補充資料：data/npcs.json 是遊戲裡的人物設定，這裡只補 Wiki 才需要的東西。",
+    "group：main 主角／dev 開發者／classmate 同學與室友／campus 校園人物／ai AI 夥伴／guest 致敬客串。",
+    "ig、linkedin：填完整網址（https://www.instagram.com/帳號/、https://www.linkedin.com/in/帳號/）；留空字串時頁面顯示「待補」。",
+    "social: false 的角色（AI、致敬角色）不顯示社群連結。",
+    "devRole：開發者負責的部分，會列在「開發團隊」區塊。"
+  ],
+  "people": {
+    "yanlin": { "group": "main", "ig": "", "linkedin": "" },
+    "houshe": {
+      "group": "dev",
+      "devRole": "建築物內部規劃、店家功能",
+      "ig": "",
+      "linkedin": ""
+    },
+    "richard": {
+      "group": "dev",
+      "devRole": "地圖規劃、建築物建模",
+      "ig": "",
+      "linkedin": ""
+    },
+    "howard": {
+      "group": "dev",
+      "devRole": "任務開發、NPC 角色設計、手機與電腦 App",
+      "ig": "",
+      "linkedin": ""
+    },
+    "zz": { "group": "classmate", "ig": "", "linkedin": "" },
+    "gd": { "group": "classmate", "ig": "", "linkedin": "" },
+    "hank": { "group": "classmate", "ig": "", "linkedin": "" },
+    "jianyu": { "group": "classmate", "ig": "", "linkedin": "" },
+    "mingshan": { "group": "classmate", "ig": "", "linkedin": "" },
+    "pinhan": { "group": "classmate", "ig": "", "linkedin": "" },
+    "ruizhe": { "group": "classmate", "ig": "", "linkedin": "" },
+    "yeeming": { "group": "classmate", "ig": "", "linkedin": "" },
+    "yulu": { "group": "classmate", "ig": "", "linkedin": "" },
+    "garry": { "group": "campus", "ig": "", "linkedin": "" },
+    "laoda": { "group": "campus", "ig": "", "linkedin": "" },
+    "xiaoyun": { "group": "campus", "ig": "", "linkedin": "" },
+    "club_qi": { "group": "campus", "ig": "", "linkedin": "" },
+    "club_xuan": { "group": "campus", "ig": "", "linkedin": "" },
+    "club_yu": { "group": "campus", "ig": "", "linkedin": "" },
+    "monday": { "group": "ai", "social": false },
+    "wednesday": { "group": "ai", "social": false },
+    "tzuyu": {
+      "group": "guest",
+      "social": false,
+      "note": "致敬角色：只取髮型與穿搭，不使用任何照片，也不代表本人。"
+    }
+  }
+}

@@ -91,6 +91,12 @@ export const PAGES = [
 ];
 const QUEST_PAGE = { main: 'main-quests', side: 'side-quests', case: 'cases' };
 const num = (i) => String(i).padStart(2, '0');
+// 右上角的背景顏色切換：自動（跟系統）／亮色／暗色，選擇存在 localStorage（yanlinWiki.theme）
+const THEME_SWITCH = `<div class="theme-switch" role="group" aria-label="背景顏色">
+    <button type="button" data-theme-set="auto" aria-pressed="true" title="自動（跟著系統）" aria-label="自動"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1.8a6.2 6.2 0 0 0 0 12.4Z" fill="currentColor"/></svg></button>
+    <button type="button" data-theme-set="light" aria-pressed="false" title="亮色" aria-label="亮色"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1.2v1.6M8 13.2v1.6M1.2 8h1.6M13.2 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M3.2 12.8l1.1-1.1M11.7 4.3l1.1-1.1"/></svg></button>
+    <button type="button" data-theme-set="dark" aria-pressed="false" title="暗色" aria-label="暗色"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 10.1A6 6 0 0 1 5.9 2.4a6 6 0 1 0 7.7 7.7Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg></button>
+  </div>`;
 // 每頁輸出的檔案位置（/wiki/ 底下）
 export const pageFile = (slug) => (slug ? `${slug}/index.html` : 'index.html');
 
@@ -448,17 +454,19 @@ function renderPage(page, data, opts) {
 <link rel="apple-touch-icon" href="${base}img/wiki-apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="彥霖 Wiki">
 <link rel="manifest" href="${base}manifest.webmanifest">
+<script>try{const t=localStorage.getItem('yanlinWiki.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="stylesheet" href="${base}style.css">
 <link rel="stylesheet" href="${base}game-controls.css">
 </head>
 <body data-page="${page.slug || 'home'}">
 <a class="skip" href="#content">跳到內容</a>
 <header class="top">
-  <a class="brand" href="${link(base, '')}"><img src="${base}img/wiki-icon-192.png" alt="" width="28" height="28"> YanlinGTA <span>Wiki</span></a>
+  <a class="brand" href="${link(base, '')}"><img src="${base}img/wiki-icon-192.png" alt="" width="28" height="28"> <b class="brand-name">YanlinGTA</b> <span>Wiki</span></a>
   <button class="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false">☰ 目錄</button>
   <span class="top-gap"></span>
   <a class="top-link" href="${REPO_URL}" target="_blank" rel="noopener">GitHub ↗</a>
   <a class="play" href="${base}${GAME_URL}">▶ 開始玩</a>
+  ${THEME_SWITCH}
 </header>
 
 <div class="docs">

@@ -1,0 +1,66 @@
+{
+  "_doc": [
+    "Wiki 用的角色補充資料：data/npcs.json 是遊戲裡的人物設定，這裡只補 Wiki 才需要的東西。",
+    "group：main 主角／dev 開發者／classmate 同學與室友／ai AI 夥伴。wiki: false 的角色只在遊戲裡出現，不放上 Wiki。",
+    "relations：想在 Wiki 換掉 data/npcs.json 的人際關係文字時才填。",
+    "ig、linkedin：填完整網址（https://www.instagram.com/帳號/、https://www.linkedin.com/in/帳號/）；留空字串時頁面顯示「待補」。",
+    "social: false 的角色（AI）不顯示社群連結。AI 頭貼在 wiki/img/<id>_av.jpg（node tools/wiki-holo-avatars.mjs 產生）。",
+    "devRole：開發者負責的部分，會列在「開發團隊」區塊。"
+  ],
+  "people": {
+    "yanlin": {
+      "group": "main",
+      "relations": "M.O.N.D.A.Y 是競選總幹事 AI；W.E.D.N.E.S.D.A.Y 是系館駐點 AI；鄰居是黃蓋瑞。",
+      "ig": "",
+      "linkedin": ""
+    },
+    "houshe": {
+      "group": "dev",
+      "devRole": "建築物內部規劃、店家功能",
+      "ig": "",
+      "linkedin": ""
+    },
+    "richard": {
+      "group": "dev",
+      "devRole": "地圖規劃、建築物建模",
+      "ig": "",
+      "linkedin": ""
+    },
+    "howard": {
+      "group": "dev",
+      "relations": "彥霖的同班同學；279 寢室友：漢克（睡他上舖）、女拳大帝。",
+      "devRole": "任務開發、NPC 角色設計、手機與電腦 App",
+      "ig": "",
+      "linkedin": ""
+    },
+    "zz": { "group": "classmate", "ig": "", "linkedin": "" },
+    "gd": { "group": "classmate", "ig": "", "linkedin": "" },
+    "hank": {
+      "group": "dev",
+      "devRole": "程式碼優化、效能優化",
+      "ig": "",
+      "linkedin": ""
+    },
+    "jianyu": { "group": "classmate", "ig": "", "linkedin": "" },
+    "mingshan": { "group": "classmate", "ig": "", "linkedin": "" },
+    "pinhan": { "group": "classmate", "ig": "", "linkedin": "" },
+    "ruizhe": { "group": "classmate", "ig": "", "linkedin": "" },
+    "yeeming": { "group": "classmate", "ig": "", "linkedin": "" },
+    "yulu": { "group": "classmate", "ig": "", "linkedin": "" },
+    "garry": {
+      "group": "dev",
+      "devRole": "室內設計規劃、遊戲任務測試",
+      "ig": "",
+      "linkedin": ""
+    },
+    "laoda": { "wiki": false },
+    "xiaoyun": { "wiki": false },
+    "club_qi": { "wiki": false },
+    "club_xuan": { "wiki": false },
+    "club_yu": { "wiki": false },
+    "monday": { "group": "ai", "social": false },
+    "wednesday": { "group": "ai", "social": false },
+    "sunday": { "group": "ai", "social": false },
+    "tzuyu": { "wiki": false }
+  }
+}

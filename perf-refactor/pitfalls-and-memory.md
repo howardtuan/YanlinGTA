@@ -187,3 +187,13 @@ cv.width = 1; cv.height = 1;
 2. **`profile_scene` 的 JS heap 沒先 GC**：同一個比較裡 main 353.5 MB、本分支 403.4 MB（+14%），但用踩雷 #11 第 3 點的方法（強制 GC 兩次）量是 368 / 368 MB，多出來的只是切洞時的暫存陣列還沒回收。heap 有差異時先用強制 GC 的方式重量再下結論。
 3. **在開發伺服器上用腳本 `import('/src/...')` 會多出「Multiple instances of Three.js being imported」警告**：截圖腳本為了取得地形高度、坑洞清單而在頁面裡匯入原始碼模組，同一個分頁之後的遊玩檢查就會出現這則警告；正式 build（`vite preview`）上沒有。查警告時用正式 build，或每次換新的瀏覽器資料夾。
 
+---
+
+## 踩雷 #13：Phase 2 PR #6 的五件事（2026-11-26）
+
+1. **陰影改成隔幀更新後，自己呼叫 `renderer.render()` 的地方要注意 `needsUpdate`**：`shadowMap.autoUpdate = false` 時，那一幀第一個 `render()` 會把 `needsUpdate` 用掉。後照鏡（`FirstPerson.renderMirrors`）在主畫面之前畫，而且畫的時候藏起車艙，會拿走那一幀的陰影更新、陰影裡少了車艙，所以要先存起來、畫完再還原。自動化截圖腳本沒有遊戲迴圈，要自己在每次截圖前設 `needsUpdate = true`，否則會看到別的位置留下的舊陰影（空拍出現大片暗塊）。
+2. **`finishRow` 的「純色」判斷不能直接套到 `Kit.finish()`**：ZoneA/B/C/E 的 `glowMats` 白天 `emissiveIntensity` 是 0、晚上才調亮，`plainKey()` 會把它們當純色烘進頂點色，晚上就不亮了。`Kit.finish()` 改用 `strictPlainKey()`（發光顏色必須是黑、沒有 `userData.glow`／`dynamic`）。
+3. **`Kit.finish()` 合併平面之後，原本的 mesh 已經不在場景裡**：之後才改它的貼圖、亮度、位置或顯示都不會生效。會改的平面要在建好後設 `mesh.userData.dynamic = true`（例如 `GateExtras` 的 `bd`、`fr`）。全專案搜尋過留下 `k.plane()` 回傳值的地方只有這兩個（`StreetTea` 的鐵網有 `alphaTest`，本來就不合併）；麥當勞、戈登肉鋪打烊時調暗的是 `finish` 之後走訪 `k.group` 找到的發光材質，合併後的 mesh 一樣找得到。
+4. **校外遠距群組：距離剔除不能用「直線距離 < 某個比例的可視距離」**：three 的遠平面與 exp2 霧都依「畫面深度」計算，畫面邊緣的物體直線距離比深度遠，用 0.6 × 可視距離剔除時，低畫質空拍會少掉還看得清楚的遠方高樓；中畫質白天 900 m 處的霧也只有約 80%。現在只在「畫面上任何位置都被霧蓋住 97% 以上」才剔除，白天中畫質幾乎不會剔到（約 2 km，比遠平面還遠），黃昏、夜晚與低畫質霧比較濃時才有作用。外圍副本是另一組 mesh，同一格同時有校內與校外建築時會多畫一份，所以只收離校園 250 m 以上的建物（`lod` 也一樣），避免校園附近多出繪圖呼叫。
+5. **`MeshLambertMaterial` 不吃 `scene.environment`**：本專案的戶外光有一大部分是天空 PMREM 的環境光，直接換 Lambert 會讓背光面變暗、玻璃全黑。Lambert 的著色器也沒有 `cube_uv_reflection_fragment`，要自己補 `#include` 與 `CUBEUV_TEXEL_WIDTH/HEIGHT/MAX_MIP`（算法同 `WebGLProgram.generateCubeUVSize`），並用共用 uniform 跟上 `SkySystem.bakeEnv()` 每次重烘出來的新貼圖。
+

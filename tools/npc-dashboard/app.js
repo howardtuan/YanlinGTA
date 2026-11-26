@@ -25,6 +25,7 @@ const BUILTIN = {
   monday: async () => (await import('../../src/entities/HoloAI.js')).createHoloAI('M.O.N.D.A.Y'),
   wednesday: async () =>
     (await import('../../src/entities/HoloAI.js')).createHoloAI('W.E.D.N.E.S.D.A.Y'),
+  sunday: async () => (await import('../../src/entities/HoloAI.js')).createHoloAI('S.U.N.D.A.Y'),
   zz: async () => createCharacter((await import('../../src/ui/phone/Friends.js')).ZZ_LOOK),
   gd: async () => createCharacter((await import('../../src/ui/phone/Friends.js')).GD_LOOK),
   hank: async () => createCharacter((await import('../../src/entities/npcs/Hank.js')).HANK_LOOK),

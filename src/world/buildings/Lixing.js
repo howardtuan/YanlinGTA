@@ -1435,143 +1435,152 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
         BED = 2.0,
         DK = (LEN - BED) / 3 - 0.5,
         WD = 0.5;
-      for (const side of [-1, 1]) {
-        const wx = side < 0 ? ix0 : ix1,
-          s = -side; // s: from the wall towards the aisle
-        const X = (a, b2) => [Math.min(wx + s * a, wx + s * b2), Math.max(wx + s * a, wx + s * b2)];
-        const Z = (t0, t1) => [zA + LEN - t1, zA + LEN - t0]; // t: distance from the window end (both walls: bunk by the window, loft bed by the door)
-        const B3 = (a, b2, ya, yb, t0, t1, m) => {
-          const [xa, xb] = X(a, b2),
-            [za, zb] = Z(t0, t1);
-          bx(xa, xb, ya, yb, za, zb, m);
-        };
-        const face = s > 0 ? 'e' : 'w',
-          nos = side < 0 ? [3, 2, 1] : [6, 5, 4]; // [下舖, 上舖, 高架床]：進門右手邊（西牆）從門口往裡 1 高架、2 上舖、3 下舖，左手邊 4 高架、5 上舖、6 下舖（使用者指正）
-        const plate = (n, yy, t) => {
-          const nt =
-            signs.get(`bed${n}`) ||
-            signs
-              .set(`bed${n}`, signTex(String(n), '#2e8f86', '#ffffff', 64, 64, 46))
-              .get(`bed${n}`);
-          plane(nt, 0.13, 0.13, wx + s * (DW + 0.006), yy, Z(t, t)[0], face, { emissive: 0.4 });
-        };
-        const bed = (t0, t1, yy, n, gapAt0) => {
-          // gapAt0: the gap in the side board (for the ladder) is at the t0 end                                  // deck + mattress + side board (with the number) + head / foot boards
-          B3(0, DW, yy - 0.05, yy, t0, t1, MT.frame);
-          B3(0.03, DW - 0.03, yy, yy + 0.12, t0 + 0.05, t1 - 0.05, MT.mattress);
-          B3(
-            DW - 0.025,
-            DW,
-            yy - 0.12,
-            yy + 0.3,
-            gapAt0 ? t0 + 0.5 : t0,
-            gapAt0 ? t1 : t1 - 0.5,
-            MT.wood
-          );
-          B3(0, DW, yy - 0.12, yy + 0.42, t0, t0 + 0.03, MT.wood);
-          B3(0, DW, yy - 0.12, yy + 0.42, t1 - 0.03, t1, MT.wood);
-          plate(n, yy + 0.12, gapAt0 ? t1 - 0.35 : t0 + 0.35);
-        };
-        const ladder = (t, top) => {
-          for (const dt of [0, 0.36])
-            B3(DW, DW + 0.03, y, top, t + dt - 0.015, t + dt + 0.015, MT.ladder);
-          for (let r = 0; r < 5; r++)
-            B3(DW, DW + 0.03, y + 0.3 + r * 0.3, y + 0.33 + r * 0.3, t, t + 0.36, MT.ladder);
-        };
-        // 上下舖
-        for (const t of [0.02, BED - 0.06])
-          for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
-        B3(0, DW, y, y + 0.3, 0.02, BED - 0.02, MT.wood);
-        B3(0.03, DW - 0.03, y + 0.3, y + 0.42, 0.07, BED - 0.07, MT.mattress);
-        plate(nos[0], y + 0.2, BED - 0.4);
-        bed(0, BED, bedY, nos[1], true);
-        ladder(0.1, bedY + 0.55); // 爬梯在靠窗那一端
-        // 桌／衣櫥 三組；最後一組上面是高架床，那一組的衣櫥做矮的
-        for (let u = 0; u < 3; u++) {
-          const t0 = BED + u * (DK + WD),
-            t1 = t0 + DK,
-            t2 = t1 + WD,
-            under = t1 > LEN - BED,
-            wh = under ? bedY - 0.06 - y : 2.2;
-          B3(0, 0.6, y + 0.72, y + 0.76, t0, t1, MT.desk); // 桌面
-          B3(0, 0.025, y, y + 1.62, t0, t1, MT.wood); // 背板
-          for (const yy of [1.12, 1.4, 1.62]) B3(0, 0.28, y + yy - 0.025, y + yy, t0, t1, MT.wood); // 上方層板
-          B3(
-            0.27,
-            0.28 - 0.0,
-            y + 1.12,
-            y + 1.62,
-            (t0 + t1) / 2 - 0.012,
-            (t0 + t1) / 2 + 0.012,
-            MT.wood
-          );
-          B3(0, 0.28, y + 1.12, y + 1.62, (t0 + t1) / 2 - 0.012, (t0 + t1) / 2 + 0.012, MT.wood);
-          B3(0, 0.55, y + 0.04, y + 0.07, t0, t1, MT.wood);
-          B3(0, 0.55, y + 0.3, y + 0.33, t0, t1, MT.wood); // 桌下開放層架
-          B3(0.3, 0.58, y + 0.56, y + 0.72, t0 + 0.04, t0 + 0.4, MT.wood); // 抽屜
-          for (const yy of [0.95, 0.95])
-            B3(0.026, 0.03, y + yy, y + yy + 0.07, t0 + 0.2, t0 + 0.55, MT.ladder); // 插座面板
-          B3(0, 0.6, y, y + wh, t1, t2, MT.wood); // 衣櫥
-          B3(
-            0.6,
-            0.604,
-            y + 0.04,
-            y + wh - 0.04,
-            t1 + WD / 2 - 0.004,
-            t1 + WD / 2 + 0.004,
-            MT.frame
-          ); // 門縫
-          if (!under) B3(0.6, 0.604, y + 1.72, y + 1.728, t1 + 0.02, t2 - 0.02, MT.frame);
-          for (const dt of [-0.06, 0.06])
+      // bunks, loft beds, desks, wardrobes: furniture, hidden from > 45 m (Kit.furniture)
+      k.furniture(() => {
+        for (const side of [-1, 1]) {
+          const wx = side < 0 ? ix0 : ix1,
+            s = -side; // s: from the wall towards the aisle
+          const X = (a, b2) => [
+            Math.min(wx + s * a, wx + s * b2),
+            Math.max(wx + s * a, wx + s * b2),
+          ];
+          const Z = (t0, t1) => [zA + LEN - t1, zA + LEN - t0]; // t: distance from the window end (both walls: bunk by the window, loft bed by the door)
+          const B3 = (a, b2, ya, yb, t0, t1, m) => {
+            const [xa, xb] = X(a, b2),
+              [za, zb] = Z(t0, t1);
+            bx(xa, xb, ya, yb, za, zb, m);
+          };
+          const face = s > 0 ? 'e' : 'w',
+            nos = side < 0 ? [3, 2, 1] : [6, 5, 4]; // [下舖, 上舖, 高架床]：進門右手邊（西牆）從門口往裡 1 高架、2 上舖、3 下舖，左手邊 4 高架、5 上舖、6 下舖（使用者指正）
+          const plate = (n, yy, t) => {
+            const nt =
+              signs.get(`bed${n}`) ||
+              signs
+                .set(`bed${n}`, signTex(String(n), '#2e8f86', '#ffffff', 64, 64, 46))
+                .get(`bed${n}`);
+            plane(nt, 0.13, 0.13, wx + s * (DW + 0.006), yy, Z(t, t)[0], face, { emissive: 0.4 });
+          };
+          const bed = (t0, t1, yy, n, gapAt0) => {
+            // gapAt0: the gap in the side board (for the ladder) is at the t0 end                                  // deck + mattress + side board (with the number) + head / foot boards
+            B3(0, DW, yy - 0.05, yy, t0, t1, MT.frame);
+            B3(0.03, DW - 0.03, yy, yy + 0.12, t0 + 0.05, t1 - 0.05, MT.mattress);
+            B3(
+              DW - 0.025,
+              DW,
+              yy - 0.12,
+              yy + 0.3,
+              gapAt0 ? t0 + 0.5 : t0,
+              gapAt0 ? t1 : t1 - 0.5,
+              MT.wood
+            );
+            B3(0, DW, yy - 0.12, yy + 0.42, t0, t0 + 0.03, MT.wood);
+            B3(0, DW, yy - 0.12, yy + 0.42, t1 - 0.03, t1, MT.wood);
+            plate(n, yy + 0.12, gapAt0 ? t1 - 0.35 : t0 + 0.35);
+          };
+          const ladder = (t, top) => {
+            for (const dt of [0, 0.36])
+              B3(DW, DW + 0.03, y, top, t + dt - 0.015, t + dt + 0.015, MT.ladder);
+            for (let r = 0; r < 5; r++)
+              B3(DW, DW + 0.03, y + 0.3 + r * 0.3, y + 0.33 + r * 0.3, t, t + 0.36, MT.ladder);
+          };
+          // 上下舖
+          for (const t of [0.02, BED - 0.06])
+            for (const a of [0.0, DW - 0.04])
+              B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
+          B3(0, DW, y, y + 0.3, 0.02, BED - 0.02, MT.wood);
+          B3(0.03, DW - 0.03, y + 0.3, y + 0.42, 0.07, BED - 0.07, MT.mattress);
+          plate(nos[0], y + 0.2, BED - 0.4);
+          bed(0, BED, bedY, nos[1], true);
+          ladder(0.1, bedY + 0.55); // 爬梯在靠窗那一端
+          // 桌／衣櫥 三組；最後一組上面是高架床，那一組的衣櫥做矮的
+          for (let u = 0; u < 3; u++) {
+            const t0 = BED + u * (DK + WD),
+              t1 = t0 + DK,
+              t2 = t1 + WD,
+              under = t1 > LEN - BED,
+              wh = under ? bedY - 0.06 - y : 2.2;
+            B3(0, 0.6, y + 0.72, y + 0.76, t0, t1, MT.desk); // 桌面
+            B3(0, 0.025, y, y + 1.62, t0, t1, MT.wood); // 背板
+            for (const yy of [1.12, 1.4, 1.62])
+              B3(0, 0.28, y + yy - 0.025, y + yy, t0, t1, MT.wood); // 上方層板
+            B3(
+              0.27,
+              0.28 - 0.0,
+              y + 1.12,
+              y + 1.62,
+              (t0 + t1) / 2 - 0.012,
+              (t0 + t1) / 2 + 0.012,
+              MT.wood
+            );
+            B3(0, 0.28, y + 1.12, y + 1.62, (t0 + t1) / 2 - 0.012, (t0 + t1) / 2 + 0.012, MT.wood);
+            B3(0, 0.55, y + 0.04, y + 0.07, t0, t1, MT.wood);
+            B3(0, 0.55, y + 0.3, y + 0.33, t0, t1, MT.wood); // 桌下開放層架
+            B3(0.3, 0.58, y + 0.56, y + 0.72, t0 + 0.04, t0 + 0.4, MT.wood); // 抽屜
+            for (const yy of [0.95, 0.95])
+              B3(0.026, 0.03, y + yy, y + yy + 0.07, t0 + 0.2, t0 + 0.55, MT.ladder); // 插座面板
+            B3(0, 0.6, y, y + wh, t1, t2, MT.wood); // 衣櫥
             B3(
               0.6,
-              0.625,
-              y + 0.95,
-              y + 1.13,
-              t1 + WD / 2 + dt - 0.008,
-              t1 + WD / 2 + dt + 0.008,
-              MT.steel
-            ); // 把手
-          // 橘色椅子（279 寢 2 號床那張中間的書桌：漢克把椅子轉過來、背靠書桌，面向對面坐著彈吉他，src/entities/npcs/Hank.js）
-          const turned = no === 279 && side < 0 && u === 1,
-            bk = turned ? [0.66, 0.69] : [0.95, 0.98];
-          B3(0.66, 0.98, y + 0.44, y + 0.47, t0 + 0.25, t0 + 0.65, MT.chair);
-          B3(bk[0], bk[1], y + 0.47, y + 0.85, t0 + 0.25, t0 + 0.65, MT.chair);
-          B3(0.8, 0.84, y, y + 0.44, t0 + 0.43, t0 + 0.47, MT.steel); // 橘色椅子
-        }
-        // 另一端的高架床
-        for (const t of [LEN - BED, LEN - 0.06])
-          for (const a of [0.0, DW - 0.04]) B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
-        bed(LEN - BED, LEN, bedY, nos[2], true);
-        ladder(LEN - BED + 0.1, bedY + 0.55);
-        const [a, b2] = X(0, DW + 0.03);
-        wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
-        // where people go (src/entities/npcs/Jianyu.js): bed decks, each desk with its chair; face = local angle towards the desk
-        const R = (ROOM_SPOTS[no] ||= {
-          door: [cx, z0 + T + 0.3],
-          center: [cx, (z0 + z1) / 2],
-          y,
-          beds: {},
-          desks: [],
-        });
-        const mid = (p) => (p[0] + p[1]) / 2;
-        R.beds[nos[0]] = { x: mid(X(0, DW)), z: mid(Z(0.07, BED - 0.07)), y: y + 0.42 };
-        R.beds[nos[1]] = { x: mid(X(0, DW)), z: mid(Z(0, BED)), y: bedY + 0.12 };
-        R.beds[nos[2]] = { x: mid(X(0, DW)), z: mid(Z(LEN - BED, LEN)), y: bedY + 0.12 };
-        for (let u = 0; u < 3; u++) {
-          const t0 = BED + u * (DK + WD),
-            t1 = t0 + DK;
-          R.desks.push({
-            side,
-            u,
-            bed: t1 > LEN - BED ? nos[2] : null,
-            x: mid(X(0, 0.6)),
-            z: mid(Z(t0, t1)),
-            chair: { x: mid(X(0.66, 0.98)), z: mid(Z(t0 + 0.25, t0 + 0.65)) },
-            face: Math.atan2(-s, 0),
+              0.604,
+              y + 0.04,
+              y + wh - 0.04,
+              t1 + WD / 2 - 0.004,
+              t1 + WD / 2 + 0.004,
+              MT.frame
+            ); // 門縫
+            if (!under) B3(0.6, 0.604, y + 1.72, y + 1.728, t1 + 0.02, t2 - 0.02, MT.frame);
+            for (const dt of [-0.06, 0.06])
+              B3(
+                0.6,
+                0.625,
+                y + 0.95,
+                y + 1.13,
+                t1 + WD / 2 + dt - 0.008,
+                t1 + WD / 2 + dt + 0.008,
+                MT.steel
+              ); // 把手
+            // 橘色椅子（279 寢 2 號床那張中間的書桌：漢克把椅子轉過來、背靠書桌，面向對面坐著彈吉他，src/entities/npcs/Hank.js）
+            const turned = no === 279 && side < 0 && u === 1,
+              bk = turned ? [0.66, 0.69] : [0.95, 0.98];
+            B3(0.66, 0.98, y + 0.44, y + 0.47, t0 + 0.25, t0 + 0.65, MT.chair);
+            B3(bk[0], bk[1], y + 0.47, y + 0.85, t0 + 0.25, t0 + 0.65, MT.chair);
+            B3(0.8, 0.84, y, y + 0.44, t0 + 0.43, t0 + 0.47, MT.steel); // 橘色椅子
+          }
+          // 另一端的高架床
+          for (const t of [LEN - BED, LEN - 0.06])
+            for (const a of [0.0, DW - 0.04])
+              B3(a, a + 0.04, y, bedY + 0.45, t, t + 0.04, MT.frame);
+          bed(LEN - BED, LEN, bedY, nos[2], true);
+          ladder(LEN - BED + 0.1, bedY + 0.55);
+          const [a, b2] = X(0, DW + 0.03);
+          wlRect(a, b2, zA, zA + LEN, y, y + 2.2);
+          // where people go (src/entities/npcs/Jianyu.js): bed decks, each desk with its chair; face = local angle towards the desk
+          const R = (ROOM_SPOTS[no] ||= {
+            door: [cx, z0 + T + 0.3],
+            center: [cx, (z0 + z1) / 2],
+            y,
+            beds: {},
+            desks: [],
           });
+          const mid = (p) => (p[0] + p[1]) / 2;
+          R.beds[nos[0]] = { x: mid(X(0, DW)), z: mid(Z(0.07, BED - 0.07)), y: y + 0.42 };
+          R.beds[nos[1]] = { x: mid(X(0, DW)), z: mid(Z(0, BED)), y: bedY + 0.12 };
+          R.beds[nos[2]] = { x: mid(X(0, DW)), z: mid(Z(LEN - BED, LEN)), y: bedY + 0.12 };
+          for (let u = 0; u < 3; u++) {
+            const t0 = BED + u * (DK + WD),
+              t1 = t0 + DK;
+            R.desks.push({
+              side,
+              u,
+              bed: t1 > LEN - BED ? nos[2] : null,
+              x: mid(X(0, 0.6)),
+              z: mid(Z(t0, t1)),
+              chair: { x: mid(X(0.66, 0.98)), z: mid(Z(t0 + 0.25, t0 + 0.65)) },
+              face: Math.atan2(-s, 0),
+            });
+          }
         }
-      }
+      });
       // 277：兩張下舖（3、6 號床）中間的迷你麻將桌，綠色桌布、四腳鋼管；靠門那頭、靠窗那頭各一張橘色小板凳，
       // 另外兩家坐在下舖床邊（src/systems/mahjong/Mahjong.js；座位 0 靠門是彥霖，逆時針 1 西床、2 靠窗、3 東床）
       if (no === 277) {

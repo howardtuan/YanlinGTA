@@ -24,6 +24,31 @@
 
 ---
 
+### Session #012｜2026-11-26｜負責階段：Phase 2 PR #6（`Kit.finish()` 合批、家具距離剔除、小地圖節流、畫質重校）＋ PR #5 漏掉的校外遠距群組
+- **工作分支 / PR**：`refactor/kit-plane-batch-and-igpu`（規劃表 PR #6；另含 PR #5 的「`synthetic` 校外補建樓獨立遠距群組」）
+- **本輪已完成**（依 `phase-2-render-and-igpu-opt.md` §三.1、§三.3～§三.5）：
+  1. **`PostFX.js`**：後製模組改動態 `import()`（低畫質完全不載）；中畫質 `samples: 0`、bloom 1/4 解析度；`OutputPass` 與調色合成同一個 pass（高畫質維持 4× MSAA、1/2 bloom）。
+  2. **`GameLoop.js`**：`autoQuality()` 暖機 3 秒＋取樣 3 秒；`guessGpu()` 讓 Apple M、Iris Xe、Radeon 680M/780M/880M 這類新內顯起始為中畫質，舊 UHD 文書機維持低；非 `desktop-dgpu` 的陰影隔幀更新（30 Hz）。
+  3. **`RenderSort.js`**：不透明物件依 `groupOrder`、`renderOrder`、shader program、材質、距離排序（program id 從 renderer 屬性讀，快取在材質上 120 次 render 更新一次）。
+  4. **`MapBuilder.js`**：內顯夜間路燈 `PointLight` 最多 2 盞；低／超低畫質外牆、店面、地面改 `MeshLambertMaterial`，`Textures.js` `setSurfaceDetail()` 跳過地面與立面的法線圖、粗糙度／金屬度圖（`facadeParam` 的 rm 是配色遮罩，保留並改用自己的 uniform）。照規格直接換 Lambert 時，手機截圖背光面明顯變暗、玻璃大樓全黑（Lambert 不吃 `scene.environment` 的天空光），所以 `lambertSky()` 每個像素補一次天空 PMREM 的漫射取樣（`textureCubeUV` 與 `CUBEUV_*` 常數自己補進 Lambert 著色器，共用 uniform 跟著天空重烘更新）；玻璃與金屬外牆在低畫質維持標準材質。補完後手機低畫質截圖與原本幾乎相同。
+  5. **`Kit.finish()`**：純色零件併成頂點色 mesh（比 `finishRow` 嚴格：發光顏色須為黑、沒標 `glow`／`dynamic`，因為 ZoneA/B/C/E 的 `glowMats` 白天強度 0、晚上才調亮）；靜態不透明 `k.plane()` 打包進建物自己的圖集、依材質合併（半透明、會改的平面不合併；`GateExtras` 兩塊晚上會亮的看板標 `userData.dynamic`）。
+  6. **家具距離剔除**：`Kit.furniture(fn)` 把裡面建的零件合成 `furniture` 群組，`cullFurniture` 在鏡頭離群組包圍盒超過 45 m 時隱藏；套用在資管系館教室（課桌椅、電腦）、活動中心（培英廳座椅、`chair`／`table`）、力行六人房（床組、書桌、衣櫥）。
+  7. **小地圖節流**：移動 > 0.35 m、視角或朝向 > 0.02 rad、範圍改變或 > 50 ms 才重畫。
+  8. **校外遠距群組**（PR #5 §三.1）：`synthetic` 或 `lod` 且離校園 250 m 以上的建物，建物迴圈把三角形寫進各 Geo 的外圍副本（`Geo.routed()`）；某一塊在畫面上任何位置都被霧蓋住 97% 以上時才不畫（依 exp2 霧與半個對角視角換算，可視距離以外本來就由遠平面裁掉）。一開始用「0.6 × 可視距離」，截圖發現低畫質空拍遠方的高樓消失（霧依畫面深度、不是直線距離），改成依霧判斷；250 m 與 97% 是本輪自訂（規格沒寫數字）。
+  9. 單元測試 `tests/unit/kit-finish.test.js`（純色合併與發光材質排除、平面圖集與動態／半透明排除、家具剔除、opaque 排序）。
+- **實機與量化數據變化**（Apple M1、`desktop-igpu`、中畫質，`profile_scene --gpu --runs=1 --sample-sec=6`，6 個機位平均；**量測時依使用者要求暫停其他工作負載**，main 與本分支輪流跑兩輪）：
+  - 最終版（校外群組依霧剔除）：fps 25.2 → 29.7（+18%）、29.4 → 34.5（+17%）；每幀繪製 CPU 33.5 → 28.5 ms、30.0 → 25.8 ms；繪圖呼叫 2,717 → 2,536、2,704 → 2,600（−4%～−7%）；三角形 3,315k → 2,819k、3,295k → 2,952k（−10%～−15%）。第 2 輪兩邊負載相近（10 與 8），+17% 是比較可信的數字。
+  - 中間版（校外群組用 0.6 × 可視距離剔除）曾量到 +39%／+51%，但那會剔掉還看得到的遠方建築（見踩雷 #13），已改掉；差距主要來自那部分。
+  - 繪圖呼叫細分（5 個機位，中間版）：`Kit` 零件與平面 74 → 39；陰影 337 → 153（30 Hz）。
+  - 畫面：中畫質（筆電）白天內容相同，只有物體邊緣因關 MSAA 多了鋸齒；夜晚路燈光源少一半、bloom 稍柔；低畫質（手機）補上天空光後與原本幾乎相同。
+  - e2e（`tools/e2e/story-bot.mjs`）：任務一～四通過；任務五（SQL 破案）機器人拿不到線索、卡到逾時，應是 `69cd85f`（一鍵通關：第一次進任務先詢問）之後機器人沒跟著改，與本分支無關（未在 main 上重跑確認）。
+- **新發現的技術細節或踩雷**：見 `pitfalls-and-memory.md` 踩雷 #13。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. Phase 2 規格項目已全部完成；Phase 3／4 使用者決定不做。
+  2. 規格驗收的實機項目（iPhone Safari／LINE fps、Intel UHD `low` ≥ 45 fps）需要實機量測。
+
+---
+
 ### Session #011｜2026-11-26｜負責階段：Phase 2 PR #5 第二部分（地面挖洞改 CPU，移除 `cutMask()` `discard`）
 - **工作分支 / PR**：`refactor/ground-cut-cpu`（規劃表 PR #5 的第二部分）
 - **本輪已完成**：

@@ -690,10 +690,12 @@ export class Phone {
     const g = this.g,
       R = g.pinhanRide,
       used = R.usedToday;
-    const rows = RIDE_PLACES.map(
-      (p) =>
-        `<button class="ph-gbtn ph-hb" data-k="${p.key}" ${used ? 'disabled' : ''}>${p.icon} ${esc(p.name)}</button>`
-    ).join('');
+    const rows = RIDE_PLACES.filter((p) => !p.shown || p.shown(g))
+      .map(
+        (p) =>
+          `<button class="ph-gbtn ph-hb" data-k="${p.key}" ${used ? 'disabled' : ''}>${p.icon} ${esc(p.name)}</button>`
+      )
+      .join('');
     const c = this._frame(
       '漢堡車',
       `<div class="ph-garage">

@@ -38,14 +38,19 @@ export function guessGpu() {
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch (_e) {}
   // laptop / entry GPUs: AMD APUs ("Radeon 780M Graphics"), GeForce MX; an unreadable name counts as weak too
+  // (perf-refactor Phase 2: the newer integrated GPUs below are not, see strong)
   const weak =
     !name ||
     /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|radeon(\(tm\))? \d{3,4}m\b|vega \d|geforce mx|\bmx ?\d{3}\b/i.test(
       name
     );
+  // a newer integrated GPU (Apple M, Intel Iris Xe, Radeon 680M / 780M / 880M) runs the lighter medium (no MSAA,
+  // quarter-size bloom: src/graphics/PostFX.js) well; the old Intel UHD / HD office ones stay on low
+  const newIgpu = /apple m\d|iris\(r\)? xe|iris xe|radeon(\(tm\))? ?[678]\d0m\b/i.test(name);
   const strong =
-    !/geforce mx|\bmx ?\d{3}\b/i.test(name) &&
-    /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc(\(tm\))? a\d|apple m\d/i.test(name);
+    newIgpu ||
+    (!/geforce mx|\bmx ?\d{3}\b/i.test(name) &&
+      /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc(\(tm\))? a\d/i.test(name));
   const cores = navigator.hardwareConcurrency || 4;
   // a dedicated card (e.g. Intel Arc) is not 'weak' even though its name says Intel; auto stops at medium
   return (_gpuGuess = isTouch() ? 'low' : !strong && (weak || cores <= 4) ? 'low' : 'medium');
@@ -92,6 +97,8 @@ export class GameLoop {
     if (game.traffic) game.traffic.viewK = P.view;
     if (game.peds) game.peds.viewK = P.view;
     if (game.world?.vegetation) game.world.vegetation.viewDist = 700 * P.view; // tree chunks
+    // outer fill buildings (src/world/MapBuilder.js Geo.routed) are not drawn where the fog hides them: the camera
+    if (game.world) game.world.viewer = game.camera;
     if (game.skyline) game.skyline.scale.setScalar(Math.min(1, (P.far * 0.92) / 2000)); // the backdrop sits 1.5-2 km out
     const sh = game.renderer.shadowMap;
     if (sh.enabled !== P.shadows) {
@@ -107,24 +114,25 @@ export class GameLoop {
     }
   }
 
-  // auto quality: after a warm-up, step down one level when the game keeps running under 28 fps
+  // auto quality: after a 3 s warm-up, step down one level when a 3 s window runs under 28 fps
+  // (perf-refactor Phase 2: was 8 s + 6 s; a struggling machine now steps down within the first 6 s)
   autoQuality(frameMs) {
     const game = this.game;
     if ((game.settings.quality || 'auto') !== 'auto' || game.quality === 'xlow' || document.hidden)
       return;
     if (frameMs > 250) return; // tab was in the background
     const A = game._aq || (game._aq = { t: 0, sum: 0, n: 0, warm: 0 });
-    if ((A.warm += frameMs) < 8000) return;
+    if ((A.warm += frameMs) < 3000) return;
     A.t += frameMs;
     A.sum += frameMs;
     A.n++;
-    if (A.t < 6000) return;
+    if (A.t < 3000) return;
     const fps = 1000 / (A.sum / A.n);
     A.t = A.sum = A.n = 0;
     if (fps >= 28) return;
     const next = QUALITY[Math.max(0, QUALITY.indexOf(game.quality) - 1)];
     this.setQuality(next);
-    A.warm = 4000; // give the new level a moment before judging it
+    A.warm = 0; // give the new level its own warm-up before judging it
     // remember it: the next load starts at this level (with its lighter world, crowds and no MSAA)
     game.settings.autoQ = next;
     saveSettings(game.settings);
@@ -151,7 +159,10 @@ export class GameLoop {
 
   updateSky(dt) {
     const game = this.game;
-    const t = game.state === 'title' && game._titlePos ? game._titlePos : game.player.worldPos();
+    const t =
+      (game.state === 'title' || game.state === 'bench') && game._titlePos
+        ? game._titlePos
+        : game.player.worldPos();
     const p = { x: t.x, y: surfaceAt(t.x, t.z), z: t.z };
     game.skySys.update(dt, game.clock, p, game.time || 0);
     game.night = game.skySys.night;
@@ -210,6 +221,9 @@ export class GameLoop {
     const now = performance.now();
     const perf = game.perfHud?.level !== 'off' ? game.perfHud : null; // 設定 → 效能顯示 (src/core/PerfHud.js)
     perf?.frameStart(now);
+    // 效能測試 (src/systems/Benchmark.js) measures every frame of its run
+    const bench = game.state === 'bench' ? game.bench : null;
+    bench?.frameStart(now);
     if (game.state === 'play') this.autoQuality(now - game.last);
     const dt = Math.min(0.05, (now - game.last) / 1000);
     game.last = now;
@@ -220,6 +234,7 @@ export class GameLoop {
       game.prompts?.tick();
     }
     if (game.state === 'title') this.titleCam(dt);
+    else if (game.state === 'bench') game.bench.update(dt);
     else if (game.state === 'play') {
       game._update(dt);
       game.bootDiag?.tickHealthy(dt);
@@ -229,7 +244,10 @@ export class GameLoop {
     }
     // physics (unless _update already stepped it for the vehicle you ride, see _stepPhysics)
     if (!game._physStepped)
-      game._stepPhysics(game.state === 'play' || game.state === 'title' ? dt : 0, null);
+      game._stepPhysics(
+        game.state === 'play' || game.state === 'title' || game.state === 'bench' ? dt : 0,
+        null
+      );
     game._physStepped = false;
     this.updateSky(dt);
     this.vehicleLod(dt);
@@ -237,7 +255,7 @@ export class GameLoop {
       game.time,
       game.night,
       game.clock,
-      game.state === 'title' ? game._titlePos : game.player.worldPos()
+      game.state === 'title' || game.state === 'bench' ? game._titlePos : game.player.worldPos()
     );
     for (const b of game.ballotList) {
       if (!b.taken) {
@@ -248,7 +266,14 @@ export class GameLoop {
     for (const b of game.beams) {
       if (b.visible) b.material.opacity = 0.22 + Math.sin(game.time * 4) * 0.06;
     }
+    // integrated / mobile GPUs draw the sun's shadow map every other frame (30 Hz at 60 fps; Game.init turns
+    // shadowMap.autoUpdate off for them): the shadow map and its matrix are kept as a pair, so nothing shifts
+    if (game.halfRateShadows) {
+      this._shadowTick = !this._shadowTick;
+      if (this._shadowTick) game.renderer.shadowMap.needsUpdate = true;
+    }
     perf?.renderStart();
+    bench?.renderStart();
     // while the phone's on-device AI (Gemini Nano, on the same GPU) writes a reply, draw ~6 frames a second: the player
     // is frozen with the phone open anyway, and the model answers much sooner
     const yieldGpu =
@@ -279,6 +304,7 @@ export class GameLoop {
       }
     }
     perf?.frameEnd(now);
+    bench?.frameEnd(now);
     if (game._shot) {
       const cb = game._shot;
       game._shot = null;

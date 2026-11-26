@@ -38,6 +38,14 @@ for (const ref of refs) {
   if (/\.js$/.test(clean)) entry++;
 }
 if (!entry) problems.push('index.html loads no script');
+// the PWA manifest must stay at the site root: inside assets/ its start_url "./" would open /assets/
+// when the game is added to a phone's home screen (vite.config.js manifestLinkPlugin)
+const manifestLink = html.match(/<link[^>]*rel=["']manifest["'][^>]*>/i)?.[0] || '';
+if (!/href=["'](?:\.\/)?manifest\.webmanifest["']/.test(manifestLink)) {
+  problems.push(
+    `manifest link should point at manifest.webmanifest in the site root, got: ${manifestLink || 'none'}`
+  );
+}
 
 // folders the game fetches at runtime by plain path (vite.config.js staticAssetsPlugin copies them)
 for (const need of [
@@ -47,6 +55,7 @@ for (const need of [
   'vendor/rapier/rapier.wasm',
   'manifest.webmanifest',
   'assets/icon',
+  'wiki/index.html',
 ]) {
   if (!fs.existsSync(path.join(dist, need))) problems.push(`${need} is missing from dist/`);
 }

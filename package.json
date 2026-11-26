@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "test:wasm": "node tools/check_wasm.mjs",
     "check:dist": "node tools/check_dist.mjs",
+    "wiki:build": "node wiki/build.mjs",
     "profile:scene": "node tools/profile_scene.mjs",
     "profile:mobile": "node tools/profile_scene.mjs --mobile --markdown",
     "profile:desktop": "node tools/profile_scene.mjs --gpu --markdown",

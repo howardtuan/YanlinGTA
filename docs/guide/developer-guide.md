@@ -81,7 +81,13 @@ flowchart TD
 - **`service.test.js`**：測試義務役服役日曆與平日軍服／休假切換邏輯。
 - **`dom-ids.test.js`**：靜態掃描 `src/` 內 `getElementById` / `$()` 與 `index.html` 及動態建立節點之 ID 對應。
 - **`import-graph.test.js`**：靜態解析 `src/` 匯入圖，阻擋循環引用與違反 `AGENT.md` 分層規則的跨層依賴。
+- **`benchmark.test.js`**：測試遊戲內效能測試的統計（平均 FPS、1% / 0.1% 低幀、卡頓次數）與瓶頸判斷。
 - **`data-consistency.test.js`**：驗證 `data/npcs.json`、`data/cycu.json`、`data/terrain.json` 結構完整與資源路徑有效。
+
+### 遊戲內效能測試（`src/systems/Benchmark.js`）
+- 給玩家用的硬體測試：標題畫面 →「📊 效能測試」，選畫質後鏡頭照固定路線跑約 100 秒（校園街道白天 → 空拍 → 夜間街道，每段前 3 秒暖機不計），跑完顯示平均 FPS、1% / 0.1% 低幀、最低／最高、畫面時間分佈、卡頓次數、主執行緒每幀耗時、繪圖呼叫與三角形，並依「每幀間隔 vs. 遊戲 JS 耗時」判斷瓶頸是 CPU、GPU 還是螢幕更新率；可複製文字或下載 JSON，上一次結果存在 `localStorage`（`cycu-bench-last`）。
+- 網址加 `?bench`（或 `?bench=low` 指定畫質）會在載入完自動開跑；跑完 `game.bench.result` 有完整結果，並發出 `window` 的 `benchdone` 事件，方便自動化在不同機器上收數據。
+- 跟 `npm run profile:*`（`tools/profile_scene.mjs`，開發用的固定機位量測與基準比對）是兩回事：這個測的是玩家實際看到的整體流暢度。
 
 ### 2. WASM 精度整合測試 (`tests/integration/wasm.test.js` & `tools/check_wasm.mjs`)
 - `npm test` 會執行快速抽樣整合測試；改動貼圖核心時須另外執行 `npm run test:wasm`，對全部 FBM 噪聲與法線貼圖參數執行完整比對，驗收門檻為 **`0 mismatched`**。

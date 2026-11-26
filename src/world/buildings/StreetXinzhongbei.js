@@ -14,6 +14,7 @@
 // 每一格自成一個 Kit，立面對著街道；收尾用 finishRow 一次合併。
 // 這個檔案不 import src/world/Interiors.js（Kit、材質、貼圖工具由 src/world/zones/Zones.js 呼叫 buildXinzhongbeiStreet 時從 X 傳進來），
 // src/world/zones/Zones.js 直接 import 這裡的 XZ_ST.drop 與 xzFootprints() 來刪填充樓、保留空地。
+import { makeSideShop } from './StreetZhongbei.js';
 import SegL1 from './xzb/SegL1.js';
 import SegL2 from './xzb/SegL2.js';
 import SegX1 from './xzb/SegX1.js';
@@ -592,6 +593,8 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
         M[3] === L[3] &&
         (lo ? Math.abs(M[2] - L[1]) < 1.2 : Math.abs(M[1] - L[2]) < 1.2)
     ); // 這一側有沒有鄰居
+  // 轉角格對著另一條街的側面店面（spec.side，寫法見 src/world/buildings/StreetZhongbei.js makeSideShop）
+  const sideShop = makeSideShop({ paint, shopGlass, shopTex, openTex, shutterTex, ROWT, FRONT });
   LOTS.forEach((L, i) => {
     const sp = L[4],
       { ox, oz, ang, w, apron } = xzLotFrame(L),
@@ -609,6 +612,8 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
       gf = sp.gf || (nf === 1 ? 3.2 : 3.3),
       top = gf + (nf - 1) * fh,
       d = sp.d || 10;
+    // 側面店面畫在哪一面側牆：at 1 = s1 那端、0 = s0 那端（side -1 的 +x 朝 s 變小）
+    const sideX = sp.side ? ((sp.side.at === 1) === L[3] > 0 ? w : 0) : -1;
     const glassWall = sp.bal === 'glass';
     const wm = glassWall && sp.glass ? sp.glass : wallMat(sp.wall);
     if (sp.inside) {
@@ -856,14 +861,15 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
           n = w > 7 ? 3 : w > 4 ? 2 : 1;
         for (let j = 0; j < n; j++)
           k.plane(YHT.win(), 1.5, 1.1, (w * (j + 0.5)) / n, y + 1.1, d + 0.03, 0);
-        for (const [x, rot, ex] of [
-          [-0.03, -Math.PI / 2, ex0],
-          [w + 0.03, Math.PI / 2, ex1],
+        for (const [x, rot, ex, xs] of [
+          [-0.03, -Math.PI / 2, ex0, 0],
+          [w + 0.03, Math.PI / 2, ex1, w],
         ])
-          if (ex)
+          if (ex && !(sideX === xs && f === 0))
             for (const zc of [d * 0.3, d * 0.7]) k.plane(YHT.win(), 1.2, 1.1, x, y + 1.1, zc, rot);
       }
     }
+    if (sp.side) sideShop(k, sp.side, sideX, w, d, gf, top, i);
     if (nf > 1 && !sp.roof) {
       const q = r();
       if (q < 0.3)

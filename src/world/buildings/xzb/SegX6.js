@@ -418,7 +418,15 @@ export default {
         set: SS,
         roof: 'none',
         door: 0,
-        bikes: 3,
+        bikes: 3, // 往南小巷那面（街景 2026-05）：同一條白底紫字 SYM 三陽機車招牌延伸到這裡，下面灰色鐵捲門
+        side: {
+          at: 1,
+          from: 5.7,
+          to: 10.5,
+          sign: ['三陽機車', '#f4f2ee', '#b0306a', '(03)463-2069'],
+          ground: 'shutter',
+          sh: '#9a9c9e',
+        },
       },
     ],
     [
@@ -437,7 +445,8 @@ export default {
         set: SS,
         roof: 'none',
         door: 0,
-        bikes: 3,
+        bikes: 3, // 往南小巷那面（街景 2026-05）：路口一小段橘色 KYMCO、接著白底紫字 SYM 三陽機車招牌，一樓開放店面擺安全帽
+        side: { at: 1, sign: ['SYM 三陽機車', '#f4f2ee', '#b0306a'], ground: 'open', to: 5.2 },
       },
     ],
   ],

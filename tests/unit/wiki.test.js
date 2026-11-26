@@ -67,6 +67,25 @@ describe('wiki', () => {
     );
   });
 
+  it('最新消息：id 不重複、日期格式對、照片存在，頁面依新到舊列出', () => {
+    const { posts } = JSON.parse(fs.readFileSync('wiki/news.json', 'utf-8'));
+    expect(posts.length).toBeGreaterThan(0);
+    expect(new Set(posts.map((n) => n.id)).size).toBe(posts.length);
+    for (const n of posts) {
+      expect(n.id).toMatch(/^[a-z0-9-]+$/);
+      expect(n.date, n.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(n.body.length, n.id).toBeGreaterThan(0);
+      if (n.image) {
+        expect(fs.existsSync(`wiki/news/${n.image}`), n.image).toBe(true);
+        expect(n.alt, n.id).toBeTruthy();
+      }
+    }
+    const html = renderPages(loadWikiData())[pageFile('news')];
+    const order = [...html.matchAll(/<article class="post" id="post-([^"]+)"/g)].map((m) => m[1]);
+    const sorted = posts.toSorted((a, b) => b.date.localeCompare(a.date)).map((n) => n.id);
+    expect(order).toEqual(sorted);
+  });
+
   it('AI 夥伴都有頭貼（wiki/img/<id>_av.jpg）', () => {
     for (const c of loadWikiData().chars.filter((c) => c.group === 'ai'))
       expect(c.avatar, c.id).toBeTruthy();
@@ -113,6 +132,7 @@ describe('wiki', () => {
         'shots/desktop-play.jpg',
         'shots/mobile-play.jpg',
         'media/promo-poster.jpg',
+        'news/2026-11-it-team-dinner.jpg',
       ])
         expect(fs.existsSync(path.join(out, f)), f).toBe(true);
 

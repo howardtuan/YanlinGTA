@@ -39,7 +39,16 @@ for (const root of document.querySelectorAll('.game-ctl')) {
 (() => {
   if (document.body.dataset.page !== 'home' || !location.hash) return;
   const h = decodeURIComponent(location.hash.slice(1));
-  const pages = ['controls', 'characters', 'main-quests', 'side-quests', 'cases', 'shops', 'team'];
+  const pages = [
+    'news',
+    'controls',
+    'characters',
+    'main-quests',
+    'side-quests',
+    'cases',
+    'shops',
+    'team',
+  ];
   const sub = {
     'controls-map': 'controls',
     'controls-desktop': 'controls',
@@ -50,6 +59,7 @@ for (const root of document.querySelectorAll('.game-ctl')) {
   else if (sub[h]) to = `${sub[h]}/#${h}`;
   else if (h.startsWith('npc-')) to = `characters/#${h}`;
   else if (h.startsWith('shop-')) to = `shops/#${h}`;
+  else if (h.startsWith('post-')) to = `news/#${h}`;
   else if (/^q-(m\d|case-)/.test(h))
     to = `${h.startsWith('q-case-') ? 'cases' : 'main-quests'}/#${h}`;
   else if (h.startsWith('q-')) to = `side-quests/#${h}`;

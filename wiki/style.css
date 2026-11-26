@@ -294,11 +294,11 @@ kbd {
   text-decoration: none;
   color: #fff;
 }
-.soc.ig {
-  background: linear-gradient(45deg, #f09433, #dc2743 50%, #bc1888);
-}
 .soc.li {
   background: #0a66c2;
+}
+.soc.gh {
+  background: #24292f;
 }
 .soc.todo {
   background: none;

@@ -62,7 +62,7 @@ export function loadWikiData(root = ROOT) {
       relations: p.relations ?? n.relations,
       group: p.group || 'classmate',
       social: p.social !== false,
-      ig: safeUrl(p.ig),
+      github: safeUrl(p.github),
       linkedin: safeUrl(p.linkedin),
       devRole: p.devRole || '',
       note: p.note || '',
@@ -111,7 +111,7 @@ function socialHtml(c) {
     url
       ? `<a class="soc ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`
       : `<span class="soc ${cls} todo" title="連結待補">${label}・待補</span>`;
-  return `<div class="socials">${a(c.ig, 'ig', 'Instagram')}${a(c.linkedin, 'li', 'LinkedIn')}</div>`;
+  return `<div class="socials">${a(c.linkedin, 'li', 'LinkedIn')}${a(c.github, 'gh', 'GitHub')}</div>`;
 }
 
 function charCard(c, base) {

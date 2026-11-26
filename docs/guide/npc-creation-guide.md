@@ -206,7 +206,7 @@ classDiagram
 
 ---
 
-> 📖 **別忘了 Wiki**：新增的 NPC 要在 `wiki/people.json` 補一筆（分類 `group`、IG／LinkedIn 連結），有支線任務的話也加到 `wiki/quests.json`；少了 `tests/unit/wiki.test.js` 會失敗。詳見 [deployment.md](deployment.md) 的 Wiki 段落。
+> 📖 **別忘了 Wiki**：新增的 NPC 要在 `wiki/people.json` 補一筆（分類 `group`、LinkedIn／GitHub 連結），有支線任務的話也加到 `wiki/quests.json`；少了 `tests/unit/wiki.test.js` 會失敗。詳見 [deployment.md](deployment.md) 的 Wiki 段落。
 
 ## 六、 進階：升級為劇情 NPC (Scripted NPC)
 

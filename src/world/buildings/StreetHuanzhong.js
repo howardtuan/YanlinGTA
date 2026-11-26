@@ -3998,7 +3998,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       k.plane(ROWT.alWin(), 1.4, 1.1, 2.6, 2.4, -0.04, FRONT);
     },
     // ======== D 段：708 巷口以東（街景 2026-05）。北側 +x 朝西（x = s − s0），南側 +x 朝東（x = s1 − s） ========
-    // DN1 停車場：水泥地停一排車，後面一排大樹與棕櫚，樹後是退縮的暗褐色木造餐廳（只看得到 Mr.May 字樣）；東北角一支 8 m 黑色招牌柱（字看不清，不放字）
+    // DN1 停車場：水泥地停一排車，後面一排大樹與棕櫚，樹後是退縮的 Mr.May 圓頂餐廳（只看得到 Mr.May 字樣）；東北角一支 8 m 黑色招牌柱（字看不清，不放字）
     dn1(k, w, d, r) {
       rectG(k, 0, w, 0, 12.5, '#9c9890', 0.05);
       const cc = [
@@ -4034,15 +4034,15 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
           blob(k, x + Math.cos(a) * 1.1, y + 9 - 0.2, z + Math.sin(a) * 1.1, 0.75, '#4f8a3e');
         }
       } // 棕櫚
-      k.box(20, 34.5, -0.6, 4.5, 14, 24, '#5a4634');
-      gable(k, 20, 34.5, 14, 24, 4.5, 6.3, '#8a4a3a', '#5a4634');
+      // 餐廳本體是圓頂建築，由新中北路那邊蓋（src/world/buildings/xzb/SegX3.js，圓心約在這裡的 x 28.2、z 17、半徑 4.4）；
+      // 這裡只把 Mr.May 招牌貼在圓頂朝環中東路那面
       k.plane(
         paint('Mr.May', '#2a2420', '#e8d8b0', null, 1.6, 0.4, 128),
         1.6,
         0.4,
-        27,
+        28.2,
         3.2,
-        13.94,
+        12.5,
         FRONT,
         { emissive: 0.3 }
       );

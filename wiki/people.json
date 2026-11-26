@@ -28,14 +28,24 @@
     },
     "zz": { "group": "classmate", "ig": "", "linkedin": "" },
     "gd": { "group": "classmate", "ig": "", "linkedin": "" },
-    "hank": { "group": "classmate", "ig": "", "linkedin": "" },
+    "hank": {
+      "group": "dev",
+      "devRole": "程式碼優化、效能優化",
+      "ig": "",
+      "linkedin": ""
+    },
     "jianyu": { "group": "classmate", "ig": "", "linkedin": "" },
     "mingshan": { "group": "classmate", "ig": "", "linkedin": "" },
     "pinhan": { "group": "classmate", "ig": "", "linkedin": "" },
     "ruizhe": { "group": "classmate", "ig": "", "linkedin": "" },
     "yeeming": { "group": "classmate", "ig": "", "linkedin": "" },
     "yulu": { "group": "classmate", "ig": "", "linkedin": "" },
-    "garry": { "group": "campus", "ig": "", "linkedin": "" },
+    "garry": {
+      "group": "dev",
+      "devRole": "室內設計規劃、遊戲任務測試",
+      "ig": "",
+      "linkedin": ""
+    },
     "laoda": { "group": "campus", "ig": "", "linkedin": "" },
     "xiaoyun": { "group": "campus", "ig": "", "linkedin": "" },
     "club_qi": { "group": "campus", "ig": "", "linkedin": "" },

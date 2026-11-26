@@ -235,7 +235,7 @@ ${questSection('case', 'SQL 偵探案件', '在電腦終端機輸入 case 開啟
 
 <section id="team" class="block">
   <h2>開發團隊</h2>
-  <p class="lead">這三位開發者也住在遊戲裡的力行宿舍，找得到他們本人。</p>
+  <p class="lead">這 ${devs.length} 位開發者本人也出現在遊戲裡，在校園裡找得到他們。</p>
   <div class="team-grid">${devs
     .map(
       (c) => `

@@ -28,7 +28,7 @@ docs/
 > ⚠️ **資產邊界提醒**：實際遊戲運行會讀取的貼圖、音效、音樂與地圖資料請放在專案根目錄的 `assets/` 與 `data/`。本資料夾**僅供保存與備份**建模參考圖資、建築平面圖與人物參考原材，不會被 Vite 打包進 `dist/`。
 
 - **[參考原材目錄說明 (references/README.md)](references/README.md)**
-- **[建築室內平面圖 (references/floorplans/README.md)](references/floorplans/README.md)**：由 `tools/floorplan/make.mjs` 依據建模程式切出的建築室內 SVG 平面圖（力行宿舍、學生活動中心等）。
+- **[建築室內平面圖 (references/floorplans/README.md)](references/floorplans/README.md)**：由 `tools/floorplan/make.mjs` 依據建模程式切出的建築室內 SVG 平面圖（力行宿舍、學生活動中心 B1 等）；學生活動中心一到四樓放的是使用者給的修改版參考圖，模型照它蓋。
 
 ---
 

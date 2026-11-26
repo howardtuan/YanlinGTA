@@ -1,14 +1,14 @@
-// 古箏社教室：學生活動中心 3 樓西北角（使用者指正在 3 樓），從主走廊西端的門進去（src/world/buildings/Sac.js 在走廊北牆留門、外牆挖門洞）。
+// 古箏社教室：學生活動中心 3 樓西北角（使用者指正在 3 樓），從南牆東段的門走出去就是 3 樓招待所前平台（src/world/buildings/Sac.js 在輪廓牆上挖門洞）。
 // 教室裡：前面（北牆）白板和社旗、老師位的古箏，對面三排社員的古箏架和琴凳、譜架，西牆的琴盒櫃和成發海報。
 // 社團時間黃蓋瑞（src/entities/npcs/Garry.js）和社員（src/entities/npcs/ClubMembers.js）在這裡，沒有人的時候沒有聲音。
-// 同一角的其他樓層不能進去（輪廓在 sacTrimmedPts 挖掉，外牆在這裡照活動中心的窗戶樣式蓋）。
+// 輪廓在 sacTrimmedPts 挖掉，外牆在這裡照活動中心的窗戶樣式蓋。一、二樓這一角是培英廳的北半和側走廊（Sac.js 蓋，輪廓牆在那兩層挖開），四樓不能進去。
 // Local frame: origin at the NW corner of 活動中心 (-195, -128.6), x east, z SOUTH (as everywhere in the game).
 import * as THREE from 'three';
 import { H as Hg } from '../Terrain.js';
 import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const CLUB = { ox: -195, oz: -128.6, W: 14, D: 10.4, H: 4.6, top: 13.8 };
-export const CLUB_DOOR = [-188.4, -187.3]; // 3F door in the corridor's north wall (world x)
+export const CLUB_DOOR = [-183.75, -182.65]; // 3F door in the south wall, onto the 3F platform (world x)
 
 // canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale)
 function tex(w, h, draw) {
@@ -80,8 +80,7 @@ export function buildClubCorner(I, scene, Kit) {
   }
   k.wallLine(0, 0, W, 0, -1, top);
   k.wallLine(0, 0, 0, D, -1, top);
-  k.wallLine(W, 0, W, D, -1, H);
-  k.wallLine(0, D, W, D, -1, H);
+  // (the inner sides are inside the 活動中心: 1F / 2F are open to it, src/world/buildings/Sac.js walls them off)
   k.box(-0.05, W + 0.05, top - 0.2, top, -0.05, D + 0.05, 'gray', { col: false });
   k.finish(scene);
 }
@@ -117,10 +116,10 @@ export function buildClub3F(I, scene, Kit, regMat, { F3, c, sf }) {
   // shell: floor, ceiling, inside faces of the four walls (south: the doorway)
   const d0 = CLUB_DOOR[0] - CLUB.ox,
     d1 = CLUB_DOOR[1] - CLUB.ox,
-    CZ = -117.4 - CLUB.oz; // CZ: the corridor's north wall line
+    CZ = D + 0.14; // CZ: the door frame's outer face (on the 3F platform)
   k.box(0.3, W, -0.15, 0.1, 0.3, D, MT.floor, { col: false, tile: [1.2, 1.2] });
   sf(CLUB.ox + 0.3, CLUB.ox + W, CLUB.oz + 0.3, CLUB.oz + D + 0.1, F3);
-  sf(CLUB_DOOR[0] - 0.05, CLUB_DOOR[1] + 0.05, CLUB.oz + D - 0.3, -117.4 + 0.2, F3);
+  sf(CLUB_DOOR[0] - 0.05, CLUB_DOOR[1] + 0.05, CLUB.oz + D - 0.3, CLUB.oz + CZ + 0.3, F3);
   k.box(0.3, W, H - 0.05, H, 0.3, D, MT.ceil, { col: false, tile: [0.6, 0.6] });
   k.box(0.3, XW, 0.1, H, 0.3, D, MT.wall, nc);
   k.box(0.3, W, 0.1, H, 0.3, ZB, MT.wall, nc);
@@ -159,7 +158,7 @@ export function buildClub3F(I, scene, Kit, regMat, { F3, c, sf }) {
   for (const x of [3, 7, 11])
     for (const z of [3, 7.4])
       k.box(x - 0.7, x + 0.7, H - 0.1, H - 0.05, z - 0.15, z + 0.15, MT.light, nc);
-  // sign on the corridor wall
+  // sign over the door (platform side)
   k.plane(
     tex(512, 128, (g) => {
       g.fillStyle = '#5a1620';
@@ -175,8 +174,8 @@ export function buildClub3F(I, scene, Kit, regMat, { F3, c, sf }) {
     }),
     1.8,
     0.45,
-    d1 + 1.4,
-    1.75,
+    (d0 + d1) / 2,
+    2.78,
     CZ + 0.03,
     0,
     { emissive: 0.4 }
@@ -655,8 +654,8 @@ export function buildClub3F(I, scene, Kit, regMat, { F3, c, sf }) {
     pts: [
       [X0 + 0.3, Z0 + 0.3],
       [X0 + W, Z0 + 0.3],
-      [X0 + W, -117.4],
-      [X0 + 0.3, -117.4],
+      [X0 + W, Z0 + D],
+      [X0 + 0.3, Z0 + D],
     ],
     y0: F3 - g0 - 0.4,
     y1: c - g0,

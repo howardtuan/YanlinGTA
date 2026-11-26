@@ -60,6 +60,7 @@ export default [
       'tests/**/*.js',
       'tools/*.mjs',
       'tools/e2e/serve.mjs',
+      'tools/e2e/smoke.mjs',
       'tools/e2e/story-bot.mjs',
       'tools/e2e/cdp.mjs',
       'tools/perf/*.mjs',

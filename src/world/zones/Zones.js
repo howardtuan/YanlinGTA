@@ -93,6 +93,7 @@ import { DF_ST, dfFootprints, buildDarenFill } from '../buildings/StreetDarenFil
 import { pcLook, pcFootprints, buildPurenCenter } from '../buildings/PurenCenter.js';
 import { nmAdd, nmFootprints } from '../buildings/NightMarketFill.js';
 import { xmasTreeHide, buildChristmasTree } from '../Festive.js';
+import { bellPlatformHide, buildBellPlatform } from '../buildings/BellPlatform.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -378,6 +379,12 @@ export const ZONES = [
     name: '節慶：聖誕樹',
     treeHide: xmasTreeHide,
     build: buildChristmasTree,
+  },
+  {
+    // 二一鐘腳下的矮平台與坐凳（src/world/buildings/BellPlatform.js）；平台範圍內原本的樹只藏不重抽
+    name: '鐘塔平台',
+    treeHide: bellPlatformHide,
+    build: buildBellPlatform,
   },
 ];
 

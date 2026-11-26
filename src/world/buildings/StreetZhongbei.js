@@ -1847,7 +1847,7 @@ const r16 = (v) => Math.max(16, Math.ceil(v / 16) * 16);
 
 // 轉角格對著另一條街的側面：把側牆當成另一個立面來畫（側面座標 x 沿側牆、z 往牆外為負，轉 90° 回格子座標）。
 // side：at 哪一端、sign 一樓招牌帶、subs 黑色招牌帶上兩排小招牌、ground 'shop'|'open'|'shutter'（sh 鐵捲門色）、
-//   from / to 店面從離正面幾公尺到幾公尺、panels [[z0, z1, 字, 底, 字色]] 一樓的海報板、big [字, 底, 字色] 樓上整面帆布
+//   from / to 店面從離正面幾公尺到幾公尺、panels [[z0, z1, 字, 底, 字色]] 一樓的海報板、big [字, 底, 字色] 樓上整面帆布、awn 一樓雨棚色
 // 這裡不用 r()，也不動輪廓，其他格的亂數與全圖停放機車都不受影響
 // 側面座標工具由各街屋檔（這裡和 src/world/buildings/StreetXinzhongbei.js）傳進來
 export function makeSideShop({ paint, shopGlass, shopTex, openTex, shutterTex, ROWT, FRONT }) {
@@ -1912,6 +1912,7 @@ export function makeSideShop({ paint, shopGlass, shopTex, openTex, shutterTex, R
         );
       });
     }
+    if (S.awn) k.box(a - 0.05, b + 0.05, gh + 0.3, gh + 0.42, -1.2, 0, S.awn, { col: false });
     const gk = S.ground || 'shop';
     if (gk === 'shop') shopGlass(k, a + 0.1, b - 0.1, 0, gh, shopTex(i + 1));
     else if (gk === 'open') {

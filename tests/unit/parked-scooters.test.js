@@ -740,3 +740,38 @@ describe('domino chain physics (contact geometry, rigid-body impulse, no free en
     expect(sc.state).toBe('flying');
   });
 });
+
+describe('AI traffic hitting a parked vehicle', () => {
+  it('loses its momentum share and brakes (stunned) instead of shoving the debris on with its stand-in', () => {
+    const { game, knocks } = makeMockGame({
+      motoSpots: [],
+      streetScooters: [],
+      streetCars: [[30, 30, 0, '#3f6fb0']],
+    });
+    const ps = new ParkedScooters(game);
+    // an AI car driving +z at 10 m/s, its nose just into the parked car's tail
+    const ai = {
+      kind: 'car',
+      speed: 10,
+      pos: new THREE.Vector3(30, 0, 30 - 2.15 - 1.9),
+      heading: 0,
+      hl: 2.15,
+      hw: 0.9,
+      ai: { stunned: 0 },
+      mesh: { position: { y: 0 } },
+      forward: () => [0, 1],
+    };
+    ps._checkVehicle(ai, false, 0.016);
+    const sol = solveVehicleImpact({
+      kind1: 'car',
+      rider1: true,
+      kind2: 'car',
+      rider2: false,
+      parked2: true,
+      vRel: 10,
+    });
+    expect(knocks.length).toBe(1);
+    expect(ai.speed).toBeCloseTo(10 - sol.dv1, 5);
+    expect(ai.ai.stunned).toBe(2);
+  });
+});

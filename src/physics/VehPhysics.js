@@ -447,6 +447,10 @@ export class Chassis {
     b.setRotation(yawRot(h), true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    // the arcade state follows the body: heading and movement direction h, at rest (a NaN heading left here
+    // would make the next pre() set a NaN angular velocity and rescue again every step)
+    v.heading = v.moveAng = h;
+    v.speed = 0;
     v.steer = 0;
     v.hf = v.hb = y;
     this.vset.x = this.vset.z = this.spSet = 0;
@@ -461,7 +465,11 @@ export class Chassis {
   _rescue() {
     console.warn('[vehphys] 車輛物理狀態異常，已把車放回地面');
     const v = this.v;
-    this.teleport(this.wx, this.wz, Number.isFinite(v.heading) ? v.heading : 0);
+    const h = Number.isFinite(v.heading) ? v.heading : Number.isFinite(v.moveAng) ? v.moveAng : 0;
+    // the last written position can be NaN too: then the vehicle's own (arcade) position, else where it is
+    const x = Number.isFinite(this.wx) ? this.wx : Number.isFinite(v.pos?.x) ? v.pos.x : 0,
+      z = Number.isFinite(this.wz) ? this.wz : Number.isFinite(v.pos?.z) ? v.pos.z : 0;
+    this.teleport(x, z, h);
   }
   // the player got off: back to a plain parked vehicle on the same level (hf / hb keep the level)
   remove() {

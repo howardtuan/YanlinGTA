@@ -1454,7 +1454,11 @@ class Game {
             const dl = Math.hypot(dx, dz) || 1;
             dx /= dl;
             dz /= dl;
-            const vRel = Math.max(0, fx * v.speed * dx + fz * v.speed * dz);
+            // closing speed against the pedestrian's own stumble (Peds.shove), so a shove is not repeated
+            const vRel = Math.max(
+              0,
+              (fx * v.speed - (p.shove?.x || 0)) * dx + (fz * v.speed - (p.shove?.z || 0)) * dz
+            );
             const sol = solvePersonImpact({
               vehicleKind: v.kind,
               riderOnVehicle: true,
@@ -1475,9 +1479,15 @@ class Game {
                 v.crash = { impact: vRel, speed: sp, nx: -dx, nz: -dz };
             } else if (b.gap < 0.3) {
               // too slow to knock them down: they are shoved aside out of your body instead of you
-              // driving through them
+              // driving through them, and take the impulse as a stumble (you lose its reaction)
               p.pos.x += nx * (0.3 - b.gap);
               p.pos.z += nz * (0.3 - b.gap);
+              if (
+                !sol.knockDown &&
+                sol.dvTotal > 0 &&
+                this.peds.shove?.(p, dx * sol.dvTotal, dz * sol.dvTotal)
+              )
+                v.speed -= (fx * dx + fz * dz) * sol.dvVehicle;
             }
           }
         }
@@ -1581,8 +1591,10 @@ class Game {
               p.pos.x += nx * over * (m1 / (m1 + m2));
               p.pos.z += nz * over * (m1 / (m1 + m2));
               movedFoot = true;
-              const pvx = p.state === 'walk' ? Math.sin(p.heading) * (p.speed || 0) : 0;
-              const pvz = p.state === 'walk' ? Math.cos(p.heading) * (p.speed || 0) : 0;
+              const pvx =
+                (p.state === 'walk' ? Math.sin(p.heading) * (p.speed || 0) : 0) + (p.shove?.x || 0);
+              const pvz =
+                (p.state === 'walk' ? Math.cos(p.heading) * (p.speed || 0) : 0) + (p.shove?.z || 0);
               const vRel = (pl.vel.x - pvx) * nx + (pl.vel.y - pvz) * nz;
               if (vRel > 1.2) {
                 const sol = solvePersonPersonImpact(vRel, pl.ch?.weight, p.ch?.weight);
@@ -1594,7 +1606,7 @@ class Game {
                 ) {
                   this.audio.hitPed();
                   this.addVotes(-1, '撞倒同學了！-1 票 😵');
-                }
+                } else if (!sol.knockDown) this.peds.shove?.(p, nx * sol.dv2, nz * sol.dv2); // equal and opposite
               }
             }
           }

@@ -51,13 +51,22 @@ export function knockPeopleWith(game, kind, p, q, lv, body = null, hw = 0) {
       yaw,
       px: pd.pos.x,
       pz: pd.pos.z,
-      pvx: Math.sin(pd.heading || 0) * walk,
-      pvz: Math.cos(pd.heading || 0) * walk,
+      pvx: Math.sin(pd.heading || 0) * walk + (pd.shove?.x || 0),
+      pvz: Math.cos(pd.heading || 0) * walk + (pd.shove?.z || 0),
       personMass: pd.ch?.weight,
       personHeight: pd.ch?.height,
       hw,
     });
-    if (!hit || !hit.sol.knockDown) continue;
+    if (!hit) continue;
+    if (!hit.sol.knockDown) {
+      // too slow to knock them down: they stumble off with the impulse (dvTotal), the debris loses J / m
+      if (
+        hit.sol.dvTotal > 0 &&
+        game.peds.shove?.(pd, hit.nx * hit.sol.dvTotal, hit.nz * hit.sol.dvTotal)
+      )
+        take(hit);
+      continue;
+    }
     if (
       game.peds.knock(pd, hit.nx, hit.nz, hit.vRel, {
         dv: hit.sol.dvPerson,

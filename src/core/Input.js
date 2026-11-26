@@ -59,7 +59,7 @@ export const PAD_MAPS = {
     [3, 'KeyE'],
     [9, 'KeyE'],
   ],
-  // 277 麻將 (src/systems/mahjong/MahjongScene.js): D-pad picks a tile, A discards, Y 胡, X 碰, LB 吃, RB 槓, B 過, View 近看／全景, Start leaves
+  // 277 麻將 (src/systems/mahjong/MahjongScene.js): D-pad picks a tile, A discards, Y 胡, X 碰, LB 吃, RB 槓, B 過, View 遠景／近景, Start leaves
   mahjong: [
     [14, 'ArrowLeft'],
     [15, 'ArrowRight'],

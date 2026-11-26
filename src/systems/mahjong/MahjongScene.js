@@ -724,23 +724,22 @@ export class MahjongScene {
     const c = this.cam;
     c.aspect = innerWidth / innerHeight;
     this._mobileUI();
-    // 近看 (default): leaning over the table, your hand and the discards big; 全景 (V / the 🔍 button): the whole
-    // table and the other three. Closer on a narrow screen so the hand still fits.
+    // 遠景: leaning over the table, your 3D hand and the discards; 近景 (the phone layout, V / the button toggles):
+    // your hand is the big bar at the bottom and the camera frames the table above it.
     const tall = c.aspect < 1.2,
-      near = !this.far,
       // (watching someone's hand, or the hand is over and everybody's tiles are laid down: the usual camera)
       mobCam = this._mobile && !this.e?.spectate && !this.result;
     if (mobCam) {
       // 手機版：你的手牌在底下那排大牌，鏡頭只要看桌面（海底＋三家），整張圖往上推，讓出手牌那條
       if (c.aspect < 1) {
         // 直拿：幾乎從正上方看，桌寬剛好塞滿螢幕寬
-        c.position.set(0, near ? 2.2 : 2.35, near ? 0.2 : 0.25);
-        c.fov = near ? 74 : 78;
+        c.position.set(0, 2.2, 0.2);
+        c.fov = 74;
         c.lookAt(0, Y0, 0.04);
       } else {
-        c.position.set(0, near ? 1.5 : 1.62, near ? 0.5 : 0.62);
-        c.fov = near ? 44 : 50;
-        c.lookAt(0, Y0, near ? -0.03 : -0.04);
+        c.position.set(0, 1.5, 0.5);
+        c.fov = 44;
+        c.lookAt(0, Y0, -0.03);
       }
       // (直拿時桌子被螢幕寬卡住、上下有空：再往下挪一點，貼近手牌、讓北家多點位置)
       const lift = Math.round(this._barH * 0.5 - (c.aspect < 1 ? innerHeight * 0.08 : 0));
@@ -757,25 +756,22 @@ export class MahjongScene {
       /* framed above */
     } else if (c.aspect < 0.8) {
       // a phone held upright: from higher up, so the table's width fits
-      c.position.set(0, near ? 1.5 : 1.62, near ? 0.56 : 0.62);
-      c.fov = near ? 74 : 76;
-      c.lookAt(0, Y0, near ? 0.1 : 0.06);
-    } else if (near) {
+      c.position.set(0, 1.5, 0.56);
+      c.fov = 74;
+      c.lookAt(0, Y0, 0.1);
+    } else {
       c.position.set(0, tall ? 1.4 : 1.3, tall ? 0.96 : 0.86);
       c.fov = tall ? 54 : 46;
       c.lookAt(0, Y0, tall ? 0.06 : 0.1);
-    } else {
-      c.position.set(0, tall ? 1.6 : 1.42, tall ? 1.05 : 1.02);
-      c.fov = tall ? 60 : 52;
-      c.lookAt(0, Y0 + 0.02, tall ? -0.06 : -0.12);
     }
     c.updateProjectionMatrix();
     renderer.render(this.set.scene, c);
   }
 
-  // ---------------- 手機版（觸控或很矮的螢幕）：像麻將手遊那樣，手牌是底下一排大牌 ----------------
+  // ---------------- 近景＝手機版排版：像麻將手遊那樣，手牌是底下一排大牌 ----------------
+  // 預設：觸控或很矮的螢幕用近景、其他用遠景；按 V（或右上角按鈕）切換後就照你選的
   _mobileUI() {
-    const mob = !!this.g.input.touch || Math.min(innerWidth, innerHeight) <= 520,
+    const mob = this.closeUp ?? (!!this.g.input.touch || Math.min(innerWidth, innerHeight) <= 520),
       portrait = innerHeight > innerWidth;
     if (mob !== this._mobile) {
       this._mobile = mob;
@@ -1994,13 +1990,13 @@ export class MahjongScene {
     void el.offsetWidth;
     el.style.animation = '';
   }
-  // 近看 ⇄ 全景
+  // 遠景（3D 手牌在桌上）⇄ 近景（手機版排版）；按鈕上寫的是按下去會切到哪個
   _toggleView() {
-    this.far = !this.far;
+    this.closeUp = !this._mobile;
     this.g.audio?.tap?.();
   }
   _viewBtn() {
-    const txt = `<kbd>${this.g.prompts?.pad ? 'View' : 'V'}</kbd> ${this.far ? '🔍 近看' : '🔭 全景'}`;
+    const txt = `<kbd>${this.g.prompts?.pad ? 'View' : 'V'}</kbd> ${this._mobile ? '🔭 遠景' : '🔍 近景'}`;
     if (txt !== this._vb) this.$('.mj-view').innerHTML = this._vb = txt;
   }
 

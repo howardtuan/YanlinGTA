@@ -32,8 +32,16 @@ const TYPES = {
   '.wasm': 'application/wasm',
 };
 
-export function startServer({ root, port = 0, host = '127.0.0.1', log = false } = {}) {
+export function startServer({
+  root,
+  port = 0,
+  host = '127.0.0.1',
+  basePath = '/',
+  log = false,
+} = {}) {
   const base = path.resolve(root);
+  const normBase = `/${String(basePath || '/').replace(/^\/+|\/+$/g, '')}/`.replace(/^\/\/+$/, '/');
+  const bareBase = normBase === '/' ? '/' : normBase.slice(0, -1);
   const server = http.createServer((req, res) => {
     let rel;
     try {
@@ -42,6 +50,20 @@ export function startServer({ root, port = 0, host = '127.0.0.1', log = false } 
       res.writeHead(400);
       res.end();
       return;
+    }
+    if (normBase !== '/') {
+      if (rel === bareBase) {
+        res.writeHead(301, { Location: normBase });
+        res.end();
+        return;
+      }
+      if (!rel.startsWith(normBase)) {
+        if (log) console.log('404 (outside basePath)', rel);
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('not found');
+        return;
+      }
+      rel = `/${rel.slice(normBase.length)}`;
     }
     let file = path.join(base, rel);
     if (file !== base && !file.startsWith(base + path.sep)) {
@@ -98,7 +120,7 @@ export function startServer({ root, port = 0, host = '127.0.0.1', log = false } 
       resolve({
         server,
         port: a.port,
-        url: `http://${host}:${a.port}/`,
+        url: `http://${host}:${a.port}${normBase}`,
         close: () =>
           new Promise((r) => {
             server.closeAllConnections?.();

@@ -12,7 +12,8 @@ concurrency:
 jobs:
   verify:
     name: Verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -40,6 +41,17 @@ jobs:
 
       - name: Verify build outputs
         run: npm run check:dist
+
+      - name: Run headless Chrome smoke & perf check
+        run: node tools/e2e/smoke.mjs --swiftshader --summary="$GITHUB_STEP_SUMMARY"
+
+      - name: Upload smoke test artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-test-results
+          path: tools/e2e/out/smoke/
+          if-no-files-found: ignore
 
   docker-verify:
     name: Docker Build Verification

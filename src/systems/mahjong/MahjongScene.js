@@ -65,7 +65,7 @@ export function zoneRank(to, from) {
       : t === 'd'
         ? [[`h${s}`]] // 打出去的從那家手上來
         : t === 'm'
-          ? [[`h${s}`], ['d']] // 吃碰槓：自己手上的＋別人打出的那張
+          ? [[`h${s}`, 'd']] // 吃碰槓：自己手上的＋別人打出的那張（同一種的話優先拿海底那張）
           : t === 'f'
             ? [[`h${s}`], ['w']]
             : [];
@@ -614,7 +614,7 @@ export class MahjongScene {
       this.pool[k] = [];
       for (let i = 0; i < (k < 34 ? 4 : 1); i++) {
         const m = new THREE.Mesh(this.geos[k], this.set.tileMat);
-        m.userData.k = k;
+        m.userData.k = m.userData.k0 = k;
         m.visible = false;
         this.set.scene.add(m);
         this.pool[k].push(m);
@@ -797,7 +797,7 @@ export class MahjongScene {
 
   startHand(engine) {
     this.e = engine;
-    for (const m of this.tiles || []) m.userData.zone = null; // (新的一局：牌都重新洗過)
+    this._resetKinds(); // (新的一局：牌都重新洗過)
     this._ld = null;
     // every move the engine makes (yours too) goes past _onEvent: a discard or a call pops up big
     const emit = engine.emit.bind(engine);
@@ -837,6 +837,9 @@ export class MahjongScene {
     const e = this.e;
     if (!e) return;
     this._keys(inp);
+    // Esc 離開了牌桌（close() 把牌局清掉）：這一幀到此為止。不然底下用到 this.e 會當掉，
+    // Game.js 來不及清掉這下 Esc，下一幀又被拿去開暫停選單
+    if (!this.active || this.e !== e) return;
     if (!this.result && !e.isRemote) {
       // 多人房主：限時 20 秒到了的人替他出牌／過（單人模式不限時，這裡什麼都不做）
       this.mj.tickTurnTimers?.();
@@ -1080,6 +1083,25 @@ export class MahjongScene {
     this._barH = el.offsetHeight;
   }
 
+  // 把一張 3D 牌換成 k 的牌面（多人客端：看不到牌面的假牌被打出、吃碰時才知道是什麼牌）
+  _setKind(m, k) {
+    const old = m.userData.k;
+    if (old === k) return;
+    const L = this.pool[old],
+      i = L.indexOf(m);
+    if (i >= 0) L.splice(i, 1);
+    this.pool[k].push(m);
+    m.geometry = this.geos[k];
+    m.userData.k = k;
+  }
+  // 每張牌換回原本的牌面（新的一局、抓位：牌組要是完整的 144 張）
+  _resetKinds() {
+    for (const m of this.tiles || []) {
+      m.userData.zone = null;
+      m.userData.blind = false;
+      if (m.userData.k0 != null) this._setKind(m, m.userData.k0);
+    }
+  }
   // 最後打出的那張還在海底嗎？（被吃碰槓拿走後 e.last 不會清掉，看那家海底的張數有沒有變少）回傳打的人或 null
   _lastDiscard(e) {
     const L = e.last;
@@ -1096,9 +1118,12 @@ export class MahjongScene {
     const e = this.e,
       want = []; // { k, at }
     // Z：這張牌要去的區（h 手牌、m 吃碰槓、f 花、d 海底＋座位；w 牌牆），配牌時優先拿「本來就該從那裡來」的牌
-    let Z = 'w';
+    // B：這張是不是「看不到牌面的假牌」——多人客端收到的別家暗手牌和牌牆，房主只給張數、牌種是隨便填的
+    // （Net.js serializeStateFor），每次更新都可能換。這種位置不管牌種，有人打出時直接把他手上那張換成正確的牌面
+    let Z = 'w',
+      B = false;
     const put = (k, at, tag, hide = false, who = null) =>
-      want.push({ k, at, tag, hide, who, zone: Z });
+      want.push({ k, at, tag, hide, who, zone: Z, blind: B });
     const done = e.phase === 'end';
     const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
     // 近景（手機版）打牌時不擺牌牆，騰出來的位置給海底；開門動畫、觀戰、攤牌照樣有牌牆
@@ -1124,6 +1149,7 @@ export class MahjongScene {
       // 手機版：你的手牌、吃碰槓、花都畫在底下那排大牌裡，桌上這份藏起來（攤牌時再擺出來）
       const bar = this._mobile && s === 0 && !e.spectate && !reveal;
       Z = `h${s}`;
+      B = !!e.isRemote && !reveal && (!!e.spectate || s !== 0);
       hand.forEach((k, i) => {
         if (i === drawn) u += TW; // the gap before the drawn tile
         const how = reveal ? 'up' : e.spectate ? 'stand' : s === 0 ? 'mine' : 'stand';
@@ -1138,6 +1164,7 @@ export class MahjongScene {
       });
       // melds, face up (closed kongs face down) to the right; a 吃 has the tile taken in the middle
       Z = `m${s}`;
+      B = false;
       for (const m of P.melds) {
         u += TW * 0.3;
         let tiles = meldTiles(m);
@@ -1193,6 +1220,7 @@ export class MahjongScene {
       tail = e.tailTaken;
     let j = 0;
     Z = 'w';
+    B = !!e.isRemote;
     for (let i = head; i < N - tail; i++) {
       const top = i % 2 === 0 && i + 1 < N - tail; // the lower tile stays on the table when the top one is gone
       const { seat: ws, si } = stackAt(e.cut, Math.floor(i / 2));
@@ -1201,39 +1229,53 @@ export class MahjongScene {
     // match each wanted spot with a tile of that kind: first the one that really comes from there (zoneRank:
     // 打出的牌從那家手上來、摸的牌從牌牆來…), then the nearest one, so equal tiles don't swap places. 只看距離的話，
     // 牌牆比你的手牌更靠近海底，打出去的會變成牆上那張、你手上那張反而飛進牌牆
-    const free = this.pool.map((a) => [...a]);
+    const free = new Set(this.tiles);
     this.mine = [];
     this.lastMesh = null;
     this.faceUp = []; // 翻開在桌上、可以用放大鏡看的牌（_peek）
+    const sameKind = (w, m) => (w.blind ? !!m.userData.blind : m.userData.k === w.k);
     // 第一輪：本來就要待在這個位置、這個區的牌留在原地（例如牌牆上沒被摸走的牌）
     const got = want.map((w) => {
-      const list = free[w.k];
-      const i = list
-        ? list.findIndex(
-            (m) =>
-              !m.userData.fresh &&
-              m.userData.zone === w.zone &&
-              m.userData.to?.p.distanceToSquared(w.at.p) < 1e-8
-          )
-        : -1;
-      return i >= 0 ? list.splice(i, 1)[0] : null;
+      for (const m of free)
+        if (
+          !m.userData.fresh &&
+          m.userData.zone === w.zone &&
+          sameKind(w, m) &&
+          m.userData.to?.p.distanceToSquared(w.at.p) < 1e-8
+        ) {
+          free.delete(m);
+          return m;
+        }
+      return null;
     });
-    want.forEach((w, wi) => {
-      const list = free[w.k];
-      let m = got[wi];
-      if (!m) {
-        if (!list?.length) return;
-        // 第二輪：真的要移動的牌，先看從哪一區來最合理，再挑最近的
-        let bi = 0,
-          bd = Infinity;
-        list.forEach((x, i) => {
-          const d =
-            zoneRank(w.zone, x.userData.zone) * 100 +
-            (x.userData.fresh ? 0 : x.position.distanceToSquared(w.at.p));
-          if (d < bd) ((bd = d), (bi = i));
-        });
-        m = list.splice(bi, 1)[0];
+    const pick = (w, ok) => {
+      let best = null,
+        bd = Infinity;
+      for (const x of free) {
+        if (!ok(x)) continue;
+        const d =
+          zoneRank(w.zone, x.userData.zone) * 100 +
+          (x.userData.k === w.k ? 0 : 1) + // (同分時寧可拿同一種、不用換牌面)
+          (x.userData.fresh ? 0 : x.position.distanceToSquared(w.at.p));
+        if (d < bd) ((bd = d), (best = x));
       }
+      if (best) free.delete(best);
+      return best;
+    };
+    // 第二輪：看得到牌面的位置——同一種牌，或看不到牌面的假牌（換成這張的牌面）。先看從哪一區來最合理，再挑最近的；
+    // 第三輪才填看不到牌面的位置（牌種不重要）
+    for (const blindPass of [false, true])
+      want.forEach((w, wi) => {
+        if (got[wi] || w.blind !== blindPass) return;
+        got[wi] = w.blind
+          ? pick(w, () => true)
+          : pick(w, (x) => sameKind(w, x) || !!x.userData.blind);
+      });
+    want.forEach((w, wi) => {
+      const m = got[wi];
+      if (!m) return;
+      if (!w.blind && m.userData.k !== w.k) this._setKind(m, w.k);
+      m.userData.blind = w.blind;
       m.userData.to = w.at;
       m.userData.zone = w.zone;
       if (snap || m.userData.fresh) {
@@ -1248,7 +1290,10 @@ export class MahjongScene {
       if (w.tag === 'last') this.lastMesh = m;
       if (w.who && !w.hide) this.faceUp.push({ mesh: m, k: w.k, ...w.who });
     });
-    for (const list of free) for (const m of list) m.visible = false;
+    for (const m of free) {
+      m.visible = false;
+      m.userData.zone = null;
+    }
   }
 
   // ---------------- your moves ----------------
@@ -2220,6 +2265,7 @@ export class MahjongScene {
     this.result = null;
     this.$('.mj-res').classList.add('hidden');
     for (const m of this.tiles) m.visible = false;
+    this._resetKinds();
     const row = winds.map((w) => this.pool[27 + w][0]);
     row.forEach((m, s) => {
       const at = slot(0, (s - 1.5) * (TW + 0.01), 0, 'down');

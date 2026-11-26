@@ -884,7 +884,9 @@ function mat(key) {
         polygonOffsetFactor: -2,
         polygonOffsetUnits: -2,
       }),
-    gxTower: () => std({ map: brickTileTex(), roughness: 0.9, side: THREE.DoubleSide }),
+    // 管道間和外牆同一種灰褐小口磚（新中北路 490 巷口相片：直條與牆面同色，只是凸出、高出屋頂）
+    gxTower: () =>
+      std({ map: brickTileTex(), color: '#d6d0c8', roughness: 0.9, side: THREE.DoubleSide }),
     gxConc: () => std({ color: '#8f8982', roughness: 0.9, side: THREE.DoubleSide }),
     gxPlain: () =>
       std({
@@ -1927,7 +1929,7 @@ export function buildZoneC(I, scene, data, collision) {
         0.6
       );
     }
-    // --- 東北面三道凸出的管道間（比屋頂高一截；依東面的做法推，新中北路側被店面擋住沒有近照） ---
+    // --- 東北面三道凸出的管道間（比屋頂高一截；Google 地圖相片從新中北路 490 巷口拍到：三道灰磚直條、高出屋頂） ---
     {
       const O = gxW(0, 0),
         eN = edge(O, NEc);

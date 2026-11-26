@@ -1,6 +1,7 @@
 // 新中北路障礙賽 — street race around the outside of the CYCU main campus.
 // Sign up at the door of 力行大樓 (the 力行 male dorm on 新中北路), ride your own JET SL against 7 rivals,
-// 2 laps, you start 6th of 8. Normal traffic and pedestrians stay on the roads, and the organisers put
+// 2 laps, you start 6th of 8. Once 霍華德's Two Sum is solved (src/systems/quests/HowardTwoSum.js) you pick your bike
+// before the start: the JET SL or his black 忍 400 (src/entities/npcs/Howard.js lend). Normal traffic and pedestrians stay on the roads, and the organisers put
 // cones and water barriers on the course.
 //
 // The course is built from the real road graph (world.driveNodes): A* between anchor points around the
@@ -8,6 +9,7 @@
 // corner-speed profile. Rivals ride kinematically along it (progress s + lateral offset), choose a free
 // lane when something is ahead and brake when nothing is free.
 import * as THREE from 'three';
+import { solvePersonImpact } from '../../physics/ImpactPhysics.js';
 import { Vehicle, sameLevel, bodyGap } from '../../entities/Vehicles.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeLabel, mulberry32 } from '../../world/MapBuilder.js';
@@ -304,7 +306,8 @@ export class Race {
       z: pz,
       r: 3.6,
       y: 0,
-      label: () => '按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（騎自己的 JET SL・2 圈・8 人）',
+      label: () =>
+        `按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（${this._canNinja() ? '可選 JET SL／忍 400' : '騎自己的 JET SL'}・2 圈・8 人）`,
       cond: () => this.state === 'idle',
       fn: (g) => this.signup(),
     });
@@ -316,9 +319,16 @@ export class Race {
   get racing() {
     return this.state === 'count' || this.state === 'race';
   }
-  // player can't move during the countdown or while the results are up
+  // player can't move while picking the bike, during the countdown or while the results are up
   get locked() {
-    return this.state === 'count' || this.state === 'results';
+    return this.state === 'pick' || this.state === 'count' || this.state === 'results';
+  }
+  // 霍華德's 忍 400 is yours to race once his Two Sum is solved
+  _canNinja() {
+    return !!(this.g.howardQuest?.done && this.g.howard?.bike);
+  }
+  get rideName() {
+    return this.ride?.model === 'ninja' ? '忍 400' : 'JET SL';
   }
 
   // ---------- course helpers ----------
@@ -354,7 +364,7 @@ export class Race {
     }
     if (!this.guide) {
       const C = this.C,
-        HW = 0.45, // half width (m)
+        HW = 0.9, // half width (m)
         REP = 3.5; // one chevron every REP metres
       const cv = document.createElement('canvas');
       cv.width = 64;
@@ -583,14 +593,71 @@ export class Race {
         ],
         ['彥霖', '資管要贏，比賽也要贏 ✌'],
       ],
-      () => this.start()
+      () => (this._canNinja() ? this._pick() : this.start(g.myScooter))
     );
   }
-  start() {
+  // ---------- choose your bike (after 霍華德's Two Sum) ----------
+  _pick() {
+    const g = this.g,
+      H = g.howard,
+      out = H?.mode === 'ride';
+    this.state = 'pick';
+    this._sel = 0;
+    const btn = (k, key, icon, name, sub, dis) =>
+      `<button class="rr-pick${k === this._sel ? ' sel' : ''}" data-k="${k}" ${dis ? 'disabled' : ''}>
+        <span>${icon}</span><div><b>${dual(`<kbd>${key}</kbd>`, '')} ${name}</b><small>${sub}</small></div></button>`;
+    this.el.res.innerHTML = `<h2>🏁 選擇你的車</h2>
+      <div class="rr-picks">
+        ${btn(0, 1, '🛵', '我的 SYM JET SL', '粉白配色・極速約 79 km/h', false)}
+        ${btn(1, 2, '🏍️', '霍華德的忍 400', out ? '霍華德騎出去兜風了，現在借不到' : '黑色仿賽重機・極速約 130 km/h', out)}
+      </div>
+      <div class="rr-btns"><button id="rrBack">${dual('<kbd>Esc</kbd>', '{B}')} 取消</button><button id="rrOk" class="go">${dual('<kbd>Enter</kbd>', '{A}')} 出發</button></div>`;
+    this.el.res.classList.remove('hidden');
+    for (const b of this.el.res.querySelectorAll('.rr-pick'))
+      b.onclick = () => {
+        this._sel = +b.dataset.k;
+        this._choose();
+      };
+    $('rrOk').onclick = () => this._choose();
+    $('rrBack').onclick = () => this.cancelPick();
+    document.exitPointerLock?.();
+  }
+  _pickSel(k) {
+    const b = this.el.res.querySelectorAll('.rr-pick');
+    if (b[k]?.disabled) return;
+    this._sel = k;
+    b.forEach((e, i) => e.classList.toggle('sel', i === k));
+  }
+  _choose() {
+    const g = this.g;
+    let v = g.myScooter;
+    if (this._sel === 1) {
+      v = g.howard?.lend();
+      if (typeof v === 'string' || !v) {
+        g.hud.toast(v || '借不到忍 400', 'bad', 2400);
+        return;
+      }
+    }
+    this.el.res.classList.add('hidden');
+    this.state = 'idle';
+    if (!g.input.touch) g.lockPointer();
+    this.start(v);
+  }
+  cancelPick() {
+    this.el.res.classList.add('hidden');
+    this.state = 'idle';
+    if (!this.g.input.touch) this.g.lockPointer();
+  }
+  start(ride = this.ride || this.g.myScooter) {
     const g = this.g,
       pl = g.player,
-      C = this.C,
-      my = g.myScooter;
+      C = this.C;
+    // 再比一次 on the 忍 400: make sure he hasn't taken it back meanwhile
+    if (ride !== g.myScooter) {
+      const r = g.howard?.lend();
+      ride = typeof r === 'string' || !r ? g.myScooter : r;
+    }
+    const my = (this.ride = ride);
     this.runs++;
     this._placeObstacles();
     this._showGuide(true);
@@ -638,7 +705,7 @@ export class Race {
       this._placeRival(r, 0);
       this.rivals.push(r);
     });
-    // you, on your JET SL in slot 6
+    // you, on your JET SL (or the 忍 400) in slot 6
     if (pl.vehicle && pl.vehicle !== my) pl.exit(g.scene, g.world.collision);
     const ps = slot(PLAYER_SLOT),
       pp = ps.p;
@@ -668,6 +735,7 @@ export class Race {
       time: 0,
       off: 0,
       wrong: 0,
+      vel: 0,
       notOn: 0,
     };
     this.t = 0;
@@ -792,6 +860,18 @@ export class Race {
     }
     if (this.state === 'idle') return;
     if (this.guide?.visible) this.guide.material.map.offset.y -= dt * 1.6; // chevrons crawl forward
+    if (this.state === 'pick') {
+      if (inp.hit('Digit1', 'Numpad1', 'ArrowLeft', 'ArrowUp')) this._pickSel(0);
+      else if (inp.hit('Digit2', 'Numpad2', 'ArrowRight', 'ArrowDown')) this._pickSel(1);
+      if (inp.hit('Enter', 'NumpadEnter', 'KeyE', 'Space')) {
+        inp.pressed.clear();
+        this._choose();
+      } else if (inp.hit('Backspace')) {
+        inp.pressed.clear();
+        this.cancelPick();
+      }
+      return;
+    }
     if (this.state === 'results') {
       if (inp.hit('Enter', 'NumpadEnter', 'KeyE', 'Space')) {
         inp.pressed.clear();
@@ -803,7 +883,7 @@ export class Race {
       return;
     }
     const pl = g.player,
-      my = g.myScooter,
+      my = this.ride,
       C = this.C;
     // countdown
     if (this.state === 'count') {
@@ -845,21 +925,25 @@ export class Race {
         P.prog += dlt;
         P.idx = pr.i;
         P.off = 0;
+        // how fast you are actually moving along the course (smoothed): only going backwards counts as 逆向
+        if (dt > 0) P.vel += (dlt / dt - P.vel) * Math.min(1, dt * 3);
       } else {
         P.off += dt;
         warn = '⚠ 偏離賽道！回到粉紅線上';
       }
-      // riding the wrong way
+      // riding the wrong way: facing clearly backwards (more than ~120° off the course) AND losing progress for a while,
+      // so weaving across the road, swerving round a cone or a slide in a corner never trips it
       const v = pl.vehicle;
       if (v && Math.abs(v.speed) > 4) {
         const a = this._at(P.idx * DS);
         const dot = Math.sin(v.heading) * a.tx + Math.cos(v.heading) * a.tz;
-        P.wrong = dot * Math.sign(v.speed) < -0.3 ? P.wrong + dt : 0;
+        const back = dot * Math.sign(v.speed) < -0.5 && P.vel < -2;
+        P.wrong = back ? P.wrong + dt : Math.max(0, P.wrong - dt * 2);
       } else P.wrong = Math.max(0, P.wrong - dt);
-      if (P.wrong > 1.2) warn = '⛔ 逆向了！迴轉！';
+      if (P.wrong > 1.5) warn = '⛔ 逆向了！迴轉！';
       if (v !== my) {
         P.notOn += dt;
-        warn = `🛵 騎回你的 JET SL！（${Math.max(0, Math.ceil(20 - P.notOn))} 秒內）`;
+        warn = `🛵 騎回你的 ${this.rideName}！（${Math.max(0, Math.ceil(20 - P.notOn))} 秒內）`;
         if (P.notOn > 20) {
           this.abandon('離開機車太久，視同棄權');
           return;
@@ -1097,11 +1181,38 @@ export class Race {
         t.ai.stunned = 1.5;
       }
     }
-    if (r.speed > 3)
+    if (r.speed > 0.3)
       for (const p of g.peds.active()) {
-        if (bodyGap(v, p.pos.x, p.pos.z).gap < 0.35 && sameLevel(p.y, v.mesh.position.y)) {
+        const b = bodyGap(v, p.pos.x, p.pos.z);
+        if (b.gap < 0.35 && sameLevel(p.y, v.mesh.position.y)) {
+          // same Newtonian vehicle-vs-person solution as the player's own vehicle (src/core/Game.js)
           const [fx, fz] = v.forward();
-          if (g.peds.knock(p, fx, fz, r.speed)) r.speed *= 0.6;
+          const ox = p.pos.x - b.qx,
+            oz = p.pos.z - b.qz,
+            ol = Math.hypot(ox, oz) || 1;
+          let dx = fx + (ox / ol) * 0.35,
+            dz = fz + (oz / ol) * 0.35;
+          const dl = Math.hypot(dx, dz) || 1;
+          dx /= dl;
+          dz /= dl;
+          const vRel = Math.max(0, r.speed * (fx * dx + fz * dz));
+          const sol = solvePersonImpact({
+            vehicleKind: v.kind,
+            riderOnVehicle: true,
+            riderMass: v.rider?.weight,
+            personMass: p.ch?.weight,
+            personHeight: p.ch?.height,
+            vRel,
+          });
+          if (
+            sol.knockDown &&
+            g.peds.knock(p, dx, dz, vRel, { dv: sol.dvPerson, vy: sol.vyPerson })
+          )
+            r.speed = Math.max(0, r.speed - (fx * dx + fz * dz) * sol.dvVehicle);
+          else if (b.gap < 0.3) {
+            p.pos.x += (ox / ol) * (0.3 - b.gap);
+            p.pos.z += (oz / ol) * (0.3 - b.gap);
+          }
         }
       }
     const pv = g.player.vehicle;

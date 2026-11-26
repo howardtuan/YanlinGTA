@@ -56,6 +56,7 @@ export async function createHostRoom({
   onNotice,
   onSpectatorChange,
   onReact,
+  getTimers,
 } = {}) {
   const roomCode = normalizeRoomCode(code) || makeRoomCode();
   const room = await joinRoomFn(`room-${roomCode}`);
@@ -518,15 +519,17 @@ export async function createHostRoom({
     sendStateToPeer(peerId, engine) {
       if (closed || !started || !engine) return;
       seq++;
+      const timers = getTimers?.() || [];
       if (peerToSeat.has(peerId)) {
         const seat = peerToSeat.get(peerId);
-        const snap = serializeStateFor(engine, seat);
+        const snap = serializeStateFor(engine, seat, { timers });
         sendState({ seq, snap, events: [] }, peerId);
       } else if (spectators.has(peerId)) {
         const spec = spectators.get(peerId);
         const snap = serializeStateFor(engine, spec.viewSeat, {
           spectate: true,
           revealAll: specReveal,
+          timers,
         });
         sendState({ seq, snap, events: [] }, peerId);
       }
@@ -534,8 +537,10 @@ export async function createHostRoom({
     broadcastState(engine, events = []) {
       if (closed || !started) return;
       seq++;
+      // 每次狀態更新都帶上房主算好的限時倒數（新出現的決定在這裡開始計時）
+      const timers = getTimers?.() || [];
       for (const [peerId, seat] of peerToSeat.entries()) {
-        const snap = serializeStateFor(engine, seat);
+        const snap = serializeStateFor(engine, seat, { timers });
         const rotEv = rotateEventsFor(events, seat);
         sendState({ seq, snap, events: rotEv }, peerId);
       }
@@ -543,6 +548,7 @@ export async function createHostRoom({
         const snap = serializeStateFor(engine, spec.viewSeat, {
           spectate: true,
           revealAll: specReveal,
+          timers,
         });
         const rotEv = rotateEventsFor(events, spec.viewSeat, {
           spectate: true,

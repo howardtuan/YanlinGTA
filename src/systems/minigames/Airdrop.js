@@ -1,6 +1,7 @@
 // Played as a short film: 21:9 letterbox, HUD hidden, the player can't move, and a street-level camera
 // follows the helicopter in, watches the scooter touch down and the helicopter leave, then hands back.
-// 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JET SL hanging under it on a cable, lowers it
+// 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JET SL (or, after 霍華德's Two Sum,
+// his 忍 400: src/systems/quests/HowardTwoSum.js) hanging under it on a cable, lowers it
 // onto the road next to you, lets go and flies off again. Its pilot (src/entities/Pilot.js) sits behind a glass canopy and gets a short
 // close-up while he lowers the scooter. When he isn't flying he walks around campus (CampusPilot) — there is only ever one of him.
 import * as THREE from 'three';
@@ -234,7 +235,14 @@ export class Airdrop {
       c.fov = this._fov;
       c.updateProjectionMatrix();
       this._fov = null;
-    } else this.g.hud.toast('🛵 機車送到了，騎上去吧！', 'good', 2600);
+    } else
+      this.g.hud.toast(
+        this._last?.model === 'ninja'
+          ? '🏍️ 忍 400 送到了，騎上去吧！'
+          : '🛵 機車送到了，騎上去吧！',
+        'good',
+        2600
+      );
   }
   _bars() {
     const el = document.getElementById('cinema');
@@ -273,15 +281,16 @@ export class Airdrop {
       cam.updateProjectionMatrix();
     }
   }
-  // returns an error message, or null when the helicopter is on its way
-  call() {
+  // returns an error message, or null when the helicopter is on its way.
+  // what: 'jet' (your JET SL, default) or 'ninja' (霍華德's 忍 400 once his Two Sum is solved, src/entities/npcs/Howard.js lend)
+  call(what = 'jet') {
     const g = this.g,
-      pl = g.player,
-      v = g.myScooter;
-    if (!v) return '找不到你的機車';
+      pl = g.player;
     if (this.run) return '🚁 直升機已經在路上了';
-    if (pl.vehicle === v) return '你正騎著它呢 🛵';
     if (g.race.state !== 'idle') return '比賽中不能呼叫載具';
+    const v = what === 'ninja' ? g.howard?.bike : g.myScooter;
+    if (!v) return '找不到你的機車';
+    if (pl.vehicle === v) return '你正騎著它呢 🛵';
     const p = pl.worldPos();
     if (!pl.vehicle && (pl.y > 1 || g.interiors.zoneAt(p.x, p.z, pl.y)))
       return '直升機進不來，先到戶外再呼叫';
@@ -301,7 +310,11 @@ export class Airdrop {
         }
       }
     if (!spot) return '附近沒有空地可以降落';
-    if (pl.vehicle === v) return '你正騎著它呢 🛵';
+    if (what === 'ninja') {
+      const r = g.howard.lend();
+      if (typeof r === 'string') return r;
+    }
+    this._last = v; // for the 「送到了」 toast
     const H = this._heli();
     g.scene.add(H.g);
     const cable = new THREE.Line(

@@ -8,8 +8,10 @@
 //  - 信實樓 w392023441：三翼（北、中、南翼）＋東側連接，中翼與南翼之間是天井（正射 2024 陰影）；11F（官方 2017 數到 11 層），
 //    灰色細橫紋磁磚、每層淺咖啡飾帶、轉角藍色直條；每翼端部屋頂深色鋼格架；入口在西側凹口，藍綠鋼構玻璃雨遮＋花崗石方柱、金字館名。
 //  - 熱誠樓 B C 棟 w587178273：兩塔＋裙樓。中塔（西北）白牆＋木色百葉直帶＋寶藍實牆，東南塔整面寶藍＋白格子框（官方 2026-05）；
-//    裙樓 2F，藍色懸挑平台沿建物、室外大階梯、米色清水斜牆直寫「熱誠樓」（評論相片 2025-05）；層數未確認，暫用 14F。
-//  - 熱誠樓 A 棟 w587171777：端牆整片寶藍、直寫「中原大學」「熱誠宿舍」，長面白色柱梁格子＋淺咖啡百葉，頂樓藍框＋白直格柵（2025-05）。
+//    裙樓 2F，藍色懸挑平台沿建物、室外大階梯、米色清水斜牆直寫「熱誠樓」（評論相片 2025-05）；
+//    地上 12 層（中原大學 2017-06 新聞稿「B棟宿舍為地上12層、地下1層」；《建築師》2018-01 潘冀事務所作品照：B 棟比 A 棟矮一截）。
+//  - 熱誠樓 A 棟 w587171777：端牆整片寶藍、直寫「中原大學」「熱誠宿舍」，長面白色柱梁格子＋淺咖啡百葉，頂樓藍框＋白直格柵（2025-05）；
+//    地上 13 層（同一則新聞稿「A棟為地上13層、地下1層」；作品照數得到 2 層裙樓＋11 層格子）。
 //  - A／B 連通體 w700658288：實心 2F 改成架高空橋（深色玻璃廊道、上下藍色框梁、下方柱子撐著開放通道，2021 相片）。
 //  - 薄膜中心南棟 w492487884：2 層但層高高（約 9.5 m），淺灰金屬板，西端整片玻璃樓梯間、中間大鐵捲門、綠色雨遮、
 //    西南角灰綠直立招牌柱「薄膜中心」（2025-03 相片）。
@@ -19,6 +21,7 @@
 //  - 知行領航館（OSM 沒有，正射量約 63×26 m）：3F＋B1 基座，灰牆嵌寶藍／淺藍盒狀窗框，西北角藍框玻璃盒，屋頂太陽能板（2019 使用者環景）；
 //    中間偏東的方形天井、西南角 1F 附屬棟照正射 2024。
 //  - 忍耐樓（f694 改）：兩個白色平頂小盒（正射 2024，G 區調查第 8 節）。
+//  - 仁愛樓、和平樓（synthetic 新增）：舊教職員宿舍區樹林裡僅存的兩棟（Google 衛星 2026 標名、正射 2024 量輪廓）。
 // 沒有影像的面照同棟看得到的面推，入口、招牌等特殊構件不編。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -91,8 +94,8 @@ const RBC = {
   V: [0.7579, -0.6525],
   uSE: 13.0,
   uNW: 28.0,
-  h: 46.8,
-  floors: 14,
+  h: 40.4, // 2F 裙樓 8.4 m＋10 層 × 3.2 m
+  floors: 12,
   podH: 8.4,
 };
 const bcP = (u, v) => [
@@ -178,6 +181,38 @@ const ADD = [
     pts: rect(-109.4, -264.9, -97.3, -257.0),
     look: null,
   },
+  // 舊教職員宿舍區（Google 衛星 2026 仍標「仁愛樓」「和平樓」，其餘是樹林）
+  // 仁愛樓：正射 2024 米色平頂（上面有雜物、兩個深色開口）約 15.6×13.9 m；2017 官方街景遠看是 4F 灰白公寓、每層米色陽台帶
+  {
+    id: 'zh-renai',
+    name: '仁愛樓',
+    kind: 'dorm',
+    h: 13.6,
+    floors: 4,
+    pts: rect(-116.9, -287.0, -101.3, -273.1),
+    look: {
+      wall: { base: 'smooth', colour: '#d6d5cf' },
+      windows: { type: 'punched', bay: 3.2, accent: '#cfcdc6', glass: '#4f5a60' },
+      bands: [{ colour: '#cdbb98', h: 0.3, depth: 0.25 }],
+      parapet: { h: 0.9, colour: '#c9c7c0' },
+      roof: { colour: '#c8bfae', ac: false },
+    },
+  },
+  // 和平樓：衛星 2026 灰色平頂、東西兩端白色女兒牆，約 14×7 m；沒有側面影像，層數照一般平房推 2F
+  {
+    id: 'zh-heping',
+    name: '和平樓',
+    kind: 'dorm',
+    h: 7.0,
+    floors: 2,
+    pts: rect(-150.3, -262.7, -136.3, -255.7),
+    look: {
+      wall: { base: 'smooth', colour: '#d4d2cc' },
+      windows: { type: 'punched', bay: 3.0, accent: '#cfcdc6', glass: '#4f5a60' },
+      parapet: { h: 0.6, colour: '#e6e6e2' },
+      roof: { colour: '#6f7174', ac: false },
+    },
+  },
 ];
 const BM4_LOOK = () => ({
   wall: { base: 'smooth', colour: '#c9cbcb' },
@@ -224,7 +259,9 @@ export function zoneHLook(b) {
       b.splitAc = 1; // 屋頂冷氣照原本的 rnd2 抽，落在天井上方的自動不畫
     }
   } else if (id === H_IDS.rBC) {
-    // 兩塔＋裙樓；層數未確認，暫用 14F
+    // 兩塔＋裙樓；地上 12 層（官方新聞稿）
+    b.floors = RBC.floors;
+    b.h = RBC.h;
     const base = { base: 'smooth', colour: '#e8e8e6' };
     b.look = {
       wall: base,
@@ -276,6 +313,9 @@ export function zoneHLook(b) {
       b.splitAc = 1;
     }
   } else if (id === H_IDS.rA) {
+    // 地上 13 層（官方新聞稿）：2F 裙樓 8.4 m＋11 層 × 3.2 m；OSM 原本 14F／46.8 m
+    b.floors = 13;
+    b.h = 43.6;
     const L = b.look || {};
     b.look = {
       ...L,
@@ -955,6 +995,38 @@ export function buildZoneH(I, scene, data, collision) {
     });
   }
 
+  // ===== 新中北淨水廠管理室（src/world/CampusFix.js f470）東側一樓玻璃雨遮 =====
+  // 正射 2024 與 Google 衛星 2026 一樣：管理室（米色平頂，輪廓和 f470 吻合）東牆外貼一片梯形透明頂，
+  // 北端寬約 6.4 m、南端約 1.6 m；2017 街景看得到管理室「一樓雨遮」，高度照一層樓推（3.2 m）。2017 的大片門型鋼構架區現在被樹蓋住，不做。
+  const ws = find('f470');
+  if (ws) {
+    const B = ws.base ?? groundY(356, -117),
+      y = B + 3.2,
+      P = [
+        [359.8, -125.6],
+        [366.1, -125.6],
+        [361.4, -108.8],
+        [359.8, -108.8],
+      ];
+    k.flat('canopyGlass', P, y);
+    k.flat('canopyGlass', P, y - 0.02, true);
+    for (let i = 0; i < 3; i++)
+      k.beam('steelDark', [P[i][0], y, P[i][1]], [P[i + 1][0], y, P[i + 1][1]], 0.15, 0.2);
+    for (const [x, z] of [P[1], [363.75, -117.2], P[2]]) {
+      k.box('steelDark', x - 0.1, x + 0.1, B - 0.3, y, z - 0.1, z + 0.1);
+      boxColl(
+        [
+          [x - 0.1, z - 0.1],
+          [x + 0.1, z - 0.1],
+          [x + 0.1, z + 0.1],
+          [x - 0.1, z + 0.1],
+        ],
+        B - 0.3,
+        y
+      );
+    }
+  }
+
   // ===== 熱誠 B C：中塔木百葉直帶與藍實牆、東南塔字、裙樓藍色懸挑平台、大階梯與「熱誠樓」清水斜牆、塔頂玻璃亭 =====
   const bc = find(H_IDS.rBC);
   if (bc) {
@@ -1173,7 +1245,7 @@ export function buildZoneH(I, scene, data, collision) {
     shapes.push({ name: 'bcStair', pts: SP, y0: yG, y1: hB });
   }
 
-  // ===== 熱誠 A 棟：東北端牆直書「中原大學」「熱誠宿舍」 =====
+  // ===== 熱誠 A 棟：東北端牆直書「中原大學」「熱誠宿舍」（「熱誠宿舍」是金色明體，Google 地圖評論相片 2021-01 普忠路校門往西南） =====
   const ra = find(H_IDS.rA);
   if (ra) {
     const B = ra.base ?? groundY(296, -292),
@@ -1194,7 +1266,7 @@ export function buildZoneH(I, scene, data, collision) {
     );
     sign(
       group,
-      vText('hRaDorm', '熱誠宿舍', '#e6e6e2', SANS),
+      vText('hRaDorm', '熱誠宿舍', '#d8b878', SERIF),
       1.4,
       5.6,
       q[0],

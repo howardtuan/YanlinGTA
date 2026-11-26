@@ -44,6 +44,11 @@ function bez(c, s) {
     tz = 2 * (1 - s) * (c.p1[1] - c.p0[1]) + 2 * s * (c.p2[1] - c.p1[1]);
   return [x, z, tx, tz];
 }
+// a pedestrian shoved without falling (Peds.shove): stumbling feet stop them at mu g ~ 0.4 * 9.81 m/s^2, and a
+// shove harder than SHOVE_MAX would have knocked them down (solvePersonImpact knockDownV) instead
+const SHOVE_DECEL = 4,
+  SHOVE_MAX = 3;
+
 export class Traffic {
   constructor(scene, world, count = 28) {
     this.scene = scene;
@@ -705,10 +710,15 @@ export class Traffic {
       q = r.root.getWorldQuaternion(new THREE.Quaternion());
     v.mesh.remove(r.root);
     this.scene.add(r.root);
-    r.root.position.copy(p);
-    r.root.quaternion.copy(q);
     const l = Math.hypot(vx, vz) || 1,
       sp = Math.min(6, l * 0.4);
+    // start clear of the vehicle's own box (it is a dynamic body by now, and ragdolls collide with vehicles):
+    // ahead along the launch and up, as the player's throwOff does (src/core/VehicleSpawner.js)
+    p.x += (vx / l) * 0.55;
+    p.z += (vz / l) * 0.55;
+    p.y += 0.55;
+    r.root.position.copy(p);
+    r.root.quaternion.copy(q);
     r.rag =
       this.ragdoll?.(r, { x: vx, y: vy, z: vz }, { x: (vz / l) * sp, y: 0, z: (-vx / l) * sp }) ||
       null;
@@ -1123,6 +1133,21 @@ export class Peds {
         continue;
       }
       p.t -= dt;
+      // shoved without being knocked down (Peds.shove): slides on with that velocity, slowed by the
+      // friction of stumbling feet (Coulomb, SHOVE_DECEL), kept out of walls; walkers then drift back to
+      // their path (_place)
+      if (p.shove && p.state !== 'fly' && p.state !== 'down') {
+        const sv = Math.hypot(p.shove.x, p.shove.z);
+        p.pos.x += p.shove.x * dt;
+        p.pos.z += p.shove.z * dt;
+        if (!p.ghost) collision.resolve(p.pos, 0.35, 0, p.ch.root.position.y);
+        const left = sv - SHOVE_DECEL * dt;
+        if (left <= 0.05) p.shove = null;
+        else {
+          p.shove.x *= left / sv;
+          p.shove.z *= left / sv;
+        }
+      }
       let mode = 'foot',
         pose = null,
         speed = 0;
@@ -1285,6 +1310,18 @@ export class Peds {
   }
   // Hit by a vehicle or sprinting character: uses Newtonian post-impact horizontal speed (dv) and lift (vy)
   // when supplied by ImpactPhysics.js, tumbling realistically without sky-launching.
+  // give pedestrian p a velocity change (vx, vz) in m/s that did not knock them down: the reaction of a
+  // collision (Newton's 3rd law; src/core/Game.js, src/physics/DebrisPeople.js). Adds to a shove in progress
+  shove(p, vx, vz) {
+    if (!p || p.state === 'fly' || p.state === 'down' || p.rag) return false;
+    const x = (p.shove?.x || 0) + vx,
+      z = (p.shove?.z || 0) + vz,
+      l = Math.hypot(x, z);
+    if (l < 0.05) return false;
+    const k = l > SHOVE_MAX ? SHOVE_MAX / l : 1;
+    p.shove = { x: x * k, z: z * k };
+    return true;
+  }
   knock(p, dirX, dirZ, speed = 6, opt = null) {
     if (p.state === 'down' || p.state === 'fly') return false;
     const horiz =

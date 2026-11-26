@@ -4345,6 +4345,43 @@ kbd.pb-nin.pb-face {
 .rr-btns button.go {
   background: #ff4fa3;
 }
+/* 選車 (src/systems/minigames/Race.js _pick): JET SL or 霍華德's 忍 400 */
+.rr-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rr-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #2a2640;
+  color: #fff;
+  cursor: pointer;
+}
+.rr-pick span {
+  font-size: 30px;
+}
+.rr-pick b {
+  display: block;
+  font-size: 15px;
+}
+.rr-pick small {
+  color: #b9b4d0;
+  font-size: 12px;
+}
+.rr-pick.sel {
+  border-color: #ff4fa3;
+  background: #3a2f55;
+}
+.rr-pick:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 @media (max-width: 760px) {
   #raceHud {
     top: auto;
@@ -8632,6 +8669,63 @@ body.mahjong #dialog {
 #mjUI .mj-wait small {
   font-size: 12px;
   opacity: 0.9;
+}
+/* 多人限時 20 秒倒數（MahjongScene._timerHud）：手牌右上方，剩 5 秒變紅閃 */
+#mjUI .mj-timer {
+  position: absolute;
+  transform: translate(-100%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.66);
+  border: 2px solid #8fd3ff;
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+#mjUI .mj-timer b {
+  font-size: 22px;
+  color: #8fd3ff;
+}
+#mjUI .mj-timer small {
+  font-size: 11px;
+  opacity: 0.85;
+}
+#mjUI .mj-timer.urgent {
+  border-color: #ff5a4f;
+  animation: mjTimerPulse 0.5s ease-in-out infinite alternate;
+}
+#mjUI .mj-timer.urgent b {
+  color: #ff5a4f;
+}
+@keyframes mjTimerPulse {
+  to {
+    transform: translate(-100%, -100%) scale(1.08);
+  }
+}
+/* 觀戰切換視角：◀ 目前看誰 ▶（鍵盤 ← →） */
+#mjUI .mj-mp-bar .mj-spec-view {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#mjUI .mj-mp-bar .mj-spec-view span {
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#mjUI .mj-mp-bar .mj-spec-view kbd {
+  margin-left: 4px;
+  font-size: 10px;
+}
+#mjUI .mj-mp-bar .mj-spec-view button {
+  min-width: 34px;
+  font-size: 14px;
 }
 #mjUI .mj-wt {
   display: flex;

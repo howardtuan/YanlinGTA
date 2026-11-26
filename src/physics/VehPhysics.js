@@ -232,7 +232,8 @@ export class Chassis {
     const v = this.v,
       b = this.body,
       va = b.linvel(),
-      yaw = yawOf(b.rotation());
+      yaw = yawOf(b.rotation()),
+      ang0 = v.moveAng; // movement direction before this step's contacts turned it (see _setVel)
     v.heading = yaw;
     const Lx = this.vset.x - va.x,
       Lz = this.vset.z - va.z,
@@ -246,12 +247,12 @@ export class Chassis {
       v.moveAng = wrap(v.moveAng + Math.max(-SLIP_MAX, Math.min(SLIP_MAX, off)));
     }
     v.speed = sp;
-    if (hit) this._collect(Lx, Lz);
+    if (hit) this._collect(Lx, Lz, ang0);
     if (!Number.isFinite(va.x) || !Number.isFinite(b.translation().y)) this._rescue();
   }
   // contacts of the chassis this step: impact (m/s into the obstacle) per object, the largest kept, with the
   // velocity / speed from before the step (vx, vz, sp)
-  _collect(Lx, Lz) {
+  _collect(Lx, Lz, ang0) {
     const P = this.P,
       W = P.world;
     W.contactPairsWith(this.col, (other) => {
@@ -294,6 +295,7 @@ export class Chassis {
             nz: nz / hl,
             vx: vs.x,
             vz: vs.z,
+            ang: ang0,
             sp: this.spSet,
           });
       });
@@ -378,28 +380,63 @@ export class Chassis {
         const [ofx, ofz] = key.forward(),
           os = key.speed || 0;
         const rel = -((hit.vx - ofx * os) * hit.nx + (hit.vz - ofz * os) * hit.nz);
-        v._hitVehicle(key, kf, hit.impact, hit.nx, hit.nz, sp, onBump, Math.abs(sp), rel);
+        v._hitVehicle(key, kf, hit.impact, hit.nx, hit.nz, sp, onBump, Math.abs(sp), rel, {
+          vx: hit.vx,
+          vz: hit.vz,
+          ang: hit.ang,
+        });
         deflect();
       }
       this.lastHits = this.hits;
       this.hits = new Map();
     }
-    if (v.speed !== before) this._setSpeed(v.speed);
+    if (v._hitVel) {
+      this._setVel(v._hitVel);
+      v._hitVel = null;
+    } else if (v.speed !== before) this._setSpeed(v.speed);
     this.wsp = v.speed;
     this.wx = v.pos.x;
     this.wz = v.pos.z;
   }
-  // make the arcade speed s (scales the horizontal velocity; 0 stops it)
+  // make the arcade speed s. Slowing down (same direction, |s| <= |current|) scales the horizontal velocity,
+  // so a drift keeps its shape; 0 stops it. Giving speed back (a hit rule restoring momentum the contact
+  // solver took, e.g. a car knocking a parked scooter away: the kinematic stand-in stopped the car like a
+  // wall for a step) sets the part along moveAng to s and keeps the sideways leftover as it is. Scaling
+  // that leftover by s / current blew a few m/s of sideways slide up into a pinball launch
   _setSpeed(s) {
     const b = this.body,
       va = b.linvel(),
       m = this.v.moveAng,
       cur = arcSpeed(va.x, va.z, m);
-    if (Math.abs(cur) > 0.05 && Math.abs(s) > 0.01) {
+    if (Math.abs(s) <= 0.01) b.setLinvel({ x: 0, y: va.y, z: 0 }, true);
+    else if (
+      Math.abs(cur) > 0.05 &&
+      Math.sign(cur) === Math.sign(s) &&
+      Math.abs(s) <= Math.abs(cur)
+    ) {
       const k = s / cur;
       b.setLinvel({ x: va.x * k, y: va.y, z: va.z * k }, true);
-    } else b.setLinvel({ x: Math.sin(m) * s, y: va.y, z: Math.cos(m) * s }, true);
+    } else {
+      const dx = Math.sin(m),
+        dz = Math.cos(m),
+        al = va.x * dx + va.z * dz,
+        px = va.x - al * dx,
+        pz = va.z - al * dz;
+      b.setLinvel({ x: dx * s + px, y: va.y, z: dz * s + pz }, true);
+    }
     this.v.speed = this.wsp = s;
+  }
+  // the velocity after hitting a vehicle that moves (Vehicle._hitVehicle: the velocity before the hit plus the
+  // momentum-exchange Δv along the contact normal). The stand-in of moving traffic is kinematic (infinite mass) in
+  // Rapier, so the step's own contact response is replaced as a whole; the movement direction goes back to the
+  // one before the contact turned it, and the tyres (pre's servo) take any sideways part off over the next steps
+  _setVel(h) {
+    const b = this.body,
+      va = b.linvel(),
+      v = this.v;
+    if (Number.isFinite(h.ang)) v.moveAng = h.ang;
+    b.setLinvel({ x: h.x, y: va.y, z: h.z }, true);
+    v.speed = this.wsp = h.x * Math.sin(v.moveAng) + h.z * Math.cos(v.moveAng);
   }
   // Vehicle.place: moved by the game (race grid, tow, bot fallback, brought to you)
   teleport(x, z, h) {
@@ -410,6 +447,10 @@ export class Chassis {
     b.setRotation(yawRot(h), true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    // the arcade state follows the body: heading and movement direction h, at rest (a NaN heading left here
+    // would make the next pre() set a NaN angular velocity and rescue again every step)
+    v.heading = v.moveAng = h;
+    v.speed = 0;
     v.steer = 0;
     v.hf = v.hb = y;
     this.vset.x = this.vset.z = this.spSet = 0;
@@ -424,7 +465,11 @@ export class Chassis {
   _rescue() {
     console.warn('[vehphys] 車輛物理狀態異常，已把車放回地面');
     const v = this.v;
-    this.teleport(this.wx, this.wz, Number.isFinite(v.heading) ? v.heading : 0);
+    const h = Number.isFinite(v.heading) ? v.heading : Number.isFinite(v.moveAng) ? v.moveAng : 0;
+    // the last written position can be NaN too: then the vehicle's own (arcade) position, else where it is
+    const x = Number.isFinite(this.wx) ? this.wx : Number.isFinite(v.pos?.x) ? v.pos.x : 0,
+      z = Number.isFinite(this.wz) ? this.wz : Number.isFinite(v.pos?.z) ? v.pos.z : 0;
+    this.teleport(x, z, h);
   }
   // the player got off: back to a plain parked vehicle on the same level (hf / hb keep the level)
   remove() {

@@ -95,7 +95,7 @@ import { nmAdd, nmFootprints } from '../buildings/NightMarketFill.js';
 import { xmasTreeHide, buildChristmasTree } from '../Festive.js';
 import { bellPlatformHide, buildBellPlatform } from '../buildings/BellPlatform.js';
 import { buildNiuchouDeck } from '../buildings/NiuchouDeck.js';
-import { yuantangIslandTrees } from '../buildings/YuantangIsland.js';
+import { yuantangIslandTrees, buildYuantangIslet } from '../buildings/YuantangIsland.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -397,6 +397,7 @@ export const ZONES = [
     // 園塘南側林木島上的樹（src/world/buildings/YuantangIsland.js；島本身是 tools/water.json 水面輪廓挖掉的那塊）
     name: '園塘林木島',
     trees: yuantangIslandTrees,
+    build: buildYuantangIslet,
   },
 ];
 

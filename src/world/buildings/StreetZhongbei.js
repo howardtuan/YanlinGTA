@@ -770,7 +770,8 @@ export const ZB_ST = {
         sign: ['韓式炸雞', '#1f1f1f', '#f2e6b0'],
         ground: 'shop',
         bal: 'rail',
-        d: 5,
+        d: 5, // 中山東路那面（街景 2026-05）：路口安全帽店，白色招牌帶印一排安全帽（沒有字），一樓開放擺滿安全帽
+        side: { at: 1, sign: ['', '#f4f4f2', '#2a2a2a'], ground: 'open' },
       },
     ],
     // 中北路二段（2026-05 到 s≈567，其後 2024）
@@ -786,7 +787,8 @@ export const ZB_ST = {
         bal: 'grille',
         roof: 'bill',
         bill: ['承聚廣告', '#d42a1f', '#ffffff', 6, 1.8],
-        d: 8,
+        d: 8, // 中山東路那面（街景 2026-05）：轉角是六六大舜，白色招牌帶紅字、一樓玻璃店面
+        side: { at: 0, sign: ['六六大舜', '#f4f2ee', '#c8282a'], ground: 'shop' },
       },
     ],
     // ---- 茶學苑側（N，往西走的右手邊）----
@@ -1738,7 +1740,13 @@ export const ZB_ST = {
         bal: 'plain',
         roof: 'bill',
         bill: ['HJC   SHOEI   SHARK   OGK   agv', '#f4f4f2', '#2a2a2a', 14, 3.2],
-        d: 10,
+        d: 10, // 中山東路那面（街景 2026-05）：深藍「騎士」店招、玻璃店面，二樓一片橘色看板（字看不清）
+        side: {
+          at: 1,
+          sign: ['騎士安全部品', '#1a2a4a', '#ffffff'],
+          ground: 'shop',
+          big: ['', '#e8963a', '#ffffff'],
+        },
       },
     ],
     // 中北路二段（2026-05）
@@ -1754,7 +1762,8 @@ export const ZB_ST = {
         roof: 'bill',
         bill: ['台北高明\n一對一補習班', '#2a6ad0', '#ffffff', 5, 2],
         roofCol: '#8fa8a8',
-        d: 6,
+        d: 6, // 中山東路那面（街景 2026-05）：單層鐵皮屋，紅色招牌帶（字看不清）、一樓開放店面
+        side: { at: 0, sign: ['', '#c8282a', '#ffffff'], ground: 'open' },
       },
     ],
     [

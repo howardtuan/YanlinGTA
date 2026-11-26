@@ -477,7 +477,7 @@ export class MahjongScene {
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div>
       <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
@@ -542,6 +542,8 @@ export class MahjongScene {
     this.$('.mj-res').classList.add('hidden');
     this.$('.mj-wait').classList.add('hidden');
     this._waitKey = '';
+    this.$('.mj-timer').classList.add('hidden');
+    this._timerKey = '';
     this.$('.mj-info').innerHTML = this._info = '';
     const mpBar = this.$('.mj-mp-bar');
     if (mpBar) {
@@ -610,6 +612,8 @@ export class MahjongScene {
     if (!e) return;
     this._keys(inp);
     if (!this.result && !e.isRemote) {
+      // 多人房主：限時 20 秒到了的人替他出牌／過（單人模式不限時，這裡什麼都不做）
+      this.mj.tickTurnTimers?.();
       this.t -= dt;
       let guard = 0;
       while (this.t <= 0 && !e.pending && e.phase !== 'end' && guard++ < 6) {
@@ -891,7 +895,7 @@ export class MahjongScene {
       const code = this.$('#mjCode')?.value || '';
       return this.mj.joinRoom(code, nick, undefined, { spectateOnly: true });
     }
-    if (a.type === 'specView') return this.mj.cycleSpectatorView();
+    if (a.type === 'specView') return this.mj.cycleSpectatorView(a.dir || 1);
     if (a.type === 'specToggleQueue') {
       this.mj.setGuestWantSeat(!this.mj.sess?.wantSeat);
       if (this.result && this.e?.result) this._showResultPanelOnly?.();
@@ -947,6 +951,11 @@ export class MahjongScene {
       this.g.hud.toast('再按一次 Esc 離開牌桌（這一局不算）', 'bad', 1800);
       return;
     }
+    // 觀戰者：← → 換看別家的視角
+    if (this.mj.isGuest && this.mj.sess?.spectating) {
+      if (inp.hit('ArrowLeft', 'KeyA')) this.mj.cycleSpectatorView(-1);
+      if (inp.hit('ArrowRight', 'KeyD')) this.mj.cycleSpectatorView(1);
+    }
     if (this.result) {
       if (!this.mj.isGuest && inp.hit('Enter', 'NumpadEnter', 'Space', 'KeyE'))
         this._do({
@@ -984,6 +993,16 @@ export class MahjongScene {
       g = this.g;
     this._popTick();
     const seatName = (s) => this.names[s];
+    // 多人限時倒數（房主算的；單人模式是空的）：每個在等的座位還剩幾秒
+    const now = Date.now();
+    const secs = [null, null, null, null];
+    let mine = null;
+    if (!this.result)
+      for (const d of this.mj.turnTimers?.() || []) {
+        const sec = Math.max(0, Math.ceil((d.until - now) / 1000));
+        secs[d.seat] = sec;
+        if (d.seat === 0 && !e.spectate) mine = { sec, kind: d.kind };
+      }
     // (the info card has it all now: the line at the top is only for 抓位／擲骰 titles)
     const topEl = this.$('.mj-top');
     if (topEl.textContent) topEl.textContent = this._top = '';
@@ -995,7 +1014,7 @@ export class MahjongScene {
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
-      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
+      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
       if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
       el.classList.toggle('on', e.turn === s && e.phase !== 'end');
       el.classList.toggle('me', s === 0 && !e.spectate);
@@ -1028,7 +1047,7 @@ export class MahjongScene {
     const hint = this.result
       ? ''
       : e.spectate
-        ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}・Esc 離開`
+        ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}${g.input.touch ? '・◀ ▶ 切換視角' : '・← → 切換視角'}・Esc 離開`
         : p?.seat === 0 && p.kind === 'turn'
           ? g.input.touch
             ? '點一下選牌、再點一次打出'
@@ -1038,10 +1057,28 @@ export class MahjongScene {
           : p?.seat === 0
             ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
             : waitSeat != null && waitSeat !== 0
-              ? `⏳ 等待 ${this.names[waitSeat]} 思考中…`
+              ? `⏳ 等待 ${this.names[waitSeat]} 思考中…${secs[waitSeat] != null ? `（剩 ${secs[waitSeat]} 秒）` : ''}`
               : '';
     if (hint !== this._hint) this.$('.mj-hint').textContent = this._hint = hint;
     this._waitHud();
+    this._timerHud(mine);
+  }
+  // 多人：輪到你出牌／要不要吃碰槓胡時，手牌右上方一顆倒數（剩 5 秒變紅）
+  _timerHud(mine) {
+    const el = this.$('.mj-timer');
+    const key = mine ? `${mine.kind}:${mine.sec}` : '';
+    if (key !== this._timerKey) {
+      this._timerKey = key;
+      el.innerHTML = mine
+        ? `<span>⏱ <b>${mine.sec}</b> 秒</span><small>${mine.kind === 'claim' ? '沒選就算「過」' : '沒打就自動打出'}</small>`
+        : '';
+      el.classList.toggle('hidden', !mine);
+      el.classList.toggle('urgent', !!mine && mine.sec <= 5);
+    }
+    if (!mine) return;
+    const v = new THREE.Vector3(0.27, Y0 + 0.05, 0.36).project(this.cam);
+    el.style.left = `${Math.min(99, ((v.x + 1) / 2) * 100)}%`;
+    el.style.top = `${((1 - v.y) / 2) * 100}%`;
   }
   _clearSpectators() {
     if (this._specActors) {
@@ -1209,7 +1246,7 @@ export class MahjongScene {
       html = `<div class="mj-mp-pill">${status}（${eye}）</div>
         ${specs.length > 1 ? `<div class="mj-mp-pill">圍觀：${specNames}</div>` : ''}
         ${reactRow}
-        <button data-a='{"type":"specView"}'>🔄 切換視角（${WINDS[this.e.seatWind(0)]}・${esc(this.names[0])}）</button>
+        <div class="mj-spec-view"><button data-a='{"type":"specView","dir":-1}' title="上一家（←）">◀</button><span>👀 ${WINDS[this.e.seatWind(0)]}・${esc(this.names[0])}${this.g.input.touch ? '' : '<kbd>←</kbd><kbd>→</kbd>'}</span><button data-a='{"type":"specView","dir":1}' title="下一家（→）">▶</button></div>
         <button data-a='{"type":"specToggleQueue"}' class="${s.wantSeat ? 'on' : ''}">${s.wantSeat ? '👀 改為純觀賽' : '🪑 排隊下局上桌'}</button>
         <button data-a='{"type":"leave"}'>🚪 離開觀賽</button>`;
     } else if (this.mj.isGuest && this.e && specs.length > 0) {

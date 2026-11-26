@@ -10,6 +10,7 @@ import { makeAI, SKILL_DEFAULT, effectiveSkill, skillTier, adjustSkill } from '.
 import { MahjongScene } from './MahjongScene.js';
 import { RemoteMahjongEngine, normalizeRoomCode } from './Net.js';
 import { createHostRoom, joinGuestRoom } from './P2P.js';
+import { TurnTimer, timeoutAction } from './TurnTimer.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import {
   STAKES,
@@ -343,6 +344,7 @@ export class DormMahjong {
         onPeerLeave: (seat) => this._onGuestDisconnect(seat),
         onSpectatorChange: (info) => this._onHostSpectatorChange(info),
         onReact: (ev) => this.scene?.showReaction?.(ev),
+        getTimers: () => this._turnTimersLeft(),
       });
     } catch (e) {
       this.mpMode = null;
@@ -441,11 +443,15 @@ export class DormMahjong {
       2200
     );
   }
-  cycleSpectatorView() {
+  // 觀戰者切換要看哪一家（dir = 1 往下家、-1 往上家；鍵盤 ← →、觸控 ◀ ▶）
+  cycleSpectatorView(dir = 1) {
     if (!this.mp || this.mpMode !== 'guest' || !this.sess?.spectating) return;
-    const nextSeat = ((this.sess.viewSeat || 0) + 1) % 4;
+    const step = dir < 0 ? -1 : 1;
+    const nextSeat = ((((this.sess.viewSeat || 0) + step) % 4) + 4) % 4;
+    const who = this.sess.names?.[step > 0 ? 1 : 3];
     this.sess.viewSeat = nextSeat;
     this.mp.setViewSeat?.(nextSeat);
+    if (who) this.g.hud.toast(`👀 切到 ${who} 的視角`, 'good', 1200);
   }
   startMultiHost() {
     if (!this.mp || this.mpMode !== 'host') return;
@@ -603,6 +609,54 @@ export class DormMahjong {
       this.scene._layout();
     }
   }
+  // ---------------- 多人限時 20 秒（src/systems/mahjong/TurnTimer.js）：房主計時、判定，客端只顯示 ----------------
+  get _timed() {
+    return !!this.sess?.multi && this.mpMode === 'host' && !!this.engine && !this.engine.isRemote;
+  }
+  _turnTimersLeft() {
+    if (!this._timed) return [];
+    this.turnTimer ||= new TurnTimer();
+    return this.turnTimer.left(this.engine);
+  }
+  // 畫面倒數用：[{ seat（本地視角）, kind, until（本機 Date.now() 時刻） }]；單人模式永遠是空的
+  turnTimers() {
+    if (this.mpMode === 'guest') return this.engine?.timers || [];
+    if (!this._timed) return [];
+    this.turnTimer ||= new TurnTimer();
+    return this.turnTimer.sync(this.engine);
+  }
+  // 房主每幀（MahjongScene.update）：時間到的人，出牌就打剛摸的那張（或 AI 挑一張），回應就算「過」
+  tickTurnTimers() {
+    if (!this._timed) return 0;
+    this.turnTimer ||= new TurnTimer();
+    let n = 0;
+    for (const d of this.turnTimer.expired(this.engine)) {
+      const e = this.engine;
+      const act = timeoutAction(e, d.seat, d.kind, (eng, s) => this._timeoutPick(eng, s));
+      e.events.length = 0;
+      if (!e.decideFor(d.seat, act)) continue;
+      n++;
+      this.mp?.broadcastState(e, [...e.events, { type: 'timeout', seat: d.seat, kind: d.kind }]);
+      if (d.seat === 0) this._timeoutToast(d.kind);
+      if (this.scene) {
+        this.scene.t = Math.max(this.scene.t ?? 0, 0.15);
+        this.scene._layout?.();
+      }
+    }
+    return n;
+  }
+  _timeoutPick(e, s) {
+    const ai = this.ais?.[s] || makeAI({ attack: 0.5, defense: 0.5, skill: () => this.aiSkill() });
+    const a = ai(e, s, 'turn', { tsumo: false, kongs: [], discard: true });
+    return a?.type === 'discard' ? a.t : null;
+  }
+  _timeoutToast(kind) {
+    this.g.hud.toast(
+      kind === 'claim' ? '⏱ 時間到，這張視為「過」' : '⏱ 時間到，自動幫你打出一張',
+      'bad',
+      1800
+    );
+  }
   _onGuestDisconnect(seat) {
     if (!this.sess?.multi || this.mpMode !== 'host') return;
     if (this.sess.human) this.sess.human[seat] = false;
@@ -634,6 +688,9 @@ export class DormMahjong {
     this.scene._layout();
     // 房主擲骰開門：播同一組點數的擲骰動畫（座位已旋轉成本地視角）
     const roll = events.find((ev) => ev.type === 'roll' && Array.isArray(ev.dice));
+    // 房主判定你超時：告訴你幫你做了什麼
+    const late = events.find((ev) => ev.type === 'timeout' && ev.seat === 0);
+    if (late && !this.sess?.spectating) this._timeoutToast(late.kind);
     if (roll) this.scene.roll?.(roll.seat, roll.dice, 'cut', undefined, { auto: true });
     if (snap.phase === 'end' && !this.scene.result) this.scene._showResult();
   }

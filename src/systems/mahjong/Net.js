@@ -117,6 +117,8 @@ export function serializeStateFor(engine, mySeat, opts = {}) {
     spectate,
     revealAll,
     result,
+    // 房主計時的限時決定（src/systems/mahjong/TurnTimer.js）：誰在等、等什麼、還剩幾毫秒
+    timers: (opts.timers || []).map((d) => ({ seat: rot(d.seat), kind: d.kind, left: d.left })),
   };
 }
 
@@ -168,6 +170,7 @@ export class RemoteMahjongEngine {
     this._tenpai = [];
     this.spectate = false;
     this.revealAll = false;
+    this.timers = [];
     this.isRemote = true;
   }
   seatWind(s) {
@@ -214,6 +217,13 @@ export class RemoteMahjongEngine {
     this.spectate = !!snap.spectate;
     this.revealAll = !!snap.revealAll;
     this.result = snap.result;
+    // 房主送來的是剩餘毫秒，換成本機時鐘的到期時刻（畫面倒數用）
+    const now = Date.now();
+    this.timers = (snap.timers || []).map((d) => ({
+      seat: d.seat,
+      kind: d.kind,
+      until: now + (d.left || 0),
+    }));
     this.events.length = 0;
     for (const ev of events) this.emit(ev);
   }

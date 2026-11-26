@@ -1,6 +1,7 @@
 // YanlinGTA Wiki 產生器：讀 data/npcs.json + wiki/people.json + wiki/quests.json + wiki/shops.json，
 // 輸出一個不需要 JavaScript 也能看的靜態網站到 dist/wiki/，跟遊戲一起部署（yanlin-gta.com/wiki/）。
 // npm run build 會自動產生（vite.config.js）；只改 Wiki 時可以單獨跑 npm run wiki:build。
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -420,18 +421,22 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
   ];
   const promo = promoFiles.every(([src]) => fs.existsSync(path.join(promoDir, src)));
   if (!promo) console.warn('wiki: 找不到宣傳片，首頁改用封面圖');
-  fs.writeFileSync(
-    path.join(outDir, 'index.html'),
-    renderWiki(data, { promo, controls: gameControlsHtml() }),
-    'utf-8'
-  );
-  fs.writeFileSync(
-    path.join(outDir, 'game-controls.css'),
-    gameControlsCss(fs.readFileSync(path.join(root, 'src', 'styles', 'style.css'), 'utf-8')),
-    'utf-8'
-  );
-  fs.copyFileSync(path.join(root, 'wiki', 'style.css'), path.join(outDir, 'style.css'));
-  fs.copyFileSync(path.join(root, 'wiki', 'wiki.js'), path.join(outDir, 'wiki.js'));
+  // style.css / game-controls.css / wiki.js 的網址加上內容雜湊（?v=…）：GitHub Pages 讓瀏覽器快取約 10 分鐘，
+  // 不加的話剛更新時可能拿到新的 index.html 配舊的 wiki.js（例如操作說明分頁點了沒反應）
+  const assets = {
+    'style.css': fs.readFileSync(path.join(root, 'wiki', 'style.css'), 'utf-8'),
+    'game-controls.css': gameControlsCss(
+      fs.readFileSync(path.join(root, 'src', 'styles', 'style.css'), 'utf-8')
+    ),
+    'wiki.js': fs.readFileSync(path.join(root, 'wiki', 'wiki.js'), 'utf-8'),
+  };
+  let html = renderWiki(data, { promo, controls: gameControlsHtml() });
+  for (const [name, text] of Object.entries(assets)) {
+    fs.writeFileSync(path.join(outDir, name), text, 'utf-8');
+    const v = crypto.createHash('sha256').update(text).digest('hex').slice(0, 10);
+    html = html.replaceAll(`"${name}"`, `"${name}?v=${v}"`);
+  }
+  fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf-8');
   fs.copyFileSync(path.join(root, 'assets', 'loading.jpg'), path.join(outDir, 'img', 'cover.jpg'));
   if (promo) {
     fs.mkdirSync(path.join(outDir, 'media'), { recursive: true });

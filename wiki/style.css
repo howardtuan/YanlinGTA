@@ -135,6 +135,8 @@ kbd {
 .layout {
   display: grid;
   grid-template-columns: var(--side-w) minmax(0, 1fr);
+  max-width: 1480px;
+  margin: 0 auto;
 }
 .sidebar {
   position: sticky;
@@ -210,10 +212,9 @@ kbd {
   color: #fff;
 }
 
-/* 目錄貼齊畫面左邊；內容欄在大螢幕上限制寬度、靠左排，讀起來不會太寬 */
+/* 目錄＋內容整塊置中（最寬 1480px），大螢幕兩邊留白平均 */
 main {
   min-width: 0;
-  max-width: 1280px;
   padding: 0 clamp(16px, 3.5vw, 48px);
 }
 

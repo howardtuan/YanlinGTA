@@ -170,12 +170,13 @@ export function solveVehicleImpact({
   const kf = v > 1e-4 ? Math.max(0, 1 - dv1 / v) : 0;
 
   // 5. Target tipping roll angular velocity (rad/s) around its own longitudinal axis:
-  //    Scooter: omega = (J_net * hCm) / I_roll (narrow 2-wheel base tips over; gravity completes fall past 15°)
+  //    Scooter: omega = (J_net * hCm) / I_roll (narrow 2-wheel base tips over; gravity completes fall past 15°).
+  //    No floor: a knocked scooter already starts leaning past its balance angle (ParkedScooters.knockSlot), so
+  //    gravity tips it over anyway; a floor (it was 3.4 rad/s) put in rotational energy no impulse gave, which
+  //    kept every domino chain going down a whole row however lightly the first scooter was touched.
   //    Car: SSF > muKinetic -> slides flat (rollSpeed = 0)
   const rollSpeed =
-    kind2 === 'scooter' && moves
-      ? Math.max(3.4, Math.min(6.5, (netImpulse * s2.hCm) / s2.iRoll))
-      : 0;
+    kind2 === 'scooter' && moves ? Math.min(6.5, (netImpulse * s2.hCm) / s2.iRoll) : 0;
 
   return {
     m1,

@@ -87,10 +87,11 @@ export const SETS = [
     shoes: '#111111',
   },
   // ---- 同學穿搭（衣櫃的「同學穿搭」區）：照各 NPC 的外觀設定（src/entities/npcs/*.js 的 *_LOOK），只借衣服、鞋子和帽子，
-  // 臉、髮型、身材還是彥霖。extra 是 createCharacter 的服裝參數（皮衣、迷彩、水洗寬褲…），hat 是帽子（形狀＋顏色）
+  // 臉、髮型、身材還是彥霖。friend 是好友 id（src/ui/phone/Friends.js 的 FRIENDS）：加了好友才穿得到他的衣服。extra 是 createCharacter 的服裝參數（皮衣、迷彩、水洗寬褲…），hat 是帽子（形狀＋顏色）
   {
     id: 'fZz',
     group: 'friend',
+    friend: 'zz',
     name: '吱吱',
     tag: '排球少年',
     shirt: '#7a1f2c',
@@ -101,6 +102,7 @@ export const SETS = [
   {
     id: 'fHoushe',
     group: 'friend',
+    friend: 'houshe',
     name: '侯舌',
     tag: '276',
     shirt: '#141416',
@@ -111,6 +113,7 @@ export const SETS = [
   {
     id: 'fJianyu',
     group: 'friend',
+    friend: 'jianyu',
     name: '劍玉',
     tag: '灰藍牛仔襯衫',
     shirt: '#5d6b8a',
@@ -121,6 +124,7 @@ export const SETS = [
   {
     id: 'fPinhan',
     group: 'friend',
+    friend: 'pinhan',
     name: '品漢堡',
     tag: '278',
     shirt: '#2b2e35',
@@ -131,6 +135,7 @@ export const SETS = [
   {
     id: 'fRuizhe',
     group: 'friend',
+    friend: 'ruizhe',
     name: '瑞哲',
     tag: '水洗 oversize',
     shirt: '#2f2f31',
@@ -142,6 +147,7 @@ export const SETS = [
   {
     id: 'fHank',
     group: 'friend',
+    friend: 'hank',
     name: '漢克',
     tag: '樂團吉他手',
     shirt: '#202124',
@@ -152,6 +158,7 @@ export const SETS = [
   {
     id: 'fHoward',
     group: 'friend',
+    friend: 'howard',
     name: '霍華德',
     tag: '粉色上衣',
     shirt: '#f0a9bc',
@@ -162,6 +169,7 @@ export const SETS = [
   {
     id: 'fRichard',
     group: 'friend',
+    friend: 'richard',
     name: '理查',
     tag: '深綠漁夫帽',
     shirt: '#f1f0ec',
@@ -173,6 +181,7 @@ export const SETS = [
   {
     id: 'fGd',
     group: 'friend',
+    friend: 'gd',
     name: '女拳大帝',
     tag: '皮衣',
     shirt: '#242424',
@@ -184,6 +193,7 @@ export const SETS = [
   {
     id: 'fYeeming',
     group: 'friend',
+    friend: 'yeeming',
     name: 'YeeMing',
     tag: '迷彩軍服',
     shirt: '#56643a',
@@ -265,6 +275,11 @@ export function characterOpts(look) {
 }
 
 // 衣櫃裡點一件：套裝直接換上；單件（上衣、褲子、帽子）會脫下套裝、保留其他單件
+// 這套衣服現在能不能穿：同學穿搭要先加那位同學好友（friends: 已加好友的 id 集合）
+export function canWear(item, friends) {
+  return !item?.friend || !!friends?.has?.(item.friend);
+}
+
 export function pickItem(look, kind, item) {
   const L = normalizeLook(look);
   if (kind === 'set') return { ...L, set: item?.id || null };

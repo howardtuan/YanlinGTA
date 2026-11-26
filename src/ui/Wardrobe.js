@@ -3,7 +3,15 @@
 // 也可以只換上衣、褲子或戴頂帽子；換單件會脫下套裝。
 // 點一下就換上（src/systems/Outfits.js wearLook），造型存在存檔裡，多人麻將時別人也看得到（src/systems/mahjong/P2P.js）。
 // 服裝清單在 src/systems/OutfitData.js。
-import { TOPS, BOTTOMS, HATS, SETS, normalizeLook, pickItem } from '../systems/OutfitData.js';
+import {
+  TOPS,
+  BOTTOMS,
+  HATS,
+  SETS,
+  normalizeLook,
+  pickItem,
+  canWear,
+} from '../systems/OutfitData.js';
 import { wearLook } from '../systems/Outfits.js';
 
 // 有解鎖條件的上衣要拿到才會出現在衣櫃
@@ -26,7 +34,7 @@ export class Wardrobe {
     el.innerHTML = `<div class="wd-card">
       <div class="wd-head"><b>👕 衣櫃</b><small>WARDROBE</small><button class="wd-x" title="關閉">✕</button></div>
       <div class="wd-sec">套裝 <small>整套換上</small></div><div class="wd-grid" id="wdSets"></div>
-      <div class="wd-sec">同學穿搭 <small>借同學的衣服整套換上</small></div><div class="wd-grid" id="wdFriends"></div>
+      <div class="wd-sec">同學穿搭 <small>加了好友就能借衣服整套換上</small></div><div class="wd-grid" id="wdFriends"></div>
       <div class="wd-sec">上衣</div><div class="wd-grid" id="wdTops"></div>
       <div class="wd-sec">褲子</div><div class="wd-grid" id="wdBottoms"></div>
       <div class="wd-sec">帽子</div><div class="wd-grid" id="wdHats"></div>
@@ -49,6 +57,11 @@ export class Wardrobe {
               ? BOTTOMS[i]
               : HATS[i] || null;
       if (k !== 'set' && k !== 'hat' && !item) return;
+      if (k === 'set' && !canWear(item, this.g.friends?.added)) {
+        // 同學穿搭：還沒加他好友
+        this.g.hud.toast(`🔒 先跟${item.name}聊天、加好友，才能借${item.name}的衣服`, 'bad', 2400);
+        return;
+      }
       this._wear(pickItem(this._look(), k, item));
     });
     addEventListener('keydown', (e) => {
@@ -68,7 +81,14 @@ export class Wardrobe {
     const sw = (x) => SWATCH[x.id] || `linear-gradient(135deg,${x.shirt} 55%,${x.shorts} 55%)`;
     const sets = (friend) =>
       SETS.map((x, i) =>
-        !!x.group === friend ? item('set', i, x.name, sw(x), L.set === x.id, x.tag) : ''
+        !!x.group !== friend
+          ? ''
+          : canWear(x, this.g.friends?.added)
+            ? item('set', i, x.name, sw(x), L.set === x.id, x.tag)
+            : item('set', i, x.name, '#2a2e40', false, '🔒 加好友').replace(
+                'class="wd-item',
+                'class="wd-item locked'
+              )
       ).join('');
     $('wdSets').innerHTML = sets(false) + item('set', -1, '不穿套裝', '#2a2e40', !L.set, '單件');
     $('wdFriends').innerHTML = sets(true);

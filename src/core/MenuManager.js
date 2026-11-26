@@ -97,6 +97,7 @@ export class MenuManager {
     onClick('btnStart', startGame);
     onClick('btnControls', () => this.showControls());
     onClick('btnSettings', () => this.openSettings());
+    onClick('btnBench', () => game.bench?.openDialog());
     onClick('btnAbout', () => this.modal('關於彥霖', ABOUT_HTML, 'ABOUT'));
     onClick('modalClose', () => this.closeModal());
     onClick('videoClose', () => this.closeVideo());

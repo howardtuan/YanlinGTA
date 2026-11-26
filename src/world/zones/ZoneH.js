@@ -962,6 +962,38 @@ export function buildZoneH(I, scene, data, collision) {
     });
   }
 
+  // ===== 新中北淨水廠管理室（src/world/CampusFix.js f470）東側一樓玻璃雨遮 =====
+  // 正射 2024 與 Google 衛星 2026 一樣：管理室（米色平頂，輪廓和 f470 吻合）東牆外貼一片梯形透明頂，
+  // 北端寬約 6.4 m、南端約 1.6 m；2017 街景看得到管理室「一樓雨遮」，高度照一層樓推（3.2 m）。2017 的大片門型鋼構架區現在被樹蓋住，不做。
+  const ws = find('f470');
+  if (ws) {
+    const B = ws.base ?? groundY(356, -117),
+      y = B + 3.2,
+      P = [
+        [359.8, -125.6],
+        [366.1, -125.6],
+        [361.4, -108.8],
+        [359.8, -108.8],
+      ];
+    k.flat('canopyGlass', P, y);
+    k.flat('canopyGlass', P, y - 0.02, true);
+    for (let i = 0; i < 3; i++)
+      k.beam('steelDark', [P[i][0], y, P[i][1]], [P[i + 1][0], y, P[i + 1][1]], 0.15, 0.2);
+    for (const [x, z] of [P[1], [363.75, -117.2], P[2]]) {
+      k.box('steelDark', x - 0.1, x + 0.1, B - 0.3, y, z - 0.1, z + 0.1);
+      boxColl(
+        [
+          [x - 0.1, z - 0.1],
+          [x + 0.1, z - 0.1],
+          [x + 0.1, z + 0.1],
+          [x - 0.1, z + 0.1],
+        ],
+        B - 0.3,
+        y
+      );
+    }
+  }
+
   // ===== 熱誠 B C：中塔木百葉直帶與藍實牆、東南塔字、裙樓藍色懸挑平台、大階梯與「熱誠樓」清水斜牆、塔頂玻璃亭 =====
   const bc = find(H_IDS.rBC);
   if (bc) {

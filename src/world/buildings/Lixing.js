@@ -1355,6 +1355,23 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     P(-xin, 0.06, gy - 0.4, TOP + 0.6, za - 0.1, za + 0.1, MT.conc);
     P(-xin, 0.06, gy - 0.4, TOP + 0.6, zb - 0.2, zb, MT.conc); // jambs
   }
+  // 兩座剪刀梯樓梯間（北排↔南排）頂上的淺綠玻璃頂：正射 2024 屋頂上兩條約 5×14 m 的淺綠玻璃帶，正好在這兩個樓梯間上方
+  // （campus-survey「兩座淺綠玻璃塔」；Google 衛星 2026 也還在、有影子、屋頂太陽能板避開它；地面看不到，高度不編，
+  // 只做高出屋面約 1.2 m 的玻璃盒，屋頂的太陽能板（tools/looks.json）兩側接到它為止）
+  {
+    const sGlass = mat(
+      'skyGlass',
+      std({ color: '#a6d8bb', roughness: 0.15, metalness: 0.3 }, 0.12)
+    );
+    for (const [x0, x1] of [
+      [WW.x1, SW.fW],
+      [SW.fE, EW.x0],
+    ]) {
+      bx(x0 + 0.15, x1 - 0.15, TOP - 0.1, TOP + 1.2, SW.z0 + 0.15, SW.z1 - 0.15, sGlass);
+      for (const z of [SW.z0 + 0.1, SW.z1 - 0.1])
+        bx(x0 + 0.1, x1 - 0.1, TOP - 0.1, TOP + 1.3, z - 0.08, z + 0.08, MT.frame);
+    }
+  }
   stairs({ x0: sx, x1: sx + 3.3, z0: 0.25, z1: RA, ax: 'z', dir: -1, ld: 1.6, wallM: MT.blue }); // 中段北側
   for (const [x, z, face] of [
     [BW.x1 + 0.012, 23.6, 'e'],

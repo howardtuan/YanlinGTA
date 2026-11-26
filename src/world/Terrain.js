@@ -32,7 +32,7 @@ export const terrainGrid = () => G;
 // Axis-aligned rectangles registered before the world is built (src/core/Game.js). Inside one H() is the
 // pit floor, so everything that stands on H (players, NPCs, vehicles, trees, pads / stairs, the
 // interiors and their physics walls / floors) follows it down. The 10 m grid itself is untouched:
-// src/world/MapBuilder.js draws the ground mesh from Hgrid() and masks it over the pits (pitRects), src/physics/PhysWorld.js
+// src/world/MapBuilder.js draws the ground mesh from Hgrid() with the pits cut out (src/world/GroundCut.js), src/physics/PhysWorld.js
 // refines the cells under a pit to 1 m so its floor follows H(). clearBridges() keeps the pits.
 const pits = [];
 // mask: false keeps the ground mesh drawn over it (a B1 room under a walkable plaza: src/world/zones/ZoneG.js puts a deck on top)
@@ -59,12 +59,6 @@ export function pitAt(x, z, r = 0, bare = false) {
   }
   return null;
 }
-// mask rectangles for src/world/MapBuilder.js cutMask: [cx, cz, ux, uz, half length, half width]
-export const pitRects = () =>
-  pits
-    .filter((p) => p.mask)
-    .map((p) => [(p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, 1, 0, (p.x1 - p.x0) / 2, (p.z1 - p.z0) / 2]);
-
 export function H(x, z) {
   if (pits.length)
     for (let i = 0; i < pits.length; i++) {
@@ -336,7 +330,7 @@ export function nearStair(x, z, pad = 0, foot = pad) {
 // above these are levels of their own, with something else at the same x/z:
 //  LV_DECK: a deck above a street that stays at grade (viaduct, footbridge);
 //  LV_CUT:  the floor of an open cut; there is no ground at its x/z (src/world/MapBuilder.js
-//           masks the ground mesh there);
+//           cuts the ground mesh there, src/world/GroundCut.js);
 //  LV_BOX:  the floor of a roofed cut (box under the railway); the ground on
 //           top stays a level of its own.
 // surfaceAt(x, z, ref) picks the level the caller is on: the highest one at

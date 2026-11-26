@@ -24,6 +24,26 @@
 
 ---
 
+### Session #011｜2026-11-26｜負責階段：Phase 2 PR #5 第二部分（地面挖洞改 CPU，移除 `cutMask()` `discard`）
+- **工作分支 / PR**：`refactor/ground-cut-cpu`（規劃表 PR #5 的第二部分）
+- **本輪已完成**：
+  1. 新增 `src/world/GroundCut.js`：地下道開口（`cutRects`）、下沉水池外圈與水溝（`sinkPlan().cut`：矩形＋轉角圓盤，圓盤用外接 32 邊形）、坑洞（`pitList()` 中 `mask` 為 true 者）。地面網格（`groundGeometry`）與用遮罩材質的貼地圖層（`addFlat()` 遇到 `maskCut()` 標過的材質就呼叫 `Geo.cutHoles()`）在建置時把三角形沿洞的邊線切開，洞裡的部分不產生；所有頂點屬性（位置、法線、顏色、UV）線性內插，地面法線沿用整張網格算好的值，切過的地方光影不變。
+  2. 刪除 `cutMask()` 與 `sinkPlan().glsl`（每個地面／鋪面／水面像素原本要跑幾十個 `if (...) discard;`），`Terrain.js` 的 `pitRects()` 已無人使用一併刪除。
+  3. **偏離規格**：規格寫「比照 `PhysWorld` 的 1 m 子網格」，實作後截圖給使用者看：水池、水溝、地下道入口邊緣變成 1 m 鋸齒並露出天空（見 `pitfalls-and-memory.md` 踩雷 #12），**使用者決定改成精準切**。碰撞地形不動。
+  4. 單元測試 `tests/unit/ground-cut.test.js`（7 項：遠處不動、坑洞精準、斜矩形與凹多邊形面積、圓盤 32 邊形、內插、繞向、大三角形與底下格子切出相同的洞）；把「丟掉洞裡的塊」改壞時其中 4 項會失敗。
+- **實機與量化數據變化**：
+  - **GPU 時間**（Apple M1、`desktop-igpu`、`medium`，38 個固定畫面，`EXT_disjoint_timer_query_webgl2`，兩個版本輪流跑兩輪抵消發熱）：開工前在 main 上暫時關掉遮罩，平均 21.30 → 20.59 ms（−3.3%，俯瞰 −3～−10%）；實作後 main → 本分支平均 20.58 → 20.16 ms（−2.0%）。單一畫面的雜訊約 ±10%，效益小。
+  - **畫面**：`desktop-dgpu`、`low`，95 個固定機位 91 個逐像素相同，4 張空拍只差 11–46 個像素（洞口邊線）；39 個洞口特寫（`medium`）只有洞口邊線 1 像素寬的抗鋸齒差異，開 MSAA 時邊緣更平滑。
+  - **開機**：切洞在 M1 上約 62 ms（貼地圖層）＋地面網格建置共 66 ms；手機估計 0.3–0.4 秒。
+  - **三角形**：手機標題畫面 1349k → 1353k（+0.3%），繪圖呼叫不變。
+  - **記憶體**（強制 GC 後，`mobile-lite`）：JS heap 368 / 368 MB，畫布 21.9 / 21.9 MB；`profile_scene` 沒 GC 的 heap 會差 14%，是暫存還沒回收。
+  - **遊玩檢查**（正式 build）：瞬移 8 個地點，貼圖空白 0，警告 49 則與 main 相同。
+- **新發現的技術細節或踩雷**：見 `pitfalls-and-memory.md` 踩雷 #12。另外 main 的 `profile:mobile` 畫布現在是 27.52 MB（Phase 1A 結束時 23.14 MB），多出來的是後來新增功能的畫布（例如 AI 全息圈 `HoloRing` 4 張 512×512），與本分支無關。
+- **下一棒確切待辦（Next Actionable Step）**：
+  1. PR #6（`refactor/kit-plane-batch-and-igpu`）：`Kit.finish()` 平面圖集＋純色合批（把 #191 多出來的繪圖呼叫降回來）、室內家具距離剔除、小地圖節流，以及使用者決定照規格的 5 項畫質相關設定（`medium` 關 MSAA、bloom 1/4、內顯夜間路燈 4 → 0–2、30 Hz 陰影、自動畫質 3 秒＋3 秒）。
+
+---
+
 ### Session #010｜2026-11-25｜負責階段：Phase 2 PR #5（`MapBuilder` 120 m 空間分塊）
 - **工作分支 / PR**：`refactor/mapbuilder-chunking`（規劃表 PR #5 的第一部分；`cutMask()` `discard` 移除另開 PR）
 - **本輪已完成**：

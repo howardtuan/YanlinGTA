@@ -1,6 +1,3 @@
-<p align="center"><a href="docs/media/promo/yanlin-promo-58s-v2.mp4" title="播放 58 秒宣傳片"><img src="docs/media/promo/yanlin-promo-58s-v2-poster.jpg" alt="▶ 播放 YanlinGTA 宣傳片（58 秒）" width="100%"></a></p>
-<p align="center"><sub>▶ 點上圖播放 58 秒宣傳片（第一人稱校園、手機 APP、電腦操作全收錄）</sub></p>
-
 <p align="center"><img src="assets/loading.jpg" alt="中原順起來 · 資管要贏 票投彥霖" width="100%"></p>
 
 # 中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)
@@ -15,6 +12,9 @@
 第 34 屆中原大學資訊管理學系 系學會會長候選人 **彥霖（Yanlin）** 的競選宣傳 3D 開放世界網頁遊戲！
 
 這是一款結合真實校園冒險、幽默競選宣傳與現代 Web 3D 工程技術的開放世界網頁遊戲。以 OpenStreetMap 真實地理資訊為骨架，搭建出完整的 3D 中原大學校園與周邊夜市商圈。你可以騎著粉白色 **SYM JET SL** 穿梭校園與新中北路、走進資管系館上樓進教室、在電腦教室登入「資管學堂」練習寫程式、到活動中心麥當勞打工炸薯條、坐進警衛室值班查門禁，一路幫彥霖拉票宣傳。免安裝任何外掛，電腦與手機瀏覽器皆可順暢暢玩！
+
+- 🎮 **立即遊玩**：<https://yanlin-gta.com/>
+- 📖 **遊戲百科 Wiki**（角色介紹、任務攻略、開發團隊、58 秒宣傳片）：<https://yanlin-gta.com/wiki/>
 
 ---
 
@@ -56,12 +56,12 @@
 
 **怎麼跑**
 
-1. 打開 <https://howardtuan.github.io/YanlinGTA/>，等載入完成。
+1. 打開 <https://yanlin-gta.com/>，等載入完成。
 2. 在標題畫面按 **「📊 效能測試」**，選要測的畫質（超低／低／中／高），按 **「▶ 開始測試」**。
 3. 鏡頭會自己跑約 100 秒：**校園街道（白天）→ 空拍 → 夜間街道**，每段前 3 秒是暖機，不計分。中途想停按 `Esc` 或畫面上方的「取消」。
 4. 跑完會跳出結果，畫質也會自動換回你原本的設定。
 
-> ⚡ **快速開跑**：網址後面加 `?bench`，載入完就直接開始；加 `?bench=畫質` 可指定畫質（`xlow`／`low`／`medium`／`high`），例如 <https://howardtuan.github.io/YanlinGTA/?bench=medium>。
+> ⚡ **快速開跑**：網址後面加 `?bench`，載入完就直接開始；加 `?bench=畫質` 可指定畫質（`xlow`／`low`／`medium`／`high`），例如 <https://yanlin-gta.com/?bench=medium>。
 
 **測之前建議**
 

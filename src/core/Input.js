@@ -40,12 +40,17 @@ export const PAD_MAPS = {
     [14, 'ArrowLeft'],
     [15, 'ArrowRight'],
   ],
-  // race results: A continue, X / Y race again
+  // race results: A continue, X / Y race again; choosing your bike: D-pad picks, A go, B cancel
   race: [
     [0, 'Enter'],
     [9, 'Enter'],
     [2, 'KeyR'],
     [3, 'KeyR'],
+    [1, 'Escape'],
+    [12, 'ArrowUp'],
+    [13, 'ArrowDown'],
+    [14, 'ArrowLeft'],
+    [15, 'ArrowRight'],
   ],
   // side-gate duty: A let in, B turn away, Y / Start leave the booth
   gate: [

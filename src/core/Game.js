@@ -484,7 +484,7 @@ class Game {
 
     this.input.padDriving = () => !!this.player.vehicle;
     this.input.padContext = () =>
-      this.race.state === 'results'
+      this.race.state === 'results' || this.race.state === 'pick'
         ? 'race'
         : this.hud.bigOpen
           ? 'map'
@@ -953,7 +953,8 @@ class Game {
       this.pc?.isOpen ||
       this.wardrobe?.isOpen ||
       this.mahjong?.playing ||
-      this.race?.state === 'results'
+      this.race?.state === 'results' ||
+      this.race?.state === 'pick'
     );
   }
 
@@ -1310,6 +1311,8 @@ class Game {
       if (hud.bigOpen) this.closeMap();
       // Esc on the race results = 繼續, not the pause menu
       else if (this.race.state === 'results') this.race.close(false);
+      // Esc while choosing your bike for the race = 取消
+      else if (this.race.state === 'pick') this.race.cancelPick();
       else if (!this._modalOpen) {
         document.exitPointerLock?.();
         this.pause();

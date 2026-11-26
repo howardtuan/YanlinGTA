@@ -1,6 +1,7 @@
 // 新中北路障礙賽 — street race around the outside of the CYCU main campus.
 // Sign up at the door of 力行大樓 (the 力行 male dorm on 新中北路), ride your own JET SL against 7 rivals,
-// 2 laps, you start 6th of 8. Normal traffic and pedestrians stay on the roads, and the organisers put
+// 2 laps, you start 6th of 8. Once 霍華德's Two Sum is solved (src/systems/quests/HowardTwoSum.js) you pick your bike
+// before the start: the JET SL or his black 忍 400 (src/entities/npcs/Howard.js lend). Normal traffic and pedestrians stay on the roads, and the organisers put
 // cones and water barriers on the course.
 //
 // The course is built from the real road graph (world.driveNodes): A* between anchor points around the
@@ -305,7 +306,8 @@ export class Race {
       z: pz,
       r: 3.6,
       y: 0,
-      label: () => '按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（騎自己的 JET SL・2 圈・8 人）',
+      label: () =>
+        `按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（${this._canNinja() ? '可選 JET SL／忍 400' : '騎自己的 JET SL'}・2 圈・8 人）`,
       cond: () => this.state === 'idle',
       fn: (g) => this.signup(),
     });
@@ -317,9 +319,16 @@ export class Race {
   get racing() {
     return this.state === 'count' || this.state === 'race';
   }
-  // player can't move during the countdown or while the results are up
+  // player can't move while picking the bike, during the countdown or while the results are up
   get locked() {
-    return this.state === 'count' || this.state === 'results';
+    return this.state === 'pick' || this.state === 'count' || this.state === 'results';
+  }
+  // 霍華德's 忍 400 is yours to race once his Two Sum is solved
+  _canNinja() {
+    return !!(this.g.howardQuest?.done && this.g.howard?.bike);
+  }
+  get rideName() {
+    return this.ride?.model === 'ninja' ? '忍 400' : 'JET SL';
   }
 
   // ---------- course helpers ----------
@@ -584,14 +593,71 @@ export class Race {
         ],
         ['彥霖', '資管要贏，比賽也要贏 ✌'],
       ],
-      () => this.start()
+      () => (this._canNinja() ? this._pick() : this.start(g.myScooter))
     );
   }
-  start() {
+  // ---------- choose your bike (after 霍華德's Two Sum) ----------
+  _pick() {
+    const g = this.g,
+      H = g.howard,
+      out = H?.mode === 'ride';
+    this.state = 'pick';
+    this._sel = 0;
+    const btn = (k, key, icon, name, sub, dis) =>
+      `<button class="rr-pick${k === this._sel ? ' sel' : ''}" data-k="${k}" ${dis ? 'disabled' : ''}>
+        <span>${icon}</span><div><b>${dual(`<kbd>${key}</kbd>`, '')} ${name}</b><small>${sub}</small></div></button>`;
+    this.el.res.innerHTML = `<h2>🏁 選擇你的車</h2>
+      <div class="rr-picks">
+        ${btn(0, 1, '🛵', '我的 SYM JET SL', '粉白配色・極速約 79 km/h', false)}
+        ${btn(1, 2, '🏍️', '霍華德的忍 400', out ? '霍華德騎出去兜風了，現在借不到' : '黑色仿賽重機・極速約 130 km/h', out)}
+      </div>
+      <div class="rr-btns"><button id="rrBack">${dual('<kbd>Esc</kbd>', '{B}')} 取消</button><button id="rrOk" class="go">${dual('<kbd>Enter</kbd>', '{A}')} 出發</button></div>`;
+    this.el.res.classList.remove('hidden');
+    for (const b of this.el.res.querySelectorAll('.rr-pick'))
+      b.onclick = () => {
+        this._sel = +b.dataset.k;
+        this._choose();
+      };
+    $('rrOk').onclick = () => this._choose();
+    $('rrBack').onclick = () => this.cancelPick();
+    document.exitPointerLock?.();
+  }
+  _pickSel(k) {
+    const b = this.el.res.querySelectorAll('.rr-pick');
+    if (b[k]?.disabled) return;
+    this._sel = k;
+    b.forEach((e, i) => e.classList.toggle('sel', i === k));
+  }
+  _choose() {
+    const g = this.g;
+    let v = g.myScooter;
+    if (this._sel === 1) {
+      v = g.howard?.lend();
+      if (typeof v === 'string' || !v) {
+        g.hud.toast(v || '借不到忍 400', 'bad', 2400);
+        return;
+      }
+    }
+    this.el.res.classList.add('hidden');
+    this.state = 'idle';
+    if (!g.input.touch) g.lockPointer();
+    this.start(v);
+  }
+  cancelPick() {
+    this.el.res.classList.add('hidden');
+    this.state = 'idle';
+    if (!this.g.input.touch) this.g.lockPointer();
+  }
+  start(ride = this.ride || this.g.myScooter) {
     const g = this.g,
       pl = g.player,
-      C = this.C,
-      my = g.myScooter;
+      C = this.C;
+    // 再比一次 on the 忍 400: make sure he hasn't taken it back meanwhile
+    if (ride !== g.myScooter) {
+      const r = g.howard?.lend();
+      ride = typeof r === 'string' || !r ? g.myScooter : r;
+    }
+    const my = (this.ride = ride);
     this.runs++;
     this._placeObstacles();
     this._showGuide(true);
@@ -639,7 +705,7 @@ export class Race {
       this._placeRival(r, 0);
       this.rivals.push(r);
     });
-    // you, on your JET SL in slot 6
+    // you, on your JET SL (or the 忍 400) in slot 6
     if (pl.vehicle && pl.vehicle !== my) pl.exit(g.scene, g.world.collision);
     const ps = slot(PLAYER_SLOT),
       pp = ps.p;
@@ -794,6 +860,18 @@ export class Race {
     }
     if (this.state === 'idle') return;
     if (this.guide?.visible) this.guide.material.map.offset.y -= dt * 1.6; // chevrons crawl forward
+    if (this.state === 'pick') {
+      if (inp.hit('Digit1', 'Numpad1', 'ArrowLeft', 'ArrowUp')) this._pickSel(0);
+      else if (inp.hit('Digit2', 'Numpad2', 'ArrowRight', 'ArrowDown')) this._pickSel(1);
+      if (inp.hit('Enter', 'NumpadEnter', 'KeyE', 'Space')) {
+        inp.pressed.clear();
+        this._choose();
+      } else if (inp.hit('Backspace')) {
+        inp.pressed.clear();
+        this.cancelPick();
+      }
+      return;
+    }
     if (this.state === 'results') {
       if (inp.hit('Enter', 'NumpadEnter', 'KeyE', 'Space')) {
         inp.pressed.clear();
@@ -805,7 +883,7 @@ export class Race {
       return;
     }
     const pl = g.player,
-      my = g.myScooter,
+      my = this.ride,
       C = this.C;
     // countdown
     if (this.state === 'count') {
@@ -865,7 +943,7 @@ export class Race {
       if (P.wrong > 1.5) warn = '⛔ 逆向了！迴轉！';
       if (v !== my) {
         P.notOn += dt;
-        warn = `🛵 騎回你的 JET SL！（${Math.max(0, Math.ceil(20 - P.notOn))} 秒內）`;
+        warn = `🛵 騎回你的 ${this.rideName}！（${Math.max(0, Math.ceil(20 - P.notOn))} 秒內）`;
         if (P.notOn > 20) {
           this.abandon('離開機車太久，視同棄權');
           return;

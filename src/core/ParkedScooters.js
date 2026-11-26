@@ -12,13 +12,8 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { sameLevel, getParkedCarAssets, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
-import {
-  vehicleSpec,
-  solveVehicleImpact,
-  solvePersonImpact,
-  RESTITUTION,
-  GRAVITY,
-} from '../physics/ImpactPhysics.js';
+import { knockPeopleWith } from '../physics/DebrisPeople.js';
+import { vehicleSpec, solveVehicleImpact, RESTITUTION, GRAVITY } from '../physics/ImpactPhysics.js';
 
 const CELL = 10;
 const CHUNK = 120;
@@ -977,56 +972,24 @@ export class ParkedScooters {
 
     // Domino chain knock + knocked vehicles hitting nearby pedestrians (strict Newton's 2nd & 3rd Laws)
     if (this.activeKnocks.size) {
-      const peds = g.peds?.active?.() || [];
       for (const rec of [...this.activeKnocks]) {
         const spec1 = vehicleSpec(rec.slot.kind);
-        let vcx = rec.vx,
-          vcz = rec.vz;
-        if (rec.body?.angvel) {
-          const aw = rec.body.angvel();
-          // omega x (0, hCm, 0) = (-aw.z * hCm, 0, aw.x * hCm)
-          vcx += -aw.z * spec1.hCm;
-          vcz += aw.x * spec1.hCm;
-        }
-        const spd = Math.hypot(vcx, vcz);
-        if (spd < 0.7) continue;
 
-        // 1. Knocked scooter/car hitting nearby pedestrians
-        const pedHitR = rec.slot.kind === 'car' ? 2.1 : 1.05;
-        for (let i = 0; i < peds.length; i++) {
-          const p = peds[i];
-          if (p.state === 'fly' || p.state === 'down' || p.rag) continue;
-          if (Math.abs(p.y - rec.y) > 2.0) continue;
-          const pdx = p.pos.x - rec.x,
-            pdz = p.pos.z - rec.z;
-          const d = Math.hypot(pdx, pdz);
-          if (d < pedHitR) {
-            const pnx = d > 1e-3 ? pdx / d : vcx / spd;
-            const pnz = d > 1e-3 ? pdz / d : vcz / spd;
-            const vRel = vcx * pnx + vcz * pnz;
-            if (vRel <= 0) continue;
-            const pSol = solvePersonImpact({
-              vehicleKind: rec.slot.kind,
-              riderOnVehicle: false,
-              personMass: p.ch?.weight,
-              personHeight: p.ch?.height,
-              vRel,
-            });
-            if (
-              pSol.knockDown &&
-              g.peds.knock(p, pnx, pnz, vRel, { dv: pSol.dvPerson, vy: pSol.vyPerson })
-            ) {
-              g.audio?.hitPed?.();
-              if (rec.body) {
-                const lv = rec.body.linvel();
-                rec.body.setLinvel(
-                  { x: lv.x - pnx * pSol.dvVehicle, y: lv.y, z: lv.z - pnz * pSol.dvVehicle },
-                  true
-                );
-              }
-              rec.vx -= pnx * pSol.dvVehicle;
-              rec.vz -= pnz * pSol.dvVehicle;
-            }
+        // 1. Knocked scooter/car hitting pedestrians and the player on foot it really touches (its collision
+        //    box in plan, src/physics/DebrisPeople.js), losing J / m along the normal
+        if (rec.body?.rotation) {
+          const dv = knockPeopleWith(
+            g,
+            rec.slot.kind,
+            { x: rec.x, y: rec.y, z: rec.z },
+            rec.body.rotation(),
+            rec.body.linvel(),
+            rec.body,
+            rec.slot.hw
+          );
+          if (dv) {
+            rec.vx += dv.x;
+            rec.vz += dv.z;
           }
         }
 

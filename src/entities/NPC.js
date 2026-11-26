@@ -705,10 +705,15 @@ export class Traffic {
       q = r.root.getWorldQuaternion(new THREE.Quaternion());
     v.mesh.remove(r.root);
     this.scene.add(r.root);
-    r.root.position.copy(p);
-    r.root.quaternion.copy(q);
     const l = Math.hypot(vx, vz) || 1,
       sp = Math.min(6, l * 0.4);
+    // start clear of the vehicle's own box (it is a dynamic body by now, and ragdolls collide with vehicles):
+    // ahead along the launch and up, as the player's throwOff does (src/core/VehicleSpawner.js)
+    p.x += (vx / l) * 0.55;
+    p.z += (vz / l) * 0.55;
+    p.y += 0.55;
+    r.root.position.copy(p);
+    r.root.quaternion.copy(q);
     r.rag =
       this.ragdoll?.(r, { x: vx, y: vy, z: vz }, { x: (vz / l) * sp, y: 0, z: (-vx / l) * sp }) ||
       null;

@@ -3,11 +3,11 @@ import { Vehicle } from '../entities/Vehicles.js';
 import { mulberry32, makeLabel } from '../world/MapBuilder.js';
 import { pointInPoly } from '../physics/Collision.js';
 import { pitAt } from '../world/Terrain.js';
+import { knockPeopleWith } from '../physics/DebrisPeople.js';
 import {
   RESTITUTION,
   vehicleSpec,
   solveVehicleImpact,
-  solvePersonImpact,
   solveRiderEjection,
 } from '../physics/ImpactPhysics.js';
 
@@ -190,25 +190,26 @@ export class VehicleSpawner {
     // along its heading, and the hitter gets dv1 (Vehicle._hitVehicle)
     const minDv2 = sc ? 2.2 : 3.2;
     const [fx, fz] = o.forward();
+    const sp0 = o.speed || 0; // before throwVehicle hands it to physics (and zeroes its arcade speed)
     if (sol.dv2 < minDv2) {
       o.speed = Math.max(0, (o.speed || 0) - sol.dv2 * (nx * fx + nz * fz));
       return { kf: sol.kf, dv1: sol.dv1, eject: false, thrown: false };
     }
     // Newton's 1st & 3rd Laws: preserve target's full pre-impact velocity and add exact normal impulse -n * dv2
-    const tvx = fx * o.speed - nx * sol.dv2;
-    const tvz = fz * o.speed - nz * sol.dv2;
+    const tvx = fx * sp0 - nx * sol.dv2;
+    const tvz = fz * sp0 - nz * sol.dv2;
     if (!this.throwVehicle(o, tvx, tvz, sol.dv2, (p, up) => game.traffic.landed(o, p, up), sol))
       return false;
     // Traffic rider ejected by exact handlebar/seat pivot physics using rider's own weight
     const rEj = solveRiderEjection({
-      speed: o.speed,
+      speed: sp0,
       impact: sol.dv2,
       nx: -nx,
       nz: -nz,
       fx,
       fz,
       dv1: sol.dv2,
-      pushed: o.speed < sol.dv2 * 0.5,
+      pushed: true, // traffic is always the one hit here: its rider keeps their speed plus the shove
       riderMass: o.rider?.weight,
     });
     game.traffic.throwRider(o, rEj.vx, rEj.vy, rEj.vz);
@@ -268,46 +269,9 @@ export class VehicleSpawner {
         o.pos.x = p.x;
         o.pos.z = p.z;
         o.heading = o.moveAng = heading(q);
-        // Sliding/tumbling vehicle can also knock down nearby pedestrians with Newtonian impulse
-        const peds = this.game.peds?.active?.();
-        if (!peds || !lv) return;
-        const spd = Math.hypot(lv.x, lv.z);
-        if (spd < 1.5) return;
-        const hitR = sc ? 1.0 : 2.1;
-        for (let i = 0; i < peds.length; i++) {
-          const pd = peds[i];
-          if (pd.state === 'fly' || pd.state === 'down' || pd.rag) continue;
-          if (Math.abs(pd.y - p.y) > 2.0) continue;
-          const pdx = pd.pos.x - p.x,
-            pdz = pd.pos.z - p.z;
-          const d = Math.hypot(pdx, pdz);
-          if (d < hitR) {
-            const pnx = d > 1e-3 ? pdx / d : lv.x / spd;
-            const pnz = d > 1e-3 ? pdz / d : lv.z / spd;
-            const vRel = lv.x * pnx + lv.z * pnz;
-            if (vRel <= 0) continue;
-            const pSol = solvePersonImpact({
-              vehicleKind: o.kind,
-              riderOnVehicle: false,
-              personMass: pd.ch?.weight,
-              personHeight: pd.ch?.height,
-              vRel,
-            });
-            if (
-              pSol.knockDown &&
-              this.game.peds.knock(pd, pnx, pnz, vRel, { dv: pSol.dvPerson, vy: pSol.vyPerson })
-            ) {
-              this.game.audio?.hitPed?.();
-              if (rec?.body) {
-                const cur = rec.body.linvel();
-                rec.body.setLinvel(
-                  { x: cur.x - pnx * pSol.dvVehicle, y: cur.y, z: cur.z - pnz * pSol.dvVehicle },
-                  true
-                );
-              }
-            }
-          }
-        }
+        // Sliding/tumbling vehicle knocks down pedestrians and the player on foot it really touches (its
+        // collision box in plan, src/physics/DebrisPeople.js), losing J / m along the normal
+        if (lv && q) knockPeopleWith(this.game, o.kind, p, q, lv, rec?.body || null, o.hw || 0);
       },
       (p, q) => {
         f.set(0, 1, 0).applyQuaternion(q);

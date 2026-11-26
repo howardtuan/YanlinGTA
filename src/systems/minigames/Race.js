@@ -8,6 +8,7 @@
 // corner-speed profile. Rivals ride kinematically along it (progress s + lateral offset), choose a free
 // lane when something is ahead and brake when nothing is free.
 import * as THREE from 'three';
+import { solvePersonImpact } from '../../physics/ImpactPhysics.js';
 import { Vehicle, sameLevel, bodyGap } from '../../entities/Vehicles.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeLabel, mulberry32 } from '../../world/MapBuilder.js';
@@ -1097,11 +1098,38 @@ export class Race {
         t.ai.stunned = 1.5;
       }
     }
-    if (r.speed > 3)
+    if (r.speed > 0.3)
       for (const p of g.peds.active()) {
-        if (bodyGap(v, p.pos.x, p.pos.z).gap < 0.35 && sameLevel(p.y, v.mesh.position.y)) {
+        const b = bodyGap(v, p.pos.x, p.pos.z);
+        if (b.gap < 0.35 && sameLevel(p.y, v.mesh.position.y)) {
+          // same Newtonian vehicle-vs-person solution as the player's own vehicle (src/core/Game.js)
           const [fx, fz] = v.forward();
-          if (g.peds.knock(p, fx, fz, r.speed)) r.speed *= 0.6;
+          const ox = p.pos.x - b.qx,
+            oz = p.pos.z - b.qz,
+            ol = Math.hypot(ox, oz) || 1;
+          let dx = fx + (ox / ol) * 0.35,
+            dz = fz + (oz / ol) * 0.35;
+          const dl = Math.hypot(dx, dz) || 1;
+          dx /= dl;
+          dz /= dl;
+          const vRel = Math.max(0, r.speed * (fx * dx + fz * dz));
+          const sol = solvePersonImpact({
+            vehicleKind: v.kind,
+            riderOnVehicle: true,
+            riderMass: v.rider?.weight,
+            personMass: p.ch?.weight,
+            personHeight: p.ch?.height,
+            vRel,
+          });
+          if (
+            sol.knockDown &&
+            g.peds.knock(p, dx, dz, vRel, { dv: sol.dvPerson, vy: sol.vyPerson })
+          )
+            r.speed = Math.max(0, r.speed - (fx * dx + fz * dz) * sol.dvVehicle);
+          else if (b.gap < 0.3) {
+            p.pos.x += (ox / ol) * (0.3 - b.gap);
+            p.pos.z += (oz / ol) * (0.3 - b.gap);
+          }
         }
       }
     const pv = g.player.vehicle;

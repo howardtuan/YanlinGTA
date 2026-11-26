@@ -199,6 +199,7 @@ export function renderWiki({ chars, quests }) {
     <p class="kicker">第 34 屆中原大學資管系 系學會會長選舉</p>
     <h1>中原順起來 · 資管要贏 票投彥霖</h1>
     <p>一款在瀏覽器就能玩的 3D 開放世界競選遊戲。騎著粉白色 SYM JET SL 穿梭真實比例的中原大學校園，幫候選人彥霖拉票。遊戲裡的同學、室友和開發者，<b>全部由真人改編</b>。</p>
+    <p class="memoir">這是一群資管系的好朋友，一起動手打造、屬於我們自己的<b>大學回憶錄</b>：宿舍的床位、打工的麥當勞、半夜的麻將桌、彼此的口頭禪和糗事，都被寫進了這座校園。</p>
     <div class="cta"><a class="btn primary" href="${GAME_URL}">▶ 免安裝，直接玩</a><a class="btn" href="#characters">認識角色</a></div>
   </div>
 </section>

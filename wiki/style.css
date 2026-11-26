@@ -173,6 +173,14 @@ main {
 .hero p {
   color: var(--muted);
 }
+.hero .memoir {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--pink);
+  background: color-mix(in srgb, var(--pink-soft) 55%, transparent);
+  border-radius: 0 10px 10px 0;
+  color: var(--ink);
+}
 .cta {
   display: flex;
   gap: 10px;

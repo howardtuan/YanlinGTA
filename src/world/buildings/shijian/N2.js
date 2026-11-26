@@ -930,6 +930,8 @@ export default {
       },
     ],
     // 安全帽店：一樓黑色門面與安全帽展示櫃，二樓整面白底安全帽看板（沒有店名），上面凸出藍底「安全帽／雨衣」
+    // 新中北路口西南角這棟（新中北路那面是世界豆漿店）整棟由 src/world/buildings/xzb/SegX10.js s 1020～1025 蓋（8 樓），這格只貼實踐路這面的立面：
+    // 立面線移到離中心線 3.9 m、厚 1.4 m，剛好包住 SegX10 那格的東面。原本 set 5.2、d 14 跟 SegX10 的格子重疊 45 m²（tools/street_corner_check.mjs）
     [
       'N',
       202.6,
@@ -937,6 +939,8 @@ export default {
       -1,
       {
         ...W5,
+        set: 3.9,
+        d: 1.4,
         ground: 'shop',
         noband: true,
         roof: 'flat',

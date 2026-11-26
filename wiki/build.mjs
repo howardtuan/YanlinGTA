@@ -204,13 +204,18 @@ export function renderWiki({ chars, quests, shops = [] }) {
 <meta property="og:title" content="YanlinGTA Wiki">
 <meta property="og:description" content="中原大學 3D 開放世界競選遊戲的角色與任務百科">
 <meta property="og:image" content="img/cover.jpg">
-<link rel="icon" href="img/icon-192.png">
+<meta name="theme-color" content="#2e105c">
+<link rel="icon" href="img/wiki-favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" type="image/png" href="img/wiki-icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="img/wiki-apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="彥霖 Wiki">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <a class="skip" href="#content">跳到內容</a>
 <header class="top">
-  <a class="brand" href="#top"><img src="img/icon-192.png" alt="" width="28" height="28"> YanlinGTA <span>Wiki</span></a>
+  <a class="brand" href="#top"><img src="img/wiki-icon-192.png" alt="" width="28" height="28"> YanlinGTA <span>Wiki</span></a>
   <nav aria-label="主選單">
     <a href="#overview">概覽</a><a href="#characters">角色</a><a href="#main-quests">主線</a><a href="#side-quests">支線</a><a href="#shops">合作店家</a><a href="#team">開發團隊</a>
   </nav>
@@ -303,9 +308,13 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
   fs.copyFileSync(path.join(root, 'wiki', 'style.css'), path.join(outDir, 'style.css'));
   fs.copyFileSync(path.join(root, 'wiki', 'wiki.js'), path.join(outDir, 'wiki.js'));
   fs.copyFileSync(path.join(root, 'assets', 'loading.jpg'), path.join(outDir, 'img', 'cover.jpg'));
+  // Wiki 自己的網頁圖示與「加入主畫面」圖示（wiki/icons/），manifest 放在 /wiki/ 底下，start_url 開回 Wiki
+  for (const f of fs.readdirSync(path.join(root, 'wiki', 'icons'))) {
+    fs.copyFileSync(path.join(root, 'wiki', 'icons', f), path.join(outDir, 'img', f));
+  }
   fs.copyFileSync(
-    path.join(root, 'assets', 'icon', 'icon-192.png'),
-    path.join(outDir, 'img', 'icon-192.png')
+    path.join(root, 'wiki', 'manifest.webmanifest'),
+    path.join(outDir, 'manifest.webmanifest')
   );
   for (const c of data.chars) {
     if (c.avatar) fs.copyFileSync(c.avatarSrc, path.join(outDir, c.avatar));

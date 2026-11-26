@@ -53,7 +53,17 @@ describe('wiki', () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'wiki-'));
     try {
       buildWiki({ outDir: out });
-      for (const f of ['index.html', 'style.css', 'wiki.js', 'img/cover.jpg', 'img/icon-192.png'])
+      for (const f of [
+        'index.html',
+        'style.css',
+        'wiki.js',
+        'img/cover.jpg',
+        'img/wiki-icon-192.png',
+        'img/wiki-icon-512.png',
+        'img/wiki-apple-touch-icon.png',
+        'img/wiki-favicon.ico',
+        'manifest.webmanifest',
+      ])
         expect(fs.existsSync(path.join(out, f)), f).toBe(true);
     } finally {
       fs.rmSync(out, { recursive: true, force: true });

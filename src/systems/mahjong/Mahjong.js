@@ -1026,6 +1026,7 @@ export class DormMahjong {
     this.mp = null;
     this.mpMode = null;
     this.scene?.close();
+    g.input?.pressed?.delete('Escape'); // (按 Esc 離開的那一下只算離開，不要再開暫停選單)
     const names = (s?.names ? s.names.slice(1) : this.party.map((p) => p.name)).join('、');
     this.release();
     this.sess = null;

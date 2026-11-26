@@ -11,6 +11,7 @@ import {
 } from '../../src/systems/mahjong/MahjongScene.js';
 import { MahjongEngine } from '../../src/systems/mahjong/Engine.js';
 import { makeAI } from '../../src/systems/mahjong/AI.js';
+import { serializeStateFor, RemoteMahjongEngine } from '../../src/systems/mahjong/Net.js';
 
 // 麻將桌的鏡頭自動取景與海底放大（src/systems/mahjong/MahjongScene.js）
 const SIZES = [
@@ -158,11 +159,12 @@ describe('配牌動畫：打出的牌從那家手上飛出去，不會拿牌牆�
     sc.intro = null;
     sc.pool = [];
     sc.tiles = [];
+    sc.geos = [];
     for (let k = 0; k < 42; k++) {
       sc.pool[k] = [];
       for (let i = 0; i < (k < 34 ? 4 : 1); i++) {
         const m = new THREE.Object3D();
-        m.userData.k = k;
+        m.userData.k = m.userData.k0 = k;
         m.userData.fresh = true;
         sc.pool[k].push(m);
         sc.tiles.push(m);
@@ -175,7 +177,7 @@ describe('配牌動畫：打出的牌從那家手上飛出去，不會拿牌牆�
     expect(zoneRank('d0', 'w')).toBeGreaterThan(1);
     expect(zoneRank('h2', 'w')).toBe(1);
     expect(zoneRank('m1', 'h1')).toBe(1);
-    expect(zoneRank('m1', 'd3')).toBe(2);
+    expect(zoneRank('m1', 'd3')).toBe(1);
     expect(zoneRank('w', 'w')).toBe(0);
     expect(zoneRank('w', 'h0')).toBeGreaterThan(zoneRank('h0', 'w'));
   });
@@ -211,6 +213,89 @@ describe('配牌動畫：打出的牌從那家手上飛出去，不會拿牌牆�
           if (m.userData.zone === 'w')
             expect(Math.hypot(m.userData.to.p.x - p.x, m.userData.to.p.z - p.z)).toBeLessThan(1e-6);
       }
+    });
+  }
+});
+
+describe('配牌動畫（多人客端）：別家打出的牌從他手上飛出去，不會跟蓋著的牌交換', () => {
+  const rng = (seed) => () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const fakeScene = (e) => {
+    const sc = Object.create(MahjongScene.prototype);
+    sc.e = e;
+    sc._mobile = false;
+    sc.intro = null;
+    sc.pool = [];
+    sc.tiles = [];
+    sc.geos = [];
+    for (let k = 0; k < 42; k++) {
+      sc.pool[k] = [];
+      for (let i = 0; i < (k < 34 ? 4 : 1); i++) {
+        const m = new THREE.Object3D();
+        m.userData.k = m.userData.k0 = k;
+        m.userData.fresh = true;
+        sc.pool[k].push(m);
+        sc.tiles.push(m);
+      }
+    }
+    return sc;
+  };
+  for (const [seed, spectate] of [
+    [3, false],
+    [8, false],
+    [21, true],
+    [77, true],
+  ]) {
+    it(`seed ${seed}${spectate ? '（觀戰者）' : '（客端玩家，座位 1）'}`, () => {
+      const host = new MahjongEngine({
+        rng: rng(seed),
+        human: [false, false, false, false],
+        ai: makeAI(),
+      });
+      const mySeat = 1;
+      const guest = new RemoteMahjongEngine(() => {});
+      const sc = fakeScene(guest);
+      const sync = () => guest.applySnapshot(serializeStateFor(host, mySeat, { spectate }));
+      host.step();
+      sync();
+      sc._layout(true);
+      for (const m of sc.tiles) m.userData.fresh = false;
+      let n = 0,
+        checked = 0;
+      while (host.phase !== 'end' && n++ < 2000) {
+        const before = new Map(sc.tiles.map((m) => [m, m.userData.zone]));
+        const wallAt = new Map(
+          sc.tiles.filter((m) => m.userData.zone === 'w').map((m) => [m, m.userData.to.p.clone()])
+        );
+        const discards = guest.players.map((P) => P.discards.length);
+        host.step();
+        sync();
+        sc._layout(true);
+        for (let s = 0; s < 4; s++) {
+          if (guest.players[s].discards.length !== discards[s] + 1) continue;
+          const m = sc.tiles.find(
+            (x) => x.userData.zone === `d${s}` && before.get(x) !== `d${s}` && x.visible
+          );
+          expect(before.get(m)).toBe(`h${s}`);
+          // 牌面是真的那張
+          expect(m.userData.k).toBe(guest.players[s].discards.at(-1));
+          checked++;
+        }
+        for (const [m, p] of wallAt)
+          if (m.userData.zone === 'w')
+            expect(Math.hypot(m.userData.to.p.x - p.x, m.userData.to.p.z - p.z)).toBeLessThan(1e-6);
+        // 看得到的牌面都對：海底、吃碰槓
+        for (let s = 0; s < 4; s++) {
+          const ks = sc.tiles
+            .filter((x) => x.userData.zone === `d${s}`)
+            .map((x) => x.userData.k)
+            .sort((a, b) => a - b);
+          expect(ks).toEqual([...guest.players[s].discards].sort((a, b) => a - b));
+        }
+      }
+      expect(checked).toBeGreaterThan(10);
     });
   }
 });

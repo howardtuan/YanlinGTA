@@ -477,10 +477,10 @@ function slot(s, u, d, how, lift = 0, sc = 1) {
     _y.copy(UP);
     p.y = Y0 + (TH * sc) / 2 + lift;
   } else if (how === 'mine') {
-    const a = 0.42; // leaning back towards you
+    const a = 0.3; // leaning back towards you（一點點就好，鏡頭夠低了，太斜看起來很扁）
     _z.copy(F).negate().multiplyScalar(Math.cos(a)).addScaledVector(UP, Math.sin(a));
     _y.copy(UP).multiplyScalar(Math.cos(a)).addScaledVector(F, Math.sin(a));
-    p.y = Y0 + TH / 2 + lift;
+    p.y = Y0 + (sc * (TH * Math.cos(a) + TD * Math.sin(a))) / 2 + lift;
   } else {
     _z.copy(UP).multiplyScalar(how === 'up' ? 1 : -1);
     _y.copy(F);
@@ -495,7 +495,9 @@ const WALL_D = 0.3; // the wall's distance from the centre (a little out, so the
 const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, WALL_D, 'down', lift);
 // 牌放大：海底與別家吃碰槓的牌比實際大一點，手機上也看得清楚。海底放大到碰到牌牆為止（排到第四排時自動縮回一點）
 const DISC_BIG = 1.3,
-  MELD_BIG = 1.2;
+  MELD_BIG = 1.2,
+  MINE_BIG = 1.3; // 遠景：你自己的 3D 手牌（和吃碰槓）放大，站在桌邊看得清楚
+const MINE_D = 0.43; // 你的手牌離桌子中心多遠（放大後往你這邊挪一點，不壓到花）
 // 近景（手機版）像麻將手遊一樣不擺牌牆（剩幾張寫在桌子中間），海底可以一路放大到花那排前面
 const DISC_BIG_NOWALL = 1.55,
   FLOWER_D = 0.335;
@@ -527,7 +529,7 @@ export function discardScale(maxCount, wall = true) {
 export const CAM_VIEW = {
   close: (aspect) => (aspect < 1 ? { fov: 58, elev: 76, tz: 0 } : { fov: 40, elev: 60, tz: 0 }),
   far: (aspect) =>
-    aspect < 0.8 ? { fov: 58, elev: 66, tz: 0.02 } : { fov: 42, elev: 47, tz: 0.02 },
+    aspect < 0.8 ? { fov: 58, elev: 62, tz: 0.02 } : { fov: 42, elev: 38, tz: 0.02 },
 };
 const MJ_PIXELS = 2.6e6; // 牌桌最多畫這麼多像素（約 2560×1000）
 const CAM_MAX_Y = 2.55; // 天花板的燈（y 2.73）在桌子正上方，鏡頭不能高過它
@@ -544,9 +546,15 @@ export function camPoints(mine) {
     add(s, -0.28, 0.28, TD);
     add(s, 0.28, 0.28, TD);
     // 手牌列（16 張＋摸的那張＋吃碰槓）：站著的牌比較高
-    if (s || mine) {
+    if (s) {
       add(s, -0.29, 0.415, TH);
       add(s, 0.29, 0.415, TH);
+    } else if (mine) {
+      // 你自己的手牌放大 MINE_BIG 倍、往你這邊挪到 MINE_D
+      const w = 0.3 * MINE_BIG,
+        d = MINE_D + (TD * MINE_BIG) / 2;
+      add(0, -w, d, TH * MINE_BIG);
+      add(0, w, d, TH * MINE_BIG);
     }
   }
   return pts;
@@ -663,7 +671,8 @@ export class MahjongScene {
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div><div class="mj-center hidden"></div>
-      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>
+      <div class="mj-side"><div class="mj-info"></div><div class="mj-side-btns"><button class="mj-view" data-a='{"type":"view"}'></button><button class="mj-help-btn" data-a='{"type":"help"}' title="操作說明（I）" aria-label="操作說明">i</button></div><div class="mj-mp-bar hidden"></div></div>
+      <div class="mj-help hidden"></div>
       <div class="mj-hand hidden"></div>
       <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
     document.body.appendChild(el);
@@ -768,6 +777,7 @@ export class MahjongScene {
     this.$('.mj-timer').classList.add('hidden');
     this.$('.mj-zoom').classList.add('hidden');
     this.$('.mj-center').classList.add('hidden');
+    this._toggleHelp(false);
     this._peekAt = null;
     this._timerKey = '';
     this.$('.mj-info').innerHTML = this._info = '';
@@ -855,6 +865,7 @@ export class MahjongScene {
     this._syncSeatFigures(dt);
     const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
     if (!typing && inp.hit('KeyV')) this._toggleView();
+    if (!typing && inp.hit('KeyI')) this._toggleHelp();
     this._viewBtn();
     if (this.menu || this.lobby) return this._menuKeys(inp, typing);
     if (this.choosing) return this._stakeKeys(inp);
@@ -896,14 +907,15 @@ export class MahjongScene {
     this.set.newMark.visible = !!dm && !this._mobile;
     if (dm) {
       this.set.newMark.position.copy(dm.mesh.position);
-      this.set.newMark.position.y += TH / 2 + 0.03 + Math.sin(this.g.time * 5) * 0.003;
+      this.set.newMark.position.y += (TH * MINE_BIG) / 2 + 0.03 + Math.sin(this.g.time * 5) * 0.003;
     }
     // your hand: the chosen tile pops up
     if (this.mine) {
       this.sel = Math.max(0, Math.min(this.mine.length - 1, this.sel));
       this.mine.forEach((x, i) => {
         const T = x.mesh.userData.to;
-        T.p.y = Y0 + TH / 2 + (i === this.sel && e.pending?.kind === 'turn' ? 0.012 : 0);
+        T.y0 ??= T.p.y; // (slot 算好的高度；手牌放大後不是固定的 Y0 + TH/2)
+        T.p.y = T.y0 + (i === this.sel && e.pending?.kind === 'turn' ? 0.012 * MINE_BIG : 0);
       });
     }
     const L = e.last;
@@ -1169,37 +1181,50 @@ export class MahjongScene {
         drawn = hand.length - 1;
       }
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
-      const mk = s ? MELD_BIG : 1; // 別家的吃碰槓放大一點
-      const total = hand.length + nMeld * mk + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
-      let u = -(total * TW) / 2;
+      // 遠景你自己的手牌（站著、往你這邊仰）整排放大 hk 倍；別家的吃碰槓放大一點
+      const myRow = s === 0 && !e.spectate && !reveal,
+        hk = myRow ? MINE_BIG : 1,
+        mk = s ? MELD_BIG : hk;
+      const mg = TW * (myRow ? 0.6 : 0.3) * hk; // 吃碰槓之間（和手牌之間）空一點
+      const total =
+        ((hand.length + (drawn >= 0 ? 1 : 0)) * hk + nMeld * mk) * TW + P.melds.length * mg;
+      let u = -total / 2;
       // 手機版：你的手牌、吃碰槓、花都畫在底下那排大牌裡，桌上這份藏起來（攤牌時再擺出來）
       const bar = this._mobile && s === 0 && !e.spectate && !reveal;
+      const hd = reveal ? 0.38 : myRow ? MINE_D : 0.4;
       Z = `h${s}`;
       B = !!e.isRemote && !reveal && (!!e.spectate || s !== 0);
       hand.forEach((k, i) => {
-        if (i === drawn) u += TW; // the gap before the drawn tile
+        if (i === drawn) u += TW * hk; // the gap before the drawn tile
         const how = reveal ? 'up' : e.spectate ? 'stand' : s === 0 ? 'mine' : 'stand';
         put(
           k,
-          slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
+          slot(s, u + (TW * hk) / 2, hd, how, 0, hk),
           !e.spectate && s === 0 ? (i === drawn ? 'drawn' : 'mine') : null,
           bar,
           reveal ? { seat: s, what: '手牌' } : null
         );
-        u += TW;
+        u += TW * hk;
       });
       // melds, face up (closed kongs face down) to the right; a 吃 has the tile taken in the middle
       Z = `m${s}`;
       B = false;
       for (const m of P.melds) {
-        u += TW * 0.3;
+        u += mg;
         const { tiles, down: downs } = meldFaces(e, s, m);
         B = !!m.hidden; // (房主遮掉的別家暗槓：假牌)
         tiles.forEach((k, j) => {
           const down = downs[j];
           put(
             k,
-            slot(s, u + (TW * mk) / 2, 0.39 - (TH * (mk - 1)) / 2, down ? 'down' : 'up', 0, mk),
+            slot(
+              s,
+              u + (TW * mk) / 2,
+              (myRow ? MINE_D : 0.4) - 0.01 - (TH * (mk - 1)) / 2,
+              down ? 'down' : 'up',
+              0,
+              mk
+            ),
             null,
             bar,
             down ? null : { seat: s, what: '吃碰槓' }
@@ -1425,6 +1450,7 @@ export class MahjongScene {
     if (a.type === 'next') return this.mj.next();
     if (a.type === 'stake') return this._pickStake(a.i);
     if (a.type === 'view') return this._toggleView();
+    if (a.type === 'help') return this._toggleHelp();
     if (a.type === 'info') {
       this._infoOpen = !this._infoOpen;
       this._info = '';
@@ -1575,11 +1601,7 @@ export class MahjongScene {
       : e.spectate
         ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}${g.input.touch ? '・拖曳畫面繞著牌桌走' : '・按住 ← → 繞著牌桌走'}・Esc 離開`
         : p?.seat === 0 && p.kind === 'turn'
-          ? g.input.touch || this._barH
-            ? '' // (手機：手牌就在眼前，怎麼打一看就懂，不用再寫一行字擋畫面)
-            : g.prompts?.pad
-              ? '十字鍵選牌・A 打出'
-              : '← → 選牌・Enter／空白鍵打出（滑鼠點牌直接打）・Esc 離開'
+          ? '' // (怎麼選牌、打牌寫在右上角的「i」操作說明裡，不再一行字擋在手牌上)
           : p?.seat === 0
             ? `${this.names[e.last.from]} 打出 ${tileName(e.last.t)}，要嗎？`
             : waitSeat != null && waitSeat !== 0
@@ -2565,6 +2587,68 @@ export class MahjongScene {
   _toggleView() {
     this.closeUp = !this._mobile;
     this.g.audio?.tap?.();
+  }
+  // 右上角「i」：操作說明（鍵盤／滑鼠、觸控、搖桿各寫各的）。開場前、選底台、等人時都按得到；再按一次或按 I 關掉
+  _toggleHelp(open = this.$('.mj-help').classList.contains('hidden')) {
+    const el = this.$('.mj-help');
+    this.$('.mj-help-btn').classList.toggle('on', open);
+    if (!open) return el.classList.add('hidden');
+    const g = this.g,
+      pad = !!g.prompts?.pad,
+      touch = !!g.input.touch && !pad;
+    const row = (k, t) => `<li><span>${k}</span>${t}</li>`;
+    const k = (...ks) => ks.map((x) => `<kbd>${x}</kbd>`).join('');
+    const sec = (h, rows) => `<h4>${h}</h4><ul>${rows.join('')}</ul>`;
+    const html = pad
+      ? [
+          sec('出牌', [row(k('十字鍵'), '選牌'), row(k('A'), '打出選到的牌')]),
+          sec('吃・碰・槓・胡', [
+            row(k('Y'), '胡（含自摸）'),
+            row(k('X'), '碰'),
+            row(k('LB'), '吃（多種吃法再按 LB／2／3）'),
+            row(k('RB'), '槓'),
+            row(k('B'), '過'),
+          ]),
+          sec('其他', [
+            row(k('View'), '切換遠景／近景'),
+            row(k('Start'), '連按兩次離開（打到一半離開這局不算錢）'),
+          ]),
+        ]
+      : touch
+        ? [
+            sec('出牌', [row('👆', '點一張牌選起來，再點一次打出')]),
+            sec('吃・碰・槓・胡', [row('🔘', '能吃碰槓胡時，手牌正上方會跳出大按鈕，點一下就好')]),
+            sec('其他', [
+              row('🔍', '點桌上翻開的牌（海底、吃碰槓、花）看大張的'),
+              row('🔭', '右上角按鈕切換遠景／近景'),
+              row('👀', '觀賽時拖曳畫面繞著牌桌走'),
+            ]),
+          ]
+        : [
+            sec('出牌', [
+              row(`${k('←', '→')} ${k('A', 'D')}`, '選牌'),
+              row(`${k('Enter')} ${k('空白')} ${k('E')}`, '打出選到的牌'),
+              row('🖱️', '滑鼠指到的牌會浮起來，點一下直接打出'),
+            ]),
+            sec('吃・碰・槓・胡', [
+              row(k('H'), '胡（含自摸）'),
+              row(k('P'), '碰'),
+              row(k('C'), '吃（多種吃法再按 1 2 3）'),
+              row(k('K'), '槓'),
+              row(k('X'), '過'),
+              row('🔘', '按鈕也會出現在手牌正上方，直接點'),
+            ]),
+            sec('其他', [
+              row(k('V'), '切換遠景／近景'),
+              row(k('I'), '打開／關掉這個說明'),
+              row('🔍', '滑鼠移到桌上翻開的牌上，會放大給你看'),
+              row(`${k('Esc')}×2`, '離開牌桌（打到一半離開這局不算錢）'),
+              row(k('←', '→'), '觀賽時按住繞著牌桌走'),
+            ]),
+          ];
+    el.innerHTML = `<div class="mj-help-head"><b>ⓘ 操作說明</b><button data-a='{"type":"help"}' aria-label="關閉">✕</button></div>${html.join('')}`;
+    el.classList.remove('hidden');
+    g.audio?.tap?.();
   }
   _viewBtn() {
     const txt = `<kbd>${this.g.prompts?.pad ? 'View' : 'V'}</kbd> ${this._mobile ? '🔭 遠景' : '🔍 近景'}`;

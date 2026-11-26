@@ -36,7 +36,7 @@ docs/
 
 存放 `README.md` 展示或對外宣傳使用之影片、截圖、海報等媒體檔案，與遊戲執行期資產隔離：
 
-- `docs/media/promo/`：遊戲展示影片（`yanlin-demo-30s.mp4`、`yanlin-promo-53s.mp4` 等）。
+- `docs/media/promo/`：遊戲展示影片（`yanlin-demo-30s.mp4`、`yanlin-promo-53s.mp4`、README 置頂的 `yanlin-promo-58s-v2.mp4` 與其封面 `yanlin-promo-58s-v2-poster.jpg`、無配樂版 `yanlin-promo-58s-v2-nobgm.mp4` 等；58 秒版的錄製與剪輯工具見 [`tools/promo/`](../tools/promo/README.md)）。
 
 ---
 

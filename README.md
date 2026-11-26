@@ -1,3 +1,6 @@
+<p align="center"><a href="docs/media/promo/yanlin-promo-58s-v2.mp4" title="播放 58 秒宣傳片"><img src="docs/media/promo/yanlin-promo-58s-v2-poster.jpg" alt="▶ 播放 YanlinGTA 宣傳片（58 秒）" width="100%"></a></p>
+<p align="center"><sub>▶ 點上圖播放 58 秒宣傳片（第一人稱校園、手機 APP、電腦操作全收錄）</sub></p>
+
 <p align="center"><img src="assets/loading.jpg" alt="中原順起來 · 資管要贏 票投彥霖" width="100%"></p>
 
 # 中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)

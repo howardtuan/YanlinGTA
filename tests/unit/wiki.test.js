@@ -7,6 +7,7 @@ import {
   buildWiki,
   loadWikiData,
   pageFile,
+  pageUrl,
   renderPages,
   renderWiki,
 } from '../../wiki/build.mjs';
@@ -113,6 +114,34 @@ describe('wiki', () => {
     }
   });
 
+  it('每一頁都有分享按鈕與連結預覽（og／twitter 用完整 https 網址）', () => {
+    const pages = renderPages(loadWikiData());
+    for (const p of PAGES) {
+      const html = pages[pageFile(p.slug)];
+      const url = pageUrl(p.slug);
+      expect(url).toMatch(/^https:\/\/yanlin-gta\.com\/wiki\//);
+      expect(html, p.slug).toContain(`<link rel="canonical" href="${url}">`);
+      expect(html, p.slug).toContain(`<meta property="og:url" content="${url}">`);
+      expect(html, p.slug).toMatch(/<meta property="og:image" content="https:\/\/[^"]+\.jpg">/);
+      expect(html, p.slug).toContain('<meta name="twitter:card" content="summary_large_image">');
+      expect(html, p.slug).toContain(`class="share-url" type="text" readonly value="${url}"`);
+    }
+    // 每篇文章有自己的頁面，預覽圖是文章照片、類型是 article
+    for (const n of loadWikiData().news) {
+      const html = pages[`news/${n.id}/index.html`];
+      expect(html, n.id).toContain(`<meta property="og:url" content="${pageUrl(`news/${n.id}`)}">`);
+      expect(html, n.id).toContain('<meta property="og:type" content="article">');
+      if (n.image)
+        expect(html, n.id).toContain(
+          `<meta property="og:image" content="https://yanlin-gta.com/wiki/news/${n.image}">`
+        );
+    }
+    const game = fs.readFileSync('index.html', 'utf-8');
+    expect(game).toContain(
+      '<meta property="og:image" content="https://yanlin-gta.com/assets/loading.jpg">'
+    );
+  });
+
   it('build 產出每一頁，站內連結和錨點都找得到', () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'wiki-'));
     try {
@@ -138,8 +167,11 @@ describe('wiki', () => {
 
       const idsOf = (file) =>
         new Set([...fs.readFileSync(file, 'utf-8').matchAll(/ id="([^"]+)"/g)].map((m) => m[1]));
-      for (const p of PAGES) {
-        const file = path.join(out, pageFile(p.slug));
+      // 主題頁＋每篇文章頁（news/<id>/）
+      const files = Object.keys(renderPages(loadWikiData()));
+      expect(files).toContain('news/it-team-dinner/index.html');
+      for (const rel of files) {
+        const file = path.join(out, rel);
         const html = fs.readFileSync(file, 'utf-8');
         for (const [, url] of html.matchAll(/(?:href|src|poster)="([^"]+)"/g)) {
           if (/^(https?:|mailto:|data:)/.test(url)) continue;
@@ -148,8 +180,8 @@ describe('wiki', () => {
           let target = clean ? path.resolve(path.dirname(file), clean) : file;
           if (!target.startsWith(path.resolve(out))) continue; // ../ 回到遊戲首頁
           if (clean.endsWith('/')) target = path.join(target, 'index.html');
-          expect(fs.existsSync(target), `${pageFile(p.slug)} → ${url}`).toBe(true);
-          if (hash) expect(idsOf(target).has(hash), `${pageFile(p.slug)} → ${url}`).toBe(true);
+          expect(fs.existsSync(target), `${rel} → ${url}`).toBe(true);
+          if (hash) expect(idsOf(target).has(hash), `${rel} → ${url}`).toBe(true);
         }
       }
     } finally {

@@ -13,6 +13,9 @@ const ROOT = path.resolve(HERE, '..');
 // Wiki 在遊戲網站的 /wiki/ 底下：用相對路徑回到遊戲，本機預覽和正式站都能用
 const GAME_URL = '../';
 const REPO_URL = 'https://github.com/howardtuan/YanlinGTA';
+// 分享連結與連結預覽（LINE、Facebook、Discord…）要用完整網址，相對路徑抓不到圖
+export const SITE = 'https://yanlin-gta.com';
+export const pageUrl = (slug) => `${SITE}/wiki/${slug ? `${slug}/` : ''}`;
 
 export const GROUPS = [
   { id: 'main', label: '主角' },
@@ -36,6 +39,23 @@ const esc = (s) =>
     .replace(/"/g, '&quot;');
 
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf-8'));
+
+// JPEG 的寬高（連結預覽的 og:image:width/height 用），讀不到就回傳 null
+export function jpegSize(file) {
+  try {
+    const b = fs.readFileSync(file);
+    let i = 2;
+    while (i < b.length) {
+      if (b[i] !== 0xff) return null;
+      const m = b[i + 1];
+      const len = b.readUInt16BE(i + 2);
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc)
+        return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)];
+      i += 2 + len;
+    }
+  } catch (e) {}
+  return null;
+}
 
 // 只接受 http(s) 網址，避免 javascript: 之類的連結被塞進頁面
 const safeUrl = (u) => (/^https:\/\/[^\s"<>]+$/i.test(u || '') ? u : '');
@@ -249,16 +269,25 @@ const excerpt = (n) => {
   return t.length > 48 ? `${t.slice(0, 48).join('')}…` : t.join('');
 };
 
-function postCard(n, base) {
+// 每篇文章自己一頁（/wiki/news/<id>/），分享時連結預覽才會是這篇的照片與標題
+export const postSlug = (n) => `news/${n.id}`;
+
+function postCard(n, base, { full = false } = {}) {
+  const url = pageUrl(postSlug(n));
   return `
 <article class="post" id="post-${esc(n.id)}">
   <header>
     <time datetime="${esc(n.date)}">${esc(n.date)}</time>
-    <h2>${esc(n.title)}</h2>
+    ${full ? '' : `<h2><a href="${link(base, postSlug(n))}">${esc(n.title)}</a></h2>`}
   </header>
   ${n.image ? `<figure class="post-img"><img src="${base}news/${esc(n.image)}" alt="${esc(n.alt || n.title)}" loading="lazy"></figure>` : ''}
   ${n.body.map((p) => `<p>${esc(p)}</p>`).join('')}
   ${n.tags?.length ? `<p class="post-tags">${n.tags.map((t) => `<span>#${esc(t)}</span>`).join('')}</p>` : ''}
+  ${
+    full
+      ? ''
+      : `<p class="post-actions"><a href="${link(base, postSlug(n))}">閱讀全文・分享 →</a><button class="copy-link" type="button" data-url="${esc(url)}">🔗 複製文章連結</button></p>`
+  }
 </article>`;
 }
 
@@ -314,7 +343,7 @@ ${
         .slice(0, 2)
         .map(
           (n) =>
-            `<a class="card" href="${link(base, 'news', `post-${n.id}`)}"><span class="num">${esc(n.date)}</span><b>${esc(n.title)}</b><span>${esc(excerpt(n))}</span></a>`
+            `<a class="card" href="${link(base, postSlug(n))}"><span class="num">${esc(n.date)}</span><b>${esc(n.title)}</b><span>${esc(excerpt(n))}</span></a>`
         )
         .join('')}</div>
 <p><a href="${link(base, 'news')}">看全部消息 →</a></p>`
@@ -327,6 +356,17 @@ ${
   <a class="card" href="${link(base, 'characters')}"><span class="num">${pageNum('characters')}</span><b>角色介紹</b><span>真人改編的同學、室友與開發者</span></a>
   <a class="card" href="${link(base, 'main-quests')}"><span class="num">${pageNum('main-quests')}</span><b>主線任務</b><span>五個競選任務攻略</span></a>
 </div>`,
+    };
+  }
+
+  if (page.post) {
+    const n = page.post;
+    return {
+      lead: esc(excerpt(n)),
+      meta: [n.date, ...(n.tags || []).slice(0, 3).map((t) => `#${t}`)],
+      toc: [],
+      html: `${postCard(n, base, { full: true })}
+<p><a href="${link(base, 'news')}">← 回到最新消息</a></p>`,
     };
   }
 
@@ -465,7 +505,7 @@ function sidebarHtml(current, base) {
       .filter(([p]) => p.group === g)
       .map(
         ([p, i]) =>
-          `<li><a href="${link(base, p.slug)}"${p === current ? ' class="active" aria-current="page"' : ''}><span class="num">${num(i)}</span>${esc(p.title)}</a></li>`
+          `<li><a href="${link(base, p.slug)}"${p === current || (current.post && p.slug === 'news') ? ' class="active" aria-current="page"' : ''}><span class="num">${num(i)}</span>${esc(p.title)}</a></li>`
       )
       .join('')}</ul>`
       )
@@ -477,15 +517,47 @@ function sidebarHtml(current, base) {
 }
 
 function renderPage(page, data, opts) {
-  const i = PAGES.indexOf(page);
-  const base = page.slug ? '../' : '';
+  // 文章頁（news/<id>）掛在「最新消息」底下：目錄標亮最新消息、頁碼也用它的
+  const navPage = page.post ? PAGES.find((p) => p.slug === 'news') : page;
+  const i = PAGES.indexOf(navPage);
+  const base = page.slug ? '../'.repeat(page.slug.split('/').length) : '';
   const body = pageBody(page, data, base, opts);
   const h1 = page.slug ? page.title : '中原順起來 · 資管要贏 票投彥霖';
-  const prev = PAGES[i - 1];
-  const next = PAGES[i + 1];
+  let prev = PAGES[i - 1];
+  let next = PAGES[i + 1];
+  if (page.post) {
+    // 文章頁：上一頁＝較新的文章（沒有就回最新消息），下一頁＝較舊的文章
+    const k = data.news.indexOf(page.post);
+    const asPage = (n) => n && { slug: postSlug(n), title: n.title, post: n };
+    prev = asPage(data.news[k - 1]) || navPage;
+    next = asPage(data.news[k + 1]);
+  }
+  const url = pageUrl(page.slug);
+  const title = `${page.slug ? `${page.title} · ` : ''}YanlinGTA Wiki`;
+  const desc = body.lead.replace(/<[^>]+>/g, '');
+  // 預覽圖：文章用文章照片，操作教學用遊戲畫面截圖，其他頁用遊戲封面
+  const [ogImg, ogW, ogH] = page.post?.image
+    ? [`news/${page.post.image}`, ...(opts.postSizes?.[page.post.image] || [])]
+    : page.slug === 'controls'
+      ? ['shots/desktop-play.jpg', 1600, 900]
+      : ['img/cover.jpg', 1672, 941];
+  const enc = encodeURIComponent;
+  const share = `<div class="share">
+      <button class="share-btn" type="button" aria-expanded="false" aria-controls="share-pop"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 9.4a3 3 0 0 0 4.2 0l2.3-2.3a3 3 0 0 0-4.2-4.2l-.9.9M9.4 6.6a3 3 0 0 0-4.2 0L2.9 8.9a3 3 0 0 0 4.2 4.2l.9-.9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>分享</button>
+      <div class="share-pop" id="share-pop" role="dialog" aria-label="分享這一頁" hidden>
+        <p class="mono">分享這一頁</p>
+        <div class="share-row"><input class="share-url" type="text" readonly value="${esc(url)}" aria-label="分享連結"><button class="share-copy" type="button" data-url="${esc(url)}">複製</button></div>
+        <div class="share-to">
+          <button class="share-native" type="button" data-url="${esc(url)}" data-title="${esc(title)}" data-text="${esc(desc)}" hidden>更多…</button>
+          <a href="https://social-plugins.line.me/lineit/share?url=${enc(url)}" target="_blank" rel="noopener">LINE</a>
+          <a href="https://www.facebook.com/sharer/sharer.php?u=${enc(url)}" target="_blank" rel="noopener">Facebook</a>
+          <a href="https://twitter.com/intent/tweet?url=${enc(url)}&amp;text=${enc(title)}" target="_blank" rel="noopener">X</a>
+        </div>
+      </div>
+    </div>`;
   const pager = (p, dir) =>
     p
-      ? `<a class="pager-${dir}" href="${link(base, p.slug)}"><small>${dir === 'prev' ? '← 上一頁' : '下一頁 →'}</small><span>${num(PAGES.indexOf(p))} ${esc(p.title)}</span></a>`
+      ? `<a class="pager-${dir}" href="${link(base, p.slug)}"><small>${dir === 'prev' ? (p.post ? '← 較新的文章' : '← 上一頁') : p.post ? '較舊的文章 →' : '下一頁 →'}</small><span>${p.post ? '' : `${num(PAGES.indexOf(p))} `}${esc(p.title)}</span></a>`
       : '<span></span>';
   return `<!doctype html>
 <html lang="zh-Hant-TW">
@@ -493,10 +565,20 @@ function renderPage(page, data, opts) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${page.slug ? `${esc(page.title)} · ` : ''}YanlinGTA Wiki · 彥霖 Great Times Adventure</title>
-<meta name="description" content="YanlinGTA（Yanlin Great Times Adventure）遊戲百科：角色介紹、主線與支線任務攻略、開發團隊。同學、室友與開發者皆由真人改編。">
-<meta property="og:title" content="${page.slug ? `${esc(page.title)} · ` : ''}YanlinGTA Wiki">
-<meta property="og:description" content="中原大學 3D 開放世界競選遊戲的角色與任務百科">
-<meta property="og:image" content="${base}img/cover.jpg">
+<meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${url}">
+<meta property="og:type" content="${page.post ? 'article' : 'website'}">${page.post ? `\n<meta property="article:published_time" content="${esc(page.post.date)}">` : ''}
+<meta property="og:site_name" content="YanlinGTA Wiki">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="${url}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${SITE}/wiki/${ogImg}">
+${ogW ? `<meta property="og:image:width" content="${ogW}">\n<meta property="og:image:height" content="${ogH}">\n` : ''}<meta property="og:image:alt" content="${esc(page.post ? page.post.alt || page.post.title : '中原順起來 · 資管要贏 票投彥霖')}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(desc)}">
+<meta name="twitter:image" content="${SITE}/wiki/${ogImg}">
 <meta name="theme-color" content="#2e105c">
 <link rel="icon" href="${base}img/wiki-favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" href="${base}img/wiki-icon-192.png" sizes="192x192">
@@ -507,7 +589,7 @@ function renderPage(page, data, opts) {
 <link rel="stylesheet" href="${base}style.css">
 <link rel="stylesheet" href="${base}game-controls.css">
 </head>
-<body data-page="${page.slug || 'home'}">
+<body data-page="${page.post ? 'post' : page.slug || 'home'}">
 <a class="skip" href="#content">跳到內容</a>
 <header class="top">
   <a class="brand" href="${link(base, '')}"><img src="${base}img/wiki-icon-192.png" alt="" width="28" height="28"> <b class="brand-name">YanlinGTA</b> <span>Wiki</span></a>
@@ -522,8 +604,8 @@ function renderPage(page, data, opts) {
 ${sidebarHtml(page, base)}
 <main id="content" class="doc">
   <div class="doc-head">
-    <nav class="crumbs" aria-label="位置"><a href="${link(base, '')}">WIKI</a><span>/</span>${esc(page.group)}</nav>
-    <span class="doc-num">${num(i)}</span>
+    <nav class="crumbs" aria-label="位置"><a href="${link(base, '')}">WIKI</a><span>/</span>${page.post ? `<a href="${link(base, 'news')}">最新消息</a>` : esc(page.group)}</nav>
+    <div class="doc-tools">${share}<span class="doc-num">${num(i)}</span></div>
   </div>
   <h1>${h1}</h1>
   <p class="lead">${body.lead}</p>
@@ -533,7 +615,7 @@ ${body.html}
   </article>
   <nav class="pager" aria-label="上一頁與下一頁">${pager(prev, 'prev')}${pager(next, 'next')}</nav>
 </main>
-<aside class="toc" aria-label="本頁內容">
+<aside class="toc" aria-label="本頁內容"${body.toc.length ? '' : ' data-empty'}>
   <p class="mono">本頁內容</p>
   <ul>${body.toc.map(([id, t, lv]) => `<li class="lv${lv}"><a href="#${id}" data-spy="${id}">${esc(t)}</a></li>`).join('')}</ul>
   <a class="toc-top" href="#content">↑ 回到最上面</a>
@@ -552,9 +634,16 @@ ${body.html}
 }
 
 // 所有頁面：{ 'index.html': html, 'controls/index.html': html, … }
-export function renderPages(data, { promo = true, controls = '' } = {}) {
+export function renderPages(data, { promo = true, controls = '', postSizes = {} } = {}) {
+  const opts = { promo, controls, postSizes };
+  const posts = (data.news || []).map((n) => ({
+    slug: postSlug(n),
+    group: '開始',
+    title: n.title,
+    post: n,
+  }));
   return Object.fromEntries(
-    PAGES.map((p) => [pageFile(p.slug), renderPage(p, data, { promo, controls })])
+    [...PAGES, ...posts].map((p) => [pageFile(p.slug), renderPage(p, data, opts)])
   );
 }
 // 測試用：所有頁面接在一起
@@ -587,11 +676,17 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
     const v = crypto.createHash('sha256').update(text).digest('hex').slice(0, 10);
     return [name, v];
   });
-  const pages = renderPages(data, { promo, controls: gameControlsHtml() });
+  const postSizes = Object.fromEntries(
+    data.news
+      .filter((n) => n.image)
+      .map((n) => [n.image, jpegSize(path.join(root, 'wiki', 'news', n.image))])
+      .filter(([, sz]) => sz)
+  );
+  const pages = renderPages(data, { promo, controls: gameControlsHtml(), postSizes });
   for (const [file, page] of Object.entries(pages)) {
     let html = page;
     for (const [name, v] of vers)
-      for (const pre of ['"', '"../'])
+      for (const pre of ['"', '"../', '"../../'])
         html = html.replaceAll(`${pre}${name}"`, `${pre}${name}?v=${v}"`);
     fs.mkdirSync(path.dirname(path.join(outDir, file)), { recursive: true });
     fs.writeFileSync(path.join(outDir, file), html, 'utf-8');

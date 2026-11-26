@@ -62,10 +62,14 @@ export class Missions {
   get active() {
     return this.step;
   }
-  // 🏠 彥霖的家 on the map: hidden until you have found the place yourself (or the story is past 任務五),
-  // and during 任務五's search
+  // 彥霖以前住的地方 is known once you have found it yourself, or the story is past 任務五 (save-safe for old saves).
+  // Until then it is not on the map (🏠) nor in 品漢堡's ride list (src/systems/minigames/PinHanRide.js)
+  get homeKnown() {
+    return this.homeFound || this.done || this.idx > 5;
+  }
+  // 🏠 彥霖的家 on the map: only when known, and never during 任務五's search
   get showHome() {
-    return !this.hideHome && (this.homeFound || this.done || this.idx > 5);
+    return !this.hideHome && this.homeKnown;
   }
   // called when you walk into 彥霖以前住的地方 (Game checks the zone you stand in); 任務五 then skips its search
   discoverHome() {

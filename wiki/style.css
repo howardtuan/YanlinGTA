@@ -229,6 +229,13 @@ main {
   margin: 0 0 22px;
   color: var(--muted);
 }
+.gta-name {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+.gta-name b {
+  color: var(--pink);
+}
 .prose {
   max-width: 760px;
 }

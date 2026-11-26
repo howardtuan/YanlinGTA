@@ -199,8 +199,8 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>YanlinGTA Wiki · 中原順起來 資管要贏 票投彥霖</title>
-<meta name="description" content="YanlinGTA 遊戲百科：角色介紹、主線與支線任務攻略、開發團隊。所有角色皆由真人改編。">
+<title>YanlinGTA Wiki · 彥霖 Great Times Adventure · 中原順起來 資管要贏 票投彥霖</title>
+<meta name="description" content="YanlinGTA（Yanlin Great Times Adventure）遊戲百科：角色介紹、主線與支線任務攻略、開發團隊。所有角色皆由真人改編。">
 <meta property="og:title" content="YanlinGTA Wiki">
 <meta property="og:description" content="中原大學 3D 開放世界競選遊戲的角色與任務百科">
 <meta property="og:image" content="img/cover.jpg">
@@ -236,7 +236,7 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
       : '<img class="hero-img" src="img/cover.jpg" alt="中原順起來 · 資管要贏 票投彥霖 遊戲封面">'
   }
   <div class="hero-text">
-    <p class="kicker">第 34 屆中原大學資管系 系學會會長選舉</p>
+    <p class="kicker">YanlinGTA = Yanlin <b>G</b>reat <b>T</b>imes <b>A</b>dventure · 第 34 屆中原大學資管系 系學會會長選舉</p>
     <h1>中原順起來 · 資管要贏 票投彥霖</h1>
     <p>一款在瀏覽器就能玩的 3D 開放世界競選遊戲。騎著粉白色 SYM JET SL 穿梭真實比例的中原大學校園，幫候選人彥霖拉票。遊戲裡的同學、室友和開發者，<b>全部由真人改編</b>。</p>
     <p class="memoir">這是一群資管系的好朋友，一起動手打造、屬於我們自己的<b>大學回憶錄</b>：宿舍的床位、打工的麥當勞、半夜的麻將桌、彼此的口頭禪和糗事，都被寫進了這座校園。</p>
@@ -246,6 +246,7 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
 
 <section id="overview" class="block">
   <h2>遊戲概覽</h2>
+  <p class="gta-name"><b>YanlinGTA</b> 的 GTA，是 <b>Great Times Adventure</b> 的縮寫：彥霖和一群好朋友的大學美好時光大冒險。</p>
   <div class="overview-grid">
     <div class="ov"><span class="ov-n">5</span><span>主線任務</span></div>
     <div class="ov"><span class="ov-n">${quests.filter((q) => q.type !== 'main').length}</span><span>支線與案件</span></div>

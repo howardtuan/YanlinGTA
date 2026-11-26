@@ -28,15 +28,6 @@ const setLoad = (p, t) => {
   if (tx) tx.textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`;
 };
 
-const ABOUT_HTML = `<div class="about">
-<p><b style="font-size:20px;color:#ffd23f">彥霖 Yanlin</b>　第34屆 中原大學 資訊管理學系 系學會會長候選人</p>
-<p style="font-size:20px;font-weight:900">資管要贏　票投彥霖</p>
-<p>《中原順起來》是彥霖的競選宣傳小遊戲。整個地圖依照真實的中原大學與周邊街區（中北路、實踐路、新中北路、中原夜市）搭建，建築位置與高度來自 OpenStreetMap。</p>
-<p>在遊戲裡，你就是彥霖：</p>
-<ul><li>騎著粉白色 SYM JET SL 穿梭校園送傳單</li><li>走進資管系館上樓、進教室，用電腦教室的電腦上網、玩踩地雷</li><li>去活動中心的麥當勞點餐，或從櫃台後面的員工入口打工值班、幫同學出餐賺錢拉票</li><li>坐進警衛室值班</li><li>一早衝去中原夜市那條街買早餐</li><li>對路上的同學發傳單拉票</li><li>在學生活動中心發表政見</li></ul>
-<p>真實的投票日，資管要贏，票投 <b style="color:#ffd23f">彥霖</b> 🗳✌</p>
-<p style="color:#a9adbf;font-size:12px">地圖資料 © OpenStreetMap contributors，依 ODbL 授權使用。<br>地形資料：內政部 20m 網格數值地形模型（政府資料開放授權條款第1版）。</p></div>`;
-
 export class MenuManager {
   constructor(game) {
     this.game = game;
@@ -98,7 +89,8 @@ export class MenuManager {
     onClick('btnControls', () => this.showControls());
     onClick('btnSettings', () => this.openSettings());
     onClick('btnBench', () => game.bench?.openDialog());
-    onClick('btnAbout', () => this.modal('關於彥霖', ABOUT_HTML, 'ABOUT'));
+    // 遊戲百科 Wiki（yanlin-gta.com/wiki/，wiki/build.mjs）：開新分頁，遊戲留在原本的分頁
+    onClick('btnWiki', () => window.open('wiki/', '_blank', 'noopener'));
     onClick('modalClose', () => this.closeModal());
     onClick('videoClose', () => this.closeVideo());
     // the pause menu (and the settings / controls / delete-save pages opened from it) also closes with Esc or a click on

@@ -43,6 +43,7 @@ export function writeSave(g) {
       rewarded: [...M.rewarded],
       done: M.done,
       free: M.free,
+      homeFound: M.homeFound,
       prog: M.progress(),
     },
     detective: g.detective?.toJSON() || null,
@@ -179,6 +180,7 @@ export function applySave(g, d) {
   g.mahjong?.load(d.mahjong);
   const M = g.missions;
   M.rewarded = new Set(d.mission?.rewarded || []);
+  M.homeFound = !!d.mission?.homeFound;
   const m = d.mission || { idx: -1 };
   if (!m.mv && m.idx >= 5) m.idx++; // saved at the speech (5) or the ending (6) before mission 5 existed
   return m;

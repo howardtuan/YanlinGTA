@@ -25,6 +25,7 @@ export class Missions {
     this.rewarded = new Set(); // checkpoint rewards already given (survives mission retries)
     this.free = false;
     this.done = false;
+    this.homeFound = false; // the player has been to 彥霖以前住的地方 (saved): only then is 🏠 on the map
     const w = game.world;
     const ap = (name) => {
       const it = w.named[name] || w.named[NAME_ALIAS[name]];
@@ -60,6 +61,19 @@ export class Missions {
   }
   get active() {
     return this.step;
+  }
+  // 🏠 彥霖的家 on the map: hidden until you have found the place yourself (or the story is past 任務五),
+  // and during 任務五's search
+  get showHome() {
+    return !this.hideHome && (this.homeFound || this.done || this.idx > 5);
+  }
+  // called when you walk into 彥霖以前住的地方 (Game checks the zone you stand in); 任務五 then skips its search
+  discoverHome() {
+    if (this.homeFound) return;
+    this.homeFound = true;
+    this.g._saveT = 9.5;
+    if (!this.hideHome && !this.done && this.idx <= 5)
+      this.g.hud.toast('🏠 發現彥霖以前住的地方！已標在地圖上', 'good', 3000);
   }
   // the story AIs always float at their own fixed spots: M.O.N.D.A.Y at the start point inside the old gate,
   // W.E.D.N.E.S.D.A.Y in front of the 資管系館. Called by the steps and when a saved game is resumed at step idx.
@@ -620,6 +634,63 @@ Missions.prototype.steps = [
           !g.player.vehicle &&
           g.interiors.zoneAt(g.player.pos.x, g.player.pos.z, g.player.y)?.name ===
             '彥霖以前住的地方';
+        // the computer part: sit at the desk and solve the case in the terminal
+        const useComputer = (opt = {}) =>
+          this.until(
+            '任務五 · 布條失竊案',
+            '坐到書桌前按 <kbd>E</kbd> 使用電腦，打開 <b>終端機</b> 輸入 <code>case</code>，用 SQL 找出拆布條的人',
+            () => D.solved('banner') && !g.pc.isOpen,
+            () => {
+              this.talk(
+                [
+                  ['彥霖', 'M.O.N.D.A.Y，我查到了！是資管系二年級的 小明。'],
+                  [
+                    '彥霖',
+                    '他中午先去全家買了美工刀跟大垃圾袋，騎著 MKZ-893 繞校園一圈，把 6 條布條一條一條割下來，最後還發文說「任務完成」。',
+                  ],
+                  [MONDAY, '……已通知 W.E.D.N.E.S.D.A.Y，請他在系館把人留下來。'],
+                  [
+                    '小明',
+                    '對不起……我只是想幫小華學姊，一時衝動就做了。布條都收在系館的櫃子裡，沒有弄壞。',
+                  ],
+                  ['小華', '小明，要贏也要贏得光明正大。彥霖，真的很抱歉，我會陪他把事情處理好。'],
+                  ['彥霖', '沒關係，明天我們就公平地比一場吧 ✌'],
+                  [
+                    MONDAY,
+                    '真相大白！社群聲量分析：大家都在討論你怎麼用資料庫破案的，風向整個站到我們這邊了！',
+                  ],
+                ],
+                () => {
+                  if (this.once('m5:solved')) g.addVotes(8, '真相大白 +8 票');
+                  g.hud.bigToast('任務完成！', '布條失竊案 破案 🕵️');
+                  g.audio.fanfare();
+                  g.hud.toast('🕵️ 電腦的「案件檔案」解鎖了兩個支線小案子', 'good', 3200);
+                  this.g.after(() => this.next(), 1500);
+                }
+              );
+            },
+            opt
+          );
+        // been there before (walked in on your own): no search, straight to the computer
+        if (this.homeFound) {
+          this.sub++; // the skipped search still counts as a section, so saved sections line up
+          this.talk(
+            [
+              ['彥霖', '等等，中北路那間牛肉拉麵樓上……我前陣子才自己回去過一趟！'],
+              [
+                MONDAY,
+                '確認：你先前已經找到彥霖以前住的地方，地圖上有標 🏠。跳過搜尋，直接回去用電腦。',
+              ],
+            ],
+            () =>
+              useComputer({
+                markers: [{ x: d[0], z: d[1], big: true, icon: '★' }],
+                beam: { x: d[0], z: d[1] },
+                radius: 6,
+              })
+          );
+          return;
+        }
         // a search area on the map (not centred on the house), the exact ★ only after a while
         const area = {
           x: d[0] + 38,
@@ -635,44 +706,9 @@ Missions.prototype.steps = [
           inside,
           () => {
             this.hideHome = false;
+            this.homeFound = true;
             g.hud.toast('🏠 回到以前住的地方了，電腦在書桌上', 'good', 2600);
-            this.until(
-              '任務五 · 布條失竊案',
-              '坐到書桌前按 <kbd>E</kbd> 使用電腦，打開 <b>終端機</b> 輸入 <code>case</code>，用 SQL 找出拆布條的人',
-              () => D.solved('banner') && !g.pc.isOpen,
-              () => {
-                this.talk(
-                  [
-                    ['彥霖', 'M.O.N.D.A.Y，我查到了！是資管系二年級的 小明。'],
-                    [
-                      '彥霖',
-                      '他中午先去全家買了美工刀跟大垃圾袋，騎著 MKZ-893 繞校園一圈，把 6 條布條一條一條割下來，最後還發文說「任務完成」。',
-                    ],
-                    [MONDAY, '……已通知 W.E.D.N.E.S.D.A.Y，請他在系館把人留下來。'],
-                    [
-                      '小明',
-                      '對不起……我只是想幫小華學姊，一時衝動就做了。布條都收在系館的櫃子裡，沒有弄壞。',
-                    ],
-                    [
-                      '小華',
-                      '小明，要贏也要贏得光明正大。彥霖，真的很抱歉，我會陪他把事情處理好。',
-                    ],
-                    ['彥霖', '沒關係，明天我們就公平地比一場吧 ✌'],
-                    [
-                      MONDAY,
-                      '真相大白！社群聲量分析：大家都在討論你怎麼用資料庫破案的，風向整個站到我們這邊了！',
-                    ],
-                  ],
-                  () => {
-                    if (this.once('m5:solved')) g.addVotes(8, '真相大白 +8 票');
-                    g.hud.bigToast('任務完成！', '布條失竊案 破案 🕵️');
-                    g.audio.fanfare();
-                    g.hud.toast('🕵️ 電腦的「案件檔案」解鎖了兩個支線小案子', 'good', 3200);
-                    this.g.after(() => this.next(), 1500);
-                  }
-                );
-              }
-            );
+            useComputer();
           },
           {
             markers: [

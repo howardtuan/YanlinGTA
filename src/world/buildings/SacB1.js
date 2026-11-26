@@ -6,9 +6,11 @@
 // Local frame: origin at (-152, -114), x east, z south (Kit angle 0).
 import * as THREE from 'three';
 import { H, Hgrid } from '../Terrain.js';
-import { FORE, STAIR2F } from '../zones/ZoneG.js';
+import { FORE, STAIR2F, PIT } from '../zones/ZoneG.js';
 import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
+// the round spiral stair (B1 -> 1F -> 2F), world centre: where the 1F plan (docs/references/floorplans/sac/sac-1f.svg) draws it
+export const SPIRAL = { x: -151.22, z: -114.78 };
 export const SAC_B1 = { ox: -152, oz: -114, W: 16, D: 19.58, stallW: 9.3, stallD: 24.5, H: 2.8 }; // stallD stays 5 cm inside PIT.stall: a wall on the pit edge would count from the plaza (H() there)
 
 // canvas from src/graphics/GpuMemLifecycle.js (stored at the tier's texture scale)
@@ -121,23 +123,44 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   const surf = (x0, x1, z0, z1) =>
     I.addSurface(k.rect(x0, x1, z0, z1), (x, z) => k.base + 0.1 - H(x, z));
   surf(0, W, 0, D + 0.05);
-  k.box(0, 0.3, 0, Hc, 0, D, MT.wall); // west wall (dining area)
-  cbox(0, 0.3, 0, Hc, D, SD, MT.wall); // west wall (stalls)
-  k.box(0, W, 0, Hc, 0, 0.3, MT.wall); // north wall (stair hall)
-  cbox(0.3, SW, 0, Hc, SD - 0.3, SD, MT.wall); // the stalls' back wall (under the plaza)
-  // ceiling 2.8 m up (the 活動中心's outer wall starts there), a square hole over the spiral stair
-  const SX = 6,
-    SZ = 5,
+  // the hall reaches west under the whole 1F lobby (to its west wall) and north to the main corridor's north wall
+  // (src/world/zones/ZoneG.js PIT.west); the round spiral stair stands in it where the 1F plan has it
+  const XW = PIT.west[0] + 0.05 - S.ox,
+    ZW = PIT.west[1] + 0.05 - S.oz;
+  k.box(XW, 0, -0.3, 0.1, ZW, D, MT.floor, { ...nc, tile: [2.4, 2.4] });
+  k.box(0, W, -0.3, 0.1, ZW, 0, MT.floor, { ...nc, tile: [2.4, 2.4] });
+  surf(XW, 0, ZW, D);
+  surf(0, W, ZW, 0);
+  const SX = SPIRAL.x - S.ox,
+    SZ = SPIRAL.z - S.oz,
     SR = 1.7,
     hx0 = SX - SR - 0.2,
     hx1 = SX + SR + 0.2,
     hz0 = SZ - SR - 0.2,
     hz1 = SZ + SR + 0.2;
+  k.box(XW, XW + 0.3, 0, Hc, ZW, D, MT.wall); // west wall (under the lobby's west wall)
+  cbox(0, 0.3, 0, Hc, D, SD, MT.wall); // west wall (stalls)
+  k.box(XW, W, 0, Hc, ZW, ZW + 0.3, MT.wall); // north wall
+  k.box(W - 0.3, W, 0, Hc, ZW, 0.3, MT.wall); // east wall, north of 麥當勞 (its north wall is the old hall's)
+  k.box(XW, 0, 0, Hc, D - 0.3, D, MT.wall); // south wall, west of the stalls
+  cbox(0.3, SW, 0, Hc, SD - 0.3, SD, MT.wall); // the stalls' back wall (under the plaza)
+  // the 1F lobby's round columns go down through the hall
+  for (const [cx, cz] of [
+    [-163.49, -116.84],
+    [-155.49, -116.84],
+    [-163.49, -104.94],
+    [-155.49, -104.94],
+  ]) {
+    k.cyl(cx - S.ox, cz - S.oz, 0.3, 0, Hc, MT.wall, { seg: 16 });
+    k.wallRect(cx - S.ox - 0.3, cx - S.ox + 0.3, cz - S.oz - 0.3, cz - S.oz + 0.3, 0, Hc);
+  }
+  // ceiling 2.8 m up (the 活動中心's outer wall starts there), a square hole over the spiral stair
   for (const [x0, x1, z0, z1] of [
-    [0, W, 0, hz0],
-    [0, W, hz1, D + 0.35],
-    [0, hx0, hz0, hz1],
+    [XW, W, ZW, hz0],
+    [XW, hx0, hz0, hz1],
     [hx1, W, hz0, hz1],
+    [XW, 0, hz1, D],
+    [0, W, hz1, D + 0.35],
     [0, SW, D + 0.35, SD],
   ])
     k.box(x0, x1, Hc, Hc + 0.12, z0, z1, MT.ceil, { ...nc, tile: [0.6, 0.6] });
@@ -167,11 +190,11 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
     k.box(x - 0.5, x + 0.5, Hc - 0.02, Hc, 21.0, 21.24, MT.light, nc);
 
   // ---------------- stair hall: round spiral stair, walkable up to 1F (src/world/buildings/Sac.js builds the floor and the rail round the well) ----------------
-  // 18 wedges of 30 degrees, one and a half turns anticlockwise (seen from above, x east / z south): in from the south at B1,
-  // out to the north at 1F. Each wedge is a walkable surface; the drum (chords at the rail), the newel and two radial stops
+  // 21 wedges of 30 degrees, one and three quarter turns anticlockwise (seen from above, x east / z south): in from the south-east
+  // at B1 (the hall side of the well), out to the east at 1F (north of the well is the main corridor's north wall, 0.7 m away). Each wedge is a walkable surface; the drum (chords at the rail), the newel and two radial stops
   // (under the flight at the bottom, past the last step at the top) are collision lines with height bands.
   const TOP1F = (SAC_B1.f1 = Hgrid(-153, -86) + FORE.rise - k.base),
-    NS = 18,
+    NS = 21,
     A0 = Math.PI / 2,
     DA = Math.PI / 6,
     rise = (TOP1F - 0.1) / NS;
@@ -207,16 +230,18 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
     hr.translate((px + qx) / 2, y + 0.95 + rise / 2, (pz + qz) / 2);
     k._part(MT.rail, hr);
   }
-  // the drum: 12 chords; open at the bottom where you walk in (30..90 degrees) and at the top where you walk out (240..300)
+  // the drum: 12 chords; open at the bottom where you walk in (30..90 degrees), at 1F where you walk out east (330..30)
+  // and at 2F where you walk out south (60..120, onto the corridor's south half, src/world/buildings/Sac.js)
   for (let j = 0; j < 12; j++) {
     const a1 = j * DA,
       [x0, z0] = pol(a1, SR),
       [x1, z1] = pol(a1 + DA, SR);
-    if (j === 1 || j === 2) k.wallLine(x0, z0, x1, z1, 2.3, TOP2F + 1.1);
-    else if (j === 8 || j === 9) {
-      // out to the north on both floors (2F: onto the corridor, src/world/buildings/Sac.js)
+    if (j === 1) k.wallLine(x0, z0, x1, z1, 2.3, TOP2F + 1.1);
+    else if (j === 2) k.wallLine(x0, z0, x1, z1, 2.3, TOP2F - 0.5);
+    else if (j === 3) k.wallLine(x0, z0, x1, z1, 0, TOP2F - 0.5);
+    else if (j === 11 || j === 0) {
       k.wallLine(x0, z0, x1, z1, 0, TOP1F - 0.5);
-      k.wallLine(x0, z0, x1, z1, TOP1F + 2.3, TOP2F - 0.5);
+      k.wallLine(x0, z0, x1, z1, TOP1F + 2.3, TOP2F + 1.1);
     } else k.wallLine(x0, z0, x1, z1, 0, TOP2F + 1.1);
   }
   {
@@ -225,8 +250,8 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
     k.wallLine(x0, z0, x1, z1, 0, 2.2);
   } // no way under the flight
   {
-    // the top landing is two wedges wide (240..300 degrees); no way past it
-    const a1 = Math.PI * 1.5,
+    // the 1F landing (0..30 degrees; with the last step, 330..30 is the way out east)
+    const a1 = 0,
       a2 = a1 + DA,
       g = new THREE.CylinderGeometry(SR, SR, 0.07, 5, 1, false, Math.PI / 2 - a2, DA);
     g.translate(SX, TOP1F - 0.035, SZ);
@@ -243,11 +268,11 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
     );
   }
   {
-    // 1F -> 2F: 20 narrower wedges (15 degrees) from 300 degrees on round to 240, the top landing 240..300 degrees faces north
-    // like the 1F one, 3.2 m over it (2F 平面圖修改版：旋轉梯頂在主走廊邊，從北側走出來)
-    const N2 = 20,
+    // 1F -> 2F: 26 narrower wedges (15 degrees) from 30 degrees on round to 60, the top landing 60..120 degrees faces south,
+    // onto the 2F corridor's south half (north of the well is its north wall, and east of it the flight up to 3F)
+    const N2 = 26,
       D2 = Math.PI / 12,
-      B0 = (Math.PI * 5) / 3,
+      B0 = Math.PI / 6,
       r2 = (TOP2F - TOP1F) / N2;
     const wedge = (a1, a2, y, ro) => {
       const g = new THREE.CylinderGeometry(SR, SR, 0.07, 4, 1, false, Math.PI / 2 - a2, a2 - a1);
@@ -277,9 +302,9 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
       hr.translate((px + qx) / 2, y + 0.95 + r2 / 2, (pz + qz) / 2);
       k._part(MT.rail, hr);
     }
-    wedge((Math.PI * 4) / 3, (Math.PI * 5) / 3, TOP2F, 2.3);
-    const [x0, z0] = pol((Math.PI * 5) / 3, 0.15),
-      [x1, z1] = pol((Math.PI * 5) / 3, 2.3);
+    wedge(Math.PI / 3, (Math.PI * 2) / 3, TOP2F, 2.3);
+    const [x0, z0] = pol((Math.PI * 2) / 3, 0.15),
+      [x1, z1] = pol((Math.PI * 2) / 3, 2.3);
     k.wallLine(x0, z0, x1, z1, TOP2F - 0.5, TOP2F + 1.1); // the stair ends at 2F
   }
   k.plane(
@@ -311,7 +336,7 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
       );
   };
   for (const z of [10.2, 12.6, 15.0, 17.4])
-    for (const x of [2.6, 4.8, 7.0, 9.2]) {
+    for (const x of [-9.8, -7.6, -5.4, -2.2, 0, 2.6, 4.8, 7.0, 9.2]) {
       k.box(x - 0.6, x + 0.6, 0.71, 0.75, z - 0.36, z + 0.36, MT.table, nc);
       k.wallRect(x - 0.6, x + 0.6, z - 0.36, z + 0.36, 0, 0.75);
       k._part(MT.steel, new THREE.CylinderGeometry(0.04, 0.04, 0.71, 8).translate(x, 0.355, z));
@@ -321,46 +346,46 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
         chair(x + dx, z + 0.62, 1);
       }
     }
-  // west wall: 餐具回收台 (steel counter with a shelf over it), two water dispensers, recycling bins
-  k.box(0.3, 0.95, 0, 0.9, 8.8, 11.6, MT.stove);
-  k.box(0.3, 0.7, 1.35, 1.39, 8.8, 11.6, MT.steel, nc);
+  // west wall (moved out with the hall, south of the column): 餐具回收台 (steel counter with a shelf over it), two water dispensers, recycling bins
+  k.box(XW + 0.3, XW + 0.95, 0, 0.9, 10.0, 12.8, MT.stove);
+  k.box(XW + 0.3, XW + 0.7, 1.35, 1.39, 10.0, 12.8, MT.steel, nc);
   k.plane(
     signTex('餐具回收', '#3a3d40', '#ffffff', 512, 128, 72),
     1.6,
     0.4,
-    0.31,
+    XW + 0.31,
     1.85,
-    10.2,
+    11.4,
     Math.PI / 2,
     { emissive: 0.45 }
   );
-  for (const z0 of [12.6, 13.3]) {
-    k.box(0.3, 0.75, 0, 1.25, z0, z0 + 0.5, MT.counter);
-    k.box(0.75, 0.78, 0.85, 1.05, z0 + 0.1, z0 + 0.4, MT.dark, nc);
+  for (const z0 of [13.8, 14.5]) {
+    k.box(XW + 0.3, XW + 0.75, 0, 1.25, z0, z0 + 0.5, MT.counter);
+    k.box(XW + 0.75, XW + 0.78, 0.85, 1.05, z0 + 0.1, z0 + 0.4, MT.dark, nc);
   }
   k.plane(
     signTex('飲水機', '#1f5f8b', '#ffffff', 512, 128, 72),
     1.2,
     0.3,
-    0.31,
+    XW + 0.31,
     1.7,
-    13.2,
+    14.4,
     Math.PI / 2,
     { emissive: 0.45 }
   );
   for (const [z0, m] of [
-    [15.4, MT.bin],
-    [16.1, MT.chair],
-    [16.8, MT.dark],
+    [16.6, MT.bin],
+    [17.3, MT.chair],
+    [18.0, MT.dark],
   ])
-    k.box(0.3, 0.8, 0, 0.85, z0, z0 + 0.55, m);
+    k.box(XW + 0.3, XW + 0.8, 0, 0.85, z0, z0 + 0.55, m);
   k.plane(
     signTex('資源回收', '#3f7d4e', '#ffffff', 512, 128, 72),
     1.6,
     0.36,
-    0.31,
+    XW + 0.31,
     1.45,
-    16.4,
+    17.6,
     Math.PI / 2,
     { emissive: 0.45 }
   );
@@ -405,7 +430,7 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
   k.finish(scene);
   I.zones.push({
     name: '學生活動中心 B1 用餐區',
-    pts: k.rect(0, W, 0, D),
+    pts: k.rect(XW, W, ZW, D),
     y0: 0,
     y1: Hc,
     ceil: () => Hc - 0.3,

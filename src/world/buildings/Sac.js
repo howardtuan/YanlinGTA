@@ -5,7 +5,8 @@
 //
 // 依據：一到四樓照使用者給的修改版平面圖（docs/references/floorplans/sac/sac-1f.svg～sac-4f.svg，照實際狀況修改，2026-11-26），座標直接量圖。
 //  1F：培英廳在西半（北移，舞台在西、座位往東升高、正門在東牆北段，從服務台所在的前廳進去），北側側走廊通女廁男廁，南側原創咖啡（正門朝東），
-//      中間大廳＋主走廊，101 邱林信貞全球交誼廳，東北郵局（請由戶外進出），東南麥當勞；直跑樓梯上二樓，旋轉梯上二樓、下 B1。
+//      中間大廳＋主走廊，101 邱林信貞全球交誼廳，東北郵局（請由戶外進出），東南麥當勞；直跑樓梯上二樓，旋轉梯上二樓、下 B1；
+//      北面往新中北路的門關著（圖上沒有通道）。
 //  2F：前平台（中庭）南面開放、北邊往天橋，西邊布告欄牆後面是培英廳上空；中庭東邊走廊（旋轉梯頂、往三樓的樓梯）、雅文 A 廳（北）、B 廳（東）、
 //      倉儲室；西南角樓梯間（透明玻璃自動門）和電梯；大廳東半到麥當勞上面是挑空（麥當勞上空）。
 //  3F：招待所（門禁）、招待所前平台、北排廁所／302～310／學生會、中庭上方挑空（南北各一座往四樓的樓梯）、僑生聯誼會、三樓活動平台、
@@ -13,13 +14,16 @@
 //  4F：北側走廊（攝影社、403～410）、南側走廊（422～433、古箏社、儲藏室）、三塊挑空和中間的四樓空橋、419 武術練習室、411 大音樂練習室、
 //      琴房 412～417、樓梯間。
 // 修改版各層之間有幾處對不上，這裡的取捨：
-//  - 旋轉梯：B1 的位置是使用者給的 B1 平面圖、又被 B1 的坑框住，一、二樓修改版畫的位置各差約 5 m，照 B1 不動；
-//    二樓出口改成和一樓一樣朝北，接到二樓走廊（SacB1.js）。
-//  - 往三樓的樓梯：二樓圖畫在走廊東段、三樓圖畫在挑空東緣，兩張接不起來；用三樓圖的位置（從二樓走廊往東上到三樓挑空東側的迴廊），往北挪開旋轉梯頂。
+//  - 旋轉梯：照一樓圖的位置（SacB1.js SPIRAL，使用者指定以一樓圖為準），整座 B1～2F 一起搬；
+//    B1 西半跟著擴到整個一樓大廳底下（ZoneG.js PIT.west，使用者說原本的 B1 圖畫太小）。B1 從東南側進、一樓往東出（北邊離主走廊北牆只剩 0.7 m）、
+//    二樓往南出到走廊南半（北邊是走廊北牆、東邊是往三樓樓梯的起步）。往三樓的樓梯起點往東挪到 x -148.3，留出起步的空間。
+//  - 往三樓的樓梯：二樓圖畫在走廊東段、三樓圖畫在挑空東緣，兩張接不起來；用三樓圖的位置（從二樓走廊往東上到三樓挑空東側的迴廊）。
 //  - 一樓往二樓的直跑樓梯：圖上往東上，頂端會落在二樓的挑空裡；改成往西上，頂端接中庭東緣。
 //  - 中庭的圓柱：一、二、四樓圖一致（x -163.5／-155.5），三樓圖往西偏約 7 m，照多數；三樓挑空西緣跟著放在中庭西牆（x -163.9）。
 //  - 往天橋的 7 階：二樓圖往東挪了 3.6 m，但外牆上的天橋門（SAC_DOORS.nb）不動，照門的位置。
 //  - 西南樓梯間：二到四樓；一樓圖沒有畫，電梯一樓放在南側走道同一位置。四樓圖只畫一跑，這裡做成和二、三樓一樣的折返梯。
+//  - 電梯：每層都走得進車廂（電梯井兩側實心），在車廂裡按 E 選要到的樓層。
+//  - 北門（新中北路側）：一樓圖沒有往北的通道，主走廊北牆照圖封起來；外牆門洞外觀不動，裡面裝兩扇關著的門。
 //  - 古箏社：教室留在三樓西北角（黃蓋瑞、社員的劇情在這裡，使用者先前也指正在三樓），門改開在南牆東段、接招待所前平台；
 //    三樓招待所放在教室南邊；四樓南排的「古箏社」當成社辦（關著的門）。
 //  - 二樓培英廳上空：圖上是欄杆，這裡做成牆（布告欄牆、往樓梯間的走廊北牆），從中庭看不到觀眾席。
@@ -33,6 +37,7 @@
 import * as THREE from 'three';
 import { H, Hgrid, surfaceAt } from '../Terrain.js';
 import { CLUB_DOOR, buildClub3F } from './ClubRoom.js';
+import { SPIRAL } from './SacB1.js';
 import { G_IDS, FORE, STAIR2F, PIT, BRIDGE, SAC_DOORS } from '../zones/ZoneG.js';
 import {
   canvasTexture,
@@ -62,17 +67,17 @@ const EL = { x0: -189.49, x1: -184.82, z0: -97.84, z1: ZS }; // the lift (SW cor
 const SWS = { x0: XL, x1: -191.8, z0: -100.4, z1: ZS }; // SW stairs 2F -> 4F, in at the north end
 const NES = { x0: -136.4, x1: -133.15, z0: -128.8, z1: -123.84 }; // NE stairs 3F -> 4F, in at the south end
 const BH = { x0: -164.8, x1: -161.6 }; // 2F hall to the footbridge (where the outside door is)
-const NH = { x0: -149.6, x1: -146.4 }; // 1F hall to the north door
+const NH = { x0: -149.6, x1: -146.4 }; // jambs round the (shut) north door on 新中北路; 101 starts at its east one
 // 1F
 const C1 = { n: -117.4, w: -165.6 }; // main corridor's north wall; lobby / corridor west wall (前廳 east wall)
 const FOY = { x0: -170, x1: -165.6, z0: -127.07, z1: -105.31 }; // 培英廳前廳 (服務台)
 const CAFE = { x0: XL, x1: -165.6, z0: -105.31, z1: -99.97 }; // 原創咖啡
-const F12 = { x0: -150.0, x1: -155.04, z0: -108.4, z1: -106.6 }; // 1F -> 2F flight, up westwards onto the 2F 中庭
+const F12 = { x0: -150.0, x1: -155.04, z0: -107.02, z1: -105.34 }; // 1F -> 2F flight (z as the 1F plan), up westwards onto the 2F 中庭
 // 2F
 const ATR = { x0: -163.93, x1: -155.04 }; // 中庭 (2F 前平台)
 const C2 = { n: -117.73, s: -109.62, e: -130.04 }; // 2F corridor east of the 中庭; south of it is the void over the lobby / 麥當勞
 const PV = { s: -105.18 }; // 培英廳上空's south wall (2F); west of ATR.x0
-const F23 = { x0: -150.1, x1: -141.03, z0: -116.4, z1: -113.8 }; // 2F -> 3F flight, up eastwards
+const F23 = { x0: -148.3, x1: -141.03, z0: -116.4, z1: -113.8 }; // 2F -> 3F flight, up eastwards (its foot a metre clear of the spiral's well)
 // 3F
 const VD = { x0: ATR.x0, x1: -141.03, z0: -118.62, z1: -104.07 }; // 3F 挑空 (over the 中庭)
 const C3 = { n: -122.62 }; // north rooms' wall
@@ -105,7 +110,7 @@ const HALL = {
   step: 0.085,
   door: [-123.62, -119.29], // 正門 on the east wall (from the 前廳)
 };
-const WELL = [-147.9, -144.1, -110.9, -107.1]; // the B1 spiral stair's well (src/world/buildings/SacB1.js), x0 x1 z0 z1
+const WELL = [SPIRAL.x - 1.9, SPIRAL.x + 1.9, SPIRAL.z - 1.9, SPIRAL.z + 1.9]; // the spiral stair's well (src/world/buildings/SacB1.js), x0 x1 z0 z1
 // the outline's skewed walls
 const zSouth = (x) => (x > -144.4 ? -94.4 : -94.4 - (0.1 * (-144.4 - x)) / 50.8);
 const zNorth = (x) =>
@@ -990,33 +995,119 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   };
 
   // =====================================================================
-  // every floor: the lift (SW corner), the round columns from the 1F lobby up to the skylight
+  // every floor: the lift (SW corner, a car to walk into), the round columns from the 1F lobby up to the skylight
   // =====================================================================
-  cbx(EL.x0, EL.x1, F1 - SL, CT, EL.z0, EL.z1, MT.tileW, { tile: [0.6, 0.6] });
-  for (let f = 0; f < 4; f++) {
-    door((EL.x0 + EL.x1) / 2, FL[f], EL.z0 - 0.012, 'n', '電梯', 'steel');
-    sign(`${f + 1}F`, (EL.x0 + EL.x1) / 2, FL[f] + 2.62, EL.z0 - 0.014, 'n', '#2d3b4a', 0.6);
-  }
-  for (const [x, z] of COLS) column(x, z, F1, CT);
-  I.actions.push({
-    poly: k.rect(EL.x0 + 0.6, EL.x1 - 0.6, EL.z0 - 1.5, EL.z0 - 0.1),
-    y: 0,
-    anyY: true,
-    label: () => '按 <kbd>E</kbd> 搭電梯（1F → 2F → 3F → 4F）',
-    fn: (g) => {
+  // the lift: a car you walk into on every floor (the shaft's sides are solid); inside, E opens a panel to pick the floor
+  {
+    const xa = -188.4,
+      xb = -185.9,
+      zf = EL.z0 + 0.22,
+      zb = EL.z1 - 0.3,
+      d0 = -187.7,
+      d1 = -186.6,
+      tw = { tile: [0.6, 0.6] };
+    cbx(EL.x0, xa, F1 - SL, CT, EL.z0, EL.z1, MT.tileW, tw);
+    cbx(xb, EL.x1, F1 - SL, CT, EL.z0, EL.z1, MT.tileW, tw);
+    cbx(xa, d0, F1 - SL, CT, EL.z0, zf, MT.tileW, tw);
+    cbx(d1, xb, F1 - SL, CT, EL.z0, zf, MT.tileW, tw);
+    cbx(xa, xb, F1 - SL, CT, zb, EL.z1, MT.tileW, tw);
+    for (let f = 0; f < 4; f++) {
+      const y = FL[f],
+        top = f < 3 ? FL[f + 1] - SL : CT;
+      cbx(d0, d1, y + 2.2, f < 3 ? FL[f + 1] : CT, EL.z0, zf, MT.tileW, tw); // over the doorway
+      // the car: floor, ceiling with a light, steel sides, a mirror and a handrail at the back, the buttons by the door
+      bx(xa, xb, y - SL, y, zf, zb, MT.dark);
+      sf(xa, xb, zf, zb, y);
+      bx(d0, d1, y - SL, y, EL.z0, zf, MT.steel); // the sill
+      sf(d0, d1, EL.z0, zf, y);
+      bx(xa, xb, y + 2.45, top, zf, zb, MT.ceil);
+      bx(xa + 0.5, xb - 0.5, y + 2.43, y + 2.45, zf + 0.6, zb - 0.6, MT.light);
+      for (const x of [xa, xb - 0.02]) bx(x, x + 0.02, y, y + 2.45, zf, zb, MT.steel);
+      bx(xa + 0.15, xb - 0.15, y + 0.95, y + 2.2, zb - 0.02, zb, MT.mirror);
+      bx(xa + 0.1, xb - 0.1, y + 0.88, y + 0.92, zb - 0.09, zb - 0.05, MT.rail);
+      bx(xb - 0.05, xb - 0.02, y + 0.85, y + 1.55, zf + 0.15, zf + 0.45, MT.dark);
+      for (let i = 0; i < 4; i++)
+        bx(
+          xb - 0.06,
+          xb - 0.05,
+          y + 0.95 + i * 0.14,
+          y + 1.03 + i * 0.14,
+          zf + 0.26,
+          zf + 0.34,
+          MT.light
+        );
+      sign(`${f + 1}F`, (d0 + d1) / 2, y + 2.33, zf + 0.014, 's', '#1a1a1a', 0.5);
+      // outside: a steel frame round the doorway, the call button, the floor over it
+      bx(d0 - 0.08, d0, y, y + 2.28, EL.z0 - 0.03, EL.z0, MT.steel);
+      bx(d1, d1 + 0.08, y, y + 2.28, EL.z0 - 0.03, EL.z0, MT.steel);
+      bx(d0 - 0.08, d1 + 0.08, y + 2.2, y + 2.28, EL.z0 - 0.03, EL.z0, MT.steel);
+      bx(d1 + 0.25, d1 + 0.37, y + 1.0, y + 1.3, EL.z0 - 0.02, EL.z0, MT.dark);
+      bx(d1 + 0.28, d1 + 0.34, y + 1.1, y + 1.18, EL.z0 - 0.03, EL.z0 - 0.02, MT.light);
+      sign(`電梯 ${f + 1}F`, (d0 + d1) / 2, y + 2.62, EL.z0 - 0.014, 'n', '#2d3b4a', 0.9);
+    }
+    const WHAT = [
+      '大廳・培英廳・原創咖啡・101',
+      '前平台・雅文廳・往天橋',
+      '招待所・302～312・往生科館',
+      '社辦・419 武術練習室・411 音樂練習室',
+    ];
+    const ride = (g, f) => {
       const p = g.player,
-        gh = H(p.pos.x, p.pos.z);
-      let cur = 0;
-      for (let f = 0; f < 4; f++) if (p.y > FL[f] - gh - 0.8) cur = f;
-      const next = (cur + 1) % 4;
-      const dy = FL[next] - gh + 0.05 - p.y;
+        dy = FL[f] + 0.05 - p.pos.y;
       p.y += dy;
       p.pos.y += dy;
       p.vy = 0; // the feet go along (src/entities/Player.js compares the two)
-      g.audio?.lift?.();
-      g.hud?.toast(`電梯 → ${next + 1}F`, 'good', 1200);
-    },
-  });
+    };
+    I.actions.push({
+      poly: k.rect(xa + 0.15, xb - 0.15, zf + 0.15, zb - 0.15),
+      y: 0,
+      anyY: true,
+      label: () => '按 <kbd>E</kbd> 選擇樓層',
+      fn: (g) => {
+        const p = g.player;
+        let cur = 0;
+        for (let f = 0; f < 4; f++) if (p.pos.y > FL[f] - 1.2) cur = f;
+        document.exitPointerLock?.();
+        const btn = (f) =>
+          `<button class="menu-btn${f === cur ? '' : ' primary'}" id="sacLift${f}"${f === cur ? ' disabled' : ''}>` +
+          `<span>${f + 1}F${f === cur ? '（現在這層）' : ''}</span><small>${WHAT[f]}</small></button>`;
+        g.modal(
+          '🛗 電梯',
+          `<p style="margin:0 0 12px;line-height:1.7">要到幾樓？（也可以按數字鍵 <kbd>1</kbd>～<kbd>4</kbd>）</p>
+          <div class="modal-btns">${[3, 2, 1, 0].map(btn).join('')}
+          <button class="menu-btn" id="sacLiftNo"><span>取消</span><small>Esc</small></button></div>`,
+          'LIFT'
+        );
+        const done = (f) => {
+          removeEventListener('keydown', key, true);
+          g.closeModal();
+          g.resume();
+          if (f === null || f === cur) return;
+          g.audio?.lift?.();
+          g.hud?.fade(`🛗 電梯 → ${f + 1}F`, () => ride(g, f), null, { dark: 700, hold: 500 });
+        };
+        const key = (e) => {
+          if (!g._modalOpen) {
+            removeEventListener('keydown', key, true);
+            return;
+          }
+          const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code),
+            esc = e.code === 'Escape';
+          if (!m && !esc) return;
+          e.preventDefault();
+          e.stopPropagation();
+          done(m ? +m[1] - 1 : null);
+        };
+        addEventListener('keydown', key, true);
+        for (let f = 0; f < 4; f++) {
+          const el = document.getElementById(`sacLift${f}`);
+          if (el) el.onclick = () => done(f);
+        }
+        document.getElementById('sacLiftNo').onclick = () => done(null);
+      },
+    });
+  }
+  for (const [x, z] of COLS) column(x, z, F1, CT);
   // SW stairs 2F -> 4F (樓梯間, behind the glass doors), NE stairs 3F -> 4F (north row)
   stairs({ ...SWS, ax: 'z', dir: 1, ld: 1.2, fa: 1, fb: 3 });
   stairs({ ...NES, ax: 'z', dir: -1, ld: 1.0, fa: 2, fb: 3 });
@@ -1035,11 +1126,8 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     area(f, [XMC, XR, C1.n, MZ]);
     sf(d0, d1, ZS - 0.02, -94.4, y);
     bx(d0, d1, y - SL, y, ZS, -94.42, MT.floor);
-    // corridor's north wall: the north door's hall, 101, 郵局 (closed: 請由戶外進出)
-    doorRow(f, 'x', C1.n, 's', C1.w, XR, [
-      [NH.x0, NH.x1, '', 'open'],
-      [-139.25, -138.15, '101 邱林信貞全球交誼廳', 'open'],
-    ]);
+    // corridor's north wall: 101, 郵局 (closed: 請由戶外進出)
+    doorRow(f, 'x', C1.n, 's', C1.w, XR, [[-139.25, -138.15, '101 邱林信貞全球交誼廳', 'open']]);
     sign('郵局（請由戶外進出）', -118.1, y + 2.45, C1.n + 0.02, 's', '#2a7a4a', 2.4);
     wall(XR, C1.n, XR, MZ, y, c, MT.tileW, -1, { tile: [0.6, 0.6] });
     win(1.6, 1.3, XR - T - 0.01, y + 1.7, (C1.n + MZ) / 2, 'w');
@@ -1068,17 +1156,17 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     );
     for (let x = XL + 2.4; x < XMC - 1.2; x += 3.3)
       if (x < d0 - 1.4 || x > d1 + 1.4) win(2.2, 1.5, x, y + 1.75, ZS - T - 0.01, 'n');
-    // rail round the B1 spiral stair's well; the gap is where its top landing meets the floor (north side)
-    const gx0 = -147.1,
-      gx1 = -144.9;
-    steelRail(y, wx0, wz0, gx0, wz0);
-    steelRail(y, gx1, wz0, wx1, wz0);
-    steelRail(y, wx1, wz0, wx1, wz1);
+    // rail round the spiral stair's well; the gap is where its 1F landing meets the floor (east side)
+    const gz0 = SPIRAL.z - 1.15,
+      gz1 = SPIRAL.z + 1.15;
+    steelRail(y, wx0, wz0, wx1, wz0);
     steelRail(y, wx0, wz1, wx1, wz1);
     steelRail(y, wx0, wz0, wx0, wz1);
-    bx(gx0, gx1, y - SL, y, wz0, wz0 + 0.32, MT.floor);
-    sign('2F ↑ · B1 用餐區 · 麥當勞 ↓', (gx0 + gx1) / 2, y + 2.5, wz0 - 0.4, 'n', '#2b5fae', 2.6);
-    bx((gx0 + gx1) / 2 - 1.32, (gx0 + gx1) / 2 + 1.32, y + 2.15, c, wz0 - 0.36, wz0 - 0.3, MT.dark);
+    steelRail(y, wx1, wz0, wx1, gz0);
+    steelRail(y, wx1, gz1, wx1, wz1);
+    bx(wx1 - 0.32, wx1, y - SL, y, gz0, gz1, MT.floor);
+    sign('2F ↑ · B1 用餐區 · 麥當勞 ↓', wx1 + 0.4, y + 2.5, SPIRAL.z, 'e', '#2b5fae', 2.6);
+    bx(wx1 + 0.3, wx1 + 0.36, y + 2.15, c, SPIRAL.z - 1.32, SPIRAL.z + 1.32, MT.dark);
     // 往二樓的樓梯: a straight flight up westwards onto the 2F 中庭's east edge
     flight(F12.x0, F12.x1, F12.z0, F12.z1, F1, F2, F1 - 0.2);
     sign('2F ↑', F12.x0 + 0.02, y + 1.9, (F12.z0 + F12.z1) / 2, 'e', '#2d3b4a', 0.8);
@@ -1089,28 +1177,27 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
         bx(x - 0.04, x + 0.04, y, y + 0.4, z - 0.22, z + 0.22, MT.dark);
     }
 
-    // --- north hall to the door on 新中北路: the ground outside is lower, a ramp inside the door
-    const zF = -126.6,
-      zO = -128.9,
-      gN = LV.gN + 0.02,
-      [n0, n1] = SAC_DOORS.n1;
-    room(f, NH.x0, NH.x1, zF, C1.n);
-    bx(NH.x0, NH.x1, c - 0.03, c + 0.05, ZN - 0.6, zF, MT.ceil);
-    sf(NH.x0, NH.x1, zO, zF, (x, z) => gN + (y - gN) * clamp01((z - zO) / (zF - zO)));
-    for (let i = 0; i < 8; i++) {
-      const za = zO + ((zF - zO) * i) / 8,
-        zb = zO + ((zF - zO) * (i + 1)) / 8;
-      bx(NH.x0, NH.x1, gN - 0.3, gN + ((y - gN) * (i + 0.5)) / 8, za, zb, MT.floor);
+    // --- the door on 新中北路 (north wall): closed. The 1F plan has no way in here (the main corridor's north wall runs on);
+    // outside it looks as before, the doorway now holds a pair of shut steel doors (the outer shell has no gap for it)
+    {
+      const gN = LV.gN + 0.02,
+        [n0, n1] = SAC_DOORS.n1,
+        nm = (n0 + n1) / 2,
+        zd = ZN - 0.3;
+      for (const [a, b2] of [
+        [NH.x0, n0],
+        [n1, NH.x1],
+      ])
+        bx(a, b2, gN - 0.3, c, ZN - 0.6, ZN, MT.tileW, { tile: [0.6, 0.6] });
+      bx(n0, n1, gN + 2.58, c, ZN - 0.6, ZN, MT.band);
+      bx(n0, n1, gN - 0.3, gN, ZN - 0.6, ZN, MT.floor);
+      for (const [a, b2] of [
+        [n0, nm - 0.01],
+        [nm + 0.01, n1],
+      ])
+        bx(a, b2, gN, gN + 2.58, zd - 0.03, zd + 0.03, MT.steel);
+      bx(nm - 0.015, nm + 0.015, gN, gN + 2.58, zd - 0.05, zd + 0.05, MT.dark);
     }
-    wall(NH.x0, ZN, NH.x0, C1.n, y - 0.6, c, MT.tileW, 1, { tile: [0.6, 0.6] });
-    wall(NH.x1, ZN, NH.x1, C1.n, y - 0.6, c, MT.tileW, -1, { tile: [0.6, 0.6] });
-    for (const [a, b2] of [
-      [NH.x0, n0],
-      [n1, NH.x1],
-    ])
-      cbx(a, b2, gN - 0.3, c, ZN - 0.6, ZN, MT.tileW, { tile: [0.6, 0.6] });
-    bx(n0, n1, gN + 2.58, c, ZN - 0.6, ZN, MT.band);
-    sign('新中北路 出口', (NH.x0 + NH.x1) / 2, y + 2.45, ZN + 0.02, 's', '#2d3b4a', 1.6);
 
     // --- 101 邱林信貞全球交誼廳（約 47.5 坪）：木紋地板、沙發、圓桌
     {
@@ -1296,12 +1383,12 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
       y = F2,
       c = y + CH[1],
       [d0] = SAC_DOORS.s2,
-      [wx0, wx1, wz0] = WELL;
+      [wx0, wx1, wz0, wz1] = WELL;
     const OPEN3 = [[VD.x0, VD.x1, VD.z0, VD.z1]]; // the 3F 挑空 over the middle
     area(f, [ATR.x0, ATR.x1, C2.n, ZS], { floor: MT.red, open: OPEN3 });
     area(f, [ATR.x1, C2.e, C2.n, C2.s], {
       floor: MT.red,
-      holes: [[wx0, wx1, wz0, C2.s]],
+      holes: [WELL],
       open: OPEN3,
     });
     area(f, [BH.x1, -155.27, ZN, -124.5], { floor: MT.red });
@@ -1350,17 +1437,18 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
     // the 挑空 edges: the 中庭's east edge (the flight from 1F comes up here), the corridor's south edge
     parapet(f, ATR.x1, C2.s, ATR.x1, F12.z0);
     parapet(f, ATR.x1, F12.z1, ATR.x1, ZS);
-    parapet(f, ATR.x1, C2.s, wx0, C2.s);
-    parapet(f, wx1, C2.s, C2.e, C2.s);
-    // the B1 spiral stair ends here: it comes up through the corridor's south edge, out to the north
-    const gx0 = -147.1,
-      gx1 = -144.9;
-    steelRail(y, wx0, wz0, gx0, wz0);
-    steelRail(y, gx1, wz0, wx1, wz0);
-    steelRail(y, wx0, wz0, wx0, C2.s);
-    steelRail(y, wx1, wz0, wx1, C2.s);
-    bx(gx0, gx1, y - SL, y, wz0, wz0 + 0.32, MT.red);
-    sign('樓梯 ↓ 1F · B1', (gx0 + gx1) / 2, y + 2.5, wz0 - 0.4, 'n', '#2d3b4a', 1.6);
+    parapet(f, ATR.x1, C2.s, C2.e, C2.s);
+    // the spiral stair ends here, in the corridor's west part: out to the south (north of it is the corridor's wall,
+    // east of it the foot of the flight up to 3F)
+    const gx0 = SPIRAL.x - 1.15,
+      gx1 = SPIRAL.x + 1.15;
+    steelRail(y, wx0, wz0, wx1, wz0);
+    steelRail(y, wx0, wz0, wx0, wz1);
+    steelRail(y, wx1, wz0, wx1, wz1);
+    steelRail(y, wx0, wz1, gx0, wz1);
+    steelRail(y, gx1, wz1, wx1, wz1);
+    bx(gx0, gx1, y - SL, y, wz1 - 0.32, wz1, MT.red);
+    sign('樓梯 ↓ 1F · B1', SPIRAL.x, y + 2.5, wz1 + 0.4, 's', '#2d3b4a', 1.6);
     // 往三樓的樓梯 (up eastwards to the 3F gallery east of the 挑空)
     flight(F23.x0, F23.x1, F23.z0, F23.z1, F2, F3, F2 - 0.2);
     sign('3F ↑', F23.x0 - 0.02, y + 1.9, (F23.z0 + F23.z1) / 2, 'w', '#2d3b4a', 0.8);
@@ -1787,9 +1875,10 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   {
     const P = b.pts,
       cutsAll = [
-        ...sacDoors(),
+        // the north door on 新中北路 is shut (1F plan): its hole stays in the outer wall's mesh, not in the collision
+        ...sacDoors().filter((d) => d.p[0] !== SAC_DOORS.n1[0]),
         // over the B1 rooms (the 用餐區 opens south to the stalls and the B1 entrance, east to 麥當勞): the wall starts at their ceiling
-        { p: [PIT.west[0], zSouth(PIT.west[0])], q: [-144.4, -94.4], y0: -1e3, y1: LV.pit + 2.6 },
+        { p: [PIT.stall[0], zSouth(PIT.stall[0])], q: [-144.4, -94.4], y0: -1e3, y1: LV.pit + 2.6 },
         { p: [-144.4, -94.4], q: [-136, -94.4], y0: -1e3, y1: LV.pit + 2.6 },
         { p: [-136, -94.4], q: [-136, -114], y0: -1e3, y1: LV.pit + 2.6 },
       ];

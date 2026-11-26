@@ -161,7 +161,7 @@ describe('wiki', () => {
         'shots/desktop-play.jpg',
         'shots/mobile-play.jpg',
         'media/promo-poster.jpg',
-        'news/2026-11-it-team-dinner.jpg',
+        'news/2026-11-it-team-dinner-v2.jpg',
       ])
         expect(fs.existsSync(path.join(out, f)), f).toBe(true);
 

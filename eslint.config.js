@@ -66,6 +66,7 @@ export default [
       'tools/perf/*.mjs',
       'tools/floorplan/**/*.mjs',
       'tools/promo/*.mjs',
+      'wiki/build.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node },
@@ -114,6 +115,7 @@ export default [
   {
     ignores: [
       'dist/**',
+      'dist-wiki/**',
       'vendor/**',
       // tools/ 只忽略產出物
       'tools/npc-dashboard/photos/**',

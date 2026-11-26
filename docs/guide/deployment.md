@@ -60,6 +60,18 @@ sequenceDiagram
 
 舊網址 `https://howardtuan.github.io/YanlinGTA/` 會由 GitHub 自動轉址到自訂網域。
 
+### 遊戲百科 Wiki：`wiki.yanlin-gta.com`（Cloudflare Pages）
+Wiki 是一個獨立的靜態網站，原始檔在 `wiki/`，由 `wiki/build.mjs` 讀 `data/npcs.json`（人物設定）＋ `wiki/people.json`（分類、開發者、IG／LinkedIn 連結）＋ `wiki/quests.json`（任務）產出到 `dist-wiki/`（不進 Git）。
+
+- **本機預覽**：`npm run wiki:build` 後用任何靜態伺服器開 `dist-wiki/`（例如 `python -m http.server 5190 -d dist-wiki`）。
+- **補社群連結**：改 `wiki/people.json` 的 `ig`／`linkedin`（完整 `https://` 網址，留空顯示「待補」）；AI 與致敬角色設 `social: false` 不顯示。
+- **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/unit/wiki.test.js` 會擋下 CI。
+- **部署**：GitHub Pages 一個倉庫只能綁一個網域，所以 Wiki 走 **Cloudflare Pages**（連同一個 GitHub 倉庫）：
+  1. Cloudflare → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**，授權 GitHub 後選 `howardtuan/YanlinGTA`。
+  2. Production branch：`main`；Framework preset：`None`；Build command：`npm run wiki:build`；Build output directory：`dist-wiki`。
+  3. 部署完成後到該 Pages 專案 → **Custom domains** → 加 `wiki.yanlin-gta.com`；網域在同一個 Cloudflare 帳號，DNS（CNAME → `<專案名>.pages.dev`）與 HTTPS 會自動設定。
+  4. 之後每次合併到 `main`，Cloudflare 會自動重建 Wiki。
+
 ---
 
 ## 三、 模式 B & C：Docker 容器化部署

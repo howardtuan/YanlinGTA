@@ -1044,3 +1044,47 @@ dd {
     display: none;
   }
 }
+
+/* 最新消息（部落格／粉專式文章） */
+.news-list {
+  display: grid;
+  gap: 20px;
+}
+.post {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.post time {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.post h2 {
+  margin: 4px 0 12px;
+  border: 0;
+  padding: 0;
+}
+.post-img {
+  margin: 0 0 14px;
+}
+.post-img img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.post p {
+  margin: 0 0 10px;
+}
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--pink);
+}

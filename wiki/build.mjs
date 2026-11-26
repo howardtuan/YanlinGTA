@@ -45,6 +45,10 @@ export function loadWikiData(root = ROOT) {
   const { people, extras = [] } = readJson(path.join(root, 'wiki', 'people.json'));
   const quests = readJson(path.join(root, 'wiki', 'quests.json')).quests;
   const shops = readJson(path.join(root, 'wiki', 'shops.json')).shops;
+  // 最新消息：依日期由新到舊
+  const news = readJson(path.join(root, 'wiki', 'news.json')).posts.toSorted((a, b) =>
+    b.date.localeCompare(a.date)
+  );
   const avatarDir = path.join(root, 'assets', 'gram');
 
   // wiki: false 的角色只在遊戲裡，不放上 Wiki
@@ -73,7 +77,7 @@ export function loadWikiData(root = ROOT) {
   });
   const order = GROUPS.map((g) => g.id);
   chars.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
-  return { chars, quests, shops };
+  return { chars, quests, shops, news };
 }
 
 // ---------------------------------------------------------------- 頁面
@@ -81,6 +85,7 @@ export function loadWikiData(root = ROOT) {
 // 中間標題＋內容、右邊「本頁內容」、底下上一頁／下一頁。版面參考 anything-to-journal 的 docs。
 export const PAGES = [
   { slug: '', group: '開始', title: '介紹' },
+  { slug: 'news', group: '開始', title: '最新消息' },
   { slug: 'controls', group: '開始', title: '操作教學' },
   { slug: 'characters', group: '角色', title: '角色介紹' },
   { slug: 'main-quests', group: '任務攻略', title: '主線任務', type: 'main' },
@@ -236,12 +241,33 @@ export function gameControlsCss(css) {
   return out.join('\n');
 }
 
+const pageNum = (slug) => num(PAGES.findIndex((p) => p.slug === slug));
+
+// 最新消息：首頁卡片用的摘要（第一段，太長就截斷）
+const excerpt = (n) => {
+  const t = [...(n.body[0] || '')];
+  return t.length > 48 ? `${t.slice(0, 48).join('')}…` : t.join('');
+};
+
+function postCard(n, base) {
+  return `
+<article class="post" id="post-${esc(n.id)}">
+  <header>
+    <time datetime="${esc(n.date)}">${esc(n.date)}</time>
+    <h2>${esc(n.title)}</h2>
+  </header>
+  ${n.image ? `<figure class="post-img"><img src="${base}news/${esc(n.image)}" alt="${esc(n.alt || n.title)}" loading="lazy"></figure>` : ''}
+  ${n.body.map((p) => `<p>${esc(p)}</p>`).join('')}
+  ${n.tags?.length ? `<p class="post-tags">${n.tags.map((t) => `<span>#${esc(t)}</span>`).join('')}</p>` : ''}
+</article>`;
+}
+
 const shot = (src, alt, caption) =>
   `<figure class="shot"><img src="${src}" alt="${esc(alt)}" loading="lazy"><figcaption>${caption}</figcaption></figure>`;
 
 // 各頁的內容：回傳 { lead, meta, toc: [[id, 標題, 層級]], html }
 function pageBody(page, data, base, opts) {
-  const { chars, quests, shops } = data;
+  const { chars, quests, shops, news = [] } = data;
   const byId = new Map(chars.map((c) => [c.id, c]));
   const game = `${base}${GAME_URL}`;
 
@@ -253,6 +279,7 @@ function pageBody(page, data, base, opts) {
         ['promo', '宣傳片', 2],
         ['about', '這是什麼遊戲', 2],
         ['story', '遊戲概覽', 2],
+        ...(news.length ? [['latest', '最新消息', 2]] : []),
         ['start', '從哪裡開始', 2],
       ],
       html: `
@@ -280,13 +307,35 @@ ${
 </div>
 <p>投票日就在明天。玩家扮演候選人<b>彥霖</b>，跟著兩個全息 AI 夥伴 M.O.N.D.A.Y 與 W.E.D.N.E.S.D.A.Y 完成競選主線：貼傳單、買早餐、掃街拉票、搶救布條，最後用真正的 SQL 查出是誰割了競選布條。卡關的時候，右下角的金色小助手 S.U.N.D.A.Y 會給提示。</p>
 <p>主線之外，校園裡每個角色都有自己的 24 小時作息、宿舍床位、對白和手機社群動態。跟他們聊天加好友，就會觸發各自的支線劇情。另外還有麥當勞打工、新中北路障礙賽、力行 277 寢 3D 台灣麻將（可以跟朋友連線）、資管學堂程式課、靈感股市和直升機空投等玩法。</p>
+${
+  news.length
+    ? `<h2 id="latest">最新消息</h2>
+<div class="cards">${news
+        .slice(0, 2)
+        .map(
+          (n) =>
+            `<a class="card" href="${link(base, 'news', `post-${n.id}`)}"><span class="num">${esc(n.date)}</span><b>${esc(n.title)}</b><span>${esc(excerpt(n))}</span></a>`
+        )
+        .join('')}</div>
+<p><a href="${link(base, 'news')}">看全部消息 →</a></p>`
+    : ''
+}
 <h2 id="start">從哪裡開始</h2>
 <div class="cards">
   <a class="card" href="${game}"><span class="num">▶</span><b>開始玩</b><span>免安裝，電腦與手機瀏覽器都能玩</span></a>
-  <a class="card" href="${link(base, 'controls')}"><span class="num">01</span><b>操作教學</b><span>鍵盤滑鼠、手把、手機觸控</span></a>
-  <a class="card" href="${link(base, 'characters')}"><span class="num">02</span><b>角色介紹</b><span>真人改編的同學、室友與開發者</span></a>
-  <a class="card" href="${link(base, 'main-quests')}"><span class="num">03</span><b>主線任務</b><span>五個競選任務攻略</span></a>
+  <a class="card" href="${link(base, 'controls')}"><span class="num">${pageNum('controls')}</span><b>操作教學</b><span>鍵盤滑鼠、手把、手機觸控</span></a>
+  <a class="card" href="${link(base, 'characters')}"><span class="num">${pageNum('characters')}</span><b>角色介紹</b><span>真人改編的同學、室友與開發者</span></a>
+  <a class="card" href="${link(base, 'main-quests')}"><span class="num">${pageNum('main-quests')}</span><b>主線任務</b><span>五個競選任務攻略</span></a>
 </div>`,
+    };
+  }
+
+  if (page.slug === 'news') {
+    return {
+      lead: '彥霖競選團隊與開發團隊的最新動態、幕後花絮。',
+      meta: [`${news.length} 篇文章`, news[0] ? `最近更新 ${news[0].date}` : '尚無文章'],
+      toc: news.map((n) => [`post-${n.id}`, n.title, 2]),
+      html: `<div class="news-list">${news.map((n) => postCard(n, base)).join('')}</div>`,
     };
   }
 
@@ -558,6 +607,12 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
   fs.mkdirSync(path.join(outDir, 'shots'), { recursive: true });
   for (const f of fs.readdirSync(path.join(root, 'wiki', 'shots'))) {
     fs.copyFileSync(path.join(root, 'wiki', 'shots', f), path.join(outDir, 'shots', f));
+  }
+  // 最新消息的照片（wiki/news/）
+  fs.mkdirSync(path.join(outDir, 'news'), { recursive: true });
+  for (const n of data.news) {
+    if (n.image)
+      fs.copyFileSync(path.join(root, 'wiki', 'news', n.image), path.join(outDir, 'news', n.image));
   }
   // Wiki 自己的網頁圖示與「加入主畫面」圖示（wiki/icons/），manifest 放在 /wiki/ 底下，start_url 開回 Wiki
   for (const f of fs.readdirSync(path.join(root, 'wiki', 'icons'))) {

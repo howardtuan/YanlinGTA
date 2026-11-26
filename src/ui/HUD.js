@@ -71,6 +71,16 @@ export class HUD {
     for (const a of d.areas) {
       const c = AREA_C[a.kind];
       if (!c) continue;
+      if (a.sink && a.sink.wet) {
+        // a basin with a dry pebble bed: the bed, then the water on it
+        g.fillStyle = '#8a7d68';
+        poly(a.pts);
+        g.fill();
+        g.fillStyle = c;
+        poly(a.sink.wet);
+        g.fill();
+        continue;
+      }
       g.fillStyle = c;
       poly(a.pts, a.holes);
       g.fill('evenodd');

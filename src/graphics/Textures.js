@@ -394,6 +394,52 @@ export const groundTex = {
         ),
       };
     }),
+  // dry pond bed of tan / grey river pebbles (牛稠埤 south basin): 3 m per tile
+  pebble: () =>
+    cached('pebble', () => {
+      const S = 256,
+        cv = canvas(S, S),
+        g = cv.getContext('2d', READBACK),
+        hc = canvas(S, S),
+        hg = hc.getContext('2d', READBACK),
+        r = rng(57);
+      g.fillStyle = '#5e5446';
+      g.fillRect(0, 0, S, S);
+      hg.fillStyle = '#000';
+      hg.fillRect(0, 0, S, S);
+      for (let k = 0; k < 900; k++) {
+        const x = r() * S,
+          y = r() * S,
+          rx = 3 + r() * 5,
+          ry = rx * (0.55 + r() * 0.35),
+          a = r() * Math.PI,
+          v = 0.62 + r() * 0.4,
+          w = r() < 0.3 ? 0 : 10;
+        for (const [ox, oy] of [
+          [0, 0],
+          [S, 0],
+          [-S, 0],
+          [0, S],
+          [0, -S],
+        ]) {
+          g.fillStyle = `rgb(${((150 + w) * v) | 0},${((136 + w * 0.5) * v) | 0},${(112 * v) | 0})`;
+          g.beginPath();
+          g.ellipse(x + ox, y + oy, rx, ry, a, 0, Math.PI * 2);
+          g.fill();
+          hg.fillStyle = `rgb(${(150 + r() * 100) | 0},0,0)`;
+          hg.beginPath();
+          hg.ellipse(x + ox, y + oy, rx * 0.8, ry * 0.8, a, 0, Math.PI * 2);
+          hg.fill();
+        }
+      }
+      if (lite) {
+        releaseCanvas(hc);
+        return { map: toTex(cv) };
+      }
+      const hf = heightFromCanvas(hc);
+      releaseCanvas(hc);
+      return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 2.5), { srgb: false }) };
+    }),
   waterNormal: () =>
     cached('waterN', () => {
       const S = 256,

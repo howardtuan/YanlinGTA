@@ -21,7 +21,14 @@ export const RIDE_PLACES = [
   { key: 'gate', name: '正門（茶學苑）', icon: '🧋', x: -201.2, z: 86 },
   { key: 'tower', name: '二一鐘塔', icon: '🕰️', x: -13.8, z: 96.4 },
   { key: 'market', name: '中原夜市', icon: '🏮', x: -190.8, z: 348.7 },
-  { key: 'home', name: '彥霖家', icon: '🏠', at: (g) => g.interiors?.yh?.door },
+  // only once you have found the place (src/systems/MissionSystem.js homeKnown), same as 🏠 on the map
+  {
+    key: 'home',
+    name: '彥霖家',
+    icon: '🏠',
+    at: (g) => g.interiors?.yh?.door,
+    shown: (g) => !!g.missions?.homeKnown,
+  },
 ];
 const T_COME = 4.2, // the car comes up and stops
   T_BOARD = 5.8, // you walk to the door and get in
@@ -168,7 +175,7 @@ export class PinHanRide {
   }
   place(key) {
     const P = RIDE_PLACES.find((p) => p.key === key);
-    if (!P) return null;
+    if (!P || (P.shown && !P.shown(this.g))) return null;
     let a = P.at ? P.at(this.g) : P;
     if (Array.isArray(a)) a = { x: a[0], z: a[1] }; // interior doors are [x, z] (src/world/Interiors.js)
     return a && Number.isFinite(a.x) && Number.isFinite(a.z) ? { ...P, x: a.x, z: a.z } : null;

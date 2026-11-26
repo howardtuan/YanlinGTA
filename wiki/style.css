@@ -1189,7 +1189,7 @@ dd {
   }
 }
 
-/* 最新消息：每篇的「閱讀全文・分享」與「複製文章連結」 */
+/* 最新消息：每篇的「閱讀全文」與「分享文章」 */
 .post h2 a {
   color: inherit;
   text-decoration: none;
@@ -1205,7 +1205,10 @@ dd {
   margin-top: 12px;
   font-size: 14px;
 }
-.copy-link {
+.share-post {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: inherit;
   font-size: 13px;
   padding: 4px 12px;
@@ -1215,7 +1218,11 @@ dd {
   color: var(--ink);
   cursor: pointer;
 }
-.copy-link:hover {
+.share-post svg {
+  width: 14px;
+  height: 14px;
+}
+.share-post:hover {
   border-color: var(--pink);
   color: var(--pink);
 }

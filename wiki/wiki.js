@@ -78,21 +78,26 @@ for (const root of document.querySelectorAll('.game-ctl')) {
   }
 })();
 
-// 最新消息列表：每篇的「複製文章連結」
-for (const b of document.querySelectorAll('.copy-link')) {
+// 最新消息列表：每篇的「分享文章」——手機有系統分享就打開系統分享，否則複製文章連結
+for (const b of document.querySelectorAll('.share-post')) {
+  const label = b.querySelector('span');
   b.addEventListener('click', async () => {
-    const label = b.textContent;
+    const { url, title } = b.dataset;
+    if (navigator.share) {
+      navigator.share({ url, title }).catch(() => {});
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(b.dataset.url);
+      await navigator.clipboard.writeText(url);
     } catch (e) {
-      const t = Object.assign(document.createElement('textarea'), { value: b.dataset.url });
+      const t = Object.assign(document.createElement('textarea'), { value: url });
       document.body.append(t);
       t.select();
       document.execCommand?.('copy');
       t.remove();
     }
-    b.textContent = '已複製 ✓';
-    setTimeout(() => (b.textContent = label), 1800);
+    label.textContent = '已複製連結 ✓';
+    setTimeout(() => (label.textContent = '分享文章'), 1800);
   });
 }
 

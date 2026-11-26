@@ -86,6 +86,112 @@ export const SETS = [
     long: true,
     shoes: '#111111',
   },
+  // ---- 同學穿搭（衣櫃的「同學穿搭」區）：照各 NPC 的外觀設定（src/entities/npcs/*.js 的 *_LOOK），只借衣服、鞋子和帽子，
+  // 臉、髮型、身材還是彥霖。extra 是 createCharacter 的服裝參數（皮衣、迷彩、水洗寬褲…），hat 是帽子（形狀＋顏色）
+  {
+    id: 'fZz',
+    group: 'friend',
+    name: '吱吱',
+    tag: '排球少年',
+    shirt: '#7a1f2c',
+    shorts: '#161616',
+    pants: false,
+    shoes: '#1d1d1d',
+  },
+  {
+    id: 'fHoushe',
+    group: 'friend',
+    name: '侯舌',
+    tag: '276',
+    shirt: '#141416',
+    shorts: '#4a4d52',
+    pants: true,
+    shoes: '#f2f0ec',
+  },
+  {
+    id: 'fJianyu',
+    group: 'friend',
+    name: '劍玉',
+    tag: '灰藍牛仔襯衫',
+    shirt: '#5d6b8a',
+    shorts: '#2c2f36',
+    pants: true,
+    shoes: '#f2f2ee',
+  },
+  {
+    id: 'fPinhan',
+    group: 'friend',
+    name: '品漢堡',
+    tag: '278',
+    shirt: '#2b2e35',
+    shorts: '#3a3f4a',
+    pants: true,
+    shoes: '#ededea',
+  },
+  {
+    id: 'fRuizhe',
+    group: 'friend',
+    name: '瑞哲',
+    tag: '水洗 oversize',
+    shirt: '#2f2f31',
+    shorts: '#1b1b1e',
+    pants: true,
+    shoes: '#1d1d1f',
+    extra: { wash: true, longTee: true, pantsLow: '#6a6c70', wide: true, sole: '#2b2b2d' },
+  },
+  {
+    id: 'fHank',
+    group: 'friend',
+    name: '漢克',
+    tag: '樂團吉他手',
+    shirt: '#202124',
+    shorts: '#33445e',
+    pants: true,
+    shoes: '#ececec',
+  },
+  {
+    id: 'fHoward',
+    group: 'friend',
+    name: '霍華德',
+    tag: '粉色上衣',
+    shirt: '#f0a9bc',
+    shorts: '#e9e4da',
+    pants: true,
+    shoes: '#f4f4f1',
+  },
+  {
+    id: 'fRichard',
+    group: 'friend',
+    name: '理查',
+    tag: '深綠漁夫帽',
+    shirt: '#f1f0ec',
+    shorts: '#2d3138',
+    pants: true,
+    shoes: '#1c1c1e',
+    hat: { kind: 'bucket', color: '#2f4a32' },
+  },
+  {
+    id: 'fGd',
+    group: 'friend',
+    name: '女拳大帝',
+    tag: '皮衣',
+    shirt: '#242424',
+    shorts: '#1d1e24',
+    pants: true,
+    shoes: '#141414',
+    extra: { jacket: '#121212' },
+  },
+  {
+    id: 'fYeeming',
+    group: 'friend',
+    name: 'YeeMing',
+    tag: '迷彩軍服',
+    shirt: '#56643a',
+    shorts: '#56643a',
+    pants: true,
+    shoes: '#2a2620',
+    extra: { camo: true, helmet: 'camo' },
+  },
 ];
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -122,6 +228,8 @@ export function wornParts(look) {
       long: !!S.long,
       shoes: S.shoes || null,
       hat: null,
+      setHat: S.hat || null,
+      extra: S.extra || null,
       set: S.id,
     };
   return {
@@ -132,6 +240,8 @@ export function wornParts(look) {
     long: L.long,
     shoes: null,
     hat: L.hat,
+    setHat: null,
+    extra: null,
     set: null,
   };
 }
@@ -150,6 +260,7 @@ export function characterOpts(look) {
     plain: !!W.set, // 套裝不印彥霖胸前的小臉 logo
   };
   if (W.shoes) o.shoes = W.shoes;
+  if (W.extra) Object.assign(o, W.extra);
   return o;
 }
 

@@ -275,7 +275,7 @@ export function dressOutfit(ch, look) {
     add(ch.torso, wingsPin());
     add(ch.torso, nameBadge('彥霖航空'));
   }
-  const H = hatById(W.hat);
+  const H = W.setHat || hatById(W.hat); // a set's own hat (理查's bucket hat) or the one picked
   if (H) add(ch.head, buildHat(H.kind, H.color));
   const parts = added.map(([, o]) => o);
   ch.outfit = {

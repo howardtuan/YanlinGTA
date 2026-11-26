@@ -115,6 +115,51 @@ describe('衣櫃服裝資料（OutfitData.js）', () => {
   });
 });
 
+describe('同學穿搭（OutfitData.js SETS group friend）', () => {
+  const friends = SETS.filter((x) => x.group === 'friend');
+  it('有同學的整套穿搭，id 讀得回來（存檔、多人同步都只傳 id）', () => {
+    expect(friends.length).toBeGreaterThanOrEqual(8);
+    for (const f of friends) expect(normalizeLook({ set: f.id }).set).toBe(f.id);
+    const names = friends.map((f) => f.name);
+    for (const n of ['吱吱', '理查', '霍華德', '劍玉', '女拳大帝']) expect(names).toContain(n);
+  });
+  it('只借衣服、鞋子和帽子：不會改到彥霖的臉、髮型和身材', () => {
+    const CLOTHES = new Set([
+      'jacket',
+      'camo',
+      'helmet',
+      'wash',
+      'longTee',
+      'pantsLow',
+      'wide',
+      'sole',
+      'hem',
+    ]);
+    for (const f of friends)
+      for (const k of Object.keys(f.extra || {})) expect(CLOTHES.has(k)).toBe(true);
+    for (const f of friends) {
+      const o = characterOpts({ set: f.id });
+      for (const k of ['hair', 'hairStyle', 'skin', 'glasses', 'build', 'jaw', 'face'])
+        expect(o[k]).toBeUndefined();
+      expect(o.shirt).toBe(f.shirt);
+      expect(o.plain).toBe(true);
+    }
+  });
+  it('理查的深綠漁夫帽、女拳大帝的皮衣、YeeMing 的迷彩鋼盔跟著套裝走', () => {
+    expect(wornParts({ set: 'fRichard', hat: 'capRed' })).toMatchObject({
+      hat: null,
+      setHat: { kind: 'bucket', color: '#2f4a32' },
+    });
+    expect(characterOpts({ set: 'fGd' }).jacket).toBe('#121212');
+    expect(characterOpts({ set: 'fYeeming' })).toMatchObject({ camo: true, helmet: 'camo' });
+    // 換單件就脫下同學的衣服
+    expect(pickItem({ set: 'fYeeming' }, 'hat', HATS[0])).toMatchObject({
+      set: null,
+      hat: HATS[0].id,
+    });
+  });
+});
+
 describe('造型存檔與穿上身（SaveSystem.js、Outfits.js）', () => {
   it('wearLook 把整理過的造型交給 player.setLook，並附上組模型的函式', () => {
     const got = [];

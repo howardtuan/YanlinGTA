@@ -980,3 +980,83 @@ describe('觀戰者左右切換視角（Issue #209）', () => {
     specMj.leave(false);
   });
 });
+
+describe('觀戰者繞著牌桌走，全桌都看得到他移動', () => {
+  const stub = () => ({
+    open() {},
+    close() {},
+    showLobby() {},
+    startHand() {},
+    _layout() {},
+    _showResult() {},
+    roll() {},
+    result: null,
+    names: [],
+  });
+  const tick = () =>
+    new Promise((r) => {
+      setTimeout(r, 20);
+    });
+  it('角度轉給房主與其他人；走到誰背後就換看誰；快照帶框架', async () => {
+    const bus = createMockBus();
+    const hostMj = new DormMahjong(fakeGame(1000));
+    const specMj = new DormMahjong(fakeGame(1000));
+    const spec2Mj = new DormMahjong(fakeGame(1000));
+    for (const m of [hostMj, specMj, spec2Mj]) m.scene = stub();
+    await hostMj.hostRoom('彥霖', 0, bus);
+    hostMj.startMultiHost();
+    await specMj.joinRoom(hostMj.mp.code, '阿觀', bus, { spectateOnly: true });
+    await spec2Mj.joinRoom(hostMj.mp.code, '小看', bus, { spectateOnly: true });
+    await tick();
+
+    // 一進來就站在房主背後附近（±35°），看房主那家，知道自己的 id
+    const me = specMj.sess.myId;
+    expect(me).toBeTruthy();
+    expect(Math.abs(angDiffDeg(specMj.sess.myAng, 0))).toBeLessThanOrEqual(35);
+    expect(specMj.sess.viewSeat).toBe(0);
+    expect(hostMj.sess.spectators.find((x) => x.id === me).ang).toBe(specMj.sess.myAng);
+
+    // 往下家那邊走 100°：超過 45° 就換看下家（座位 1），房主和另一個觀戰者都收到新角度
+    specMj.sess.myAng = 0;
+    specMj._specSentAt = 0;
+    specMj.orbitSpectator(100);
+    await tick();
+    expect(specMj.sess.myAng).toBe(100);
+    expect(specMj.sess.viewSeat).toBe(1);
+    expect(hostMj.sess.spectators.find((x) => x.id === me).ang).toBe(100);
+    expect(spec2Mj.sess.spectators.find((x) => x.id === me).ang).toBe(100);
+
+    // 連續小步走：0.1 秒內只送一次，停下來 flush 補送最後的位置
+    specMj.orbitSpectator(5);
+    specMj.orbitSpectator(5);
+    await tick();
+    expect(hostMj.sess.spectators.find((x) => x.id === me).ang).toBe(100);
+    specMj._specSentAt = 0;
+    specMj.flushSpecPos();
+    await tick();
+    expect(hostMj.sess.spectators.find((x) => x.id === me).ang).toBe(110);
+
+    // 快照標著它以房主的哪個座位為本地座位 0（觀戰者的鏡頭靠它換算角度）
+    hostMj.engine.start?.();
+    hostMj.mp.broadcastState(hostMj.engine, []);
+    await tick();
+    expect(specMj.engine.frame).toBe(1);
+    expect(spec2Mj.engine.frame).toBe(0);
+
+    // 往回走一圈繞過 0°：角度保持在 0～360
+    specMj.orbitSpectator(-200);
+    expect(specMj.sess.myAng).toBe(270);
+    expect(specMj.sess.viewSeat).toBe(3);
+
+    // ◀ ▶ 按鈕：直接走到那家背後
+    specMj.cycleSpectatorView(1);
+    expect(specMj.sess.viewSeat).toBe(0);
+    expect(specMj.sess.myAng).toBe(0);
+
+    for (const m of [hostMj, specMj, spec2Mj]) m.leave(false);
+  });
+});
+
+function angDiffDeg(a, b) {
+  return ((((a - b) % 360) + 540) % 360) - 180;
+}

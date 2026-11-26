@@ -36,13 +36,29 @@ sequenceDiagram
     GHA->>GHA: npm ci && npm run build
     GHA->>GHA: 上傳 dist/ 為 Pages Artifact
     GHA->>Pages: 執行部署並更新站點
-    Pages-->>Dev: 發布完成 (https://<username>.github.io/YanlinGTA/)
+    Pages-->>Dev: 發布完成 (https://yanlin-gta.com/)
 ```
 
 ### 倉庫設定步驟：
 1. 進入 GitHub 倉庫頁面 $\rightarrow$ **Settings** $\rightarrow$ **Pages**。
 2. 在 **Build and deployment** $\rightarrow$ **Source** 選項中，**務必選擇 GitHub Actions**（切勿保留 `legacy`，避免與 `deploy.yml` 互相覆蓋線上版本）。
 3. 透過 Pull Request 合併程式碼至受保護的 `main` 分支，即可在 **Actions** 分頁觀察部署進度。
+
+### 自訂網域 `yanlin-gta.com`（Cloudflare DNS）
+正式網址為 **https://yanlin-gta.com/**（網域於 Cloudflare 註冊與代管 DNS）。因採 GitHub Actions 發布，**不需要**在 repo 放 `CNAME` 檔；網域設定存在 GitHub 倉庫的 Pages 設定裡。Vite 使用相對路徑 `base: './'`，換網域不需改程式。
+
+1. **GitHub**：Settings → Pages → **Custom domain** 填 `yanlin-gta.com`（或 `gh api -X PUT repos/howardtuan/YanlinGTA/pages -f cname=yanlin-gta.com`），憑證發好後勾選 **Enforce HTTPS**。
+2. **Cloudflare DNS**（Proxy status 設 **DNS only／灰雲**，讓 GitHub 能自動簽發 HTTPS 憑證）：
+
+| Type | Name | Content |
+| :--- | :--- | :--- |
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| CNAME | `www` | `howardtuan.github.io` |
+
+舊網址 `https://howardtuan.github.io/YanlinGTA/` 會由 GitHub 自動轉址到自訂網域。
 
 ---
 

@@ -565,33 +565,50 @@ export class Phone {
     };
   }
   // ---------------- 呼叫載具 ----------------
+  // your JET SL, and after 霍華德's Two Sum (src/systems/quests/HowardTwoSum.js) his black 忍 400 too
   _garage() {
     const g = this.g,
-      v = g.myScooter,
-      p = g.player.worldPos();
-    const d = v ? Math.round(Math.hypot(v.pos.x - p.x, v.pos.z - p.z)) : 0;
-    const riding = g.player.vehicle === v,
-      busy = g.airdrop?.busy;
+      p = g.player.worldPos(),
+      busy = g.airdrop?.busy,
+      H = g.howard;
+    const card = (key, v, icon, name, sub) => {
+      const riding = g.player.vehicle === v,
+        d = v ? Math.round(Math.hypot(v.pos.x - p.x, v.pos.z - p.z)) : 0,
+        out = key === 'ninja' && H?.mode === 'ride';
+      const st = riding
+        ? '騎乘中'
+        : busy && g.airdrop.run?.v === v
+          ? '空投中…'
+          : out
+            ? '霍華德騎出去兜風了'
+            : v?.away
+              ? '停在力行宿舍大門前'
+              : `距離你 ${d} 公尺`;
+      return `<div class="ph-gcard"><span>${icon}</span><div><b>${name}</b><small>${sub} · ${st}</small></div></div>
+        <button class="ph-gbtn" data-k="${key}" ${riding || busy || out ? 'disabled' : ''}>🚁 直升機空投到我旁邊</button>`;
+    };
+    const ninja = g.howardQuest?.done && H?.bike;
     const c = this._frame(
       '呼叫載具',
       `<div class="ph-garage">
-        <div class="ph-gcard"><span>🛵</span><div><b>我的 SYM JET SL</b><small>粉白配色 · ${riding ? '騎乘中' : busy ? '空投中…' : `距離你 ${d} 公尺`}</small></div></div>
-        <button class="ph-gbtn" ${riding || busy ? 'disabled' : ''}>🚁 直升機空投到我旁邊</button>
-        <div class="ph-note">彥霖航空直升機會把機車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。</div>
+        ${card('jet', g.myScooter, '🛵', '我的 SYM JET SL', '粉白配色')}
+        ${ninja ? card('ninja', H.bike, '🏍️', '霍華德的忍 400', '黑色仿賽・借你騎') : ''}
+        <div class="ph-note">彥霖航空直升機會把車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。${ninja ? '' : '<br>🔒 解出霍華德的 Two Sum，他的忍 400 也能空投。'}</div>
       </div>`
     );
-    c.querySelector('.ph-gbtn').onclick = () => {
-      const err = g.airdrop.call();
-      if (err) {
-        g.hud.toast(err, 'bad', 2400);
-        return;
-      }
-      g.audio.notify?.();
-      g.hud.toast('🚁 彥霖航空直升機起飛了，抬頭看！', 'good', 2600);
-      this.close();
-      this._last = null;
-      g.lockPointer();
-    };
+    for (const b of c.querySelectorAll('.ph-gbtn'))
+      b.onclick = () => {
+        const err = g.airdrop.call(b.dataset.k);
+        if (err) {
+          g.hud.toast(err, 'bad', 2400);
+          return;
+        }
+        g.audio.notify?.();
+        g.hud.toast('🚁 彥霖航空直升機起飛了，抬頭看！', 'good', 2600);
+        this.close();
+        this._last = null;
+        g.lockPointer();
+      };
   }
   // ---------------- 任務 ----------------
   _missions() {

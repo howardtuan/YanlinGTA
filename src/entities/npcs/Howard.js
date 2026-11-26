@@ -245,6 +245,22 @@ export class Howard extends DevNPC {
     this.cruising = false;
     this._park(true);
   }
+  // lend you the 忍 400 somewhere else (彥霖航空 helicopter drop, src/systems/minigames/Airdrop.js; or the 新中北路障礙賽,
+  // src/systems/minigames/Race.js): returns the bike, back in the world if it was parked off the street, or an error message
+  lend() {
+    const g = this.g,
+      v = this.bike;
+    if (!v || !g.howardQuest?.done) return '霍華德還沒把忍 400 借你';
+    if (this.mode === 'ride') return '🏍️ 霍華德正騎著忍 400 在外面兜風，晚點再借';
+    if (v.away) {
+      g.scene.add(v.mesh);
+      if (!g.vehicles.includes(v)) g.vehicles.push(v);
+      v.away = false;
+      v.mesh.visible = true;
+    }
+    v.idle = 1; // off its spot: he doesn't take it out for a ride while it's with you
+    return v;
+  }
   // his bike is on its spot (not with you): he can go for a ride
   bikeHome() {
     const v = this.bike;
@@ -256,7 +272,8 @@ export class Howard extends DevNPC {
       v = this.bike,
       S = this.bikeSpot;
     if (!v || !S) return;
-    if (g.player.vehicle === v) {
+    // with you, or hanging under the 彥霖航空 helicopter on its way to you
+    if (g.player.vehicle === v || g.airdrop?.run?.v === v) {
       v.idle = 1;
       return;
     }

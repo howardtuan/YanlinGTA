@@ -356,7 +356,7 @@ ${controlsSection(controls)}
 
 <section id="characters" class="block">
   <h2>角色介紹</h2>
-  <p class="lead">遊戲裡的同學、室友和開發者都是以真實人物為原型改編，點社群連結可以認識本人。標示 🛠 的是這個遊戲的開發者；「虛構角色」不是真人改編，名字與外型只是致敬。</p>
+  <p class="lead">遊戲裡的同學、室友和開發者都是以真實人物為原型改編，點社群連結可以認識本人。標示 🛠 的是這個遊戲的開發者。</p>
   <div class="toolbar">
     <div class="filters" role="group" aria-label="依分類篩選">${filterBtns}</div>
     <input class="search" type="search" placeholder="搜尋角色、科系、興趣…" aria-label="搜尋角色">

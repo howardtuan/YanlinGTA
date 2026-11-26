@@ -64,8 +64,7 @@
     "sunday": { "group": "ai", "social": false },
     "tzuyu": {
       "group": "fiction",
-      "social": false,
-      "note": "虛構角色：不是由真人改編，名字與外型只是致敬，不代表本人。"
+      "social": false
     }
   },
   "extras": [
@@ -81,8 +80,7 @@
       "relations": "彥霖的女朋友；Tzuyu 的好朋友。",
       "where": "首爾（手機 i-Piyan 置頂聊天室）",
       "group": "fiction",
-      "social": false,
-      "note": "虛構角色：不是由真人改編，名字與外型只是致敬，不代表本人。"
+      "social": false
     }
   ]
 }

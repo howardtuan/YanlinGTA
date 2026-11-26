@@ -50,6 +50,29 @@ const SPEC_DEFAULT = [200, 160, 235, 125, 180, 250, 110, 270];
 const SPEC_MAX = 8;
 const ORBIT_SPEED = 80; // 觀戰者按住 ← → 繞桌走的速度（度／秒）
 const ORBIT_DRAG = 0.35; // 拖曳畫面：每像素轉幾度
+// 配牌時這張牌「從哪一區來」合不合理：0 最合理，越大越不合理（MahjongScene._layout）。
+// to／from 是區碼：h 手牌、m 吃碰槓、f 花、d 海底＋座位，w 牌牆
+export function zoneRank(to, from) {
+  if (!from) return 5; // (還沒擺過的牌)
+  if (from === to) return 0;
+  const t = to[0],
+    s = to.slice(1),
+    f = from[0],
+    fs = from.slice(1);
+  const order =
+    t === 'h'
+      ? [['w'], [`f${s}`, `m${s}`]] // 摸牌從牌牆來（補花、加槓的也算）
+      : t === 'd'
+        ? [[`h${s}`]] // 打出去的從那家手上來
+        : t === 'm'
+          ? [[`h${s}`], ['d']] // 吃碰槓：自己手上的＋別人打出的那張
+          : t === 'f'
+            ? [[`h${s}`], ['w']]
+            : [];
+  for (let i = 0; i < order.length; i++)
+    if (order[i].some((z) => (z.length === 1 ? f === z : from === z))) return i + 1;
+  return fs === s && f !== 'w' ? 3 : 4;
+}
 // 兩個角度相差多少（-180～180）
 const angDiff = (a, b) => ((((a - b) % 360) + 540) % 360) - 180;
 
@@ -734,6 +757,7 @@ export class MahjongScene {
     this.$('.mj-rotate').classList.add('hidden');
     this._handKey = '';
     this.cam?.clearViewOffset();
+    this._camKey = ''; // (下次上桌重新取景：偏移剛剛清掉了，不重算的話整張圖會往下掉、看不到自己的手牌)
     if (this.g.input.touch) {
       try {
         screen.orientation?.unlock?.();
@@ -773,6 +797,7 @@ export class MahjongScene {
 
   startHand(engine) {
     this.e = engine;
+    for (const m of this.tiles || []) m.userData.zone = null; // (新的一局：牌都重新洗過)
     this._ld = null;
     // every move the engine makes (yours too) goes past _onEvent: a discard or a call pops up big
     const emit = engine.emit.bind(engine);
@@ -1070,7 +1095,10 @@ export class MahjongScene {
   _layout(snap = false) {
     const e = this.e,
       want = []; // { k, at }
-    const put = (k, at, tag, hide = false, who = null) => want.push({ k, at, tag, hide, who });
+    // Z：這張牌要去的區（h 手牌、m 吃碰槓、f 花、d 海底＋座位；w 牌牆），配牌時優先拿「本來就該從那裡來」的牌
+    let Z = 'w';
+    const put = (k, at, tag, hide = false, who = null) =>
+      want.push({ k, at, tag, hide, who, zone: Z });
     const done = e.phase === 'end';
     const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
     // 近景（手機版）打牌時不擺牌牆，騰出來的位置給海底；開門動畫、觀戰、攤牌照樣有牌牆
@@ -1095,6 +1123,7 @@ export class MahjongScene {
       let u = -(total * TW) / 2;
       // 手機版：你的手牌、吃碰槓、花都畫在底下那排大牌裡，桌上這份藏起來（攤牌時再擺出來）
       const bar = this._mobile && s === 0 && !e.spectate && !reveal;
+      Z = `h${s}`;
       hand.forEach((k, i) => {
         if (i === drawn) u += TW; // the gap before the drawn tile
         const how = reveal ? 'up' : e.spectate ? 'stand' : s === 0 ? 'mine' : 'stand';
@@ -1108,6 +1137,7 @@ export class MahjongScene {
         u += TW;
       });
       // melds, face up (closed kongs face down) to the right; a 吃 has the tile taken in the middle
+      Z = `m${s}`;
       for (const m of P.melds) {
         u += TW * 0.3;
         let tiles = meldTiles(m);
@@ -1128,12 +1158,14 @@ export class MahjongScene {
         });
       }
       // flowers in a row between the wall and the hand
+      Z = `f${s}`;
       P.flowers.forEach((k, i) =>
         put(k, slot(s, -0.27 + i * TW, FLOWER_D, 'up'), null, bar, { seat: s, what: '花' })
       );
       // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
       // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
       // so two players' discards never meet at a corner
+      Z = `d${s}`;
       P.discards.forEach((k, i) => {
         const r = Math.floor(i / DROW),
           c = i % DROW;
@@ -1160,27 +1192,50 @@ export class MahjongScene {
       head = e.headTaken,
       tail = e.tailTaken;
     let j = 0;
+    Z = 'w';
     for (let i = head; i < N - tail; i++) {
       const top = i % 2 === 0 && i + 1 < N - tail; // the lower tile stays on the table when the top one is gone
       const { seat: ws, si } = stackAt(e.cut, Math.floor(i / 2));
       put(e.wall[j++], wallSlot(ws, si, top ? TD : 0), null, noWall);
     }
-    // match each wanted spot with a tile of that kind (the nearest one, so equal tiles don't swap places)
+    // match each wanted spot with a tile of that kind: first the one that really comes from there (zoneRank:
+    // 打出的牌從那家手上來、摸的牌從牌牆來…), then the nearest one, so equal tiles don't swap places. 只看距離的話，
+    // 牌牆比你的手牌更靠近海底，打出去的會變成牆上那張、你手上那張反而飛進牌牆
     const free = this.pool.map((a) => [...a]);
     this.mine = [];
     this.lastMesh = null;
     this.faceUp = []; // 翻開在桌上、可以用放大鏡看的牌（_peek）
-    for (const w of want) {
+    // 第一輪：本來就要待在這個位置、這個區的牌留在原地（例如牌牆上沒被摸走的牌）
+    const got = want.map((w) => {
       const list = free[w.k];
-      if (!list?.length) continue;
-      let bi = 0,
-        bd = Infinity;
-      list.forEach((m, i) => {
-        const d = m.userData.fresh ? 0 : m.position.distanceToSquared(w.at.p);
-        if (d < bd) ((bd = d), (bi = i));
-      });
-      const m = list.splice(bi, 1)[0];
+      const i = list
+        ? list.findIndex(
+            (m) =>
+              !m.userData.fresh &&
+              m.userData.zone === w.zone &&
+              m.userData.to?.p.distanceToSquared(w.at.p) < 1e-8
+          )
+        : -1;
+      return i >= 0 ? list.splice(i, 1)[0] : null;
+    });
+    want.forEach((w, wi) => {
+      const list = free[w.k];
+      let m = got[wi];
+      if (!m) {
+        if (!list?.length) return;
+        // 第二輪：真的要移動的牌，先看從哪一區來最合理，再挑最近的
+        let bi = 0,
+          bd = Infinity;
+        list.forEach((x, i) => {
+          const d =
+            zoneRank(w.zone, x.userData.zone) * 100 +
+            (x.userData.fresh ? 0 : x.position.distanceToSquared(w.at.p));
+          if (d < bd) ((bd = d), (bi = i));
+        });
+        m = list.splice(bi, 1)[0];
+      }
       m.userData.to = w.at;
+      m.userData.zone = w.zone;
       if (snap || m.userData.fresh) {
         m.position.copy(w.at.p);
         m.quaternion.copy(w.at.q);
@@ -1192,7 +1247,7 @@ export class MahjongScene {
         this.mine.push({ mesh: m, k: w.k, drawn: w.tag === 'drawn' });
       if (w.tag === 'last') this.lastMesh = m;
       if (w.who && !w.hide) this.faceUp.push({ mesh: m, k: w.k, ...w.who });
-    }
+    });
     for (const list of free) for (const m of list) m.visible = false;
   }
 

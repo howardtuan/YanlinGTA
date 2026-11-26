@@ -13,7 +13,13 @@ import { surfaceAt } from '../world/Terrain.js';
 import { sameLevel, getParkedCarAssets, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
 import { knockPeopleWith } from '../physics/DebrisPeople.js';
-import { vehicleSpec, solveVehicleImpact, RESTITUTION, GRAVITY } from '../physics/ImpactPhysics.js';
+import {
+  vehicleSpec,
+  solveVehicleImpact,
+  solveRiderEjection,
+  RESTITUTION,
+  GRAVITY,
+} from '../physics/ImpactPhysics.js';
 
 const CELL = 10;
 const CHUNK = 120;
@@ -743,7 +749,8 @@ export class ParkedScooters {
     let maxImpact = 0;
     // Δv summed over the slots hit this frame: each gives -push * dv1 (push points from you into the slot)
     let dvx = 0,
-      dvz = 0;
+      dvz = 0,
+      aiEject = null; // an AI rider thrown over the bars by the deceleration shock
 
     // Build full front-to-back capsule(s): include swept midpoint on fast / low-FPS frames to prevent tunneling
     const stepDist = sp * dt;
@@ -808,6 +815,8 @@ export class ParkedScooters {
           maxImpact = Math.max(maxImpact, impact);
           if (isPlayer && (sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
             v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ, dv1: sol.dv1 };
+          if (!isPlayer && sol.ejectRider1 && !aiEject)
+            aiEject = { impact, nx: -pushX, nz: -pushZ, dv1: sol.dv1 };
         }
         return;
       }
@@ -818,6 +827,8 @@ export class ParkedScooters {
         maxImpact = Math.max(maxImpact, impact);
         if (isPlayer && sol.ejectRider1 && !v.crash)
           v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ, dv1: sol.dv1 };
+        if (!isPlayer && sol.ejectRider1 && !aiEject)
+          aiEject = { impact, nx: -pushX, nz: -pushZ, dv1: sol.dv1 };
       }
     });
 
@@ -830,6 +841,25 @@ export class ParkedScooters {
         nvz = vvz + dvz,
         ns = nvx * fx + nvz * fz;
       v.speed = isPlayer ? ns : Math.max(0, ns);
+      if (!isPlayer && v.ai) {
+        // traffic that hit a parked vehicle brakes to a stop for a moment instead of driving its kinematic
+        // (infinite-mass) stand-in on into the debris it just knocked, shoving it a second time
+        v.ai.stunned = Math.max(v.ai.stunned || 0, 2);
+        if (aiEject && v.rider && this.game.traffic?.throwRider) {
+          const ej = solveRiderEjection({
+            speed: sp,
+            impact: aiEject.impact,
+            nx: aiEject.nx,
+            nz: aiEject.nz,
+            fx,
+            fz,
+            dv1: aiEject.dv1,
+            pushed: false,
+            riderMass: v.rider.weight,
+          });
+          this.game.traffic.throwRider(v, ej.vx, ej.vy, ej.vz);
+        }
+      }
       if (v.body?.body) {
         const lv = v.body.body.linvel();
         v.body.body.setLinvel({ x: nvx, y: lv.y, z: nvz }, true);

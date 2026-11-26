@@ -18,8 +18,9 @@ import {
   addCut,
   LV_DECK,
   pitAt,
-  pitRects,
+  pitList,
 } from './Terrain.js';
+import { makeGroundCut } from './GroundCut.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFurniture } from './Furniture.js';
 import { isCourt, paintCourts } from './Court.js';
@@ -115,7 +116,7 @@ function triFits(a, b, c, T) {
   const { minX, minZ, step: s, nx, nz } = T;
   const ha = Hgrid(a[0], a[1]),
     hb = Hgrid(b[0], b[1]),
-    hc = Hgrid(c[0], c[1]); // draped layers follow the grid; pits are masked
+    hc = Hgrid(c[0], c[1]); // draped layers follow the grid; pits are cut out
   const det = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
   if (Math.abs(det) < 1e-6) return true;
   let ok = true;
@@ -399,6 +400,68 @@ class Geo {
       pts.map((p) => [p[0] / uvS, p[1] / uvS])
     );
   }
+  // leave out what lies over a ground hole (src/world/GroundCut.js): the triangles near one are cut on the same
+  // 1 m sub-grid as the ground mesh, every attribute interpolated, the rest stay as they are
+  cutHoles(gc) {
+    const nt = this.p.length / 9;
+    if (!nt || gc.empty) return;
+    const { p, n, c, uv, c2, c3 } = this,
+      cn = this.alpha ? 4 : 3;
+    let hit = false;
+    for (let t = 0; t < nt && !hit; t++) {
+      const o = t * 9;
+      hit = gc.touches(
+        Math.min(p[o], p[o + 3], p[o + 6]),
+        Math.min(p[o + 2], p[o + 5], p[o + 8]),
+        Math.max(p[o], p[o + 3], p[o + 6]),
+        Math.max(p[o + 2], p[o + 5], p[o + 8])
+      );
+    }
+    if (!hit) return;
+    const P = [],
+      N = [],
+      C = [],
+      U = [],
+      C2 = c2 ? [] : null,
+      C3 = c2 ? [] : null;
+    const rec = (v) => {
+      const r = [p[v * 3], p[v * 3 + 1], p[v * 3 + 2], n[v * 3], n[v * 3 + 1], n[v * 3 + 2]];
+      for (let k = 0; k < cn; k++) r.push(c[v * cn + k]);
+      r.push(uv[v * 2], uv[v * 2 + 1]);
+      if (c2)
+        r.push(c2[v * 3], c2[v * 3 + 1], c2[v * 3 + 2], c3[v * 3], c3[v * 3 + 1], c3[v * 3 + 2]);
+      return r;
+    };
+    const put = (r) => {
+      P.push(r[0], r[1], r[2]);
+      N.push(r[3], r[4], r[5]);
+      for (let k = 0; k < cn; k++) C.push(r[6 + k]);
+      U.push(r[6 + cn], r[7 + cn]);
+      if (C2) {
+        C2.push(r[8 + cn], r[9 + cn], r[10 + cn]);
+        C3.push(r[11 + cn], r[12 + cn], r[13 + cn]);
+      }
+    };
+    const emit = (a, b, d) => {
+      put(a);
+      put(b);
+      put(d);
+    };
+    for (let t = 0; t < nt; t++) {
+      const a = rec(t * 3),
+        b = rec(t * 3 + 1),
+        d = rec(t * 3 + 2);
+      if (!gc.cutTri(a, b, d, emit)) emit(a, b, d);
+    }
+    this.p = P;
+    this.n = N;
+    this.c = C;
+    this.uv = U;
+    if (C2) {
+      this.c2 = C2;
+      this.c3 = C3;
+    }
+  }
   // one mesh, or (when the triangles spread wider than two chunks) one mesh per GEO_CHUNK x GEO_CHUNK m cell, so frustum
   // and shadow culling can drop the parts out of view (perf-refactor Phase 2, ChunkedGeo). Triangles go to the cell of
   // their centroid, unchanged: the same pixels, the same random draws.
@@ -463,8 +526,9 @@ class Geo {
 }
 
 // ground mesh: the terrain grid plus one 1 km skirt ring holding the edge
-// heights (same values H() returns outside the grid), split like H()
-function groundGeometry(B) {
+// heights (same values H() returns outside the grid), split like H(); the
+// cells over a ground hole are cut by gc (src/world/GroundCut.js)
+function groundGeometry(B, gc = null) {
   const T = terrainGrid();
   const xs = [],
     zs = [];
@@ -487,7 +551,7 @@ function groundGeometry(B) {
       const k = (j * X + i) * 3;
       pos[k] = xs[i];
       pos[k + 1] = Hgrid(xs[i], zs[j]);
-      pos[k + 2] = zs[j]; // pits are masked, not drawn into the grid
+      pos[k + 2] = zs[j]; // pits are cut out, not drawn into the grid
     }
   const idx = [];
   for (let j = 0; j < Z - 1; j++)
@@ -502,7 +566,37 @@ function groundGeometry(B) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setIndex(idx);
-  g.computeVertexNormals();
+  g.computeVertexNormals(); // of the whole grid: the cut pieces keep the shading they had
+  if (gc && !gc.empty) {
+    const nrm = g.attributes.normal.array,
+      P = Array.from(pos),
+      N = Array.from(nrm),
+      keep = [];
+    const rec = (v) => [
+      pos[v * 3],
+      pos[v * 3 + 1],
+      pos[v * 3 + 2],
+      nrm[v * 3],
+      nrm[v * 3 + 1],
+      nrm[v * 3 + 2],
+    ];
+    const emit = (...vs) => {
+      for (const r of vs) {
+        keep.push(P.length / 3);
+        P.push(r[0], r[1], r[2]);
+        N.push(r[3], r[4], r[5]);
+      }
+    };
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t],
+        b = idx[t + 1],
+        c = idx[t + 2];
+      if (!gc.cutTri(rec(a), rec(b), rec(c), emit)) keep.push(a, b, c);
+    }
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3));
+    g.setIndex(keep);
+  }
   g.computeBoundingSphere();
   return g;
 }
@@ -612,8 +706,8 @@ function cutRects(items) {
 }
 // ---------- sunk water (tools/water.json, carried into data as area / waterway 'sink') ----------
 // Ponds and streams sit below the ground round them. The terrain grid (10 m) cannot hold a
-// bank, so like the open road cut the ground and draped layers are masked over the water and
-// its banks (sinkPlan().glsl in cutMask) and src/world/MapBuilder.js draws water, banks, railings and caps.
+// bank, so like the open road cut the ground and draped layers are cut away over the water and
+// its banks (sinkPlan().cut, src/world/GroundCut.js) and src/world/MapBuilder.js draws water, banks, railings and caps.
 const SINK_COPE = 0.3; // concrete coping on top of a wall
 const sideOf = (nx, nz) =>
   Math.abs(nx) > Math.abs(nz) ? (nx > 0 ? 'e' : 'w') : nz > 0 ? 's' : 'n';
@@ -800,59 +894,31 @@ function sinkPlan(data) {
           if (near(e1, q)) r.join[1] = true;
         }
   }
-  // mask: outer rings (point in polygon) and the stream strips (rectangles + joint discs), each behind a bbox test
-  const f = (v) => v.toFixed(2);
-  const glsl = [];
+  // ground holes (src/world/GroundCut.js): the outer rings and the stream strips (rectangles + joint discs)
+  const cut = { rects: [], polys: [], discs: [] };
   const holes = [];
   for (const s of areas) {
-    const xs = s.O.map((p) => p[0]),
-      zs = s.O.map((p) => p[1]);
-    const ed = s.O.map((a, i) => {
-      const b = s.O[(i + 1) % s.O.length];
-      return `a = vec2(${f(a[0])}, ${f(a[1])}); b = vec2(${f(b[0])}, ${f(b[1])}); if ((a.y > cd.y) != (b.y > cd.y) && cd.x < (b.x - a.x) * (cd.y - a.y) / (b.y - a.y) + a.x) ins = !ins;`;
-    });
-    glsl.push(
-      `if (vCutW.x > ${f(Math.min(...xs))} && vCutW.x < ${f(Math.max(...xs))} && vCutW.y > ${f(Math.min(...zs))} && vCutW.y < ${f(Math.max(...zs))}) { cd = vCutW; ins = false;\n    ${ed.join('\n    ')}\n    if (ins) discard; }`
-    );
+    cut.polys.push(s.O);
     holes.push({ poly: s.O });
   }
   for (const r of runs) {
-    const hw = r.top / 2 + (r.spec.bank === 'slope' ? 0.1 : SINK_COPE),
-      tests = [];
-    let x0 = 1e9,
-      z0 = 1e9,
-      x1 = -1e9,
-      z1 = -1e9;
+    const hw = r.top / 2 + (r.spec.bank === 'slope' ? 0.1 : SINK_COPE);
     for (let i = 0; i < r.pts.length - 1; i++) {
       const A = r.pts[i],
         Bq = r.pts[i + 1],
-        l = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]) || 1,
-        ux = (Bq[0] - A[0]) / l,
-        uz = (Bq[1] - A[1]) / l;
-      const cx = (A[0] + Bq[0]) / 2,
-        cz = (A[1] + Bq[1]) / 2;
-      tests.push(
-        `cd = vCutW - vec2(${f(cx)}, ${f(cz)}); if (abs(dot(cd, vec2(${f(ux)}, ${f(uz)}))) < ${f(l / 2)} && abs(dot(cd, vec2(${f(-uz)}, ${f(ux)}))) < ${f(hw)}) discard;`
-      );
-      if (i > 0 || r.join[0])
-        tests.push(
-          `cd = vCutW - vec2(${f(A[0])}, ${f(A[1])}); if (dot(cd, cd) < ${f(hw * hw)}) discard;`
-        );
-      if (i === r.pts.length - 2 && r.join[1])
-        tests.push(
-          `cd = vCutW - vec2(${f(Bq[0])}, ${f(Bq[1])}); if (dot(cd, cd) < ${f(hw * hw)}) discard;`
-        );
+        l = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]) || 1;
+      cut.rects.push([
+        (A[0] + Bq[0]) / 2,
+        (A[1] + Bq[1]) / 2,
+        (Bq[0] - A[0]) / l,
+        (Bq[1] - A[1]) / l,
+        l / 2,
+        hw,
+      ]);
+      if (i > 0 || r.join[0]) cut.discs.push([A[0], A[1], hw]);
+      if (i === r.pts.length - 2 && r.join[1]) cut.discs.push([Bq[0], Bq[1], hw]);
       holes.push({ seg: [A, Bq, hw] });
-      for (const p of [A, Bq]) {
-        x0 = Math.min(x0, p[0]);
-        z0 = Math.min(z0, p[1]);
-        x1 = Math.max(x1, p[0]);
-        z1 = Math.max(z1, p[1]);
-      }
     }
-    glsl.push(
-      `if (vCutW.x > ${f(x0 - hw)} && vCutW.x < ${f(x1 + hw)} && vCutW.y > ${f(z0 - hw)} && vCutW.y < ${f(z1 + hw)}) {\n    ${tests.join('\n    ')} }`
-    );
   }
   // (x, z) within r of the water or its banks (plants there are hidden)
   const inside = (x, z, r = 0) =>
@@ -863,34 +929,7 @@ function sinkPlan(data) {
             h.poly.some((a, i) => segDist(x, z, ...a, ...h.poly[(i + 1) % h.poly.length]) < r))
         : segDist(x, z, ...h.seg[0], ...h.seg[1]) < h.seg[2] + r
     );
-  return {
-    areas,
-    runs,
-    glsl: glsl.length ? `vec2 a, b; bool ins;\n  ${glsl.join('\n  ')}` : '',
-    inside,
-  };
-}
-
-// ground and draped layers are not drawn over an open cut (the cut is drawn below them)
-// nor over sunk water and its banks (extra: sinkPlan().glsl)
-function cutMask(m, R, extra = '') {
-  if (!R.length && !extra) return m;
-  const f = (v) => v.toFixed(3);
-  const test = R.map(
-    ([x, z, ux, uz, hl, hw]) =>
-      `cd = vCutW - vec2(${f(x)}, ${f(z)}); if (abs(dot(cd, vec2(${f(ux)}, ${f(uz)}))) < ${f(hl)} && abs(dot(cd, vec2(${f(-uz)}, ${f(ux)}))) < ${f(hw)}) discard;`
-  )
-    .concat(extra ? [extra] : [])
-    .join('\n  ');
-  const prev = m.onBeforeCompile,
-    key = m.customProgramCacheKey;
-  m.onBeforeCompile = (sh, r) => {
-    prev.call(m, sh, r);
-    sh.vertexShader = `varying vec2 vCutW;\n${sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vCutW = (modelMatrix * vec4(transformed, 1.0)).xz;')}`;
-    sh.fragmentShader = `varying vec2 vCutW;\n${sh.fragmentShader.replace('void main() {', `void main() {\n  vec2 cd;\n  ${test}`)}`;
-  };
-  m.customProgramCacheKey = () => `${key.call(m)}_cut`;
-  return m;
+  return { areas, runs, cut, inside };
 }
 
 const col = (h) => {
@@ -1614,11 +1653,21 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     : [];
   world.inCampus = (x, z) => data.campus.some((r) => pointInPoly(x, z, r));
 
-  // viaducts, footbridge, road cuts: the ground is masked over the open cuts
+  // viaducts, footbridge, road cuts: the ground and the draped layers are cut away over the open cuts,
+  // the sunk water with its banks and the pits (src/world/GroundCut.js); maskCut marks a material whose
+  // layers are cut (addFlat cuts them)
   const grade = gradeItems(data),
-    cutR = cutRects(grade).concat(pitRects()),
     sink = sinkPlan(data),
-    maskCut = (m) => cutMask(m, cutR, sink.glsl);
+    groundCut = makeGroundCut({
+      rects: cutRects(grade).concat(sink.cut.rects),
+      polys: sink.cut.polys,
+      discs: sink.cut.discs,
+      pits: pitList().filter((p) => p.mask),
+    }),
+    maskCut = (m) => {
+      m.userData.groundCut = true;
+      return m;
+    };
   world.inSink = sink.inside;
   // sunk ponds / streams: water, banks, railings and the culvert walls where a stream goes
   // under a road. Collision (sinkColl: a line along the top of every bank and across every
@@ -1907,7 +1956,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         ]);
       }
     }
-    // water writes depth (nothing under it: the ground is masked); banks / rails are ordinary meshes
+    // water writes depth (nothing under it: the ground is cut away); banks / rails are ordinary meshes
     const wmat2 = new THREE.MeshStandardMaterial({
       color: '#2f4c52',
       roughness: 0.06,
@@ -2001,7 +2050,10 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const uvS = (s) => (q) => [q[0] / s, q[1] / s];
   const addFlat = (geo, mat, tag) => {
     if (!geo.tris) return null;
-    const m = geo.mesh(mat || flatMat());
+    mat = mat || flatMat();
+    if (mat.userData.groundCut) geo.cutHoles(groundCut);
+    if (!geo.tris) return null;
+    const m = geo.mesh(mat);
     m.receiveShadow = true;
     m.renderOrder = layerOrder++;
     scene.add(m);
@@ -2012,7 +2064,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
 
   // base ground: terrain grid (MOI DTM) with a skirt out to the horizon
   {
-    const g = groundGeometry(B);
+    const g = groundGeometry(B, groundCut);
     const pos = g.attributes.position,
       uv = new Float32Array(pos.count * 2);
     for (let i = 0; i < pos.count; i++) {

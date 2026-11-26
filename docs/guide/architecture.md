@@ -187,6 +187,7 @@ iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB
   - 畫圖時用傳進來的 `w`、`h`，不要用 `g.canvas.width`／`cv.width`（縮小後只會畫到四分之一）；需要 `getImageData` 逐像素處理的貼圖（例如 `src/graphics/Textures.js` 的法線圖）不要走 `scaledCanvas`。
   - 之後還會重畫的貼圖（螢幕、門牌、計分板、等圖片載入才畫上的貼圖）要標成動態：`canvasTexture(w, h, draw, repeat, { dynamic: true })` 或 `markDynamic(ctex(...))`，否則載入完成後畫布會被 `flushShared` 釋放。也不要用 `k.plane()` 放進街屋：`finishRow` 會把 `k.plane()` 建的平面打包進圖集，原畫布之後會被釋放；請自己建 mesh 放進 `k.group`（只有 `k.plane()` 的平面會被打包）。
   - **地圖分塊（Phase 2）**：`MapBuilder` 的 `Geo.mesh()` 若三角形分布超過兩格（每格 120 m），會回傳 `ChunkedMesh`（`isChunkedMesh`），每格一個子 mesh，讓視錐與陰影剔除能丟掉畫面外的部分。它的 `castShadow`、`receiveShadow`、`frustumCulled`、`renderOrder` 會設到每個子 mesh；材質請用 `chunkMaterial`（它刻意沒有 `material`，否則 three.js 會把容器當成要畫的物件），也沒有 `geometry`。
+  - **地面挖洞（Phase 2）**：地下道開口、下沉水池與水溝（含岸邊）、坑洞（`addPit()`，`mask` 為 true）的地面，改在建地圖時由 `src/world/GroundCut.js` 在 CPU 上切掉：地面網格與貼地圖層的三角形沿洞的邊線切開，洞裡的部分直接不產生（以前是 shader 的 `discard`，每個地面像素都要做幾十次判斷）。新增貼在地上的圖層請用 `MapBuilder` 的 `addFlat()` 搭配 `flatMat()`／`gmat()`（或用 `maskCut()` 標過的材質），才會一起被切；不要在 shader 裡 `discard` 挖洞。要多挖一個洞，在建地圖前用 `addPit()` 登記，或在資料裡加 `sink`。
   - 世界的靜態網格（`Geo.mesh()`、`Kit.finish()`、`finishRow()` 的輸出）在畫過之後沒有頂點資料可讀：不要對它們做 raycast、`Box3.setFromObject()`、合併或改頂點；要用請在建置時（第一次畫之前）做，或改用碰撞資料（`world.collision`、`interiors`）。
 - **量測**：`npm run profile:mobile -- --assert-ios-budget`（進標題時畫布 ≤ 220 MB）；數據記在 `perf-refactor/agent-handoff-log.md`。
 - **載入時不做的事（Phase 1B）**：

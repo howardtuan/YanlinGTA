@@ -122,6 +122,21 @@ function npcDashboardPlugin() {
   };
 }
 
+// PWA manifest 的 <link> 在 Vite 處理完 HTML 之後才加上去：如果寫在 index.html 裡，Vite 會把它當資產搬到
+// assets/manifest-xxxx.webmanifest，裡面的 start_url "./" 就變成 /assets/，加到 iPhone 主畫面後會開到
+// yanlin-gta.com/assets/（icons 路徑也會跟著錯）。manifest 本身由 staticAssetsPlugin 原封不動複製到 dist 根目錄。
+function manifestLinkPlugin() {
+  return {
+    name: 'manifest-link',
+    transformIndexHtml: {
+      order: 'post',
+      handler: () => [
+        { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, injectTo: 'head' },
+      ],
+    },
+  };
+}
+
 // Copy static game data to dist on build
 function staticAssetsPlugin() {
   return {
@@ -161,7 +176,7 @@ function staticAssetsPlugin() {
 export default defineConfig({
   root: '.',
   base: './',
-  plugins: [wasm(), npcDashboardPlugin(), staticAssetsPlugin()],
+  plugins: [wasm(), npcDashboardPlugin(), manifestLinkPlugin(), staticAssetsPlugin()],
   server: {
     port: 5173,
     host: '0.0.0.0',

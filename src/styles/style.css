@@ -8968,6 +8968,66 @@ body.mahjong #dialog {
 #mjUI.mobile kbd {
   display: none;
 }
+/* 名牌底下：那家的吃碰槓、花（小圖，MahjongScene._meldStrip） */
+#mjUI .mj-tag-m {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 2px -4px 1px;
+}
+#mjUI .mj-tag-m span {
+  display: flex;
+}
+#mjUI .mj-tag-m img,
+#mjUI .mj-tag-m .back {
+  width: 17px;
+  aspect-ratio: 128 / 170;
+  border-radius: 2px;
+  border-bottom: 2px solid #1e7a4a;
+  background: #f4f1e8;
+}
+#mjUI .mj-tag-m .back {
+  display: block;
+  background: #1e7a4a;
+}
+#mjUI .mj-tag-m .fl img {
+  width: 13px;
+}
+#mjUI .mj-tag:has(.mj-tag-m) {
+  border-radius: 10px;
+  text-align: center;
+}
+/* 放大鏡：桌上翻開的牌，滑鼠移上去／手機點一下就跳一張大的（MahjongScene._peek） */
+#mjUI .mj-zoom {
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, 18px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px 5px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+}
+#mjUI .mj-zoom.up {
+  transform: translate(-50%, calc(-100% - 18px));
+}
+#mjUI .mj-zoom img {
+  width: 58px;
+  aspect-ratio: 128 / 170;
+  border-radius: 6px;
+  border-bottom: 5px solid #1e7a4a;
+  background: #f4f1e8;
+}
+#mjUI .mj-zoom b {
+  font-size: 14px;
+}
+#mjUI .mj-zoom small {
+  font-size: 11px;
+  opacity: 0.8;
+}
 #mjUI.mobile .mj-tag {
   padding: 1px 8px;
   font-size: 12px;
@@ -8980,7 +9040,10 @@ body.mahjong #dialog {
   right: max(6px, env(safe-area-inset-right));
   gap: 5px;
 }
-#mjUI.mobile .mj-info.mini {
+#mjUI .mj-info.compact:not(.mini) {
+  pointer-events: auto;
+}
+#mjUI .mj-info.mini {
   width: auto;
   padding: 0;
   background: none;

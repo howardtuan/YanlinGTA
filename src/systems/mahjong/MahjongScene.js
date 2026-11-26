@@ -414,14 +414,14 @@ const _x = new THREE.Vector3(),
   _y = new THREE.Vector3(),
   _z = new THREE.Vector3(),
   _m = new THREE.Matrix4();
-function slot(s, u, d, how, lift = 0) {
+function slot(s, u, d, how, lift = 0, sc = 1) {
   const F = FWD[s],
     R = RIGHT[s];
   const p = new THREE.Vector3().addScaledVector(F, -d).addScaledVector(R, u);
   if (how === 'stand') {
     _z.copy(F).negate();
     _y.copy(UP);
-    p.y = Y0 + TH / 2 + lift;
+    p.y = Y0 + (TH * sc) / 2 + lift;
   } else if (how === 'mine') {
     const a = 0.42; // leaning back towards you
     _z.copy(F).negate().multiplyScalar(Math.cos(a)).addScaledVector(UP, Math.sin(a));
@@ -430,14 +430,121 @@ function slot(s, u, d, how, lift = 0) {
   } else {
     _z.copy(UP).multiplyScalar(how === 'up' ? 1 : -1);
     _y.copy(F);
-    p.y = Y0 + TD / 2 + lift;
+    p.y = Y0 + (TD * sc) / 2 + lift;
   }
   _x.copy(_y).cross(_z);
   const q = new THREE.Quaternion().setFromRotationMatrix(_m.makeBasis(_x, _y, _z));
-  return { p, q };
+  return { p, q, s: sc };
 }
 // stack si (0 = that player's left … 17 = right) of seat ws's wall
-const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, 0.29, 'down', lift);
+const WALL_D = 0.3; // the wall's distance from the centre (a little out, so the bigger discards have room)
+const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, WALL_D, 'down', lift);
+// 牌放大：海底與別家吃碰槓的牌比實際大一點，手機上也看得清楚。海底放大到碰到牌牆為止（排到第四排時自動縮回一點）
+const DISC_BIG = 1.3,
+  MELD_BIG = 1.2;
+export function discardScale(maxCount) {
+  const rows = Math.max(3, Math.ceil(maxCount / DROW));
+  return Math.min(DISC_BIG, (WALL_D - TD / 2 - 0.004) / (DISC + rows * (TH + GAP)));
+}
+
+// ---------------- 鏡頭自動取景 ----------------
+// 不管視窗多大、橫拿直拿，都把「有用的牌」塞滿畫面：四家的海底、三家的手牌列（吃碰槓、花都在那一排），
+// 遠景再加上你自己的 3D 手牌。牆和桌邊空的綠布可以被切掉。
+// close：近景（手機版，手牌是底下那條）；far：遠景／觀戰／攤牌。elev＝鏡頭仰角（越大越接近正上方，對家的牌越不扁）
+export const CAM_VIEW = {
+  close: (aspect) => (aspect < 1 ? { fov: 58, elev: 76, tz: 0 } : { fov: 40, elev: 60, tz: 0 }),
+  far: (aspect) =>
+    aspect < 0.8 ? { fov: 58, elev: 66, tz: 0.02 } : { fov: 42, elev: 47, tz: 0.02 },
+};
+const CAM_MAX_Y = 2.55; // 天花板的燈（y 2.73）在桌子正上方，鏡頭不能高過它
+export function camPoints(mine) {
+  const pts = [];
+  const add = (s, u, d, h) => {
+    for (const y of [Y0, Y0 + h])
+      pts.push(
+        new THREE.Vector3().addScaledVector(FWD[s], -d).addScaledVector(RIGHT[s], u).setY(y)
+      );
+  };
+  for (let s = 0; s < 4; s++) {
+    // 海底：四塊風車狀排開（放大後最多到牌牆內側），整體在牌牆圍起來的正方形裡
+    add(s, -0.28, 0.28, TD);
+    add(s, 0.28, 0.28, TD);
+    // 手牌列（16 張＋摸的那張＋吃碰槓）：站著的牌比較高
+    if (s || mine) {
+      add(s, -0.29, 0.415, TH);
+      add(s, 0.29, 0.415, TH);
+    }
+  }
+  return pts;
+}
+const _cp = { true: camPoints(true), false: camPoints(false) },
+  _pv = new THREE.Vector3();
+// 用給定的視角（fov、仰角）找出能把重點區塊完整塞進可用範圍的最近距離，再用 view offset 把它置中。
+// 可用範圍＝整個畫面扣掉上方名牌／底下手牌條或提示列。回傳 { d, fov, y }（測試用）
+export function fitCamera(
+  c,
+  view,
+  { w, h, bar = 0, mine = false, top = 40, side = 10, bottom } = {}
+) {
+  const pts = _cp[!!mine];
+  bottom ??= bar ? 6 : 34;
+  const x0 = -1 + (2 * side) / w,
+    x1 = 1 - (2 * side) / w,
+    y0 = -1 + (2 * (bar + bottom)) / h,
+    y1 = 1 - (2 * top) / h;
+  const aw = x1 - x0,
+    ah = y1 - y0;
+  const e = (view.elev * Math.PI) / 180,
+    dir = new THREE.Vector3(0, Math.sin(e), Math.cos(e)),
+    tgt = new THREE.Vector3(0, Y0, view.tz);
+  c.aspect = w / h;
+  if (c.view?.enabled) c.clearViewOffset();
+  const box = (d, fov) => {
+    c.fov = fov;
+    c.position.copy(tgt).addScaledVector(dir, d);
+    c.lookAt(tgt);
+    c.updateMatrixWorld(true);
+    c.updateProjectionMatrix();
+    let a = Infinity,
+      b = -Infinity,
+      lo = Infinity,
+      hi = -Infinity;
+    for (const p of pts) {
+      _pv.copy(p).project(c);
+      if (_pv.z > 1) return null; // behind the camera
+      a = Math.min(a, _pv.x);
+      b = Math.max(b, _pv.x);
+      lo = Math.min(lo, _pv.y);
+      hi = Math.max(hi, _pv.y);
+    }
+    return { a, b, lo, hi };
+  };
+  const fits = (r) => r && r.b - r.a <= aw && r.hi - r.lo <= ah;
+  let fov = view.fov,
+    d = 0;
+  // 鏡頭太高會撞到天花板的燈：放寬視角再找
+  for (; fov <= 100; fov += 4) {
+    const dMax = (CAM_MAX_Y - Y0) / dir.y;
+    if (!fits(box(dMax, fov))) continue;
+    let lo = 0.25,
+      hi = dMax;
+    for (let i = 0; i < 24; i++) {
+      const m = (lo + hi) / 2;
+      if (fits(box(m, fov))) hi = m;
+      else lo = m;
+    }
+    d = hi;
+    break;
+  }
+  if (!d) ((fov = view.fov), (d = (CAM_MAX_Y - Y0) / dir.y));
+  const r = box(d, fov);
+  // 把重點區塊的中心移到可用範圍的中心
+  const ox = r ? (((r.a + r.b) / 2 - (x0 + x1) / 2) * w) / 2 : 0,
+    oy = r ? (((y0 + y1) / 2 - (r.lo + r.hi) / 2) * h) / 2 : 0;
+  c.setViewOffset(w, h, Math.round(ox), Math.round(oy), w, h);
+  c.updateProjectionMatrix();
+  return { d, fov, y: c.position.y };
+}
 
 export class MahjongScene {
   constructor(game, mj) {
@@ -477,7 +584,7 @@ export class MahjongScene {
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div>
       <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>
       <div class="mj-hand hidden"></div>
       <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
@@ -506,10 +613,18 @@ export class MahjongScene {
       if (!this.active) return;
       const t = this._pick(e);
       if (t != null && e.pointerType === 'mouse') this.sel = t;
+      if (e.pointerType === 'mouse' && e.target === cv) {
+        this._peekTap = false;
+        this._peek(e, false);
+      }
     };
     this._down = (e) => {
       if (!this.active || e.target !== cv) return;
       if (this.intro) return this._introGo(); // a click throws the dice / skips the animation
+      if (e.pointerType !== 'mouse') {
+        this._peekTap = true;
+        this._peek(e, true);
+      }
       if (this._mobile) return; // (the hand is the bar at the bottom, not the 3D tiles)
       const t = this._pick(e);
       if (t == null) return;
@@ -558,6 +673,8 @@ export class MahjongScene {
     this.$('.mj-wait').classList.add('hidden');
     this._waitKey = '';
     this.$('.mj-timer').classList.add('hidden');
+    this.$('.mj-zoom').classList.add('hidden');
+    this._peekAt = null;
     this._timerKey = '';
     this.$('.mj-info').innerHTML = this._info = '';
     const mpBar = this.$('.mj-mp-bar');
@@ -690,6 +807,9 @@ export class MahjongScene {
       if (!T || !m.visible) continue;
       m.position.lerp(T.p, k);
       m.quaternion.slerp(T.q, k);
+      const sc = T.s ?? 1;
+      if (m.scale.x !== sc)
+        m.scale.setScalar(Math.abs(m.scale.x - sc) < 0.002 ? sc : m.scale.x + (sc - m.scale.x) * k);
     }
   }
   _pace(ev) {
@@ -726,45 +846,19 @@ export class MahjongScene {
     this._mobileUI();
     // 遠景: leaning over the table, your 3D hand and the discards; 近景 (the phone layout, V / the button toggles):
     // your hand is the big bar at the bottom and the camera frames the table above it.
-    const tall = c.aspect < 1.2,
-      // (watching someone's hand, or the hand is over and everybody's tiles are laid down: the usual camera)
-      mobCam = this._mobile && !this.e?.spectate && !this.result;
-    if (mobCam) {
-      // 手機版：你的手牌在底下那排大牌，鏡頭只要看桌面（海底＋三家），整張圖往上推，讓出手牌那條
-      if (c.aspect < 1) {
-        // 直拿：幾乎從正上方看，桌寬剛好塞滿螢幕寬
-        c.position.set(0, 2.2, 0.2);
-        c.fov = 74;
-        c.lookAt(0, Y0, 0.04);
-      } else {
-        c.position.set(0, 1.5, 0.5);
-        c.fov = 44;
-        c.lookAt(0, Y0, -0.03);
-      }
-      // (直拿時桌子被螢幕寬卡住、上下有空：再往下挪一點，貼近手牌、讓北家多點位置)
-      const lift = Math.round(this._barH * 0.5 - (c.aspect < 1 ? innerHeight * 0.08 : 0));
-      const V = c.view;
-      if (
-        !V?.enabled ||
-        V.offsetY !== lift ||
-        V.fullWidth !== innerWidth ||
-        V.fullHeight !== innerHeight
-      )
-        c.setViewOffset(innerWidth, innerHeight, 0, lift, innerWidth, innerHeight);
-    } else if (c.view?.enabled) c.clearViewOffset();
-    if (mobCam) {
-      /* framed above */
-    } else if (c.aspect < 0.8) {
-      // a phone held upright: from higher up, so the table's width fits
-      c.position.set(0, 1.5, 0.56);
-      c.fov = 74;
-      c.lookAt(0, Y0, 0.1);
-    } else {
-      c.position.set(0, tall ? 1.4 : 1.3, tall ? 0.96 : 0.86);
-      c.fov = tall ? 54 : 46;
-      c.lookAt(0, Y0, tall ? 0.06 : 0.1);
+    // (watching someone's hand, or the hand is over and everybody's tiles are laid down: the usual camera)
+    const mobCam = this._mobile && !this.e?.spectate && !this.result,
+      bar = mobCam ? this._barH || 0 : 0;
+    const key = `${mobCam ? 'm' : 'f'}|${innerWidth}|${innerHeight}|${bar}`;
+    if (key !== this._camKey) {
+      this._camKey = key;
+      fitCamera(c, CAM_VIEW[mobCam ? 'close' : 'far'](c.aspect), {
+        w: innerWidth,
+        h: innerHeight,
+        bar,
+        mine: !mobCam,
+      });
     }
-    c.updateProjectionMatrix();
     renderer.render(this.set.scene, c);
   }
 
@@ -870,9 +964,10 @@ export class MahjongScene {
   _layout(snap = false) {
     const e = this.e,
       want = []; // { k, at }
-    const put = (k, at, tag, hide = false) => want.push({ k, at, tag, hide });
+    const put = (k, at, tag, hide = false, who = null) => want.push({ k, at, tag, hide, who });
     const done = e.phase === 'end';
     const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
+    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)));
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
       // concealed hand in order; the tile just drawn waits on the right, one tile's width apart, until a tile is
@@ -885,7 +980,8 @@ export class MahjongScene {
         drawn = hand.length - 1;
       }
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
-      const total = hand.length + nMeld + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
+      const mk = s ? MELD_BIG : 1; // 別家的吃碰槓放大一點
+      const total = hand.length + nMeld * mk + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
       let u = -(total * TW) / 2;
       // 手機版：你的手牌、吃碰槓、花都畫在底下那排大牌裡，桌上這份藏起來（攤牌時再擺出來）
       const bar = this._mobile && s === 0 && !e.spectate && !reveal;
@@ -896,7 +992,8 @@ export class MahjongScene {
           k,
           slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
           !e.spectate && s === 0 ? (i === drawn ? 'drawn' : 'mine') : null,
-          bar
+          bar,
+          reveal ? { seat: s, what: '手牌' } : null
         );
         u += TW;
       });
@@ -910,22 +1007,40 @@ export class MahjongScene {
         }
         tiles.forEach((k, j) => {
           const down = m.closed && (j === 0 || j === 3);
-          put(k, slot(s, u + TW / 2, 0.39, down ? 'down' : 'up'), null, bar);
-          u += TW;
+          put(
+            k,
+            slot(s, u + (TW * mk) / 2, 0.39 - (TH * (mk - 1)) / 2, down ? 'down' : 'up', 0, mk),
+            null,
+            bar,
+            down ? null : { seat: s, what: '吃碰槓' }
+          );
+          u += TW * mk;
         });
       }
       // flowers in a row between the wall and the hand
-      P.flowers.forEach((k, i) => put(k, slot(s, -0.27 + i * TW, 0.335, 'up'), null, bar));
+      P.flowers.forEach((k, i) =>
+        put(k, slot(s, -0.27 + i * TW, 0.335, 'up'), null, bar, { seat: s, what: '花' })
+      );
       // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
       // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
       // so two players' discards never meet at a corner
       P.discards.forEach((k, i) => {
         const r = Math.floor(i / DROW),
           c = i % DROW;
+        // (放大 dk 倍：位置跟牌一起以桌子中心等比放大，風車形狀不變、不會互相壓到)
         put(
           k,
-          slot(s, -DISC + TW / 2 + c * (TW + GAP), DISC + TH / 2 + r * (TH + GAP), 'up'),
-          i === P.discards.length - 1 && e.last?.from === s ? 'last' : null
+          slot(
+            s,
+            dk * (-DISC + TW / 2 + c * (TW + GAP)),
+            dk * (DISC + TH / 2 + r * (TH + GAP)),
+            'up',
+            0,
+            dk
+          ),
+          i === P.discards.length - 1 && e.last?.from === s ? 'last' : null,
+          false,
+          { seat: s, what: '海底' }
         );
       });
     }
@@ -944,6 +1059,7 @@ export class MahjongScene {
     const free = this.pool.map((a) => [...a]);
     this.mine = [];
     this.lastMesh = null;
+    this.faceUp = []; // 翻開在桌上、可以用放大鏡看的牌（_peek）
     for (const w of want) {
       const list = free[w.k];
       if (!list?.length) continue;
@@ -958,12 +1074,14 @@ export class MahjongScene {
       if (snap || m.userData.fresh) {
         m.position.copy(w.at.p);
         m.quaternion.copy(w.at.q);
+        m.scale.setScalar(w.at.s ?? 1);
         m.userData.fresh = false;
       }
       m.visible = !w.hide;
       if (w.tag === 'mine' || w.tag === 'drawn')
         this.mine.push({ mesh: m, k: w.k, drawn: w.tag === 'drawn' });
       if (w.tag === 'last') this.lastMesh = m;
+      if (w.who && !w.hide) this.faceUp.push({ mesh: m, k: w.k, ...w.who });
     }
     for (const list of free) for (const m of list) m.visible = false;
   }
@@ -1151,6 +1269,7 @@ export class MahjongScene {
     const e = this.e,
       g = this.g;
     this._popTick();
+    this._peekTick();
     const seatName = (s) => this.names[s];
     // 多人限時倒數（房主算的；單人模式是空的）：每個在等的座位還剩幾秒
     const now = Date.now();
@@ -1173,7 +1292,7 @@ export class MahjongScene {
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
-      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
+      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}${s || e.spectate ? this._meldStrip(e.players[s]) : ''}`;
       if (el.dataset.h !== html) {
         el.innerHTML = el.dataset.h = html;
         el._size = null; // (measured again by _placeTag)
@@ -1457,17 +1576,18 @@ export class MahjongScene {
     const seatLine = isGuestSpec
       ? `<div class="mj-seat">👀 視角：<em class="r">${R}</em>風<em class="s">${S}</em>（${esc(this.names[0])}）</div>`
       : `<div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div>`;
-    // 手機版：收成右上角一顆小膠囊（風圈・門風・剩幾張・錢包），點開才是整張卡
-    const miniCard = !!this._mobile && !this._infoOpen;
+    // 手機版或視窗不大：收成右上角一顆小膠囊（風圈・門風・剩幾張・錢包），點開才是整張卡
+    // （整張卡會蓋住右邊那家的牌）
+    const compact = !!this._mobile || innerWidth < 1280 || innerHeight < 800;
+    const miniCard = compact && !this._infoOpen;
     this.$('.mj-info').classList.toggle('mini', miniCard);
+    this.$('.mj-info').classList.toggle('compact', compact);
     if (miniCard) {
       const mini = `<button class="mj-mini" data-a='{"type":"info"}'><b class="r">${R}</b><b class="s">${S}</b><span>剩 ${Math.max(0, e.live)}</span>${e.dealer === 0 && !isGuestSpec ? '<i class="mj-zhuang">莊</i>' : ''}<span class="mj-cash ${g.money < 0 ? 'neg' : ''}">$${g.money.toLocaleString('en-US')}</span><small>ⓘ</small></button>`;
       if (mini !== this._info) this.$('.mj-info').innerHTML = this._info = mini;
       return;
     }
-    const fold = this._mobile
-      ? `<button class="mj-fold" data-a='{"type":"info"}'>收起 ▲</button>`
-      : '';
+    const fold = compact ? `<button class="mj-fold" data-a='{"type":"info"}'>收起 ▲</button>` : '';
     const html = `${fold}<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>${isGuestSpec ? '視角門風' : '你的門風'}</span></div></div>
       ${seatLine}<div class="mj-tai">${tai}</div>
       <div class="mj-dealer"><i class="mj-zhuang">莊</i>${esc(this.names[e.dealer])}${e.dealer === 0 && !isGuestSpec ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
@@ -1507,6 +1627,58 @@ export class MahjongScene {
     el.style.left = `${Math.max(1, ((v.x + 1) / 2) * 100)}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
   }
+  // 別家的吃碰槓（和花）也用小圖排在名牌底下：桌上的 3D 牌在手機上太小、側面兩家又是斜的
+  _meldStrip(P) {
+    if (!P || (!P.melds.length && !P.flowers.length)) return '';
+    const img = (k) => `<img src="${this._tileImg(k)}" alt="${tileName(k)}">`;
+    const melds = P.melds.map((m) => {
+      let tiles = meldTiles(m);
+      if (m.type === 'chow' && m.take != null) {
+        const rest = tiles.filter((x) => x !== m.take);
+        tiles = [rest[0], m.take, rest[1]];
+      }
+      return `<span>${tiles.map((k, j) => (m.closed && (j === 0 || j === 3) ? '<i class="back"></i>' : img(k))).join('')}</span>`;
+    });
+    if (P.flowers.length) melds.push(`<span class="fl">${P.flowers.map(img).join('')}</span>`);
+    return `<div class="mj-tag-m">${melds.join('')}</div>`;
+  }
+  // 放大鏡：滑鼠移到桌上翻開的牌（海底、吃碰槓、花、攤牌）上，或手機點一下，旁邊跳出一張大的
+  _peek(e, tap) {
+    const z = this.$('.mj-zoom');
+    const hide = () => {
+      if (!z.classList.contains('hidden')) z.classList.add('hidden');
+      this._peekAt = null;
+    };
+    if (!this.active || !this.e || this.intro || this.menu || this.lobby || !this.faceUp?.length)
+      return hide();
+    const r = this.g.renderer.domElement.getBoundingClientRect();
+    this.ray.setFromCamera(
+      new THREE.Vector2(
+        ((e.clientX - r.left) / r.width) * 2 - 1,
+        -((e.clientY - r.top) / r.height) * 2 + 1
+      ),
+      this.cam
+    );
+    const hit = this.ray.intersectObjects(this.faceUp.map((x) => x.mesh))[0];
+    const f = hit && this.faceUp.find((x) => x.mesh === hit.object);
+    if (!f)
+      return tap ? hide() : this._peekAt && performance.now() < this._peekUntil ? null : hide();
+    this._peekAt = f;
+    this._peekUntil = performance.now() + (tap ? 2500 : 400);
+    const who = f.seat === 0 && !this.e.spectate ? '你' : this.names[f.seat];
+    const html = `<img src="${this._tileImg(f.k)}" alt=""><b>${tileName(f.k)}</b><small>${esc(who)}的${f.what}</small>`;
+    if (z.dataset.h !== html) z.innerHTML = z.dataset.h = html;
+    z.classList.remove('hidden');
+    z.classList.toggle('up', tap || e.clientY > innerHeight * 0.55); // (手指會擋住下面：點的時候放上面)
+    z.style.left = `${Math.min(innerWidth - 60, Math.max(60, e.clientX))}px`;
+    z.style.top = `${e.clientY}px`;
+  }
+  _peekTick() {
+    if (this._peekAt && performance.now() > this._peekUntil && this._peekTap) {
+      this.$('.mj-zoom').classList.add('hidden');
+      this._peekAt = null;
+    }
+  }
   // on the table edge in front of each player; yours left of your hand
   _placeTag(el, s, v = new THREE.Vector3()) {
     if (s === 0 && this._barH) {
@@ -1521,16 +1693,23 @@ export class MahjongScene {
       v.y = Y0 + 0.1;
     }
     v.project(this.cam);
-    if (this._mobile) {
-      // 手機鏡頭比較近，名牌可能跑出畫面：夾在螢幕裡
-      const [tw, th] = (el._size ||= [el.offsetWidth, el.offsetHeight]),
-        w = tw / 2 + 4;
-      el.style.left = `${Math.min(innerWidth - w, Math.max(w, ((v.x + 1) / 2) * innerWidth))}px`;
-      el.style.top = `${Math.max(th + 4, ((1 - v.y) / 2) * innerHeight)}px`;
+    // 鏡頭會自動拉近到牌塞滿畫面（fitCamera），名牌可能跑出畫面：夾在螢幕裡
+    const [tw, th] = (el._size ||= [el.offsetWidth, el.offsetHeight]);
+    if (!tw) {
+      el._size = null;
+      el.style.left = `${((v.x + 1) / 2) * 100}%`;
+      el.style.top = `${((1 - v.y) / 2) * 100}%`;
       return;
     }
-    el.style.left = `${((v.x + 1) / 2) * 100}%`;
-    el.style.top = `${((1 - v.y) / 2) * 100}%`;
+    // (名牌掛在那一點的正上方；你的掛在左邊、垂直置中，手機版是右上方——見 style.css 的 .mj-tag.me)
+    const me = el.classList.contains('me'),
+      mob = me && this._mobile,
+      [l, r] = mob ? [4, tw + 4] : me ? [tw + 4, 4] : [tw / 2 + 4, tw / 2 + 4],
+      [t, b] = me && !mob ? [th / 2 + 4, th / 2 + 4] : [th + 4, 4];
+    const x = ((v.x + 1) / 2) * innerWidth,
+      y = ((1 - v.y) / 2) * innerHeight;
+    el.style.left = `${Math.min(innerWidth - r, Math.max(l, x))}px`;
+    el.style.top = `${Math.min(innerHeight - b, Math.max(t, y))}px`;
   }
   // ---------------- mode picker & P2P multiplayer lobby ----------------
   chooseMode() {

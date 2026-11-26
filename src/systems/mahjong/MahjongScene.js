@@ -442,9 +442,13 @@ const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, WALL_D
 // 牌放大：海底與別家吃碰槓的牌比實際大一點，手機上也看得清楚。海底放大到碰到牌牆為止（排到第四排時自動縮回一點）
 const DISC_BIG = 1.3,
   MELD_BIG = 1.2;
-export function discardScale(maxCount) {
+// 近景（手機版）像麻將手遊一樣不擺牌牆（剩幾張寫在桌子中間），海底可以一路放大到花那排前面
+const DISC_BIG_NOWALL = 1.55,
+  FLOWER_D = 0.335;
+export function discardScale(maxCount, wall = true) {
   const rows = Math.max(3, Math.ceil(maxCount / DROW));
-  return Math.min(DISC_BIG, (WALL_D - TD / 2 - 0.004) / (DISC + rows * (TH + GAP)));
+  const edge = wall ? WALL_D - TD / 2 - 0.004 : FLOWER_D - TH / 2 - 0.004;
+  return Math.min(wall ? DISC_BIG : DISC_BIG_NOWALL, edge / (DISC + rows * (TH + GAP)));
 }
 
 // ---------------- 鏡頭自動取景 ----------------
@@ -456,6 +460,7 @@ export const CAM_VIEW = {
   far: (aspect) =>
     aspect < 0.8 ? { fov: 58, elev: 66, tz: 0.02 } : { fov: 42, elev: 47, tz: 0.02 },
 };
+const MJ_PIXELS = 2.6e6; // 牌桌最多畫這麼多像素（約 2560×1000）
 const CAM_MAX_Y = 2.55; // 天花板的燈（y 2.73）在桌子正上方，鏡頭不能高過它
 export function camPoints(mine) {
   const pts = [];
@@ -584,7 +589,7 @@ export class MahjongScene {
     el.innerHTML = `<div class="mj-top"></div><div class="mj-tags">${'<div class="mj-tag"></div>'.repeat(4)}</div>
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
-      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div>
+      <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div><div class="mj-center hidden"></div>
       <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>
       <div class="mj-hand hidden"></div>
       <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
@@ -651,6 +656,7 @@ export class MahjongScene {
 
   open(names) {
     if (!this.set) this._build();
+    this._fps = null; // (每次上桌重新量一次畫面順不順，見 _pixelRatio)
     this.names = names;
     this.active = true;
     this.ui.classList.remove('hidden');
@@ -674,6 +680,7 @@ export class MahjongScene {
     this._waitKey = '';
     this.$('.mj-timer').classList.add('hidden');
     this.$('.mj-zoom').classList.add('hidden');
+    this.$('.mj-center').classList.add('hidden');
     this._peekAt = null;
     this._timerKey = '';
     this.$('.mj-info').innerHTML = this._info = '';
@@ -719,6 +726,7 @@ export class MahjongScene {
 
   startHand(engine) {
     this.e = engine;
+    this._ld = null;
     // every move the engine makes (yours too) goes past _onEvent: a discard or a call pops up big
     const emit = engine.emit.bind(engine);
     engine.emit = (ev) => {
@@ -792,7 +800,8 @@ export class MahjongScene {
       });
     }
     const L = e.last;
-    this.set.mark.visible = !!L && e.phase === 'claim';
+    // 最後打出的那張一直有紅色小箭頭（被吃碰走就不標），跟麻將手遊一樣
+    this.set.mark.visible = !!L && !!this.lastMesh && e.phase !== 'end';
     if (this.set.mark.visible && this.lastMesh) {
       this.set.mark.position.copy(this.lastMesh.position);
       this.set.mark.position.y += 0.03 + Math.sin(this.g.time * 5) * 0.004;
@@ -835,12 +844,33 @@ export class MahjongScene {
     }
     return t;
   }
+  // 牌桌的像素比：牌很小，比校園畫得細（最高 2 倍），但不會讓手機吃不消——
+  // ① 總像素不超過 MJ_PIXELS（大平板、4K 螢幕不會畫到上千萬像素）② 畫質選低／極低的裝置上限再降
+  // ③ 實際跑起來 3 秒平均不到 30 fps 就自己再降一級（最低 1 倍），之後這次牌局都照降過的畫
+  _pixelRatio() {
+    const now = performance.now(),
+      F = (this._fps ||= { last: now, t: 0, n: 0, warm: 0, cap: 2 });
+    const dt = now - F.last;
+    F.last = now;
+    if (dt > 0 && dt < 250 && (F.warm += dt) > 3000) {
+      F.t += dt;
+      F.n++;
+      if (F.t >= 3000) {
+        if (F.n / (F.t / 1000) < 30 && F.cap > 1) F.cap = Math.max(1, F.cap - 0.5);
+        F.t = F.n = 0;
+      }
+    }
+    const q = this.g.quality,
+      qCap = q === 'xlow' ? 1.25 : q === 'low' ? 1.5 : 2,
+      budget = Math.sqrt(MJ_PIXELS / Math.max(1, innerWidth * innerHeight));
+    return Math.max(1, Math.min(window.devicePixelRatio || 1, qCap, budget, F.cap));
+  }
   render(renderer) {
     if (!this.active || !this.set) return;
-    // the tiles are small on screen: draw the table at up to 2x the screen's pixels even when the quality setting draws
-    // the campus coarser (phones: 0.8). The table is cheap; src/core/GameLoop.js puts the pixel ratio back afterwards.
-    const sharp = Math.min(window.devicePixelRatio || 1, 2);
-    if (renderer.getPixelRatio() < sharp) renderer.setPixelRatio(sharp);
+    // the tiles are small on screen: draw the table sharper than the campus (see _pixelRatio);
+    // src/core/GameLoop.js puts the quality's pixel ratio back afterwards.
+    const sharp = this._pixelRatio();
+    if (Math.abs(renderer.getPixelRatio() - sharp) > 0.01) renderer.setPixelRatio(sharp);
     const c = this.cam;
     c.aspect = innerWidth / innerHeight;
     this._mobileUI();
@@ -960,6 +990,17 @@ export class MahjongScene {
     this._barH = el.offsetHeight;
   }
 
+  // 最後打出的那張還在海底嗎？（被吃碰槓拿走後 e.last 不會清掉，看那家海底的張數有沒有變少）回傳打的人或 null
+  _lastDiscard(e) {
+    const L = e.last;
+    if (!L || L.rob || L.from == null || !e.players[L.from]) return null;
+    const n = e.players[L.from].discards.length,
+      st = this._ld;
+    if (!st || st.e !== e || st.from !== L.from || st.t !== L.t || n > st.n)
+      this._ld = { e, from: L.from, t: L.t, n, ok: e.players[L.from].discards[n - 1] === L.t };
+    else if (n < st.n) st.ok = false;
+    return this._ld.ok && n === this._ld.n ? L.from : null;
+  }
   // ---------------- where every tile goes ----------------
   _layout(snap = false) {
     const e = this.e,
@@ -967,7 +1008,11 @@ export class MahjongScene {
     const put = (k, at, tag, hide = false, who = null) => want.push({ k, at, tag, hide, who });
     const done = e.phase === 'end';
     const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
-    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)));
+    // 近景（手機版）打牌時不擺牌牆，騰出來的位置給海底；開門動畫、觀戰、攤牌照樣有牌牆
+    const noWall = this._mobile && !e.spectate && !reveal && !this.intro;
+    this.wallHidden = noWall;
+    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)), !noWall);
+    const lastFrom = this._lastDiscard(e);
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
       // concealed hand in order; the tile just drawn waits on the right, one tile's width apart, until a tile is
@@ -1019,7 +1064,7 @@ export class MahjongScene {
       }
       // flowers in a row between the wall and the hand
       P.flowers.forEach((k, i) =>
-        put(k, slot(s, -0.27 + i * TW, 0.335, 'up'), null, bar, { seat: s, what: '花' })
+        put(k, slot(s, -0.27 + i * TW, FLOWER_D, 'up'), null, bar, { seat: s, what: '花' })
       );
       // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
       // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
@@ -1038,7 +1083,7 @@ export class MahjongScene {
             0,
             dk
           ),
-          i === P.discards.length - 1 && e.last?.from === s ? 'last' : null,
+          i === P.discards.length - 1 && lastFrom === s ? 'last' : null,
           false,
           { seat: s, what: '海底' }
         );
@@ -1053,7 +1098,7 @@ export class MahjongScene {
     for (let i = head; i < N - tail; i++) {
       const top = i % 2 === 0 && i + 1 < N - tail; // the lower tile stays on the table when the top one is gone
       const { seat: ws, si } = stackAt(e.cut, Math.floor(i / 2));
-      put(e.wall[j++], wallSlot(ws, si, top ? TD : 0));
+      put(e.wall[j++], wallSlot(ws, si, top ? TD : 0), null, noWall);
     }
     // match each wanted spot with a tile of that kind (the nearest one, so equal tiles don't swap places)
     const free = this.pool.map((a) => [...a]);
@@ -1285,6 +1330,7 @@ export class MahjongScene {
     const topEl = this.$('.mj-top');
     if (topEl.textContent) topEl.textContent = this._top = '';
     this._infoCard();
+    this._centerHud();
     this._mpBarHud();
     this._tickBubbles();
     // name tags over each seat (the dealer's with a red 莊)
@@ -1626,6 +1672,52 @@ export class MahjongScene {
     const v = new THREE.Vector3(-0.25, Y0 + 0.05, 0.36).project(this.cam);
     el.style.left = `${Math.max(1, ((v.x + 1) / 2) * 100)}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
+  }
+  // 桌子正中間的面板（像麻將手遊）：圈風、牌牆剩幾張，四邊是各家的門風，輪到誰那一邊亮橘色、莊家的字是紅的。
+  // 蓋在海底中間空出來的那塊（四家海底風車狀排開，中間留一個正方形）
+  _centerHud() {
+    const el = this.$('.mj-center'),
+      e = this.e;
+    const show =
+      !!e?.players &&
+      !this.intro &&
+      !this.menu &&
+      !this.lobby &&
+      !this.choosing &&
+      !this.result &&
+      e.phase !== 'end' &&
+      e.phase !== 'deal';
+    if (!show) {
+      if (!el.classList.contains('hidden')) el.classList.add('hidden');
+      return;
+    }
+    const dk = discardScale(Math.max(...e.players.map((P) => P.discards.length)), !this.wallHidden);
+    const a = DISC * dk - 0.006,
+      c = new THREE.Vector3(0, Y0, 0).project(this.cam);
+    const px = (v) => [((v.x + 1) / 2) * innerWidth, ((1 - v.y) / 2) * innerHeight];
+    const [cx, cy] = px(c),
+      [lx] = px(new THREE.Vector3(-a, Y0, 0).project(this.cam)),
+      [rx] = px(new THREE.Vector3(a, Y0, 0).project(this.cam)),
+      [, ty] = px(new THREE.Vector3(0, Y0, -a).project(this.cam)),
+      [, by] = px(new THREE.Vector3(0, Y0, a).project(this.cam));
+    const w = rx - lx,
+      h = by - ty;
+    if (w < 36) {
+      if (!el.classList.contains('hidden')) el.classList.add('hidden');
+      return;
+    }
+    const side = ['b', 'r', 't', 'l'];
+    const html = `<b class="r">${WINDS[e.round]}</b><span>剩 <em>${Math.max(0, e.live)}</em></span>${[
+      0, 1, 2, 3,
+    ]
+      .map(
+        (s) =>
+          `<i class="${side[s]}${e.turn === s ? ' on' : ''}${e.dealer === s ? ' z' : ''}">${WINDS[e.seatWind(s)]}</i>`
+      )
+      .join('')}`;
+    if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
+    el.classList.remove('hidden');
+    el.style.cssText = `left:${cx.toFixed(1)}px;top:${cy.toFixed(1)}px;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;--cw:${w.toFixed(1)}px`;
   }
   // 別家的吃碰槓（和花）也用小圖排在名牌底下：桌上的 3D 牌在手機上太小、側面兩家又是斜的
   _meldStrip(P) {
@@ -2058,6 +2150,7 @@ export class MahjongScene {
     this._say('');
     this._actKey = this._top = this._hint = '';
     I.done?.();
+    if (this.e?.players && this.active) this._layout(); // (近景：開門動畫結束後收起牌牆)
   }
   _introUpdate(dt, inp) {
     const I = this.intro;

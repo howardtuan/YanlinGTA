@@ -2,6 +2,7 @@
 // 從 src/world/Interiors.js 原封不動搬出來；src/world/zones/Zones.js 決定建造順序、保留範圍、要拿掉的填充樓。
 import * as THREE from 'three';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, sg, ROWT, rowTools } from '../Kit.js';
+import { makeSideShop } from './StreetZhongbei.js';
 
 // =====================================================================
 // The corner across 中北路 from 大門口, where 大仁街 leaves 中北路 for the main gate (user's street-view photos).
@@ -1488,17 +1489,21 @@ export const DAREN_ST = {
         bal: 'grille',
       },
     ],
+    // 大仁三街西北角：單層冰店鐵皮屋（街景 2024-08），後面沿大仁三街的 19 號紅瓦透天在 xzb/SegD3.js（D3 s 8.8～14）。
+    // 原本是 3 樓、深 10 m 的盒子，朝大仁三街整片素牆；改成深 5 m，側面畫鐵捲門與帆布棚
     [
       256,
       261.5,
       1,
       {
-        nf: 3,
+        nf: 1,
         wall: 'tile',
         sign: ['艾尚豆花', '#f4ead6', '#6b3a1a'],
         ground: 'shop',
         bal: 'grille',
         tin: true,
+        d: 5,
+        side: { at: 1, ground: 'shutter', from: 0.3, to: 4.7, awn: '#5f6f7a' },
       },
     ],
     [
@@ -1663,6 +1668,16 @@ export function buildDarenStreet(I, scene) {
     mosaic: MR.mosaic,
   };
   const kits = [];
+  // 轉角格對著另一條街的側面（spec.side，見 src/world/buildings/StreetZhongbei.js makeSideShop）；這裡只用得到鐵捲門
+  const sideShop = makeSideShop({
+    paint: (text, bg, fg, sub) => genSign(text, bg, fg, sub),
+    shopGlass,
+    shopTex: (i) => ROWT.shop(`dsSide${i}`, '#f4e7cf', '#8a6a44', 260 + i),
+    openTex: ROWT.shutter(),
+    shutterTex: () => ROWT.shutter(),
+    ROWT,
+    FRONT,
+  });
   DAREN_ST.lots.forEach((L, i) => {
     const sp = L[3],
       { ox, oz, ang, w } = darenLotFrame(L),
@@ -1771,6 +1786,7 @@ export function buildDarenStreet(I, scene) {
     } else if (sp.roof === 'tank')
       k.cyl(w / 2, d - 2, 0.6, top + 0.12, top + 1.5, '#d8d8d0', { seg: 12 });
     k.box(-0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete, { col: false, surface: true });
+    if (sp.side) sideShop(k, sp.side, (sp.side.at === 1) === L[2] > 0 ? w : 0, w, d, F, top, i);
   });
   finishRow(scene, kits);
 }

@@ -65,6 +65,7 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 
 - **部署**：`npm run build` 時 `vite.config.js` 會自動產生 `dist/wiki/`，跟遊戲一起由 GitHub Pages 發布，不需要額外設定；`check:dist` 會確認 `wiki/index.html` 有產出。
 - **本機預覽**：`npm run build` 後 `npm run preview`，開 `http://localhost:4173/wiki/`；只改 Wiki 時可以 `npm run wiki:build` 單獨重產 `dist/wiki/`。Wiki 的「開始玩」用相對路徑 `../` 回到遊戲。
+- **首頁宣傳片**：封面放 README 那支 58 秒宣傳片（`docs/media/promo/yanlin-promo-58s-v2.mp4`，約 47 MB），build 時複製成 `dist/wiki/media/promo.mp4`；`preload="none"`，先顯示 poster、按播放才下載。換影片時改 `wiki/build.mjs` 的檔名。
 - **網頁圖示與加入主畫面**：Wiki 有自己的圖示（`wiki/icons/`：favicon、192／512、iPhone 用的 apple-touch-icon）與 `wiki/manifest.webmanifest`（`start_url` 為 `./`，加到主畫面後開回 `/wiki/`）；build 時複製到 `dist/wiki/`。
 - **補社群連結**：改 `wiki/people.json` 的 `ig`／`linkedin`（完整 `https://` 網址，留空顯示「待補」）；AI 設 `social: false` 不顯示。
 - **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前 Tzuyu、勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。

@@ -63,6 +63,8 @@ describe('wiki', () => {
         'img/wiki-apple-touch-icon.png',
         'img/wiki-favicon.ico',
         'manifest.webmanifest',
+        'media/promo.mp4',
+        'media/promo-poster.jpg',
       ])
         expect(fs.existsSync(path.join(out, f)), f).toBe(true);
     } finally {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { NAV, buildWiki, loadWikiData, renderWiki } from '../../wiki/build.mjs';
 
 const npcs = JSON.parse(fs.readFileSync('data/npcs.json', 'utf-8')).npcs;
-const people = JSON.parse(fs.readFileSync('wiki/people.json', 'utf-8')).people;
+const { people, extras = [] } = JSON.parse(fs.readFileSync('wiki/people.json', 'utf-8'));
 const quests = JSON.parse(fs.readFileSync('wiki/quests.json', 'utf-8')).quests;
 const shops = JSON.parse(fs.readFileSync('wiki/shops.json', 'utf-8')).shops;
 const onWiki = npcs.filter((n) => people[n.id].wiki !== false);
@@ -14,6 +14,19 @@ describe('wiki', () => {
   it('每個 NPC 都有 Wiki 分類，Wiki 也沒有多出不存在的角色', () => {
     const ids = npcs.map((n) => n.id).sort();
     expect(Object.keys(people).sort()).toEqual(ids);
+  });
+
+  it('只在 Wiki 的角色（extras）id 不重複、不跟遊戲 NPC 撞名，而且是虛構角色、不放社群連結', () => {
+    const ids = new Set(npcs.map((n) => n.id));
+    for (const e of extras) {
+      expect(ids.has(e.id), e.id).toBe(false);
+      ids.add(e.id);
+      expect(e.group, e.id).toBe('fiction');
+      expect(e.social, e.id).toBe(false);
+    }
+    const html = renderWiki(loadWikiData());
+    for (const e of extras) expect(html).toContain(`id="npc-${e.id}"`);
+    expect(html).toContain('id="npc-tzuyu"');
   });
 
   it('任務與店家裡列的角色都在 Wiki 上、任務 id 不重複', () => {

@@ -1,11 +1,12 @@
 {
   "_doc": [
     "Wiki 用的角色補充資料：data/npcs.json 是遊戲裡的人物設定，這裡只補 Wiki 才需要的東西。",
-    "group：main 主角／dev 開發者／classmate 同學與室友／ai AI 夥伴。wiki: false 的角色只在遊戲裡出現，不放上 Wiki。",
+    "group：main 主角／dev 開發者／classmate 同學與室友／ai AI 夥伴／fiction 虛構角色（不是真人改編）。wiki: false 的角色只在遊戲裡出現，不放上 Wiki。",
     "relations：想在 Wiki 換掉 data/npcs.json 的人際關係文字時才填。",
     "ig、linkedin：填完整網址（https://www.instagram.com/帳號/、https://www.linkedin.com/in/帳號/）；留空字串時頁面顯示「待補」。",
     "social: false 的角色（AI）不顯示社群連結。AI 頭貼在 wiki/img/<id>_av.jpg（node tools/wiki-holo-avatars.mjs 產生）。",
-    "devRole：開發者負責的部分，會列在「開發團隊」區塊。"
+    "devRole：開發者負責的部分，會列在「開發團隊」區塊。",
+    "extras：不在 data/npcs.json（遊戲裡沒有實體 NPC）、只放在 Wiki 的角色，欄位跟 data/npcs.json 一樣。"
   ],
   "people": {
     "yanlin": {
@@ -61,6 +62,27 @@
     "monday": { "group": "ai", "social": false },
     "wednesday": { "group": "ai", "social": false },
     "sunday": { "group": "ai", "social": false },
-    "tzuyu": { "wiki": false }
-  }
+    "tzuyu": {
+      "group": "fiction",
+      "social": false,
+      "note": "虛構角色：不是由真人改編，名字與外型只是致敬，不代表本人。"
+    }
+  },
+  "extras": [
+    {
+      "id": "winter",
+      "name": "aespo Winter",
+      "title": "韓國女團 aespo 成員・彥霖的遠距離女朋友",
+      "gender": "女",
+      "personality": "溫柔、體貼，練舞很拚；再晚都會回彥霖訊息。",
+      "interests": ["跳舞（女團 aespo）", "跟彥霖傳訊息"],
+      "catchphrase": "好～你也早點睡",
+      "background": "韓國女團「aespo」的成員，住在首爾，跟彥霖遠距離戀愛中。她不會出現在校園裡，只在手機 i-Piyan 的置頂聊天室跟彥霖傳訊息。aespo 每週五在林口體育館開唱，可以用手機「皮元系統」搶票去看。",
+      "relations": "彥霖的女朋友；Tzuyu 的好朋友。",
+      "where": "首爾（手機 i-Piyan 置頂聊天室）",
+      "group": "fiction",
+      "social": false,
+      "note": "虛構角色：不是由真人改編，名字與外型只是致敬，不代表本人。"
+    }
+  ]
 }

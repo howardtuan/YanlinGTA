@@ -348,7 +348,7 @@ export class MenuManager {
       `<button data-nav="${v}" class="${(s.navGround || 'on') === v ? 'on' : ''}">${t}</button>`;
     const fs = (v, t) =>
       `<button data-full="${v}" class="${(v === 'on') === full ? 'on' : ''}">${t}</button>`;
-    return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('default', '預設音樂')}${opt('opera', '彥霖歌劇 🎭')}${opt('scene', '情境配樂 🎬')}${opt('off', '關閉')}</div></div>
+    return `<div class="set-row"><label>🎵 背景音樂</label><div class="seg" id="setMusic">${opt('scene', '情境配樂 🎬')}${opt('opera', '彥霖歌劇 🎭')}${opt('off', '關閉')}</div></div>
       <div class="set-row"><label>音樂音量</label><input type="range" id="setMusicVol" min="0" max="1" step="0.05" value="${s.musicVol}"><span class="set-val" id="vMusic">${Math.round(s.musicVol * 100)}%</span></div>
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
       <div class="set-row"><label>🐦 環境音</label><div class="seg" id="setAmb">${['on', 'off'].map((v) => `<button data-amb="${v}" class="${(s.amb || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>

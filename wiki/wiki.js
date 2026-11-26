@@ -32,17 +32,18 @@
 
   // 從任務卡點角色名字跳過來時，角色可能被篩掉了：先清掉篩選再捲過去
   const reveal = () => {
-    const el = location.hash && document.querySelector(location.hash);
-    if (el?.classList.contains('char') && el.hidden) {
+    // 沒有 #… 時 location.hash 是空字串；用 id 找，避免奇怪的 hash 讓 querySelector 丟錯
+    const id = decodeURIComponent(location.hash.slice(1));
+    const el = id ? document.getElementById(id) : null;
+    if (!el?.classList.contains('char')) return;
+    if (el.hidden) {
       search.value = '';
       buttons[0].click();
       el.scrollIntoView();
     }
-    if (el?.classList.contains('char')) {
-      el.classList.remove('flash');
-      void el.offsetWidth;
-      el.classList.add('flash');
-    }
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
   };
   window.addEventListener('hashchange', reveal);
   reveal();

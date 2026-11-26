@@ -464,9 +464,9 @@ function renderPage(page, data, opts) {
   <a class="brand" href="${link(base, '')}"><img src="${base}img/wiki-icon-192.png" alt="" width="28" height="28"> <b class="brand-name">YanlinGTA</b> <span>Wiki</span></a>
   <button class="nav-toggle" type="button" aria-controls="sidebar" aria-expanded="false">☰ 目錄</button>
   <span class="top-gap"></span>
+  ${THEME_SWITCH}
   <a class="top-link" href="${REPO_URL}" target="_blank" rel="noopener">GitHub ↗</a>
   <a class="play" href="${base}${GAME_URL}">▶ 開始玩</a>
-  ${THEME_SWITCH}
 </header>
 
 <div class="docs">

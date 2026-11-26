@@ -1845,6 +1845,126 @@ export function zbFootprints() {
 const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 const r16 = (v) => Math.max(16, Math.ceil(v / 16) * 16);
 
+// 轉角格對著另一條街的側面：把側牆當成另一個立面來畫（側面座標 x 沿側牆、z 往牆外為負，轉 90° 回格子座標）。
+// side：at 哪一端、sign 一樓招牌帶、subs 黑色招牌帶上兩排小招牌、ground 'shop'|'open'|'shutter'（sh 鐵捲門色）、
+//   from / to 店面從離正面幾公尺到幾公尺、panels [[z0, z1, 字, 底, 字色]] 一樓的海報板、big [字, 底, 字色] 樓上整面帆布
+// 這裡不用 r()，也不動輪廓，其他格的亂數與全圖停放機車都不受影響
+// 側面座標工具由各街屋檔（這裡和 src/world/buildings/StreetXinzhongbei.js）傳進來
+export function makeSideShop({ paint, shopGlass, shopTex, openTex, shutterTex, ROWT, FRONT }) {
+  return (k0, S, xs, w, d, gf, top, i) => {
+    const R = xs > 0,
+      P = (sx, sz) => (R ? [w - sz, sx] : [sz, d - sx]),
+      k = {
+        box: (x0, x1, y0, y1, z0, z1, mat, o) => {
+          const [a0, b0] = P(x0, z0),
+            [a1, b1] = P(x1, z1);
+          return k0.box(
+            Math.min(a0, a1),
+            Math.max(a0, a1),
+            y0,
+            y1,
+            Math.min(b0, b1),
+            Math.max(b0, b1),
+            mat,
+            o
+          );
+        },
+        plane: (tex, pw, ph, x, y, z, rot = 0, o) => {
+          const [a, b] = P(x, z);
+          return k0.plane(tex, pw, ph, a, y, b, rot + (R ? -Math.PI / 2 : Math.PI / 2), o);
+        },
+      };
+    const span = (z0, z1) => (R ? [z0, z1] : [d - z1, d - z0]),
+      [a, b] = span(S.from ?? 0.3, S.to ?? d - 0.3),
+      len = b - a,
+      gh = gf - 1.0;
+    if (S.sign) {
+      const [text, bg, fg, sub, style] = S.sign;
+      k.box(a, b, gf - 0.85, gf - 0.03, -0.28, 0, bg, { col: false });
+      k.plane(
+        paint(text, bg, fg, sub, len - 0.1, 0.8, 128, style),
+        len - 0.1,
+        0.8,
+        (a + b) / 2,
+        gf - 0.44,
+        -0.29,
+        FRONT,
+        { emissive: 0.35 }
+      );
+    }
+    if (S.subs) {
+      const [c0, c1] = span(0.1, d - 0.1),
+        per = Math.ceil(S.subs.length / 2),
+        cw = (c1 - c0) / per;
+      k.box(c0, c1, gf - 0.85, gf + 1.45, -0.3, 0, '#1c1c1e', { col: false });
+      S.subs.forEach(([t, bg, fg], j) => {
+        const row = (j / per) | 0,
+          c = R ? j % per : per - 1 - (j % per);
+        k.plane(
+          paint(t, bg, fg, null, cw - 0.2, 0.5, 96),
+          cw - 0.2,
+          0.5,
+          c0 + cw * (c + 0.5),
+          gf + 1.05 - row * 0.65,
+          -0.32,
+          FRONT,
+          { emissive: 0.35 }
+        );
+      });
+    }
+    const gk = S.ground || 'shop';
+    if (gk === 'shop') shopGlass(k, a + 0.1, b - 0.1, 0, gh, shopTex(i + 1));
+    else if (gk === 'open') {
+      k.plane(openTex, len - 0.2, gh, (a + b) / 2, gh / 2, -0.03, FRONT, { emissive: 0.3 });
+      for (const x of [a, b - 0.1]) k.box(x, x + 0.1, 0, gh, -0.1, 0, '#8a8680', { col: false });
+    } else {
+      k.plane(
+        S.sh ? shutterTex(S.sh) : ROWT.shutter(),
+        len - 0.2,
+        gh,
+        (a + b) / 2,
+        gh / 2,
+        -0.02,
+        FRONT
+      );
+      k.box(a + 0.05, b - 0.05, gh - 0.02, gh + 0.2, -0.22, 0, '#7a7e80', { col: false });
+    }
+    for (const [z0, z1, t, bg, fg] of S.panels || []) {
+      const [p0, p1] = span(z0, z1);
+      k.plane(
+        paint(t, bg, fg, null, p1 - p0, gh, 64),
+        p1 - p0,
+        gh,
+        (p0 + p1) / 2,
+        gh / 2,
+        -0.04,
+        FRONT,
+        {
+          emissive: 0.25,
+        }
+      );
+    }
+    if (S.big) {
+      const [bt, bb, bf] = S.big,
+        [c0, c1] = span(0.3, d - 0.3),
+        y0 = gf + (S.subs ? 1.6 : 0.2),
+        bh = top - y0 - 0.2;
+      k.plane(
+        paint(bt, bb, bf, null, c1 - c0, bh, 40),
+        c1 - c0,
+        bh,
+        (c0 + c1) / 2,
+        y0 + bh / 2,
+        -0.07,
+        FRONT,
+        {
+          emissive: 0.15,
+        }
+      );
+    }
+  };
+}
+
 export function buildZhongbeiStreet(I, scene, X) {
   const { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS } = X;
   const { MR, FRONT, shopGlass, ac, win, shell } = rowTools();
@@ -2124,122 +2244,7 @@ export function buildZhongbeiStreet(I, scene, X) {
       (M) =>
         M !== L && M[2] === L[2] && (lo ? Math.abs(M[1] - L[0]) < 1.2 : Math.abs(M[0] - L[1]) < 1.2)
     ); // 這一側有沒有鄰居
-  // 轉角格對著另一條街的側面：把側牆當成另一個立面來畫（側面座標 x 沿側牆、z 往牆外為負，轉 90° 回格子座標）。
-  // side：at 哪一端、sign 一樓招牌帶、subs 黑色招牌帶上兩排小招牌、ground 'shop'|'open'|'shutter'（sh 鐵捲門色）、
-  //   from / to 店面從離正面幾公尺到幾公尺、panels [[z0, z1, 字, 底, 字色]] 一樓的海報板、big [字, 底, 字色] 樓上整面帆布
-  // 這裡不用 r()，也不動輪廓，其他格的亂數與全圖停放機車都不受影響
-  const sideShop = (k0, S, xs, w, d, gf, top, i) => {
-    const R = xs > 0,
-      P = (sx, sz) => (R ? [w - sz, sx] : [sz, d - sx]),
-      k = {
-        box: (x0, x1, y0, y1, z0, z1, mat, o) => {
-          const [a0, b0] = P(x0, z0),
-            [a1, b1] = P(x1, z1);
-          return k0.box(
-            Math.min(a0, a1),
-            Math.max(a0, a1),
-            y0,
-            y1,
-            Math.min(b0, b1),
-            Math.max(b0, b1),
-            mat,
-            o
-          );
-        },
-        plane: (tex, pw, ph, x, y, z, rot = 0, o) => {
-          const [a, b] = P(x, z);
-          return k0.plane(tex, pw, ph, a, y, b, rot + (R ? -Math.PI / 2 : Math.PI / 2), o);
-        },
-      };
-    const span = (z0, z1) => (R ? [z0, z1] : [d - z1, d - z0]),
-      [a, b] = span(S.from ?? 0.3, S.to ?? d - 0.3),
-      len = b - a,
-      gh = gf - 1.0;
-    if (S.sign) {
-      const [text, bg, fg, sub, style] = S.sign;
-      k.box(a, b, gf - 0.85, gf - 0.03, -0.28, 0, bg, { col: false });
-      k.plane(
-        paint(text, bg, fg, sub, len - 0.1, 0.8, 128, style),
-        len - 0.1,
-        0.8,
-        (a + b) / 2,
-        gf - 0.44,
-        -0.29,
-        FRONT,
-        { emissive: 0.35 }
-      );
-    }
-    if (S.subs) {
-      const [c0, c1] = span(0.1, d - 0.1),
-        per = Math.ceil(S.subs.length / 2),
-        cw = (c1 - c0) / per;
-      k.box(c0, c1, gf - 0.85, gf + 1.45, -0.3, 0, '#1c1c1e', { col: false });
-      S.subs.forEach(([t, bg, fg], j) => {
-        const row = (j / per) | 0,
-          c = R ? j % per : per - 1 - (j % per);
-        k.plane(
-          paint(t, bg, fg, null, cw - 0.2, 0.5, 96),
-          cw - 0.2,
-          0.5,
-          c0 + cw * (c + 0.5),
-          gf + 1.05 - row * 0.65,
-          -0.32,
-          FRONT,
-          { emissive: 0.35 }
-        );
-      });
-    }
-    const gk = S.ground || 'shop';
-    if (gk === 'shop') shopGlass(k, a + 0.1, b - 0.1, 0, gh, shopTex(i + 1));
-    else if (gk === 'open') {
-      k.plane(openTex, len - 0.2, gh, (a + b) / 2, gh / 2, -0.03, FRONT, { emissive: 0.3 });
-      for (const x of [a, b - 0.1]) k.box(x, x + 0.1, 0, gh, -0.1, 0, '#8a8680', { col: false });
-    } else {
-      k.plane(
-        S.sh ? shutterTex(S.sh) : ROWT.shutter(),
-        len - 0.2,
-        gh,
-        (a + b) / 2,
-        gh / 2,
-        -0.02,
-        FRONT
-      );
-      k.box(a + 0.05, b - 0.05, gh - 0.02, gh + 0.2, -0.22, 0, '#7a7e80', { col: false });
-    }
-    for (const [z0, z1, t, bg, fg] of S.panels || []) {
-      const [p0, p1] = span(z0, z1);
-      k.plane(
-        paint(t, bg, fg, null, p1 - p0, gh, 64),
-        p1 - p0,
-        gh,
-        (p0 + p1) / 2,
-        gh / 2,
-        -0.04,
-        FRONT,
-        {
-          emissive: 0.25,
-        }
-      );
-    }
-    if (S.big) {
-      const [bt, bb, bf] = S.big,
-        [c0, c1] = span(0.3, d - 0.3),
-        y0 = gf + (S.subs ? 1.6 : 0.2),
-        bh = top - y0 - 0.2;
-      k.plane(
-        paint(bt, bb, bf, null, c1 - c0, bh, 40),
-        c1 - c0,
-        bh,
-        (c0 + c1) / 2,
-        y0 + bh / 2,
-        -0.07,
-        FRONT,
-        {
-          emissive: 0.15,
-        }
-      );
-    }
-  };
+  const sideShop = makeSideShop({ paint, shopGlass, shopTex, openTex, shutterTex, ROWT, FRONT });
   ZB_ST.lots.forEach((L, i) => {
     const sp = L[3],
       { ox, oz, ang, w, apron } = zbLotFrame(L),

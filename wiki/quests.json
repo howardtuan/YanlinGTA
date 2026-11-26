@@ -80,19 +80,6 @@
       "reward": "排球 T（中原排球 7 號），復發那次 NT$100"
     },
     {
-      "id": "tzuyu-wagyu",
-      "type": "side",
-      "icon": "🥩",
-      "title": "幫 Winter 帶和牛",
-      "npcs": ["tzuyu", "howard", "gd"],
-      "trigger": "晚餐後跟霍華德散步的 Tzuyu 加好友。",
-      "steps": [
-        "到戈登肉鋪買任一樣和牛（M9 菲力、A5 沙朗、和牛漢堡排）。",
-        "晚上她跟霍華德散步時，把和牛交給她。"
-      ],
-      "reward": "aespo 成員應援 +5 票"
-    },
-    {
       "id": "yulu-tea",
       "type": "side",
       "icon": "🧋",

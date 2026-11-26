@@ -61,10 +61,12 @@ sequenceDiagram
 舊網址 `https://howardtuan.github.io/YanlinGTA/` 會由 GitHub 自動轉址到自訂網域。
 
 ### 遊戲百科 Wiki：`wiki.yanlin-gta.com`（Cloudflare Pages）
-Wiki 是一個獨立的靜態網站，原始檔在 `wiki/`，由 `wiki/build.mjs` 讀 `data/npcs.json`（人物設定）＋ `wiki/people.json`（分類、開發者、IG／LinkedIn 連結）＋ `wiki/quests.json`（任務）產出到 `dist-wiki/`（不進 Git）。
+Wiki 是一個獨立的靜態網站，原始檔在 `wiki/`，由 `wiki/build.mjs` 讀 `data/npcs.json`（人物設定）＋ `wiki/people.json`（分類、開發者、IG／LinkedIn 連結）＋ `wiki/quests.json`（任務）＋ `wiki/shops.json`（合作店家）產出到 `dist-wiki/`（不進 Git）。
 
 - **本機預覽**：`npm run wiki:build` 後用任何靜態伺服器開 `dist-wiki/`（例如 `python -m http.server 5190 -d dist-wiki`）。
-- **補社群連結**：改 `wiki/people.json` 的 `ig`／`linkedin`（完整 `https://` 網址，留空顯示「待補」）；AI 與致敬角色設 `social: false` 不顯示。
+- **補社群連結**：改 `wiki/people.json` 的 `ig`／`linkedin`（完整 `https://` 網址，留空顯示「待補」）；AI 設 `social: false` 不顯示。
+- **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前 Tzuyu、勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
+- **合作店家**：加在 `wiki/shops.json`（`url` 只收 `https://`，留空不顯示連結）。
 - **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/unit/wiki.test.js` 會擋下 CI。
 - **部署**：GitHub Pages 一個倉庫只能綁一個網域，所以 Wiki 走 **Cloudflare Pages**（連同一個 GitHub 倉庫）：
   1. Cloudflare → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**，授權 GitHub 後選 `howardtuan/YanlinGTA`。

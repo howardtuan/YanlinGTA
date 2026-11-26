@@ -7,6 +7,8 @@ import { buildWiki, loadWikiData, renderWiki } from '../../wiki/build.mjs';
 const npcs = JSON.parse(fs.readFileSync('data/npcs.json', 'utf-8')).npcs;
 const people = JSON.parse(fs.readFileSync('wiki/people.json', 'utf-8')).people;
 const quests = JSON.parse(fs.readFileSync('wiki/quests.json', 'utf-8')).quests;
+const shops = JSON.parse(fs.readFileSync('wiki/shops.json', 'utf-8')).shops;
+const onWiki = npcs.filter((n) => people[n.id].wiki !== false);
 
 describe('wiki', () => {
   it('每個 NPC 都有 Wiki 分類，Wiki 也沒有多出不存在的角色', () => {
@@ -14,9 +16,9 @@ describe('wiki', () => {
     expect(Object.keys(people).sort()).toEqual(ids);
   });
 
-  it('任務裡列的角色都存在、任務 id 不重複', () => {
-    const ids = new Set(npcs.map((n) => n.id));
-    for (const q of quests)
+  it('任務與店家裡列的角色都在 Wiki 上、任務 id 不重複', () => {
+    const ids = new Set(onWiki.map((n) => n.id));
+    for (const q of [...quests, ...shops])
       for (const id of q.npcs) expect(ids.has(id), `${q.id}: ${id}`).toBe(true);
     expect(new Set(quests.map((q) => q.id)).size).toBe(quests.length);
   });
@@ -27,15 +29,24 @@ describe('wiki', () => {
         if (p[k]) expect(p[k], `${id}.${k}`).toMatch(/^https:\/\//);
       }
     }
+    for (const s of shops) if (s.url) expect(s.url, s.id).toMatch(/^https:\/\//);
   });
 
-  it('頁面列出所有角色與任務，開發者有標示', () => {
+  it('頁面列出角色、任務與合作店家，開發者有標示', () => {
     const html = renderWiki(loadWikiData());
-    for (const n of npcs) expect(html).toContain(`id="npc-${n.id}"`);
+    for (const n of npcs)
+      if (people[n.id].wiki === false) expect(html).not.toContain(`id="npc-${n.id}"`);
+      else expect(html).toContain(`id="npc-${n.id}"`);
     for (const q of quests) expect(html).toContain(`id="q-${q.id}"`);
+    for (const s of shops) expect(html).toContain(`id="shop-${s.id}"`);
     expect(html.match(/🛠 本遊戲開發者/g)?.length).toBe(
       Object.values(people).filter((p) => p.group === 'dev').length
     );
+  });
+
+  it('AI 夥伴都有頭貼（wiki/img/<id>_av.jpg）', () => {
+    for (const c of loadWikiData().chars.filter((c) => c.group === 'ai'))
+      expect(c.avatar, c.id).toBeTruthy();
   });
 
   it('build 產出完整的靜態網站', () => {

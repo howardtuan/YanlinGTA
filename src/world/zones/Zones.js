@@ -94,6 +94,7 @@ import { pcLook, pcFootprints, buildPurenCenter } from '../buildings/PurenCenter
 import { nmAdd, nmFootprints } from '../buildings/NightMarketFill.js';
 import { xmasTreeHide, buildChristmasTree } from '../Festive.js';
 import { bellPlatformHide, buildBellPlatform } from '../buildings/BellPlatform.js';
+import { buildNiuchouDeck } from '../buildings/NiuchouDeck.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -385,6 +386,11 @@ export const ZONES = [
     name: '鐘塔平台',
     treeHide: bellPlatformHide,
     build: buildBellPlatform,
+  },
+  {
+    // 牛稠埤（中原埤塘生態公園）北岸架在水面上的親水棧道（src/world/buildings/NiuchouDeck.js）
+    name: '牛稠埤棧道',
+    build: buildNiuchouDeck,
   },
 ];
 

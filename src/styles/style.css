@@ -8478,6 +8478,97 @@ body.mahjong #dialog {
   padding: 5px 10px;
   background: rgba(0, 0, 0, 0.55);
 }
+/* 麻將：右上角「i」操作說明按鈕和它打開的說明卡（MahjongScene._toggleHelp） */
+#mjUI .mj-side-btns {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+#mjUI .mj-help-btn {
+  pointer-events: auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  font:
+    italic 700 16px/1 Georgia,
+    'Times New Roman',
+    serif;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1.5px solid rgba(255, 209, 102, 0.85);
+  color: #ffd166;
+}
+#mjUI .mj-help-btn.on {
+  background: #ffd166;
+  color: #1a1a1a;
+}
+#mjUI .mj-help {
+  position: absolute;
+  top: 50px;
+  right: 12px;
+  width: 300px;
+  max-height: calc(100vh - 60px);
+  overflow: auto;
+  padding: 10px 14px 12px;
+  border-radius: 12px;
+  background: rgba(16, 22, 19, 0.94);
+  border: 1.5px solid rgba(255, 209, 102, 0.85);
+  font-size: 13px;
+  font-weight: 400;
+  pointer-events: auto;
+  z-index: 5;
+}
+#mjUI .mj-help-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #ffd166;
+  font-size: 15px;
+}
+#mjUI .mj-help-head button {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+#mjUI .mj-help h4 {
+  margin: 10px 0 4px;
+  font-size: 12px;
+  color: #ffd166;
+  opacity: 0.85;
+}
+#mjUI .mj-help ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#mjUI .mj-help li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 2px 0;
+  line-height: 1.5;
+}
+#mjUI .mj-help li > span {
+  flex: 0 0 92px;
+  text-align: right;
+  white-space: nowrap;
+}
+#mjUI .mj-help kbd {
+  margin: 0 1px;
+}
+#mjUI.mobile .mj-help {
+  top: max(6px, env(safe-area-inset-top));
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, 92vw);
+  max-height: calc(100vh - 12px);
+}
+#mjUI.mobile .mj-help-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
 #mjUI .mj-mp-bar {
   display: flex;
   flex-direction: column;

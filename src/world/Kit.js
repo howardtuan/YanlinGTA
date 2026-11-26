@@ -369,6 +369,7 @@ export class Interiors {
     this.zones = [];
     this.actions = [];
     this.updaters = [];
+    this.furniture = []; // Kit.furniture groups, hidden from far away (cullFurniture)
     this.cones = [];
     this.stamp = 0;
     this.wst = [];
@@ -576,6 +577,36 @@ export class Interiors {
   }
 }
 
+// furniture groups (Kit.furniture) are hidden while the camera is more than FURNITURE_FAR metres from their
+// bounds; checked four times a second (an Interiors updater, src/world/Interiors.js)
+export const FURNITURE_FAR = 45;
+export function cullFurniture(I) {
+  let t = 0;
+  const box = new THREE.Box3(),
+    sb = new THREE.Box3();
+  const bounds = new Map(); // group -> world box, worked out the first time (the buildings never move)
+  return (dt, game) => {
+    if ((t -= dt) > 0 || !I.furniture.length) return;
+    t = 0.25;
+    const c = game.camera.position;
+    for (const g of I.furniture) {
+      let b = bounds.get(g);
+      if (!b) {
+        g.updateWorldMatrix(true, true);
+        box.makeEmpty();
+        for (const m of g.children) {
+          const geo = m.geometry;
+          if (!geo) continue;
+          if (!geo.boundingBox) geo.computeBoundingBox();
+          box.union(sb.copy(geo.boundingBox).applyMatrix4(m.matrixWorld));
+        }
+        bounds.set(g, (b = box.clone()));
+      }
+      g.visible = b.distanceToPoint(c) <= FURNITURE_FAR;
+    }
+  };
+}
+
 // ---------------- local-frame building kit ----------------
 export class Kit {
   // sc: uniform scale of the whole building (local units * sc = metres); collision walls and surfaces follow it
@@ -588,6 +619,10 @@ export class Kit {
     this.ang = ang;
     this.sc = sc;
     this.parts = new Map();
+    // furniture(): parts built in it are merged into their own group (fparts -> fgroup)
+    this.fparts = new Map();
+    this.fmode = false;
+    this.fgroup = null;
     // render base = terrain at the (flattened) building origin
     this.base = H(ox, oz);
     this.group = new THREE.Group();
@@ -642,8 +677,7 @@ export class Kit {
         }
     }
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-    if (!this.parts.has(mat)) this.parts.set(mat, []);
-    this.parts.get(mat).push(g);
+    this._part(mat, g);
     if (o.col !== false) this.wallRect(x0, x1, z0, z1, y0, y1);
     if (o.surface) this.I.addSurface(this.rect(x0, x1, z0, z1), y1 * this.sc);
     return g;
@@ -666,9 +700,31 @@ export class Kit {
     this.I.addCone(wx, wz);
   }
   _part(mat, g) {
-    if (!this.parts.has(mat)) this.parts.set(mat, []);
-    this.parts.get(mat).push(g);
+    const parts = this.fmode ? this.fparts : this.parts;
+    if (!parts.has(mat)) parts.set(mat, []);
+    parts.get(mat).push(g);
     return g;
+  }
+  // high-density furniture (desks, chairs, monitors, beds, auditorium seats): what fn builds is merged into its
+  // own group, which Interiors hides while the camera is more than 45 m from it (cullFurniture; perf-refactor
+  // Phase 2, phase-2-render-and-igpu-opt.md §三.4). Collision and actions are added as before.
+  furniture(fn) {
+    const prev = this.fmode;
+    this.fmode = true;
+    try {
+      return fn();
+    } finally {
+      this.fmode = prev;
+    }
+  }
+  _parent() {
+    if (!this.fmode) return this.group;
+    if (!this.fgroup) {
+      this.fgroup = new THREE.Group();
+      this.fgroup.name = 'furniture';
+      this.group.add(this.fgroup);
+    }
+    return this.fgroup;
   }
   // wall slab of thickness th along the segment (x0,z0)-(x1,z1), for walls that are not axis-aligned
   slab(x0, z0, x1, z1, th, y0, y1, mat, o = {}) {
@@ -705,7 +761,7 @@ export class Kit {
     const m = new THREE.Mesh(g, M(mat));
     m.castShadow = o.shadow !== false;
     m.receiveShadow = true;
-    this.group.add(m);
+    this._parent().add(m);
     if (o.surface)
       this.I.addSurface(
         pts.map(([x, z]) => this.w(x, z)),
@@ -729,18 +785,29 @@ export class Kit {
     m.position.set(x, y, z);
     m.rotation.y = rotY;
     m.userData.kitPlane = { tex, o };
-    this.group.add(m);
+    this._parent().add(m);
     return m;
   }
+  // perf-refactor Phase 2 (phase-2-render-and-igpu-opt.md §三.3): as finishRow does for the shop rows, the parts in
+  // nothing but a colour are merged into one mesh per kind of surface (colour in the vertices), and the static
+  // k.plane()s (signs, posters, door plates) are packed into this building's atlas and merged per kind of material.
+  // It looks the same; what stays as it was: glass, textured / glowing / see-through parts, the planes whose
+  // texture or mesh is marked dynamic (userData.dynamic, markDynamic) and anything in a group of its own (lifts,
+  // gates, doors) or added to k.group directly.
   finish(scene, shadow = true) {
-    for (const [mat, list] of this.parts) {
-      const geo = markStaticGeometry(mergeGeometries(list, false)); // CPU arrays go once on the GPU
-      const mesh = new THREE.Mesh(geo, M(mat));
-      mesh.castShadow = shadow && mat !== 'glass';
-      mesh.receiveShadow = false;
-      mesh.matrixAutoUpdate = false; // merged at the group's origin, never moves
-      this.group.add(mesh);
-    }
+    for (const [parts, parent] of [
+      [this.parts, this.group],
+      [this.fparts, this.fparts.size ? this.furniture(() => this._parent()) : null],
+    ])
+      for (const mesh of mergeParts(parts, shadow, true, 'kit')) {
+        markStaticGeometry(mesh.geometry); // CPU arrays go once on the GPU
+        mesh.matrixAutoUpdate = false; // merged at the group's origin, never moves
+        parent.add(mesh);
+      }
+    this.parts.clear();
+    this.fparts.clear();
+    batchKitPlanes(this);
+    if (this.fgroup) this.I.furniture.push(this.fgroup);
     // the building stands still (its other parts, a sliding door say, keep their own matrixAutoUpdate)
     this.group.updateMatrix();
     this.group.matrixAutoUpdate = false;
@@ -913,11 +980,162 @@ function paintedMat(pk, src) {
     );
   return m;
 }
+// a plain part for Kit.finish (strict): also no glow colour at all, since some buildings raise a material's
+// emissiveIntensity at night from 0 (src/world/zones/ZoneA.js glowMats), and nothing marked dynamic / glow
+function strictPlainKey(m) {
+  if (!m || !m.emissive || m.emissive.getHex() !== 0 || m.userData.glow || m.userData.dynamic)
+    return null;
+  return plainKey(m);
+}
+// material key -> geometries (one frame) => meshes: plain colours merged per kind of surface into vertex-coloured
+// meshes (the same pixels), everything else one mesh per material. strict: Kit.finish's stricter plain test, and
+// geometries of different layouts (indexed or not, other attributes) are kept apart
+function mergeParts(parts, shadow, strict = false, prefix = 'row') {
+  const out = [],
+    painted = new Map(); // plain key (+ layout) -> { src, base, geos }
+  for (const [mat, list] of parts) {
+    const geo = mergeGeometries(list, false),
+      mt = M(mat);
+    const base = mat !== 'glass' ? (strict ? strictPlainKey(mt) : plainKey(mt)) : null,
+      pk =
+        base && strict
+          ? `${base}#${geo.index ? 'i' : 'n'}:${Object.keys(geo.attributes).sort().join(',')}`
+          : base;
+    if (pk) {
+      const n = geo.attributes.position.count,
+        c = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        c[i * 3] = mt.color.r;
+        c[i * 3 + 1] = mt.color.g;
+        c[i * 3 + 2] = mt.color.b;
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+      if (!painted.has(pk)) painted.set(pk, { src: mt, base, geos: [] });
+      painted.get(pk).geos.push(geo);
+      continue;
+    }
+    const mesh = new THREE.Mesh(geo, mt);
+    mesh.castShadow = shadow && mat !== 'glass';
+    mesh.receiveShadow = false;
+    if (typeof mat === 'string') mesh.name = `${prefix}:${mat}`;
+    out.push(mesh);
+  }
+  for (const { src, base, geos } of painted.values()) {
+    const mesh = new THREE.Mesh(mergeGeometries(geos, false), paintedMat(base, src));
+    mesh.castShadow = shadow;
+    mesh.receiveShadow = false;
+    mesh.name = `${prefix}:painted`;
+    out.push(mesh);
+  }
+  return out;
+}
+// the atlas copy of a plane (Kit.finish) looks the same only for an ordinary, opaque, sRGB, mipmapped canvas
+// texture on a material and mesh nobody changes later
+function kitBatchable(m) {
+  if (!atlasable(m) || m.userData.dynamic) return false;
+  const mat = m.material,
+    t = mat.map;
+  return (
+    !mat.transparent &&
+    !t.userData.dynamic &&
+    !mat.userData.dynamic &&
+    typeof t.image.getContext === 'function' &&
+    t.colorSpace === THREE.SRGBColorSpace &&
+    t.minFilter === THREE.LinearMipmapLinearFilter &&
+    t.magFilter === THREE.LinearFilter &&
+    t.generateMipmaps &&
+    (!mat.emissiveMap || mat.emissiveMap === t) &&
+    !mat.normalMap &&
+    !mat.roughnessMap &&
+    !mat.alphaMap &&
+    mat.onBeforeCompile === BASE_COMPILE &&
+    m.onBeforeRender === THREE.Object3D.prototype.onBeforeRender &&
+    m.morphTargetInfluences === undefined
+  );
+}
+// everything about a plane's material and mesh that the merged copy must share
+const planeKey = (m) => {
+  const t = m.material;
+  return [
+    t.type,
+    t.color.getHex(),
+    t.emissive.getHex(),
+    t.emissiveIntensity,
+    t.opacity,
+    t.side,
+    t.depthWrite,
+    t.depthTest,
+    t.polygonOffset ? `${t.polygonOffsetFactor},${t.polygonOffsetUnits}` : '',
+    t.toneMapped,
+    t.fog,
+    t.roughness,
+    t.metalness,
+    t.envMapIntensity,
+    t.blending,
+    t.colorWrite,
+    m.renderOrder,
+    m.castShadow,
+    m.receiveShadow,
+    m.frustumCulled,
+    m.layers.mask,
+  ].join('|');
+};
+function batchKitPlanes(k) {
+  const planes = [];
+  for (const parent of [k.group, k.fgroup])
+    if (parent)
+      for (const m of parent.children)
+        if (kitBatchable(m)) {
+          m.updateMatrix();
+          planes.push({ mesh: m, parent });
+        }
+  if (planes.length < 2) return;
+  const at = packAtlas(new Set(planes.map((p) => p.mesh.material.map.image)));
+  const groups = new Map();
+  for (const { mesh: p, parent } of planes) {
+    const m = p.material,
+      A = at.get(m.map.image),
+      key = `${A.sheet.tex.uuid}|${parent.uuid}|${planeKey(p)}`;
+    if (!groups.has(key)) groups.set(key, { src: m, mesh: p, parent, sheet: A.sheet, geos: [] });
+    const g = p.geometry.clone();
+    g.applyMatrix4(p.matrix);
+    const uv = g.attributes.uv,
+      H = A.sheet.H;
+    for (let i = 0; i < uv.count; i++)
+      uv.setXY(i, (A.x + uv.getX(i) * A.w) / ATLAS_W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
+    groups.get(key).geos.push(g);
+    parent.remove(p);
+    p.geometry.dispose();
+    markAtlasSource(m.map); // its pixels now live in the sheet (released per zone: GpuMemLifecycle)
+    m.dispose();
+  }
+  for (const { src, mesh: p, parent, sheet, geos } of groups.values()) {
+    const mat = src.clone();
+    mat.map = sheet.tex;
+    if (src.emissiveMap) mat.emissiveMap = sheet.tex;
+    const mesh = new THREE.Mesh(markStaticGeometry(mergeGeometries(geos, false)), mat);
+    mesh.name = 'kit:planes';
+    mesh.renderOrder = p.renderOrder;
+    mesh.castShadow = p.castShadow;
+    mesh.receiveShadow = p.receiveShadow;
+    mesh.frustumCulled = p.frustumCulled;
+    mesh.layers.mask = p.layers.mask;
+    mesh.matrixAutoUpdate = false;
+    parent.add(mesh);
+  }
+  // the sheets are this building's alone: straight to the GPU, their canvases are not needed again
+  for (const sh of new Set([...at.values()].map((A) => A.sheet))) uploadAndRelease(sh.tex);
+}
 export function finishRow(scene, kits, shadow = true) {
   const parts = new Map(); // material key -> geometries in world space
   const planes = []; // { mesh, matrix }
   for (const k of kits) {
     k.group.updateMatrix();
+    for (const [mat, list] of k.fparts) {
+      if (!k.parts.has(mat)) k.parts.set(mat, []);
+      k.parts.get(mat).push(...list);
+    }
+    k.fparts.clear();
     for (const [mat, list] of k.parts) {
       const g = mergeGeometries(list, false);
       g.applyMatrix4(k.group.matrix);
@@ -939,37 +1157,7 @@ export function finishRow(scene, kits, shadow = true) {
   out.name = 'shopRow';
   // plain colours (most of a row: one material per paint colour) go into one mesh per kind of surface,
   // the colour carried by the vertices; everything else keeps its own material
-  const painted = new Map(); // plain key -> geometries with a colour attribute
-  for (const [mat, list] of parts) {
-    const geo = mergeGeometries(list, false),
-      mt = M(mat),
-      pk = plainKey(mt);
-    if (pk && mat !== 'glass') {
-      const n = geo.attributes.position.count,
-        c = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) {
-        c[i * 3] = mt.color.r;
-        c[i * 3 + 1] = mt.color.g;
-        c[i * 3 + 2] = mt.color.b;
-      }
-      geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
-      if (!painted.has(pk)) painted.set(pk, { src: mt, geos: [] });
-      painted.get(pk).geos.push(geo);
-      continue;
-    }
-    const mesh = new THREE.Mesh(geo, mt);
-    mesh.castShadow = shadow && mat !== 'glass';
-    mesh.receiveShadow = false;
-    mesh.name = `row:${mat}`;
-    out.add(mesh);
-  }
-  for (const [pk, { src, geos }] of painted) {
-    const mesh = new THREE.Mesh(mergeGeometries(geos, false), paintedMat(pk, src));
-    mesh.castShadow = shadow;
-    mesh.receiveShadow = false;
-    mesh.name = 'row:painted';
-    out.add(mesh);
-  }
+  for (const mesh of mergeParts(parts, shadow)) out.add(mesh);
   // planes: group by everything about the material except the texture
   const at = packAtlas(new Set(planes.map((p) => p.mesh.material.map.image)));
   const groups = new Map();

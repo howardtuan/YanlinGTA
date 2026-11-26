@@ -198,6 +198,13 @@ const UP = [0, 1, 0];
 // than two cells becomes one mesh per cell. Measured 2026-11-25 (perf-refactor/agent-handoff-log.md Session #010):
 // about -16 % triangles per view but +85 % draw calls on the M1; kept at the spec's 120 m by decision.
 const GEO_CHUNK = 120;
+// outer buildings (Geo.routed): the fill (synthetic) and lod buildings further than this from the campus; a chunk of
+// them is not drawn while the fog hides it completely wherever it is on the screen: three's exp2 fog goes by the
+// view depth, and anything on screen is at least cos(half the diagonal field of view) x its distance deep, so a
+// chunk farther than OUTER_FOG / (density * that cosine) is under 97 % fog or more (exp(-(density depth)^2) <= 0.03).
+// The far plane already clips the rest (QPROF far).
+const OUTER_FROM_CAMPUS = 250,
+  OUTER_FOG = Math.sqrt(Math.log(1 / 0.03));
 // what Geo.mesh returns for a chunked Geo: the chunks as children, and the Mesh settings the builders use passed on to
 // every chunk (castShadow, receiveShadow, renderOrder on the chunks themselves so they sort exactly like one mesh would).
 // Its material is chunkMaterial (all chunks share it).
@@ -232,6 +239,9 @@ class ChunkedMesh extends THREE.Object3D {
     return this._material;
   }
 }
+// outer buildings (perf-refactor Phase 2, phase-2-render-and-igpu-opt.md §三.1): while the building loop draws a
+// far-off fill building, a routable Geo's triangles go to its twin, whose meshes are hidden under thick fog
+let ROUTE_OUTER = false;
 class Geo {
   // uvAt: optional [x,z] -> [u,v] for the flat helpers (default: world / 8 m)
   // alpha: colours carry a 4th (alpha) component
@@ -253,7 +263,27 @@ class Geo {
     this.gc = [0.5, 0.5, 0.5];
     return this;
   }
+  // this Geo's triangles of outer buildings go to a twin (outerTwin) while ROUTE_OUTER is on
+  routed() {
+    this.routable = true;
+    return this;
+  }
+  outerTwin() {
+    if (!this.twin) {
+      this.twin = new Geo(this.drape, this.uvAt, this.alpha);
+      if (this.c2) this.twin.withAccents();
+    }
+    return this.twin;
+  }
   tri(a, b, c, col, nrm, uva, uvb, uvc) {
+    if (ROUTE_OUTER && this.routable) {
+      const t = this.outerTwin();
+      if (this.c2) {
+        t.ac = this.ac;
+        t.gc = this.gc;
+      }
+      return t.tri(a, b, c, col, nrm, uva, uvb, uvc);
+    }
     // a,b,c: [x,y,z]; nrm: desired facing; fix winding
     // col: one [r,g,b] or one per corner [[r,g,b] x3]
     let ca = col,
@@ -1632,6 +1662,48 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   // purely visual extras (PBR upgrade) draw from their own stream so the shared sequence stays as it was
   const rnd2 = mulberry32(777034);
   const quality = opts.quality || (opts.low ? 'low' : 'high');
+  // low / xlow: walls and ground are MeshLambertMaterial, without normal or roughness / metalness maps (perf-refactor
+  // Phase 2, phase-2-render-and-igpu-opt.md §三.5; src/graphics/Textures.js setSurfaceDetail skips making those maps)
+  const lite = quality === 'low';
+  // ... but they still take the sky's diffuse light, as the standard material did from scene.environment
+  // (src/graphics/SkySystem.js PMREM, re-baked as the sun moves): one blurred look-up of it per pixel, nothing
+  // else of the PBR shading. Without it the walls facing away from the sun went dark and glass black.
+  const skyEnv = { value: null };
+  const lambertSky = (m, k = 1) => {
+    if (!m.isMeshLambertMaterial || m.userData.sky) return m;
+    m.userData.sky = true;
+    const prev = m.onBeforeCompile,
+      key = m.customProgramCacheKey;
+    m.onBeforeCompile = (sh, r) => {
+      prev.call(m, sh, r);
+      const t = scene.environment,
+        h = t?.image?.height;
+      if (!h) return;
+      skyEnv.value = t;
+      const mip = Math.log2(h) - 2;
+      sh.uniforms.skyEnv = skyEnv;
+      sh.uniforms.skyEnvK = { value: k };
+      sh.fragmentShader = `uniform sampler2D skyEnv;\nuniform float skyEnvK;\n${sh.fragmentShader
+        .replace(
+          '#include <bsdfs>',
+          `#include <bsdfs>
+#ifndef ENVMAP_TYPE_CUBE_UV
+#define ENVMAP_TYPE_CUBE_UV
+#endif
+#define CUBEUV_TEXEL_WIDTH ${(1 / (3 * Math.max(2 ** mip, 112))).toPrecision(9)}
+#define CUBEUV_TEXEL_HEIGHT ${(1 / h).toPrecision(9)}
+#define CUBEUV_MAX_MIP ${mip.toFixed(1)}
+#include <cube_uv_reflection_fragment>`
+        )
+        .replace(
+          '#include <lights_fragment_end>',
+          `#include <lights_fragment_end>
+  reflectedLight.indirectDiffuse += PI * textureCubeUV( skyEnv, inverseTransformDirection( normal, viewMatrix ), 1.0 ).rgb * skyEnvK * BRDF_Lambert( diffuseColor.rgb );`
+        )}`;
+    };
+    m.customProgramCacheKey = () => `${key.call(m)}_sky`;
+    return m;
+  };
   const world = { data, bounds: B, labels: [], animated: [], named: {}, tris: {} };
   clearBridges(); // (and the height levels)
   // raised pads / stairs (src/world/Terrain.js) go in first so every ground query below
@@ -2021,31 +2093,50 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const OFFSET = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 };
   const flatMat = (map = null) =>
     maskCut(
-      new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        map,
-        depthWrite: false,
-        roughness: 0.9,
-        envMapIntensity: 0.5,
-        ...OFFSET,
-      })
+      lite
+        ? lambertSky(
+            new THREE.MeshLambertMaterial({
+              vertexColors: true,
+              map,
+              depthWrite: false,
+              ...OFFSET,
+            }),
+            0.5
+          )
+        : new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            map,
+            depthWrite: false,
+            roughness: 0.9,
+            envMapIntensity: 0.5,
+            ...OFFSET,
+          })
     );
   // PBR ground surface (src/graphics/Textures.js groundTex) with large-scale macro variation
   const gmat = (tex, o = {}) => {
-    const m = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      depthWrite: false,
-      map: tex.map || null,
-      normalMap: tex.normalMap || null,
-      roughnessMap: tex.roughnessMap || null,
-      roughness: o.roughness ?? 0.95,
-      metalness: 0,
-      envMapIntensity: o.env ?? 0.55,
-      color: o.color || '#ffffff',
-      ...OFFSET,
-    });
-    if (tex.normalMap) m.normalScale.set(o.ns ?? 1, o.ns ?? 1);
+    const m = lite
+      ? new THREE.MeshLambertMaterial({
+          vertexColors: true,
+          depthWrite: false,
+          map: tex.map || null,
+          color: o.color || '#ffffff',
+          ...OFFSET,
+        })
+      : new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          depthWrite: false,
+          map: tex.map || null,
+          normalMap: tex.normalMap || null,
+          roughnessMap: tex.roughnessMap || null,
+          roughness: o.roughness ?? 0.95,
+          metalness: 0,
+          envMapIntensity: o.env ?? 0.55,
+          color: o.color || '#ffffff',
+          ...OFFSET,
+        });
+    if (tex.normalMap && !lite) m.normalScale.set(o.ns ?? 1, o.ns ?? 1);
     if (o.macro !== false) addMacro(m, o.macroScale ?? 0.011, o.macroAmt ?? 0.2);
+    lambertSky(m, o.env ?? 0.55);
     return o.mask === false ? m : maskCut(m);
   };
   const uvS = (s) => (q) => [q[0] / s, q[1] / s];
@@ -3862,42 +3953,55 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const wallMat = {};
   const wallGeo = {};
   const SEED = { campus: 7, town: 11, apt: 13, wash: 17, glass: 19, concrete: 23, arcade: 29 };
-  // PBR facades (src/graphics/Textures.js): colour + normal + roughness/metalness (glass panes reflect the sky)
+  // PBR facades (src/graphics/Textures.js): colour + normal + roughness/metalness (glass panes reflect the sky);
+  // low / xlow: Lambert, colour and lit windows only
   const makeWallMat = (t, o = {}) =>
-    new THREE.MeshStandardMaterial({
-      map: t.map,
-      emissiveMap: t.emi,
-      emissive: new THREE.Color('#ffffff'),
-      emissiveIntensity: 0,
-      vertexColors: true,
-      normalMap: t.normalMap,
-      roughnessMap: t.rm,
-      metalnessMap: t.rm,
-      roughness: 1,
-      metalness: 1,
-      envMapIntensity: o.env ?? 1,
-    });
+    lite
+      ? new THREE.MeshLambertMaterial({
+          map: t.map,
+          emissiveMap: t.emi,
+          emissive: new THREE.Color('#ffffff'),
+          emissiveIntensity: 0,
+          vertexColors: true,
+        })
+      : new THREE.MeshStandardMaterial({
+          map: t.map,
+          emissiveMap: t.emi,
+          emissive: new THREE.Color('#ffffff'),
+          emissiveIntensity: 0,
+          vertexColors: true,
+          normalMap: t.normalMap,
+          roughnessMap: t.rm,
+          metalnessMap: t.rm,
+          roughness: 1,
+          metalness: 1,
+          envMapIntensity: o.env ?? 1,
+        });
   // low quality stores the 8x8 facade atlases at 64 px per cell (a quarter of the memory)
   const texPx = quality === 'low' ? 64 : 128;
   const wallFor = (style, mat) => {
     const k = mat ? `${style}:${mat}` : style;
     if (!wallGeo[k] && PBR_STYLES.has(style) && !mat) {
       wallMat[k] = makeWallMat(facadeTex(style, texPx));
-      wallGeo[k] = new Geo();
+      wallGeo[k] = new Geo().routed();
     }
     if (!wallGeo[k]) {
       const t = windowTextures(style, (SEED[style] || 5) + (mat ? mat.length * 101 : 0), mat);
       const shiny = style === 'glass' || mat === 'glass' || mat === 'metal';
-      wallMat[k] = new THREE.MeshStandardMaterial({
-        map: t.map,
-        emissiveMap: t.emi,
-        emissive: new THREE.Color('#ffffff'),
-        emissiveIntensity: 0,
-        vertexColors: true,
-        roughness: shiny ? 0.4 : 0.85,
-        metalness: mat === 'metal' ? 0.3 : style === 'glass' ? 0.15 : 0.0,
-      });
-      wallGeo[k] = new Geo();
+      // glass / metal walls keep the standard material on low too: their look is the sky they reflect
+      wallMat[k] =
+        lite && !shiny
+          ? makeWallMat(t)
+          : new THREE.MeshStandardMaterial({
+              map: t.map,
+              emissiveMap: t.emi,
+              emissive: new THREE.Color('#ffffff'),
+              emissiveIntensity: 0,
+              vertexColors: true,
+              roughness: shiny ? 0.4 : 0.85,
+              metalness: mat === 'metal' ? 0.3 : style === 'glass' ? 0.15 : 0.0,
+            });
+      wallGeo[k] = new Geo().routed();
     }
     return wallGeo[k];
   };
@@ -3907,25 +4011,29 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const wallForParam = (base) => {
     const k = `facp:${base}`;
     if (!wallGeo[k]) {
-      const m = (wallMat[k] = makeWallMat(facadeParam(base, texPx)));
+      const ft = facadeParam(base, texPx),
+        m = (wallMat[k] = makeWallMat(ft));
       m.onBeforeCompile = (sh) => {
+        // the masks are the rm texture: the standard material samples it as its roughnessMap; Lambert has none,
+        // so there it comes in as its own uniform on the map's UVs (the same, untransformed)
+        if (lite) sh.uniforms.lookMap = { value: ft.rm };
         sh.vertexShader = `attribute vec3 aAccent;\nattribute vec3 aGlass;\nvarying vec3 vAccent;\nvarying vec3 vGlass;\n${sh.vertexShader.replace('#include <color_vertex>', '#include <color_vertex>\n vAccent = aAccent; vGlass = aGlass;')}`;
-        sh.fragmentShader = `varying vec3 vAccent;\nvarying vec3 vGlass;\n${sh.fragmentShader.replace(
+        sh.fragmentShader = `${lite ? 'uniform sampler2D lookMap;\n' : ''}varying vec3 vAccent;\nvarying vec3 vGlass;\n${sh.fragmentShader.replace(
           '#include <color_fragment>',
           `#include <color_fragment>
-          vec4 lookMask = texture2D(roughnessMap, vRoughnessMapUv);
+          vec4 lookMask = ${lite ? 'texture2D(lookMap, vMapUv)' : 'texture2D(roughnessMap, vRoughnessMapUv)'};
           float wA = smoothstep(0.5, 0.9, lookMask.r), wG = (1.0 - wA) * smoothstep(0.25, 0.7, lookMask.b);
           diffuseColor.rgb = mix(diffuseColor.rgb, sampledDiffuseColor.rgb * vAccent, wA);
           diffuseColor.rgb = mix(diffuseColor.rgb, sampledDiffuseColor.rgb * vGlass, wG);`
         )}`;
       };
-      m.customProgramCacheKey = () => 'facp';
-      wallGeo[k] = new Geo().withAccents();
+      m.customProgramCacheKey = () => (lite ? 'facpL' : 'facp');
+      wallGeo[k] = new Geo().withAccents().routed();
     }
     return wallGeo[k];
   };
   // ground floor shop fronts (town / commercial walls facing a street)
-  const shopGeo = new Geo();
+  const shopGeo = new Geo().routed();
   const SHOP_LO = [0.72, 0.72, 0.72],
     SHOP_HI = [1, 1, 1];
   // OSM buildings judge their street on the OSM road widths (r.rw: width from tools/roads.json), so
@@ -3964,7 +4072,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const LANE_TYPES = new Set(['service', 'living_street']);
   const SHED_P = { lane: 0.35, main: 0.15 };
   // flat roofs sample the plain half of the roof atlas
-  const roofGeo = new Geo(false, () => [0.1, 0.5]);
+  const roofGeo = new Geo(false, () => [0.1, 0.5]).routed();
   // rooftop 鐵皮加蓋 sheds and stair houses, all merged into roofGeo
   const SHED = ['#4a78a8', '#3f6a94', '#8d959b', '#a3a9ad', '#9a5236', '#7c4430'].map(col);
   const Q3 = (f, u, v, y) => {
@@ -4714,10 +4822,10 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   };
   // PBR extras (visual only): concrete floor ledges, soft contact shadows at the wall foot,
   // metal awnings over shopfronts, PBR flat roofs, rooftop AC units, temple roofs
-  const ledgeGeo = new Geo(),
-    aoGeo = new Geo(false, null, true),
-    awnGeo = new Geo(),
-    flatRoofGeo = new Geo(false, (q) => [q[0] / 10, q[1] / 10]);
+  const ledgeGeo = new Geo().routed(),
+    aoGeo = new Geo(false, null, true).routed(),
+    awnGeo = new Geo().routed(),
+    flatRoofGeo = new Geo(false, (q) => [q[0] / 10, q[1] / 10]).routed();
   const acSpots = [],
     temples = [];
   const AO_DARK = [0, 0, 0, 0.42],
@@ -4766,7 +4874,21 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   world.buildings = data.buildings;
   const rndW = rnd,
     rnd2W = rnd2;
+  // outer buildings: the far-only ones (lod) and the fill (synthetic) more than OUTER_FROM_CAMPUS from the campus
+  const campusEdges = [];
+  for (const r of data.campus)
+    for (let i = 0; i < r.length; i++) campusEdges.push([r[i], r[(i + 1) % r.length]]);
+  const isOuter = (b) => {
+    if (!(b.synthetic || b.lod) || !b.pts?.length) return false;
+    const cx = b.pts.reduce((s2, p) => s2 + p[0], 0) / b.pts.length,
+      cz = b.pts.reduce((s2, p) => s2 + p[1], 0) / b.pts.length;
+    if (world.inCampus(cx, cz)) return false;
+    for (const [a, c] of campusEdges)
+      if (segDist(cx, cz, a[0], a[1], c[0], c[1]) <= OUTER_FROM_CAMPUS) return false;
+    return true;
+  };
   data.buildings.forEach((b, bi) => {
+    ROUTE_OUTER = isOuter(b);
     // 補建街區 buildings (synthetic) draw from their own stream, so turning the
     // fill off leaves the shared sequence (palette, stalls, trees...) unchanged
     const rnd = b.synthetic ? mulberry32(hashStr(`fill:${b.id}`)) : rndW;
@@ -5684,6 +5806,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     // (skip: a look roof with panels / pitched shape / setback; the spot still draws its rnd2 values)
     if (!pitched && (!b.parts || b.splitAc) && !lean2 && h >= 6 && extraH === 0)
       acSpots.push({
+        outer: ROUTE_OUTER,
         r2: b.synthetic ? rnd2 : null,
         pts: b.acPts || pts,
         top,
@@ -5694,7 +5817,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           !!L &&
           (L.roof?.ac === false || !!L.roof?.solar || !!pitchedV || (L.topFloor?.setback || 0) > 0),
       });
-    if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top });
+    if (style === 'temple' && !pitched && !b.parts) temples.push({ pts, top, outer: ROUTE_OUTER });
     if (b.parts) {
       // whole footprint blocks movement; each block gives its own roof to topAt
       collision.addPolygon(pts, -Infinity);
@@ -5718,22 +5841,38 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       world.named[b.name] = { x: cx, z: cz, h, base, b };
     }
   });
+  ROUTE_OUTER = false;
+  // a routable Geo's outer twin: the same material and settings as its mesh m, hidden under thick fog (world.update)
+  world.outer = [];
+  const addOuter = (geo, m) => {
+    const t = geo.twin;
+    if (!t?.tris) return;
+    const o = t.mesh(m.isChunkedMesh ? m.chunkMaterial : m.material);
+    o.castShadow = m.castShadow;
+    o.receiveShadow = m.receiveShadow;
+    o.renderOrder = m.renderOrder;
+    scene.add(o);
+    world.outer.push(...(o.isChunkedMesh ? o.chunks : [o]));
+    return t.tris;
+  };
   world.tris.walls = 0;
   for (const k in wallGeo) {
+    lambertSky(wallMat[k], 1);
     const m = wallGeo[k].mesh(wallMat[k]);
     m.castShadow = true;
     m.receiveShadow = true;
     scene.add(m);
-    world.tris.walls += wallGeo[k].tris;
+    world.tris.walls += wallGeo[k].tris + (addOuter(wallGeo[k], m) || 0);
   }
   world.windowMats = Object.values(wallMat);
-  if (shopGeo.tris) {
+  if (shopGeo.tris || shopGeo.twin?.tris) {
     // PBR shopfronts: shutters / lit glass fronts under a blank sign band (POI signs come from src/world/Furniture.js)
-    const mat = makeWallMat(shopTex());
+    const mat = lambertSky(makeWallMat(shopTex()), 1);
     const m = shopGeo.mesh(mat);
     m.castShadow = true;
     m.receiveShadow = true;
     scene.add(m);
+    addOuter(shopGeo, m);
     world.shopMat = mat;
     world.tris.shops = shopGeo.tris;
   }
@@ -5744,9 +5883,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     m.castShadow = true;
     m.receiveShadow = true;
     scene.add(m);
-    world.tris.roofs = roofGeo.tris;
+    world.tris.roofs = roofGeo.tris + (addOuter(roofGeo, m) || 0);
   }
-  if (flatRoofGeo.tris) {
+  if (flatRoofGeo.tris || flatRoofGeo.twin?.tris) {
     const rt = roofTex();
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
@@ -5759,12 +5898,13 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     m.castShadow = true;
     m.receiveShadow = true;
     scene.add(m);
-    world.tris.roofs += flatRoofGeo.tris;
+    world.tris.roofs += flatRoofGeo.tris + (addOuter(flatRoofGeo, m) || 0);
   }
   // rooftop AC condensers in rows, vent stacks
   {
-    const acGeo = new Geo();
-    for (const { r2, pts, top: top0, town, parts, skip } of acSpots) {
+    const acGeo = new Geo().routed();
+    for (const { outer, r2, pts, top: top0, town, parts, skip } of acSpots) {
+      ROUTE_OUTER = outer;
       const rnd2 = r2 || rnd2W;
       let x0 = 1e9,
         x1 = -1e9,
@@ -5809,16 +5949,17 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         }
       }
     }
-    if (acGeo.tris) {
+    ROUTE_OUTER = false;
+    if (acGeo.tris || acGeo.twin?.tris) {
       const am = acGeo.mesh(
         new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.3 })
       );
       am.castShadow = quality !== 'low';
       scene.add(am);
-      world.tris.ac = acGeo.tris;
+      world.tris.ac = acGeo.tris + (addOuter(acGeo, am) || 0);
     }
   }
-  if (ledgeGeo.tris) {
+  if (ledgeGeo.tris || ledgeGeo.twin?.tris) {
     const lm = ledgeGeo.mesh(
       new THREE.MeshStandardMaterial({
         vertexColors: true,
@@ -5829,8 +5970,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     lm.castShadow = true;
     lm.receiveShadow = true;
     scene.add(lm);
+    addOuter(ledgeGeo, lm);
   }
-  if (awnGeo.tris) {
+  if (awnGeo.tris || awnGeo.twin?.tris) {
     const ct = corrugatedTex();
     const sm = awnGeo.mesh(
       new THREE.MeshStandardMaterial({
@@ -5845,8 +5987,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     sm.castShadow = true;
     sm.receiveShadow = true;
     scene.add(sm);
+    addOuter(awnGeo, sm);
   }
-  if (aoGeo.tris) {
+  if (aoGeo.tris || aoGeo.twin?.tris) {
     const am = aoGeo.mesh(
       new THREE.MeshBasicMaterial({
         vertexColors: true,
@@ -5857,11 +6000,13 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     );
     am.renderOrder = layerOrder++;
     scene.add(am);
+    addOuter(aoGeo, am);
   }
   // temple roofs: hipped orange-tile roof with up-swept ridge ends
   if (temples.length) {
-    const tg = new Geo();
-    for (const { pts, top } of temples) {
+    const tg = new Geo().routed();
+    for (const { pts, top, outer } of temples) {
+      ROUTE_OUTER = outer;
       let x0 = 1e9,
         x1 = -1e9,
         z0 = 1e9,
@@ -5907,6 +6052,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           1
         );
     }
+    ROUTE_OUTER = false;
     const m = tg.mesh(
       new THREE.MeshStandardMaterial({
         vertexColors: true,
@@ -5917,6 +6063,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     );
     m.castShadow = true;
     scene.add(m);
+    addOuter(tg, m);
   }
   // rooftop water tanks (very Taiwan)
   if (tanks.length) {
@@ -7261,7 +7408,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
 
   // ---------- night lights: a small pool of real point lights that follow the nearest street lamps ----------
   {
-    const n = quality === 'high' ? 8 : quality === 'medium' ? 4 : 0;
+    // integrated GPUs (src/core/PerfProfile.js desktop-igpu) keep at most 2 (perf-refactor Phase 2: was 4 on medium)
+    const n0 = quality === 'high' ? 8 : quality === 'medium' ? 4 : 0,
+      n = opts.tier === 'desktop-igpu' ? Math.min(n0, 2) : n0;
     const lights = [];
     for (let i = 0; i < n; i++) {
       const l = new THREE.PointLight('#ffcf94', 0, 24, 2);
@@ -8203,7 +8352,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   }
   onProgress(0.95);
 
-  let lastT = 0;
+  let lastT = 0,
+    outerT = 0;
   world.setQuality = (q) => {
     world.lampLights?.setEnabled(q !== 'low');
   };
@@ -8225,8 +8375,30 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     if (world.stallGlow) world.stallGlow.value = 0.04 + night * 0.22;
     if (world.lanternMat) world.lanternMat.emissiveIntensity = 0.3 + night * 1.4;
     if (world.signMats) for (const m of world.signMats) m.emissiveIntensity = 0.15 + night * 0.75;
+    if (lite && scene.environment && skyEnv.value !== scene.environment)
+      skyEnv.value = scene.environment; // re-baked sky (Lambert walls / ground, lambertSky)
     world.vegetation?.update(t, playerPos);
     world.lampLights?.update(dt, night, playerPos);
+    // outer buildings the fog hides completely are not drawn (twice a second; OUTER_FOG)
+    if ((outerT -= dt) <= 0 && world.outer.length) {
+      outerT = 0.5;
+      const cam = world.viewer,
+        c = cam?.position || playerPos;
+      if (c) {
+        let far = Infinity;
+        if (scene.fog?.isFogExp2 && scene.fog.density > 0) {
+          const tv = Math.tan(((cam?.fov ?? 62) * Math.PI) / 360),
+            th = tv * (cam?.aspect ?? 16 / 9);
+          far = (OUTER_FOG * Math.sqrt(1 + tv * tv + th * th)) / scene.fog.density;
+        }
+        const cy = c.y ?? 0;
+        for (const m of world.outer) {
+          const bs = m.geometry.boundingSphere;
+          m.visible =
+            Math.hypot(bs.center.x - c.x, bs.center.y - cy, bs.center.z - c.z) - bs.radius <= far;
+        }
+      }
+    }
     if (playerPos)
       for (const l of world.labels) {
         const d = Math.hypot(l.position.x - playerPos.x, l.position.z - playerPos.z);

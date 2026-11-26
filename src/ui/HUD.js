@@ -139,7 +139,21 @@ export class HUD {
   }
 
   // ---------- minimap ----------
+  // redrawn only when the player moved > 0.35 m, the view or the heading turned > 0.02 rad, the range changed,
+  // or 50 ms went by (perf-refactor Phase 2: the whole-map drawImage every frame was the cost)
   drawMinimap(px, pz, camYaw, heading, range, markers, ballots) {
+    const now = performance.now(),
+      L = this._mmLast;
+    if (
+      L &&
+      now - L.t < 50 &&
+      range === L.range &&
+      Math.hypot(px - L.x, pz - L.z) <= 0.35 &&
+      Math.abs(Math.atan2(Math.sin(camYaw - L.yaw), Math.cos(camYaw - L.yaw))) <= 0.02 &&
+      Math.abs(Math.atan2(Math.sin(heading - L.heading), Math.cos(heading - L.heading))) <= 0.02
+    )
+      return;
+    this._mmLast = { t: now, x: px, z: pz, yaw: camYaw, heading, range };
     const g = this.mmg,
       W = this.mm.width,
       H = this.mm.height;

@@ -159,9 +159,8 @@ sequenceDiagram
 - **防止卡頓螺旋 (Spiral of Death)**：若累積延遲超過上限（如 100ms），強制捨棄累積量，避免物理引擎連續補算造成畫面永久凍結。
 
 ### 2. 動態畫質調頻 (Dynamic Quality Scaling)
-- `GameLoop` 內部維持移動平均 FPS 監控：
-  - 當幀率持續低於 35 FPS 時，自動縮減 `renderer.setPixelRatio`（最低降至 0.75x），並停用非關鍵後製輝光。
-  - 當幀率穩定維持 58 FPS 以上時，平滑調升畫質至裝置原生解析度。
+- 設定的畫質是「自動」時，`GameLoop.autoQuality()` 在遊玩中先暖機 3 秒，再以 3 秒為一段算平均 FPS；低於 28 FPS 就降一級（中 → 低 → 超低），並記在 `settings.autoQ`，下次開啟直接用這一級。降級後重新暖機 3 秒再判斷。（效能重構 Phase 2 由 8 秒＋6 秒縮短，開局 6 秒內就會降。）
+- 一開始的等級由 `guessGpu()` 猜：手機、舊款 Intel UHD／HD 文書機、4 核心的電腦為「低」；Apple M 系列、Intel Iris Xe、Radeon 680M／780M／880M 這類新內顯與獨顯為「中」。「高」只在玩家自己選時才用。
 
 ### 3. 效能顯示浮層 (`src/core/PerfHud.js`)
 - 設定 →「📊 效能顯示」可選 關閉／簡易／詳細／開發者，存在 `settings.perfHud`；網址帶 `?perf` 則本次強制開到「開發者」（不改存檔）。
@@ -196,6 +195,16 @@ iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB
   - 歌劇背景音樂（3 MB）`preload = 'none'`，第一次播放時才下載。
   - 第一人稱後照鏡的 render target 第一次坐上車才建立（`FirstPerson.rt`）；`renderer.localClippingEnabled` 只在坐進汽車、車艙被切開時才打開（每一幀每個繪圖呼叫都會多一次檢查）。
   - 林口體育館（`src/world/buildings/Arena.js`）：座椅 `A1`／`A2` 與螢光棒恢復視錐剔除（原本人在校園時每幀也畫 4 公里外約 46 萬個三角形）；場館外殼平常隱藏，`Concert.js` 搭接駁車去時才顯示、回中原時再隱藏。
+- **繪圖與畫質（Phase 2，`perf-refactor/specs/phase-2-render-and-igpu-opt.md`）**：
+  - 後製（`src/graphics/PostFX.js`）：低畫質直接畫到畫面，後製模組（`EffectComposer` 等）第一次需要時才用動態 `import()` 載入；中畫質不開 MSAA、bloom 用 1/4 解析度；高畫質維持 4× MSAA、1/2 bloom。色調映射（`OutputPass`）和調色合成同一個 pass。
+  - 內顯與手機（`perfProfile.tier` 不是 `desktop-dgpu`）的太陽陰影每兩幀更新一次（`shadowMap.autoUpdate = false`，`GameLoop.loop()` 隔幀設 `needsUpdate`）。另外再呼叫 `renderer.render()` 的地方（例如後照鏡 `FirstPerson.renderMirrors`）要先把 `needsUpdate` 存起來、畫完再還原，不要把那一幀的陰影更新用掉。
+  - 不透明物件依 shader program 分組再依距離排序（`src/graphics/RenderSort.js`）；`groupOrder`、`renderOrder` 仍然優先，地面圖層的順序不變。
+  - 內顯（`desktop-igpu`）夜間跟著路燈走的 `PointLight` 最多 2 盞（中畫質原本 4 盞）。
+  - 低／超低畫質：`MapBuilder` 的外牆、店面與地面用 `MeshLambertMaterial`，`src/graphics/Textures.js` 不產生地面與立面的法線圖、粗糙度／金屬度圖（`setSurfaceDetail()`；`facadeParam` 的 rm 仍保留，它的 R／B 是配色遮罩）。Lambert 不吃 `scene.environment`（天空的 PMREM），所以 `lambertSky()` 每個像素補一次天空的漫射光取樣，否則背光面會變暗、牆色偏棕；玻璃與金屬外牆在低畫質仍用標準材質（它們的樣子就是反射的天空）。
+  - `Kit.finish()`：純色零件（沒有貼圖、不透明、發光顏色為黑、沒標 `userData.glow`／`dynamic`）合成一個頂點色 mesh；`k.plane()` 建的靜態不透明平面打包進該建物的圖集、依材質合併。**之後還會改的平面**（換貼圖、晚上調亮、移動、切換顯示）建好後要設 `mesh.userData.dynamic = true`（例如 `GateExtras` 的導覽看板），或放進自己的子群組，否則會被合併、之後的修改無效。半透明平面不合併。
+  - 室內家具：建物在 `k.furniture(() => { ... })` 裡建的零件（課桌椅、電腦、床組、座椅）合成自己的群組，鏡頭離它超過 45 m 就不畫（`cullFurniture`，每秒檢查四次）；碰撞與互動不受影響。目前用在資管系館教室、活動中心（培英廳座椅、桌椅）、力行六人房。
+  - 校外遠處的補建建築（`synthetic` 或 `lod`，且離校園 250 m 以上）：`MapBuilder` 的建物迴圈把它們寫進各 Geo 的外圍副本（`Geo.routed()`）；某一塊在畫面上任何位置都已經被霧蓋住 97% 以上時就不畫（three 的 exp2 霧依畫面深度計算，深度至少是距離乘上半個對角視角的餘弦）。可視距離以外本來就由遠平面裁掉。
+  - 小地圖（`HUD.drawMinimap`）只在玩家移動超過 0.35 m、視角或朝向轉超過 0.02 rad、範圍改變，或距上次超過 50 ms 時重畫。
 
 ### 5. 可共用的小工具（隨涼韌足體養生加入）
 - **`hud.fade(text, mid, after, { midText, dark, hold })`**（`src/ui/HUD.js`）：全螢幕黑幕加一行字（跟睡覺同一層 `#sleepFade`）。變黑後執行 `mid()`，文字可換成 `midText`，再淡回來後執行 `after()`。適合「時間往後跳」「瞬間移動」的轉場。

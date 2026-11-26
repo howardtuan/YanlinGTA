@@ -5,6 +5,13 @@ import { fbmWasm, normalWasm } from './wasm/kernels.js';
 import { texScale, releaseCanvas, markShared } from './GpuMemLifecycle.js';
 
 const CACHE = {};
+// perf-refactor Phase 2 (phase-2-render-and-igpu-opt.md §三.5): on low / xlow the world's walls and ground are
+// MeshLambertMaterial (src/world/MapBuilder.js), which reads no normal or roughness / metalness maps, so the ground
+// and facade textures skip making them (src/core/Game.js calls this before the world is built)
+let lite = false;
+export function setSurfaceDetail(full) {
+  lite = !full;
+}
 const cached = (k, f) => CACHE[k] || (CACHE[k] = f());
 
 // ---------- noise helpers (tileable) ----------
@@ -206,6 +213,7 @@ export const groundTex = {
           h = 30 + r() * 70;
         g.fillRect(r() * S, r() * S, w, h);
       }
+      if (lite) return { map: toTex(col) };
       const rough = paint(S, (x, y, i) => [
         255,
         clamp255(205 + (big[i] - 0.5) * 70 + (hash(x, y, 9) - 0.5) * 30),
@@ -255,6 +263,10 @@ export const groundTex = {
         d[i * 4 + 2] *= k;
       }
       g.putImageData(img, 0, 0);
+      if (lite) {
+        releaseCanvas(hc);
+        return { map: toTex(cv) };
+      }
       const hf = heightFromCanvas(hc);
       releaseCanvas(hc); // scratch: only its heights were needed
       const rough = paint(S, (x, y, i) => [
@@ -304,6 +316,10 @@ export const groundTex = {
         d[i * 4 + 2] *= k;
       }
       g.putImageData(img, 0, 0);
+      if (lite) {
+        releaseCanvas(hc);
+        return { map: toTex(cv) };
+      }
       const hf = heightFromCanvas(hc);
       releaseCanvas(hc); // scratch: only its heights were needed
       return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 3), { srgb: false }) };
@@ -325,6 +341,7 @@ export const groundTex = {
           B = (52 + dry * 8) * l;
         return [clamp255(R), clamp255(G), clamp255(B)];
       });
+      if (lite) return { map: toTex(cv) };
       return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 1.6), { srgb: false }) };
     }),
   // packed earth / concrete mix for the generic ground between things
@@ -345,6 +362,7 @@ export const groundTex = {
           clamp255((94 - green * 40) * v),
         ];
       });
+      if (lite) return { map: toTex(cv) };
       return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 1.8), { srgb: false }) };
     }),
   // red PU running track
@@ -717,6 +735,12 @@ function facade(style, seed, px = 128) {
     g.drawImage(dc, 0, 0, W, W);
     releaseCanvas(dc); // scratch: copied into the facade above
     g.globalCompositeOperation = 'source-over';
+    if (lite) {
+      // Lambert walls: no normal map, and the roughness / metalness map is not read
+      releaseCanvas(hc);
+      releaseCanvas(rm);
+      return { map: toTex(col), emi: toTex(em) };
+    }
     const hf = heightFromCanvas(hc),
       hw = hc.width,
       hh = hc.height;
@@ -1011,6 +1035,11 @@ export function facadeParam(base, px = 128) {
     for (let y = 0; y < HH; y += W) g.drawImage(dc, 0, y, W, W);
     releaseCanvas(dc); // scratch: copied into the facade above
     g.globalCompositeOperation = 'source-over';
+    if (lite) {
+      // Lambert walls: no normal map; rm stays, its R / B channels are the accent / glass masks
+      releaseCanvas(hc);
+      return { map: toTex(col), emi: toTex(em), rm: toTex(rm, { srgb: false }) };
+    }
     const hf = heightFromCanvas(hc),
       hw = hc.width,
       hh = hc.height;
@@ -1112,13 +1141,19 @@ export function shopTex() {
         h.fillRect(x + 8, 40, S - 16, H - 40);
       }
     }
-    const hf = heightFromCanvas(hc);
-    releaseCanvas(hc); // scratch: only its heights were needed
     const t = (cv, srgb) => {
       const tx = toTex(cv, { srgb });
       tx.wrapT = THREE.ClampToEdgeWrapping;
       return tx;
     };
+    if (lite) {
+      // Lambert shop walls (src/world/MapBuilder.js): no normal or roughness / metalness map
+      releaseCanvas(hc);
+      releaseCanvas(rm);
+      return { map: t(g, true), emi: t(em, true) };
+    }
+    const hf = heightFromCanvas(hc);
+    releaseCanvas(hc); // scratch: only its heights were needed
     // normal map needs square-ish handling: compute on the non-square field
     const nm = (() => {
       const cv = canvas(W, H),

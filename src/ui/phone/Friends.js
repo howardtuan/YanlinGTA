@@ -211,6 +211,14 @@ export const FRIENDS = {
         [['羊明衫', '晚上客人比較多，漢克在後面炸到手痠 😂']],
       ],
     },
+    walk: {
+      // on the walk with YeeMing: right after talking to him (src/entities/npcs/Yeeming.js talk)
+      intro: [
+        ['羊明衫', '對了彥霖，我們好像也還沒互加？'],
+        ['羊明衫', '班上的票我幫你拉，宿營的舞步影片也可以傳你 💃'],
+      ],
+      again: [['羊明衫', '那我們也互加一下？期末筆記可以傳你 📒']],
+    },
   },
   hank: {
     name: '漢克',
@@ -251,6 +259,15 @@ export const FRIENDS = {
         [['漢克', '晚上客人好多，羊明衫在外場一直喊單，我下班要去騎車放鬆一下 🏍️']],
         [['漢克', '偷偷說，小芸也說會投給你 🤫']],
       ],
+    },
+    call: {
+      // 23:00–00:00 / 06:00–10:00 in 力行 279, on the phone with his girlfriend (src/entities/npcs/Hank.js dormTalk)
+      intro: [
+        ['漢克', '（摀住手機）欸彥霖，我在跟女朋友講電話 🤫'],
+        ['漢克', '（小聲）……沒有啦，是同學。嗯，我也想你。'],
+        ['漢克', '（遮著手機）同系這麼久好像還沒互加？先加一下，晚點再找你聊 👍'],
+      ],
+      again: [['漢克', '（摀住手機）要互加對吧？快快快，她還在線上 🤫']],
     },
   },
   gd: {

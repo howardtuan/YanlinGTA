@@ -953,7 +953,8 @@ class Game {
       this.pc?.isOpen ||
       this.wardrobe?.isOpen ||
       this.mahjong?.playing ||
-      this.race?.state === 'results'
+      this.race?.state === 'results' ||
+      this.race?.state === 'pick'
     );
   }
 

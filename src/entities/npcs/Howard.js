@@ -16,6 +16,8 @@
 // 忍 400：不兜風的時候停在力行宿舍大門前的前院（吱吱和女拳大帝的 BW'S 旁邊）。鎖著，要先跟他加好友、再解出他的支線
 //   「LeetCode Two Sum」（src/systems/quests/HowardTwoSum.js：面對面跟他聊天時他把題目傳到你的電腦，Python3、O(N)、不准複製貼上）
 //   才能按 F 騎；騎走之後放著不管，會自己回到前院。
+//   解出來之後也能用手機「呼叫載具」叫彥霖航空直升機空投（src/systems/minigames/Airdrop.js），新中北路障礙賽報名時也能選它
+//   （src/systems/minigames/Race.js）；兩者都透過 lend() 借車（他騎出去兜風時借不到）。
 import * as THREE from 'three';
 import { surfaceAt } from '../../world/Terrain.js';
 import { createCharacter } from '../Character.js';

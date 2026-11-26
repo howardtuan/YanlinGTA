@@ -6,6 +6,9 @@
 node_modules
 dist
 docs
+# Wiki 首頁的宣傳片（wiki/build.mjs）
+!docs/media/promo/yanlin-promo-58s-v2.mp4
+!docs/media/promo/yanlin-promo-58s-v2-poster.jpg
 tests
 tools
 assets/private

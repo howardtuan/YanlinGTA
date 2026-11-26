@@ -171,7 +171,7 @@ function shopCard(s, byId) {
 </article>`;
 }
 
-export function renderWiki({ chars, quests, shops = [] }) {
+export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {}) {
   const byId = new Map(chars.map((c) => [c.id, c]));
   const devs = chars.filter((c) => c.group === 'dev');
   const counts = Object.fromEntries(
@@ -224,13 +224,17 @@ export function renderWiki({ chars, quests, shops = [] }) {
 
 <main id="content">
 <section class="hero" id="top">
-  <figure class="hero-media">
+  ${
+    promo
+      ? `<figure class="hero-media">
     <video class="hero-img" controls playsinline preload="none" poster="media/promo-poster.jpg" aria-label="YanlinGTA 58 秒宣傳片">
       <source src="media/promo.mp4" type="video/mp4">
       <a href="media/promo.mp4">下載宣傳片</a>
     </video>
     <figcaption>▶ 58 秒宣傳片：第一人稱校園、手機 App、電腦操作全收錄</figcaption>
-  </figure>
+  </figure>`
+      : '<img class="hero-img" src="img/cover.jpg" alt="中原順起來 · 資管要贏 票投彥霖 遊戲封面">'
+  }
   <div class="hero-text">
     <p class="kicker">第 34 屆中原大學資管系 系學會會長選舉</p>
     <h1>中原順起來 · 資管要贏 票投彥霖</h1>
@@ -310,20 +314,24 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
   const data = loadWikiData(root);
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'img'), { recursive: true });
-  fs.writeFileSync(path.join(outDir, 'index.html'), renderWiki(data), 'utf-8');
+  // 首頁宣傳片：README 用的同一支（docs/media/promo/），poster 先顯示、按播放才下載。
+  // 找不到影片（例如 Docker 建置時 docs/ 被 .dockerignore 排除）就退回封面圖，不讓建置失敗。
+  const promoDir = path.join(root, 'docs', 'media', 'promo');
+  const promoFiles = [
+    ['yanlin-promo-58s-v2.mp4', 'promo.mp4'],
+    ['yanlin-promo-58s-v2-poster.jpg', 'promo-poster.jpg'],
+  ];
+  const promo = promoFiles.every(([src]) => fs.existsSync(path.join(promoDir, src)));
+  if (!promo) console.warn('wiki: 找不到宣傳片，首頁改用封面圖');
+  fs.writeFileSync(path.join(outDir, 'index.html'), renderWiki(data, { promo }), 'utf-8');
   fs.copyFileSync(path.join(root, 'wiki', 'style.css'), path.join(outDir, 'style.css'));
   fs.copyFileSync(path.join(root, 'wiki', 'wiki.js'), path.join(outDir, 'wiki.js'));
   fs.copyFileSync(path.join(root, 'assets', 'loading.jpg'), path.join(outDir, 'img', 'cover.jpg'));
-  // 首頁宣傳片：README 用的同一支（docs/media/promo/），poster 先顯示、按播放才下載
-  fs.mkdirSync(path.join(outDir, 'media'), { recursive: true });
-  for (const [src, dest] of [
-    ['yanlin-promo-58s-v2.mp4', 'promo.mp4'],
-    ['yanlin-promo-58s-v2-poster.jpg', 'promo-poster.jpg'],
-  ]) {
-    fs.copyFileSync(
-      path.join(root, 'docs', 'media', 'promo', src),
-      path.join(outDir, 'media', dest)
-    );
+  if (promo) {
+    fs.mkdirSync(path.join(outDir, 'media'), { recursive: true });
+    for (const [src, dest] of promoFiles) {
+      fs.copyFileSync(path.join(promoDir, src), path.join(outDir, 'media', dest));
+    }
   }
   // Wiki 自己的網頁圖示與「加入主畫面」圖示（wiki/icons/），manifest 放在 /wiki/ 底下，start_url 開回 Wiki
   for (const f of fs.readdirSync(path.join(root, 'wiki', 'icons'))) {

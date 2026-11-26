@@ -49,6 +49,14 @@ describe('wiki', () => {
       expect(c.avatar, c.id).toBeTruthy();
   });
 
+  it('首頁放宣傳片；找不到影片時退回封面圖', () => {
+    const data = loadWikiData();
+    expect(renderWiki(data)).toContain('media/promo.mp4');
+    const noVideo = renderWiki(data, { promo: false });
+    expect(noVideo).not.toContain('<video');
+    expect(noVideo).toContain('img/cover.jpg');
+  });
+
   it('build 產出完整的靜態網站', () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), 'wiki-'));
     try {

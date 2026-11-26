@@ -1767,7 +1767,7 @@ class Game {
     this._aim();
     hud.setClock(this.clock);
     const markers = [...this.missions.markers, ...this.race.markers()];
-    if (this.interiors.yh && !this.missions.hideHome) {
+    if (this.interiors.yh && this.missions.showHome) {
       const d = this.interiors.yh.door;
       markers.push({
         x: d[0],
@@ -1810,6 +1810,7 @@ class Game {
     if ((this._locT = (this._locT || 0) - dt) <= 0) {
       this._locT = 0.5;
       const zn = !pl.vehicle && this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
+      if (zn?.name === '彥霖以前住的地方') this.missions.discoverHome();
       hud.setLocation(
         dn
           ? `🛸 ${hud.locationName(fw.x, fw.z)}`

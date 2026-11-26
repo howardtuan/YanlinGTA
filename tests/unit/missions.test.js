@@ -33,6 +33,7 @@ function makeMockGame() {
       setObjective: vi.fn(),
       setTimer: vi.fn(),
       bigToast: vi.fn(),
+      toast: vi.fn(),
     },
     audio: {
       fail: vi.fn(),
@@ -124,6 +125,50 @@ describe('Campaign Story & Missions Tests (MissionSystem.js)', () => {
       expect(missions.step?.type).toBe('goto');
       expect(game.dialog.mock.calls.length).toBe(dialogCallsBefore);
       expect(game.hud.bigToast).toHaveBeenCalledWith('繼續任務', '任務一');
+    });
+  });
+  describe('彥霖的家 on the map', () => {
+    it('stays hidden until the player has been there, or the story is past 任務五', () => {
+      const game = makeMockGame();
+      const missions = new Missions(game);
+      expect(missions.showHome).toBe(false);
+      missions.idx = 6;
+      expect(missions.showHome).toBe(true);
+      missions.idx = 2;
+      missions.discoverHome();
+      expect(missions.homeFound).toBe(true);
+      expect(missions.showHome).toBe(true);
+      expect(game.hud.toast).toHaveBeenCalledTimes(1);
+      missions.discoverHome(); // only once
+      expect(game.hud.toast).toHaveBeenCalledTimes(1);
+    });
+
+    it('任務五 skips the search when the place was found before, and says so', () => {
+      const game = makeMockGame();
+      game.detective = { solved: () => false };
+      game.pc = { isOpen: false };
+      const missions = new Missions(game);
+      missions.homeFound = true;
+      missions.idx = 4;
+      missions.next();
+      expect(missions.idx).toBe(5);
+      const lines = game.dialog.mock.calls.flatMap((c) => c[0].map((l) => l[1])).join('\n');
+      expect(lines).toContain('先前已經找到');
+      expect(missions.step?.type).toBe('until');
+      expect(missions.sub).toBe(2); // search section skipped, computer section active
+      expect(missions.hideHome).toBe(false);
+      expect(missions.markers[0]).toMatchObject({ icon: '★', x: -560, z: 218 });
+    });
+
+    it('任務五 hides 🏠 and searches when the place was not found yet', () => {
+      const game = makeMockGame();
+      const missions = new Missions(game);
+      missions.idx = 4;
+      missions.next();
+      expect(missions.sub).toBe(1);
+      expect(missions.hideHome).toBe(true);
+      expect(missions.showHome).toBe(false);
+      expect(missions.markers[0]).toMatchObject({ icon: '?' });
     });
   });
 });

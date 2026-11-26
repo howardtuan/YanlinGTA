@@ -47,6 +47,17 @@
   };
   window.addEventListener('hashchange', reveal);
 
+  // 操作說明的分頁（跟遊戲 src/core/Controls.js 的 bindControls 一樣）
+  for (const root of document.querySelectorAll('.game-ctl')) {
+    const tabs = root.querySelectorAll('.ctl-tab');
+    for (const b of tabs)
+      b.addEventListener('click', () => {
+        for (const t of tabs) t.classList.toggle('on', t === b);
+        for (const p of root.querySelectorAll('.ctl-pane'))
+          p.classList.toggle('hidden', p.dataset.pane !== b.dataset.tab);
+      });
+  }
+
   // 左側目錄：手機版的抽屜開關
   const side = document.getElementById('sidebar');
   const toggle = document.querySelector('.nav-toggle');

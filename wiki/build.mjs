@@ -4,6 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { controlsHTML } from '../src/core/Controls.js';
+import { Prompts } from '../src/ui/Prompts.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -16,6 +18,7 @@ export const GROUPS = [
   { id: 'dev', label: '開發者' },
   { id: 'classmate', label: '同學與室友' },
   { id: 'ai', label: 'AI 夥伴' },
+  { id: 'fiction', label: '虛構角色' },
 ];
 
 const QUEST_TYPES = {
@@ -38,36 +41,35 @@ const safeUrl = (u) => (/^https:\/\/[^\s"<>]+$/i.test(u || '') ? u : '');
 
 export function loadWikiData(root = ROOT) {
   const npcs = readJson(path.join(root, 'data', 'npcs.json')).npcs;
-  const people = readJson(path.join(root, 'wiki', 'people.json')).people;
+  const { people, extras = [] } = readJson(path.join(root, 'wiki', 'people.json'));
   const quests = readJson(path.join(root, 'wiki', 'quests.json')).quests;
   const shops = readJson(path.join(root, 'wiki', 'shops.json')).shops;
   const avatarDir = path.join(root, 'assets', 'gram');
 
   // wiki: false 的角色只在遊戲裡，不放上 Wiki
-  const chars = npcs
-    .filter((n) => people[n.id]?.wiki !== false)
-    .map((n) => {
-      const p = people[n.id] || {};
-      // 頭貼：真人角色用遊戲裡的 Peachgram 頭貼，AI 用 wiki/img/ 裡畫好的全息圓圈
-      const avatarSrc = [
-        path.join(avatarDir, `${n.id}_av.jpg`),
-        path.join(root, 'wiki', 'img', `${n.id}_av.jpg`),
-      ].find((f) => fs.existsSync(f));
-      const avatar = avatarSrc ? `img/${n.id}_av.jpg` : '';
-      return {
-        ...n,
-        relations: p.relations ?? n.relations,
-        group: p.group || 'classmate',
-        social: p.social !== false,
-        ig: safeUrl(p.ig),
-        linkedin: safeUrl(p.linkedin),
-        devRole: p.devRole || '',
-        note: p.note || '',
-        avatar,
-        avatarSrc,
-        quests: quests.filter((q) => q.npcs.includes(n.id)),
-      };
-    });
+  // extras：只在 Wiki 的角色（例如只出現在手機聊天室的 Winter），欄位跟 data/npcs.json 一樣
+  const chars = [...npcs.filter((n) => people[n.id]?.wiki !== false), ...extras].map((n) => {
+    const p = people[n.id] || n;
+    // 頭貼：真人角色用遊戲裡的 Peachgram 頭貼，AI 用 wiki/img/ 裡畫好的全息圓圈
+    const avatarSrc = [
+      path.join(avatarDir, `${n.id}_av.jpg`),
+      path.join(root, 'wiki', 'img', `${n.id}_av.jpg`),
+    ].find((f) => fs.existsSync(f));
+    const avatar = avatarSrc ? `img/${n.id}_av.jpg` : '';
+    return {
+      ...n,
+      relations: p.relations ?? n.relations,
+      group: p.group || 'classmate',
+      social: p.social !== false,
+      ig: safeUrl(p.ig),
+      linkedin: safeUrl(p.linkedin),
+      devRole: p.devRole || '',
+      note: p.note || '',
+      avatar,
+      avatarSrc,
+      quests: quests.filter((q) => q.npcs.includes(n.id)),
+    };
+  });
   const order = GROUPS.map((g) => g.id);
   chars.sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
   return { chars, quests, shops };
@@ -171,143 +173,58 @@ function shopCard(s, byId) {
 </article>`;
 }
 
-// 操作教學：跟遊戲裡「⌨ 操作說明」（src/core/Controls.js）同一套按鍵；改按鍵時兩邊一起改
-const K = (...keys) => keys.map((k) => `<kbd>${esc(k)}</kbd>`).join('');
-const W = (t) => `<span class="ctl-word">${esc(t)}</span>`;
-export const CONTROLS = {
-  kb: [
-    [
-      '步行',
-      [
-        ['移動', K('W', 'A', 'S', 'D')],
-        ['視角', W('滑鼠移動（先點一下畫面鎖定游標）')],
-        ['衝刺', K('Shift')],
-        ['跳躍', K('Space')],
-        ['發傳單拉票', W('滑鼠左鍵')],
-        ['比 ✌', K('G')],
-        ['互動・對話', K('E')],
-        ['📱 拿出手機（附近沒有可互動的東西時）', K('E')],
-        ['S.U.N.D.A.Y 提示', K('J')],
-      ],
-    ],
-    [
-      '駕駛 · 機車與汽車',
-      [
-        ['上車 / 下車', K('F')],
-        ['油門 / 煞車・倒車', `${K('W')} / ${K('S')}`],
-        ['轉向', K('A', 'D')],
-        ['手煞車（甩尾）', K('Space')],
-        ['喇叭', K('H')],
-      ],
-    ],
-    [
-      '手機與打工',
-      [
-        ['訊息：選擇回覆 / 傳送', `${K('↑', '↓')} 或 ${K('1', '2')} / ${K('Tab')}`],
-        ['手機：返回 / 收起', `${K('Esc')} / ${K('E')}`],
-        ['麥當勞：放餐點 / 出餐', `${K('1')}～${K('6')} / ${K('Enter')}`],
-        ['側門門禁：放行 / 擋下', `${K('1')} / ${K('2')}`],
-      ],
-    ],
-    [
-      '介面',
-      [
-        ['對話：下一句', `${K('E')} ${K('Enter')} 或 ${W('點一下滑鼠')}`],
-        ['大地圖', K('M')],
-        ['第一人稱 / 第三人稱', K('V')],
-        ['暫停・設定', K('Esc')],
-      ],
-    ],
-  ],
-  pad: [
-    [
-      '步行',
-      [
-        ['移動 / 視角', `${W('左搖桿')} / ${W('右搖桿')}`],
-        ['衝刺', K('L3')],
-        ['跳躍', K('RB')],
-        ['發傳單拉票', K('X')],
-        ['比 ✌', K('Y')],
-        ['互動・對話・手機', K('A')],
-      ],
-    ],
-    [
-      '駕駛',
-      [
-        ['上車 / 下車', K('B')],
-        ['油門 / 煞車・倒車', `${K('RT')} / ${K('LT')}`],
-        ['轉向', W('左搖桿')],
-        ['手煞車（甩尾） / 喇叭', `${K('RB')} / ${K('LB')}`],
-      ],
-    ],
-    [
-      '介面',
-      [
-        ['大地圖', K('View')],
-        ['暫停・設定', K('Menu')],
-        ['手機：選擇 / 開啟 / 返回', `${W('十字鍵')} / ${K('A')} / ${K('B')}`],
-      ],
-    ],
-  ],
-  touch: [
-    [
-      '步行',
-      [
-        ['移動', W('左下角虛擬搖桿')],
-        ['視角', W('畫面右半邊拖曳')],
-        ['衝刺 / 跳躍', `${W('»')} / ${W('⤒')}`],
-        ['發傳單拉票', W('📄 發傳單')],
-        ['互動・手機', W('E')],
-      ],
-    ],
-    [
-      '駕駛',
-      [
-        ['上車 / 下車', W('F')],
-        ['油門 / 煞車', W('搖桿往上 / 往下')],
-        ['轉向', W('搖桿左右')],
-        ['甩尾 / 喇叭', `${W('⤒')} / ${W('📯')}`],
-      ],
-    ],
-    [
-      '介面',
-      [
-        ['對話：下一句', W('點一下畫面')],
-        ['地圖 / 設定', `${W('🗺')} / ${W('⚙')}`],
-        ['地圖：標點導航', W('點一下地圖')],
-      ],
-    ],
-  ],
-};
-const ctlTables = (groups) =>
-  `<div class="ctl-grid">${groups
-    .map(
-      ([title, rows]) =>
-        `<table class="ctl-table"><caption>${esc(title)}</caption><tbody>${rows
-          .map(([what, how]) => `<tr><th scope="row">${esc(what)}</th><td>${how}</td></tr>`)
-          .join('')}</tbody></table>`
-    )
-    .join('')}</div>`;
+// 操作教學：直接用遊戲裡「⌨ 操作說明」的同一份 HTML（src/core/Controls.js）和同一份樣式（src/styles/style.css），
+// 遊戲改按鍵或改圖，Wiki 重建就跟著變。手把用 Xbox 按鍵標示。
+export function gameControlsHtml() {
+  const prompts = Object.assign(Object.create(Prompts.prototype), { style: 'xbox', pad: false });
+  return controlsHTML({ prompts, input: { touch: false } });
+}
+// 從遊戲的 style.css 挑出操作說明用到的規則，全部加上 .game-ctl 前綴，只作用在 Wiki 的那一塊深色面板
+const CTL_SEL =
+  /^(kbd(\.pb[\w.-]*)?|\.ctl(-[\w-]+)?(\.[\w-]+)*( [a-z]+)?|\.ctrl-[\w-]+( [a-z]+)?|\.kc(-[\w-]+)?(\.[\w-]+)*( [a-z]+)?|\.kb-[\w-]+|\.lg(\.c-[mavu])?(::before)?|\.ms(-wrap|-cap)?|\.mg|\.pad-diagram|\.touch-diagram|\.td-[\w-]+(\.[\w-]+)?( [a-z]+)?|\.c-[mavu])$/;
+export function gameControlsCss(css) {
+  css = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const out = [];
+  let i = 0;
+  while (i < css.length) {
+    const open = css.indexOf('{', i);
+    if (open < 0) break;
+    const sel = css.slice(i, open).trim();
+    let depth = 1;
+    let j = open + 1;
+    while (j < css.length && depth) {
+      if (css[j] === '{') depth++;
+      else if (css[j] === '}') depth--;
+      j++;
+    }
+    const body = css.slice(open + 1, j - 1).trim();
+    i = j;
+    if (sel.startsWith('@')) continue; // 遊戲畫面專用的 @media 調整不需要：Wiki 面板自己處理寬度
+    const parts = sel.split(',').map((x) => x.trim());
+    if (parts.every((x) => CTL_SEL.test(x)))
+      out.push(`${parts.map((x) => `.game-ctl ${x}`).join(',\n')} {\n  ${body}\n}`);
+  }
+  return out.join('\n');
+}
+
 const shot = (src, alt, caption) =>
   `<figure class="shot"><img src="${src}" alt="${esc(alt)}" loading="lazy"><figcaption>${caption}</figcaption></figure>`;
 
-function controlsSection() {
+function controlsSection(ctlHtml) {
   return `
 <section id="controls" class="block">
   <h2>操作教學</h2>
-  <p class="lead">電腦（鍵盤滑鼠或手把）和手機都能玩，免安裝、打開網頁就開始。遊戲裡隨時可以在標題畫面或暫停選單按「⌨ 操作說明」再看一次。</p>
-  ${shot('shots/desktop-title.jpg', '遊戲標題畫面', '標題畫面：<b>▶ 開始遊戲</b>、操作說明、設定 / 音樂、效能測試，還有這個 <b>📖 彥霖GTA WIKI</b>。')}
-  <h3 id="controls-kb">電腦：鍵盤滑鼠</h3>
+  <p class="lead">電腦（鍵盤滑鼠或手把）和手機都能玩，免安裝、打開網頁就開始。下面這張按鍵圖跟遊戲裡「⌨ 操作說明」一模一樣，遊戲中也可以在標題畫面或暫停選單隨時打開。</p>
+  <h3 id="controls-map">按鍵配置</h3>
+  <p>切換分頁看<b>鍵盤滑鼠</b>、<b>手把</b>（以 Xbox 按鍵標示，也支援 PlayStation、Switch Pro）和<b>觸控</b>的操作。</p>
+  <div class="game-ctl">${ctlHtml}</div>
+  <h3 id="controls-desktop">電腦版畫面</h3>
   <p>先點一下畫面鎖定滑鼠游標，就能用滑鼠轉動視角；按 <kbd>Esc</kbd> 放開游標並暫停。</p>
-  ${shot('shots/desktop-play.jpg', '電腦版遊戲畫面', '電腦版畫面：左上角是目前可以用的按鍵提示，正上方是目前任務，右上角是時間、得票、金色選票和錢包，左下角是小地圖，下方是對話框。')}
-  ${ctlTables(CONTROLS.kb)}
-  <h3 id="controls-pad">手把</h3>
-  <p>支援 Xbox、PlayStation、Switch Pro 手把：插上或藍牙連線後按任一鍵，畫面上的按鍵提示就會換成手把按鈕；碰一下鍵盤或滑鼠就換回來。下表以 Xbox 按鍵標示。</p>
-  ${ctlTables(CONTROLS.pad)}
-  <h3 id="controls-touch">手機觸控</h3>
+  ${shot('shots/desktop-title.jpg', '遊戲標題畫面', '標題畫面：<b>▶ 開始遊戲</b>、操作說明、設定 / 音樂、效能測試，還有 <b>📖 彥霖GTA WIKI</b>。')}
+  ${shot('shots/desktop-play.jpg', '電腦版遊戲畫面', '電腦版遊戲畫面：左上角是目前可以用的按鍵提示，正上方是目前任務，右上角是時間、得票、金色選票和錢包，左下角是小地圖，下方是對話框。')}
+  <h3 id="controls-mobile">手機版畫面</h3>
   <p>建議把手機<b>橫放</b>。左下角是虛擬搖桿，往上推就是騎車／開車的油門；右下角是動作按鈕。</p>
   ${shot('shots/mobile-play.jpg', '手機版遊戲畫面', '手機版畫面（橫放）：左下角虛擬搖桿，右下角 F 上下車、E 互動、📄 發傳單、⤒ 跳／甩尾、» 衝刺、🗺 地圖、📯 喇叭、⚙ 設定。')}
-  ${ctlTables(CONTROLS.touch)}
 </section>`;
 }
 
@@ -317,9 +234,9 @@ export const NAV = [
     'controls',
     '操作教學',
     [
-      ['controls-kb', '鍵盤滑鼠'],
-      ['controls-pad', '手把'],
-      ['controls-touch', '手機觸控'],
+      ['controls-map', '按鍵配置'],
+      ['controls-desktop', '電腦版畫面'],
+      ['controls-mobile', '手機版畫面'],
     ],
   ],
   ['characters', '角色介紹'],
@@ -344,7 +261,7 @@ const sidebar = () => `<aside class="sidebar" id="sidebar">
   </nav>
 </aside>`;
 
-export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {}) {
+export function renderWiki({ chars, quests, shops = [] }, { promo = true, controls = '' } = {}) {
   const byId = new Map(chars.map((c) => [c.id, c]));
   const devs = chars.filter((c) => c.group === 'dev');
   const counts = Object.fromEntries(
@@ -373,7 +290,7 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>YanlinGTA Wiki · 彥霖 Great Times Adventure · 中原順起來 資管要贏 票投彥霖</title>
-<meta name="description" content="YanlinGTA（Yanlin Great Times Adventure）遊戲百科：角色介紹、主線與支線任務攻略、開發團隊。所有角色皆由真人改編。">
+<meta name="description" content="YanlinGTA（Yanlin Great Times Adventure）遊戲百科：角色介紹、主線與支線任務攻略、開發團隊。同學、室友與開發者皆由真人改編。">
 <meta property="og:title" content="YanlinGTA Wiki">
 <meta property="og:description" content="中原大學 3D 開放世界競選遊戲的角色與任務百科">
 <meta property="og:image" content="img/cover.jpg">
@@ -384,6 +301,7 @@ export function renderWiki({ chars, quests, shops = [] }, { promo = true } = {})
 <meta name="apple-mobile-web-app-title" content="彥霖 Wiki">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="game-controls.css">
 </head>
 <body>
 <a class="skip" href="#content">跳到內容</a>
@@ -434,11 +352,11 @@ ${sidebar()}
   </div>
 </section>
 
-${controlsSection()}
+${controlsSection(controls)}
 
 <section id="characters" class="block">
   <h2>角色介紹</h2>
-  <p class="lead">遊戲裡的角色都是以真實人物為原型改編，點社群連結可以認識本人。標示 🛠 的是這個遊戲的開發者。</p>
+  <p class="lead">遊戲裡的同學、室友和開發者都是以真實人物為原型改編，點社群連結可以認識本人。標示 🛠 的是這個遊戲的開發者。</p>
   <div class="toolbar">
     <div class="filters" role="group" aria-label="依分類篩選">${filterBtns}</div>
     <input class="search" type="search" placeholder="搜尋角色、科系、興趣…" aria-label="搜尋角色">
@@ -480,7 +398,7 @@ ${questSection('case', 'SQL 偵探案件', '在電腦終端機輸入 case 開啟
 <div class="scrim" hidden></div>
 
 <footer class="foot">
-  <p>YanlinGTA Wiki · 角色皆由真人改編。</p>
+  <p>YanlinGTA Wiki · 除了虛構角色，角色皆由真人改編。</p>
   <p><a href="${GAME_URL}">yanlin-gta.com</a></p>
 </footer>
 <script src="wiki.js" defer></script>
@@ -502,7 +420,16 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
   ];
   const promo = promoFiles.every(([src]) => fs.existsSync(path.join(promoDir, src)));
   if (!promo) console.warn('wiki: 找不到宣傳片，首頁改用封面圖');
-  fs.writeFileSync(path.join(outDir, 'index.html'), renderWiki(data, { promo }), 'utf-8');
+  fs.writeFileSync(
+    path.join(outDir, 'index.html'),
+    renderWiki(data, { promo, controls: gameControlsHtml() }),
+    'utf-8'
+  );
+  fs.writeFileSync(
+    path.join(outDir, 'game-controls.css'),
+    gameControlsCss(fs.readFileSync(path.join(root, 'src', 'styles', 'style.css'), 'utf-8')),
+    'utf-8'
+  );
   fs.copyFileSync(path.join(root, 'wiki', 'style.css'), path.join(outDir, 'style.css'));
   fs.copyFileSync(path.join(root, 'wiki', 'wiki.js'), path.join(outDir, 'wiki.js'));
   fs.copyFileSync(path.join(root, 'assets', 'loading.jpg'), path.join(outDir, 'img', 'cover.jpg'));

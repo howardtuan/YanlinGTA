@@ -269,6 +269,10 @@ const excerpt = (n) => {
   return t.length > 48 ? `${t.slice(0, 48).join('')}…` : t.join('');
 };
 
+// 「分享文章」按鈕的 icon（三個點連線的分享符號）
+const SHARE_ICON =
+  '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="12" cy="3.5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12.5" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.8 7 10.2 4.5M5.8 9l4.4 2.5" stroke="currentColor" stroke-width="1.5"/></svg>';
+
 // 每篇文章自己一頁（/wiki/news/<id>/），分享時連結預覽才會是這篇的照片與標題
 export const postSlug = (n) => `news/${n.id}`;
 
@@ -286,7 +290,7 @@ function postCard(n, base, { full = false } = {}) {
   ${
     full
       ? ''
-      : `<p class="post-actions"><a href="${link(base, postSlug(n))}">閱讀全文・分享 →</a><button class="copy-link" type="button" data-url="${esc(url)}">🔗 複製文章連結</button></p>`
+      : `<p class="post-actions"><a href="${link(base, postSlug(n))}">閱讀全文 →</a><button class="share-post" type="button" data-url="${esc(url)}" data-title="${esc(n.title)}">${SHARE_ICON}<span>分享文章</span></button></p>`
   }
 </article>`;
 }

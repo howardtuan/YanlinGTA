@@ -21,6 +21,7 @@
 //  - 知行領航館（OSM 沒有，正射量約 63×26 m）：3F＋B1 基座，灰牆嵌寶藍／淺藍盒狀窗框，西北角藍框玻璃盒，屋頂太陽能板（2019 使用者環景）；
 //    中間偏東的方形天井、西南角 1F 附屬棟照正射 2024。
 //  - 忍耐樓（f694 改）：兩個白色平頂小盒（正射 2024，G 區調查第 8 節）。
+//  - 仁愛樓、和平樓（synthetic 新增）：舊教職員宿舍區樹林裡僅存的兩棟（Google 衛星 2026 標名、正射 2024 量輪廓）。
 // 沒有影像的面照同棟看得到的面推，入口、招牌等特殊構件不編。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -179,6 +180,38 @@ const ADD = [
     floors: 3,
     pts: rect(-109.4, -264.9, -97.3, -257.0),
     look: null,
+  },
+  // 舊教職員宿舍區（Google 衛星 2026 仍標「仁愛樓」「和平樓」，其餘是樹林）
+  // 仁愛樓：正射 2024 米色平頂（上面有雜物、兩個深色開口）約 15.6×13.9 m；2017 官方街景遠看是 4F 灰白公寓、每層米色陽台帶
+  {
+    id: 'zh-renai',
+    name: '仁愛樓',
+    kind: 'dorm',
+    h: 13.6,
+    floors: 4,
+    pts: rect(-116.9, -287.0, -101.3, -273.1),
+    look: {
+      wall: { base: 'smooth', colour: '#d6d5cf' },
+      windows: { type: 'punched', bay: 3.2, accent: '#cfcdc6', glass: '#4f5a60' },
+      bands: [{ colour: '#cdbb98', h: 0.3, depth: 0.25 }],
+      parapet: { h: 0.9, colour: '#c9c7c0' },
+      roof: { colour: '#c8bfae', ac: false },
+    },
+  },
+  // 和平樓：衛星 2026 灰色平頂、東西兩端白色女兒牆，約 14×7 m；沒有側面影像，層數照一般平房推 2F
+  {
+    id: 'zh-heping',
+    name: '和平樓',
+    kind: 'dorm',
+    h: 7.0,
+    floors: 2,
+    pts: rect(-150.3, -262.7, -136.3, -255.7),
+    look: {
+      wall: { base: 'smooth', colour: '#d4d2cc' },
+      windows: { type: 'punched', bay: 3.0, accent: '#cfcdc6', glass: '#4f5a60' },
+      parapet: { h: 0.6, colour: '#e6e6e2' },
+      roof: { colour: '#6f7174', ac: false },
+    },
   },
 ];
 const BM4_LOOK = () => ({

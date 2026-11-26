@@ -355,7 +355,7 @@ export class Race {
     }
     if (!this.guide) {
       const C = this.C,
-        HW = 0.45, // half width (m)
+        HW = 0.9, // half width (m)
         REP = 3.5; // one chevron every REP metres
       const cv = document.createElement('canvas');
       cv.width = 64;
@@ -669,6 +669,7 @@ export class Race {
       time: 0,
       off: 0,
       wrong: 0,
+      vel: 0,
       notOn: 0,
     };
     this.t = 0;
@@ -846,18 +847,22 @@ export class Race {
         P.prog += dlt;
         P.idx = pr.i;
         P.off = 0;
+        // how fast you are actually moving along the course (smoothed): only going backwards counts as 逆向
+        if (dt > 0) P.vel += (dlt / dt - P.vel) * Math.min(1, dt * 3);
       } else {
         P.off += dt;
         warn = '⚠ 偏離賽道！回到粉紅線上';
       }
-      // riding the wrong way
+      // riding the wrong way: facing clearly backwards (more than ~120° off the course) AND losing progress for a while,
+      // so weaving across the road, swerving round a cone or a slide in a corner never trips it
       const v = pl.vehicle;
       if (v && Math.abs(v.speed) > 4) {
         const a = this._at(P.idx * DS);
         const dot = Math.sin(v.heading) * a.tx + Math.cos(v.heading) * a.tz;
-        P.wrong = dot * Math.sign(v.speed) < -0.3 ? P.wrong + dt : 0;
+        const back = dot * Math.sign(v.speed) < -0.5 && P.vel < -2;
+        P.wrong = back ? P.wrong + dt : Math.max(0, P.wrong - dt * 2);
       } else P.wrong = Math.max(0, P.wrong - dt);
-      if (P.wrong > 1.2) warn = '⛔ 逆向了！迴轉！';
+      if (P.wrong > 1.5) warn = '⛔ 逆向了！迴轉！';
       if (v !== my) {
         P.notOn += dt;
         warn = `🛵 騎回你的 JET SL！（${Math.max(0, Math.ceil(20 - P.notOn))} 秒內）`;

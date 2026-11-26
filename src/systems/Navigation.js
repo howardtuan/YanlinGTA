@@ -214,7 +214,23 @@ export class Nav {
     }
     if (best > (drive ? 22 : 16) || drive !== this.mode) this._route();
     else {
-      this.path = [[p.x, p.z], ...P.slice(bi + 1)];
+      // the corner you are heading for: skip it once you are next to it, or already past it along the next leg
+      // (otherwise a small sideways step snaps the line back to a corner behind you and the arrows point backwards)
+      let rest = P.slice(bi + 1);
+      while (rest.length > 1) {
+        const [n, m] = rest,
+          dx = m[0] - n[0],
+          dz = m[1] - n[1],
+          L = Math.hypot(dx, dz) || 1,
+          along = ((p.x - n[0]) * dx + (p.z - n[1]) * dz) / L;
+        if (
+          Math.hypot(p.x - n[0], p.z - n[1]) < (drive ? 7 : 3.5) ||
+          (along > 0 && segDist(p.x, p.z, n, m) < (drive ? 10 : 6))
+        )
+          rest = rest.slice(1);
+        else break;
+      }
+      this.path = [[p.x, p.z], ...rest];
     }
     hud.navRoute = this.path;
     hud.navTarget = this.target;
@@ -250,7 +266,7 @@ export class Nav {
     const pos = [],
       uv = [],
       idx = [],
-      hw = this.g.player.vehicle ? 0.8 : 0.45;
+      hw = this.g.player.vehicle ? 1.4 : 0.8; // half width: wide enough to read from the saddle
     pts.forEach(([x, z, d], i) => {
       const q = pts[Math.min(i + 1, pts.length - 1)],
         o = pts[Math.max(i - 1, 0)];

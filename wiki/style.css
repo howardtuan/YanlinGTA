@@ -20,8 +20,25 @@
   --shadow: 0 1px 2px rgb(40 20 30 / 6%), 0 6px 18px rgb(40 20 30 / 6%);
   color-scheme: light dark;
 }
+/* 深色：右上角選「暗色」（data-theme="dark"），或選「自動」而系統是深色模式 */
+:root[data-theme='dark'] {
+  --pink: #ff8fb1;
+  --pink-soft: #3a2530;
+  --bg: #141115;
+  --card: #1e1a1f;
+  --ink: #f3eef1;
+  --muted: #a99ea6;
+  --line: #2f2930;
+  --main: #7aa7ff;
+  --side: #5fd3a3;
+  --case: #f0a35e;
+  --dev: #b79bff;
+  --shop: #d9534a;
+  --shadow: none;
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --pink: #ff8fb1;
     --pink-soft: #3a2530;
     --bg: #141115;
@@ -35,7 +52,11 @@
     --dev: #b79bff;
     --shop: #d9534a;
     --shadow: none;
+    color-scheme: dark;
   }
+}
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 * {
@@ -294,11 +315,11 @@ kbd {
   text-decoration: none;
   color: #fff;
 }
-.soc.ig {
-  background: linear-gradient(45deg, #f09433, #dc2743 50%, #bc1888);
-}
 .soc.li {
   background: #0a66c2;
+}
+.soc.gh {
+  background: #24292f;
 }
 .soc.todo {
   background: none;
@@ -963,5 +984,63 @@ dd {
   }
   .pager-next {
     grid-column: 1;
+  }
+}
+
+/* 右上角的自動／亮色／暗色切換 */
+.theme-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.theme-switch button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.theme-switch button:hover {
+  color: var(--ink);
+}
+.theme-switch button[aria-pressed='true'] {
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
+}
+.theme-switch svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 窄螢幕（小手機）：表頭一排放得下 logo、目錄、顏色切換，不會擠到換行或左右捲動 */
+.nav-toggle,
+.brand {
+  white-space: nowrap;
+  flex: none;
+}
+.brand-name {
+  font-weight: inherit;
+}
+.theme-switch {
+  flex: none;
+}
+@media (max-width: 640px) {
+  .top {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+}
+@media (max-width: 400px) {
+  .brand-name {
+    display: none;
   }
 }

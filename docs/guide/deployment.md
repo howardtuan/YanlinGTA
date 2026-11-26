@@ -61,17 +61,18 @@ sequenceDiagram
 舊網址 `https://howardtuan.github.io/YanlinGTA/` 會由 GitHub 自動轉址到自訂網域。
 
 ### 遊戲百科 Wiki：`yanlin-gta.com/wiki/`
-Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/build.mjs` 讀 `data/npcs.json`（人物設定）＋ `wiki/people.json`（分類、開發者、IG／LinkedIn 連結）＋ `wiki/quests.json`（任務）＋ `wiki/shops.json`（合作店家）產出到 `dist/wiki/`。
+Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/build.mjs` 讀 `data/npcs.json`（人物設定）＋ `wiki/people.json`（分類、開發者、LinkedIn／GitHub 連結）＋ `wiki/quests.json`（任務）＋ `wiki/shops.json`（合作店家）產出到 `dist/wiki/`。
 
 - **部署**：`npm run build` 時 `vite.config.js` 會自動產生 `dist/wiki/`，跟遊戲一起由 GitHub Pages 發布，不需要額外設定；`check:dist` 會確認 `wiki/index.html` 有產出。
 - **本機預覽**：`npm run build` 後 `npm run preview`，開 `http://localhost:4173/wiki/`；只改 Wiki 時可以 `npm run wiki:build` 單獨重產 `dist/wiki/`。Wiki 的「開始玩」用相對路徑 `../` 回到遊戲。
 - **遊戲裡的入口**：標題畫面的「📖 彥霖GTA WIKI」按鈕（取代原本的「關於彥霖」，`src/core/MenuManager.js` 的 `btnWiki`）開新分頁到 `wiki/`。YanlinGTA 的 GTA = **Great Times Adventure**，Wiki 頁首與概覽都有寫。
+- **背景顏色**：表頭右上角「自動／亮色／暗色」切換（`wiki/build.mjs` 的 `THEME_SWITCH`、`wiki.js`），選擇存在 `localStorage` 的 `yanlinWiki.theme`，換頁也記得；`<head>` 的小程式在畫面出來前就套用，不會先閃一下別的顏色。自動＝跟著系統的深淺色。
 - **快取**：`style.css`、`game-controls.css`、`wiki.js` 的網址會加上內容雜湊 `?v=…`（`buildWiki`），更新後瀏覽器一定拿到新版，不會新 HTML 配舊 JS。
 - **版面**：技術文件式多頁網站（`wiki/build.mjs` 的 `PAGES`），每個主題一頁：`/wiki/`（介紹）、`controls/`、`characters/`、`main-quests/`、`side-quests/`、`cases/`、`shops/`、`team/`。三欄整塊置中：左邊分組編號的目錄、中間麵包屑＋標題＋內容＋上一頁／下一頁、右邊「本頁內容」（捲動時標出目前段落；1200px 以下收起，900px 以下左邊目錄收成「☰ 目錄」抽屜）。舊的單頁網址（`/wiki/#characters`、`#npc-zz`、`#q-m1`…）會由 `wiki.js` 轉到對應的頁面。「操作教學」的按鍵圖直接用遊戲「⌨ 操作說明」的同一份 HTML（`src/core/Controls.js` 的 `controlsHTML`，手把以 Xbox 標示）和同一份樣式（build 時從 `src/styles/style.css` 抽出相關規則、加上 `.game-ctl` 前綴，輸出成 `dist/wiki/game-controls.css`），遊戲改按鍵 Wiki 重建就跟著變。截圖在 `wiki/shots/`，改了 HUD／觸控按鈕／標題畫面後 `npm run build && node tools/wiki_shots.mjs` 重截。
 - **虛構角色**：`wiki/people.json` 的 `group: "fiction"`（Tzuyu），只出現在手機聊天室、沒有遊戲 NPC 的 Winter 放在 `extras`（欄位跟 `data/npcs.json` 一樣）；虛構角色不放社群連結，卡片只標「虛構角色」。
 - **首頁宣傳片**：封面放 README 那支 58 秒宣傳片（`docs/media/promo/yanlin-promo-58s-v2.mp4`，約 47 MB），build 時複製成 `dist/wiki/media/promo.mp4`；`preload="none"`，先顯示 poster、按播放才下載。換影片時改 `wiki/build.mjs` 的檔名。
 - **網頁圖示與加入主畫面**：Wiki 有自己的圖示（`wiki/icons/`：favicon、192／512、iPhone 用的 apple-touch-icon）與 `wiki/manifest.webmanifest`（`start_url` 為 `./`，加到主畫面後開回 `/wiki/`）；build 時複製到 `dist/wiki/`。
-- **補社群連結**：改 `wiki/people.json` 的 `ig`／`linkedin`（完整 `https://` 網址，留空顯示「待補」）；AI 設 `social: false` 不顯示。
+- **補社群連結**：改 `wiki/people.json` 的 `linkedin`／`github`（完整 `https://` 網址，留空顯示「待補」）；AI 設 `social: false` 不顯示。
 - **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前 Tzuyu、勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
 - **合作店家**：加在 `wiki/shops.json`（`url` 只收 `https://`，留空不顯示連結）。
 - **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/unit/wiki.test.js` 會擋下 CI。

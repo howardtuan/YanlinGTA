@@ -95,7 +95,7 @@ import { nmAdd, nmFootprints } from '../buildings/NightMarketFill.js';
 import { xmasTreeHide, buildChristmasTree } from '../Festive.js';
 import { bellPlatformHide, buildBellPlatform } from '../buildings/BellPlatform.js';
 import { buildNiuchouDeck } from '../buildings/NiuchouDeck.js';
-import { yuantangIslandTrees } from '../buildings/YuantangIsland.js';
+import { yuantangIslandTrees, buildYuantangIslet } from '../buildings/YuantangIsland.js';
 import { RC_ST, rcFix, rcLook, buildRoadClearance } from '../buildings/RoadClearance.js';
 
 export const ZONES = [
@@ -398,6 +398,7 @@ export const ZONES = [
     // 園塘南側林木島上的樹（src/world/buildings/YuantangIsland.js；島本身是 tools/water.json 水面輪廓挖掉的那塊）
     name: '園塘林木島',
     trees: yuantangIslandTrees,
+    build: buildYuantangIslet,
   },
   {
     // OSM 建物、填充樓蓋到車道上的修正（src/world/buildings/RoadClearance.js；tools/street_corner_check.mjs 檢查）。放最後，前面的亂數不受影響

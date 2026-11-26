@@ -642,7 +642,7 @@ export const FRIEND_CONTACTS = {
             return {
               r: ['（已讀不回）'],
               then: () =>
-                g.hud.toast('😴 理查在 280 寢的 3 號床睡覺，早上 10 點會起來', 'good', 2800),
+                g.hud.toast('😴 理查在 280 寢的 2 號床睡覺，早上 10 點會起來', 'good', 2800),
             };
           const r = {
             code: ['在 280 寫地圖 💻', '定位傳你，右手邊最裡面'],

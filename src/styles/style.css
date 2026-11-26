@@ -8538,6 +8538,18 @@ body.mahjong #dialog {
   white-space: nowrap;
   pointer-events: none;
 }
+#mjUI .mj-spec-tag.edge {
+  background: rgba(16, 20, 26, 0.86);
+  border-style: dashed;
+}
+#mjUI .mj-spec-tag.walk {
+  animation: mj-spec-walk 0.42s ease-in-out infinite alternate;
+}
+@keyframes mj-spec-walk {
+  to {
+    margin-top: -3px;
+  }
+}
 #mjUI .mj-bubble {
   position: absolute;
   transform: translate(-50%, -100%);

@@ -45,6 +45,18 @@ export function specSpot(deg) {
   const bed = Math.abs(x) > 0.75 && z > -1.2 && z < 0.8;
   return { x, z, y: bed ? 0 : -0.1, mode: bed ? 'sit' : 'stand', headY: bed ? 1.18 : 1.48 };
 }
+// 畫面外的觀戰者名牌貼在畫面邊緣哪裡（% 座標）：rel 是他相對鏡頭的角度（0 = 鏡頭背後 → 下緣、90 → 右緣、
+// 180 → 上緣、270 → 左緣）。上下留給頂端資訊列和手牌
+export function specEdge(rel) {
+  const a = (rel * Math.PI) / 180,
+    dx = Math.sin(a),
+    dy = Math.cos(a);
+  const HX = 42,
+    HY = 30,
+    CY = 44; // 半寬、半高、中心（x 4%～96%、y 14%～74%）
+  const t = Math.min(HX / Math.max(1e-6, Math.abs(dx)), HY / Math.max(1e-6, Math.abs(dy)));
+  return [50 + dx * t, CY + dy * t];
+}
 // 舊版房主沒送角度時：站在對面一排（跟原本一樣）
 const SPEC_DEFAULT = [200, 160, 235, 125, 180, 250, 110, 270];
 const SPEC_MAX = 8;
@@ -608,6 +620,8 @@ export class MahjongScene {
     this.cam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.05, 30);
     this.geos = [];
     for (let k = 0; k < 42; k++) this.geos[k] = tileGeometry(k);
+    // 兩面都是牌背：多人客端看不到牌面的假牌（別家暗手牌、牌牆）用這個，觀戰者走到別人背後也不會看到亂填的牌面
+    this.blankGeo = tileGeometry(BACK_CELL);
     this.tiles = [];
     this.pool = [];
     for (let k = 0; k < 42; k++) {
@@ -1100,6 +1114,7 @@ export class MahjongScene {
       m.userData.zone = null;
       m.userData.blind = false;
       if (m.userData.k0 != null) this._setKind(m, m.userData.k0);
+      m.geometry = this.geos[m.userData.k];
     }
   }
   // 最後打出的那張還在海底嗎？（被吃碰槓拿走後 e.last 不會清掉，看那家海底的張數有沒有變少）回傳打的人或 null
@@ -1276,6 +1291,7 @@ export class MahjongScene {
       if (!m) return;
       if (!w.blind && m.userData.k !== w.k) this._setKind(m, w.k);
       m.userData.blind = w.blind;
+      m.geometry = w.blind ? this.blankGeo : this.geos[m.userData.k];
       m.userData.to = w.at;
       m.userData.zone = w.zone;
       if (snap || m.userData.fresh) {
@@ -1703,6 +1719,13 @@ export class MahjongScene {
     const fx = focus ? -focus.x * 0.35 : 0;
     const fz = focus ? -focus.z * 0.35 : 0;
     const v = new THREE.Vector3();
+    const camYaw = this._orbiting() ? (this._camYaw ?? 0) : 0;
+    const wrapR = tagWrap?.firstElementChild?.offsetParent?.getBoundingClientRect() || null; // 名牌 % 座標的基準
+    const seatRs = wrapR
+      ? (this.tagEls || [])
+          .filter((t) => t.offsetParent && t.style.display !== 'none')
+          .map((t) => t.getBoundingClientRect())
+      : [];
 
     for (const a of this._specActors.values()) {
       // 慢慢走到他現在的角度（房主每 0.1 秒轉一次位置，中間補起來）
@@ -1727,13 +1750,31 @@ export class MahjongScene {
       a.ch.root.visible = true;
 
       if (a.tagEl) {
+        // 人在畫面裡：名牌浮在頭上。牌桌鏡頭只框住桌面，桌邊的人多半在畫面外——名牌就貼在畫面邊緣、
+        // 對著他在桌邊的方向（下方 = 你背後、右邊 = 下家那側…），他繞桌走時名牌沿著邊緣滑過去
         v.set(sp.x, sp.headY, sp.z).project(this.cam);
-        const behind = v.z > 1;
-        const px = Math.max(8, Math.min(92, ((v.x + 1) / 2) * 100));
-        const py = Math.max(11, Math.min(82, ((1 - v.y) / 2) * 100));
+        let px = ((v.x + 1) / 2) * 100,
+          py = ((1 - v.y) / 2) * 100;
+        const inView = v.z < 1 && px > 6 && px < 94 && py > 12 && py < 80;
+        if (!inView) [px, py] = specEdge(a.phi - camYaw);
         a.tagEl.style.left = `${px}%`;
         a.tagEl.style.top = `${py}%`;
-        a.tagEl.style.visibility = behind ? 'hidden' : '';
+        a.tagEl.style.visibility = '';
+        // 貼邊時名牌整個留在畫面內（左緣靠左對齊、右緣靠右對齊）
+        a.tagEl.style.transform = inView ? '' : `translate(-${px.toFixed(1)}%, -50%)`;
+        // 貼邊的名牌壓到座位名字（左右兩側）時往下挪開
+        if (!inView && wrapR?.height) {
+          const m = a.tagEl.getBoundingClientRect();
+          for (const r of seatRs)
+            if (m.right > r.left && m.left < r.right && m.bottom > r.top && m.top < r.bottom) {
+              py += ((r.bottom - m.top + 4) / wrapR.height) * 100;
+              a.tagEl.style.top = `${py}%`;
+              break;
+            }
+        }
+        a.tagEl.classList.toggle('edge', !inView);
+        a.tagEl.classList.toggle('walk', moving);
+        a.tagPos = { px, py };
         const label = `👀 ${a.name}${a.wantSeat && a.queuePos ? ` #${a.queuePos}` : ''}`;
         if (a.tagEl.textContent !== label) a.tagEl.textContent = label;
       }
@@ -1790,9 +1831,13 @@ export class MahjongScene {
         this._bubbles.splice(i, 1);
         continue;
       }
-      const p = this._anchorFor(b.fromId, b.seat).project(this.cam);
-      const px = Math.max(10, Math.min(90, ((p.x + 1) / 2) * 100));
-      const py = Math.max(13, Math.min(82, ((1 - p.y) / 2) * 100));
+      const tp = this._specActors?.get(b.fromId)?.tagPos;
+      const p = tp ? null : this._anchorFor(b.fromId, b.seat).project(this.cam);
+      // 觀戰者的話跟著他的名牌（名牌可能貼在畫面邊緣），泡泡在名牌上面一點
+      const px = tp
+        ? Math.max(10, Math.min(90, tp.px))
+        : Math.max(10, Math.min(90, ((p.x + 1) / 2) * 100));
+      const py = tp ? Math.max(13, tp.py - 4) : Math.max(13, Math.min(82, ((1 - p.y) / 2) * 100));
       const lift = (age / b.ttl) * 22;
       b.el.style.left = `${px}%`;
       b.el.style.top = `calc(${py}% - ${lift.toFixed(1)}px)`;

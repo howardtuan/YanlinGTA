@@ -45,11 +45,14 @@ describe('wiki', () => {
 
   it('社群連結只接受 https 網址', () => {
     for (const [id, p] of Object.entries(people)) {
-      for (const k of ['ig', 'linkedin']) {
+      for (const k of ['linkedin', 'github']) {
         if (p[k]) expect(p[k], `${id}.${k}`).toMatch(/^https:\/\//);
       }
     }
     for (const s of shops) if (s.url) expect(s.url, s.id).toMatch(/^https:\/\//);
+    // 只放 LinkedIn 與 GitHub，不放 Instagram
+    for (const [id, p] of Object.entries(people)) expect(p, id).not.toHaveProperty('ig');
+    expect(renderWiki(loadWikiData())).not.toContain('Instagram');
   });
 
   it('頁面列出角色、任務與合作店家，開發者有標示', () => {

@@ -6,6 +6,7 @@ import {
   discardScale,
   fitCamera,
   MahjongScene,
+  specEdge,
   specSpot,
   zoneRank,
 } from '../../src/systems/mahjong/MahjongScene.js';
@@ -130,6 +131,33 @@ describe('specSpot：觀戰者繞桌站的位置', () => {
   });
 });
 
+describe('specEdge：畫面外的觀戰者名牌貼在畫面邊緣、對著他的方向', () => {
+  it('背後在下緣、下家那側在右緣、對家在上緣、上家那側在左緣', () => {
+    const [bx, by] = specEdge(0),
+      [rx, ry] = specEdge(90),
+      [tx, ty] = specEdge(180),
+      [lx, ly] = specEdge(270);
+    expect(bx).toBeCloseTo(50);
+    expect(tx).toBeCloseTo(50);
+    expect(by).toBeGreaterThan(ty);
+    expect(rx).toBeGreaterThan(90);
+    expect(lx).toBeLessThan(10);
+    expect(ry).toBeCloseTo(ly);
+  });
+  it('一路繞一圈都在畫面內（避開頂端資訊列與手牌），而且連續移動', () => {
+    let prev = specEdge(0);
+    for (let d = 1; d <= 360; d++) {
+      const [x, y] = specEdge(d);
+      expect(x).toBeGreaterThanOrEqual(3.99);
+      expect(x).toBeLessThanOrEqual(96.01);
+      expect(y).toBeGreaterThanOrEqual(13.99);
+      expect(y).toBeLessThanOrEqual(74.01);
+      expect(Math.hypot(x - prev[0], y - prev[1])).toBeLessThan(3);
+      prev = [x, y];
+    }
+  });
+});
+
 describe('fitCamera：觀戰者繞桌轉鏡頭也塞得下', () => {
   for (const yaw of [0, 30, -45, 90, 180]) {
     it(`yaw ${yaw}°`, () => {
@@ -230,7 +258,9 @@ describe('配牌動畫（多人客端）：別家打出的牌從他手上飛出�
     sc.pool = [];
     sc.tiles = [];
     sc.geos = [];
+    sc.blankGeo = 'blank';
     for (let k = 0; k < 42; k++) {
+      sc.geos[k] = `g${k}`;
       sc.pool[k] = [];
       for (let i = 0; i < (k < 34 ? 4 : 1); i++) {
         const m = new THREE.Object3D();
@@ -294,6 +324,14 @@ describe('配牌動畫（多人客端）：別家打出的牌從他手上飛出�
             .sort((a, b) => a - b);
           expect(ks).toEqual([...guest.players[s].discards].sort((a, b) => a - b));
         }
+        // 看不到牌面的假牌兩面都是牌背（觀戰者走到別人背後不會看到亂填的牌面），其他牌顯示自己的牌面
+        for (const m of sc.tiles)
+          if (m.userData.zone)
+            expect(m.geometry).toBe(m.userData.blind ? 'blank' : `g${m.userData.k}`);
+        if (spectate && guest.phase !== 'end')
+          for (let s = 0; s < 4; s++)
+            for (const m of sc.tiles.filter((x) => x.userData.zone === `h${s}`))
+              expect(m.geometry).toBe('blank');
       }
       expect(checked).toBeGreaterThan(10);
     });

@@ -608,6 +608,8 @@ export class MahjongScene {
     this.cam = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.05, 30);
     this.geos = [];
     for (let k = 0; k < 42; k++) this.geos[k] = tileGeometry(k);
+    // 兩面都是牌背：多人客端看不到牌面的假牌（別家暗手牌、牌牆）用這個，觀戰者走到別人背後也不會看到亂填的牌面
+    this.blankGeo = tileGeometry(BACK_CELL);
     this.tiles = [];
     this.pool = [];
     for (let k = 0; k < 42; k++) {
@@ -1100,6 +1102,7 @@ export class MahjongScene {
       m.userData.zone = null;
       m.userData.blind = false;
       if (m.userData.k0 != null) this._setKind(m, m.userData.k0);
+      m.geometry = this.geos[m.userData.k];
     }
   }
   // 最後打出的那張還在海底嗎？（被吃碰槓拿走後 e.last 不會清掉，看那家海底的張數有沒有變少）回傳打的人或 null
@@ -1276,6 +1279,7 @@ export class MahjongScene {
       if (!m) return;
       if (!w.blind && m.userData.k !== w.k) this._setKind(m, w.k);
       m.userData.blind = w.blind;
+      m.geometry = w.blind ? this.blankGeo : this.geos[m.userData.k];
       m.userData.to = w.at;
       m.userData.zone = w.zone;
       if (snap || m.userData.fresh) {

@@ -230,7 +230,9 @@ describe('配牌動畫（多人客端）：別家打出的牌從他手上飛出�
     sc.pool = [];
     sc.tiles = [];
     sc.geos = [];
+    sc.blankGeo = 'blank';
     for (let k = 0; k < 42; k++) {
+      sc.geos[k] = `g${k}`;
       sc.pool[k] = [];
       for (let i = 0; i < (k < 34 ? 4 : 1); i++) {
         const m = new THREE.Object3D();
@@ -294,6 +296,14 @@ describe('配牌動畫（多人客端）：別家打出的牌從他手上飛出�
             .sort((a, b) => a - b);
           expect(ks).toEqual([...guest.players[s].discards].sort((a, b) => a - b));
         }
+        // 看不到牌面的假牌兩面都是牌背（觀戰者走到別人背後不會看到亂填的牌面），其他牌顯示自己的牌面
+        for (const m of sc.tiles)
+          if (m.userData.zone)
+            expect(m.geometry).toBe(m.userData.blind ? 'blank' : `g${m.userData.k}`);
+        if (spectate && guest.phase !== 'end')
+          for (let s = 0; s < 4; s++)
+            for (const m of sc.tiles.filter((x) => x.userData.zone === `h${s}`))
+              expect(m.geometry).toBe('blank');
       }
       expect(checked).toBeGreaterThan(10);
     });

@@ -5,7 +5,7 @@
 | 資料夾 | 建築 | 圖 | 狀態 |
 | --- | --- | --- | --- |
 | [`lixing/`](lixing/) | 力行宿舍（力行大樓） | [一樓](lixing/lixing-1f.svg)、[二樓](lixing/lixing-2f.svg)、[三樓](lixing/lixing-3f.svg)、[四樓](lixing/lixing-4f.svg) | 一到四樓配置經使用者確認（2026-11-23） |
-| [`sac/`](sac/) | 學生活動中心 | [B1](sac/sac-b1.svg)、[一樓](sac/sac-1f.svg)、[二樓](sac/sac-2f.svg)、[三樓](sac/sac-3f.svg)、[四樓](sac/sac-4f.svg) | 一到四樓配置大多是推測，待確認；B1 的麥當勞店內格局待確認 |
+| [`sac/`](sac/) | 學生活動中心 | [B1](sac/sac-b1.svg)、[一樓](sac/sac-1f.svg)、[二樓](sac/sac-2f.svg)、[三樓](sac/sac-3f.svg)、[四樓](sac/sac-4f.svg) | 一到四樓是使用者給的修改版（照實際狀況修改，2026-11-26），模型照它蓋；B1 的麥當勞店內格局待確認 |
 
 每棟建築一個資料夾，資料夾名稱就是設定檔的 `id`，檔名是 `<建築>-<樓層>.svg`。`README.md`（這份說明）留在最上層。
 
@@ -34,6 +34,10 @@
 ## 圖是怎麼來的
 
 遊戲裡的建築室內用 `src/world/Kit.js` 的 `Kit`（本地座標的建模工具）蓋模型，擋人的牆走 `Interiors.addWall`，可以走的地板和樓梯走 `Interiors.addSurface`。
+
+學生活動中心一到四樓例外：`sac/sac-1f.svg`～`sac-4f.svg` 是使用者給的修改版參考圖（人工畫的，不是工具產生的），模型（`src/world/buildings/Sac.js`）照它蓋。
+設定檔 `sac.mjs` 用 `reference` 標出這四層，工具預設不會覆蓋它們；要看模型實際切出來的樣子、和參考圖並排核對，加 `--out` 輸出到別的地方：
+`node tools/floorplan/make.mjs sac all --out /tmp/sac-model`。參考圖各層之間對不上的地方（旋轉梯、樓梯、柱子的位置）怎麼取捨，寫在 `Sac.js` 檔頭。
 
 平面圖工具在 `tools/floorplan/`（開發用，`tools/` 不會被部署）。它用 node 直接跑遊戲自己的建模程式，不開瀏覽器、也不用開發伺服器，拿到真正的 `Interiors` 牆線和地板再畫圖。所以圖不會和模型脫節：模型改了，重跑就是新圖。
 

@@ -13,6 +13,7 @@ const Hterrain = H; // buildMcD shadows H with the store height
 import { ctex, font, T, MATS, M, regMat, Interiors, Kit, finishRow, lcg, YHT } from './Kit.js';
 import { buildGarryHome } from './buildings/GarryHome.js';
 import { buildClubCorner } from './buildings/ClubRoom.js';
+import { sacLevels } from './buildings/Sac.js';
 import { buildZones } from './zones/Zones.js';
 import { MAIN_GATE } from './MainGateSpec.js';
 // the kit moved to src/world/Kit.js; these stay importable from here for the modules that already do
@@ -1712,8 +1713,9 @@ function buildMcD(I, scene, createCharacter = null) {
     k.box(-0.19, 0.02, Math.max(0, up - 0.3), H, z - 0.08, z + 0.08, MT.frame, { col: false });
   // ---- outside: dark fascia band (the "McDonald's" board and the curved glass front are src/world/zones/ZoneG.js) ----
   km.box(-0.4, W + 0.05, H, H + 1.2, -0.05, D + 0.05, MT.fasciaBox, { col: false }); // (sticks out on the street side, east)
-  // the 活動中心 above, up to its roof (S.top is above the street)
-  km.box(0, W, H + 1.2, S.top + up, 0, D, 'sac', { col: false });
+  // the 活動中心 above it: solid up to under the 2F floor; 2F～4F over the store are rooms of src/world/buildings/Sac.js
+  // (2F 麥當勞上空 is the top of this block; the outside above the fascia is src/world/zones/ZoneG.js)
+  km.box(0, W, H + 1.2, sacLevels().F[1] - 0.12 - k.base, 0, D, 'sac', { col: false });
   // ---- ceiling: white 60 cm grid; square downlights over the dining room, troffers over lobby and kitchen ----
   km.box(0, W, H - 0.1, H, 0, D, MT.ceil, { col: false, tile: [0.6, 0.6] });
   for (let x = 1.5; x < W - 0.5; x += 1.8)

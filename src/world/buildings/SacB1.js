@@ -214,11 +214,10 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
       [x1, z1] = pol(a1 + DA, SR);
     if (j === 1 || j === 2) k.wallLine(x0, z0, x1, z1, 2.3, TOP2F + 1.1);
     else if (j === 8 || j === 9) {
+      // out to the north on both floors (2F: onto the corridor, src/world/buildings/Sac.js)
       k.wallLine(x0, z0, x1, z1, 0, TOP1F - 0.5);
-      k.wallLine(x0, z0, x1, z1, TOP1F + 2.3, TOP2F + 1.1);
-    } else if (j === 5 || j === 6)
-      k.wallLine(x0, z0, x1, z1, 0, TOP2F - 0.5); // 2F: out to the west, into the 中庭
-    else k.wallLine(x0, z0, x1, z1, 0, TOP2F + 1.1);
+      k.wallLine(x0, z0, x1, z1, TOP1F + 2.3, TOP2F - 0.5);
+    } else k.wallLine(x0, z0, x1, z1, 0, TOP2F + 1.1);
   }
   {
     const [x0, z0] = pol(Math.PI / 6, 0.15),
@@ -244,8 +243,9 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
     );
   }
   {
-    // 1F -> 2F: 16 narrower wedges (15 degrees) from 300 degrees on round to 180, the top landing 150..210 degrees faces west
-    const N2 = 16,
+    // 1F -> 2F: 20 narrower wedges (15 degrees) from 300 degrees on round to 240, the top landing 240..300 degrees faces north
+    // like the 1F one, 3.2 m over it (2F 平面圖修改版：旋轉梯頂在主走廊邊，從北側走出來)
+    const N2 = 20,
       D2 = Math.PI / 12,
       B0 = (Math.PI * 5) / 3,
       r2 = (TOP2F - TOP1F) / N2;
@@ -277,9 +277,9 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
       hr.translate((px + qx) / 2, y + 0.95 + r2 / 2, (pz + qz) / 2);
       k._part(MT.rail, hr);
     }
-    wedge(Math.PI, (Math.PI * 7) / 6, TOP2F, 2.3);
-    const [x0, z0] = pol((Math.PI * 7) / 6, 0.15),
-      [x1, z1] = pol((Math.PI * 7) / 6, 2.3);
+    wedge((Math.PI * 4) / 3, (Math.PI * 5) / 3, TOP2F, 2.3);
+    const [x0, z0] = pol((Math.PI * 5) / 3, 0.15),
+      [x1, z1] = pol((Math.PI * 5) / 3, 2.3);
     k.wallLine(x0, z0, x1, z1, TOP2F - 0.5, TOP2F + 1.1); // the stair ends at 2F
   }
   k.plane(

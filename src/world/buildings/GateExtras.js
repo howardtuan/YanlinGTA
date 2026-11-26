@@ -521,6 +521,7 @@ function buildNameWall(I, scene) {
   k.box(2.3, 6.3, -0.4, 0.6, -0.15, 0.25, X.concDark, { tile: [1.8, 1.2] });
   k.box(2.3, 5.5, 0.6, 2.5, -0.02, 0.12, X.steel);
   const bd = k.plane(GX.board(), 3.16, 1.86, 3.9, 1.55, -0.03, FRONT, { emissive: 0.01 });
+  bd.userData.dynamic = true; // glows at night (below): keeps its own mesh, not Kit.finish's atlas
   I.updaters.push((dt, g) => {
     bd.material.emissiveIntensity = (g.night || 0) * 0.35;
   });
@@ -623,6 +624,7 @@ function buildParkingTotem(I, scene) {
   const fr = k.plane(GX.totem(), 0.8, 2.45, 0, 0.15 + 2.45 / 2, -0.188, FRONT, {
     transparent: true,
   });
+  fr.userData.dynamic = true; // glows at night (below): keeps its own mesh
   fr.material.alphaTest = 0.5;
   fr.material.transparent = false;
   // lit from inside after dark (the counters and the face)

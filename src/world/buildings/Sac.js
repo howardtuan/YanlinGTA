@@ -779,31 +779,34 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
   const chair = (x, z, m, face = 's') => {
     // `face`: the way the sitter looks
     const [nx, nz] = NRM[face];
-    return (y) => {
-      bx(x - 0.21, x + 0.21, y + 0.42, y + 0.46, z - 0.21, z + 0.21, m);
-      bx(
-        x - nx * 0.2 - (nx ? 0.02 : 0.21),
-        x - nx * 0.2 + (nx ? 0.02 : 0.21),
-        y + 0.46,
-        y + 0.86,
-        z - nz * 0.2 - (nz ? 0.02 : 0.21),
-        z - nz * 0.2 + (nz ? 0.02 : 0.21),
-        m
-      );
-      for (const [dx, dz] of [
-        [-0.17, -0.17],
-        [0.17, -0.17],
-        [-0.17, 0.17],
-        [0.17, 0.17],
-      ])
-        bx(x + dx - 0.015, x + dx + 0.015, y, y + 0.42, z + dz - 0.015, z + dz + 0.015, MT.dark);
-    };
+    return (y) =>
+      k.furniture(() => {
+        bx(x - 0.21, x + 0.21, y + 0.42, y + 0.46, z - 0.21, z + 0.21, m);
+        bx(
+          x - nx * 0.2 - (nx ? 0.02 : 0.21),
+          x - nx * 0.2 + (nx ? 0.02 : 0.21),
+          y + 0.46,
+          y + 0.86,
+          z - nz * 0.2 - (nz ? 0.02 : 0.21),
+          z - nz * 0.2 + (nz ? 0.02 : 0.21),
+          m
+        );
+        for (const [dx, dz] of [
+          [-0.17, -0.17],
+          [0.17, -0.17],
+          [-0.17, 0.17],
+          [0.17, 0.17],
+        ])
+          bx(x + dx - 0.015, x + dx + 0.015, y, y + 0.42, z + dz - 0.015, z + dz + 0.015, MT.dark);
+      });
   };
   const table = (y, x0, x1, z0, z1, m = MT.tableWood, h = 0.74) => {
-    bx(x0, x1, y + h - 0.04, y + h, z0, z1, m);
-    for (const x of [x0 + 0.06, x1 - 0.06])
-      for (const z of [z0 + 0.06, z1 - 0.06])
-        bx(x - 0.03, x + 0.03, y, y + h - 0.04, z - 0.03, z + 0.03, MT.black);
+    k.furniture(() => {
+      bx(x0, x1, y + h - 0.04, y + h, z0, z1, m);
+      for (const x of [x0 + 0.06, x1 - 0.06])
+        for (const z of [z0 + 0.06, z1 - 0.06])
+          bx(x - 0.03, x + 0.03, y, y + h - 0.04, z - 0.03, z + 0.03, MT.black);
+    });
     wlRect(x0, x1, z0, z1, y, y + h);
   };
   const column = (x, z, y0, y1, r = 0.42) => {
@@ -1250,11 +1253,14 @@ export function buildSac(I, scene, data, collision, Kit, regMat) {
       for (const [z0, z1] of blocks) {
         const n = Math.round((z1 - z0) / 0.57),
           w = (z1 - z0) / n;
-        for (let j = 0; j < n; j++) {
-          const z = z0 + j * w;
-          bx(x0, x0 + 0.48, h + 0.38, h + 0.5, z + 0.04, z + w - 0.04, MT.seat);
-          bx(x0 + 0.42, x0 + 0.54, h + 0.38, h + 1.02, z + 0.04, z + w - 0.04, MT.seat);
-        }
+        // the seats themselves: furniture, hidden from > 45 m (Kit.furniture)
+        k.furniture(() => {
+          for (let j = 0; j < n; j++) {
+            const z = z0 + j * w;
+            bx(x0, x0 + 0.48, h + 0.38, h + 0.5, z + 0.04, z + w - 0.04, MT.seat);
+            bx(x0 + 0.42, x0 + 0.54, h + 0.38, h + 1.02, z + 0.04, z + w - 0.04, MT.seat);
+          }
+        });
         bx(x0 + 0.1, x0 + 0.5, h, h + 0.38, z0, z1, MT.black);
         wlRect(x0, x0 + 0.54, z0, z1, h, h + 1.0);
       }

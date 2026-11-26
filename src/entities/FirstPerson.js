@@ -604,14 +604,19 @@ export class FirstPerson {
     c.position.copy(e);
     c.lookAt(e.x + Math.sin(h), e.y - 0.08, e.z + Math.cos(h));
     c.updateMatrixWorld();
+    // the mirror never draws the shadow map: neither every frame (autoUpdate) nor the frame the half-rate
+    // shadows are due (needsUpdate, src/core/GameLoop.js), which the main view draws right after
     const sh = renderer.shadowMap.autoUpdate,
+      due = renderer.shadowMap.needsUpdate,
       prev = renderer.getRenderTarget();
     this.kit.group.visible = false;
     renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = false;
     renderer.setRenderTarget(this.rt);
     renderer.render(this.g.scene, c);
     renderer.setRenderTarget(prev);
     renderer.shadowMap.autoUpdate = sh;
+    renderer.shadowMap.needsUpdate = due;
     this.kit.group.visible = true;
   }
 }

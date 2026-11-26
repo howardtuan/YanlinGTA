@@ -40,6 +40,8 @@ import { createCharacter, randomStudent } from '../entities/Character.js';
 import { loadTerrain, surfaceAt } from '../world/Terrain.js';
 import { SkySystem } from '../graphics/SkySystem.js';
 import { PostFX } from '../graphics/PostFX.js';
+import { installOpaqueSort } from '../graphics/RenderSort.js';
+import { setSurfaceDetail } from '../graphics/Textures.js';
 import { AimGlow } from '../graphics/AimGlow.js';
 import { Phone } from '../ui/phone/Phone.js';
 import { GateDuty } from '../systems/minigames/GateDuty.js';
@@ -332,11 +334,18 @@ class Game {
     r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
+    // perf-refactor Phase 2: integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
+    // and every tier sorts opaque draws by shader program (src/graphics/RenderSort.js)
+    this.halfRateShadows = this.perfProfile.tier !== 'desktop-dgpu';
+    r.shadowMap.autoUpdate = !this.halfRateShadows;
+    installOpaqueSort(r);
     r.domElement.id = 'game';
     this.bootDiag.attachCanvas(r.domElement);
     // canvas textures (src/graphics/GpuMemLifecycle.js): phones store them at texScale, atlas sheets go to the GPU as
     // soon as they are drawn and lose their canvases. Desktops draw the same pixels as before.
     configureGpuMem(this.perfProfile, r);
+    // low / xlow walls and ground are Lambert: their textures skip the normal and roughness maps (perf-refactor Phase 2)
+    setSurfaceDetail(!this.lowQ);
     // released canvases cannot be uploaded again after a lost context: start over (the game saves on unload)
     r.domElement.addEventListener('webglcontextrestored', () => location.reload());
     document.getElementById('app').prepend(r.domElement);
@@ -379,6 +388,7 @@ class Game {
       keep,
       low: this.lowQ,
       quality: subQ(this.quality),
+      tier: this.perfProfile.tier,
       featureTrees,
       mainGate: GUARD_SPECS(data)[0],
       vegHide: zoneVegHide(data),

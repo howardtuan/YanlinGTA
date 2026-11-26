@@ -10,7 +10,20 @@ import { pointInPoly, closestOnSeg } from '../physics/Collision.js';
 import { dressCrew, CREW_SHIRT } from '../systems/minigames/McUniform.js';
 import { H, Hgrid } from './Terrain.js';
 const Hterrain = H; // buildMcD shadows H with the store height
-import { ctex, font, T, MATS, M, regMat, Interiors, Kit, finishRow, lcg, YHT } from './Kit.js';
+import {
+  ctex,
+  font,
+  T,
+  MATS,
+  M,
+  regMat,
+  Interiors,
+  Kit,
+  finishRow,
+  lcg,
+  YHT,
+  cullFurniture,
+} from './Kit.js';
 import { buildGarryHome } from './buildings/GarryHome.js';
 import { buildClubCorner } from './buildings/ClubRoom.js';
 import { sacLevels } from './buildings/Sac.js';
@@ -83,7 +96,7 @@ function buildIM(I, scene) {
       );
       // blackboard + teacher desk (students face -x)
       k.box(rx + 0.3, rx + 0.36, y0 + 0.95, y0 + 2.25, 2.0, 7.8, 'board', { col: false });
-      k.box(rx + 1.0, rx + 1.7, y0, y0 + 0.9, 3.8, 5.8, 'desk');
+      k.furniture(() => k.box(rx + 1.0, rx + 1.7, y0, y0 + 0.9, 3.8, 5.8, 'desk'));
       // desks and chairs (rooms 101 and 301 are computer labs)
       const lab = i === 0 && (f === 0 || f === 2);
       if (lab)
@@ -95,46 +108,53 @@ function buildIM(I, scene) {
           y0 + 2.85,
           CZ + 0.02
         );
-      for (let ix = 0; ix < 5; ix++)
-        for (let iz = 0; iz < 4; iz++) {
-          const dx = rx + 3.2 + ix * 1.6,
-            dz = 1.4 + iz * 2.0;
-          if (lab) {
-            k.box(dx + 0.06, dx + 0.1, y0 + 0.8, y0 + 1.2, dz + 0.25, dz + 0.85, 'screen', {
+      // desks, chairs (and the lab PCs): furniture, hidden from > 45 m (Kit.furniture)
+      k.furniture(() => {
+        for (let ix = 0; ix < 5; ix++)
+          for (let iz = 0; iz < 4; iz++) {
+            const dx = rx + 3.2 + ix * 1.6,
+              dz = 1.4 + iz * 2.0;
+            if (lab) {
+              k.box(dx + 0.06, dx + 0.1, y0 + 0.8, y0 + 1.2, dz + 0.25, dz + 0.85, 'screen', {
+                col: false,
+              });
+              k.box(dx + 0.02, dx + 0.06, y0 + 0.78, y0 + 1.22, dz + 0.23, dz + 0.87, 'dark', {
+                col: false,
+              });
+              k.box(dx + 0.0, dx + 0.2, y0 + 0.76, y0 + 0.8, dz + 0.45, dz + 0.65, 'dark', {
+                col: false,
+              });
+              k.box(dx + 0.25, dx + 0.42, y0 + 0.76, y0 + 0.78, dz + 0.3, dz + 0.8, 'dark', {
+                col: false,
+              });
+              const cp = k.w(dx + 0.9, dz + 0.55);
+              I.actions.push({
+                x: cp[0],
+                z: cp[1],
+                r: 0.75,
+                y: y0,
+                label: () => '按 <kbd>E</kbd> 使用電腦',
+                fn: (g) => g.pc.open(`資管系 ${no} 電腦教室`),
+              }); // desktop; the old easter-egg video is its 🎬 app
+            }
+            k.box(dx, dx + 0.55, y0 + 0.72, y0 + 0.76, dz, dz + 1.1, 'desk', { col: false });
+            k.box(dx + 0.02, dx + 0.53, y0, y0 + 0.72, dz + 0.04, dz + 0.1, 'metal', {
               col: false,
             });
-            k.box(dx + 0.02, dx + 0.06, y0 + 0.78, y0 + 1.22, dz + 0.23, dz + 0.87, 'dark', {
+            k.box(dx + 0.02, dx + 0.53, y0, y0 + 0.72, dz + 1.0, dz + 1.06, 'metal', {
               col: false,
             });
-            k.box(dx + 0.0, dx + 0.2, y0 + 0.76, y0 + 0.8, dz + 0.45, dz + 0.65, 'dark', {
+            k.wallRect(dx, dx + 0.55, dz, dz + 1.1, y0, y0 + 0.76);
+            // chair behind desk
+            k.box(dx + 0.7, dx + 1.1, y0 + 0.42, y0 + 0.47, dz + 0.35, dz + 0.75, 'chairBlue', {
               col: false,
             });
-            k.box(dx + 0.25, dx + 0.42, y0 + 0.76, y0 + 0.78, dz + 0.3, dz + 0.8, 'dark', {
+            k.box(dx + 1.06, dx + 1.1, y0 + 0.47, y0 + 0.95, dz + 0.35, dz + 0.75, 'chairBlue', {
               col: false,
             });
-            const cp = k.w(dx + 0.9, dz + 0.55);
-            I.actions.push({
-              x: cp[0],
-              z: cp[1],
-              r: 0.75,
-              y: y0,
-              label: () => '按 <kbd>E</kbd> 使用電腦',
-              fn: (g) => g.pc.open(`資管系 ${no} 電腦教室`),
-            }); // desktop; the old easter-egg video is its 🎬 app
+            k.box(dx + 0.85, dx + 0.95, y0, y0 + 0.42, dz + 0.5, dz + 0.6, 'metal', { col: false });
           }
-          k.box(dx, dx + 0.55, y0 + 0.72, y0 + 0.76, dz, dz + 1.1, 'desk', { col: false });
-          k.box(dx + 0.02, dx + 0.53, y0, y0 + 0.72, dz + 0.04, dz + 0.1, 'metal', { col: false });
-          k.box(dx + 0.02, dx + 0.53, y0, y0 + 0.72, dz + 1.0, dz + 1.06, 'metal', { col: false });
-          k.wallRect(dx, dx + 0.55, dz, dz + 1.1, y0, y0 + 0.76);
-          // chair behind desk
-          k.box(dx + 0.7, dx + 1.1, y0 + 0.42, y0 + 0.47, dz + 0.35, dz + 0.75, 'chairBlue', {
-            col: false,
-          });
-          k.box(dx + 1.06, dx + 1.1, y0 + 0.47, y0 + 0.95, dz + 0.35, dz + 0.75, 'chairBlue', {
-            col: false,
-          });
-          k.box(dx + 0.85, dx + 0.95, y0, y0 + 0.42, dz + 0.5, dz + 0.6, 'metal', { col: false });
-        }
+      });
       // ceiling lights
       for (let lx = 0; lx < 3; lx++)
         k.box(
@@ -3789,5 +3809,6 @@ export function buildInteriors(
   collision.extra = I;
   I.im = im;
   I.mcd = mcd;
+  I.updaters.push(cullFurniture(I)); // desks, chairs, beds, seats hidden from > 45 m (Kit.furniture)
   return I;
 }

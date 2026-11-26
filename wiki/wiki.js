@@ -1,3 +1,16 @@
+// 操作說明的分頁（跟遊戲 src/core/Controls.js 的 bindControls 一樣）：放在最前面、自己一塊，後面的程式出錯也不影響
+for (const root of document.querySelectorAll('.game-ctl')) {
+  const tabs = root.querySelectorAll('.ctl-tab');
+  for (const b of tabs) {
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      for (const t of tabs) t.classList.toggle('on', t === b);
+      for (const p of root.querySelectorAll('.ctl-pane'))
+        p.classList.toggle('hidden', p.dataset.pane !== b.dataset.tab);
+    });
+  }
+}
+
 // Wiki 角色篩選與搜尋（沒有 JavaScript 時全部角色照樣顯示）
 (() => {
   const cards = [...document.querySelectorAll('.char')];
@@ -46,17 +59,6 @@
     el.classList.add('flash');
   };
   window.addEventListener('hashchange', reveal);
-
-  // 操作說明的分頁（跟遊戲 src/core/Controls.js 的 bindControls 一樣）
-  for (const root of document.querySelectorAll('.game-ctl')) {
-    const tabs = root.querySelectorAll('.ctl-tab');
-    for (const b of tabs)
-      b.addEventListener('click', () => {
-        for (const t of tabs) t.classList.toggle('on', t === b);
-        for (const p of root.querySelectorAll('.ctl-pane'))
-          p.classList.toggle('hidden', p.dataset.pane !== b.dataset.tab);
-      });
-  }
 
   // 左側目錄：手機版的抽屜開關
   const side = document.getElementById('sidebar');

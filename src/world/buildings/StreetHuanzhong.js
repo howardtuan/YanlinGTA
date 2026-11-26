@@ -983,6 +983,27 @@ export const HZ_ST = {
         ],
       },
     ],
+    // A0 新中北路口東南角（HS s 0～48 的東南側）：小象汽車的露天中古車場＋兩層樓車行（街景 2024-08；國土測繪 2024 正射）。
+    // 新中北路那邊的 SegX0 只做路口西側、這裡 D 段從 s 48 才開始，兩邊都沒做，原本留著一塊 7 m 高的填充樓 f8（hide）。
+    // 保留範圍只取 f8 輪廓往內縮 0.7 m：Furniture 在 f8 店面牆外 1.4 m 停機車，蓋到就會讓全圖停放機車重排
+    [
+      'HS',
+      0,
+      48,
+      -1,
+      {
+        own: 'xiaoxiang',
+        set: 6.5,
+        d: 20,
+        apron: 0,
+        fpw: [
+          [584.5, 113.8],
+          [615.7, 154.6],
+          [593.1, 171.9],
+          [561.9, 131.1],
+        ],
+      },
+    ],
   ],
 };
 // OSM 真實建物只改高度（不 drop、不改 kind、不改輪廓，抽亂數的次數不變，快照已驗證）
@@ -1072,6 +1093,7 @@ const HZ_HIDE = new Set([
   'f570',
   'f571',
   'f572',
+  'f8', // A0：新中北路口東南角，實景是小象汽車的露天中古車場（照 SegX0 的轉角補建，見 OWN.xiaoxiang）
 ]); // I 段：s 852～886 實景是空地停車場
 export function hzLook(b) {
   if (HZ_NOSHOP.has(b.id)) {
@@ -1090,6 +1112,8 @@ export function hzLook(b) {
     // 原本就 noShop、沒有 look 的填充樓（I 段 f552～f556）本來不產生店面牆；一加 look，MapBuilder 會把它當成「有店面但不畫」推進
     // world.shopWalls，牆數一變全圖停放機車就重排。facade 設成 glass 只換樣式（rb() 照抽，填充樓的 rnd2 是各自的種子），店面牆照舊不產生
     if (b.noShop && !b.look) b.facade = 'glass';
+    // look.open.bare 只拿掉牆和平屋頂，斜屋頂（f8 的 gabled）照畫；填充樓的亂數是自己的種子，拿掉斜屋頂不影響全圖
+    if (b.synthetic && b.roof) delete b.roof;
     b.look = {
       ...(b.look || {}),
       wall: { base: 'smooth', colour: '#d9d9d6' },
@@ -6722,6 +6746,169 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       q.box(1.5, 2.4, 0, 8.4, -1.4, -1.2, '#c8262a', nb);
     },
     // I 段西端：空地停車場（柏油、停滿車），後面是雜草空地
+    // A0 小象汽車（新中北路口東南角，街景 2024-08）：沿兩條路是柏油露天車場、矮緣石，停兩排中古車；路口轉角一支高柱招牌
+    // （上段灰褐底白字「花田盛事／築夢莊園／120公尺右轉」，下段橘紅底「TCBU 認證聯盟／政府立案／公會保證」）；
+    // 東側兩層白色車行，一樓藍色門楣、北面藍色車棚，屋頂鋼架上大看板（SAVE 認證／小象汽車 (03)453-5088／5525 認證保固）；
+    // 新中北路邊藍色立牌「高價收購／免費估價」；車場後面一排樹。
+    // 車排、車行跟新中北路平行，另開一個朝正北的 Kit（K，原點在車行西北角 (600, 118)，+x 東、+z 南）；轉角招牌與環中東路那邊的
+    // 緣石用這一格自己的 Kit（立面對著環中東路），世界座標用 k.l() 換成區域座標
+    xiaoxiang(k, w, d, r) {
+      const K = vcKit(new Kit(I, 600, 118, 0));
+      kits.push(K);
+      const ASP = '#5c5e60',
+        KERB = '#b9b6ae';
+      // 柏油車場：新中北路人行道外緣（z 111.8）到樹前（z 127），西邊到環中東路人行道外緣
+      drape(K, [-22.5, -6.2], [0, -6.2], [0, 9], [-26, 9], ASP, 0.04);
+      drape(K, [-33.4, 3], [-22.5, -6.2], [-26, 9], [-26, 9], ASP, 0.04);
+      K.box(-22.5, 0, 0, 0.22, -6.3, -6.05, KERB, nb); // 新中北路邊的矮緣石
+      {
+        const [xa, za] = k.l(577.5, 111.8),
+          [xb] = k.l(566.6, 121.0);
+        k.box(Math.min(xa, xb), Math.max(xa, xb), 0, 0.22, za - 0.12, za + 0.12, KERB, nb); // 環中東路邊
+      }
+      // 兩排中古車（車頭朝路）
+      const cc = [
+        '#f2f2ee',
+        '#2a2d33',
+        '#8a8d90',
+        '#b02a2a',
+        '#3a4a6a',
+        '#e8e8e4',
+        '#5a5c60',
+        '#c9c9c4',
+      ];
+      for (let j = 0; j < 8; j++) K.car(-21 + j * 2.6, -3.4, Math.PI, cc[j % 8]);
+      for (let j = 0; j < 10; j++) K.car(-29 + j * 2.7, 3.2, 0, cc[(j + 3) % 8]);
+      // 車行：兩層白樓，11.5 × 13
+      const y0 = gy(K, 5, 6),
+        top = y0 + 7.0;
+      K.box(0, 11.5, y0 - 0.5, top, 0, 13, '#e8e8e4');
+      K.box(-0.05, 11.55, top, top + 0.6, -0.05, 13.05, '#dcdcd8', nb); // 女兒牆
+      // 西面（對著車場）：一樓深色玻璃門窗＋藍色門楣，二樓三扇窗
+      K.box(-0.06, 0, y0, y0 + 2.8, 1.5, 11.5, '#2a3440', nb);
+      K.box(-0.25, 0, y0 + 2.85, y0 + 3.7, 0, 13, '#2f5fa8', nb);
+      for (const z of [2, 5.5, 9]) K.box(-0.05, 0, y0 + 4.4, y0 + 5.9, z, z + 2.2, '#3a4652', nb);
+      // 北面（新中北路）：二樓窗、冷氣；前面藍色車棚
+      for (const x of [1.5, 5, 8.5]) K.box(x, x + 2, y0 + 4.4, y0 + 5.9, -0.05, 0, '#3a4652', nb);
+      for (const x of [3.6, 7.1]) K.box(x, x + 0.8, y0 + 4.0, y0 + 4.55, -0.5, 0, '#d8d8d4', nb);
+      K.box(-4, 11.5, y0 + 3.3, y0 + 3.45, -5, 0, '#2f5fa8', nb);
+      for (const [x, z] of [
+        [-3.8, -4.8],
+        [11.2, -4.8],
+      ])
+        K.box(x, x + 0.15, y0, y0 + 3.3, z, z + 0.15, '#8a8d90', nb);
+      // 屋頂鋼架大看板（朝西，對著環中東路口）
+      const bw = 10,
+        bh = 4.6,
+        by = top + 0.8;
+      for (const z of [1, 5.5, 10.5]) K.box(0.9, 1.1, top, by + bh, z, z + 0.2, '#4a4d50', nb);
+      for (const z of [1, 10.5]) K.box(4.5, 4.7, top, by + bh - 1, z, z + 0.2, '#4a4d50', nb);
+      const bill = board('xiaoxiangBill', bw, bh, (g, W, Hh) => {
+        fill(g, W, Hh, '#1f4fa8');
+        g.fillStyle = '#f4f4f2';
+        g.fillRect(0, 0, W, Hh * 0.3);
+        g.fillStyle = '#e8a81e';
+        g.fillRect(W * 0.02, Hh * 0.04, W * 0.12, Hh * 0.22);
+        fitText(g, 'SAVE', W * 0.08, Hh * 0.15, W * 0.1, Hh * 0.12, '#1a1a1a');
+        fitText(g, '小象汽車', W * 0.5, Hh * 0.12, W * 0.6, Hh * 0.2, '#1f4fa8');
+        fitText(g, '(03)453-5088', W * 0.5, Hh * 0.255, W * 0.4, Hh * 0.07, '#1a1a1a', 700);
+        fitText(g, '5525認證保固', W * 0.5, Hh * 0.47, W * 0.9, Hh * 0.22, '#ffffff');
+        fitText(g, 'SAVE認證 好車保證!', W * 0.62, Hh * 0.75, W * 0.65, Hh * 0.13, '#ffe24a');
+        g.fillStyle = '#c9a070';
+        g.beginPath();
+        g.arc(W * 0.14, Hh * 0.78, Hh * 0.14, 0, Math.PI * 2);
+        g.fill(); // 小熊吉祥物（只畫色塊）
+      });
+      K.box(0.6, 0.9, by, by + bh, 0.5, 0.5 + bw, '#d8d8d4', nb);
+      K.plane(bill, bw, bh, 0.58, by + bh / 2, 0.5 + bw / 2, -Math.PI / 2, { emissive: 0.25 });
+      // 新中北路邊藍色立牌
+      {
+        const yb = gy(K, -16.5, -5.2);
+        for (const z of [-5.6, -4.6]) K.box(-16.5, -16.4, yb, yb + 2.6, z, z + 0.08, '#8a8d90', nb);
+        const t = board('xiaoxiangStand', 1.1, 2.0, (g, W, Hh) => {
+          fill(g, W, Hh, '#2f6fc8');
+          ['高價收購', '免費估價'].forEach((txt, i) =>
+            txt
+              .split('')
+              .forEach((ch, j) =>
+                fitText(
+                  g,
+                  ch,
+                  W * (0.72 - i * 0.44),
+                  Hh * (0.14 + j * 0.24),
+                  W * 0.4,
+                  Hh * 0.2,
+                  '#ffffff'
+                )
+              )
+          );
+        });
+        K.box(-16.45, -16.4, yb + 0.6, yb + 2.6, -5.6, -4.5, '#2f6fc8', nb);
+        K.plane(t, 1.1, 2.0, -16.48, yb + 1.6, -5.05, -Math.PI / 2);
+        K.plane(t, 1.1, 2.0, -16.37, yb + 1.6, -5.05, Math.PI / 2);
+      }
+      // 路口高柱招牌（世界座標 (573.6, 115.4)，招牌面對著環中東路口）
+      {
+        const [px, pz] = k.l(573.6, 115.4),
+          yp = gy(k, px, pz);
+        k.box(px - 0.12, px + 0.12, yp - 0.3, yp + 9.2, pz - 0.12, pz + 0.12, '#5a5c60');
+        const up = board('xiaoxiangPylonA', 1.6, 3.6, (g, W, Hh) => {
+          fill(g, W, Hh, '#6e6560');
+          '花田盛事'
+            .split('')
+            .forEach((ch, j) =>
+              fitText(g, ch, W * 0.62, Hh * (0.12 + j * 0.19), W * 0.6, Hh * 0.17, '#f4f4f2')
+            );
+          '築夢莊園'
+            .split('')
+            .forEach((ch, j) =>
+              fitText(g, ch, W * 0.2, Hh * (0.14 + j * 0.13), W * 0.3, Hh * 0.11, '#f4f4f2', 700)
+            );
+          g.fillStyle = '#1e2a4a';
+          g.fillRect(0, Hh * 0.9, W, Hh * 0.1);
+          fitText(g, '120公尺右轉', W * 0.5, Hh * 0.95, W * 0.9, Hh * 0.07, '#ffffff', 700);
+        });
+        const lo = board('xiaoxiangPylonB', 1.6, 3.2, (g, W, Hh) => {
+          fill(g, W, Hh, '#d85a2a');
+          g.fillStyle = '#f4f4f2';
+          g.fillRect(W * 0.06, Hh * 0.04, W * 0.88, Hh * 0.26);
+          fitText(g, 'TCBU', W * 0.5, Hh * 0.13, W * 0.8, Hh * 0.14, '#1f3f8a');
+          fitText(g, '認證聯盟', W * 0.5, Hh * 0.25, W * 0.8, Hh * 0.07, '#1a1a1a', 700);
+          ['政府立案', '公會保證'].forEach((txt, i) =>
+            txt
+              .split('')
+              .forEach((ch, j) =>
+                fitText(
+                  g,
+                  ch,
+                  W * (0.28 + i * 0.44),
+                  Hh * (0.4 + j * 0.16),
+                  W * 0.4,
+                  Hh * 0.14,
+                  '#ffffff'
+                )
+              )
+          );
+        });
+        for (const [tex, y, h] of [
+          [up, 5.4, 3.6],
+          [lo, 2.1, 3.2],
+        ]) {
+          k.box(px - 0.8, px + 0.8, yp + y, yp + y + h, pz - 0.1, pz + 0.1, '#d8d8d4', nb);
+          k.plane(tex, 1.6, h, px, yp + y + h / 2, pz - 0.11, FRONT, { emissive: 0.2 });
+          k.plane(tex, 1.6, h, px, yp + y + h / 2, pz + 0.11, 0, { emissive: 0.2 });
+        }
+      }
+      // 車場後面一排樹
+      for (const [x, z, h, s] of [
+        [-30, 9.5, 5, 2.8],
+        [-24, 11, 6, 3.2],
+        [-17, 10.5, 5.5, 3],
+        [-10, 11.5, 6.5, 3.4],
+        [-3.5, 10.5, 5, 2.6],
+      ])
+        tree(K, x, z, h, s, r, gy(K, x, z));
+    },
     lotI(k, w, d) {
       rectG(k, 0, w, 0, 14, '#5c5e60', 0.03);
       rectG(k, 0, w, 14, d, '#7a8a5a', 0.02);

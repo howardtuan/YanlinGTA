@@ -48,6 +48,9 @@ export class MahjongEngine {
     this.discardsMade = 0;
     this.headTaken = 0; // tiles taken from the front / the back of the wall (for drawing it)
     this.tailTaken = 0;
+    // 過水：聽牌時別人打出（或加槓）能胡的牌卻沒胡（按「過」、限時到被當成「過」），之後就不能胡任何人打出的牌，
+    // 要等自己下一次「摸牌並打出一張」才解除；這段時間自摸照常可以胡
+    this.guoshui = [false, false, false, false];
   }
   seatWind(s) {
     return (s - this.dealer + 4) % 4;
@@ -207,6 +210,7 @@ export class MahjongEngine {
       this.pending = null;
       this._act(s, a);
     } else {
+      if (a.type === 'guoshui') return false;
       if (
         a.type !== 'pass' &&
         !p.options.some((o) => o.type === a.type && (a.t == null || o.t === a.t))
@@ -265,6 +269,7 @@ export class MahjongEngine {
       P.hand = sortTiles(P.hand);
       P.discards.push(t);
       this.discardsMade++;
+      if (this.justDrew) this.guoshui[s] = false; // 自己摸牌打牌一次，過水解除（吃碰後打的那張不算）
       this.justDrew = false;
       this.last = { t, from: s };
       this.emit({ type: 'discard', seat: s, t });
@@ -305,7 +310,8 @@ export class MahjongEngine {
     const c = counts(P.hand);
     const o = [];
     c[t]++;
-    if (isWin(c, this.sets(s))) o.push({ type: 'hu', t });
+    // 過水中：能胡也只給「過」，guoshui 這個選項只是讓畫面註記，不能拿來回答
+    if (isWin(c, this.sets(s))) o.push({ type: this.guoshui[s] ? 'guoshui' : 'hu', t });
     c[t]--;
     if (rob) return o;
     if (this.live > 0) {
@@ -340,6 +346,13 @@ export class MahjongEngine {
         this.pending = { seat: +s, kind: 'claim', options: this.claimOpts[s] };
         return false;
       }
+    // 能胡（不管是自己按過、限時到被當成過，還是本來就在過水中）卻沒胡的人進入（或維持）過水
+    for (const s in this.claimOpts)
+      if (
+        this.claimOpts[s].some((o) => o.type === 'hu' || o.type === 'guoshui') &&
+        this.answers[s]?.type !== 'hu'
+      )
+        this.guoshui[s] = true;
     const { t, from, rob } = this.last;
     const order = [1, 2, 3].map((i) => (from + i) % 4);
     const pick = (type) => order.find((s) => this.answers[s]?.type === type);

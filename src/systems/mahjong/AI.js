@@ -316,7 +316,7 @@ export function makeAI(style = {}) {
       return { type: 'discard', t: bestDiscard(c, sets, un, danger, bonus).t };
     }
 
-    // a claim on somebody's discard
+    // a claim on somebody's discard（過水中引擎不給 hu、只給 guoshui 註記，所以電腦也照規矩不能胡）
     const hu = options.find((o) => o.type === 'hu');
     if (hu) return hu;
     const sh0 = shanten(c, sets);

@@ -22,6 +22,10 @@ export function normalizeRoomCode(raw) {
 export const rotateSeat = (s, mySeat) => (s - mySeat + 4) % 4;
 export const unrotateSeat = (ls, mySeat) => (ls + mySeat) % 4;
 
+// 別家的暗槓對你蓋著：快照裡只說「這裡有一組暗槓」，牌種跟暗手牌一樣用未知牌池填（攤牌時才翻開）
+export const hideKong = (m, s, visibleSeat, reveal) =>
+  !!m.closed && m.type === 'kong' && !reveal && s !== visibleSeat;
+
 // 建立所有 144 張牌的計數表，扣掉客端已可見的牌後，回傳剩下的「未知牌池」用來填充他家蓋著的手牌與牌牆
 function unseenPoolFor(engine, visibleSeat, reveal) {
   const rem = new Array(FLOWER0 + 8).fill(0);
@@ -33,7 +37,8 @@ function unseenPoolFor(engine, visibleSeat, reveal) {
   for (let s = 0; s < 4; s++) {
     const P = engine.players[s];
     if (reveal || s === visibleSeat) for (const k of P.hand) take(k);
-    for (const m of P.melds) for (const k of meldTiles(m)) take(k);
+    for (const m of P.melds)
+      if (!hideKong(m, s, visibleSeat, reveal)) for (const k of meldTiles(m)) take(k);
     for (const k of P.flowers) take(k);
     for (const k of P.discards) take(k);
   }
@@ -61,14 +66,18 @@ export function serializeStateFor(engine, mySeat, opts = {}) {
     const P = engine.players[hs];
     return {
       hand: reveal || hs === visibleSeat ? [...P.hand] : takeDummy(P.hand.length),
-      melds: P.melds.map((m) => ({
-        type: m.type,
-        t: m.t,
-        closed: !!m.closed,
-        added: !!m.added,
-        take: m.take,
-        from: rot(m.from),
-      })),
+      melds: P.melds.map((m) =>
+        hideKong(m, hs, visibleSeat, reveal)
+          ? { type: 'kong', t: -1, closed: true, hidden: true, tiles: takeDummy(4) }
+          : {
+              type: m.type,
+              t: m.t,
+              closed: !!m.closed,
+              added: !!m.added,
+              take: m.take,
+              from: rot(m.from),
+            }
+      ),
       flowers: [...P.flowers],
       discards: [...P.discards],
       draws: P.draws,
@@ -134,6 +143,9 @@ export function rotateEventsFor(events, mySeat, opts = {}) {
     if ('from' in out) out.from = rot(out.from);
     if ('winner' in out) out.winner = rot(out.winner);
     if (out.type === 'draw' && !revealAll && (spectate || ev.seat !== mySeat)) out.t = -1;
+    // 別家暗槓了什麼也不說
+    if (out.type === 'kong' && out.closed && !revealAll && (spectate || ev.seat !== mySeat))
+      out.t = -1;
     if (out.deltas) out.deltas = [0, 1, 2, 3].map((ls) => ev.deltas[unrotateSeat(ls, mySeat)]);
     return out;
   });

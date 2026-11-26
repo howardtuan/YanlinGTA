@@ -286,6 +286,7 @@ function twoSided(t, win) {
   return (win === t && n <= 5) || (win === t + 2 && n >= 1);
 }
 export function meldTiles(m) {
+  if (m.tiles) return [...m.tiles]; // 多人客端看到的別家暗槓：房主遮過，只有 4 張假牌（Net.js）
   if (m.type === 'chow') return [m.t, m.t + 1, m.t + 2];
   return new Array(m.type === 'kong' ? 4 : 3).fill(m.t);
 }

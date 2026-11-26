@@ -478,9 +478,21 @@ export class MahjongScene {
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div>
-      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>`;
+      <div class="mj-side"><div class="mj-info"></div><button class="mj-view" data-a='{"type":"view"}'></button><div class="mj-mp-bar hidden"></div></div>
+      <div class="mj-hand hidden"></div>
+      <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
     document.body.appendChild(el);
     this.$ = (s) => el.querySelector(s);
+    // 手機版：你的手牌畫成螢幕底部一排大牌（像麻將手遊），點一下選、再點一次打出（滑鼠點一下直接打）
+    this.$('.mj-hand').addEventListener('pointerdown', (e) => {
+      const t = e.target.closest('[data-i]');
+      if (!t || !this.active || !this.e) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const i = +t.dataset.i;
+      if (e.pointerType === 'mouse' || this.sel === i) this._discard(i);
+      else this.sel = i;
+    });
     this.tagEls = [...el.querySelectorAll('.mj-tag')];
     this.pop = { el: el.querySelector('.mj-pop'), until: 0 };
     el.addEventListener('click', (e) => {
@@ -498,6 +510,7 @@ export class MahjongScene {
     this._down = (e) => {
       if (!this.active || e.target !== cv) return;
       if (this.intro) return this._introGo(); // a click throws the dice / skips the animation
+      if (this._mobile) return; // (the hand is the bar at the bottom, not the 3D tiles)
       const t = this._pick(e);
       if (t == null) return;
       if (e.pointerType === 'mouse' || this.sel === t) this._discard(t);
@@ -508,7 +521,7 @@ export class MahjongScene {
   }
   // which of your concealed tiles is under the pointer (index into this.mine)
   _pick(e) {
-    if (!this.mine?.length) return null;
+    if (!this.mine?.length || this._mobile) return null;
     const r = this.g.renderer.domElement.getBoundingClientRect();
     this.ray.setFromCamera(
       new THREE.Vector2(
@@ -528,6 +541,8 @@ export class MahjongScene {
     this.ui.classList.remove('hidden');
     document.body.classList.add('mahjong');
     this.g.player.frozen = true;
+    // 手機：全螢幕時瀏覽器肯讓我們鎖橫向；不肯就算了（直式會跳出「轉橫的」提示）
+    if (this.g.input.touch) screen.orientation?.lock?.('landscape').catch(() => {});
   }
   close() {
     this.active = false;
@@ -554,6 +569,17 @@ export class MahjongScene {
     this._clearSpectators();
     this._clearBubbles();
     this._hidePop();
+    this.$('.mj-hand').classList.add('hidden');
+    this.$('.mj-rotate').classList.add('hidden');
+    this._handKey = '';
+    this.cam?.clearViewOffset();
+    if (this.g.input.touch) {
+      try {
+        screen.orientation?.unlock?.();
+      } catch {
+        /* not locked */
+      }
+    }
     document.body.classList.remove('mahjong');
     for (const m of this.tiles) m.visible = false;
     if (!this.g.input.touch) this.g.lockPointer?.();
@@ -635,7 +661,7 @@ export class MahjongScene {
     }
     this._myTurn = myTurn;
     const dm = myTurn && this.mine?.find((x) => x.drawn);
-    this.set.newMark.visible = !!dm;
+    this.set.newMark.visible = !!dm && !this._mobile;
     if (dm) {
       this.set.newMark.position.copy(dm.mesh.position);
       this.set.newMark.position.y += TH / 2 + 0.03 + Math.sin(this.g.time * 5) * 0.003;
@@ -697,11 +723,39 @@ export class MahjongScene {
     if (renderer.getPixelRatio() < sharp) renderer.setPixelRatio(sharp);
     const c = this.cam;
     c.aspect = innerWidth / innerHeight;
+    this._mobileUI();
     // 近看 (default): leaning over the table, your hand and the discards big; 全景 (V / the 🔍 button): the whole
     // table and the other three. Closer on a narrow screen so the hand still fits.
     const tall = c.aspect < 1.2,
-      near = !this.far;
-    if (c.aspect < 0.8) {
+      near = !this.far,
+      // (watching someone's hand, or the hand is over and everybody's tiles are laid down: the usual camera)
+      mobCam = this._mobile && !this.e?.spectate && !this.result;
+    if (mobCam) {
+      // 手機版：你的手牌在底下那排大牌，鏡頭只要看桌面（海底＋三家），整張圖往上推，讓出手牌那條
+      if (c.aspect < 1) {
+        // 直拿：幾乎從正上方看，桌寬剛好塞滿螢幕寬
+        c.position.set(0, near ? 2.2 : 2.35, near ? 0.2 : 0.25);
+        c.fov = near ? 74 : 78;
+        c.lookAt(0, Y0, 0.04);
+      } else {
+        c.position.set(0, near ? 1.5 : 1.62, near ? 0.5 : 0.62);
+        c.fov = near ? 44 : 50;
+        c.lookAt(0, Y0, near ? -0.03 : -0.04);
+      }
+      // (直拿時桌子被螢幕寬卡住、上下有空：再往下挪一點，貼近手牌、讓北家多點位置)
+      const lift = Math.round(this._barH * 0.5 - (c.aspect < 1 ? innerHeight * 0.08 : 0));
+      const V = c.view;
+      if (
+        !V?.enabled ||
+        V.offsetY !== lift ||
+        V.fullWidth !== innerWidth ||
+        V.fullHeight !== innerHeight
+      )
+        c.setViewOffset(innerWidth, innerHeight, 0, lift, innerWidth, innerHeight);
+    } else if (c.view?.enabled) c.clearViewOffset();
+    if (mobCam) {
+      /* framed above */
+    } else if (c.aspect < 0.8) {
       // a phone held upright: from higher up, so the table's width fits
       c.position.set(0, near ? 1.5 : 1.62, near ? 0.56 : 0.62);
       c.fov = near ? 74 : 76;
@@ -719,12 +773,110 @@ export class MahjongScene {
     renderer.render(this.set.scene, c);
   }
 
+  // ---------------- 手機版（觸控或很矮的螢幕）：像麻將手遊那樣，手牌是底下一排大牌 ----------------
+  _mobileUI() {
+    const mob = !!this.g.input.touch || Math.min(innerWidth, innerHeight) <= 520,
+      portrait = innerHeight > innerWidth;
+    if (mob !== this._mobile) {
+      this._mobile = mob;
+      this.ui.classList.toggle('mobile', mob);
+      this._handKey = this._info = '';
+      if (this.e?.players) this._layout();
+    }
+    this.ui.classList.toggle('portrait', mob && portrait);
+    const rot = this.$('.mj-rotate'),
+      hideRot = !(mob && portrait && !this._rotateOk);
+    if (rot.classList.contains('hidden') !== hideRot) rot.classList.toggle('hidden', hideRot);
+    this._handHud();
+  }
+  // the bar: your concealed hand (the tile just drawn a little apart), then your melds and flowers, smaller
+  _handHud() {
+    const el = this.$('.mj-hand'),
+      e = this.e;
+    const show =
+      this._mobile &&
+      !!e?.players &&
+      !this.intro &&
+      !this.menu &&
+      !this.lobby &&
+      !this.choosing &&
+      !e.spectate &&
+      !e.revealAll &&
+      e.phase !== 'end' &&
+      !!this.mine?.length;
+    if (!show) {
+      if (!el.classList.contains('hidden')) el.classList.add('hidden');
+      this._barH = 0;
+      this._handKey = '';
+      return;
+    }
+    const P = e.players[0],
+      myTurn = e.pending?.seat === 0 && e.pending.kind === 'turn';
+    const key = [
+      this.mine.map((x) => x.k + (x.drawn ? 'd' : '')).join(','),
+      JSON.stringify(P.melds),
+      P.flowers.join(','),
+      myTurn ? this.sel : -1,
+      innerWidth,
+      innerHeight,
+    ].join('|');
+    if (key === this._handKey) return;
+    this._handKey = key;
+    el.classList.remove('hidden');
+    const img = (k, cls = '', i = null) =>
+      `<img src="${this._tileImg(k)}" class="${cls}"${i != null ? ` data-i="${i}"` : ''} alt="${tileName(k)}" draggable="false">`;
+    let html = `<div class="mj-hb-hand">${this.mine
+      .map((x, i) =>
+        img(x.k, `${x.drawn ? 'drawn' : ''}${myTurn && i === this.sel ? ' sel' : ''}`, i)
+      )
+      .join('')}</div>`;
+    if (P.melds.length || P.flowers.length) {
+      const melds = P.melds.map((m) => {
+        let tiles = meldTiles(m);
+        if (m.type === 'chow' && m.take != null) {
+          const rest = tiles.filter((x) => x !== m.take);
+          tiles = [rest[0], m.take, rest[1]];
+        }
+        return `<span>${tiles.map((k, j) => (m.closed && (j === 0 || j === 3) ? '<i class="back"></i>' : img(k))).join('')}</span>`;
+      });
+      if (P.flowers.length)
+        melds.push(`<span class="fl">${P.flowers.map((k) => img(k)).join('')}</span>`);
+      html += `<div class="mj-hb-melds">${melds.join('')}</div>`;
+    }
+    // as big as fits across the screen (melds 0.72×, flowers 0.5×), but not taller than ~a fifth of it
+    const cs = getComputedStyle(el),
+      room = innerWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
+    const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
+    const units =
+      this.mine.length +
+      (this.mine.some((x) => x.drawn) ? 0.35 : 0) +
+      (P.melds.length || P.flowers.length ? 0.3 : 0) +
+      nMeld * 0.72 +
+      P.melds.length * 0.12 +
+      P.flowers.length * 0.5 +
+      (P.flowers.length ? 0.12 : 0);
+    let tw = Math.max(16, Math.min(64, innerHeight * 0.125, room / units));
+    // 直拿手機一排太小：手牌折成兩排（吃碰槓、花不夠擺就再往下一排）
+    const rows = innerHeight > innerWidth && tw < 34 ? 2 : 1;
+    if (rows === 2) {
+      const per = Math.ceil(this.mine.length / 2);
+      tw = Math.max(16, Math.min(54, room / (per + 0.4)));
+      el.style.setProperty('--hand-w', `${(per * tw + tw * 0.36).toFixed(1)}px`);
+    } else el.style.removeProperty('--hand-w');
+    el.classList.toggle('rows', rows === 2);
+    el.style.setProperty('--tw', `${tw.toFixed(1)}px`);
+    el.innerHTML = html;
+    el.classList.toggle('turn', myTurn);
+    this._barH = el.offsetHeight;
+  }
+
   // ---------------- where every tile goes ----------------
   _layout(snap = false) {
     const e = this.e,
       want = []; // { k, at }
-    const put = (k, at, tag) => want.push({ k, at, tag });
+    const put = (k, at, tag, hide = false) => want.push({ k, at, tag, hide });
     const done = e.phase === 'end';
+    const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
     for (let s = 0; s < 4; s++) {
       const P = e.players[s];
       // concealed hand in order; the tile just drawn waits on the right, one tile's width apart, until a tile is
@@ -739,14 +891,16 @@ export class MahjongScene {
       const nMeld = P.melds.reduce((a, m) => a + (m.type === 'kong' ? 4 : 3), 0);
       const total = hand.length + nMeld + P.melds.length * 0.3 + (drawn >= 0 ? 1 : 0);
       let u = -(total * TW) / 2;
-      const reveal = done || !!e.revealAll; // hand over or spectator reveal: everybody lays their tiles down
+      // 手機版：你的手牌、吃碰槓、花都畫在底下那排大牌裡，桌上這份藏起來（攤牌時再擺出來）
+      const bar = this._mobile && s === 0 && !e.spectate && !reveal;
       hand.forEach((k, i) => {
         if (i === drawn) u += TW; // the gap before the drawn tile
         const how = reveal ? 'up' : e.spectate ? 'stand' : s === 0 ? 'mine' : 'stand';
         put(
           k,
           slot(s, u + TW / 2, reveal ? 0.38 : 0.4, how),
-          !e.spectate && s === 0 ? (i === drawn ? 'drawn' : 'mine') : null
+          !e.spectate && s === 0 ? (i === drawn ? 'drawn' : 'mine') : null,
+          bar
         );
         u += TW;
       });
@@ -760,12 +914,12 @@ export class MahjongScene {
         }
         tiles.forEach((k, j) => {
           const down = m.closed && (j === 0 || j === 3);
-          put(k, slot(s, u + TW / 2, 0.39, down ? 'down' : 'up'));
+          put(k, slot(s, u + TW / 2, 0.39, down ? 'down' : 'up'), null, bar);
           u += TW;
         });
       }
       // flowers in a row between the wall and the hand
-      P.flowers.forEach((k, i) => put(k, slot(s, -0.27 + i * TW, 0.335, 'up')));
+      P.flowers.forEach((k, i) => put(k, slot(s, -0.27 + i * TW, 0.335, 'up'), null, bar));
       // discards: rows of 7 in front of each player, a little apart so each face reads. The four blocks go round
       // the middle like a pinwheel (each starts DISC in from the centre on its left and DISC out from the centre),
       // so two players' discards never meet at a corner
@@ -810,7 +964,7 @@ export class MahjongScene {
         m.quaternion.copy(w.at.q);
         m.userData.fresh = false;
       }
-      m.visible = true;
+      m.visible = !w.hide;
       if (w.tag === 'mine' || w.tag === 'drawn')
         this.mine.push({ mesh: m, k: w.k, drawn: w.tag === 'drawn' });
       if (w.tag === 'last') this.lastMesh = m;
@@ -919,6 +1073,15 @@ export class MahjongScene {
     if (a.type === 'next') return this.mj.next();
     if (a.type === 'stake') return this._pickStake(a.i);
     if (a.type === 'view') return this._toggleView();
+    if (a.type === 'info') {
+      this._infoOpen = !this._infoOpen;
+      this._info = '';
+      return;
+    }
+    if (a.type === 'rotateOk') {
+      this._rotateOk = true;
+      return;
+    }
     if (a.type === 'leave') return this.mj.leave();
     if (a.type === 'go') return this._introGo();
     const e = this.e;
@@ -1015,7 +1178,10 @@ export class MahjongScene {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
       const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}`;
-      if (el.dataset.h !== html) el.innerHTML = el.dataset.h = html;
+      if (el.dataset.h !== html) {
+        el.innerHTML = el.dataset.h = html;
+        el._size = null; // (measured again by _placeTag)
+      }
       el.classList.toggle('on', e.turn === s && e.phase !== 'end');
       el.classList.toggle('me', s === 0 && !e.spectate);
     }
@@ -1037,10 +1203,13 @@ export class MahjongScene {
         .join('');
     }
     // just above your hand
-    if (opts.length) {
+    if (opts.length && this._barH)
+      this.$('.mj-acts').style.top = `${innerHeight - this._barH - 6}px`;
+    else if (opts.length) {
       const v = new THREE.Vector3(0, Y0 + 0.05, 0.36).project(this.cam);
       this.$('.mj-acts').style.top = `${((1 - v.y) / 2) * 100}%`;
     }
+    this.$('.mj-hint').style.bottom = this._barH ? `${this._barH + 6}px` : '';
     const p = e.pending;
     const waitSeat =
       !this.result && (!p || p.seat !== 0) ? (e.isRemote ? e.waitingSeat : p?.seat) : null;
@@ -1049,7 +1218,7 @@ export class MahjongScene {
       : e.spectate
         ? `👀 觀賽中${this.mj.sess?.wantSeat ? `・排隊補位 #${this.mj.sess.queuePos || 1}（下局有 AI 空位將自動上桌）` : '（純觀賽模式）'}${g.input.touch ? '・◀ ▶ 切換視角' : '・← → 切換視角'}・Esc 離開`
         : p?.seat === 0 && p.kind === 'turn'
-          ? g.input.touch
+          ? g.input.touch || this._barH
             ? '點一下選牌、再點一次打出'
             : g.prompts?.pad
               ? '十字鍵選牌・A 打出'
@@ -1076,6 +1245,12 @@ export class MahjongScene {
       el.classList.toggle('urgent', !!mine && mine.sec <= 5);
     }
     if (!mine) return;
+    if (this._barH) {
+      // 手機版：右上，資訊卡下面
+      el.style.left = `${innerWidth - 10}px`;
+      el.style.top = '112px';
+      return;
+    }
     const v = new THREE.Vector3(0.27, Y0 + 0.05, 0.36).project(this.cam);
     el.style.left = `${Math.min(99, ((v.x + 1) / 2) * 100)}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
@@ -1286,7 +1461,18 @@ export class MahjongScene {
     const seatLine = isGuestSpec
       ? `<div class="mj-seat">👀 視角：<em class="r">${R}</em>風<em class="s">${S}</em>（${esc(this.names[0])}）</div>`
       : `<div class="mj-seat">你坐 <em class="r">${R}</em>風<em class="s">${S}</em></div>`;
-    const html = `<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>${isGuestSpec ? '視角門風' : '你的門風'}</span></div></div>
+    // 手機版：收成右上角一顆小膠囊（風圈・門風・剩幾張・錢包），點開才是整張卡
+    const miniCard = !!this._mobile && !this._infoOpen;
+    this.$('.mj-info').classList.toggle('mini', miniCard);
+    if (miniCard) {
+      const mini = `<button class="mj-mini" data-a='{"type":"info"}'><b class="r">${R}</b><b class="s">${S}</b><span>剩 ${Math.max(0, e.live)}</span>${e.dealer === 0 && !isGuestSpec ? '<i class="mj-zhuang">莊</i>' : ''}<span class="mj-cash ${g.money < 0 ? 'neg' : ''}">$${g.money.toLocaleString('en-US')}</span><small>ⓘ</small></button>`;
+      if (mini !== this._info) this.$('.mj-info').innerHTML = this._info = mini;
+      return;
+    }
+    const fold = this._mobile
+      ? `<button class="mj-fold" data-a='{"type":"info"}'>收起 ▲</button>`
+      : '';
+    const html = `${fold}<div class="mj-winds"><div><b class="r">${R}</b><span>風圈</span></div><div><b class="s">${S}</b><span>${isGuestSpec ? '視角門風' : '你的門風'}</span></div></div>
       ${seatLine}<div class="mj-tai">${tai}</div>
       <div class="mj-dealer"><i class="mj-zhuang">莊</i>${esc(this.names[e.dealer])}${e.dealer === 0 && !isGuestSpec ? '（你）' : ''}${e.streak ? `<span class="mj-streak">連 ${e.streak}</span>` : ''}</div>
       <dl><dt>牌牆</dt><dd>剩 ${Math.max(0, e.live)} 張</dd><dt>底／台</dt><dd>${e.base}／${e.perTai}</dd>${extra}
@@ -1314,6 +1500,12 @@ export class MahjongScene {
       el.classList.toggle('hidden', !list.length);
     }
     if (!list.length) return;
+    if (this._barH) {
+      // 手機版：手牌那條左上方，名牌上面
+      el.style.left = '8px';
+      el.style.top = `${innerHeight - this._barH - 36}px`;
+      return;
+    }
     // just above the left end of your hand
     const v = new THREE.Vector3(-0.25, Y0 + 0.05, 0.36).project(this.cam);
     el.style.left = `${Math.max(1, ((v.x + 1) / 2) * 100)}%`;
@@ -1321,12 +1513,26 @@ export class MahjongScene {
   }
   // on the table edge in front of each player; yours left of your hand
   _placeTag(el, s, v = new THREE.Vector3()) {
+    if (s === 0 && this._barH) {
+      // 手機版：手牌那條的左上角
+      el.style.left = '8px';
+      el.style.top = `${innerHeight - this._barH - 4}px`;
+      return;
+    }
     if (s === 0) v.set(-0.42, Y0 + 0.03, 0.4);
     else {
       v.copy(FWD[s]).multiplyScalar(-0.5);
       v.y = Y0 + 0.1;
     }
     v.project(this.cam);
+    if (this._mobile) {
+      // 手機鏡頭比較近，名牌可能跑出畫面：夾在螢幕裡
+      const [tw, th] = (el._size ||= [el.offsetWidth, el.offsetHeight]),
+        w = tw / 2 + 4;
+      el.style.left = `${Math.min(innerWidth - w, Math.max(w, ((v.x + 1) / 2) * innerWidth))}px`;
+      el.style.top = `${Math.max(th + 4, ((1 - v.y) / 2) * innerHeight)}px`;
+      return;
+    }
     el.style.left = `${((v.x + 1) / 2) * 100}%`;
     el.style.top = `${((1 - v.y) / 2) * 100}%`;
   }

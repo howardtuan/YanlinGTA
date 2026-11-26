@@ -8128,6 +8128,7 @@ body.photo-mode #hud > :not(#toast):not(#bigToast):not(#dialog) {
   color: #ff6b6b;
 }
 body.mahjong #hud,
+body.mahjong #rotateHint,
 body.mahjong #touch,
 body.mahjong #prompt,
 body.mahjong #aim {
@@ -8888,6 +8889,230 @@ body.mahjong #dialog {
   }
   #mjUI .mj-info dl {
     font-size: 11px;
+  }
+}
+
+/* 277 麻將・手機版（MahjongScene._mobileUI，觸控或很矮的螢幕）：像麻將手遊——手牌是螢幕底下一排大牌，
+   資訊卡收成右上角小膠囊，吃碰槓胡在手牌右上方，桌面讓給海底和另外三家 */
+#mjUI .mj-hand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: calc(var(--tw, 40px) * 0.3);
+  padding: 8px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+#mjUI .mj-hand.turn {
+  background: linear-gradient(to top, rgba(224, 98, 47, 0.55), rgba(224, 98, 47, 0));
+}
+#mjUI .mj-hand img,
+#mjUI .mj-hand .back {
+  display: block;
+  box-sizing: border-box;
+  width: var(--tw, 40px);
+  aspect-ratio: 128 / 170;
+  border-radius: calc(var(--tw, 40px) * 0.12);
+  border-bottom: calc(var(--tw, 40px) * 0.11) solid #1e7a4a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+#mjUI .mj-hb-hand,
+#mjUI .mj-hb-melds,
+#mjUI .mj-hb-melds span {
+  display: flex;
+  align-items: flex-end;
+}
+#mjUI .mj-hb-hand img {
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+#mjUI .mj-hb-hand img.drawn {
+  margin-left: calc(var(--tw, 40px) * 0.35);
+}
+#mjUI .mj-hand.turn .mj-hb-hand img.sel {
+  transform: translateY(calc(var(--tw, 40px) * -0.3));
+  box-shadow:
+    0 0 0 2px #ffd166,
+    0 4px 10px rgba(0, 0, 0, 0.6);
+}
+#mjUI .mj-hb-melds {
+  gap: calc(var(--tw, 40px) * 0.12);
+}
+/* 直拿：手牌兩排 */
+#mjUI .mj-hand.rows {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+#mjUI .mj-hand.rows .mj-hb-hand {
+  flex-wrap: wrap;
+  row-gap: 5px;
+  width: var(--hand-w);
+}
+#mjUI .mj-hb-melds img,
+#mjUI .mj-hand .back {
+  width: calc(var(--tw, 40px) * 0.72);
+}
+#mjUI .mj-hand .back {
+  background: linear-gradient(#2f9a62, #1e7a4a);
+  border-bottom-color: #f1ead8;
+}
+#mjUI .mj-hb-melds .fl img {
+  width: calc(var(--tw, 40px) * 0.5);
+}
+#mjUI.mobile {
+  font-size: 12px;
+}
+#mjUI.mobile kbd {
+  display: none;
+}
+#mjUI.mobile .mj-tag {
+  padding: 1px 8px;
+  font-size: 12px;
+}
+#mjUI.mobile .mj-tag.me {
+  transform: translate(0, -100%);
+}
+#mjUI.mobile .mj-side {
+  top: max(6px, env(safe-area-inset-top));
+  right: max(6px, env(safe-area-inset-right));
+  gap: 5px;
+}
+#mjUI.mobile .mj-info.mini {
+  width: auto;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+#mjUI.mobile .mj-info:not(.mini) {
+  width: 200px;
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 8px 10px;
+  pointer-events: auto;
+}
+#mjUI .mj-mini {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 11px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(16, 22, 19, 0.88);
+  border: 1.5px solid rgba(255, 209, 102, 0.85);
+  border-radius: 999px;
+  pointer-events: auto;
+}
+#mjUI .mj-mini b {
+  font-size: 18px;
+  line-height: 1.2;
+}
+#mjUI .mj-mini .mj-zhuang {
+  margin: 0;
+}
+#mjUI .mj-mini small {
+  opacity: 0.7;
+}
+#mjUI .mj-fold {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 3px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: auto;
+}
+#mjUI.mobile .mj-view {
+  font-size: 12px;
+  padding: 3px 10px;
+}
+#mjUI.mobile .mj-acts {
+  left: auto;
+  right: max(10px, env(safe-area-inset-right));
+  transform: translateY(-100%);
+  justify-content: flex-end;
+  max-width: 75vw;
+  gap: 8px;
+}
+#mjUI.mobile .mj-acts button {
+  min-width: 58px;
+  padding: 6px 12px;
+  gap: 4px;
+  font-size: 20px;
+  border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+#mjUI.mobile .mj-acts .mj-tiles img {
+  width: 24px;
+  border-bottom-width: 3px;
+  border-radius: 3px;
+}
+#mjUI.mobile .mj-acts:not(:empty) ~ .mj-hint {
+  display: none;
+}
+#mjUI.mobile .mj-hint {
+  left: auto;
+  right: max(8px, env(safe-area-inset-right));
+  transform: none;
+  max-width: 60vw;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+#mjUI.mobile .mj-wait {
+  padding: 4px 8px;
+}
+#mjUI.mobile .mj-wait b {
+  font-size: 12px;
+}
+#mjUI.mobile .mj-wt img {
+  width: 22px;
+  border-bottom-width: 3px;
+}
+#mjUI.mobile .mj-pop img {
+  width: clamp(44px, 7vw, 70px);
+  border-bottom-width: 5px;
+}
+#mjUI.mobile .mj-res {
+  max-height: 92vh;
+  padding: 12px 16px;
+}
+/* 直拿手機：請他轉橫的（也可以按「直的也沒關係」照打） */
+#mjUI .mj-rotate {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 10, 0.86);
+  pointer-events: auto;
+  text-align: center;
+}
+#mjUI .mj-rotate b {
+  display: inline-block;
+  font-size: 56px;
+  animation: mjRotate 1.6s ease-in-out infinite;
+}
+#mjUI .mj-rotate p {
+  margin: 10px 0 18px;
+  font-size: 18px;
+}
+@keyframes mjRotate {
+  0%,
+  30% {
+    transform: rotate(0);
+  }
+  60%,
+  100% {
+    transform: rotate(-90deg);
   }
 }
 

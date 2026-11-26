@@ -9003,6 +9003,70 @@ body.mahjong #dialog {
   border-radius: 10px;
   text-align: center;
 }
+/* 桌子正中間的面板：圈風、剩幾張、四邊各家門風（MahjongScene._centerHud） */
+#mjUI .mj-center {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border-radius: 10%;
+  background: rgba(10, 24, 16, 0.78);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 209, 102, 0.55);
+  pointer-events: none;
+  font-size: clamp(9px, calc(var(--cw) * 0.13), 18px);
+  line-height: 1.1;
+}
+#mjUI .mj-center > b {
+  font-size: 1.9em;
+  color: #ffd166;
+}
+#mjUI .mj-center > span {
+  opacity: 0.9;
+}
+#mjUI .mj-center > span em {
+  font-style: normal;
+  font-weight: 700;
+}
+#mjUI .mj-center i {
+  position: absolute;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 1.05em;
+  padding: 0 0.25em;
+  border-radius: 4px;
+  opacity: 0.85;
+}
+#mjUI .mj-center i.b {
+  bottom: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+#mjUI .mj-center i.t {
+  top: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+#mjUI .mj-center i.l {
+  left: 4%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+#mjUI .mj-center i.r {
+  right: 4%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+#mjUI .mj-center i.z {
+  color: #ff6b5e;
+}
+#mjUI .mj-center i.on {
+  color: #fff;
+  background: #e0622f;
+  opacity: 1;
+}
 /* 放大鏡：桌上翻開的牌，滑鼠移上去／手機點一下就跳一張大的（MahjongScene._peek） */
 #mjUI .mj-zoom {
   position: absolute;

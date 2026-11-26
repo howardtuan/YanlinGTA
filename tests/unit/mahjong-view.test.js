@@ -5,6 +5,7 @@ import {
   camPoints,
   discardScale,
   fitCamera,
+  MahjongScene,
 } from '../../src/systems/mahjong/MahjongScene.js';
 
 // 麻將桌的鏡頭自動取景與海底放大（src/systems/mahjong/MahjongScene.js）
@@ -66,5 +67,44 @@ describe('discardScale：海底放大但不壓到牌牆', () => {
       // 海底最外緣 = k × (0.072 + rows × (0.04 + 0.003))，牌牆內側 = 0.3 − 0.011
       expect(k * (0.072 + rows * 0.043)).toBeLessThanOrEqual(0.3 - 0.011);
     }
+  });
+});
+
+describe('discardScale：近景不擺牌牆時海底放更大', () => {
+  it('前三排放大到約 1.5 倍，最外排在花那排（0.335）前面', () => {
+    expect(discardScale(14, false)).toBeGreaterThan(1.5);
+    for (const n of [21, 28, 35]) {
+      const k = discardScale(n, false),
+        rows = Math.max(3, Math.ceil(n / 7));
+      expect(k).toBeGreaterThanOrEqual(discardScale(n, true));
+      expect(k * (0.072 + rows * 0.043)).toBeLessThanOrEqual(0.335 - 0.02);
+    }
+  });
+});
+
+describe('_lastDiscard：最後打出的那張被吃碰走就不再標記', () => {
+  const last = MahjongScene.prototype._lastDiscard;
+  const mk = () => ({
+    players: [0, 1, 2, 3].map(() => ({ discards: [] })),
+    last: null,
+  });
+  it('打出來時標記、被碰走後取消、下一張打出又標記', () => {
+    const sc = {},
+      e = mk();
+    expect(last.call(sc, e)).toBe(null);
+    e.players[1].discards.push(5);
+    e.last = { t: 5, from: 1 };
+    expect(last.call(sc, e)).toBe(1);
+    e.players[1].discards.pop(); // 被碰走（引擎不會清掉 e.last）
+    expect(last.call(sc, e)).toBe(null);
+    expect(last.call(sc, e)).toBe(null);
+    e.players[2].discards.push(9);
+    e.last = { t: 9, from: 2 };
+    expect(last.call(sc, e)).toBe(2);
+  });
+  it('搶槓的牌不在海底，不標記', () => {
+    const e = mk();
+    e.last = { t: 3, from: 0, rob: true };
+    expect(last.call({}, e)).toBe(null);
   });
 });

@@ -7,7 +7,10 @@ import {
   fitCamera,
   MahjongScene,
   specSpot,
+  zoneRank,
 } from '../../src/systems/mahjong/MahjongScene.js';
+import { MahjongEngine } from '../../src/systems/mahjong/Engine.js';
+import { makeAI } from '../../src/systems/mahjong/AI.js';
 
 // 麻將桌的鏡頭自動取景與海底放大（src/systems/mahjong/MahjongScene.js）
 const SIZES = [
@@ -139,6 +142,75 @@ describe('fitCamera：觀戰者繞桌轉鏡頭也塞得下', () => {
       // 鏡頭在那個方向那一側
       const a = (yaw * Math.PI) / 180;
       expect(c.position.x * Math.sin(a) + c.position.z * Math.cos(a)).toBeGreaterThan(0.3);
+    });
+  }
+});
+
+describe('配牌動畫：打出的牌從那家手上飛出去，不會拿牌牆上的', () => {
+  const rng = (seed) => () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const fakeScene = (e) => {
+    const sc = Object.create(MahjongScene.prototype);
+    sc.e = e;
+    sc._mobile = false;
+    sc.intro = null;
+    sc.pool = [];
+    sc.tiles = [];
+    for (let k = 0; k < 42; k++) {
+      sc.pool[k] = [];
+      for (let i = 0; i < (k < 34 ? 4 : 1); i++) {
+        const m = new THREE.Object3D();
+        m.userData.k = k;
+        m.userData.fresh = true;
+        sc.pool[k].push(m);
+        sc.tiles.push(m);
+      }
+    }
+    return sc;
+  };
+  it('zoneRank：手牌→海底、牌牆→手牌最合理', () => {
+    expect(zoneRank('d0', 'h0')).toBe(1);
+    expect(zoneRank('d0', 'w')).toBeGreaterThan(1);
+    expect(zoneRank('h2', 'w')).toBe(1);
+    expect(zoneRank('m1', 'h1')).toBe(1);
+    expect(zoneRank('m1', 'd3')).toBe(2);
+    expect(zoneRank('w', 'w')).toBe(0);
+    expect(zoneRank('w', 'h0')).toBeGreaterThan(zoneRank('h0', 'w'));
+  });
+  for (const seed of [1, 7, 42, 99, 2024]) {
+    it(`整局打下來（seed ${seed}）：每張打出的牌都來自那家手上，牌牆上的牌不亂換位置`, () => {
+      const e = new MahjongEngine({
+        rng: rng(seed),
+        human: [false, false, false, false],
+        ai: makeAI(),
+      });
+      const sc = fakeScene(e);
+      e.step(); // deal
+      sc._layout(true);
+      for (const m of sc.tiles) m.userData.fresh = false;
+      let n = 0;
+      while (e.phase !== 'end' && n++ < 2000) {
+        const before = new Map(sc.tiles.map((m) => [m, m.userData.zone]));
+        const wallAt = new Map(
+          sc.tiles.filter((m) => m.userData.zone === 'w').map((m) => [m, m.userData.to.p.clone()])
+        );
+        const discards = e.players.map((P) => P.discards.length);
+        e.step();
+        sc._layout(true);
+        for (let s = 0; s < 4; s++) {
+          if (e.players[s].discards.length !== discards[s] + 1) continue;
+          const m = sc.tiles.find(
+            (x) => x.userData.zone === `d${s}` && before.get(x) !== `d${s}` && x.visible
+          );
+          expect(before.get(m)).toBe(`h${s}`);
+        }
+        // 還在牌牆上的牌：留在同一疊（下面那張被摸走時，上面那張會落下一層，水平位置不變）
+        for (const [m, p] of wallAt)
+          if (m.userData.zone === 'w')
+            expect(Math.hypot(m.userData.to.p.x - p.x, m.userData.to.p.z - p.z)).toBeLessThan(1e-6);
+      }
     });
   }
 });

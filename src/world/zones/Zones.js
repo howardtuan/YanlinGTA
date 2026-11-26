@@ -97,6 +97,7 @@ import { bellPlatformHide, buildBellPlatform } from '../buildings/BellPlatform.j
 import { buildNiuchouDeck } from '../buildings/NiuchouDeck.js';
 import { yuantangIslandTrees, buildYuantangIslet } from '../buildings/YuantangIsland.js';
 import { RC_ST, rcFix, rcLook, buildRoadClearance } from '../buildings/RoadClearance.js';
+import { niuchouParkLook, buildNiuchouPark } from '../buildings/NiuchouPark.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -407,6 +408,12 @@ export const ZONES = [
     fix: rcFix,
     look: rcLook,
     build: buildRoadClearance,
+  },
+  {
+    // 牛稠埤北岸的公園建物（景觀餐廳、草坡屋頂、階梯看台、框景迴廊坡道；src/world/buildings/NiuchouPark.js），OSM 的 4 層方樓只藏不刪
+    name: '牛稠埤公園建物',
+    look: niuchouParkLook,
+    build: buildNiuchouPark,
   },
 ];
 

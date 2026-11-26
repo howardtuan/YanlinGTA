@@ -389,16 +389,32 @@ export class Chassis {
     this.wx = v.pos.x;
     this.wz = v.pos.z;
   }
-  // make the arcade speed s (scales the horizontal velocity; 0 stops it)
+  // make the arcade speed s. Slowing down (same direction, |s| <= |current|) scales the horizontal velocity,
+  // so a drift keeps its shape; 0 stops it. Giving speed back (a hit rule restoring momentum the contact
+  // solver took, e.g. a car knocking a parked scooter away: the kinematic stand-in stopped the car like a
+  // wall for a step) sets the part along moveAng to s and keeps the sideways leftover as it is. Scaling
+  // that leftover by s / current blew a few m/s of sideways slide up into a pinball launch
   _setSpeed(s) {
     const b = this.body,
       va = b.linvel(),
       m = this.v.moveAng,
       cur = arcSpeed(va.x, va.z, m);
-    if (Math.abs(cur) > 0.05 && Math.abs(s) > 0.01) {
+    if (Math.abs(s) <= 0.01) b.setLinvel({ x: 0, y: va.y, z: 0 }, true);
+    else if (
+      Math.abs(cur) > 0.05 &&
+      Math.sign(cur) === Math.sign(s) &&
+      Math.abs(s) <= Math.abs(cur)
+    ) {
       const k = s / cur;
       b.setLinvel({ x: va.x * k, y: va.y, z: va.z * k }, true);
-    } else b.setLinvel({ x: Math.sin(m) * s, y: va.y, z: Math.cos(m) * s }, true);
+    } else {
+      const dx = Math.sin(m),
+        dz = Math.cos(m),
+        al = va.x * dx + va.z * dz,
+        px = va.x - al * dx,
+        pz = va.z - al * dz;
+      b.setLinvel({ x: dx * s + px, y: va.y, z: dz * s + pz }, true);
+    }
     this.v.speed = this.wsp = s;
   }
   // Vehicle.place: moved by the game (race grid, tow, bot fallback, brought to you)

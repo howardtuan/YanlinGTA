@@ -5,7 +5,8 @@
 //   spec 欄位與 src/world/buildings/StreetZhongbei.js 相同（nf、gf、fh、d、wall、low、sign、ground、sh、awn、bal、glass、hood、vert、round、banner、
 //        roof、bill、tin、arch、fins、big、sign2、noband、roofCol、door、tower、bikes、set）
 //   inside: true  一樓可以走進去：這裡只蓋二樓以上的外殼，一樓（立面、室內、碰撞）由那段的 custom 自己蓋（例：SegX4 的涼韌足體養生）
-// 一段路一個資料檔（src/world/buildings/xzb/Seg*.js），各自 export default { lots, drop, ownSign, custom, footprints }：
+// 一段路一個資料檔（src/world/buildings/xzb/Seg*.js），各自 export default { lots, drop, hide, ownSign, custom, footprints }：
+//   hide           不能 drop 的建物 id（OSM 建物、有店面牆的填充樓）：資料留著、不畫、碰撞收成一點（見 xzLook）
 //   custom(C)      不是街屋的東西（機車棚、圍牆、大樓…）用 Kit 自己蓋；C 有 kit(ref, s0, s1, side, set) 開一個對著街的 Kit、paint 招牌貼圖等工具
 //   footprints(F)  custom 佔的地（多邊形陣列），F(ref, s0, s1, side, set, d) 回傳一格的四個角
 // 每一格自成一個 Kit，立面對著街道；收尾用 finishRow 一次合併。
@@ -142,6 +143,41 @@ export const XZ_ST = {
   drop: SEGS.flatMap((S) => S.drop || []), // 被自建街屋取代的填充樓（全部是 synthetic，各自用自己的亂數，刪掉不影響別的東西）
   lots: LOTS,
 };
+// 不能 drop 的建物（OSM 建物、有店面牆的填充樓）：各段在自己的 hide 列出 id。照環中東路 hzLook／大仁二街 d2Look 的做法，
+// 資料原封不動（全圖共用亂數、world.shopWalls 的牆數都不變，停放機車不會重排），只叫 src/world/MapBuilder.js 不畫牆和屋頂
+// （look.open.bare＋noShop），碰撞輪廓在 buildXinzhongbeiStreet 最後收成一個點（xzUncollide），由各段自建的街屋取代
+const XZ_HIDE = new Set(SEGS.flatMap((S) => S.hide || []));
+export function xzLook(b) {
+  if (!XZ_HIDE.has(b.id)) return;
+  // 原本就 noShop、沒有 look 的填充樓本來不產生店面牆；一加 look，MapBuilder 會把它當成「有店面但不畫」推進 world.shopWalls，
+  // 牆數一變全圖停放機車就重排。facade 設成 glass 只換樣式（rb() 照抽），店面牆照舊不產生
+  if (b.noShop && !b.look) b.facade = 'glass';
+  b.look = {
+    ...(b.look || {}),
+    wall: { base: 'smooth', colour: '#d9d9d6' },
+    open: { bare: true },
+    roof: { ac: false, extras: false },
+  };
+  b.noShop = true;
+}
+function xzUncollide(data, collision) {
+  if (!data || !collision || !collision.polys) return;
+  for (const b of data.buildings) {
+    if (!XZ_HIDE.has(b.id)) continue;
+    const pi = collision.polys.findIndex((q) => q.pts === b.pts);
+    if (pi < 0) {
+      console.warn(`[xinzhongbei] 找不到 ${b.id} 的碰撞輪廓`);
+      continue;
+    }
+    const Q = collision.polys[pi],
+      n = b.pts.length,
+      c0 = b.pts[0];
+    Q.pts = b.pts.map(() => [c0[0], c0[1]]);
+    Q.top = -Infinity;
+    for (let k = 0; k < n; k++)
+      collision.segs[Q.s0 + k] = [c0[0], c0[1], c0[0], c0[1], 1e8, 1e8 + 1];
+  }
+}
 export function xzAt(ref, s) {
   const R = XZ_REF[ref];
   let acc = 0;
@@ -203,7 +239,7 @@ export function xzFootprints() {
 const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 const r16 = (v) => Math.max(16, Math.ceil(v / 16) * 16);
 
-export function buildXinzhongbeiStreet(I, scene, X) {
+export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
   const { THREE, Kit, finishRow, rowTools, ROWT, YHT, sg, lcg, MATS } = X;
   const { MR, FRONT, shopGlass, ac, win, shell } = rowTools();
   const def = (key, f) => {
@@ -841,4 +877,5 @@ export function buildXinzhongbeiStreet(I, scene, X) {
   };
   for (const S of SEGS) if (S.custom) S.custom(C);
   finishRow(scene, kits);
+  xzUncollide(data, collision);
 }

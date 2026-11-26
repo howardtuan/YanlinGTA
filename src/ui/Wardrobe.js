@@ -1,5 +1,6 @@
 // 衣櫃：彥霖舊家（松木雙門衣櫃，換衣服時門會打開）和力行 276 寢自己書桌旁的衣櫥（src/entities/npcs/Zz.js）都能打開。
-// 可以整套換（套裝：麥當勞制服、彥霖航空機長／空服員），也可以只換上衣、褲子或戴頂帽子；換單件會脫下套裝。
+// 可以整套換（套裝：麥當勞制服、彥霖航空機長／空服員；同學穿搭：借吱吱、理查、女拳大帝…的衣服），
+// 也可以只換上衣、褲子或戴頂帽子；換單件會脫下套裝。
 // 點一下就換上（src/systems/Outfits.js wearLook），造型存在存檔裡，多人麻將時別人也看得到（src/systems/mahjong/P2P.js）。
 // 服裝清單在 src/systems/OutfitData.js。
 import { TOPS, BOTTOMS, HATS, SETS, normalizeLook, pickItem } from '../systems/OutfitData.js';
@@ -25,6 +26,7 @@ export class Wardrobe {
     el.innerHTML = `<div class="wd-card">
       <div class="wd-head"><b>👕 衣櫃</b><small>WARDROBE</small><button class="wd-x" title="關閉">✕</button></div>
       <div class="wd-sec">套裝 <small>整套換上</small></div><div class="wd-grid" id="wdSets"></div>
+      <div class="wd-sec">同學穿搭 <small>借同學的衣服整套換上</small></div><div class="wd-grid" id="wdFriends"></div>
       <div class="wd-sec">上衣</div><div class="wd-grid" id="wdTops"></div>
       <div class="wd-sec">褲子</div><div class="wd-grid" id="wdBottoms"></div>
       <div class="wd-sec">帽子</div><div class="wd-grid" id="wdHats"></div>
@@ -63,10 +65,13 @@ export class Wardrobe {
     const L = this._look();
     const item = (k, i, name, bg, on, tag) =>
       `<button class="wd-item${on ? ' on' : ''}" data-k="${k}" data-i="${i}"><i style="background:${bg}"></i><span>${name}</span>${tag ? `<small>${tag}</small>` : ''}</button>`;
-    $('wdSets').innerHTML =
-      SETS.map((s, i) =>
-        item('set', i, s.name, SWATCH[s.id] || s.shirt, L.set === s.id, s.tag)
-      ).join('') + item('set', -1, '不穿套裝', '#2a2e40', !L.set, '單件');
+    const sw = (x) => SWATCH[x.id] || `linear-gradient(135deg,${x.shirt} 55%,${x.shorts} 55%)`;
+    const sets = (friend) =>
+      SETS.map((x, i) =>
+        !!x.group === friend ? item('set', i, x.name, sw(x), L.set === x.id, x.tag) : ''
+      ).join('');
+    $('wdSets').innerHTML = sets(false) + item('set', -1, '不穿套裝', '#2a2e40', !L.set, '單件');
+    $('wdFriends').innerHTML = sets(true);
     // 穿著套裝時，單件的「已選」仍標出來：脫下套裝後會回到這些
     $('wdTops').innerHTML = TOPS.map((t, i) =>
       owned(this.g, t.unlock)

@@ -98,6 +98,7 @@ import { buildNiuchouDeck } from '../buildings/NiuchouDeck.js';
 import { yuantangIslandTrees, buildYuantangIslet } from '../buildings/YuantangIsland.js';
 import { RC_ST, rcFix, rcLook, buildRoadClearance } from '../buildings/RoadClearance.js';
 import { niuchouParkLook, buildNiuchouPark } from '../buildings/NiuchouPark.js';
+import { buildFountainPlanter } from '../buildings/FountainPlanter.js';
 
 export const ZONES = [
   // ---------------- 校內資料修正 ----------------
@@ -414,6 +415,11 @@ export const ZONES = [
     name: '牛稠埤公園建物',
     look: niuchouParkLook,
     build: buildNiuchouPark,
+  },
+  {
+    // 中原噴水池東北側的弧形花台（src/world/buildings/FountainPlanter.js）
+    name: '噴水池弧形花台',
+    build: buildFountainPlanter,
   },
 ];
 

@@ -838,7 +838,8 @@ function sinkPlan(data) {
       e.oA = O[i];
       e.oB = O[(i + 1) % P.length];
     });
-    areas.push({ area: a, P, O, edges, drop: a.sink.drop });
+    // wet: the water inside a larger basin (the rest of its floor is a dry bed, a.sink.bed)
+    areas.push({ area: a, P, O, edges, drop: a.sink.drop, wet: a.sink.wet, bed: a.sink.bed });
   }
   // streams: the parts not under a road (crossings = culverts / bridges) and not inside a sunk area
   const inSunkArea = (x, z) => areas.some((s) => pointInPoly(x, z, s.P));
@@ -1754,7 +1755,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       grass = new Geo(),
       earth = new Geo(),
       metal = new Geo(),
-      panel = new Geo();
+      panel = new Geo(),
+      bed = new Geo(false, uvS(3));
     const C = {
       riprap: col('#8d8778'),
       stone: col('#9b978c'),
@@ -1763,10 +1765,12 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       earth: col('#7b6b52'),
       wall: col('#c6c1b4'),
       bed: col('#5b5850'),
+      pebble: col('#ffffff'),
       dark: col('#151513'),
       white: col('#ffffff'),
     };
-    const geoOf = (m) => (m === 'grass' ? grass : m === 'earth' ? earth : conc);
+    const geoOf = (m) =>
+      m === 'grass' ? grass : m === 'earth' ? earth : m === 'pebble' ? bed : conc;
     const RAIL = { steel: col('#3d4044'), mesh: col('#2f6b4a'), post: col('#b9b4a8') };
     // vertical quad along a-b ([x,z]) from y0 to y1 (per end), facing n; uv in metres / 3
     const vq = (g, a, b, ya0, ya1, yb0, yb1, c, n) => {
@@ -1855,13 +1859,21 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       }
     };
     // ponds: draped water drop m below the ground, a wall (with coping) or a slope on each edge
+    // a basin with a dry bed (s.wet: the water part): the bed lies flat at the water level
+    // (the water's median ground height less drop) and the slopes reach down to it
     for (const s of sink.areas) {
-      water.flatPoly(s.P, -s.drop, C.white);
+      let lvl = null;
+      if (s.wet) {
+        const hs = s.wet.map((p) => H(p[0], p[1])).sort((a, b) => a - b);
+        lvl = hs[hs.length >> 1] - s.drop;
+        water.flatPoly(s.wet, -s.drop, C.white);
+        bed.flatPoly(s.P, lvl - 0.05, C.white);
+      } else water.flatPoly(s.P, -s.drop, C.white);
       for (const e of s.edges) {
         const yA = H(...e.A),
           yB = H(...e.B),
-          wA = yA - s.drop,
-          wB = yB - s.drop,
+          wA = lvl ?? yA - s.drop,
+          wB = lvl ?? yB - s.drop,
           rA = H(...e.oA),
           rB = H(...e.oB),
           inN = [-e.n[0], 0, -e.n[1]];
@@ -2066,6 +2078,10 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     bank(conc, cx.map, cx.normalMap, 0.9);
     bank(grass, gr.map, gr.normalMap, 0.95);
     bank(earth, dt.map, dt.normalMap, 0.95);
+    if (bed.tris) {
+      const pb = T.pebble();
+      bank(bed, pb.map, pb.normalMap, 0.9);
+    }
     if (metal.tris) {
       const m = metal.mesh(
         new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.4, roughness: 0.5 })

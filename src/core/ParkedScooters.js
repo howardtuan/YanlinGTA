@@ -10,7 +10,7 @@
 // - Pressing F nearby claims the slot and materializes a real drivable Vehicle of the exact same kind & color.
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
-import { sameLevel, getParkedCarAssets, CRASH_STOP, CRASH_THROW } from '../entities/Vehicles.js';
+import { sameLevel, getParkedCarAssets, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
 import { vehicleSpec, solveVehicleImpact, solvePersonImpact } from '../physics/ImpactPhysics.js';
 
@@ -681,31 +681,27 @@ export class ParkedScooters {
       vRel: impact,
     });
 
-    if (!sol.moves) {
-      // Static friction held (e.g. slow bump or 180 kg scooter vs 1,250 kg parked car)
-      v.speed = impact > CRASH_STOP ? 0 : sp * sol.kf;
-      if ((sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
-        v.crash = {
-          impact,
-          speed: Math.abs(sp),
-          nx: hit.nx,
-          nz: hit.nz,
-          dv1: sol.dv1,
-          movedTarget: false,
-        };
-      return;
-    }
-
-    this.knockSlot(slot, pushX * sol.dv2, pushZ * sol.dv2, sol.dv2, sol);
-    v.speed = sp * sol.kf;
-    if (sol.ejectRider1 && !v.crash)
+    // velocity after the hit = velocity before it + n * dv1 (n = hit normal, toward you). A slot that holds
+    // (handbrake / kickstand) is a rigid barrier: dv1 = (1 + e) * the approach, so a glancing scrape keeps the
+    // speed along the curb and a head-on hit rebounds a little; one knocked away takes only its share J / m1
+    if (sol.moves) this.knockSlot(slot, pushX * sol.dv2, pushZ * sol.dv2, sol.dv2, sol);
+    const ang = Number.isFinite(hit.ang)
+      ? hit.ang
+      : Number.isFinite(v.moveAng)
+        ? v.moveAng
+        : Math.atan2(-hit.nx, -hit.nz) + (sp < 0 ? Math.PI : 0); // moving into the obstacle
+    const vx = (hit.vx ?? Math.sin(ang) * sp) + hit.nx * sol.dv1,
+      vz = (hit.vz ?? Math.cos(ang) * sp) + hit.nz * sol.dv1;
+    v.speed = vx * Math.sin(ang) + vz * Math.cos(ang);
+    if (v.body) v._hitVel = { x: vx, z: vz, ang };
+    if ((sol.ejectRider1 || (!sol.moves && impact > CRASH_THROW)) && !v.crash)
       v.crash = {
         impact,
         speed: Math.abs(sp),
         nx: hit.nx,
         nz: hit.nz,
         dv1: sol.dv1,
-        movedTarget: true,
+        movedTarget: sol.moves,
       };
   }
 
@@ -718,8 +714,9 @@ export class ParkedScooters {
       vvz = fz * v.speed;
     let pushedArcade = false;
     let maxImpact = 0;
-    let worstKf = null;
-    let blockedHard = false;
+    // Δv summed over the slots hit this frame: each gives -push * dv1 (push points from you into the slot)
+    let dvx = 0,
+      dvz = 0;
 
     // Build full front-to-back capsule(s): include swept midpoint on fast / low-FPS frames to prevent tunneling
     const stepDist = sp * dt;
@@ -771,44 +768,51 @@ export class ParkedScooters {
       });
 
       if (!sol.moves) {
-        if (isPlayer && !v.body) {
+        // held slot = rigid barrier: AI traffic is stopped by it too, not only the player
+        if (!v.body) {
           const push = sumR - bestDist;
           v.pos.x -= pushX * push;
           v.pos.z -= pushZ * push;
           pushedArcade = true;
         }
-        if (isPlayer && impact > 0.4) {
-          blockedHard = true;
+        if (impact > 0.4) {
+          dvx -= pushX * sol.dv1;
+          dvz -= pushZ * sol.dv1;
           maxImpact = Math.max(maxImpact, impact);
-          if ((sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
-            v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
+          if (isPlayer && (sol.ejectRider1 || impact > CRASH_THROW) && !v.crash)
+            v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ, dv1: sol.dv1 };
         }
         return;
       }
 
       if (this.knockSlot(s, pushX * sol.dv2, pushZ * sol.dv2, sol.dv2, sol)) {
-        worstKf = worstKf === null ? sol.kf : Math.min(worstKf, sol.kf);
+        dvx -= pushX * sol.dv1;
+        dvz -= pushZ * sol.dv1;
         maxImpact = Math.max(maxImpact, impact);
         if (isPlayer && sol.ejectRider1 && !v.crash)
-          v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ };
+          v.crash = { impact, speed: sp, nx: -pushX, nz: -pushZ, dv1: sol.dv1 };
       }
     });
 
     if (pushedArcade) v.sync?.();
 
-    if (isPlayer && (worstKf !== null || blockedHard)) {
-      if (blockedHard) v.speed = maxImpact > CRASH_STOP ? 0 : v.speed * 0.45;
-      else v.speed *= worstKf;
+    if (dvx || dvz) {
+      // velocity after the hits = velocity before + Σ n * dv1, written back as speed along the heading
+      // (AI traffic never reverses off a parked vehicle: it just stops)
+      const nvx = vvx + dvx,
+        nvz = vvz + dvz,
+        ns = nvx * fx + nvz * fz;
+      v.speed = isPlayer ? ns : Math.max(0, ns);
       if (v.body?.body) {
         const lv = v.body.body.linvel();
-        const f = blockedHard ? (maxImpact > CRASH_STOP ? 0 : 0.45) : worstKf;
-        v.body.body.setLinvel({ x: lv.x * f, y: lv.y, z: lv.z * f }, true);
+        v.body.body.setLinvel({ x: nvx, y: lv.y, z: nvz }, true);
+        v.body.wsp = v.speed;
       }
-      if (this._bumpCd <= 0 && maxImpact > 1.8) {
+      if (isPlayer && this._bumpCd <= 0 && maxImpact > 1.8) {
         this._bumpCd = 0.25;
         this.game.audio?.bump?.(Math.min(2.2, Math.max(0.4, maxImpact / 4)), v.kind);
       }
-      if (v.crash && v.kind === 'scooter') this.game._throwOff?.(v);
+      if (isPlayer && v.crash && v.kind === 'scooter') this.game._throwOff?.(v);
     }
   }
 

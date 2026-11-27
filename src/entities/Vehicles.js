@@ -2946,7 +2946,7 @@ export class Vehicle {
       if (opt.jet) this.mesh = buildJetSL();
       else if (vt > 0) this.mesh = buildScooterVariant(vt, vcols || col, vacc);
       else {
-        this.mesh = addScooterAccessories(buildCommuter(col), 0, vacc);
+        this.mesh = addScooterAccessories(buildCommuter(vcols ? vcols[0] : col), 0, vacc);
         if (vcols) addScooterLivery(this.mesh, 0, vcols, true);
       }
       if (vt > 0 || vacc || vcols) this.variant = { type: vt, acc: vacc, colors: vcols };

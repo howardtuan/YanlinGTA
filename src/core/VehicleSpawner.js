@@ -4,6 +4,7 @@ import { mulberry32, makeLabel } from '../world/MapBuilder.js';
 import { pointInPoly } from '../physics/Collision.js';
 import { pitAt } from '../world/Terrain.js';
 import { knockPeopleWith } from '../physics/DebrisPeople.js';
+import { pickScooterVariant } from '../entities/ScooterVariants.js';
 import {
   RESTITUTION,
   vehicleSpec,
@@ -14,6 +15,14 @@ import {
 // masses for vehicles thrown by physics (kg, without rider) and inelastic collision restitution
 export const vmass = (v) => vehicleSpec(v.kind).mass;
 export const KNOCK_E = RESTITUTION;
+
+// a parked scooter's body type, accessories and livery from its position (src/entities/ScooterVariants.js); the
+// Vehicle still draws its own colour from rnd, so the spawn sequence is unchanged
+function parkedVariant(kind, x, z) {
+  if (kind !== 'scooter') return undefined;
+  const v = pickScooterVariant(x, z, null);
+  return { variant: { type: v.type, acc: v.acc, colors: v.colors } };
+}
 
 export class VehicleSpawner {
   constructor(game) {
@@ -114,12 +123,14 @@ export class VehicleSpawner {
           continue; // not down in the 學活 pit (src/world/zones/ZoneG.js)
         if (game.vehicles.some((v) => Math.hypot(v.pos.x - x, v.pos.z - z) < (moto ? 1.6 : 5)))
           continue;
+        const kind = moto || rnd() < 0.5 ? 'scooter' : rnd() < 0.3 ? 'taxi' : 'car';
         this.addVehicle(
-          moto || rnd() < 0.5 ? 'scooter' : rnd() < 0.3 ? 'taxi' : 'car',
+          kind,
           x,
           z,
           moto ? Math.PI / 2 : rnd() * 6.28,
-          rnd
+          rnd,
+          parkedVariant(kind, x, z)
         );
         placed++;
         if (a.synthetic) synParked[synRound(a)]++;
@@ -144,7 +155,14 @@ export class VehicleSpawner {
         const x = a[0] + dx * t + nx * side * (r.w / 2 + 0.3),
           z = a[1] + dz * t + nz * side * (r.w / 2 + 0.3);
         if (!w.isFree(x, z, 0.9)) continue;
-        this.addVehicle('scooter', x, z, Math.atan2(nx * side, nz * side), rnd);
+        this.addVehicle(
+          'scooter',
+          x,
+          z,
+          Math.atan2(nx * side, nz * side),
+          rnd,
+          parkedVariant('scooter', x, z)
+        );
         c++;
       }
     }

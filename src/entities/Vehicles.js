@@ -1,7 +1,12 @@
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { buildScooter as buildCommuter } from './Scooters.js';
-import { buildScooterVariant, addScooterAccessories, TYPE_NAMES } from './ScooterVariants.js';
+import {
+  buildScooterVariant,
+  addScooterAccessories,
+  addScooterLivery,
+  TYPE_NAMES,
+} from './ScooterVariants.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
 
@@ -2936,10 +2941,15 @@ export class Vehicle {
       const vt = opt.jet ? 0 : opt.variant?.type || 0,
         vacc = opt.jet ? 0 : opt.variant?.acc || 0;
       const col = opt.color || pick(SCOOTER_COLORS);
+      // livery [main, secondary, accent] of a ridden roadside bike (one colour when not given)
+      const vcols = opt.jet ? null : opt.variant?.colors || null;
       if (opt.jet) this.mesh = buildJetSL();
-      else if (vt > 0) this.mesh = buildScooterVariant(vt, col, vacc);
-      else this.mesh = addScooterAccessories(buildCommuter(col), 0, vacc);
-      if (vt > 0 || vacc) this.variant = { type: vt, acc: vacc };
+      else if (vt > 0) this.mesh = buildScooterVariant(vt, vcols || col, vacc);
+      else {
+        this.mesh = addScooterAccessories(buildCommuter(col), 0, vacc);
+        if (vcols) addScooterLivery(this.mesh, 0, vcols, true);
+      }
+      if (vt > 0 || vacc || vcols) this.variant = { type: vt, acc: vacc, colors: vcols };
       Object.assign(this, {
         wb: 1.25,
         radius: 0.75,

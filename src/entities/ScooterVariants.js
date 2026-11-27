@@ -12,7 +12,8 @@
 // Generic shapes only: no real brand marks or names.
 //
 // Rendering: every type is ONE merged, non-indexed geometry (paint + trim + wheels + all its accessories) with
-// per-vertex colour, `paintMask` (1 = takes the instance's paint colour) and `accBit` (0 = always drawn, else
+// per-vertex colour, `paintMask` (colour slot: 0 keeps the vertex colour, 1 / 2 / 3 = the instance's main /
+// secondary / accent paint) and `accBit` (0 = always drawn, else
 // the bits an instance must carry: accessory, pair member). One InstancedMesh per (chunk, type group) draws them with one material; the
 // per-instance `iAcc` bitmask collapses the vertices of accessories that slot does not carry. The same parts
 // are rebuilt as ordinary meshes (shared geometry + cached materials) when a slot is knocked over (debris)
@@ -75,7 +76,54 @@ function spotHash(x, z, salt) {
   return (h >>> 0) / 4294967296;
 }
 
-// { type, acc, color } for a parked slot at (x, z); keepColor: a hand-placed bike keeps its builder's colour
+// Liveries: about a third of bikes are one colour, a third two-tone (secondary panels: front shield / fender /
+// lower side panel / side cover, depending on the type) and a third three-colour (plus accent stripes and
+// graphics). Secondary colours lean on black / white / grey plus each type's usual second colours.
+const NEUTRALS = ['#1c1c1e', '#f0f0ec', '#8a8e93'];
+const SECONDS = [
+  ['#b8282a', '#2c5aa0'],
+  ['#b01c22', '#1f4fa8', '#e0a800', '#2f8f9d'],
+  ['#f3c6cf', '#a9d3e6', '#e9dfc7'],
+  ['#efe4cc', '#f4f1ea', '#5a3a26'],
+  ['#a9c8de', '#2b2d31'],
+  ['#55595f', '#1d2e4a'],
+  ['#c9a23a', '#b01c1c'],
+];
+const ACCENTS = [
+  '#e8202a',
+  '#1f4fa8',
+  '#f2c200',
+  '#2fb5c8',
+  '#f07a1a',
+  '#ffffff',
+  '#7ac943',
+  '#c9a23a',
+  '#d6246e',
+  '#1c1c1e',
+];
+// a colour from list by hash u that is not one of `not` (falls back to the first list entry that differs)
+function pickOther(list, u, not) {
+  const start = Math.floor(u * list.length);
+  for (let i = 0; i < list.length; i++) {
+    const c = list[(start + i) % list.length];
+    if (!not.includes(c.toLowerCase())) return c;
+  }
+  return list[start];
+}
+// [main, secondary, accent] for a slot: equal entries collapse a two- or three-colour scheme back to fewer colours
+// (hand-placed bikes keep their builder's main colour, e.g. a black / grey / white shed, and get the same mix of
+// secondary and accent colours as everything else)
+export function pickLivery(x, z, type, main) {
+  const m = main.toLowerCase(),
+    u = spotHash(x, z, 8);
+  if (u < 0.34) return [main, main, main];
+  const c2 = pickOther([...NEUTRALS, ...SECONDS[type]], spotHash(x, z, 9), [m]);
+  if (u < 0.67) return [main, c2, c2];
+  return [main, c2, pickOther(ACCENTS, spotHash(x, z, 10), [m, c2.toLowerCase()])];
+}
+
+// { type, acc, color, colors } for a parked slot at (x, z); keepColor: a hand-placed bike keeps its builder's
+// main colour
 export function pickScooterVariant(x, z, color, keepColor = false) {
   let u = spotHash(x, z, 1),
     type = 0;
@@ -93,7 +141,7 @@ export function pickScooterVariant(x, z, color, keepColor = false) {
   if (spotHash(x, z, 5) < 0.12) acc |= spotHash(x, z, 6) < 0.5 ? ACC_HELMET_L : ACC_HELMET_D;
   const pal = PALETTES[type];
   const c = keepColor && color ? color : pal[Math.floor(spotHash(x, z, 7) * pal.length)];
-  return { type, acc, color: c };
+  return { type, acc, color: c, colors: pickLivery(x, z, type, c) };
 }
 
 // ------------------------------------------------------------------ geometry helpers
@@ -205,7 +253,7 @@ const plate = (T, y, z) => {
 const BUILD = [
   null, // 0: the generic commuter, from src/entities/Scooters.js getParkedScooterAssets
   // 1 運動速克達
-  (P, T) => {
+  (P, T, P2, P3) => {
     P.push(
       side(
         [
@@ -242,7 +290,7 @@ const BUILD = [
         0.02
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.5, 0.44],
@@ -255,7 +303,7 @@ const BUILD = [
         0.14
       )
     );
-    P.push(box(0.3, 0.08, 0.13, 0, 1.03, 0.4));
+    P2.push(box(0.3, 0.08, 0.13, 0, 1.03, 0.4));
     T.push([box(0.34, 0.08, 0.36, 0, 0.32, 0.1), '#1d1e20']);
     T.push([box(0.31, 0.09, 0.66, 0, 0.4, -0.34), '#1a1b1e']);
     T.push([
@@ -274,7 +322,7 @@ const BUILD = [
       '#151517',
     ]);
     // dark side stripes, twin LED headlights, sharp taillight
-    T.push([box(0.306, 0.028, 0.5, 0, 0.63, -0.46, -0.13), '#121214']);
+    // two-tone side panels, slanted accent stripes
     T.push([box(0.3, 0.045, 0.03, 0, 0.965, 0.662, -0.5), '#eef6ff']);
     T.push([box(0.16, 0.035, 0.03, 0, 0.88, 0.68, -0.3), '#eef6ff']);
     T.push([box(0.22, 0.05, 0.04, 0, 0.75, -0.995, 0.4), '#d01828']);
@@ -286,6 +334,11 @@ const BUILD = [
     T.push([cyl(0.05, 0.055, 0.42, 8, -0.17, 0.36, -0.62, 'z', 0.45), '#2a2c30']);
     T.push([cyl(0.035, 0.035, 0.06, 8, -0.17, 0.45, -0.81, 'z', 0.45), '#c8cdd2']);
     plate(T, 0.55, -0.99);
+    P2.push(box(0.336, 0.1, 0.44, 0, 0.47, -0.32, -0.2));
+    P2.push(box(0.466, 0.16, 0.18, 0, 0.68, 0.5, 0.35));
+    P3.push(box(0.342, 0.03, 0.5, 0, 0.64, -0.5, -0.16));
+    P3.push(box(0.342, 0.018, 0.36, 0, 0.59, -0.42, -0.16));
+    P3.push(box(0.47, 0.025, 0.2, 0, 0.9, 0.5, -0.5));
     return {
       wheels: { R: 0.215, W: 0.1, f: 0.64, r: -0.64, parts: wheelParts(0.215, 0.1, '#1c1c1e') },
       rack: { y: 0.832, z: -0.84 },
@@ -293,7 +346,7 @@ const BUILD = [
     };
   },
   // 2 小綿羊
-  (P, T) => {
+  (P, T, P2, P3) => {
     P.push(
       side(
         [
@@ -312,7 +365,7 @@ const BUILD = [
         0.02
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.18, 0.3],
@@ -328,7 +381,7 @@ const BUILD = [
         0.03
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.42, 0.38],
@@ -341,7 +394,7 @@ const BUILD = [
         0.12
       )
     );
-    P.push(box(0.3, 0.1, 0.14, 0, 0.99, 0.36));
+    P2.push(box(0.3, 0.1, 0.14, 0, 0.99, 0.36));
     T.push([box(0.3, 0.06, 0.22, 0, 0.28, 0.09), '#2a2a2c']);
     T.push([
       side(
@@ -366,6 +419,8 @@ const BUILD = [
     T.push([box(0.08, 0.15, 0.48, 0.1, 0.24, -0.34), '#1a1b1e']);
     T.push([cyl(0.04, 0.045, 0.3, 8, -0.14, 0.25, -0.5, 'z', 0.1), '#2a2c30']);
     plate(T, 0.5, -0.87);
+    P3.push(box(0.306, 0.016, 0.62, 0, 0.66, -0.42, -0.06));
+    P3.push(box(0.426, 0.02, 0.22, 0, 0.7, 0.33));
     return {
       wheels: { R: 0.18, W: 0.08, f: 0.55, r: -0.55, parts: wheelParts(0.18, 0.08, '#9aa0a6') },
       rack: { y: 0.79, z: -0.72 },
@@ -373,7 +428,7 @@ const BUILD = [
     };
   },
   // 3 復古圓燈速克達
-  (P, T) => {
+  (P, T, P2, P3) => {
     P.push(
       side(
         [
@@ -407,7 +462,7 @@ const BUILD = [
         0.03
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.44, 0.36],
@@ -424,7 +479,7 @@ const BUILD = [
         0.02
       )
     );
-    P.push(cyl(0.06, 0.06, 0.34, 10, 0, 1.0, 0.39, 'x'));
+    P2.push(cyl(0.06, 0.06, 0.34, 10, 0, 1.0, 0.39, 'x'));
     // round chrome headlight, two-tone brown seat, chrome rack & round taillight
     T.push([cyl(0.078, 0.078, 0.05, 14, 0, 1.03, 0.47, 'z'), '#c8cdd2']);
     T.push([cyl(0.064, 0.064, 0.056, 14, 0, 1.03, 0.472, 'z'), '#f4f0d8']);
@@ -453,6 +508,8 @@ const BUILD = [
     forks(T, [0.4, 0.6], [0.6, 0.2], 0.0, '#2a2a2c', 0.03);
     T.push([box(0.12, 0.12, 0.26, -0.14, 0.24, -0.5), '#2a2c30']);
     plate(T, 0.5, -0.92);
+    P3.push(box(0.51, 0.022, 0.34, 0, 0.6, -0.5));
+    P3.push(box(0.48, 0.03, 0.03, 0, 0.72, 0.39));
     return {
       wheels: {
         R: 0.2,
@@ -466,7 +523,7 @@ const BUILD = [
     };
   },
   // 4 電動機車 (flat panels, no muffler)
-  (P, T) => {
+  (P, T, P2, P3) => {
     P.push(
       side(
         [
@@ -484,7 +541,7 @@ const BUILD = [
         0.012
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.18, 0.32],
@@ -500,7 +557,7 @@ const BUILD = [
         0.012
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.5, 0.44],
@@ -551,6 +608,8 @@ const BUILD = [
     mirrorsFlat(T, 1.17, 0.36);
     forks(T, [0.44, 0.7], [0.64, 0.21]);
     plate(T, 0.55, -0.98);
+    P2.push(box(0.29, 0.07, 0.72, 0, 0.66, -0.5));
+    P3.push(box(0.292, 0.014, 0.82, 0, 0.71, -0.45));
     return {
       wheels: { R: 0.21, W: 0.1, f: 0.64, r: -0.64, parts: wheelParts(0.21, 0.1, '#2a2c30') },
       rack: { y: 0.8, z: -0.84 },
@@ -558,7 +617,7 @@ const BUILD = [
     };
   },
   // 5 大羊／重型速克達
-  (P, T) => {
+  (P, T, P2, P3) => {
     P.push(
       side(
         [
@@ -595,7 +654,7 @@ const BUILD = [
         0.03
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [-0.02, 0.4],
@@ -606,7 +665,7 @@ const BUILD = [
         0.2
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.56, 0.48],
@@ -653,6 +712,9 @@ const BUILD = [
     }
     forks(T, [0.55, 0.72], [0.68, 0.235], 0.075);
     plate(T, 0.58, -1.02);
+    P2.push(box(0.586, 0.14, 0.24, 0, 0.58, 0.55, 0.3));
+    P3.push(box(0.406, 0.03, 0.62, 0, 0.66, -0.5, -0.12));
+    P3.push(box(0.586, 0.025, 0.3, 0, 0.9, 0.6, -0.3));
     return {
       wheels: { R: 0.235, W: 0.13, f: 0.68, r: -0.66, parts: wheelParts(0.235, 0.13, '#3a3c40') },
       rack: { y: 0.893, z: -0.9 },
@@ -660,7 +722,7 @@ const BUILD = [
     };
   },
   // 6 檔車 (tank ahead of the seat, exposed engine & frame)
-  (P, T) => {
+  (P, T, P2, P3) => {
     P.push(
       side(
         [
@@ -676,8 +738,8 @@ const BUILD = [
         0.03
       )
     );
-    P.push(box(0.22, 0.16, 0.22, 0, 0.62, -0.22));
-    P.push(
+    P2.push(box(0.22, 0.16, 0.22, 0, 0.62, -0.22));
+    P2.push(
       side(
         [
           [-0.92, 0.6],
@@ -690,7 +752,7 @@ const BUILD = [
         0.14
       )
     );
-    P.push(
+    P2.push(
       side(
         [
           [0.48, 0.52],
@@ -740,6 +802,8 @@ const BUILD = [
     mirrorsRound(T, 1.19, 0.4, 0.25);
     forks(T, [0.5, 0.96], [0.66, 0.29], 0.08, '#c8cdd2', 0.022);
     plate(T, 0.56, -0.95);
+    P3.push(box(0.326, 0.03, 0.4, 0, 0.86, 0.22));
+    P3.push(box(0.326, 0.015, 0.36, 0, 0.82, 0.22));
     return {
       wheels: {
         R: 0.29,
@@ -807,8 +871,13 @@ function typeParts(type) {
   if (type === 0) {
     const a = getParkedScooterAssets();
     // generic commuter: its painted loft + the lean trim (wheels included) as one vertex-coloured piece
+    // plus a secondary lower side panel and an accent stripe over its loft
     def = {
-      paint: [clean(a.paintGeo.clone())],
+      paint: [
+        [clean(a.paintGeo.clone()), 1],
+        [box(0.376, 0.07, 0.42, 0, 0.5, -0.36), 2],
+        [box(0.378, 0.022, 0.5, 0, 0.62, -0.45, -0.1), 3],
+      ],
       trim: [[a.trimGeo, null]],
       wheels: null,
       rack: { y: 0.812, z: -0.82 },
@@ -816,8 +885,12 @@ function typeParts(type) {
     };
   } else {
     const P = [],
-      T = [];
-    def = { paint: P, trim: T, ...BUILD[type](P, T) };
+      T = [],
+      P2 = [],
+      P3 = [];
+    def = { trim: T, ...BUILD[type](P, T, P2, P3) };
+    // paint pieces with their colour slot: 1 main, 2 secondary, 3 accent
+    def.paint = [...P.map((g) => [g, 1]), ...P2.map((g) => [g, 2]), ...P3.map((g) => [g, 3])];
   }
   def.acc = accessoryParts(def.rack, def.hook);
   TYPES[type] = def;
@@ -860,7 +933,7 @@ function instancedMaterial() {
     sh.vertexShader = sh.vertexShader
       .replace(
         '#include <common>',
-        '#include <common>\nattribute float paintMask;\nattribute float accBit;\nattribute float iAcc;'
+        '#include <common>\nattribute float paintMask;\nattribute float accBit;\nattribute float iAcc;\nattribute vec3 iColor2;\nattribute vec3 iColor3;'
       )
       .replace(
         '#include <color_vertex>',
@@ -871,7 +944,9 @@ function instancedMaterial() {
 	vColor *= color;
 #endif
 #ifdef USE_INSTANCING_COLOR
-	vColor.xyz *= mix( vec3( 1.0 ), instanceColor.xyz, paintMask );
+	// paintMask is the colour slot: 0 keeps the vertex colour, 1 main (instanceColor), 2 secondary, 3 accent
+	vec3 pc = paintMask < 1.5 ? instanceColor.xyz : ( paintMask < 2.5 ? iColor2 : iColor3 );
+	vColor.xyz *= mix( vec3( 1.0 ), pc, step( 0.5, paintMask ) );
 #endif`
       )
       .replace(
@@ -903,14 +978,15 @@ export const instancedGroupOf = (type) => GROUP_OF[type];
 export const instanceMask = (type, acc) => acc | MEMBER_OF[type];
 
 const INST_GEO = [];
-// one merged geometry per group for the InstancedMesh (needs an `iAcc` InstancedBufferAttribute per mesh)
+// one merged geometry per group for the InstancedMesh (needs `iAcc`, `iColor2`, `iColor3` InstancedBufferAttributes
+// per mesh; the main colour is the instanceColor)
 export function getVariantInstancedAssets(group) {
   if (INST_GEO[group]) return INST_GEO[group];
   const list = [];
   for (const type of GROUPS[group]) {
     const d = typeParts(type),
       mb = MEMBER_OF[type];
-    for (const g of d.paint) list.push(colorize(g, '#ffffff', 1, mb));
+    for (const [g, slot] of d.paint) list.push(colorize(g, '#ffffff', slot, mb));
     for (const [g, hex] of d.trim) list.push(colorize(g, hex, 0, mb));
     if (d.wheels)
       for (const z of [d.wheels.f, d.wheels.r])
@@ -950,7 +1026,10 @@ function meshGeometry(type) {
     wheel = [...wb].map(([hex, l]) => ({ hex, geo: mergeGeometries(l) }));
   }
   MESH_GEO[type] = {
-    paint: mergeGeometries(d.paint),
+    paint: [1, 2, 3]
+      .map((slot) => ({ slot, list: d.paint.filter((p) => p[1] === slot).map((p) => p[0]) }))
+      .filter((p) => p.list.length)
+      .map(({ slot, list }) => ({ slot, geo: mergeGeometries(list) })),
     trim: [...byHex].map(([hex, l]) => ({ hex, geo: hex ? mergeGeometries(l) : l[0] })),
     acc: [...accBy.values()].map(({ bit, hex, list }) => ({
       bit,
@@ -979,6 +1058,20 @@ const paintMat = (hex) =>
     () => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.32, metalness: 0.15 })
   );
 
+const asColors = (c) => (Array.isArray(c) ? c : [c, c, c]);
+// the painted parts in their livery colours ([main, secondary, accent] or one colour); skipMain: only the
+// secondary / accent overlays (the generic commuter's detailed drivable model already has its main body)
+export function addScooterLivery(group, type, colors, skipMain = false) {
+  const c = asColors(colors);
+  for (const p of meshGeometry(type).paint) {
+    if (skipMain && p.slot === 1) continue;
+    const m = new THREE.Mesh(p.geo, paintMat(c[p.slot - 1]));
+    m.castShadow = true;
+    group.add(m);
+  }
+  return group;
+}
+
 // only the accessories of a slot, for the generic commuter (its drivable model is the detailed one)
 export function addScooterAccessories(group, type, acc) {
   if (!acc) return group;
@@ -993,7 +1086,7 @@ export function addScooterAccessories(group, type, acc) {
 
 // the whole bike as ordinary meshes: wheels are their own nodes at the axles (userData.wheels) so a ridden
 // bike turns them, rider anchors in userData.rider
-export function buildScooterVariant(type, color, acc = 0) {
+export function buildScooterVariant(type, colors, acc = 0) {
   const G = meshGeometry(type),
     d = typeParts(type);
   const g = new THREE.Group();
@@ -1003,7 +1096,7 @@ export function buildScooterVariant(type, color, acc = 0) {
     g.add(o);
     return o;
   };
-  add(G.paint, paintMat(color));
+  addScooterLivery(g, type, colors);
   for (const t of G.trim) add(t.geo, trimMat(t.hex));
   addScooterAccessories(g, type, acc);
   const wheels = [];

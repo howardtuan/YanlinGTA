@@ -14,9 +14,41 @@
 //     s 22.7～34.3 圍牆後面那棟 OSM 低樓（w637853854）保留。
 // 原本 +1 側 s 71～146 是通用填充樓：有店面牆的放 hide，原本 noShop 的放 drop。f1681（s 148.5 起）歸 SegLB2。
 // 看不清的招牌不放字。
+import { H } from '../../Terrain.js';
 const R = 'LB';
 const NC = { col: false };
 const PI = Math.PI;
+// 貼著地形的鋪面（寫法同 StreetPuzhong.js 的 drape）：每 2.5 m 一個頂點照那一點的地面高度，
+// 斜坡上是一整片連續的斜面，不會像平板那樣一頭浮起、一頭埋進土裡；可走表面照樣登記（遊戲邏輯的高度本來就是離地高度）
+const drape = (C, k, x0, x1, z0, z1, hex, up = 0.1) => {
+  const nx = Math.max(1, Math.ceil((x1 - x0) / 2.5)),
+    nz = Math.max(1, Math.ceil((z1 - z0) / 2.5)),
+    pos = [],
+    idx = [];
+  for (let j = 0; j <= nz; j++)
+    for (let i = 0; i <= nx; i++) {
+      const x = x0 + ((x1 - x0) * i) / nx,
+        z = z0 + ((z1 - z0) * j) / nz,
+        [wx, wz] = k.w(x, z);
+      pos.push(x, H(wx, wz) - k.base + up, z);
+    }
+  for (let j = 0; j < nz; j++)
+    for (let i = 0; i < nx; i++) {
+      const a = j * (nx + 1) + i,
+        c = a + nx + 1;
+      idx.push(a, c, a + 1, a + 1, c, c + 1);
+    }
+  const g = new C.THREE.BufferGeometry();
+  g.setAttribute('position', new C.THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute(
+    'uv',
+    new C.THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2)
+  );
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  k._part(C.VC, C.paintGeo(g, hex));
+  k.I.addSurface(k.rect(x0, x1, z0, z1), up);
+};
 // 開一個 Kit（見 SegD4）：k.W 格寬，k.X(s) 沿線距離換區域 x，k.Z(o) 離中心線距離換區域 z
 const seg = (C, side, s0, s1, set = 4.3) => {
   const k = C.kit(R, s0, s1, side, set);
@@ -449,12 +481,12 @@ export default {
     // 人行道外側的洗石子花台＋灌木、行道樹、紅磚方柱加黑色花式鐵欄杆圍牆（開口留給車道與出入口）
     const FO = 7.4; // 圍牆離中心線
     // 這段路從中北路往東南一路上坡（s 14～150 地面高差約 3 m），一個 Kit 只照原點那一點的地面高度畫，
-    // 所以人行道、花台、圍牆切成最長 4 m 一段，每段各自貼地，才不會在低的那頭浮起來
+    // 所以花台、圍牆切成最長 1.2 m 一段各自貼地（每段高低差只有幾公分，看不出階梯），人行道另外照地形鋪成連續斜面（drape），低的那頭才不會浮起來
     const PIECES = [];
     for (let i = 0; i < BEND.length - 1; i++) {
       const a = BEND[i],
         b = BEND[i + 1],
-        n = Math.ceil((b - a) / 4);
+        n = Math.ceil((b - a) / 1.2);
       for (let j = 0; j < n; j++) PIECES.push([a + ((b - a) * j) / n, a + ((b - a) * (j + 1)) / n]);
     }
     // 行道樹沿線每 6～8.5 m 一棵（車道開口不種）
@@ -462,6 +494,26 @@ export default {
     for (let s = 15.5 + r() * 2; s < 148.8; s += 6 + r() * 2.5)
       if (!GAPS.some(([g0, g1]) => s > g0 - 1.2 && s < g1 + 1.2))
         TREES.push([s, 8.5 + r() * 2.5, 2.2 + r() * 0.6]);
+    // 紅磚柱沿線約每 3.2 m 一支（車道開口兩邊各一支）
+    const POSTS = [];
+    for (let i = 0; i < BEND.length - 1; i++) {
+      const a = BEND[i],
+        b = BEND[i + 1];
+      for (const [p0, p1] of [[a, b]].flatMap(([u, v]) => {
+        const out = [];
+        let x = u;
+        for (const [g0, g1] of GAPS.filter(([g0, g1]) => g1 > u && g0 < v)) {
+          if (g0 > x) out.push([x, g0]);
+          x = Math.max(x, g1);
+        }
+        if (x < v) out.push([x, v]);
+        return out;
+      })) {
+        const n = Math.max(1, Math.round((p1 - p0) / 3.2));
+        for (let j = 0; j <= n; j++)
+          POSTS.push(Math.min(p1 - 0.2, Math.max(p0 + 0.2, p0 + ((p1 - p0) * j) / n)));
+      }
+    }
     for (const [a, b] of PIECES) {
       const k = seg(C, -1, a, b, 4.5),
         w = k.W;
@@ -484,15 +536,16 @@ export default {
         // 圍牆：矮牆、紅磚方柱（灰色石帽）、黑色鐵欄杆；方柱約 3.2 m 一支，放在這一小段的頭尾
         const z = FO - 4.5;
         k.box(p0, p1, -0.4, 0.6, z, z + 0.3, '#bdb9ae');
-        for (const x of p1 - p0 > 2.4 ? [p0, p1 - 0.4] : [p0]) {
-          k.box(x, x + 0.4, 0.6, 1.95, z - 0.05, z + 0.35, '#a0523a', NC);
-          k.box(x - 0.05, x + 0.45, 1.95, 2.25, z - 0.1, z + 0.4, '#cfcac0', NC);
+        for (const ps of POSTS) {
+          const x = k.X(ps);
+          if (x < p0 || x >= p1) continue;
+          k.box(x - 0.2, x + 0.2, 0.6, 1.95, z - 0.05, z + 0.35, '#a0523a', NC);
+          k.box(x - 0.25, x + 0.25, 1.95, 2.25, z - 0.1, z + 0.4, '#cfcac0', NC);
         }
-        if (p1 - p0 > 0.9)
-          k.plane(C.bars, p1 - p0 - 0.44, 1.2, (p0 + p1) / 2, 1.25, z + 0.15, PI, {
-            transparent: true,
-            double: true,
-          });
+        k.plane(C.bars, p1 - p0, 1.2, (p0 + p1) / 2, 1.25, z + 0.15, PI, {
+          transparent: true,
+          double: true,
+        });
         k.wallLine(p0, z + 0.15, p1, z + 0.15, 0, 2.0);
         // 行道樹（在花台裡）
         for (const [ts, th, tr] of TREES) {
@@ -500,7 +553,11 @@ export default {
           if (x >= p0 && x < p1) tree(C, k, x, 1.2, th, tr, r);
         }
       }
-      k.box(-0.01, w + 0.01, -0.6, 0.05, -1.5, 0.2, C.MR.concrete, { col: false, surface: true });
+    }
+    // 人行道：照參考線轉折點分段，每段整片貼著地形鋪成連續的斜面
+    for (let i = 0; i < BEND.length - 1; i++) {
+      const k = seg(C, -1, BEND[i], BEND[i + 1], 4.5);
+      drape(C, k, -0.01, k.W + 0.01, -1.5, 0.2, '#b9b7b1');
     }
     // s 16～32：圍牆後面的黑色鐵棚架（停車棚），下面停一排機車
     {

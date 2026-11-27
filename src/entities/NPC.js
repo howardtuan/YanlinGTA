@@ -4,6 +4,18 @@ import { createCharacter, randomStudent } from './Character.js';
 import { mulberry32, makeLabel } from '../world/MapBuilder.js';
 import { surfaceAt } from '../world/Terrain.js';
 import { Ragdoll } from '../physics/Ragdoll.js';
+// A pedestrian's own walking speed (m/s). own: their personal pace (1.05–1.6, so two people of the same build still
+// walk differently); then the body — longer legs walk faster (about height^0.7), a heavy build (BMI over 24) a little
+// slower — and the temperament from the look's seed: about one in ten strolls, one in ten is in a hurry.
+// (No extra rnd() draws: what comes after the pedestrians stays where it was.)
+function walkSpeed(own, ch, seed) {
+  const h = ch.height || 1.68,
+    bmi = ch.bmi || 22,
+    body = Math.pow(h / 1.68, 0.7) * Math.max(0.85, 1 - 0.015 * Math.max(0, bmi - 24)),
+    t = (((Math.sin((seed || 0) * 12.9898) * 43758.5453) % 1) + 1) % 1,
+    mood = t < 0.1 ? 0.78 : t > 0.9 ? 1.2 : 1;
+  return own * body * mood;
+}
 
 const SPEED_BY_TYPE = {
   primary: 12,
@@ -862,14 +874,15 @@ export class Peds {
     this.time = 0;
     this.list = [];
     for (let i = 0; i < count; i++) {
-      const ch = createCharacter(randomStudent(this.rnd));
+      const look = randomStudent(this.rnd);
+      const ch = createCharacter(look);
       ch.root.visible = false;
       scene.add(ch.root);
       this.list.push({
         ch,
         pos: new THREE.Vector3(),
         heading: 0,
-        speed: 1.05 + this.rnd() * 0.55,
+        speed: walkSpeed(1.05 + this.rnd() * 0.55, ch, look.seed),
         from: null,
         to: null,
         d: 0,

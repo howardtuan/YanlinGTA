@@ -1667,10 +1667,9 @@ class Game {
     const info = {
       pos: fw,
       vehicle: pl.vehicle,
+      // parked / left vehicles traffic stops or steers for (not only the ones by you: #302)
       extraObstacles: [
-        ...this.vehicles.filter(
-          (v) => v !== pl.vehicle && Math.hypot(v.pos.x - wp.x, v.pos.z - wp.z) < 25
-        ),
+        ...Traffic.parkedObstacles(this.vehicles, pl.vehicle, wp),
         ...this.race.vehicles(),
       ],
     };

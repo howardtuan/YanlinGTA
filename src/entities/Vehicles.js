@@ -2695,7 +2695,7 @@ export function bodyGap(v, x, z) {
   return { gap: Math.hypot(x - q[0], z - q[1]) - v.hw, qx: q[0], qz: q[1] };
 }
 // closest points of two segments (a0-a1, b0-b1): [pa, pb]
-function segSeg(a, b) {
+export function segSeg(a, b) {
   let best = null,
     bd = Infinity;
   const tryP = (pa, pb) => {

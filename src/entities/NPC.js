@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Vehicle, sameLevel } from './Vehicles.js';
+import { Vehicle, sameLevel, bodySeg, segSeg } from './Vehicles.js';
 import { trafficScooterVariant } from './ScooterVariants.js';
 import { createCharacter, randomStudent } from './Character.js';
 import { mulberry32, makeLabel } from '../world/MapBuilder.js';
@@ -506,6 +506,7 @@ export class Traffic {
     // steer from how fast it is turning (scooters lean into corners)
     const yaw = a.thPrev !== null ? angDiff(v.heading, a.thPrev) / dt : 0;
     a.thPrev = v.heading;
+    if (v.speed > 0.3) a.curv = Math.max(-0.25, Math.min(0.25, yaw / v.speed)); // per metre (_busGuard)
     v.steer += (Math.max(-1, Math.min(1, yaw * 0.6)) - v.steer) * Math.min(1, dt * 6);
     v.sync(dt);
   }
@@ -527,6 +528,46 @@ export class Traffic {
     a.d = Math.max(0, Math.min(a.d, a.len));
     this._enter(v);
   }
+  // 公車 (12 m): the look-ahead in update() looks straight ahead from the middle, so a bus's long body sweeps
+  // past what it checks (its rear cuts in on a turn, its side swings over a car waiting at the junction) and a car
+  // crossing in front of one can miss its side. The bodies (capsules, src/entities/Vehicles.js bodySeg) of v a
+  // stopping distance on along the curve it is on and of each of near (a bus, or anything when v is a bus):
+  // the first one it would come up against (null: none); want < 0: backing up, into anything (busOnly false).
+  // Moving out of an overlap is always fine.
+  _busGuard(v, want, near, busOnly = true) {
+    const sp = want > 0 ? Math.max(want, v.speed, 0) : Math.max(-want, -v.speed, 0),
+      dir = want > 0 ? 1 : -1,
+      s = Math.max(0.8, sp * 0.3 + (sp * sp) / 16) * dir,
+      k = v.ai.curv || 0,
+      hm = v.heading + (k * s) / 2,
+      h1 = v.heading + k * s,
+      x1 = v.pos.x + Math.sin(hm) * s,
+      z1 = v.pos.z + Math.cos(hm) * s,
+      f = v.hl - v.hw,
+      seg1 = [
+        x1 + Math.sin(h1) * f,
+        z1 + Math.cos(h1) * f,
+        x1 - Math.sin(h1) * f,
+        z1 - Math.cos(h1) * f,
+      ],
+      seg0 = bodySeg(v),
+      reach = Math.abs(s) + v.hl + 7,
+      vy = v.mesh.position.y;
+    const gap = (a, b, r) => {
+      const [p, q] = segSeg(a, b);
+      return Math.hypot(p[0] - q[0], p[1] - q[1]) - r;
+    };
+    for (const o of near) {
+      if (o === v || o.ai?.dormant || o.knocked || (busOnly && !(o.bus || v.bus))) continue;
+      if (Math.abs(o.pos.x - v.pos.x) > reach || Math.abs(o.pos.z - v.pos.z) > reach) continue;
+      if (!sameLevel(o.mesh.position.y, vy)) continue;
+      const so = bodySeg(o),
+        r = v.hw + o.hw,
+        g1 = gap(seg1, so, r);
+      if (g1 < 0.15 && g1 < gap(seg0, so, r) - 0.01) return o;
+    }
+    return null;
+  }
   // swing out around o (stopped in its way): to the side with room, staying on the road; false: no room
   _pass(v, o) {
     const a = v.ai,
@@ -537,6 +578,9 @@ export class Traffic {
     const bx = v.pos.x - nx * a.lat,
       bz = v.pos.z - nz * a.lat; // its spot on the lane
     const ob = (o.pos.x - bx) * nx + (o.pos.z - bz) * nz;
+    // an oncoming bus: swinging out would take it into the bus's own lane (it waits, src: _busGuard)
+    // nor round one close to the end of its edge (waiting at the junction: it would end up across it)
+    if (o.bus && (Math.cos(o.heading - v.heading) < -0.5 || o.ai.len - o.ai.d < 25)) return false;
     const need = (o.bus ? o.hw : o.radius || 0.5) + v.hw + 0.9,
       lane = this._lane(v); // clear of check()'s margin in update()
     const left = ob - need,
@@ -594,6 +638,7 @@ export class Traffic {
     const p = player.pos;
     const obstacles = [];
     for (const v of this.agents) if (!v.ai.dormant) obstacles.push(v);
+    const buses = obstacles.filter((o) => o.bus);
     const peds = this.peds ? this.peds.list : [];
     for (const v of this.agents) {
       const a = v.ai;
@@ -784,10 +829,45 @@ export class Traffic {
           mx = (0.05 + v.speed * (a.passT > 0 ? 0.6 : 0.3)) * dt;
         a.lat += Math.max(-mx, Math.min(mx, dl));
       }
+      // 公車: nothing drives into a bus and a bus drives into nothing, whatever the look-ahead above missed.
+      // Held up by a bus for a while (a bend too narrow for both, a bus turning across it): it backs off a few
+      // metres (as long as nothing is behind it) to let the bus through
+      if (buses.length) {
+        if (a.yieldD > 0) {
+          want = Math.min(want, -1.6);
+          a.yieldD -= Math.max(0, -v.speed) * dt + 0.05 * dt;
+        }
+        const o =
+          want !== 0 && this._busGuard(v, want, v.bus || want < 0 ? obstacles : buses, want > 0);
+        if (o) {
+          want = 0;
+          blocked = 0;
+          if (a.yieldD > 0) a.yieldD = 0;
+          if (!blocker) a.blocker = blocker = o;
+          a.guardT = (a.guardT || 0) + dt;
+          if (!v.bus && o.bus && a.guardT > 2.5 && !(a.yieldN > 2)) {
+            a.yieldD = 6;
+            a.yieldN = (a.yieldN || 0) + 1;
+            a.guardT = 0;
+          }
+        } else if (want > 0) {
+          a.guardT = 0;
+          if (a.yieldN && !a.yieldD) a.yieldN = 0;
+        }
+      }
       const brake = blocked < 4 ? 14 : 8;
       v.speed += Math.max(-brake * dt, Math.min(a.acc * dt, want - v.speed));
       // stuck behind something: honk (if you are around), swing out, turn back, and at last be recycled
-      const stuck = blocker && !blocker.gate && !a.backing && v.speed < 0.6 && want < 1; // 等平交道不算卡住
+      // 等平交道不算卡住; behind a bus (at a stop, at a red light) it waits as well, unless the bus itself is stuck
+      const behindBus = blocker?.bus && !(blocker.ai.stuckT > 1);
+      const stuck =
+        blocker &&
+        !blocker.gate &&
+        !behindBus &&
+        !a.backing &&
+        !(a.yieldD > 0) &&
+        v.speed < 0.6 &&
+        want < 1;
       if (stuck) a.stuckT += dt;
       else a.stuckT = Math.max(0, a.stuckT - dt * 2);
       if (stuck && a.stuckT > 1.5 + a.patience && dPl < 25 && a.honkT <= 0) {
@@ -796,6 +876,16 @@ export class Traffic {
       }
       a.honkT -= dt;
       if (a.stuckT > 1.5 + a.patience && a.passT <= 0 && blocker) this._pass(v, blocker);
+      // a bus held up by a car that cannot get out of its way (jammed in by others): that car goes once you
+      // cannot see it, and after 20 s anyway (the bus, perhaps with you on it, has to get on)
+      if (v.bus && blocker?.ai && !blocker.bus && v.speed < 0.3 && want < 0.5) {
+        a.holdT = (a.holdT || 0) + dt;
+        if (a.holdT > 6 && (a.holdT > 20 || !this.inView(blocker.pos))) {
+          blocker.ai.dormant = true;
+          blocker.mesh.visible = false;
+          a.holdT = 0;
+        }
+      } else a.holdT = 0;
       if (a.stuckT > 8 + a.patience && a.route)
         a.stuckT = 2.5 + a.patience - 0.5; // a bus waits it out
       else if (a.stuckT > 8 + a.patience) {

@@ -124,7 +124,7 @@ describe('同學穿搭（OutfitData.js SETS group friend）', () => {
     expect(friends.length).toBeGreaterThanOrEqual(8);
     for (const f of friends) expect(normalizeLook({ set: f.id }).set).toBe(f.id);
     const names = friends.map((f) => f.name);
-    for (const n of ['吱吱', '理查', '霍華德', '劍玉', '女拳大帝']) expect(names).toContain(n);
+    for (const n of ['吱吱', '理查', '霍華德', '劍玉', '肉舖老闆']) expect(names).toContain(n);
   });
   it('只借衣服、鞋子和帽子：不會改到彥霖的臉、髮型和身材', () => {
     const CLOTHES = new Set([
@@ -174,7 +174,7 @@ describe('同學穿搭（OutfitData.js SETS group friend）', () => {
     ).toBe(true);
     expect(canWear(TOPS[0], undefined)).toBe(true);
   });
-  it('理查的深綠漁夫帽、女拳大帝的皮衣、YeeMing 的迷彩鋼盔跟著套裝走', () => {
+  it('理查的深綠漁夫帽、肉舖老闆的皮衣、YeeMing 的迷彩鋼盔跟著套裝走', () => {
     expect(wornParts({ set: 'fRichard', hat: 'capRed' })).toMatchObject({
       hat: null,
       setHat: { kind: 'bucket', color: '#2f4a32' },

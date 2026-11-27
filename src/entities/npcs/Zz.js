@@ -3,12 +3,12 @@
 // 一天（遊戲時鐘）：
 //   02:00–08:00 睡 2 號床；08:00–22:00 照四天排班去茶學苑打工（src/systems/minigames/TeaShop.js），沒班時在體育館門口
 //   （src/ui/phone/Friends.js 的 zz 站點）；22:00–02:00 在 276 書桌打 LOL 或楓吱谷；
-//   23:00–23:40 大約每 10 天有 6 天跟女拳大帝各騎自己的大A在學校附近兜風（女拳大帝在前、吱吱在後），兜風那天
-//   女拳大帝 23:40 才回寢室（src/entities/npcs/Gordon.js 看 gdOut）。
+//   23:00–23:40 大約每 10 天有 6 天跟肉舖老闆各騎自己的大A在學校附近兜風（肉舖老闆在前、吱吱在後），兜風那天
+//   肉舖老闆 23:40 才回寢室（src/entities/npcs/Gordon.js 看 gdOut）。
 // 女朋友 Yulu（src/entities/npcs/Yulu.js）：有些晚上 19:00–21:00（沒打工、沒受傷的日子）跟她手牽手在校園散步，那段時間不在體育館。
 // 支線「吱吱武嶺跑山受傷」（src/systems/quests/ZzInjury.js）期間：不打工、不打球、不兜風，一直待在 276 養傷；
 //   受傷不好爬上舖，所以他睡 3 號床、彥霖睡 2 號床（座位不換）；晚上 8 點到 12 點還沒洗澡的話，他在力行二樓浴室等你。
-// 兩台大A（src/entities/Vehicles.js buildDaA）：吱吱的白紅舊款打工時停在茶學苑旁、女拳大帝的夜幕灰新款顧店時停在戈登肉鋪門口，
+// 兩台大A（src/entities/Vehicles.js buildDaA）：吱吱的白紅舊款打工時停在茶學苑旁、肉舖老闆的夜幕灰新款顧店時停在戈登肉鋪門口，
 //   其他時間停在力行宿舍大門前的前院；兜風時兩台都騎走。互加好友後可以借騎（按 F），騎走之後放著不管，會自己回到該停的地方。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
@@ -32,7 +32,7 @@ const H32 = (n) => {
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const RIDE0 = M(23),
   RIDE1 = M(23, 40),
-  TRAIL = 7.5; // 吱吱 rides this far (m) behind 女拳大帝, along her path
+  TRAIL = 7.5; // 吱吱 rides this far (m) behind 肉舖老闆, along her path
 const LOL = gameScreen(
   '#0a1a2f',
   '#0d3b4f',
@@ -45,7 +45,7 @@ const MAPLE = gameScreen('#ffb74d', '#5d9cec', '楓吱谷', '組隊打王中 ・
 const lockMsg = (g, id, label) => () =>
   g.friends?.added.has(id)
     ? null
-    : `🔒 這是${label}。先跟${id === 'zz' ? '吱吱' : '女拳大帝'}互加好友才能借騎`;
+    : `🔒 這是${label}。先跟${id === 'zz' ? '吱吱' : '肉舖老闆'}互加好友才能借騎`;
 
 // cast on the right hand (broken finger) and gauze on the left forearm and the right calf; returns the parts to show / hide
 export function addInjury(ch) {
@@ -98,7 +98,7 @@ export class Zz {
   get injured() {
     return !!this.q?.injured;
   }
-  // 女拳大帝 is out riding with him (not in his room)
+  // 肉舖老闆 is out riding with him (not in his room)
   get gdOut() {
     return this.mode === 'ride' && this.cruising;
   }
@@ -309,7 +309,7 @@ export class Zz {
           ['吱吱', '晚上 8 點到 12 點記得來浴室救我 🛁'],
           ['吱吱', '侯舌說他會負責扶，你負責肥皂跟潑水'],
         ],
-        [['吱吱', '女拳大帝一直跟我道歉，還說要請我吃一個月麥當勞 🍔']],
+        [['吱吱', '肉舖老闆一直跟我道歉，還說要請我吃一個月麥當勞 🍔']],
       ];
       g.dialog(L[Math.floor(Math.random() * L.length)]);
       return;
@@ -346,7 +346,7 @@ export class Zz {
       return v;
     };
     this.zzBike = park('daa_zz', 'zz', '吱吱的大A');
-    this.gdBike = park('daa_gd', 'gd', '女拳大帝的大A');
+    this.gdBike = park('daa_gd', 'gd', '肉舖老闆的大A');
     // spots: 茶學苑 (beside the deck), 戈登肉鋪 (beside its paving), 力行 forecourt (two side by side)
     const tea = g.interiors.tea,
       S = g.interiors.gordon;
@@ -376,15 +376,15 @@ export class Zz {
     }
     // the night ride: her 大A joins the traffic with her on it; his follows her path TRAIL m behind (not traffic)
     const gr = (this.gdRider = createCharacter(GD_LOOK)),
-      gt = makeLabel('🛵 女拳大帝（兜風中）', { height: 0.26, size: 40, color: '#ff9a9a' });
+      gt = makeLabel('🛵 肉舖老闆（兜風中）', { height: 0.26, size: 40, color: '#ff9a9a' });
     gt.position.set(0, 2.1, 0);
     gr.root.add(gt);
     serviceWear('gd', gr, GD_LOOK, { tag: gt }); // 義務役 (src/entities/npcs/Service.js)
     this.cruiser = g.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'daa_gd' }), gr);
     if (this.cruiser) {
       this.cruiser.ai.hold = true;
-      this.cruiser.label = '女拳大帝的大A（兜風中）';
-      this.cruiser.lock = () => '🔒 女拳大帝正在騎，不能借';
+      this.cruiser.label = '肉舖老闆的大A（兜風中）';
+      this.cruiser.lock = () => '🔒 肉舖老闆正在騎，不能借';
     }
     const tv = (this.trailBike = new Vehicle('scooter', Math.random, { model: 'daa_zz' }));
     const zr = (this.zzRider = createCharacter(ZZ_LOOK)),
@@ -613,7 +613,7 @@ export class Zz {
     if (m === 'shop') return '在正門外的茶學苑打工';
     if (m === 'gym') return '在體育館門口';
     if (m === 'walk') return '跟女朋友 Yulu 在校園散步 💕';
-    if (m === 'ride') return '跟女拳大帝騎大A在學校附近兜風 🛵';
+    if (m === 'ride') return '跟肉舖老闆騎大A在學校附近兜風 🛵';
     return `在力行宿舍 276 寢打${Math.floor(this.g.clock / 30) % 2 ? '楓吱谷 🍁' : ' LOL 🎮'}`;
   }
   // where he is on the map (定位): null if far off

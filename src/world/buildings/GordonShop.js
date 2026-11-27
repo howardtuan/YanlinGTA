@@ -746,7 +746,7 @@ export function buildGordon(I, scene) {
       l.m.position.x += (tx - l.m.position.x) * Math.min(1, dt * 6);
     }
   });
-  // ---- opening hours 08:00–23:00 (店長女拳大帝 is in 力行 279 playing LOL the rest of the night, src/entities/npcs/Gordon.js): outside
+  // ---- opening hours 08:00–23:00 (肉舖老闆 is in 力行 279 playing LOL the rest of the night, src/entities/npcs/Gordon.js): outside
   //      them a roller shutter comes down over the glass front, a 已打烊 sign hangs on it, the lights go down and the
   //      店長 at the counter is gone; buying is off (src/entities/npcs/Gordon.js). If you are inside when it shuts, the shutter lets you out.
   const OPEN0 = 8 * 60,

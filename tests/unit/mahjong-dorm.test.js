@@ -80,7 +80,7 @@ describe('誰在哪', () => {
     expect(statusOf(g, 'howard')).toBe('sleep');
     expect(statusOf(g, 'richard')).toBe('dorm');
   });
-  it('女拳大帝: at the shop by day, out riding with 吱吱, asleep at night', () => {
+  it('肉舖老闆: at the shop by day, out riding with 吱吱, asleep at night', () => {
     expect(statusOf(fakeGame({ gordon: { night: false } }), 'gd')).toBe('out');
     expect(statusOf(fakeGame({ zz: { gdOut: true } }), 'gd')).toBe('out');
     expect(statusOf(fakeGame({ gordon: { asleep: true } }), 'gd')).toBe('sleep');

@@ -1,8 +1,8 @@
 // 戈登肉鋪：校史館前草坪上的高級肉鋪，建築在 src/world/Interiors.js（buildGordon）。
-// 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找店長「女拳大帝」用 Peach Pay 結帳；
+// 在冷凍櫃前按 E 挑肉放進購物籃，到櫃台按 E 找「肉舖老闆」用 Peach Pay 結帳；
 // 結完帳如果還不是好友，他會問要不要互加（src/ui/phone/Friends.js，訊息＋Peachgram）。
 // 購物籃與買過的東西會存檔（src/systems/SaveSystem.js 的 gordon）。
-// 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間店長女拳大帝在力行宿舍 279 寢：00:00–08:00 睡在 4 號床（高架床），
+// 營業時間 08:00–23:00（src/world/buildings/GordonShop.js 拉鐵門、關燈）；其他時間肉舖老闆在力行宿舍 279 寢：00:00–08:00 睡在 4 號床（高架床），
 // 23:00–24:00 在 4 號床下的書桌打 LOL。
 // 起床鬧鐘：06:00 起他放在床下書桌上的手機一直響（assets/sfx/gd/alarm.mp3，越靠近越大聲），他自己從來不關，響到 08:00 去上班；
 // 你可以走到書桌前按 E 幫他關掉（也可以不管它）。室友漢克、霍華德很困擾，但大家都習慣了。
@@ -69,7 +69,7 @@ const esc = (s) =>
     /[&<>"]/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
   );
-const KEEPER = '女拳大帝';
+const KEEPER = '肉舖老闆';
 const ALARM_SRC = 'assets/sfx/gd/alarm.mp3';
 const ALARM_AT = 6 * 60; // 06:00, rings until he gets up for work at 08:00
 const ALARM_R = 22; // metres: how far down the corridor you can still hear it
@@ -162,10 +162,10 @@ export class Gordon {
       cond: () => !S.closed,
       label: () =>
         this.g.mahjong?.has('gd')
-          ? `店長${KEEPER}被揪去力行 277 打麻將了 🀄（等他回來再結帳）`
+          ? `${KEEPER}被揪去力行 277 打麻將了 🀄（等他回來再結帳）`
           : this.count
             ? `按 <kbd>E</kbd> 跟${KEEPER}結帳（${this.count} 件・NT$ ${this.total}）`
-            : `按 <kbd>E</kbd> 和店長${KEEPER}說話`,
+            : `按 <kbd>E</kbd> 和${KEEPER}說話`,
       fn: () =>
         this.g.mahjong?.has('gd')
           ? this.g.hud.toast(`🀄 ${KEEPER}去力行 277 打麻將了，櫃台沒人`, 'bad', 2200)
@@ -240,7 +240,7 @@ export class Gordon {
         .join('');
       this._open(
         `🥩 ${Z.name}`,
-        `<div class="gd-shop">${rows}${this._foot()}<div class="gd-hint">挑好了拿到最裡面的櫃台，找店長${KEEPER}結帳。</div>
+        `<div class="gd-shop">${rows}${this._foot()}<div class="gd-hint">挑好了拿到最裡面的櫃台，找${KEEPER}結帳。</div>
         <div class="modal-btns"><button class="menu-btn primary" id="gdDone"><span>✔ 好了</span><small>Enter / Esc</small></button></div></div>`,
         'GORDON MEAT SHOP'
       );
@@ -270,7 +270,7 @@ export class Gordon {
         .join('');
       const short = g.money < this.total;
       this._open(
-        `🧾 結帳・店長 ${KEEPER}`,
+        `🧾 結帳・${KEEPER}`,
         `<div class="gd-shop">${rows}<div class="gd-total">合計 <b>NT$ ${this.total}</b></div>${this._foot()}
         ${short ? '<div class="gd-hint bad">餘額不夠，先拿掉一些，或去麥當勞打工賺錢 🍟</div>' : ''}
         <div class="modal-btns"><button class="menu-btn primary" id="gdPay"><span>💳 用 Peach Pay 付款</span><small>Enter</small></button>
@@ -316,7 +316,7 @@ export class Gordon {
     // thanks, then (if you're not friends yet) the add-friend question
     g.dialog(PAID[Math.floor(Math.random() * PAID.length)], () => g.friends?.offer('gd'));
   }
-  // ---- 23:00–08:00: 女拳大帝 in 力行 279 at the desk under bed 4, playing LOL, then asleep ----
+  // ---- 23:00–08:00: 肉舖老闆 in 力行 279 at the desk under bed 4, playing LOL, then asleep ----
   get night() {
     return !!this.S?.closed;
   }
@@ -362,7 +362,7 @@ export class Gordon {
     const bedAt = { ...world(bed.x, bed.z, bed.y + 0.12), h: k.heading(0) };
     const self = this;
     const ch = (this.dormCh = createCharacter(GD_LOOK));
-    const tag = makeLabel('🎮 女拳大帝', { height: 0.24, size: 40, color: '#ff6b6b' });
+    const tag = makeLabel('🎮 肉舖老闆', { height: 0.24, size: 40, color: '#ff6b6b' });
     tag.position.set(0, 1.75, 0);
     ch.root.add(tag);
     serviceWear('gd', ch, GD_LOOK, { tag }); // 義務役 from 2026/11/6 (src/entities/npcs/Service.js)
@@ -456,7 +456,7 @@ export class Gordon {
       y: aY,
       r: 1.7, // takes over from talking to him (below) while it rings
       cond: () => this.ringing && !game.zz?.gdOut,
-      label: () => '按 <kbd>E</kbd> 關掉女拳大帝一直響的鬧鐘',
+      label: () => '按 <kbd>E</kbd> 關掉肉舖老闆一直響的鬧鐘',
       fn: () => this.alarmStop(),
     });
     game.interiors.actions.push({
@@ -480,8 +480,8 @@ export class Gordon {
       cond: () => this.night && !game.zz?.gdOut && !this.ringing && !game.mahjong?.has('gd'),
       label: () =>
         this.asleep
-          ? '按 <kbd>E</kbd> 看看 4 號床上的女拳大帝（睡著了）'
-          : '按 <kbd>E</kbd> 和打 LOL 的女拳大帝說話',
+          ? '按 <kbd>E</kbd> 看看 4 號床上的肉舖老闆（睡著了）'
+          : '按 <kbd>E</kbd> 和打 LOL 的肉舖老闆說話',
       fn: () => this.dormTalk(),
     });
     game.interiors.updaters.push((dt, gm) => {
@@ -517,7 +517,7 @@ export class Gordon {
       // the first time you hear it close by each morning
       if (d < 9 && dy < 2.6 && this._alarmHeard !== this._day) {
         this._alarmHeard = this._day;
-        g.hud.toast('⏰ 279 寢的鬧鐘又在響了……女拳大帝完全沒醒，室友們好像也習慣了', 'good', 3200);
+        g.hud.toast('⏰ 279 寢的鬧鐘又在響了……肉舖老闆完全沒醒，室友們好像也習慣了', 'good', 3200);
       }
     }
     g.audio.loopAt?.('gdAlarm', ALARM_SRC, lv * 0.9, dt);
@@ -550,7 +550,7 @@ export class Gordon {
     g.audio.blip?.();
     const L = [
       [
-        ['彥霖', '（女拳大帝的鬧鐘從 6 點響到現在，按掉了。整間寢室一下子安靜下來）'],
+        ['彥霖', '（肉舖老闆的鬧鐘從 6 點響到現在，按掉了。整間寢室一下子安靜下來）'],
         [KEEPER, '（翻個身，繼續睡……）'],
         ['漢克', '謝啦……他每天都這樣，從來沒自己關過'],
       ],
@@ -560,7 +560,7 @@ export class Gordon {
         ['霍華德', '我們早就習慣了，聽到這首歌就知道 6 點了 😂'],
       ],
       [
-        ['彥霖', '（把女拳大帝的鬧鐘關了）'],
+        ['彥霖', '（把肉舖老闆的鬧鐘關了）'],
         ['漢克', '你人真好。我們都習慣了，我還能跟著它的節奏彈吉他 🎸'],
         [KEEPER, '（夢話）……打野來幫我啦……'],
       ],
@@ -573,7 +573,7 @@ export class Gordon {
     if (this.asleep) {
       g.dialog([
         [KEEPER, '（呼……呼……）'],
-        ['彥霖', '（女拳大帝在 4 號床上睡得很熟，手還握著滑鼠的姿勢……）'],
+        ['彥霖', '（肉舖老闆在 4 號床上睡得很熟，手還握著滑鼠的姿勢……）'],
       ]);
       return;
     }

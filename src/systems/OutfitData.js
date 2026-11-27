@@ -182,7 +182,7 @@ export const SETS = [
     id: 'fGd',
     group: 'friend',
     friend: 'gd',
-    name: '女拳大帝',
+    name: '肉舖老闆',
     tag: '皮衣',
     shirt: '#242424',
     shorts: '#1d1e24',

@@ -222,7 +222,7 @@ export const FRIEND_CONTACTS = {
             shop: ['在茶學苑打工 🧋', '來喝飲料啊'],
             gym: ['在體育館門口 🏐', '定位傳你'],
             walk: ['在跟 Yulu 散步 💕', '晚點再回你'],
-            ride: ['跟女拳大帝騎大A兜風中 🛵', '等等回宿舍'],
+            ride: ['跟肉舖老闆騎大A兜風中 🛵', '等等回宿舍'],
             room: Z.injured ? ['在 276 養傷 🩹', '手指還在痛'] : ['在 276 打遊戲 🎮', '要來雙排嗎'],
           }[Z.mode] || ['在學校啊'];
           const at = Z.pos();
@@ -241,12 +241,12 @@ export const FRIEND_CONTACTS = {
   },
   gd: {
     id: 'gd',
-    name: '女拳大帝',
-    sub: '戈登肉鋪店長・LOL 鑽石',
+    name: '肉舖老闆',
+    sub: '戈登肉鋪・LOL 鑽石',
     avatar: '<img class="ph-avimg" src="assets/gram/gd_av.jpg" alt="">',
     color: '#1d1d1f',
     unread: 2,
-    history: [{ day: '今天' }, ['gd', '我女拳大帝，加到了。'], ['gd', '晚上 10 點積分，別遲到 😤']],
+    history: [{ day: '今天' }, ['gd', '我肉舖老闆，加到了。'], ['gd', '晚上 10 點積分，別遲到 😤']],
     script: [
       {
         choices: [
@@ -318,7 +318,7 @@ export const FRIEND_CONTACTS = {
             v: 1,
           },
           {
-            t: '你室友女拳大帝是不是很兇',
+            t: '你室友肉舖老闆是不是很兇',
             r: ['外面兇，在家打輸 LOL 更兇', '但人很好啦，會分肉給我吃 🥩'],
           },
         ],

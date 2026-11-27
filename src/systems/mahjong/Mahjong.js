@@ -28,7 +28,7 @@ export const ROSTER = [
   { id: 'houshe', name: '侯舌', room: 276, style: { attack: 0.5, defense: 0.5 } },
   { id: 'jianyu', name: '劍玉', room: 278, style: { attack: 0.35, defense: 0.7 } },
   { id: 'hank', name: '漢克', room: 279, style: { attack: 0.5, defense: 0.4 } },
-  { id: 'gd', name: '女拳大帝', room: 279, style: { attack: 0.85, defense: 0.2 } },
+  { id: 'gd', name: '肉舖老闆', room: 279, style: { attack: 0.85, defense: 0.2 } },
   { id: 'howard', name: '霍華德', room: 279, style: { attack: 0.45, defense: 0.6 } },
   { id: 'richard', name: '理查', room: 280, style: { attack: 0.4, defense: 0.65 } },
 ];

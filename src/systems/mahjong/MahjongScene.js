@@ -23,6 +23,7 @@ import {
 import { DiceSet } from './Dice.js';
 import { normalizeRoomCode } from './Net.js';
 import { SPECTATE_REACTS, reactSticker } from './P2P.js';
+import { npcReactions, npcSticker } from './NpcStickers.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeOutfitFigure } from '../Outfits.js';
 
@@ -855,6 +856,7 @@ export class MahjongScene {
       this._onEvent(ev);
     };
     this._hidePop();
+    this._npcTold = new Set(); // (新的一局：誰都還沒喊過聽牌)
     this.t = 0.6;
     this.sel = 0;
     this.result = null;
@@ -1848,7 +1850,7 @@ export class MahjongScene {
       }
     }
     const el = document.createElement('div');
-    const st = reactSticker(ev.text);
+    const st = ev.img ? { img: ev.img, label: ev.text } : reactSticker(ev.text);
     el.className = st ? 'mj-bubble sticker' : 'mj-bubble';
     el.innerHTML = st
       ? `<small>${esc(ev.name || '圍觀')}</small><img src="${st.img}" alt="${esc(st.label)}">`
@@ -2739,6 +2741,32 @@ export class MahjongScene {
         // (a closed kong stays secret)
         this._showPop(ev.seat, ev.t, `${this.names[ev.seat]} ${CALL[ev.type]}`, true);
     } else if (ev.type === 'win') a?.mjReveal?.();
+    this._npcReact(ev);
+  }
+  // 單人模式：同學看牌局跳自己的表情貼圖（src/systems/mahjong/NpcStickers.js）。多人模式不跳
+  _npcReact(ev) {
+    if (this.mj.isMulti || !this.e || this.e.isRemote) return;
+    const ids = [null, 1, 2, 3].map((s) => s && this.mj.party?.find((p) => p.seat === s)?.id);
+    const e = this.e;
+    this._npcTold ||= new Set();
+    const list = npcReactions(ev, ids, {
+      ting: (s) => e.tenpai(s).length > 0,
+      told: this._npcTold,
+    });
+    for (const r of list) {
+      const st = npcSticker(ids[r.seat], r.kind);
+      if (!st) continue;
+      setTimeout(() => {
+        if (this.e !== e || !this.active) return; // (這一局已經結束或離桌了)
+        this.showReaction({
+          text: st.label,
+          img: st.img,
+          name: this.names[r.seat],
+          seat: r.seat,
+          fromId: `npc${r.seat}`,
+        });
+      }, r.delay * 1000);
+    }
   }
   // a picture of tile k (its face from the atlas), cached
   _tileImg(k) {

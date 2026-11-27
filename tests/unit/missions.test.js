@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SPEECH, MONDAY, WEDNESDAY, Missions } from '../../src/systems/MissionSystem.js';
+import {
+  SPEECH,
+  MONDAY,
+  WEDNESDAY,
+  DORM_ROOMS,
+  DORM_NOTE,
+  Missions,
+} from '../../src/systems/MissionSystem.js';
 import { HOLO_AI } from '../../src/graphics/HoloRing.js';
 
 function makeMockGame() {
@@ -169,6 +176,62 @@ describe('Campaign Story & Missions Tests (MissionSystem.js)', () => {
       expect(missions.hideHome).toBe(true);
       expect(missions.showHome).toBe(false);
       expect(missions.markers[0]).toMatchObject({ icon: '?' });
+    });
+  });
+  describe('任務六 · 宿舍拉票', () => {
+    const withDorm = () => {
+      const game = makeMockGame();
+      const rooms = {};
+      DORM_ROOMS.forEach((no, i) => (rooms[no] = { door: [10 + i * 3.4, 27.6], y: 3.3 }));
+      game.interiors.lixing = { rooms, W: (x, z) => [x, z], B: 0, park: { x: 60, z: 30 } };
+      game.addVotes = vi.fn();
+      game.audio.checkpoint = vi.fn();
+      game.after = vi.fn();
+      return game;
+    };
+
+    it('knocks on 276–281 one door each, then ends with the note about visiting the dorms', () => {
+      const game = withDorm();
+      const missions = new Missions(game);
+      missions.idx = 5;
+      missions.next();
+      expect(missions.idx).toBe(6);
+      expect(missions.step?.dorm).toBe(true);
+      expect(missions.markers.map((m) => m.icon)).toEqual(Array(6).fill('🚪'));
+      // one E action per door, only while the mission is on and the room is not visited yet
+      const acts = game.interiors.actions.filter((a) => /寢門口拉票/.test(a.label()));
+      expect(acts.length).toBe(6);
+      expect(acts.every((a) => a.cond())).toBe(true);
+      acts[0].fn();
+      expect(acts[0].cond()).toBe(false);
+      expect(game.addVotes).toHaveBeenCalledWith(2, '力行 276 寢 +2 票');
+      expect(missions.markers.length).toBe(5);
+      acts[0].fn(); // the same door again: nothing
+      expect(game.addVotes).toHaveBeenCalledTimes(1);
+      // the mission is still on until every room is visited
+      missions.update(0.016);
+      expect(missions.step?.dorm).toBe(true);
+      for (const a of acts.slice(1)) a.fn();
+      missions.update(0.016);
+      expect(missions.step).toBe(null);
+      const lines = game.dialog.mock.calls.flatMap((c) => c[0].map((l) => l[1])).join(' ');
+      expect(lines).toContain(DORM_NOTE);
+      expect(game.hud.toast).toHaveBeenCalledWith(`📝 ${DORM_NOTE}`, 'good', 4200);
+      expect(game.after).toHaveBeenCalled();
+    });
+
+    it('can be paused, and remembers the rooms already visited', () => {
+      const game = withDorm();
+      const missions = new Missions(game);
+      missions.idx = 5;
+      missions.next();
+      expect(missions.canExit).toBe(true);
+      game.interiors.actions[game.interiors.actions.length - 6].fn(); // 276
+      expect(missions.exit('test')).toBe(true);
+      expect(missions.exited.at).toEqual({ x: 60, z: 30 }); // ▶ waits at the dorm's front yard
+      missions.resumeSection();
+      expect(missions.step?.dorm).toBe(true);
+      expect(missions.dormLeft.map((d) => d.no)).toEqual([277, 278, 279, 280, 281]);
     });
   });
 });

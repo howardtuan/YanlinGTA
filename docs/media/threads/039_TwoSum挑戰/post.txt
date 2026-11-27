@@ -1,0 +1,3 @@
+霍華德傳了一題 LeetCode 給你：Two Sum。要用 Python 寫出 O(N) 解法，而且不准複製貼上！資管人敢不敢接受挑戰？
+
+https://yanlin-gta.com/

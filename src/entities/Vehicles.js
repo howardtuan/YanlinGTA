@@ -7,6 +7,7 @@ import {
   addScooterLivery,
   TYPE_NAMES,
 } from './ScooterVariants.js';
+import { buildCityBus, BUS } from './BusModel.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
 
@@ -2965,6 +2966,26 @@ export class Vehicle {
         label: opt.jet ? '我的 JAT SM' : TYPE_NAMES[vt],
         jet: !!opt.jet,
       });
+    } else if (kind === 'bus') {
+      // 市區公車 (src/systems/Buses.js): long and heavy; radius is how far its nose reaches ahead of pos (traffic
+      // gaps, src/entities/NPC.js), its sides are hw; it is never borrowed (lock)
+      this.mesh = buildCityBus(opt.livery, opt.route, opt.dest);
+      Object.assign(this, {
+        wb: BUS.axleF - BUS.axleR,
+        radius: BUS.front,
+        hl: BUS.front - 0.1,
+        hw: BUS.W / 2,
+        maxSpeed: 16,
+        accel: 2,
+        brake: 7,
+        turn: 1,
+        grip: 6,
+        seat: new THREE.Vector3(0.9, 0.35, 5.1),
+        exitSide: 2.4,
+        label: '公車',
+        bus: true,
+      });
+      this.lock = () => '公車只能在站牌搭乘（按 E 看下一班）';
     } else if (SUPERCARS[opt.model]) {
       // 超跑: a car, much quicker, a little wider and lower
       const C = SUPERCARS[opt.model];

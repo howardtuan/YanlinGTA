@@ -150,6 +150,15 @@ export const LOOK = {
     ...LOCO,
     cargo: 'military',
   },
+  // 軌道維修工程車（半夜）：黃色的搗固車、道碴車、載鋼軌枕木的平車、附吊臂的軌道車；車頂琥珀色警示燈
+  engineering: {
+    ...LOCO,
+    loco: false,
+    body: '#f2c200',
+    face: '#ffa000',
+    faceGlow: true, // 色票的 face 格當警示燈：自己會亮
+    cargo: 'engineering',
+  },
 };
 
 // 色票（貼圖集右下 4×4 格）
@@ -188,6 +197,8 @@ function rr(g, x, y, w, h, r) {
 const CARGO = {
   container: ['#a8322b', '#1f5f96', '#2e7044', '#c49a2c'],
   military: ['#4d5828', '#5e6338', '#363c1c', '#1b1c1a'],
+  // 工程車：0 黃色車體（下緣黑黃斜紋）、1 駕駛室（車窗；u 0–151 px 是端面：大片擋風玻璃）、2 道碴、3 深色機械
+  engineering: ['#f2c200', '#f2c200', '#8d8a84', '#2a2b2c'],
 };
 function drawCargo(g, kind) {
   CARGO[kind].forEach((c, b) => {
@@ -209,6 +220,49 @@ function drawCargo(g, kind) {
       g.fillStyle = 'rgba(255,255,255,0.55)';
       // 公司標誌（從 x = 200 開始：0–151 px 是貨櫃端面用的那段）
       for (let x = 200; x < TW; x += (6.1 / CAR_L) * TW) g.fillRect(x, y + 21, 50, 4);
+    } else if (kind === 'engineering') {
+      if (b === 0) {
+        g.fillStyle = 'rgba(0,0,0,0.25)';
+        for (let x = 0; x < TW; x += 52) g.fillRect(x, y + 16, 2, 24); // 檢修門縫
+        // 下緣黑黃斜紋
+        g.fillStyle = '#151515';
+        g.fillRect(0, y + 40, TW, 8);
+        g.fillStyle = '#f2c200';
+        for (let x = -8; x < TW; x += 12) {
+          g.beginPath();
+          g.moveTo(x, y + 48);
+          g.lineTo(x + 6, y + 48);
+          g.lineTo(x + 12, y + 40);
+          g.lineTo(x + 6, y + 40);
+          g.fill();
+        }
+      } else if (b === 1) {
+        // 駕駛室側窗（整條每 1.2 m 一扇），端面兩片大擋風玻璃
+        const win = (x, w) => {
+          g.fillStyle = '#151a1f';
+          g.fillRect(x - 1, y + 19, w + 2, 15);
+          const gr = g.createLinearGradient(0, y + 20, 0, y + 33);
+          gr.addColorStop(0, '#4a5866');
+          gr.addColorStop(1, '#1a2128');
+          g.fillStyle = gr;
+          g.fillRect(x, y + 20, w, 13);
+        };
+        for (let x = 170; x < TW; x += 62) win(x, 40);
+        win(8, 64);
+        win(80, 64);
+        g.fillStyle = '#151515';
+        g.fillRect(0, y + 44, TW, 4);
+      } else if (b === 2) {
+        // 道碴：灰色碎石的雜點
+        for (let i = 0; i < 2600; i++) {
+          const v = 90 + Math.floor(Math.random() * 90);
+          g.fillStyle = `rgb(${v},${v - 4},${v - 10})`;
+          g.fillRect(Math.random() * TW, y + 14 + Math.random() * 36, 3, 2);
+        }
+      } else {
+        g.fillStyle = 'rgba(255,255,255,0.12)';
+        for (let x = 0; x < TW; x += 30) g.fillRect(x, y + 16, 8, 32); // 機械的亮面
+      }
     } else if (b === 0) {
       // 軍車車身：門線、小窗
       g.fillStyle = 'rgba(0,0,0,0.3)';
@@ -378,8 +432,18 @@ function drawAtlas(L) {
   };
   side(0, false);
   side(256, true);
-  if (L.cargo) drawCargo(g, L.cargo); // 貨車用不到中間車側面，那一排改畫貨櫃／軍車的四條色帶
-  if (L.loco) drawLoco(g, L); // 駕駛室車側面那一排改畫柴電機車頭的四條色帶
+  // 貨車用不到客車側面那兩排：中間車那排改畫貨櫃／軍車／工程車的四條色帶，駕駛室車那排改畫柴電機車頭。
+  // 那兩排的自發光圖也要清掉，不然夜裡會照客車車窗的形狀發光
+  if (L.cargo) {
+    drawCargo(g, L.cargo);
+    e.fillStyle = '#000';
+    e.fillRect(0, 0, TW, 256);
+  }
+  if (L.loco) {
+    drawLoco(g, L);
+    e.fillStyle = '#000';
+    e.fillRect(0, 256, TW, 256);
+  }
   // ---- 車頭正面（x：-HALF_W…HALF_W，y：0.9…3.95）----
   const FX = (x) => (0.5 + (0.5 * x) / HALF_W) * 256,
     FY = (y) => 512 + ((3.95 - y) / 3.05) * 256;
@@ -458,7 +522,7 @@ function drawAtlas(L) {
     ['#ff3020', '#ff2010'], // tailOn
     ['#5a1410', '#000'], // tailOff
     ['#34383d', '#000'], // plow
-    [L.face, '#000'], // face
+    [L.face, L.faceGlow ? L.face : '#000'], // face
     [L.body, '#000'], // body
     ['#6a6e72', '#000'], // steel
     ['#d8d0bc', '#000'], // insul
@@ -904,6 +968,60 @@ function tank(B, z) {
   B.cbox(0, DECK + 1.85, z - 0.6, 2.2, 0.85, 3.4, 2); // 砲塔
   B.cbox(0, DECK + 1.9, z + 3.0, 0.18, 0.18, 4.6, 2); // 砲管
 }
+// ---------- 工程車（cbox 色帶：0 黃色車體、1 駕駛室、2 道碴、3 深色機械） ----------
+const beacon = (B, x, y, z) => B.cyl(x, y, z, 0.11, 0.22, 'y', SW.face, 10); // 琥珀色警示燈
+// 搗固車：前後駕駛室、中間機械室，底下吊著搗固裝置與起道撥道裝置；整列的最前面
+function tamper(B) {
+  B.cbox(0, DECK + 1.25, 7.75, 2.8, 2.5, 3.1, 1); // 前駕駛室
+  B.cbox(0, DECK + 1.25, -7.9, 2.8, 2.5, 3.0, 1); // 後駕駛室
+  B.cbox(0, DECK + 1.0, -1.5, 2.5, 2.0, 9.6, 0); // 機械室
+  B.cbox(0, DECK + 2.15, -1.5, 1.6, 0.3, 6.0, 3); // 車頂的散熱器、管路
+  B.cbox(0, DECK - 0.35, 2.8, 2.6, 0.9, 1.6, 3); // 搗固裝置
+  for (const s of [-1, 1]) B.cbox(s * 0.75, DECK - 0.75, 2.8, 0.2, 0.5, 1.2, 3); // 搗固鎬
+  B.cbox(0, DECK - 0.3, 0.6, 2.2, 0.6, 1.0, 3); // 起道撥道裝置
+  for (const s of [-1, 1]) {
+    beacon(B, s * 0.9, DECK + 2.6, 7.75);
+    beacon(B, s * 0.9, DECK + 2.6, -7.9);
+    B.cyl(s * 0.8, DECK + 0.55, 9.32, 0.14, 0.06, 'z', SW.headOn, 14); // 頭燈
+    B.cyl(s * 0.8, DECK + 0.55, -9.42, 0.12, 0.06, 'z', SW.headOff, 12);
+  }
+}
+// 道碴車：上寬下窄的漏斗車廂，滿載碎石，底下卸碴口
+function hopper(B) {
+  B.cbox(0, DECK + 0.5, 0, 2.2, 1.0, 16.4, 0);
+  B.cbox(0, DECK + 1.55, 0, 2.85, 1.1, 17.4, 0);
+  B.cbox(0, DECK + 2.2, 0, 2.6, 0.22, 16.8, 2); // 碎石
+  B.cbox(0, DECK + 2.38, 0, 1.6, 0.18, 14.5, 2);
+  for (const z of [-3.5, 0, 3.5]) B.cbox(0, DECK - 0.4, z, 1.4, 0.5, 1.2, 3); // 卸碴口
+}
+// 平車：載鋼軌（長條兩層）與水泥枕木，附小吊臂
+function railCar(B) {
+  for (let l = 0; l < 2; l++)
+    for (let i = 0; i < 5; i++)
+      B.box(-1.15 + i * 0.2, DECK + 0.08 + l * 0.16, 0, 0.14, 0.15, 18.4, SW.steel);
+  for (let r = 0; r < 3; r++)
+    for (let i = 0; i < 6; i++)
+      B.box(0.45, DECK + 0.12 + r * 0.24, -7 + i * 2.6, 1.6, 0.2, 0.3, SW.ac);
+  B.cyl(0, DECK + 0.6, 8.3, 0.35, 1.2, 'y', SW.body, 12); // 吊臂底座
+  B.beam([0, DECK + 1.2, 8.3], [0, DECK + 3.2, 4.5], 0.22, SW.body);
+  B.beam([0, DECK + 3.2, 4.5], [0, DECK + 1.6, 4.5], 0.03, SW.rubber); // 鋼索
+  beacon(B, 0, DECK + 1.3, 8.3);
+}
+// 軌道車（整列最後）：駕駛室朝後（-z），前面是載工具的平台與吊臂
+function craneCar(B) {
+  B.cbox(0, DECK + 1.2, -7.6, 2.7, 2.4, 3.6, 1);
+  for (const z of [2.5, 5.5]) B.cbox(0.6, DECK + 0.45, z, 1.3, 0.9, 2.2, 3); // 工具箱
+  B.cbox(-0.8, DECK + 0.35, 4.0, 0.9, 0.7, 5.0, 0); // 發電機
+  B.cyl(0, DECK + 0.5, -3.6, 0.45, 1.0, 'y', SW.body, 12);
+  B.beam([0, DECK + 1.0, -3.6], [0, DECK + 3.4, 3.8], 0.26, SW.body); // 吊臂
+  B.beam([0, DECK + 3.4, 3.8], [0, DECK + 1.5, 3.8], 0.03, SW.rubber);
+  B.box(0, DECK + 1.45, 3.8, 0.25, 0.15, 0.25, SW.steel); // 吊鉤
+  for (const s of [-1, 1]) {
+    beacon(B, s * 0.9, DECK + 2.55, -7.6);
+    B.cyl(s * 0.8, DECK + 0.55, -9.42, 0.12, 0.06, 'z', SW.headOff, 12);
+  }
+}
+
 function wagonGeometry(look, kind) {
   const B = new Builder(),
     k = kind.replace('T', '');
@@ -929,7 +1047,10 @@ function wagonGeometry(look, kind) {
       B.cbox(0, DECK + 1.25, z, 2.6, 2.5, 8.6, 1);
       for (const dz of [-3, 0, 3]) B.cbox(0, DECK + 2.51, z + dz, 2.62, 0.04, 0.06, 2); // 綁帶
     }
-  }
+  } else if (k === 'e0') tamper(B);
+  else if (k === 'e1') hopper(B);
+  else if (k === 'e2') railCar(B);
+  else if (k === 'e3') craneCar(B);
   // 最後一節：車尾紅色標誌燈
   if (kind.endsWith('T'))
     for (const s of [-1, 1]) B.cyl(s * 1.15, 1.2, -HL - 0.08, 0.1, 0.06, 'z', SW.tailOn, 10);
@@ -985,8 +1106,14 @@ function locoGeometry(kind) {
   return B.geometry();
 }
 
+// 工程車編組：搗固車在前、兩節道碴車、鋼軌枕木平車、軌道車在最後
+const ENG = ['e0', 'e1', 'e1', 'e2', 'e3'];
+export const ENG_CARS = ENG.length;
+
 // 貨物、軍運列車第 i 節是哪種車（第 0 節是機車頭）；seed：同一班車每次都一樣
 export function cargoKind(look, i, last, seed) {
+  if (LOOK[look].cargo === 'engineering')
+    return ENG[Math.min(i, ENG.length - 1)] + (last ? 'T' : '');
   if (i === 0) return 'head';
   const L =
     LOOK[look].cargo === 'military' ? ['m0', 'm1', 'm0', 'm2', 'm1'] : ['w0', 'w1', 'w2', 'w3'];
@@ -995,7 +1122,7 @@ export function cargoKind(look, i, last, seed) {
 
 // kind：'head' 車頭（頭燈亮）、'tail' 車尾（尾燈亮；擺的時候整節轉 180°）、'mid' 中間車、'midP' 有集電弓的中間車
 export function carGeometry(look, kind) {
-  if (kind[0] === 'w' || (kind[0] === 'm' && !kind.startsWith('mid')))
+  if (kind[0] === 'w' || kind[0] === 'e' || (kind[0] === 'm' && !kind.startsWith('mid')))
     return wagonGeometry(look, kind);
   if (LOOK[look].loco) return locoGeometry(kind);
   const L = LOOK[look],

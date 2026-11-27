@@ -620,12 +620,21 @@ export default {
     // ---- 東南側 ----
     // NET 大樓前空地（s 330～363）：沿街橘色低護欄＋柏昶新世界招商布條圍籬，靠老街溪那頭兩棵大樹、藍色 P 牌
     {
-      const k = seg(C, 1, 330, 363, SR),
-        w = k.W;
-      for (let x = 1.0; x <= w - 1; x += 2.4)
-        k.box(x, x + 0.08, 0, 1.0, -0.04, 0.04, '#e8902a', NC);
-      k.box(1.0, w - 1, 0.92, 1.0, -0.04, 0.04, '#e8902a', NC);
-      k.box(1.0, w - 1, 0.45, 0.5, -0.04, 0.04, '#e8902a', NC);
+      // 這片空地往老街溪那頭低 0.7 m：護欄一格一格照地面高度擺，柱子、P 牌桿往下補到地面
+      const k = C.sink(seg(C, 1, 330, 363, SR), 1),
+        w = k.W,
+        gy = (x) => C.groundY(k, x, 0);
+      for (let x = 1.0; x <= w - 1; x += 2.4) {
+        const y = gy(x + 0.04),
+          x1 = Math.min(x + 2.4, w - 1);
+        k.box(x, x + 0.08, y - 1, y + 1.0, -0.04, 0.04, '#e8902a', NC);
+        if (x1 - x > 0.1)
+          for (const [a, b] of [
+            [0.92, 1.0],
+            [0.45, 0.5],
+          ])
+            k.box(x, x1, y + a, y + b, -0.04, 0.04, '#e8902a', NC);
+      }
       // 布條（貼在護欄外側）
       const B = [
         [5.0, 10.0, '柏昶新世界', '#24305e', '#ffffff'],
@@ -634,9 +643,18 @@ export default {
         [23.0, 28.5, '柏昶新世界 招商中', '#f2d23a', '#24305e'],
       ];
       for (const [a, b, t, bg, fg] of B)
-        k.plane(paint(t, bg, fg, null, b - a, 0.85), b - a, 0.85, (a + b) / 2, 0.5, -0.06, FRONT, {
-          emissive: 0.1,
-        });
+        k.plane(
+          paint(t, bg, fg, null, b - a, 0.85),
+          b - a,
+          0.85,
+          (a + b) / 2,
+          0.5 + gy((a + b) / 2),
+          -0.06,
+          FRONT,
+          {
+            emissive: 0.1,
+          }
+        );
       const r = lcg(23330);
       tree(C, k, w - 3.5, 2.5, 13, 3.6, r);
       tree(C, k, w - 0.8, 7.5, 12, 3.2, r);
@@ -790,8 +808,9 @@ export default {
         -0.51,
         FRONT
       );
-      k.box(0, w, -0.3, 0.15, 0, 22, '#3c3d3f', { col: false, surface: true }); // 柏油地面
-      for (let x = 1.0; x < w - 0.5; x += 0.5) k.box(x, x + 0.12, 0.15, 0.17, 1, 7, '#e8c02a', NC);
+      C.pave(k, 0, w, -0.3, 0.15, 0, 22, '#3c3d3f'); // 柏油地面（往後低 0.3 m，照地勢鋪）
+      for (let x = 1.0; x < w - 0.5; x += 0.5)
+        C.drape(k, x, x + 0.12, 1, 7, '#e8c02a', 0.17, false);
     }
     // 唿唿哈：頂樓紅色鐵皮斜頂、朝停車場的側牆褪色舊彩繪廣告
     {
@@ -908,7 +927,8 @@ export default {
           r() < 0.5 ? '#4b8a3e' : '#5f9a4a',
           0.9
         );
-      for (let x = 0.4; x < k.W - 0.6; x += 1.3) ball(C, k, x, 0.45, -1.3, 0.4, '#4b8a3e', 0.9);
+      for (let x = 0.4; x < k.W - 0.6; x += 1.3)
+        ball(C, k, x, 0.45 + C.groundY(k, x, -1.3), -1.3, 0.4, '#4b8a3e', 0.9);
     }
   },
 

@@ -106,7 +106,7 @@ const roundCorner = (C, side, s0, s1, set, o) => {
       k.plane(C.YHT.win(), 1.4, 1.3, sideX + dir * 0.03, gf + (f - 1) * fh + 1.5, z, rot);
   k.box(-0.02, w + 0.02, top, top + 0.15, r, d, 'gray', NC);
   // 圓角前的人行道鋪面
-  k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, r, C.MR.concrete, { col: false, surface: true });
+  C.pave(k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, r, C.MR.concrete);
   // 掛在圓弧 45 度的招牌
   const sign45 = (text, bg, fg, sw, sh, y, sub) => {
     const n = Math.SQRT1_2;
@@ -640,19 +640,20 @@ export default {
     // 平面收費停車場（s 833～860）：柏油、白線、前緣矮柱鐵鍊，靠大樹那頭是出入口（柵欄機、票機），中間藍色與橘色繳費柱；
     // 靠工地那頭立著大樹藥局的綠色直立高柱招牌（藥、大樹 Great Tree、P）
     {
-      const k = seg(C, -1, 833, 860, SL),
+      // 整塊地往東南低半公尺多：柏油、人行道照地勢鋪成斜面，白線貼著柏油畫，貼地的柱子、票機往下補到地面
+      const k = C.sink(seg(C, -1, 833, 860, SL), 1),
         w = k.W,
         D = 24;
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, MR.concrete, { col: false, surface: true });
-      k.box(0, w, -0.5, 0.045, 0, D, '#4f5154', { col: false, surface: true });
+      C.pave(k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, MR.concrete);
+      C.pave(k, 0, w, -0.5, 0.045, 0, D, '#4f5154');
+      const line = (x0, x1, z0, z1) => C.drape(k, x0, x1, z0, z1, '#efefea', 0.06, false);
       for (const [z0, z1] of [
         [1.2, 6.2],
         [11.5, 16.5],
         [17.5, 22.5],
       ])
-        for (let x = 1.5; x < w - 6.5; x += 2.5)
-          k.box(x, x + 0.1, 0.045, 0.06, z0, z1, '#efefea', NC);
-      for (const z of [6.2, 11.5]) k.box(1.5, w - 6.5, 0.045, 0.06, z, z + 0.1, '#efefea', NC);
+        for (let x = 1.5; x < w - 6.5; x += 2.5) line(x, x + 0.1, z0, z1);
+      for (const z of [6.2, 11.5]) line(1.5, w - 6.5, z, z + 0.1);
       // 前緣矮柱與鐵鍊（出入口 x 21～27 不圍）
       for (let x = 0.4; x < 20.5; x += 2.4) {
         k.cyl(x, -0.3, 0.1, 0, 0.85, '#2a2a2a', { seg: 8 });
@@ -710,14 +711,14 @@ export default {
     // 工地（s 860～884，環中東路口東角）：停車場那一側灰色鐵皮圍籬（掛競選看板，只畫色塊）、
     // 退在後面包著鷹架的 3 樓深色新建物＋頂樓鋼構，前面一片鋪面空地、橘色警示帶與三角錐
     {
-      const k = seg(C, -1, 860, 884, SL),
+      const k = C.sink(seg(C, -1, 860, 884, SL), 1),
         w = k.W,
         x0 = 2.0,
         x1 = 21.5,
         z0 = 3.2,
         z1 = 12.7,
         h = 9.6;
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, z0, '#b8b4aa', { col: false, surface: true });
+      C.pave(k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, z0, '#b8b4aa');
       // 主體與樓層線、一樓白柱深色玻璃
       k.box(x0, x1, 0, h, z0, z1, '#45484b');
       for (const y of [3.4, 6.5])

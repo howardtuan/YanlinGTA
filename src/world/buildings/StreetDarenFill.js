@@ -6,6 +6,8 @@
 //   一樓靠大仁街那間是 925 SILVER 銀飾（白色帆布雨棚、灰色鐵捲門），往裡面那間是「旋轉木馬」童裝（玻璃櫥窗、白色側掛招牌）。
 // 這個檔案不 import src/world/Interiors.js；src/world/zones/Zones.js import 這裡的 DF_ST 與 dfFootprints()。
 
+import { paveGround } from './GroundDrape.js';
+
 // 大仁四街中心線（data/cycu.json，寬 5 m），s 從大仁街口量
 export const DF_D4 = {
   pts: [
@@ -133,7 +135,7 @@ export function buildDarenFill(I, scene, X) {
         });
       k.box(0.42, 0.48, GF + 1.42, GF + 1.48, -0.9, 0, MR.black, { col: false });
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true }); // 騎樓前的水泥地
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete); // 騎樓前的水泥地
     // 頂樓水塔與後牆的窗
     if (i === 1) k.cyl(w * 0.4, D * 0.6, 0.6, TOP + 0.12, TOP + 1.5, MR.white, { seg: 12 });
     for (let f = 0; f < NF; f++)

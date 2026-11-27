@@ -11,6 +11,7 @@ import SEG_D from './d2/segD.js';
 import SEG_E from './d2/segE.js';
 import SEG_F from './d2/segF.js';
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 
 export const D2_ROAD = [
   [79, 293.4],
@@ -709,7 +710,7 @@ export function buildDaren2Street(I, scene, X, data, collision) {
         ROWT,
         sg,
       });
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   });
   finishRow(scene, kits);
   d2Uncollide(data, collision);

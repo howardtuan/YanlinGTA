@@ -30,6 +30,7 @@
 
 import { H } from '../Terrain.js';
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 
 export const D1_ROAD = [
   [74.2, 297.9],
@@ -1975,7 +1976,7 @@ export function buildDaren1Street(I, scene, X) {
     for (let j = 0; j < (sp.bikes || 0); j++)
       bike(k, 1.5 + j * ((w - 4) / Math.max(1, sp.bikes - 1)), -0.32, 0, bikeCols[j % 6]);
     if (sp.cx) facC(k, L, w, sp.cx, h); // C 段：鏽水痕、自訂寬度的窗、牆上的雜物、垂直停的機車
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   };
   const yard = (k, L, w, sp, r) => {
     // 矮花台（下半亂石、上半紅磚）圍起來的停車空地：花台後面一排樹，gate 是入口的鐵網門

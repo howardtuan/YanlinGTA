@@ -15,6 +15,7 @@ import Bseg from './rixin/B.js';
 import C from './rixin/C.js';
 import D from './rixin/D.js';
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 
 // 路中心線（data/cycu.json 的日新路，寬 7.5 m）
 export const RX_ROADS = {
@@ -724,7 +725,7 @@ export function buildRixinStreet(I, scene, X) {
         sg,
         font,
       });
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   });
 
   // ---- 圍牆 [road, s0, s1, side, spec?]：洗石子矮牆、紅磚方柱加黑色花式鐵欄杆、牆內整排大樹（照街景 2026-05 的中原國小圍牆）----
@@ -923,7 +924,7 @@ export function buildRixinStreet(I, scene, X) {
         k._part(VC, paintGeo(g, r() < 0.5 ? '#3f7a3a' : '#4b8a3e'));
       }
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   });
   finishRow(scene, kits);
 }

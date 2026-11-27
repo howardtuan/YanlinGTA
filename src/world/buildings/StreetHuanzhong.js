@@ -14,6 +14,7 @@
 // 參考線（data/cycu.json 的道路中心線，遊戲座標 x 東、z 南）
 import { H } from '../Terrain.js';
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 
 export const HZ_REF = {
   HN: [
@@ -1974,8 +1975,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
   // 每一格門前的人行道：鋪面（pave = 紅磚）、行道樹（trees：x 位置，種在離車道中心 6 m 的樹穴）、垂直停放的機車格（mc：[x0,x1] 區段）、水泥電線桿（poles）
   const street = (k, w, apron, set, sp, r) => {
     if (!sp.pave) {
-      if (apron > 0)
-        k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+      if (apron > 0) paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
     } else if (sp.pave !== 1)
       rectG(k, 0, w, -apron, 0.3, sp.pave); // 素面鋪面（水泥地、灰色人行道）
     else {

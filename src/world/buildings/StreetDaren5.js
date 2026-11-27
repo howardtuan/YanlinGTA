@@ -1,4 +1,5 @@
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 // 大仁五街兩側（中北路口到大仁街／大仁四街口）：照 Google 街景 2024-08（路口 2026-05）、國土測繪 2024 正射建模，只做外觀，不能進入。
 // 這條街不是一棟棟透天，而是幾棟長條集合住宅（一樓一間間店面）加上幾棟較矮的房子，所以一棟量體一個 Kit，
 // 一樓店面寫在各棟的 units：[s0, s1, spec]。
@@ -4944,7 +4945,7 @@ export function buildDaren5Street(I, scene, X) {
           k.cyl(x, z, 1.1, 0, 0.5, '#e6e4de', { seg: 12, col: true });
           tree(k, x, z, 7, 2.2, r);
         }
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete, { col: false, surface: true });
+      paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete);
       return;
     }
 
@@ -4958,7 +4959,7 @@ export function buildDaren5Street(I, scene, X) {
         for (const x of [0.1, w - 0.16])
           k.box(x, x + 0.06, 0, gf, -B.eave + 0.1, -B.eave + 0.16, '#8a8d90', NC);
       units(gf - 0.1);
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete, { col: false, surface: true });
+      paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete);
       return;
     }
 
@@ -4990,7 +4991,7 @@ export function buildDaren5Street(I, scene, X) {
         }
       }
       units(gf);
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete, { col: false, surface: true });
+      paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete);
       apron2('#9b9993');
       return;
     }
@@ -5086,7 +5087,7 @@ export function buildDaren5Street(I, scene, X) {
         k.cyl(x, d * 0.4, 0.55, h3 + 0.12, h3 + 1.5, '#c9cccf', { seg: 12 });
       k.cyl(w - 1.2, d * 0.5, 0.5, h2 + 0.14, h2 + 1.4, '#c9cccf', { seg: 12 });
       backWins(k, w, d, 3.2, 2, fh);
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete, { col: false, surface: true });
+      paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -F.apron, 0, MR.concrete);
       return;
     }
 

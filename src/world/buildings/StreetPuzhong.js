@@ -1,4 +1,5 @@
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 // 普忠路兩側的街屋（照 Google 街景與國土測繪 2024 正射建模，只做外觀，不能進入）。
 // 寫法比照 src/world/buildings/StreetZhongbei.js：每一格是 [s0, s1, side, spec]
 //   s = 沿 PZ_ROAD（普忠路往東南那條車道的中心線）從鐵路地下道口往新中北路口量的公尺數；
@@ -5449,7 +5450,7 @@ export function buildPuzhongStreet(I, scene, X) {
         k._part(VC, paintGeo(g, r() < 0.5 ? '#3f7a3a' : '#4b8a3e'));
       }
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   });
   finishRow(scene, kits);
 }

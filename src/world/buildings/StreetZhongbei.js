@@ -1,4 +1,5 @@
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 // 中北路兩側的街屋（照 Google 街景 2026-05 / 2024-08 與 OSM 店名建模，只做外觀，不能進入）。
 // 寫法比照 src/world/Interiors.js 的 DAREN_ST：每一格是 [s0, s1, side, spec]
 //   s = 沿 ZB_ROAD 從正門端往西量的公尺數；side +1 = 茶學苑側（往西走的右手邊，遊戲 z 較小），-1 = 大仁街側
@@ -2577,7 +2578,7 @@ export function buildZhongbeiStreet(I, scene, X) {
       // 一樓鐵皮屋：浪板屋頂往後傾
       k.box(-0.15, w + 0.15, top - 0.12, top, -0.4, d, sp.roofCol || MR.roof, { col: false });
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   });
 
   // ---- 中原國小圍牆（Google 街景 2024-08）：低矮洗石子花台、灌木、紅磚方柱加黑色鐵欄杆、行道大樹 ----
@@ -2616,7 +2617,7 @@ export function buildZhongbeiStreet(I, scene, X) {
         k._part(VC, paintGeo(g, r() < 0.5 ? '#3f7a3a' : '#4b8a3e'));
       }
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete);
   });
   timesParking(I, kits, Kit, vcKit, lcg);
   poyaEastWing();

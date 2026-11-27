@@ -320,8 +320,11 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
 
   // ---------------- 用餐區（學餐的座位）: four-seat tables in rows, tray return / water / recycling along the west wall ----------------
   // (the walk from the entrance to the 麥當勞 opening, x 11.5..16, stays clear: the 值班 customers come in there)
+  // the seat blocks you (#302); the rows' backs leave 0.74 m between them, too tight to walk, but the 1.0 m
+  // gaps between the tables along x stay open
   const chair = (x, z, face) => {
     k.box(x - 0.22, x + 0.22, 0.44, 0.48, z - 0.21, z + 0.21, MT.chair, nc);
+    k.wallRect(x - 0.22, x + 0.22, z - 0.21, z + 0.21, 0, 0.9);
     const bz = z + face * 0.2;
     k.box(x - 0.22, x + 0.22, 0.48, 0.9, bz - 0.02, bz + 0.02, MT.chair, nc);
     for (const [dx, dz] of [

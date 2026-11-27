@@ -102,6 +102,16 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 
 Bing（也供 ChatGPT 搜尋使用）可在 <https://www.bing.com/webmasters> 直接「從 Google Search Console 匯入」。
 
+**關鍵字**：Google 不看 `<meta name="keywords">`，只看頁面上真的寫出來的標題（`<title>`、`<h1>`／`<h2>`）、說明與內文，所以想被哪些字搜到，就把那些字自然寫進頁面。目前的佈局：
+
+| 關鍵字類型 | 例子 | 落在哪裡 |
+| :--- | :--- | :--- |
+| 品牌字 | 中原順起來、YanlinGTA、彥霖GTA、票投彥霖 | 每頁標題、首頁 JSON-LD `alternateName` |
+| 學校／地點 | 中原大學 3D 開放世界、中原夜市、中原資管系學會選舉 | 遊戲首頁 `<title>` 與說明、Wiki 介紹 |
+| 玩法長尾字 | 網頁台灣麻將好友連線、邊玩邊學 SQL／Python、麥當勞打工 | Wiki「玩法介紹」`features/`（`pageBody` 的 `sections`，每個玩法一個 `<h2>`） |
+
+新增玩法時在 `features` 加一段（標題寫「是什麼＋在哪玩」），內容要跟 README「校園開放世界探索特色」一致；實際被搜到哪些字，看 Search Console 的「成效 → 查詢」再調整。遊戲裡的名稱改了（例如機車改名 JAT SM），FAQ、`llms.txt`、`index.html` 的 JSON-LD 與 `<noscript>` 也要一起改。
+
 **搜尋結果的網站圖示（favicon）**：Google 只看網域首頁 `https://yanlin-gta.com/` 的 `<link rel="icon">`（Wiki 自己的圖示不影響搜尋結果），而且要求圖示是 48px 倍數的正方形、網址固定。所以首頁的圖示 `<link>` 不寫在 `index.html`（會被 Vite 改成帶雜湊的 `assets/favicon-xxxx.ico`），改由 `vite.config.js` 的 `manifestLinkPlugin` 在 build 後加上固定網址：第一個是 `assets/icon/icon-192.png`（192×192），另外 `dist/` 根目錄也複製一份 `favicon.ico`（`/favicon.ico`）。換圖示時直接覆蓋 `assets/icon/` 裡的檔案，網址不變；Google 重新爬首頁後才會更新（幾天到幾週），可在 Search Console 對首頁「要求建立索引」加快。
 
 ---

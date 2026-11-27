@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../../graphics/FitText.js';
 // 實踐路街屋資料：N 段 s 0～110（中北路口往北，z 130→20），兩側。格式見 src/world/buildings/StreetShijian.js 檔頭。
 // 照 Google 街景 2026-05 與國土測繪 2024 正射建模。s 0～約 14（西）／24（東）是中北路街屋的路口樓，這裡不重做。
 // 實景：東側南半是一整棟 5F 紫褐磁磚公寓，北半是 9F 米色「柏德公園」大樓；西側南半是 5～6F 老公寓，北半是 10F 米色柏德大樓；
@@ -17,12 +18,7 @@ const words = (c, g, W, H, items) => {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   for (const [t, col, fx, fy, fp, mw = 0.9] of items) {
-    let p = H * fp;
-    g.font = c.font(p);
-    while (g.measureText(t).width > W * mw && p > 8) {
-      p -= 2;
-      g.font = c.font(p);
-    }
+    shrinkFont(g, t, W * mw, H * fp, 8, (sz) => c.font(sz));
     g.fillStyle = col;
     g.fillText(t, W * fx, H * fy);
   }

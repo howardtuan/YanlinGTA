@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../graphics/FitText.js';
 // 中北路兩側的街屋（照 Google 街景 2026-05 / 2024-08 與 OSM 店名建模，只做外觀，不能進入）。
 // 寫法比照 src/world/Interiors.js 的 DAREN_ST：每一格是 [s0, s1, side, spec]
 //   s = 沿 ZB_ROAD 從正門端往西量的公尺數；side +1 = 茶學苑側（往西走的右手邊，遊戲 z 較小），-1 = 大仁街側
@@ -2081,12 +2082,7 @@ export function buildZhongbeiStreet(I, scene, X) {
         avail = (Hh * (sub ? 0.64 : 0.86)) / n;
       const px = Math.min(avail * 0.92, W * 0.5);
       const fit = (t) => {
-        let p = px;
-        g.font = font(p);
-        while (g.measureText(t).width > W * 0.94 && p > 10) {
-          p -= 2;
-          g.font = font(p);
-        }
+        const p = shrinkFont(g, t, W * 0.94, px, 10, font);
         return p;
       };
       const cy = sub ? Hh * 0.38 : Hh * 0.5;
@@ -2095,12 +2091,7 @@ export function buildZhongbeiStreet(I, scene, X) {
         g.fillText(t, W / 2, cy + (i - (n - 1) / 2) * avail);
       });
       if (sub) {
-        let p = Hh * 0.2;
-        g.font = font(p, 700);
-        while (g.measureText(sub).width > W * 0.94 && p > 9) {
-          p -= 2;
-          g.font = font(p, 700);
-        }
+        shrinkFont(g, sub, W * 0.94, Hh * 0.2, 9, (sz) => font(sz, 700));
         g.fillText(sub, W / 2, Hh * 0.82);
       }
     });
@@ -2129,12 +2120,7 @@ export function buildZhongbeiStreet(I, scene, X) {
         g.fillText(t.slice(0, 2).join(''), 64, 44);
         g.fillText(t.slice(2).join(''), 64, 88);
       } else {
-        let p = 34;
-        g.font = font(p);
-        while (g.measureText(text).width > 100 && p > 12) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, text, 100, 34, 12, font);
         g.fillText(text, 64, 66);
       }
     });

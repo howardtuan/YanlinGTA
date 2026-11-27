@@ -2,6 +2,7 @@
 // 照 Google 街景 2026-05 與國土測繪 2024 正射建模。這一段是夜市主街：三和一街口、實踐路58巷、52巷、弘揚路／大仁二街口。
 // 區域座標提醒：站在街上面對立面時，x = 0 在右手邊、x = w 在左手邊（兩側都一樣）；z < 0 是立面前方（往街上），z > 0 往屋後。
 import { sevenDaren2Face, adiDaren2Face } from '../d2/corners.js';
+import { shrinkFont } from '../../../graphics/FitText.js';
 
 const H = Math.PI / 2;
 // ---- 這一段共用的小構件（都在各格的 extra 裡呼叫；c 是 StreetShijian.js 傳進來的 ctx）----
@@ -54,20 +55,10 @@ const disc = (c, text, bg, ring, fg, sub) =>
     g.fillStyle = fg;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    let p = 84;
-    g.font = c.font(p);
-    while (g.measureText(text).width > 190 && p > 14) {
-      p -= 2;
-      g.font = c.font(p);
-    }
+    shrinkFont(g, text, 190, 84, 14, (sz) => c.font(sz));
     g.fillText(text, 128, sub ? 112 : 130);
     if (sub) {
-      let q = 30;
-      g.font = c.font(q, 700);
-      while (g.measureText(sub).width > 160 && q > 10) {
-        q -= 2;
-        g.font = c.font(q, 700);
-      }
+      shrinkFont(g, sub, 160, 30, 10, (sz) => c.font(sz, 700));
       g.fillText(sub, 128, 172);
     }
   });

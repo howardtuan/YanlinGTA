@@ -11,6 +11,59 @@ export function pointInPoly(x, z, pts) {
   return inside;
 }
 
+// Grid index over a plain list of polygons (each an array of [x, z]), kept per list and extended as the list grows
+// (collision.reserved gets outlines pushed while the world is built). inAnyPoly(list, x, z) answers exactly what
+// list.some((p) => pointInPoly(x, z, p)) does: a point outside a polygon's bounding box is never inside it.
+const POLY_INDEX = new WeakMap();
+const PI_CELL = 16;
+function polyIndex(list) {
+  let ix = POLY_INDEX.get(list);
+  if (!ix) {
+    ix = { n: 0, box: [], grid: new Map() };
+    POLY_INDEX.set(list, ix);
+  }
+  for (; ix.n < list.length; ix.n++) {
+    const pts = list[ix.n];
+    let minx = Infinity,
+      minz = Infinity,
+      maxx = -Infinity,
+      maxz = -Infinity;
+    for (const q of pts) {
+      if (q[0] < minx) minx = q[0];
+      if (q[0] > maxx) maxx = q[0];
+      if (q[1] < minz) minz = q[1];
+      if (q[1] > maxz) maxz = q[1];
+    }
+    ix.box.push(minx, minz, maxx, maxz);
+    if (!(maxx >= minx && maxz >= minz)) continue; // empty / NaN outline: pointInPoly is false everywhere
+    const x0 = Math.floor(minx / PI_CELL),
+      x1 = Math.floor(maxx / PI_CELL),
+      z0 = Math.floor(minz / PI_CELL),
+      z1 = Math.floor(maxz / PI_CELL);
+    for (let gx = x0; gx <= x1; gx++)
+      for (let gz = z0; gz <= z1; gz++) {
+        const k = gx * 73856 + gz;
+        const c = ix.grid.get(k);
+        if (c) c.push(ix.n);
+        else ix.grid.set(k, [ix.n]);
+      }
+  }
+  return ix;
+}
+export function inAnyPoly(list, x, z) {
+  if (!list || !list.length) return false;
+  const ix = polyIndex(list);
+  const c = ix.grid.get(Math.floor(x / PI_CELL) * 73856 + Math.floor(z / PI_CELL));
+  if (!c) return false;
+  const b = ix.box;
+  for (const i of c) {
+    const o = i * 4;
+    if (x >= b[o] && x <= b[o + 2] && z >= b[o + 1] && z <= b[o + 3] && pointInPoly(x, z, list[i]))
+      return true;
+  }
+  return false;
+}
+
 export function closestOnSeg(px, pz, ax, az, bx, bz) {
   const dx = bx - ax,
     dz = bz - az;
@@ -153,8 +206,7 @@ export class CollisionWorld {
   // this.muted = [i0, i1): segments blocked() skips for now (src/world/MapBuilder.js lays the trees out as without them)
   blocked(x, z, r, y = 0, ya) {
     if (this.extra && this.extra.blocked(x, z, r, y)) return true;
-    if (this.reserved && !this.noReserved && this.reserved.some((p) => pointInPoly(x, z, p)))
-      return true;
+    if (this.reserved && !this.noReserved && inAnyPoly(this.reserved, x, z)) return true;
     if (this.insideAny(x, z)) return true;
     let hit = false;
     const st = ++this.stamp;

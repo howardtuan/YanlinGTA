@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../../graphics/FitText.js';
 // 實踐路街屋資料：S 段 s 450～553（到環中東路）兩側，加上實踐路11巷（L11）。格式見 src/world/buildings/StreetShijian.js 檔頭。
 // 照 Google 街景 2026-05（11 巷巷內只有 2022-08）與國土測繪 2024 正射建模。
 // 區域座標提醒：站在街上面對立面時，x = 0 在右手邊、x = w 在左手邊（兩側都一樣）；z < 0 是立面前方（往街上），z > 0 往屋後。
@@ -44,20 +45,10 @@ const disc = (c, text, bg, ring, fg, sub) =>
     g.fillStyle = fg;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    let p = 84;
-    g.font = c.font(p);
-    while (g.measureText(text).width > 190 && p > 14) {
-      p -= 2;
-      g.font = c.font(p);
-    }
+    shrinkFont(g, text, 190, 84, 14, (sz) => c.font(sz));
     g.fillText(text, 128, sub ? 112 : 130);
     if (sub) {
-      let q = 30;
-      g.font = c.font(q, 700);
-      while (g.measureText(sub).width > 160 && q > 10) {
-        q -= 2;
-        g.font = c.font(q, 700);
-      }
+      shrinkFont(g, sub, 160, 30, 10, (sz) => c.font(sz, 700));
       g.fillText(sub, 128, 172);
     }
   });

@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { freezeStatic } from './Freeze.js';
-import { CollisionWorld, SegGrid, pointInPoly, closestOnSeg } from '../physics/Collision.js';
+import {
+  CollisionWorld,
+  SegGrid,
+  pointInPoly,
+  closestOnSeg,
+  inAnyPoly,
+} from '../physics/Collision.js';
 import {
   H,
   Hgrid,
@@ -3065,7 +3071,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       y = Hmin(cx, cz, hw);
     if (
       data.buildings.some((b) => pointInPoly(cx, cz, b.pts)) ||
-      collision.reserved.some((rp) => pointInPoly(cx, cz, rp))
+      inAnyPoly(collision.reserved, cx, cz)
     )
       return;
     const C = col('#9b978e'),
@@ -7533,7 +7539,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         for (let k = 0; k < 8; k++) {
           const qx = x + Math.cos(k * 0.785) * 4,
             qz = z + Math.sin(k * 0.785) * 4;
-          if (collision.reserved.some((p) => pointInPoly(qx, qz, p))) return false;
+          if (inAnyPoly(collision.reserved, qx, qz)) return false;
         }
       return true;
     };

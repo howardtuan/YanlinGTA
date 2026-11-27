@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../../graphics/FitText.js';
 // 日新路各段共用的構件（從 src/world/buildings/shijian/S2.js 複製來的通用幾個，各段資料檔 import 這裡）。
 // 每個構件都是 (k, c) => {...}，c 是 src/world/buildings/StreetRixin.js 傳給 spec.extra 的 ctx。
 export const HP = Math.PI / 2;
@@ -23,12 +24,7 @@ export const rotTex = (c, text, bg, fg, wm, hm) =>
     g.fillStyle = fg;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    let p = W * 0.62;
-    g.font = c.font(p);
-    while (g.measureText(text).width > H * 0.88 && p > 10) {
-      p -= 2;
-      g.font = c.font(p);
-    }
+    shrinkFont(g, text, H * 0.88, W * 0.62, 10, (sz) => c.font(sz));
     g.fillText(text, 0, 0);
     g.restore();
   });

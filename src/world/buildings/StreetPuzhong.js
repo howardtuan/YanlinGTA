@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../graphics/FitText.js';
 // 普忠路兩側的街屋（照 Google 街景與國土測繪 2024 正射建模，只做外觀，不能進入）。
 // 寫法比照 src/world/buildings/StreetZhongbei.js：每一格是 [s0, s1, side, spec]
 //   s = 沿 PZ_ROAD（普忠路往東南那條車道的中心線）從鐵路地下道口往新中北路口量的公尺數；
@@ -4047,12 +4048,7 @@ export function buildPuzhongStreet(I, scene, X) {
         g.fillStyle = fg;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        let p = Hh * 0.62;
-        g.font = font(p);
-        while (g.measureText(text).width > bw * 0.9 && p > 8) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, text, bw * 0.9, Hh * 0.62, 8, font);
         g.fillText(text, bx + bw / 2, Hh / 2);
         return;
       }
@@ -4103,12 +4099,7 @@ export function buildPuzhongStreet(I, scene, X) {
         avail = (Hh * (sub ? 0.64 : 0.86)) / n;
       const px = Math.min(avail * 0.92, W * 0.5);
       const fit = (t) => {
-        let p = px;
-        g.font = font(p);
-        while (g.measureText(t).width > W * 0.94 && p > 10) {
-          p -= 2;
-          g.font = font(p);
-        }
+        const p = shrinkFont(g, t, W * 0.94, px, 10, font);
         return p;
       };
       const cy = sub ? Hh * 0.38 : Hh * 0.5;
@@ -4117,12 +4108,7 @@ export function buildPuzhongStreet(I, scene, X) {
         put(t, W / 2, cy + (i - (n - 1) / 2) * avail);
       });
       if (sub) {
-        let p = Hh * 0.2;
-        g.font = font(p, 700);
-        while (g.measureText(sub).width > W * 0.94 && p > 9) {
-          p -= 2;
-          g.font = font(p, 700);
-        }
+        shrinkFont(g, sub, W * 0.94, Hh * 0.2, 9, (sz) => font(sz, 700));
         put(sub, W / 2, Hh * 0.82);
       }
     });
@@ -4151,12 +4137,7 @@ export function buildPuzhongStreet(I, scene, X) {
         g.fillText(t.slice(0, 2).join(''), 64, 44);
         g.fillText(t.slice(2).join(''), 64, 88);
       } else {
-        let p = 34;
-        g.font = font(p);
-        while (g.measureText(text).width > 100 && p > 12) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, text, 100, 34, 12, font);
         g.fillText(text, 64, 66);
       }
     });

@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../../graphics/FitText.js';
 // 實踐路街屋資料：S 段 s 200～330，兩側（中原夜市主街）。格式見 src/world/buildings/StreetShijian.js 檔頭。
 // 照 Google 街景建模：s 205～300 是 2024-08，s 305～330（大仁三街／91巷以南）是 2026-05。
 // 巷口留空：80巷 s 241～246.5（左）、三和二街 s 261.5～272（右）、70巷 s 274.5～280.5（左）、91巷 s 305.3～309.8（右）、大仁三街 s 306.5～314（左）。
@@ -26,12 +27,7 @@ const rotTex = (c, text, bg, fg, wm, hm) =>
     g.fillStyle = fg;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    let p = W * 0.62;
-    g.font = c.font(p);
-    while (g.measureText(text).width > H * 0.88 && p > 10) {
-      p -= 2;
-      g.font = c.font(p);
-    }
+    shrinkFont(g, text, H * 0.88, W * 0.62, 10, (sz) => c.font(sz));
     g.fillText(text, 0, 0);
     g.restore();
   });

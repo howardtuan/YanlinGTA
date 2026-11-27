@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, sg, ROWT, rowTools } from '../Kit.js';
 import { makeSideShop } from './StreetZhongbei.js';
+import { shrinkFont } from '../../graphics/FitText.js';
 
 // =====================================================================
 // The corner across 中北路 from 大門口, where 大仁街 leaves 中北路 for the main gate (user's street-view photos).
@@ -1636,12 +1637,7 @@ const genSign = (text, bg, fg, sub) =>
     g.fillStyle = fg;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    let px = 116;
-    g.font = font(px);
-    while (g.measureText(text).width > 940 && px > 40) {
-      px -= 4;
-      g.font = font(px);
-    }
+    shrinkFont(g, text, 940, 116, 40, font, 4);
     g.fillText(text, 512, sub ? 80 : 98);
     if (sub) {
       g.font = font(30, 700);

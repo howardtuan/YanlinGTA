@@ -46,6 +46,7 @@ import SegF3 from './xzb/SegF3.js';
 import SegLB1 from './xzb/SegLB1.js';
 import SegLB2 from './xzb/SegLB2.js';
 import SegLB3 from './xzb/SegLB3.js';
+import { shrinkFont } from '../../graphics/FitText.js';
 
 // SegX0、SegX9～SegX11、中山東路 SegZ*、弘揚路 SegH*、大仁三街 SegD3、大仁四街 SegD4、幸福街 SegF*、力行北街 SegLB* 依序加在最後面，前面各段的亂數種子（seed 用 SEGS 的索引）才不會變
 const SEGS = [
@@ -484,12 +485,7 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
         avail = (Hh * (sub ? 0.64 : 0.86)) / n;
       const px = Math.min(avail * 0.92, W * 0.5);
       const fit = (t) => {
-        let p = px;
-        g.font = font(p);
-        while (g.measureText(t).width > W * 0.94 && p > 10) {
-          p -= 2;
-          g.font = font(p);
-        }
+        const p = shrinkFont(g, t, W * 0.94, px, 10, font);
         return p;
       };
       const cy = sub ? Hh * 0.38 : Hh * 0.5;
@@ -498,12 +494,7 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
         g.fillText(t, W / 2, cy + (i - (n - 1) / 2) * avail);
       });
       if (sub) {
-        let p = Hh * 0.2;
-        g.font = font(p, 700);
-        while (g.measureText(sub).width > W * 0.94 && p > 9) {
-          p -= 2;
-          g.font = font(p, 700);
-        }
+        shrinkFont(g, sub, W * 0.94, Hh * 0.2, 9, (sz) => font(sz, 700));
         g.fillText(sub, W / 2, Hh * 0.82);
       }
     });
@@ -532,12 +523,7 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
         g.fillText(t.slice(0, 2).join(''), 64, 44);
         g.fillText(t.slice(2).join(''), 64, 88);
       } else {
-        let p = 34;
-        g.font = font(p);
-        while (g.measureText(text).width > 100 && p > 12) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, text, 100, 34, 12, font);
         g.fillText(text, 64, 66);
       }
     });

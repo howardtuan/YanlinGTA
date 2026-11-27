@@ -1,3 +1,4 @@
+import { shrinkFont } from '../../graphics/FitText.js';
 // 大仁五街兩側（中北路口到大仁街／大仁四街口）：照 Google 街景 2024-08（路口 2026-05）、國土測繪 2024 正射建模，只做外觀，不能進入。
 // 這條街不是一棟棟透天，而是幾棟長條集合住宅（一樓一間間店面）加上幾棟較矮的房子，所以一棟量體一個 Kit，
 // 一樓店面寫在各棟的 units：[s0, s1, spec]。
@@ -1662,12 +1663,7 @@ export function buildDaren5Street(I, scene, X) {
         avail = (Hp * (sub ? 0.6 : 0.82)) / n,
         px = Math.min(avail * 0.92, Wp * 0.5);
       const fit = (t) => {
-        let p = px;
-        g.font = font(p);
-        while (g.measureText(t).width > Wp * 0.9 && p > 10) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, t, Wp * 0.9, px, 10, font);
       };
       const cy = sub ? Hp * 0.38 : Hp * 0.5;
       lines.forEach((t, i) => {
@@ -1675,12 +1671,7 @@ export function buildDaren5Street(I, scene, X) {
         g.fillText(t, Wp / 2, cy + (i - (n - 1) / 2) * avail);
       });
       if (sub) {
-        let p = Hp * 0.2;
-        g.font = font(p, 700);
-        while (g.measureText(sub).width > Wp * 0.92 && p > 9) {
-          p -= 2;
-          g.font = font(p, 700);
-        }
+        shrinkFont(g, sub, Wp * 0.92, Hp * 0.2, 9, (sz) => font(sz, 700));
         g.fillText(sub, Wp / 2, Hp * 0.8);
       }
     });
@@ -1728,12 +1719,7 @@ export function buildDaren5Street(I, scene, X) {
         g.fillText(t.slice(0, 2).join(''), 64, 44);
         g.fillText(t.slice(2).join(''), 64, 88);
       } else {
-        let p = 46;
-        g.font = font(p);
-        while (g.measureText(text).width > 96 && p > 12) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, text, 96, 46, 12, font);
         g.fillText(text, 64, 66);
       }
     });
@@ -1779,20 +1765,10 @@ export function buildDaren5Street(I, scene, X) {
         g.fillStyle = fg;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        let p = Hp * (o.px || 0.5);
-        g.font = font(p);
-        while (g.measureText(text).width > xr * 0.9 && p > 10) {
-          p -= 2;
-          g.font = font(p);
-        }
+        shrinkFont(g, text, xr * 0.9, Hp * (o.px || 0.5), 10, font);
         g.fillText(text, (o.ax ?? 0.5) * xr, (o.ay ?? 0.5) * Hp);
         if (sub) {
-          let q = Hp * (o.spx || 0.14);
-          g.font = font(q, 700);
-          while (g.measureText(sub).width > xr * 0.9 && q > 8) {
-            q -= 1;
-            g.font = font(q, 700);
-          }
+          shrinkFont(g, sub, xr * 0.9, Hp * (o.spx || 0.14), 8, (sz) => font(sz, 700), 1);
           g.fillText(sub, (o.sx ?? o.ax ?? 0.5) * xr, (o.sy ?? 0.85) * Hp);
         }
       }
@@ -1924,12 +1900,7 @@ export function buildDaren5Street(I, scene, X) {
       const n = lines.length,
         av = (Hp * 0.86) / n;
       lines.forEach(([t, c], i) => {
-        let px = av * 0.92;
-        g.font = font(px);
-        while (g.measureText(t).width > Wp * 0.88 && px > 10) {
-          px -= 2;
-          g.font = font(px);
-        }
+        shrinkFont(g, t, Wp * 0.88, av * 0.92, 10, font);
         g.fillStyle = c;
         g.fillText(t, Wp / 2, Hp / 2 + (i - (n - 1) / 2) * av);
       });
@@ -2424,12 +2395,7 @@ export function buildDaren5Street(I, scene, X) {
       g.textBaseline = 'middle';
       g.font = serif(H * 0.24);
       g.fillText('M', W / 2, H * 0.37);
-      let px = H * 0.15;
-      g.font = serif(px);
-      while (g.measureText('MUSE EYELASH SALON').width > W * 0.8 && px > 8) {
-        px -= 2;
-        g.font = serif(px);
-      }
+      shrinkFont(g, 'MUSE EYELASH SALON', W * 0.8, H * 0.15, 8, serif);
       g.fillText('MUSE EYELASH SALON', W / 2, H * 0.8);
     },
     spotlight: (g, W, H) => {
@@ -2441,12 +2407,7 @@ export function buildDaren5Street(I, scene, X) {
       g.textBaseline = 'middle';
       const script = (p) =>
         `italic 700 ${p}px "Snell Roundhand","Segoe Script","Lucida Handwriting","Brush Script MT","Apple Chancery",cursive`;
-      let px = H * 0.72;
-      g.font = script(px);
-      while (g.measureText('Spotlight').width > W * 0.6 && px > 10) {
-        px -= 2;
-        g.font = script(px);
-      }
+      shrinkFont(g, 'Spotlight', W * 0.6, H * 0.72, 10, script);
       g.fillText('Spotlight', W * 0.5, H * 0.42);
       g.font = `400 ${Math.round(H * 0.075)}px Georgia,serif`;
       g.fillText('https://www.facebook.com/spotlightbody', W * 0.55, H * 0.82);
@@ -2589,12 +2550,7 @@ export function buildDaren5Street(I, scene, X) {
       g.fillStyle = '#9c1f2e';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      let px = H * 0.7;
-      g.font = serif(px, true);
-      while (g.measureText('Ning Cafe').width > W * 0.7 && px > 8) {
-        px -= 2;
-        g.font = serif(px, true);
-      }
+      shrinkFont(g, 'Ning Cafe', W * 0.7, H * 0.7, 8, (sz) => serif(sz, true));
       g.fillText('Ning Cafe', W / 2, H * 0.52);
     },
     bearstand: (g, W, H) => {

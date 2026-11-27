@@ -503,6 +503,10 @@ class Game {
       $('bmClear')?.classList.toggle('hidden', !this.nav.target);
     };
     onClick('bmClose', () => this.closeMap());
+    // 手機沒有 M 鍵：點小地圖打開大地圖（跟按 M 一樣）
+    onClick('minimapWrap', () => {
+      if (this.state === 'play' && !this.phone.open && !this.hud.bigOpen) this.openMap('minimap');
+    });
     onClick('bmClear', () => {
       this.nav.clear();
       $('bmClear').classList.add('hidden');

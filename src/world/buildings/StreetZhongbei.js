@@ -345,7 +345,8 @@ export const ZB_ST = {
         sign: ['YoYo PET 佑佑寵物', '#d8506a', '#ffffff'],
         ground: 'shop',
         bal: 'grille',
-        d: 9,
+        d: 9, // 力行北街那面（街景 2026-05）：招牌繞過轉角接著寫，一樓整排玻璃櫥窗、綠色柱子
+        side: { at: 0, sign: ['YoYo PET 佑佑寵物', '#d8506a', '#ffffff', 'TEL'], ground: 'shop' },
       },
     ],
     [

@@ -468,7 +468,8 @@ export const zoneTreeHide = (data) => ZONES.flatMap((z) => z.treeHide?.(data) ||
 // atlas sheets there, so they never pile up: src/graphics/GpuMemLifecycle.js)
 export function buildZones(I, scene, data, collision, afterZone = () => {}) {
   for (const z of ZONES) {
-    z.build?.(I, scene, data, collision);
+    if (!z.build) continue;
+    z.build(I, scene, data, collision);
     afterZone();
   }
 }

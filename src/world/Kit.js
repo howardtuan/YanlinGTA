@@ -10,6 +10,7 @@ import { H } from './Terrain.js';
 import {
   canvasTexture,
   markDynamic,
+  markReusable,
   markStaticGeometry,
   scaledCanvas,
   blankTexture,
@@ -28,6 +29,7 @@ export const TEX = {};
 export function ctex(key, w, h, draw, repeat = true) {
   return TEX[key] || (TEX[key] = canvasTexture(w, h, draw, repeat));
 }
+const rctex = (key, w, h, draw, repeat = true) => markReusable(ctex(key, w, h, draw, repeat));
 export const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 // the small desktop on the 3D monitors (T.screen / T.screenOwn): blue wallpaper, icons, taskbar
 function taskbar(g) {
@@ -66,7 +68,7 @@ function desktop(g) {
 export const T = {
   // 資管系館欄板：灰色洗石子（細點）＋白色菱形嵌片、內圈淺灰菱形（2020～2022 相片）
   diamond: () =>
-    ctex('diamond', 128, 64, (g) => {
+    rctex('diamond', 128, 64, (g) => {
       g.fillStyle = '#b3b1aa';
       g.fillRect(0, 0, 128, 64);
       let r = 7;
@@ -93,7 +95,7 @@ export const T = {
       g.fill();
     }),
   windowWall: () =>
-    ctex('winwall', 256, 128, (g) => {
+    rctex('winwall', 256, 128, (g) => {
       g.fillStyle = '#efede6';
       g.fillRect(0, 0, 256, 128);
       g.fillStyle = '#8fa8b8';
@@ -107,7 +109,7 @@ export const T = {
       g.fillRect(6, 100, 244, 6);
     }),
   beige: () =>
-    ctex('beige', 128, 128, (g) => {
+    rctex('beige', 128, 128, (g) => {
       g.fillStyle = '#e4d9c3';
       g.fillRect(0, 0, 128, 128);
       g.strokeStyle = 'rgba(120,100,70,0.25)';
@@ -127,7 +129,7 @@ export const T = {
         }
     }),
   floor: () =>
-    ctex('floor', 128, 128, (g) => {
+    rctex('floor', 128, 128, (g) => {
       g.fillStyle = '#d9d5ca';
       g.fillRect(0, 0, 128, 128);
       g.strokeStyle = 'rgba(0,0,0,0.12)';
@@ -138,7 +140,7 @@ export const T = {
       g.strokeRect(0, 64, 64, 64);
     }),
   board: () =>
-    ctex(
+    rctex(
       'board',
       512,
       256,
@@ -173,7 +175,7 @@ export const T = {
       false
     ),
   banner: () =>
-    ctex(
+    rctex(
       'bannerIM',
       1024,
       160,
@@ -208,7 +210,7 @@ export const T = {
       false
     ),
   mcStaff: () =>
-    ctex('mcstaff', 384, 124, (g) => {
+    rctex('mcstaff', 384, 124, (g) => {
       g.fillStyle = '#c8102e';
       g.fillRect(0, 0, 384, 124);
       g.fillStyle = '#ffbc0d';
@@ -221,7 +223,7 @@ export const T = {
       g.fillText('員工入口 STAFF', 192, 64);
     }),
   mcLogo: () =>
-    ctex(
+    rctex(
       'mclogo',
       512,
       256,
@@ -245,7 +247,7 @@ export const T = {
       false
     ),
   // monitors show the desktop of src/ui/PC.js (blue wallpaper, icons, taskbar): the 資管系館 computer lab, ...
-  screen: () => ctex('screen', 256, 144, (g) => desktop(g), false),
+  screen: () => rctex('screen', 256, 144, (g) => desktop(g), false),
   // 彥霖's own desktop at home: the same desktop with his wallpaper (assets/pc/yanlin.jpg, the same as .pc-screen.own)
   // dynamic: the wallpaper is drawn in when it has loaded, so its canvas is never released (GpuMemLifecycle)
   screenOwn: () =>
@@ -271,7 +273,7 @@ export const T = {
       )
     ),
   cctv: () =>
-    ctex(
+    rctex(
       'cctv',
       256,
       160,
@@ -859,11 +861,13 @@ const ATLAS_W = 2048,
 const alignUp = (v) => Math.ceil(v / ATLAS_GAP) * ATLAS_GAP;
 function atlasable(m) {
   const kp = m.userData.kitPlane;
-  if (!kp || !m.visible || m.children.length) return false;
+  if (!kp || !m.visible || m.children.length || m.userData.dynamic) return false;
   const mat = m.material,
     t = kp.tex;
   return (
     mat.map === t &&
+    !t.userData?.dynamic &&
+    !mat.userData?.dynamic &&
     mat.alphaTest === 0 &&
     t.repeat.x === 1 &&
     t.repeat.y === 1 &&
@@ -878,6 +882,7 @@ function atlasable(m) {
 // pack images (unique) into one or more sheets; returns Map image -> { sheet, x, y, w, h }
 function packAtlas(images) {
   const list = [...images].sort((a, b) => drawnH(b) - drawnH(a) || drawnW(b) - drawnW(a));
+  if (!list.length) return new Map();
   const maxH = atlasMaxH();
   const sheets = [],
     at = new Map();
@@ -886,7 +891,7 @@ function packAtlas(images) {
     y = 0,
     rowH = 0;
   const newSheet = () => {
-    sheet = { items: [], h: 0 };
+    sheet = { items: [], w: 0, h: 0 };
     sheets.push(sheet);
     x = 0;
     y = 0;
@@ -908,12 +913,14 @@ function packAtlas(images) {
     at.set(img, { sheet, x: ix, y: iy, w: drawnW(img), h: drawnH(img) });
     x += w;
     rowH = Math.max(rowH, h);
+    sheet.w = Math.max(sheet.w, x);
     sheet.h = Math.max(sheet.h, y + rowH);
   }
   const s = atlasScale();
   for (const sh of sheets) {
-    const H = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h))),
-      { cv, g } = scaledCanvas(ATLAS_W, H, s),
+    const W = Math.min(ATLAS_W, 2 ** Math.ceil(Math.log2(Math.max(64, sh.w)))),
+      H = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h))),
+      { cv, g } = scaledCanvas(W, H, s),
       P = ATLAS_GAP;
     if (g)
       for (const { img, x: X, y: Y } of sh.items) {
@@ -933,9 +940,11 @@ function packAtlas(images) {
     if (g) {
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = 4;
+      uploadAndRelease(t);
     }
     sh.tex = t;
-    sh.H = H; // full-size height: finishRow's UVs
+    sh.W = W;
+    sh.H = H; // full-size width / height: batchKitPlanes' & finishRow's UVs
   }
   return at;
 }
@@ -1124,9 +1133,10 @@ function batchKitPlanes(k) {
     const g = p.geometry.clone();
     g.applyMatrix4(p.matrix);
     const uv = g.attributes.uv,
+      W = A.sheet.W,
       H = A.sheet.H;
     for (let i = 0; i < uv.count; i++)
-      uv.setXY(i, (A.x + uv.getX(i) * A.w) / ATLAS_W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
+      uv.setXY(i, (A.x + uv.getX(i) * A.w) / W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
     groups.get(key).geos.push(g);
     parent.remove(p);
     p.geometry.dispose();
@@ -1147,8 +1157,6 @@ function batchKitPlanes(k) {
     mesh.matrixAutoUpdate = false;
     parent.add(mesh);
   }
-  // the sheets are this building's alone: straight to the GPU, their canvases are not needed again
-  for (const sh of new Set([...at.values()].map((A) => A.sheet))) uploadAndRelease(sh.tex);
 }
 // A plain-coloured box with no collision standing on the street side of a row building's front (z <= 0),
 // box-sized: a crate, a carton, a cooler, a sign board by the door. In a shop row (finishRow) these become
@@ -1274,7 +1282,7 @@ export function finishRow(scene, kits, shadow = true) {
     const g = p.mesh.geometry.clone();
     g.applyMatrix4(p.matrix);
     const uv = g.attributes.uv,
-      W = ATLAS_W,
+      W = A.sheet.W,
       H = A.sheet.H;
     for (let i = 0; i < uv.count; i++)
       uv.setXY(i, (A.x + uv.getX(i) * A.w) / W, 1 - (A.y + (1 - uv.getY(i)) * A.h) / H);
@@ -1292,8 +1300,6 @@ export function finishRow(scene, kits, shadow = true) {
     mesh.name = 'row:planes';
     out.add(mesh);
   }
-  // the sheets are this row's alone: straight to the GPU, their canvases are not needed again
-  for (const sh of new Set([...at.values()].map((A) => A.sheet))) uploadAndRelease(sh.tex);
   // the row's merged geometry never changes: its CPU arrays go once on the GPU (GpuMemLifecycle)
   for (const m of out.children) markStaticGeometry(m.geometry);
   scene.add(out);
@@ -1311,7 +1317,7 @@ export const lcg = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) 
 // textures of 孫師傅 / 彥霖家 (src/world/Interiors.js buildYanlinHome); the 中北路 / 大仁街 shop rows reuse the facade mosaic
 export const YHT = {
   facade: () =>
-    ctex('yhFacade', 128, 128, (g) => {
+    rctex('yhFacade', 128, 128, (g) => {
       // 2 cm mosaic tiles of a 透天 facade
       g.fillStyle = '#cbc6bc';
       g.fillRect(0, 0, 128, 128);
@@ -1324,7 +1330,7 @@ export const YHT = {
         }
     }),
   tile: () =>
-    ctex('yhTile', 128, 128, (g) => {
+    rctex('yhTile', 128, 128, (g) => {
       // 60 cm white floor tiles
       g.fillStyle = '#eceae4';
       g.fillRect(0, 0, 128, 128);
@@ -1338,7 +1344,7 @@ export const YHT = {
       g.fillRect(0, 0, 3, 128);
     }),
   ceil: () =>
-    ctex('yhCeil', 128, 128, (g) => {
+    rctex('yhCeil', 128, 128, (g) => {
       // embossed lay-in panels in a black T-bar grid
       g.fillStyle = '#f3f2ee';
       g.fillRect(0, 0, 128, 128);
@@ -1359,7 +1365,7 @@ export const YHT = {
       g.fillRect(0, 0, 4, 128);
     }),
   pine: () =>
-    ctex('yhPine', 256, 256, (g) => {
+    rctex('yhPine', 256, 256, (g) => {
       // knotty pine (wardrobe, bed)
       g.fillStyle = '#d6a15a';
       g.fillRect(0, 0, 256, 256);
@@ -1388,7 +1394,7 @@ export const YHT = {
       }
     }),
   bath: () =>
-    ctex('yhBath', 128, 128, (g) => {
+    rctex('yhBath', 128, 128, (g) => {
       // 15 cm bathroom tiles
       g.fillStyle = '#b9c4c8';
       g.fillRect(0, 0, 128, 128);
@@ -1399,7 +1405,7 @@ export const YHT = {
         }
     }),
   curtain: () =>
-    ctex(
+    rctex(
       'yhCurtain',
       256,
       512,
@@ -1443,7 +1449,7 @@ export const YHT = {
       false
     ),
   valance: () =>
-    ctex(
+    rctex(
       'yhValance',
       512,
       96,
@@ -1474,7 +1480,7 @@ export const YHT = {
       false
     ),
   mattress: () =>
-    ctex(
+    rctex(
       'yhMattress',
       256,
       320,
@@ -1505,7 +1511,7 @@ export const YHT = {
       false
     ),
   win: () =>
-    ctex(
+    rctex(
       'yhWin',
       256,
       160,
@@ -1528,7 +1534,7 @@ export const YHT = {
       false
     ),
   menu: () =>
-    ctex(
+    rctex(
       'yhMenu',
       512,
       256,
@@ -1567,28 +1573,34 @@ export const YHT = {
 export const sg = (key, w, h, draw) => ctex(key, w, h, draw, false);
 export const ROWT = {
   // lit shop interior seen through the glass: warm back wall, shelves / counter, ceiling lights
-  shop: (key, wall, shelf, seed = 1) =>
-    sg(`row_${key}`, 256, 192, (g) => {
-      const gr = g.createLinearGradient(0, 0, 0, 192);
-      gr.addColorStop(0, '#fff7e4');
-      gr.addColorStop(0.25, wall);
-      gr.addColorStop(1, '#3a3027');
-      g.fillStyle = gr;
-      g.fillRect(0, 0, 256, 192);
-      const r = lcg(seed);
-      g.fillStyle = 'rgba(255,255,240,.9)';
-      for (let x = 20; x < 256; x += 60) g.fillRect(x, 6, 34, 5);
-      g.fillStyle = shelf;
-      for (let y = 56; y < 150; y += 30) g.fillRect(8, y, 240, 5);
-      for (let i = 0; i < 40; i++) {
-        g.fillStyle = `hsl(${(r() * 360) | 0},45%,${(45 + r() * 30) | 0}%)`;
-        g.fillRect(10 + r() * 230, 40 + ((r() * 4) | 0) * 30, 6 + r() * 8, 14);
-      }
-      g.fillStyle = 'rgba(30,24,20,.85)';
-      g.fillRect(0, 150, 256, 42);
-    }),
+  shop: (_key, wall, shelf, seed = 1) =>
+    rctex(
+      `rowShop|${wall}|${shelf}|${seed}`,
+      256,
+      192,
+      (g) => {
+        const gr = g.createLinearGradient(0, 0, 0, 192);
+        gr.addColorStop(0, '#fff7e4');
+        gr.addColorStop(0.25, wall);
+        gr.addColorStop(1, '#3a3027');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, 256, 192);
+        const r = lcg(seed);
+        g.fillStyle = 'rgba(255,255,240,.9)';
+        for (let x = 20; x < 256; x += 60) g.fillRect(x, 6, 34, 5);
+        g.fillStyle = shelf;
+        for (let y = 56; y < 150; y += 30) g.fillRect(8, y, 240, 5);
+        for (let i = 0; i < 40; i++) {
+          g.fillStyle = `hsl(${(r() * 360) | 0},45%,${(45 + r() * 30) | 0}%)`;
+          g.fillRect(10 + r() * 230, 40 + ((r() * 4) | 0) * 30, 6 + r() * 8, 14);
+        }
+        g.fillStyle = 'rgba(30,24,20,.85)';
+        g.fillRect(0, 150, 256, 42);
+      },
+      false
+    ),
   shutter: () =>
-    ctex('rowShutter', 64, 64, (g) => {
+    rctex('rowShutter', 64, 64, (g) => {
       // rolling shutter ribs
       g.fillStyle = '#a7acae';
       g.fillRect(0, 0, 64, 64);
@@ -1600,7 +1612,7 @@ export const ROWT = {
       }
     }),
   brick: () =>
-    ctex('rowBrick', 128, 128, (g) => {
+    rctex('rowBrick', 128, 128, (g) => {
       // red-brown facing tiles (一成)
       g.fillStyle = '#6e2a1e';
       g.fillRect(0, 0, 128, 128);
@@ -1612,7 +1624,7 @@ export const ROWT = {
         }
     }),
   grime: () =>
-    ctex('rowGrime', 128, 128, (g) => {
+    rctex('rowGrime', 128, 128, (g) => {
       // weathered grey concrete (早啊)
       g.fillStyle = '#a19f98';
       g.fillRect(0, 0, 128, 128);
@@ -1624,20 +1636,26 @@ export const ROWT = {
       }
     }),
   alWin: () =>
-    sg('rowAlWin', 256, 128, (g) => {
-      // aluminium sliding window, no grille
-      g.fillStyle = '#d4d6d6';
-      g.fillRect(0, 0, 256, 128);
-      g.fillStyle = '#566673';
-      g.fillRect(8, 8, 240, 112);
-      g.fillStyle = 'rgba(255,255,255,.2)';
-      g.fillRect(14, 12, 40, 104);
-      g.fillRect(134, 12, 26, 104);
-      g.fillStyle = '#d4d6d6';
-      g.fillRect(124, 0, 8, 128);
-    }),
+    rctex(
+      'rowAlWin',
+      256,
+      128,
+      (g) => {
+        // aluminium sliding window, no grille
+        g.fillStyle = '#d4d6d6';
+        g.fillRect(0, 0, 256, 128);
+        g.fillStyle = '#566673';
+        g.fillRect(8, 8, 240, 112);
+        g.fillStyle = 'rgba(255,255,255,.2)';
+        g.fillRect(14, 12, 40, 104);
+        g.fillRect(134, 12, 26, 104);
+        g.fillStyle = '#d4d6d6';
+        g.fillRect(124, 0, 8, 128);
+      },
+      false
+    ),
   mesh: () =>
-    ctex('rowMesh', 64, 64, (g) => {
+    rctex('rowMesh', 64, 64, (g) => {
       // diamond wire mesh (麥食堂 2F balcony)
       g.clearRect(0, 0, 64, 64);
       g.strokeStyle = 'rgba(225,228,226,.95)';
@@ -1657,7 +1675,7 @@ export const ROWT = {
       g.stroke();
     }),
   awning: () =>
-    ctex('rowAwning', 64, 64, (g) => {
+    rctex('rowAwning', 64, 64, (g) => {
       for (let x = 0; x < 64; x += 16) {
         g.fillStyle = '#2f8a5a';
         g.fillRect(x, 0, 8, 64);

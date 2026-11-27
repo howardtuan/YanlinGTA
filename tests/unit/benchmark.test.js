@@ -33,4 +33,19 @@ describe('Benchmark statistics', () => {
   it('returns null for an empty run', () => {
     expect(frameSummary([])).toBeNull();
   });
+
+  it('splits logic and render timings while preserving >1s stalls', () => {
+    const dt = [...Array(99).fill(16.7), 1250];
+    const cpu = Array(100).fill(6);
+    const logic = [...Array(95).fill(2), ...Array(5).fill(4)];
+    const render = [...Array(95).fill(4), ...Array(5).fill(8)];
+    const s = frameSummary(dt, cpu, logic, render);
+    expect(s.frames).toBe(100);
+    expect(s.stutters).toBe(1);
+    expect(s.minFps).toBeCloseTo(1000 / 1250, 5);
+    expect(s.logicAvg).toBeCloseTo(2.1, 5);
+    expect(s.logicP95).toBe(4);
+    expect(s.renderAvg).toBeCloseTo(4.2, 5);
+    expect(s.renderP95).toBe(8);
+  });
 });

@@ -144,6 +144,13 @@ export function pickScooterVariant(x, z, color, keepColor = false) {
   return { type, acc, color: c, colors: pickLivery(x, z, type, c) };
 }
 
+// a moving bike in traffic, picked from a seed pair (no rnd() draws): same types and liveries as the parked ones,
+// no helmet hanging off the bars while it is being ridden
+export function trafficScooterVariant(a, b) {
+  const v = pickScooterVariant(a, b, null);
+  return { type: v.type, acc: v.acc & ~(ACC_HELMET_L | ACC_HELMET_D), colors: v.colors };
+}
+
 // ------------------------------------------------------------------ geometry helpers
 // every piece ends up non-indexed with only position + normal (mergeable with the generic commuter's parts)
 function clean(g) {

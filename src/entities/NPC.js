@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Vehicle, sameLevel } from './Vehicles.js';
+import { trafficScooterVariant } from './ScooterVariants.js';
 import { createCharacter, randomStudent } from './Character.js';
 import { mulberry32, makeLabel } from '../world/MapBuilder.js';
 import { surfaceAt } from '../world/Terrain.js';
@@ -108,7 +109,14 @@ export class Traffic {
         model = BIKE_M[(rx() * 3) | 0];
         big++;
       }
-      const v = new Vehicle(kind, this.rnd, model ? { model } : {});
+      // plain traffic scooters come in the roadside body types and liveries (src/entities/ScooterVariants.js),
+      // picked from the traffic index so this.rnd draws stay as they were
+      const opt = model
+        ? { model }
+        : kind === 'scooter'
+          ? { variant: trafficScooterVariant(i * 1.7 + 5000, i * 2.9 - 5000) }
+          : {};
+      const v = new Vehicle(kind, this.rnd, opt);
       v.driver = 'ai';
       const rider =
         kind === 'scooter' ? createCharacter({ ...randomStudent(this.rnd), face: false }) : null;

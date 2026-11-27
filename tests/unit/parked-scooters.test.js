@@ -11,6 +11,7 @@ import {
   getVariantInstancedAssets,
   instancedGroupOf,
   buildScooterVariant,
+  trafficScooterVariant,
   SCOOTER_TYPES,
 } from '../../src/entities/ScooterVariants.js';
 import {
@@ -143,6 +144,30 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(helmets / 4000).toBeGreaterThan(0.08);
     // hand-placed bikes keep their builder's colour
     expect(pickScooterVariant(5, 5, '#123456', true).color).toBe('#123456');
+  });
+
+  it('gives traffic scooters the roadside body types without changing the traffic rnd sequence', () => {
+    const types = new Set();
+    for (let i = 0; i < 400; i++) {
+      const v = trafficScooterVariant(i * 1.7 + 5000, i * 2.9 - 5000);
+      types.add(v.type);
+      expect(v.acc & 24).toBe(0); // no helmet hanging off the bars while ridden
+    }
+    expect(types.size).toBe(SCOOTER_TYPES);
+    // a variant bike still draws its colour from rnd like a plain commuter (one draw more than a bike given a
+    // colour), so the traffic sequence after it is unchanged
+    const counter = () => {
+      let n = 0;
+      return [() => (n++, 0.37), () => n];
+    };
+    const [r0, n0] = counter(),
+      [r1, n1] = counter();
+    const variant = { type: 6, acc: 1, colors: ['#b01c1c', '#c9a23a', '#ffffff'] };
+    new Vehicle('scooter', r0, { variant, color: '#b01c1c' });
+    const v = new Vehicle('scooter', r1, { variant });
+    expect(n1()).toBe(n0() + 1);
+    expect(v.variant.type).toBe(6);
+    expect(v.mesh.userData.wheels.length).toBe(2);
   });
 
   it('paints bikes in one, two or three colours ([main, secondary, accent])', () => {

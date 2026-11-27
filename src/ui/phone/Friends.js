@@ -68,9 +68,9 @@ export const FRIENDS = {
       ],
     },
   },
-  // 戈登肉鋪店長 女拳大帝：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞。站在櫃台後面（src/world/Interiors.js 的
+  // 戈登肉舖老闆：火爆、愛健身、打 LOL 很在意輸贏、超愛麥當勞。站在櫃台後面（src/world/Interiors.js 的
   // buildGordon 給位置）；跟他說話、結帳都在櫃台（src/entities/npcs/Gordon.js），結完帳還不是好友的話他會問要不要互加。
-  // 漢克（src/entities/npcs/Hank.js）：資管系同學、女拳大帝的室友。晚上在麥當勞內場炸薯條，其他時間騎 ZMAX 兜風或背吉他散步；
+  // 漢克（src/entities/npcs/Hank.js）：資管系同學、肉舖老闆的室友。晚上在麥當勞內場炸薯條，其他時間騎 ZMAX 兜風或背吉他散步；
   // 他會動，沒有固定位置（spot 回傳 null），說話由 src/entities/npcs/Hank.js 觸發：散步時（先彈吉他）用 intro，在內場用 work。
   // YeeMing（src/entities/npcs/Yeeming.js）：物理系、羊明衫的男朋友，正在當兵（迷彩軍服、鋼盔）。spot 為 null：人由 src/entities/npcs/Yeeming.js 放，
   // 聊天由 src/entities/npcs/Yeeming.js 呼叫 talk('yeeming', 'walk' | 'volley')；跟他們聊天彥霖每次都會問「要不要打麻將？」
@@ -231,7 +231,7 @@ export const FRIENDS = {
       ['漢克', '一個獨立樂團，下個月在 live house 有演出，我超想去 🎧'],
       ['漢克', '彥霖，選舉跑得怎樣？我們系上都在聊你。'],
       ['彥霖', '還在拚！你那個專題系統拿第一名真的超強。'],
-      ['漢克', '運氣好啦哈哈。對了，我室友女拳大帝說你有去他那邊買肉？'],
+      ['漢克', '運氣好啦哈哈。對了，我室友肉舖老闆說你有去他那邊買肉？'],
       ['漢克', '同系這麼久，好像還沒互加耶。有程式問題、想聽團、想半夜騎車上山看夜景都可以找我 🏍️'],
     ],
     again: [
@@ -243,7 +243,7 @@ export const FRIENDS = {
     chat: [
       [['漢克', '今晚騎 ZMAX 去五指山看夜景，要不要一起？']],
       [['漢克', '專題那套系統我放上 GitHub 了，有空幫我看 code 😆']],
-      [['漢克', '女拳大帝昨晚又在客廳打 LOL 大吼，我耳機開最大聲還是聽得到']],
+      [['漢克', '肉舖老闆昨晚又在客廳打 LOL 大吼，我耳機開最大聲還是聽得到']],
       [['漢克', '週末 live house 有演出，要不要一起去聽團？']],
       [['漢克', '剛幫 ZMAX 換新輪胎，過彎超穩 🏍️']],
     ],
@@ -271,18 +271,18 @@ export const FRIENDS = {
     },
   },
   gd: {
-    name: '戈登肉鋪店長 女拳大帝',
-    short: '女拳大帝',
+    name: '戈登肉舖老闆',
+    short: '肉舖老闆',
     look: GD_LOOK,
     noTalk: true,
     spot: (g) => g.interiors.gordon?.keeper,
     offer: [
-      ['女拳大帝', '欸，等一下。你是那個在選系會長的彥霖吧？'],
-      ['女拳大帝', '我 LOL 鑽石，健身也沒在輸。最近缺一個打積分的……'],
-      ['女拳大帝', '加個好友啦，先說好：輸了不准怪我，掛機我就封鎖你 😤'],
+      ['肉舖老闆', '欸，等一下。你是那個在選系會長的彥霖吧？'],
+      ['肉舖老闆', '我 LOL 鑽石，健身也沒在輸。最近缺一個打積分的……'],
+      ['肉舖老闆', '加個好友啦，先說好：輸了不准怪我，掛機我就封鎖你 😤'],
     ],
-    yes: [['女拳大帝', '好！今晚 10 點上線，遲到一分鐘請我吃麥當勞 🍔🎮']],
-    no: [['女拳大帝', '嘖，不加就算了。下次來買肉再問你一次！']],
+    yes: [['肉舖老闆', '好！今晚 10 點上線，遲到一分鐘請我吃麥當勞 🍔🎮']],
+    no: [['肉舖老闆', '嘖，不加就算了。下次來買肉再問你一次！']],
     chat: [],
   },
   // 黃蓋瑞：古箏社幹部，住彥霖隔壁（同一層不同戶）。會在跑道跑步、在活動中心的古箏社教室、在房間，
@@ -609,7 +609,7 @@ export const FRIENDS = {
       ],
       chat: [
         [['霍華德', '漢克在後面彈吉他，我打遊戲都跟著節奏走位 😂']],
-        [['霍華德', '女拳大帝剛剛在對面吼，我這場也差點輸']],
+        [['霍華德', '肉舖老闆剛剛在對面吼，我這場也差點輸']],
       ],
     },
     dorm: {
@@ -971,7 +971,7 @@ export class Friends {
       if (sp.y != null) n.ch.root.position.y = sp.y; // indoors: stands on the shop floor
       game.npcs.push(n);
       this.npcs[id] = n;
-      serviceWear(id, n.ch, f.look, { tag: n.label }); // 義務役 (吱吱、女拳大帝, src/entities/npcs/Service.js)
+      serviceWear(id, n.ch, f.look, { tag: n.label }); // 義務役 (吱吱、肉舖老闆, src/entities/npcs/Service.js)
       if (f.noTalk) continue; // someone else (a shop counter) handles talking to them
       game.interiors.actions.push({
         x: sp.x,

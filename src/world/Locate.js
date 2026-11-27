@@ -1,6 +1,6 @@
 // 「定位」App：在地圖上看好友現在在哪裡。勞大一開始就在名單上（他預設是藏起來的：在電腦終端機叫他回來才會出現，
-// src/systems/LaodaMode.js）；吱吱、女拳大帝、漢克要先認識並加好友才會出現。
-// 每個人的位置是即時的：吱吱在體育館門口或茶學苑上班、女拳大帝在戈登肉鋪櫃台、漢克在麥當勞值班／背吉他散步／
+// src/systems/LaodaMode.js）；吱吱、肉舖老闆、漢克要先認識並加好友才會出現。
+// 每個人的位置是即時的：吱吱在體育館門口或茶學苑上班、肉舖老闆在戈登肉鋪櫃台、漢克在麥當勞值班／背吉他散步／
 // 騎 ZMAX 兜風（離你太遠時只知道在附近道路）／睡覺（離線），勞大在校園散步、在體育園區籃球場打球或開直升機。可以一鍵導航過去。
 import { laodaOn } from '../systems/LaodaMode.js';
 
@@ -80,7 +80,7 @@ export function friendLocations(g) {
     if (g.zz?.gdOut)
       add(
         'gd',
-        '女拳大帝',
+        '肉舖老闆',
         '🛵',
         '#1d1d1f',
         g.zz.cruiser && !g.zz.cruiser.ai.dormant ? g.zz.cruiser.pos : null,
@@ -89,7 +89,7 @@ export function friendLocations(g) {
     else if (Gd?.night)
       add(
         'gd',
-        '女拳大帝',
+        '肉舖老闆',
         '🎮',
         '#1d1d1f',
         Gd.dorm?.seat,
@@ -101,7 +101,7 @@ export function friendLocations(g) {
               : '在力行宿舍 279 寢睡覺（4 號床，戈登肉鋪 08:00 才開）'
           : '在力行宿舍 279 寢打 LOL（戈登肉鋪 08:00 才開）'
       );
-    else add('gd', '女拳大帝', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）');
+    else add('gd', '肉舖老闆', '🥩', '#1d1d1f', k?.position, '在戈登肉鋪顧店（校史館前）');
   }
   if (has('hank')) {
     const H = g.hank;

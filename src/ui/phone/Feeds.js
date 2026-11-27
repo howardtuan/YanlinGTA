@@ -8,7 +8,7 @@ export const PEOPLE = {
   中原麥當勞: { av: '🍟', color: '#ffbc0d' },
   中原大學: { av: '🏫', color: '#2a6fe0' },
   吱吱: { av: `<img class="ph-avimg" src="${G('zz_av')}" alt="">`, color: '#7a1f2c' },
-  女拳大帝: { av: `<img class="ph-avimg" src="${G('gd_av')}" alt="">`, color: '#1d1d1f' },
+  肉舖老闆: { av: `<img class="ph-avimg" src="${G('gd_av')}" alt="">`, color: '#1d1d1f' },
   漢克: { av: `<img class="ph-avimg" src="${G('hank_av')}" alt="">`, color: '#2b2f3a' },
   黃蓋瑞: { av: `<img class="ph-avimg" src="${G('garry_av')}" alt="">`, color: '#21486e' },
   劍玉: { av: `<img class="ph-avimg" src="${G('jianyu_av')}" alt="">`, color: '#5d6b8a' },
@@ -182,14 +182,14 @@ export const FRIEND_POSTS = {
   ],
   gd: [
     {
-      who: '女拳大帝',
+      who: '肉舖老闆',
       img: G('gd_shop'),
       cap: '戈登肉鋪中原店，就在校史館前面的草坪上 🥩 來買肉報我名字（沒折扣）#戈登肉鋪 #代切',
       likes: 312,
       ago: 260,
     },
     {
-      who: '女拳大帝',
+      who: '肉舖老闆',
       img: G('gd'),
       cap: '練完背來顧店，誰說肉鋪老闆不能有背肌 💪',
       likes: 187,
@@ -321,7 +321,7 @@ export const STORY_SETS = {
     { img: G('garry_run'), t: '傍晚跑步 風超大', s: '💨' },
     { bg: GR('#e8823a', '#1f3b5c'), t: '鬧鐘：\n（你們聽了就知道）', s: '⏰' },
   ],
-  女拳大帝: [
+  肉舖老闆: [
     { img: G('gd_shop'), t: '開店！今天肋眼油花超漂亮', s: '🥩' },
     { bg: GR('#0d0d0f', '#c9a24e'), t: '積分又輸\n隊友是來觀光的嗎', s: '😤' },
     { img: G('p_mcd'), t: '午餐：大麥克 ×2 薯條加大', s: '🍔' },
@@ -337,7 +337,7 @@ export const STORY_TIMES = {
   中原麥當勞: [6 * 60 + 30, 17 * 60],
   中原大學: [8 * 60, 16 * 60 + 30],
   吱吱: [6 * 60 + 45, 22 * 60 + 20],
-  女拳大帝: [10 * 60 + 30, 23 * 60 + 35],
+  肉舖老闆: [10 * 60 + 30, 23 * 60 + 35],
   漢克: [14 * 60 + 10, 23 * 60 + 50],
   黃蓋瑞: [7 * 60 + 35, 22 * 60 + 5],
   劍玉: [11 * 60 + 20, 23 * 60 + 55],
@@ -351,7 +351,7 @@ export const STORY_TIMES = {
 // 只有加了好友才會出現在 Peachgram 的人（名字 → 好友 id，見 src/ui/phone/Friends.js）
 export const FRIEND_ONLY = {
   吱吱: 'zz',
-  女拳大帝: 'gd',
+  肉舖老闆: 'gd',
   漢克: 'hank',
   黃蓋瑞: 'garry',
   劍玉: 'jianyu',

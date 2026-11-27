@@ -582,7 +582,7 @@ export class Audio {
     };
   }
   // a looping recording somewhere in the world, kept at level v every frame (0: fades out, pauses after 2 s);
-  // e.g. 女拳大帝's phone alarm ringing on his desk (src/entities/npcs/Gordon.js)
+  // e.g. 肉舖老闆's phone alarm ringing on his desk (src/entities/npcs/Gordon.js)
   loopAt(key, src, v, dt, pan = 0, dest = this.sfx) {
     if (!this.ctx || !dest) return;
     if (v <= 0.001 && !this._loops?.[key]) return;

@@ -2362,7 +2362,7 @@ export function buildZmax(color = '#0e0f11') {
 }
 
 // 大A（使用者附圖）：方正直立的車頭面板、高平把手、平底踏板、長平座墊、後扶手、12 吋越野胎。z 向前、y 向上，單位公尺。
-//  'gd'：女拳大帝的新款大A —— 夜幕灰（深灰藍消光側板、霧黑外殼），黑色面罩裡左右並排兩顆圓燈，黑框輪圈、塊狀越野胎；
+//  'gd'：肉舖老闆的新款大A —— 夜幕灰（深灰藍消光側板、霧黑外殼），黑色面罩裡左右並排兩顆圓燈，黑框輪圈、塊狀越野胎；
 //  'zz'：吱吱的舊款大A —— 白色車殼、紅色車頭上蓋、上小下大兩顆燈、紅色輪框與紅色後避震、黑座墊、管狀後扶手。
 export function buildDaA(style = 'gd') {
   const g = new THREE.Group(),
@@ -2899,7 +2899,7 @@ export class Vehicle {
         label: '漢克的 ZMAX',
       });
     } else if (kind === 'scooter' && (opt.model === 'daa_gd' || opt.model === 'daa_zz')) {
-      // 女拳大帝／吱吱的大A (src/entities/npcs/Zz.js)
+      // 肉舖老闆／吱吱的大A (src/entities/npcs/Zz.js)
       const gd = opt.model === 'daa_gd';
       this.mesh = buildDaA(gd ? 'gd' : 'zz');
       this.model = opt.model;
@@ -2915,7 +2915,7 @@ export class Vehicle {
         grip: 9,
         seat: new THREE.Vector3(0, 0.08, -0.32),
         exitSide: 1.0,
-        label: gd ? '女拳大帝的大A' : '吱吱的大A',
+        label: gd ? '肉舖老闆的大A' : '吱吱的大A',
       });
     } else if (kind === 'scooter' && BIKES[opt.model]) {
       // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher

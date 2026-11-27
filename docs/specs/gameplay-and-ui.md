@@ -12,6 +12,7 @@
 2. **手機觸控按鍵提示自動轉譯（`src/core/KeyHints.js`）**：
    - 觸控模式（`body.touch`）下，`touchHints(text)` 自動將鍵盤敘述轉譯為對應觸控按鈕（如 `<kbd>M</kbd>` $\rightarrow$ `點 🗺 地圖`、`J` $\rightarrow$ `點 S.U.N.D.A.Y`、滑鼠左鍵 $\rightarrow$ `📄`、`Esc` $\rightarrow$ `⚙`、「按 Esc 關掉電腦」$\rightarrow$「點右下角 ⏻ 離開電腦」）。
    - 靜態 HTML 採用 `.touch-only` 與 `.nt-only` 分流；手機橫放（高度 `<= 500px`）時，S.U.N.D.A.Y 小助手自動移至左上角縮小為 `72px` 向下展開，避免提示框超出畫面。
+   - **大地圖手勢（`HUD.js` `_setupBigmapPan`）**：單指拖曳平移、單指點擊放置／移除導航點；**雙指捏合縮放**（範圍同滑鼠滾輪 `-1 ~ 3`），以兩指中點為縮放中心，兩指同時拖曳亦可平移；捏合後放開不會誤放導航點。
 3. **滑鼠鎖定釋放白名單（Pointer Lock & `Esc` 暫停防護）**：
    - 遊玩中失去 Pointer Lock 預設視為玩家按下 `Esc` 而彈出暫停選單（`MenuManager.js`）。
    - **任何主動釋放滑鼠供點擊的介面**（通用彈窗 `g.modal()` 自動設 `_modalOpen`；獨立全螢幕介面如手機、電腦、衣櫃、麻將、障礙賽選車／成績單、鬧鐘覆蓋層 `g._overlay` 等）**必須使 `Game.mouseOwnedByUI()` 回傳 `true`**，防止一放開游標即誤觸暫停選單。

@@ -2129,7 +2129,9 @@ export function buildDaren1Street(I, scene, X) {
         fh = 3.1,
         g = gy((x0 + x1) / 2, (z0 + z1) / 2),
         H1 = nf * fh + g;
-      k.box(x0 + 0.7, x1 - 0.7, g - 1.5, H1, z0 + 0.7, z1 - 0.7, '#b9b6ae');
+      // 碰撞貼著外面那層藍網（看得到的外牆），不是內縮 0.7 m 的結構體
+      k.box(x0 + 0.7, x1 - 0.7, g - 1.5, H1, z0 + 0.7, z1 - 0.7, '#b9b6ae', NC);
+      k.wallRect(x0, x1, z0, z1, g - 1.5, H1);
       for (let f = 0; f < nf; f++)
         k.box(
           x0 + 0.68,

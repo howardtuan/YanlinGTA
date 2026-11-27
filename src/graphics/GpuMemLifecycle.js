@@ -216,11 +216,14 @@ function guardUpload(t) {
 function dropAfterUpload() {
   this.array = new this.array.constructor(0);
 }
+// ?keepgeo keeps the CPU copy (tools/collision_mesh_check.mjs reads the world's triangles after loading)
+const KEEP_GEO = typeof location === 'object' && /[?&]keepgeo\b/.test(location.search || '');
 export function markStaticGeometry(geo) {
   if (!geo?.isBufferGeometry || geo.userData.staticGeometry) return geo;
   geo.userData.staticGeometry = true;
   if (!geo.boundingSphere) geo.computeBoundingSphere();
   if (!geo.boundingBox) geo.computeBoundingBox();
+  if (KEEP_GEO) return geo;
   for (const a of Object.values(geo.attributes))
     if (!a.isInterleavedBufferAttribute) a.onUploadCallback = dropAfterUpload;
   if (geo.index) geo.index.onUploadCallback = dropAfterUpload;

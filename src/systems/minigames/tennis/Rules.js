@@ -131,15 +131,15 @@ export class Rally {
       return a === b ? 'Deuce' : `Ad ${this.players[a > b ? 0 : 1].name || ''}`.trim();
     return `${NAMES[a]} - ${NAMES[b]}`;
   }
-  // a human presses swing (the AI swings on its own)
-  swing(i) {
+  // a human presses swing (the AI swings on its own); lag: how long ago it really was (a friend's swing over the network)
+  swing(i, lag = 0) {
     const p = this.players[i];
     if (this.state === 'serve' && i === this.server) {
       if (this.t > 0.4) this._serve(i);
       return;
     }
     if (p.swingT < 0 || p.swingT > SWING) {
-      p.swingT = 0;
+      p.swingT = lag;
       const b = this.ball;
       p.kind = (b.v - p.v) * p.side >= 0 ? 'fore' : 'back';
     }

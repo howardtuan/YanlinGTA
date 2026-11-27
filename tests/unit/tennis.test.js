@@ -8,6 +8,13 @@ import {
   BALL_R,
 } from '../../src/systems/minigames/tennis/Rules.js';
 import { HL, SW } from '../../src/world/Tennis.js';
+import {
+  hostTennis,
+  joinTennis,
+  snapshot,
+  applySnapshot,
+  normCode,
+} from '../../src/systems/minigames/tennis/Net.js';
 
 const lcg = (s) => () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 
@@ -106,5 +113,111 @@ describe('電腦對打', () => {
     expect(n.hit / n.point).toBeGreaterThan(2.5);
     expect(n.out).toBeGreaterThan(0);
     expect(n.net).toBeGreaterThan(0);
+  });
+});
+
+// a room where every message arrives at once (like tests/unit/mahjong-p2p.test.js)
+function mockBus() {
+  const rooms = new Map();
+  let n = 1;
+  return async (roomId) => {
+    if (!rooms.has(roomId)) rooms.set(roomId, new Map());
+    const peers = rooms.get(roomId),
+      id = `p${n++}`,
+      handlers = new Map(),
+      joins = [],
+      leaves = [];
+    const node = {
+      deliver: (name, data, from) => handlers.get(name)?.(structuredClone(data), { peerId: from }),
+      join: (o) => joins.forEach((cb) => cb({ peerId: o })),
+      leave: (o) => leaves.forEach((cb) => cb({ peerId: o })),
+    };
+    for (const [pid, p] of peers) {
+      p.join(id);
+      node.join(pid);
+    }
+    peers.set(id, node);
+    return {
+      makeAction: (name) => ({
+        send(data, opts) {
+          if (opts?.target) peers.get(opts.target)?.deliver(name, data, id);
+          else for (const [pid, p] of peers) if (pid !== id) p.deliver(name, data, id);
+          return Promise.resolve();
+        },
+        onMessage: (cb) => handlers.set(name, cb),
+      }),
+      onPeerJoin: (cb) => joins.push(cb),
+      onPeerLeave: (cb) => leaves.push(cb),
+      leave() {
+        peers.delete(id);
+        for (const p of peers.values()) p.leave(id);
+      },
+    };
+  };
+}
+
+describe('線上對打（Net.js）', () => {
+  it('房號只留 4 碼英數字、轉大寫', () => {
+    expect(normCode(' ab-c1 9')).toBe('ABC1');
+  });
+  it('朋友用房號連上房主、收到局面、揮拍傳到房主；第三個人進不來；離開時對方知道', async () => {
+    const bus = mockBus(),
+      log = [];
+    const host = await hostTennis({
+      code: 'TEST',
+      name: '彥霖',
+      joinRoomFn: bus,
+      on: {
+        join: (peer, h) => log.push(['join', h.name]),
+        input: (m) => log.push(['in', m.u]),
+        swing: (lag) => log.push(['swing', lag]),
+        leave: (why) => log.push(['hostLeave', why]),
+      },
+    });
+    const mirror = new Rally({ players: [{ name: '彥霖' }, { name: '你' }] });
+    const guest = await joinTennis({
+      code: 'test',
+      name: '小明',
+      joinRoomFn: bus,
+      on: {
+        start: (h) => log.push(['start', h.name]),
+        state: (s, ev) => {
+          applySnapshot(mirror, s, 1);
+          log.push(['state', ev.length]);
+        },
+        leave: (why) => log.push(['guestLeave', why]),
+      },
+    });
+    expect(log).toContainEqual(['join', '小明']);
+    expect(log).toContainEqual(['start', '彥霖']);
+    // the host's match, sent over
+    const r = new Rally({ players: [{ name: '你' }, { name: '小明' }], rnd: lcg(5) });
+    r.players[0].u = -12;
+    r.pts = [2, 1];
+    r.games = [1, 0];
+    host.send(r, [{ type: 'hit', i: 0 }]);
+    expect(log).toContainEqual(['state', 1]);
+    expect(mirror.pts).toEqual([2, 1]);
+    expect(mirror.games).toEqual([1, 0]);
+    expect(mirror.players[0].netU).toBe(-12); // the guest glides there (TennisCourts _mirror)
+    expect(snapshot(mirror).st).toBe(r.state);
+    // the friend moves and swings
+    guest.input(9.5, 1.2, 0.3);
+    guest.swing();
+    expect(log).toContainEqual(['in', 9.5]);
+    expect(log.find((e) => e[0] === 'swing')[1]).toBeLessThanOrEqual(0.12);
+    // someone else with the same code is turned away
+    const third = [];
+    await joinTennis({
+      code: 'TEST',
+      name: '路人',
+      joinRoomFn: bus,
+      on: { leave: (why) => third.push(why), start: () => third.push('start') },
+    });
+    expect(third).toEqual(['這個房間已經有人在打了']);
+    // the friend leaves
+    guest.close();
+    expect(log.find((e) => e[0] === 'hostLeave')[1]).toBe('朋友離開了比賽');
+    host.close();
   });
 });

@@ -2020,6 +2020,7 @@ export function createCharacter(opts = {}) {
         build: fv.build,
         girth,
         pattern: opts.pattern,
+        bottomPattern: opts.bottomPattern,
         hem: opts.hem,
         arm: opts.arm,
         belly,
@@ -2663,5 +2664,22 @@ export function randomStudent(rnd) {
     else if (pat < 0.45) look.pattern = { kind: 'raglan', color: col2 };
     else if (pat < 0.51) look.pattern = { kind: 'block', color: col2 };
   }
+  // trousers / shorts: track stripes, camouflage, ripped knees, turned-up cuffs (about a third of the people)
+  const bp = h(15),
+    plainLeg = look.pants && !look.wide && !look.pantsLow;
+  if (bp < 0.1)
+    look.bottomPattern = {
+      kind: 'track',
+      color: hp(16, ['#f4f4f0', '#f4f4f0', '#e63946', '#111111']),
+    };
+  else if (bp < 0.16 && !look.pantsLow) look.bottomPattern = { kind: 'camo' };
+  else if (bp < 0.25 && plainLeg) {
+    look.bottomPattern = { kind: 'ripped' };
+    look.shorts = hp(17, ['#3d5a80', '#5c7ea8', '#2b2d42', '#111111']); // jeans
+  } else if (bp < 0.33 && plainLeg)
+    look.bottomPattern = {
+      kind: 'cuff',
+      color: hp(18, ['#7d9cc4', '#c9b48a', '#a63d40', '#8a8f98']),
+    };
   return look;
 }

@@ -23,10 +23,10 @@ function sweep(rings0, M, out) {
   });
   const base = out.pos.length / 3,
     v = new THREE.Vector3();
-  const push = (x, y, z, r, sa = 0, ca = 1) => {
+  const push = (x, y, z, r, sa = 0, ca = 1, ring = false) => {
     v.set(x, y, z).applyMatrix4(M);
     out.pos.push(v.x, v.y, v.z);
-    out.ref.push(r.col);
+    out.ref.push(r.colAt && ring ? r.colAt(sa, ca) : r.col); // colAt: a colour per vertex round the ring
     out.ao.push(r.ao ? r.ao(sa, ca) : 1);
     const w = r.w.slice(0, 4);
     while (w.length < 4) w.push([0, 0]);
@@ -42,7 +42,7 @@ function sweep(rings0, M, out) {
       const a = (i / N) * Math.PI * 2,
         sa = Math.sin(a),
         ca = Math.cos(a);
-      push((r.cx || 0) + r.rx * p(sa), r.y, (r.cz || 0) + r.rz * p(ca), r, sa, ca);
+      push((r.cx || 0) + r.rx * p(sa), r.y, (r.cz || 0) + r.rz * p(ca), r, sa, ca, true);
     }
   }
   for (let j = 0; j + 1 < rings.length; j++)
@@ -147,7 +147,11 @@ export function buildSkinnedBody(ch, o) {
     lower = C(o.lower || o.bottom),
     skin = C(o.skin),
     sock = C(o.sock || '#fafafa'),
-    shirt2 = C(o.pattern?.color || o.shirt); // the pattern's second colour (o.pattern)
+    shirt2 = C(o.pattern?.color || o.shirt), // the pattern's second colour (o.pattern)
+    pants2 = C(o.bottomPattern?.color || o.bottom); // the trousers' second colour (o.bottomPattern)
+  // o.bottomPattern { kind, color }: track (a stripe down the outer side of each leg), cuff (trousers turned up at the
+  // ankle, the inside showing in color), ripped (jeans torn open at the knees), camo (woodland camouflage, trousers only)
+  const bk = o.bottomPattern?.kind;
   // o.pattern { kind, color, w }: the shirt isn't one plain colour —
   //   stripes: horizontal bands w apart (default 0.045 m) from the neckline down, sleeves too
   //   block: a wide band across the chest; ringer: the collar and the sleeve cuffs; raglan: both sleeves
@@ -397,18 +401,35 @@ export function buildSkinnedBody(ch, o) {
       for (const y of [split, split + 0.008, split - 0.004]) rr.push({ y, r: 0.064 });
       rr.sort((a, b) => a.y - b.y);
     }
+    const cuff = bk === 'cuff' && o.pants && !o.wide && split == null;
+    if (cuff) {
+      rr = rr.filter((q) => Math.abs(q.y - -0.775) > 0.012);
+      rr.push({ y: -0.775, r: 0.047 }, { y: -0.77, r: 0.047 });
+      rr.sort((a, b) => a.y - b.y);
+    }
     const pantsCol = (y) =>
-      o.pants
-        ? y > -0.845 || o.wide
-          ? split != null && y < split - 0.001
-            ? lower
-            : bottom
-          : sock
-        : y > (hem ?? -0.3) - (hem ? 0.0005 : 0)
-          ? bottom
-          : y < -0.775
-            ? sock
-            : skin;
+      cuff && y > -0.845 && y <= -0.775
+        ? pants2
+        : o.pants
+          ? y > -0.845 || o.wide
+            ? split != null && y < split - 0.001
+              ? lower
+              : bottom
+            : sock
+          : y > (hem ?? -0.3) - (hem ? 0.0005 : 0)
+            ? bottom
+            : y < -0.775
+              ? sock
+              : skin;
+    const cuffOff = (y) => (cuff && y > -0.845 && y <= -0.775 ? 0.008 : 0); // the turned-up cuff sits off the leg
+    // per-vertex colours on a ring of the trouser leg (sa > 0 is +x in the hip frame; side = l.s points outwards)
+    const legColAt = (y, c, side) => {
+      const cloth = c === bottom || c === lower;
+      if (bk === 'track' && cloth && y < 0.03) return (sa) => (sa * side > 0.88 ? pants2 : c);
+      if (bk === 'ripped' && o.pants && !o.wide && cloth && y < -0.4 && y > -0.46)
+        return (sa, ca) => (ca > 0.8 ? skin : c);
+      return null;
+    };
     const ringsL = [];
     for (const { y, r: r0 } of rr) {
       // belly: fuller thighs; girth: the whole leg thicker, most at the thigh, least at the ankle
@@ -440,10 +461,11 @@ export function buildSkinnedBody(ch, o) {
           0.16 * Math.max(0, -ca) ** 2 * bump(y, -0.43, 0.06);
       ringsL.push({
         y,
-        rx: (r + loose) * (1 + 0.04 * f) * bw,
-        rz: r + loose,
+        rx: (r + loose + cuffOff(y)) * (1 + 0.04 * f) * bw,
+        rz: r + loose + cuffOff(y),
         w: wAt(keys, y),
         col: pantsCol(y),
+        colAt: legColAt(y, pantsCol(y), side),
         ao,
       });
       if (!hem && !o.pants && y === -0.28)
@@ -474,9 +496,11 @@ export function buildSkinnedBody(ch, o) {
   const col = g.attributes.color; // THREE.Color already holds linear values, as vertex colours expect
   // o.camo (YeeMing's army uniform, src/entities/npcs/Yeeming.js): the shirt and trousers become woodland camouflage — blotches from
   // a smooth noise of the bind-pose vertex position, in four colours (the vertex colours blend into soft patches)
-  const CAMO = o.camo
-    ? ['#56643a', '#3b4528', '#7d6c47', '#2b2b22'].map((c) => new THREE.Color(c))
-    : null;
+  const camoBottom = bk === 'camo';
+  const CAMO =
+    o.camo || camoBottom
+      ? ['#56643a', '#3b4528', '#7d6c47', '#2b2b22'].map((c) => new THREE.Color(c))
+      : null;
   const camoAt = (i) => {
     const x = out.pos[i * 3],
       y = out.pos[i * 3 + 1],
@@ -505,7 +529,11 @@ export function buildSkinnedBody(ch, o) {
       let c = over.get(out.ref[i]) || out.ref[i];
       const k = out.ao[i];
       if (washed && !over.has(shirt) && out.ref[i] === shirt) c = washAt(i);
-      if (CAMO && !over.has(out.ref[i]) && (out.ref[i] === shirt || out.ref[i] === bottom))
+      if (
+        CAMO &&
+        !over.has(out.ref[i]) &&
+        ((out.ref[i] === shirt && !camoBottom) || out.ref[i] === bottom)
+      )
         c = camoAt(i);
       col.setXYZ(i, c.r * k, c.g * k, c.b * k);
     }
@@ -527,7 +555,10 @@ export function buildSkinnedBody(ch, o) {
       over.set(shirt, new THREE.Color(map.shirt));
       over.set(shirt2, new THREE.Color(map.shirt)); // a uniform covers the pattern too
     }
-    if (map.bottom) over.set(bottom, new THREE.Color(map.bottom));
+    if (map.bottom) {
+      over.set(bottom, new THREE.Color(map.bottom));
+      over.set(pants2, new THREE.Color(map.bottom)); // a uniform covers the pattern too
+    }
     paint(over);
   };
   return mesh;

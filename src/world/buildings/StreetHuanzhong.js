@@ -3033,7 +3033,12 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       q.box(x0, x1, y, y + 0.08, z + 1.54, z + 1.66, '#5a5d60', nb);
     }
   };
-  const skin = (q, L, h, hex) => q.box(0, L, -0.3, h, -0.3, -0.05, hex, nb); // 貼在 OSM 北牆外 5 cm 的立面板
+  // 貼在 OSM 北牆外 5 cm 的立面板（edgeKit 原點又往街上推 25 cm，所以正面在 OSM 牆外 0.55 m）：
+  // 碰撞跟著立面板正面走，不然人會走進立面板裡、停在後面的 OSM 牆線（#302）
+  const skin = (q, L, h, hex) => {
+    q.box(0, L, -0.3, h, -0.3, -0.05, hex, nb);
+    q.wallLine(0, -0.3, L, -0.3, -0.3, h);
+  };
   // ---- E 段的貼圖：708 巷南側空地圍牆的彩色塗鴉（藍、橘、黑白）----
   const wallArt = (wm) =>
     board(
@@ -6407,7 +6412,8 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         FRONT,
         { emissive: 0.3 }
       );
-      for (let x = 0.3; x < w - 0.2; x += 6) k.box(x, x + 0.25, 0, 4.2, -1.45, -1.2, '#d6d4ce', nb);
+      for (let x = 0.3; x < w - 0.2; x += 6) k.box(x, x + 0.25, 0, 4.2, -1.45, -1.2, '#d6d4ce'); // 騎樓柱
+      // 夾娃娃機：一整排擋在騎樓裡（碰撞照機台外框，#302）
       for (let x = 0.6; x < w - 1; x += 1.25) {
         k.box(
           x,
@@ -6416,8 +6422,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
           1.9,
           1.4,
           2.5,
-          ['#f29ab8', '#8fd0f0', '#f6d44a', '#9ad08a'][Math.floor(x) % 4],
-          nb
+          ['#f29ab8', '#8fd0f0', '#f6d44a', '#9ad08a'][Math.floor(x) % 4]
         );
         k.box(x + 0.08, x + 0.92, 0.9, 1.75, 1.35, 1.4, '#dfeef4', nb);
       }

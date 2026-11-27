@@ -456,7 +456,8 @@ export const ZB_ST = {
         vert: ['50', '#d42a1f', '#ffffff'],
         ground: 'open',
         bal: 'grille',
-        d: 9,
+        d: 9, // 幸福街那面（街景 2025-06 相片球）：阿秋鹹粥的側面，白底紅字招牌、一樓開放的菜單牆小吃攤
+        side: { at: 1, sign: ['阿秋鹹粥', '#ffffff', '#d42a1f', '24H'], ground: 'open' },
       },
     ],
     // S5 中北橋西到中北路28巷（2026-05）

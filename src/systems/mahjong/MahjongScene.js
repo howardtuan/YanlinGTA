@@ -23,7 +23,7 @@ import {
 import { DiceSet } from './Dice.js';
 import { normalizeRoomCode } from './Net.js';
 import { SPECTATE_REACTS, reactSticker } from './P2P.js';
-import { npcReactions, npcSticker } from './NpcStickers.js';
+import { npcReactions, npcSticker, NPC_STICKERS, NPC_STICKER_KINDS } from './NpcStickers.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeOutfitFigure } from '../Outfits.js';
 
@@ -683,7 +683,7 @@ export class MahjongScene {
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div><div class="mj-center hidden"></div>
-      <div class="mj-side"><div class="mj-info"></div><div class="mj-side-btns"><button class="mj-view" data-a='{"type":"view"}'></button><button class="mj-stk-btn hidden" data-a='{"type":"stickers"}' title="丟貼圖（T）" aria-label="丟貼圖"><img src="${SPECTATE_REACTS[0].img}" alt=""></button><button class="mj-help-btn" data-a='{"type":"help"}' title="操作說明（I）" aria-label="操作說明">i</button></div><div class="mj-stk hidden">${SPECTATE_REACTS.map((r) => `<button class="mj-react" title="${r.label}" data-a='${JSON.stringify({ type: 'sticker', text: r.text })}'><img src="${r.img}" alt="${r.label}"></button>`).join('')}</div><div class="mj-mp-bar hidden"></div></div>
+      <div class="mj-side"><div class="mj-info"></div><div class="mj-side-btns"><button class="mj-view" data-a='{"type":"view"}'></button><button class="mj-stk-btn hidden" data-a='{"type":"stickers"}' title="丟貼圖（T）" aria-label="丟貼圖"><img src="${SPECTATE_REACTS[0].img}" alt=""></button><button class="mj-help-btn" data-a='{"type":"help"}' title="操作說明（I）" aria-label="操作說明">i</button></div><div class="mj-stk hidden"></div><div class="mj-mp-bar hidden"></div></div>
       <div class="mj-help hidden"></div>
       <div class="mj-hand hidden"></div>
       <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
@@ -2741,13 +2741,42 @@ export class MahjongScene {
     }
   }
 
-  // ---------------- 打牌中丟貼圖（彥霖貼圖，P2P.js 的 SPECTATE_REACTS） ----------------
-  // 坐在桌上打牌的人（單人模式，或多人模式上桌的人）才有；觀戰者用右上角那排表情（_mpBarHud）
+  // ---------------- 丟貼圖（彥霖貼圖＋已加好友同學的貼圖，NpcStickers.js） ----------------
+  // 上桌打牌的人和觀戰者都有（觀戰者另外還有右上角那排彥霖表情，_mpBarHud）
   _canSticker() {
-    return !!this.e && !this.intro && !this.menu && !this.lobby && !this.mj.sess?.spectating;
+    return !!this.e && !this.intro && !this.menu && !this.lobby;
+  }
+  // 面板每次打開時重畫：彥霖一排，再來每位已加好友（src/ui/phone/Friends.js）的同學一排
+  _stickerRows() {
+    const btn = (text, img, label) =>
+      `<button class="mj-react" title="${esc(label)}" data-a='${JSON.stringify({ type: 'sticker', text })}'><img src="${img}" alt="${esc(label)}" loading="lazy"></button>`;
+    const row = (name, btns) =>
+      `<div class="mj-stk-row"><span>${esc(name)}</span><div>${btns.join('')}</div></div>`;
+    const friends = this.g.friends?.added;
+    const rows = [
+      row(
+        '彥霖',
+        SPECTATE_REACTS.map((r) => btn(r.text, r.img, r.label))
+      ),
+    ];
+    for (const r of this.mj.roster || []) {
+      if (!friends?.has?.(r.id) || !NPC_STICKERS[r.id]) continue;
+      rows.push(
+        row(
+          r.name,
+          NPC_STICKER_KINDS.map((k) => {
+            const st = npcSticker(r.id, k);
+            return btn(st.label, st.img, st.label);
+          })
+        )
+      );
+    }
+    return rows.join('');
   }
   _stickerMenu(open = this.$('.mj-stk').classList.contains('hidden')) {
-    this.$('.mj-stk').classList.toggle('hidden', !open);
+    const el = this.$('.mj-stk');
+    if (open) el.innerHTML = this._stickerRows();
+    el.classList.toggle('hidden', !open);
     this.$('.mj-stk-btn').classList.toggle('on', open);
   }
   _sendSticker(text) {

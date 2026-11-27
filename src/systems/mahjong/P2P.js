@@ -12,6 +12,7 @@ import {
   unrotateSeat,
 } from './Net.js';
 import { normalizeLook } from '../OutfitData.js';
+import { stickerByText } from './NpcStickers.js';
 
 const APP_ID = 'yanlin-gta-mahjong-v1';
 const peerIdOf = (ctx) => (typeof ctx === 'string' ? ctx : ctx?.peerId || null);
@@ -25,7 +26,9 @@ export const SPECTATE_REACTS = [
   { id: 'lol', text: '😂 笑死', label: '笑死' },
   { id: 'pray', text: '🙏 自摸！', label: '自摸！' },
 ].map((r) => ({ ...r, img: `assets/mahjong/react-${r.id}.webp` }));
-export const reactSticker = (text) => SPECTATE_REACTS.find((r) => r.text === text) || null;
+// 同學貼圖（玩家丟已加好友同學的貼圖）傳的是貼圖上的字，一樣換得回圖；舊版客端收到就顯示文字
+export const reactSticker = (text) =>
+  SPECTATE_REACTS.find((r) => r.text === text) || stickerByText(text);
 
 // 封裝 trystero@0.27 MessageAction（{ send(data, { target }), onMessage(cb(data, ctx)) }）
 function bindAction(room, name) {

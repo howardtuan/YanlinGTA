@@ -1,6 +1,8 @@
 // 單人模式：一起打牌的同學在牌局中會自己跳表情貼圖（assets/mahjong/npc/<id>-<kind>.webp，
 // 家裡 GPU 的 Qwen-Image 照各自的 3D 外觀畫的，每個人一組、文字照個性寫）。
 // kind：hu 自己胡、gun 自己放槍、ting 剛聽牌、call 碰／槓、other 別人胡（不是自己放的槍）
+// 所有貼圖（含彥霖那 5 張，P2P.js 的 SPECTATE_REACTS）的文字都不能重複，意思也盡量不要太像：
+// 玩家可以丟已加好友同學的貼圖，連線時只傳文字，收到的人靠文字換回是哪張圖（stickerByText）
 export const NPC_STICKER_KINDS = ['hu', 'gun', 'ting', 'call', 'other'];
 
 export const NPC_STICKERS = {
@@ -46,13 +48,13 @@ export const NPC_STICKERS = {
     call: '變走囉！',
     other: '幫你記帳！',
   },
-  richard: { hu: '胡了！', gun: '放槍了…', ting: '聽牌！', call: '碰！', other: '好牌！' },
+  richard: { hu: '胡了！', gun: '失手了…', ting: '就差一張！', call: '碰！', other: '下把換我！' },
   garry: {
     hu: '承讓囉！',
-    gun: '哎呀放槍了',
-    ting: '我聽牌囉！',
-    call: '這張先收囉',
-    other: '打得漂亮！',
+    gun: '跑不動了…',
+    ting: '調好音了！',
+    call: '輕輕一撥！',
+    other: '配速不錯喔！',
   },
 };
 
@@ -60,6 +62,14 @@ export const NPC_STICKERS = {
 export function npcSticker(id, kind) {
   const label = NPC_STICKERS[id]?.[kind];
   return label ? { img: `assets/mahjong/npc/${id}-${kind}.webp`, label } : null;
+}
+
+// 文字 → 同學貼圖（連線收到的貼圖、玩家自己丟的同學貼圖都靠這個換回圖）；不認得就 null
+export function stickerByText(text) {
+  for (const id in NPC_STICKERS)
+    for (const k of NPC_STICKER_KINDS)
+      if (NPC_STICKERS[id][k] === text) return { id: `${id}-${k}`, text, ...npcSticker(id, k) };
+  return null;
 }
 
 // 一個牌局事件該讓哪些座位跳哪種貼圖：回傳 [{ seat, kind, delay }]（delay 秒）。

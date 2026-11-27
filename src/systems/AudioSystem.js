@@ -49,6 +49,8 @@ const SFX_DECODED = [
   'bike_scrape',
   'ragdoll_thud',
   'clock_chime',
+  'train_run',
+  'crossing_bell',
 ];
 export function loadSettings() {
   // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
@@ -686,6 +688,41 @@ export class Audio {
     else run();
   }
   // 二一鐘塔整點鐘聲
+  // 循環的錄音（解碼過的 buffer，接縫不會有空檔）放在世界某處：每幀以音量 v、左右聲道 pan、播放速度 rate 呼叫，
+  // 不再呼叫就自己淡出；例如火車行駛聲與平交道警鈴（src/entities/Trains.js）。錄音還沒載入時不出聲
+  loopBufAt(key, name, v, dt, pan = 0, rate = 1) {
+    if (!this.ctx || !this.sfx) return;
+    const L = (this._bufLoops ||= {});
+    if (v <= 0.001 && !L[key]) return;
+    let b = L[key];
+    if (!b) {
+      const lb = this._loopBuf(name);
+      if (!lb) return;
+      lb.g.disconnect();
+      const p = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null;
+      if (p) {
+        lb.g.connect(p);
+        p.connect(this.sfx);
+      } else lb.g.connect(this.sfx);
+      b = L[key] = { ...lb, p };
+    }
+    this._hold(b.g.gain, v, 0.25);
+    const t = this.ctx.currentTime;
+    if (b.p) b.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.15);
+    b.s.playbackRate.setTargetAtTime(rate, t, 0.2);
+  }
+  // 火車鳴笛：電聯車的雙音笛，從 (x, z) 傳來
+  trainHorn(x, z) {
+    this.at(x, z, 420, () => {
+      for (const [f, d] of [
+        [370, 0],
+        [440, 0],
+      ]) {
+        this.tone(f, 0.55, 'sawtooth', 0.05, d, 0.995, 1800);
+        this.tone(f, 0.75, 'sawtooth', 0.05, 0.7 + d, 0.995, 1800);
+      }
+    });
+  }
   clockChime(x, z) {
     this.at(x, z, 160, () => {
       if (this._play('clock_chime', 0.55, 0, 0.99 + Math.random() * 0.02)) return;

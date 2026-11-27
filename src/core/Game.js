@@ -3,6 +3,8 @@ import { buildWorld, buildSkyline, mulberry32, LABEL_LAYER } from '../world/MapB
 import { installShadowDepth } from '../graphics/ShadowFix.js';
 import { Vehicle, sameLevel, bodyGap } from '../entities/Vehicles.js';
 import { Traffic, Peds } from '../entities/NPC.js';
+import { Trains } from '../entities/Trains.js';
+import { buildRailway } from '../world/Railway.js';
 import { Player, CameraRig } from '../entities/Player.js';
 import { Input } from './Input.js';
 import { Audio, loadSettings, saveSettings } from '../systems/AudioSystem.js';
@@ -99,7 +101,7 @@ import { Ragdoll } from '../physics/Ragdoll.js';
 import { Walker } from '../entities/Walker.js';
 import { buildPhysicsWorld } from '../physics/PhysWorld.js';
 import { spawnWorldCones, spawnWorldCrates } from '../world/WorldProps.js';
-import { isLunarNewYear } from '../world/Season.js';
+import { isLunarNewYear, seasonDate } from '../world/Season.js';
 import { buildNewYearDecor } from '../world/Festive.js';
 import { Firecrackers } from '../systems/Firecrackers.js';
 
@@ -394,6 +396,8 @@ class Game {
       vegHide: zoneVegHide(data),
       treeHide: zoneTreeHide(data),
     });
+    // 縱貫線的平交道與鐵道圍籬（圍籬的碰撞要在 build-physics 之前加進 world.collision）
+    this.railway = buildRailway(this.scene, this.world, data, { low: this.lowQ });
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality();
     await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
@@ -450,6 +454,15 @@ class Game {
     }
     this.peds.inView = this.traffic.inView;
     this.traffic.peds = this.peds;
+    // 火車照台鐵班表開過（src/entities/Trains.js）；平交道關著時車流停在停止線前
+    {
+      const day = seasonDate().getDay();
+      this.trains = new Trains(this.scene, this.railway, {
+        weekend: day === 0 || day === 6,
+        low: this.lowQ,
+      });
+      this.traffic.gates = this.peds.gates = this.railway.gates;
+    }
     this.vehicles = [];
     this.npcs = [];
     this.votes = 0;
@@ -1188,6 +1201,8 @@ class Game {
     }
     // Keep nearby parked vehicles & roadside slots active as Rapier movers both while driving AND
     // whenever any dynamic knocked vehicle/ragdoll is moving, so falling scooters never clip through neighbors
+    // 火車車廂（src/entities/Trains.js）：推開開著的車、被撞飛的東西
+    this.trains?.movers(list, wp.x, wp.z, 80);
     if (pv?.body || P.knocked.size > 0 || P.rags.size > 0) {
       const near = [];
       for (const o of this.vehicles) {
@@ -1203,6 +1218,74 @@ class Game {
     }
     P.movers(list, dt);
     P.focus = wp;
+  }
+
+  // 火車：照班表移動、平交道、音效，然後處理撞到的東西（火車不會停：被撞的都被推開或撞飛）
+  _trainTick(dt) {
+    const T = this.trains;
+    if (!T) return;
+    T.night = this.night;
+    T.update(dt, this.clock, { audio: this.audio, focus: this.player.worldPos() });
+    if (!T.cars.length) return;
+    const pl = this.player,
+      v = pl.vehicle,
+      hud = this.hud;
+    const fling = (h, side, along, up) => [
+      h.nx * side + h.car.dirX * along,
+      h.nz * side + h.car.dirZ * along,
+      up,
+    ];
+    if (v) {
+      const h = T.hit(v.pos.x, v.pos.z, v.mesh.position.y, v.hw + 0.15);
+      if (h && !v.crash) {
+        if (!v.body) {
+          v.pos.x += h.nx * h.depth;
+          v.pos.z += h.nz * h.depth;
+          v.speed = 0;
+        }
+        this.audio.bump(3, v.kind);
+        if (v.kind === 'scooter') {
+          v.crash = {
+            impact: h.car.speed,
+            speed: Math.abs(v.speed),
+            nx: h.nx,
+            nz: h.nz,
+            pushed: true,
+          };
+          hud.toast('被火車撞飛了！🚆😵', 'bad', 2500);
+          this._throwOff(v);
+        } else if (!this._trainBumpT || this.time - this._trainBumpT > 2) {
+          this._trainBumpT = this.time;
+          hud.toast('被火車擦撞了！🚆', 'bad', 2000);
+        }
+      }
+    } else if (!pl.rag && !pl.tumble) {
+      const h = T.hit(pl.pos.x, pl.pos.z, pl.pos.y, 0.35);
+      if (h) {
+        pl.pos.x += h.nx * h.depth;
+        pl.pos.z += h.nz * h.depth;
+        this.audio.hitPed();
+        pl.throwOff(...fling(h, 6, h.car.speed * 0.45, 4.2), 2.2);
+        hud.toast('被火車撞飛了！🚆😵', 'bad', 2500);
+      }
+    }
+    // 車流、停放的車：撞飛（交給 Rapier，落地後車流照常開走：Traffic.landed）
+    const throwV = (o, done) => {
+      const h = T.hit(o.pos.x, o.pos.z, o.mesh.position.y, o.hw ?? 0.6);
+      if (!h) return;
+      const [vx, vz] = fling(h, 8, h.car.speed * 0.5, 0);
+      this.vehicleSpawner.throwVehicle(o, vx, vz, 11, done);
+      this.audio.at?.(o.pos.x, o.pos.z, 60, () => this.audio.bump(3, o.kind));
+    };
+    for (const o of this.traffic.vehicles())
+      if (o !== v && !o.knocked && !o.ai?.dormant)
+        throwV(o, (p, up) => this.traffic.landed(o, p, up));
+    for (const o of this.vehicles) if (o !== v && !o.knocked && !o.driver && !o.ai) throwV(o, null);
+    for (const p of this.peds.active()) {
+      if (p.state === 'fly' || p.state === 'down') continue;
+      const h = T.hit(p.pos.x, p.pos.z, p.y ?? 0, 0.3);
+      if (h) this.peds.knock(p, h.nx, h.nz, h.car.speed * 0.6);
+    }
   }
 
   _nearestPed(r) {
@@ -1675,6 +1758,7 @@ class Game {
       ],
     };
     this.traffic.update(dt, info, this.audio);
+    this._trainTick(dt);
     this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
     const inZn = !pl.vehicle ? this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) : null;

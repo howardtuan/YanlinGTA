@@ -399,9 +399,50 @@
   }
   // free-space plan (used when a timed mission failed on roads): coarse 2 m grid over open ground,
   // slightly preferring roads, then string pulling without the stay-on-road rule
+  // walking height under (x, z) from the physics world itself (pads, kerbs, decks, terrain), null without physics
+  function physGround(x, z) {
+    const P = game.physics;
+    if (!P?.world) return null;
+    const F = P.R.QueryFilterFlags, // fixed colliders only: not the traffic, people or knock-over props
+      flags = F ? F.EXCLUDE_DYNAMIC | F.EXCLUDE_KINEMATIC | F.EXCLUDE_SENSORS : undefined;
+    const hit = P.world.castRay(
+      new P.R.Ray({ x, y: 60, z }, { x: 0, y: -1, z: 0 }),
+      120,
+      true,
+      flags
+    );
+    return hit ? 60 - hit.timeOfImpact : null;
+  }
+  // a step the scooter cannot ride up within r of (x, z): a raised pad's edge (data/cycu.json levels.pads,
+  // e.g. 泉源之谷 west_landing at 0.25 m) is open for walking (src/world/Terrain.js STEP_UP) and has no
+  // collision line, so world.isFree says free, but the wheels stop dead against it
+  const KERB = 0.18;
+  function kerbAt(x, z, r) {
+    const y0 = physGround(x, z);
+    if (y0 === null) return false;
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4,
+        y = physGround(x + Math.cos(a) * r, z + Math.sin(a) * r);
+      if (y !== null && Math.abs(y - y0) > KERB) return true;
+    }
+    return false;
+  }
+  function segKerb(a, b) {
+    const d = hyp(b.x - a.x, b.z - a.z),
+      n = Math.max(1, Math.ceil(d / 0.8));
+    let prev = physGround(a.x, a.z);
+    for (let i = 1; i <= n; i++) {
+      const t = i / n,
+        y = physGround(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t);
+      if (y !== null && prev !== null && Math.abs(y - prev) > KERB) return true;
+      prev = y;
+    }
+    return false;
+  }
   function planOffroad(a, b, mode) {
     const r = mode === 'foot' ? 0.5 : 1.2,
-      w = game.world;
+      w = game.world,
+      ride = mode !== 'foot';
     const det = gridDetour(
       a,
       b,
@@ -409,7 +450,7 @@
       40,
       2,
       120000,
-      (x, z) => w.isFree(x, z, r),
+      (x, z) => w.isFree(x, z, r) && !(ride && kerbAt(x, z, 1.2)),
       (x, z) => (onRoad(x, z, 1) ? 0 : 0.25)
     );
     if (!det) return null;
@@ -420,7 +461,7 @@
       let j = i + 1;
       for (let k = i + 2; k < out.length; k++) {
         if (hyp(out[k].x - out[i].x, out[k].z - out[i].z) > 150) break;
-        if (segFree(out[i], out[k], r + 0.3)) j = k;
+        if (segFree(out[i], out[k], r + 0.3) && !(ride && segKerb(out[i], out[k]))) j = k;
         else if (k - j > 8) break;
       }
       res.push(out[j]);
@@ -1344,6 +1385,19 @@
         ev('pc-off', { solved: D.solved('banner') });
         document.getElementById('pcPower').click();
       }
+      return;
+    }
+    // the first time a case opens, 🎬 一鍵通關 asks "要自動通關嗎？" (src/ui/AutoSolveUI.js). While that pop-up is up it
+    // swallows every keydown, so the terminal never sees our Enter. Answer like a player who types it: 「✍️ 我自己來」.
+    const ask = document.querySelector('.as-layer.as-ask');
+    if (ask) {
+      const btns = [...ask.querySelectorAll('[data-i]')],
+        manual = btns.find((b) => b.textContent.includes('我自己來')) || btns[btns.length - 1];
+      if (manual) {
+        ev('autosolve-ask', { pick: manual.textContent.trim() });
+        manual.click();
+      }
+      if (B._term) B._term.next = rt + 400;
       return;
     }
     let t = B._term;

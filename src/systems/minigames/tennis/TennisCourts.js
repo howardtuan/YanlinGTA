@@ -1,6 +1,8 @@
 // 網球場上的人（場地在 src/world/Tennis.js，規則與球在 ./Rules.js）：
 //  - 06:00～23:00（晚上開燈），北塊東邊那面和南塊東邊那面一直有學生在打，南塊西邊那面單數天的下午也有人打；
-//  - 北塊西邊那面是網球社的阿凱在等人：走到北側底線後面按 E 和他打一盤（先拿 3 局的贏，不打搶七）。
+//  - 走進任何一面空著的球場（沒有學生在打的那面）按 E 就能打球，像 277 寢揪麻將那樣：找同學來打，就有一個同學
+//    從那一塊的球場大門走進來、站到對面底線，人到了才開打（等不及再按 E 叫他直接上場）；先拿 3 局的贏，不打搶七。
+//    同一個選單也能開房間、輸入房號和朋友線上對打（P2P，./Net.js）。
 //    玩家照平常的方式跑位（WASD／搖桿，鏡頭方向為準），按滑鼠左鍵（或 J、手把 X）揮拍：球在身邊、揮拍時機對就打回去，
 //    打得越乾淨球越快越準；揮拍時按著左右決定打向對方場地的哪一邊。輪到你發球時按左鍵發球。Esc 或走出球場就結束。
 // 這個檔和 ./Rules.js 是獨立的包：src/core/Game.js 在玩家走近網球場時才 import()（同 issue #389 的拆包做法），
@@ -10,7 +12,7 @@ import { createCharacter, randomStudent } from '../../../entities/Character.js';
 import { reachArm } from '../../../entities/Armik.js';
 import { surfaceAt } from '../../../world/Terrain.js';
 import { makeLabel } from '../../../world/MapBuilder.js';
-import { TENNIS, tennisP, O, D, HL } from '../../../world/Tennis.js';
+import { TENNIS, tennisP, O, D, HL, HW } from '../../../world/Tennis.js';
 import { Rally, SWING, stepBall } from './Rules.js';
 import { hostTennis, joinTennis, applySnapshot, normCode } from './Net.js';
 import { makeOutfitFigure } from '../../Outfits.js';
@@ -34,6 +36,26 @@ const angDiff = (a, b) => {
   return d;
 };
 const sm = (k) => k * k * (3 - 2 * k);
+
+// how a student called to court i walks in, in the courts' (u, v) frame (src/world/Tennis.js): from outside the block,
+// through its gate, along the gap between the nets, to the far (south) baseline. North block: the gate east of the
+// hut; south block: the gate in the south fence between its two courts.
+const GAP_N = (TENNIS[0][1] + TENNIS[1][1]) / 2; // between the two north courts' net posts
+export function approachPath(i) {
+  const [cu, cv] = TENNIS[i],
+    end = [cu + HL + 0.8, cv];
+  if (i < 2)
+    return [[-34, 16.1], [-16.6, 16.1], [-14, 16.1], [-14, GAP_N], [cu + HL + 0.8, GAP_N], end];
+  return [[66, -14.8], [52.4, -14.8], [50.2, -14.8], end];
+}
+const WALK = 2.6; // m/s, a brisk walk
+// your own matches: shots leave the racket at this share of real speed (higher, slower arcs), and every ball is
+// drawn bigger than a real one (BALL_R 3.3 cm) so you can follow it -- the line calls still use the real size
+const PACE = 0.72,
+  BALL_VIS = 0.075;
+// who comes (a name to fit the look)
+const BOYS = ['柏翰', '冠宇', '阿哲', '家豪', '彥廷'],
+  GIRLS = ['佳穎', '怡君', '詩涵', '雅婷', '宜蓁'];
 
 // the right hand's path through a swing, in the player's own frame (x + = his left, y up, z forward), and how far
 // the shoulders turn (+ = to the left): [t, x, y, z, twist]
@@ -135,11 +157,11 @@ export class TennisCourts {
         depthWrite: false,
       }),
     };
-    this.ballGeo = new THREE.SphereGeometry(0.045, 12, 8);
-    this.shadowGeo = new THREE.CircleGeometry(0.06, 12).rotateX(-Math.PI / 2);
+    this.ballGeo = new THREE.SphereGeometry(BALL_VIS, 12, 8);
+    this.shadowGeo = new THREE.CircleGeometry(BALL_VIS * 1.3, 12).rotateX(-Math.PI / 2);
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    // the people: 阿凱 on court 0, two each on the others
+    // the people: two each on courts 1-3 (court 0 is always free for you)
     const person = (look, name) => {
       const ch = createCharacter(look);
       ch.root.visible = false;
@@ -147,9 +169,8 @@ export class TennisCourts {
       holdRacket(ch, makeRacket(this.mats));
       return { ch, name, heading: 0 };
     };
-    let kaiLook = randomStudent(rnd);
-    while (kaiLook.female) kaiLook = randomStudent(rnd); // 阿凱 is a guy
-    this.kai = person({ ...kaiLook, shirt: '#1f6fb2', pants: '#f2f2f2' }, '阿凱');
+    this._person = person;
+    this.opp = null; // the student who comes to play you: { ch, name, heading, path, k, i, leaving }
     this.courts = [1, 2, 3].map((i) => ({
       i,
       people: [person(randomStudent(rnd), '同學'), person(randomStudent(rnd), '同學')],
@@ -158,25 +179,36 @@ export class TennisCourts {
       rest: 0,
     }));
     this.mine = { i: 0, ball: this._ballMesh(), rally: null, people: null };
+    this.ci = 0; // the court you play on
     this.racket = makeRacket(this.mats); // yours, while you play
     this.hudEl = null;
-    // E behind the north baseline of court 0
-    const [ax, az] = toW(0, -HL - 1.3, 0);
-    const ask = {
-      y: 0,
-      r: 2.2,
-      label: () => '按 <kbd>E</kbd> 打網球（和阿凱打一盤，或和朋友線上對打）',
-      cond: () => !this.playing && !g.player.vehicle,
-      fn: () => this.menu(),
-    };
-    g.interiors.actions.push({ ...ask, x: ax, z: az });
-    // or walk up to him where he waits (south baseline)
-    const [kx, kz] = toW(0, HL + 0.8, 0);
-    g.interiors.actions.push({ ...ask, x: kx, z: kz, r: 2.6, aimY: surfaceAt(kx, kz) + 1.2 });
-    // his name over his head
-    const tag = makeLabel('🎾 網球社 阿凱', { height: 0.26, size: 40 });
-    tag.position.y = 2.15;
-    this.kai.ch.root.add(tag);
+    this.rnd = rnd;
+    // E anywhere on a court nobody is playing on (the court and a bit around it, not reaching the next one)
+    for (let i = 0; i < 4; i++) {
+      const U = HL + 5,
+        V = HW + 1.9;
+      const [cx, cz] = toW(i, 0, 0);
+      g.interiors.actions.push({
+        y: 0,
+        poly: [toW(i, -U, -V), toW(i, -U, V), toW(i, U, V), toW(i, U, -V)],
+        aimY: surfaceAt(cx, cz) + 1,
+        glow: 0.01,
+        label: () =>
+          this.opp && !this.opp.leaving
+            ? `${this.opp.name}正在走過來…按 <kbd>E</kbd> 請對方直接上場`
+            : '按 <kbd>E</kbd> 打網球（找同學來打一盤，或和朋友線上對打）',
+        cond: () =>
+          !this.playing &&
+          !g.player.vehicle &&
+          (this.opp && !this.opp.leaving ? this.opp.i === i : this.free(i)),
+        fn: () => (this.opp && !this.opp.leaving ? this._arrive() : this.menu(i)),
+      });
+    }
+  }
+  // nobody is playing on court i (the students' courts are taken while they play)
+  free(i) {
+    const c = this.courts.find((c) => c.i === i);
+    return !c || !this._on(c);
   }
   _ballMesh() {
     const m = new THREE.Mesh(this.ballGeo, this.mats.ball),
@@ -193,6 +225,7 @@ export class TennisCourts {
   // a court where the students play today (court 2, the south block's west one, only on odd days after 14:00)
   _on(c) {
     if (!this.open()) return false;
+    if ((this.playing || this.opp) && this.ci === c.i) return false; // you took it first
     if (c.i !== 2) return true;
     const day = Math.floor(this.g.clock / 1440),
       m = this.g.clock - day * 1440;
@@ -210,14 +243,15 @@ export class TennisCourts {
     });
   }
   // ---------------- your match ----------------
-  // E at court 0: 阿凱, or a match with a friend online (P2P, ./Net.js)
-  menu() {
+  // E on court i: call a student over, or a match with a friend online (P2P, ./Net.js)
+  menu(i = 0) {
     const g = this.g;
+    this.ci = i;
     document.exitPointerLock?.();
     g.modal(
       '🎾 網球場',
       `<div class="modal-btns">
-        <button class="menu-btn" id="tnKai"><span>和網球社的阿凱打一盤</span><small>先拿 3 局</small></button>
+        <button class="menu-btn" id="tnKai"><span>找同學來打一盤</span><small>同學走過來就開打・先拿 3 局</small></button>
         <button class="menu-btn" id="tnHost"><span>開房間，和朋友線上對打</span><small>產生 4 碼房號・P2P</small></button>
       </div>
       <div style="display:flex;gap:8px;margin:10px 0 4px;align-items:center">
@@ -225,7 +259,7 @@ export class TennisCourts {
           style="flex:1;font:600 18px/1.2 system-ui;letter-spacing:4px;text-transform:uppercase;padding:8px 10px;border-radius:8px;border:1px solid #888">
         <button class="menu-btn" id="tnJoin" style="flex:0 0 auto"><span>加入</span></button>
       </div>
-      <div id="tnMsg" style="min-height:1.4em;font-size:14px;opacity:.85">線上對打：兩個人都要走到這面球場按 E，一個開房、一個輸入房號。</div>
+      <div id="tnMsg" style="min-height:1.4em;font-size:14px;opacity:.85">線上對打：兩個人各自走進一面空的球場按 E，一個開房、一個輸入房號。</div>
       <div class="modal-btns"><button class="menu-btn" id="tnBye"><span>算了</span><small>ESC</small></button></div>`,
       'TENNIS'
     );
@@ -242,11 +276,11 @@ export class TennisCourts {
     };
     $('tnKai').onclick = () => {
       close();
-      this._begin('ai');
+      this._call(i);
     };
     if (!this.open()) {
       $('tnKai').disabled = true;
-      $('tnKai').querySelector('small').textContent = '阿凱 06:00～23:00 才在';
+      $('tnKai').querySelector('small').textContent = '06:00～23:00 才有同學來打球';
     }
     const who = { name: tennisNick(), look: g.player.look || null };
     $('tnHost').onclick = async () => {
@@ -264,7 +298,7 @@ export class TennisCourts {
             leave: (why) => this.quit(why),
           },
         });
-        msg(`房號 ${this.net.code}　等朋友加入…（朋友走到這面球場按 E，輸入房號）`);
+        msg(`房號 ${this.net.code}　等朋友加入…（朋友走進一面空的球場按 E，輸入房號）`);
         $('tnKai').disabled = $('tnHost').disabled = $('tnJoin').disabled = true;
       } catch (e) {
         msg(`開房失敗：${e?.message || '請稍後再試'}`);
@@ -301,8 +335,87 @@ export class TennisCourts {
       if (e.key === 'Enter') $('tnJoin').click();
     });
   }
-  start() {
+  start(i = 0) {
+    this.ci = i;
     this._begin('ai');
+  }
+  // ---------------- a student comes over ----------------
+  _call(i) {
+    const g = this.g;
+    this._dropOpp();
+    const look = randomStudent(this.rnd),
+      names = look.female ? GIRLS : BOYS,
+      name = names[Math.floor(this.rnd() * names.length)];
+    const p = this._person(look, name);
+    const tag = makeLabel(`🎾 ${name}`, { height: 0.26, size: 40 });
+    tag.position.y = 2.15;
+    p.ch.root.add(tag);
+    p.ch.root.visible = true;
+    this.ci = i;
+    this.opp = { ...p, i, path: approachPath(i), k: 0, leaving: false };
+    const [u, v] = this.opp.path[0];
+    this.opp.pos = [u, v];
+    g.hud.toast(`找了${name}來打球，等對方走過來（按 E 可以請對方直接上場）`, 'good', 3000);
+  }
+  // walks the student along his path; true when he got to its end
+  _walkOpp(dt) {
+    const o = this.opp,
+      path = o.path;
+    let step = WALK * dt,
+      moving = false;
+    while (step > 0 && o.k + 1 < path.length) {
+      const [tu, tv] = path[o.k + 1],
+        du = tu - o.pos[0],
+        dv = tv - o.pos[1],
+        d = Math.hypot(du, dv);
+      if (d <= step) {
+        o.pos = [tu, tv];
+        o.k++;
+        step -= d;
+        continue;
+      }
+      o.pos = [o.pos[0] + (du / d) * step, o.pos[1] + (dv / d) * step];
+      moving = true;
+      const [x0, z0] = tennisP(...o.pos),
+        [x1, z1] = tennisP(tu, tv);
+      o.heading += angDiff(Math.atan2(x1 - x0, z1 - z0), o.heading) * Math.min(1, dt * 8);
+      step = 0;
+    }
+    const [x, z] = tennisP(...o.pos),
+      ch = o.ch;
+    ch.root.visible = true;
+    ch.root.position.set(x, surfaceAt(x, z), z);
+    if (!moving) o.heading += angDiff(faceU(-1), o.heading) * Math.min(1, dt * 6);
+    ch.root.rotation.y = o.heading;
+    this._detail(ch, x, z);
+    ch.update(dt, { speed: moving ? WALK : 0, mode: 'foot' });
+    this._arms(ch, null, 0, false);
+    return o.k + 1 >= path.length;
+  }
+  // the student is on the baseline (or you said to hurry up): play
+  _arrive() {
+    const o = this.opp;
+    if (!o) return;
+    if (!this.open()) {
+      this.g.hud.toast(`${o.name}說太晚了，下次再打`, 'bad', 2000);
+      return this._sendOff();
+    }
+    this._begin('ai');
+  }
+  // done: he walks back out the way he came, then goes away
+  _sendOff() {
+    const o = this.opp;
+    if (!o) return;
+    o.pos = toL(0, o.ch.root.position.x, o.ch.root.position.z); // court 0 sits at (0, 0): the courts' own frame
+    o.path = [o.pos, ...approachPath(o.i).slice(1, -1).reverse(), approachPath(o.i)[0]];
+    o.k = 0;
+    o.leaving = true;
+  }
+  _dropOpp() {
+    if (!this.opp) return;
+    this.g.scene.remove(this.opp.ch.root);
+    this.opp.ch.dispose?.(); // a new student each time: free his merged meshes
+    this.opp = null;
   }
   // mode 'ai': you (north) vs 阿凱; 'host': you run the rules, your friend is player 1 (south);
   // 'guest': a copy of the host's match, you are player 1
@@ -311,7 +424,8 @@ export class TennisCourts {
     this.playing = true;
     this.mode = mode;
     this.me = mode === 'guest' ? 1 : 0;
-    const other = mode === 'ai' ? '阿凱' : String(o.name || '朋友').slice(0, 12);
+    if (mode !== 'ai') this._dropOpp(); // online: your friend has the other end
+    const other = mode === 'ai' ? this.opp?.name || '同學' : String(o.name || '朋友').slice(0, 12);
     this.otherName = other;
     const names = this.me ? [other, '你'] : ['你', other];
     this.mine.rally = new Rally({
@@ -321,8 +435,9 @@ export class TennisCourts {
       })),
       gamesToWin: 3,
       server: mode === 'ai' ? 1 : 0,
+      pace: PACE,
     });
-    if (mode === 'ai') this.mine.people = [null, this.kai];
+    if (mode === 'ai') this.mine.people = [null, this.opp];
     else {
       const f = makeOutfitFigure(o.look);
       g.scene.add(f.root);
@@ -357,6 +472,7 @@ export class TennisCourts {
     this.racket.parent?.remove(this.racket);
     this.mine.rally = null;
     this.mine.ball.m.visible = this.mine.ball.s.visible = false;
+    this._sendOff();
     this._hud(false);
     if (msg) g.hud.toast(msg, 'bad', 2400);
   }
@@ -413,22 +529,15 @@ export class TennisCourts {
       this._sounds(c.i, c.rally, c.rally.take());
       this._draw(c.i, c.rally, c.people, c.ball, dt);
     }
-    // 阿凱 (off the court while you play a friend on it)
-    const online = this.playing && this.mode !== 'ai',
-      kaiOn = shown && !online && (this.open() || this.playing);
-    this.kai.ch.root.visible = kaiOn;
     if (this.playing) this._play(dt, inp);
-    else if (kaiOn) this._idleKai(dt);
-  }
-  _idleKai(dt) {
-    const k = this.kai,
-      [x, z] = toW(0, HL + 0.8, 0);
-    k.ch.root.position.set(x, surfaceAt(x, z), z);
-    k.heading = faceU(-1);
-    k.ch.root.rotation.y = k.heading;
-    this._detail(k.ch, x, z);
-    k.ch.update(dt, { speed: 0, mode: 'foot' });
-    this._arms(k.ch, null, 0, true);
+    else if (this.opp) {
+      // the student you called, on his way in (or out again)
+      if (far) this._dropOpp();
+      else if (this._walkOpp(dt)) {
+        if (this.opp.leaving) this._dropOpp();
+        else this._arrive();
+      }
+    }
   }
   _play(dt, inp) {
     const g = this.g,
@@ -438,18 +547,18 @@ export class TennisCourts {
       s = me.side;
     // you: put in place for each serve, kept on your own half
     if (r.state === 'serve' && this._lastState !== 'serve') {
-      const [x, z] = toW(0, me.tu, me.tv);
+      const [x, z] = toW(this.ci, me.tu, me.tv);
       pl.place(x, z, faceU(-s));
       g.rig.yaw = faceU(-s);
     }
     this._lastState = r.state;
-    let [u, v] = toL(0, pl.pos.x, pl.pos.z);
+    let [u, v] = toL(this.ci, pl.pos.x, pl.pos.z);
     // your own half: not over the net, not onto the next court (the fences do the rest); out the back = you leave
     if (u * s > HL + 6.5) return this.quit('你離開球場，比賽結束');
     const cu = s * Math.max(0.6, u * s),
       cv = Math.max(-10.5, Math.min(10, v));
     if (cu !== u || cv !== v) {
-      [pl.pos.x, pl.pos.z] = toW(0, cu, cv);
+      [pl.pos.x, pl.pos.z] = toW(this.ci, cu, cv);
       u = cu;
       v = cv;
     }
@@ -504,7 +613,7 @@ export class TennisCourts {
         }
       }
     }
-    this._sounds(0, r, events);
+    this._sounds(this.ci, r, events);
     const mine = (w) => w === this.me,
       who = this.otherName;
     for (const e of events) {
@@ -534,7 +643,7 @@ export class TennisCourts {
       pl.ch.root.rotation.y = pl.heading;
     }
     this._arms(pl.ch, me, me.swingT, r.ball.live || r.state === 'serve');
-    this._draw(0, r, this.mine.people, this.mine.ball, dt);
+    this._draw(this.ci, r, this.mine.people, this.mine.ball, dt);
     this._hudUpdate();
     if (r.state === 'over') this.quit();
   }
@@ -558,7 +667,7 @@ export class TennisCourts {
     g.hud.bigToast(won ? '你贏了！' : `${this.otherName}贏了`, score, 3200);
     if (won && this.mode === 'ai' && !this.wonOnce) {
       this.wonOnce = true;
-      g.addVotes?.(2, '贏了網球社的阿凱');
+      g.addVotes?.(2, '網球贏了來打球的同學');
     }
   }
   // ball and the AI people of one rally
@@ -567,7 +676,7 @@ export class TennisCourts {
     const [bx, bz] = toW(i, b.u, b.v),
       gy = surfaceAt(bx, bz);
     ball.m.visible = ball.s.visible = b.live || b.held || r.state === 'dead';
-    ball.m.position.set(bx, gy + b.h, bz);
+    ball.m.position.set(bx, gy + Math.max(b.h, BALL_VIS), bz); // the big ball sits on the ground, not in it
     ball.s.position.set(bx, gy + 0.03, bz);
     ball.s.material.opacity = 0.35;
     r.players.forEach((p, k) => {

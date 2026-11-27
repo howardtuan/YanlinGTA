@@ -221,3 +221,60 @@ describe('線上對打（Net.js）', () => {
     host.close();
   });
 });
+
+describe('找同學來打：走進球場的路線', () => {
+  it('四面球場都從大門進來、不穿過球網，停在對面底線', async () => {
+    const { approachPath } = await import('../../src/systems/minigames/tennis/TennisCourts.js');
+    const { TENNIS, NP } = await import('../../src/world/Tennis.js');
+    for (let i = 0; i < 4; i++) {
+      const path = approachPath(i),
+        [cu, cv] = TENNIS[i],
+        end = path[path.length - 1];
+      expect(end[0]).toBeCloseTo(cu + HL + 0.8);
+      expect(end[1]).toBeCloseTo(cv);
+      // through a gate in the block's fence (north block u = -16.6, south block u = 52.4)
+      expect(path.some(([u]) => Math.abs(u - (i < 2 ? -16.6 : 52.4)) < 0.01)).toBe(true);
+      // no leg goes through any court's net (u = court centre, |v - centre| < net post)
+      for (let k = 0; k + 1 < path.length; k++) {
+        const [u0, v0] = path[k],
+          [u1, v1] = path[k + 1];
+        for (const [nu, nv] of TENNIS) {
+          if ((u0 - nu) * (u1 - nu) >= 0 || u0 === u1) continue;
+          const v = v0 + ((nu - u0) / (u1 - u0)) * (v1 - v0);
+          expect(Math.abs(v - nv)).toBeGreaterThan(NP);
+        }
+      }
+    }
+  });
+});
+
+describe('自己打的比賽球比較慢（pace）', () => {
+  it('pace 0.72 發出去的球水平速度比較慢、在空中比較久', () => {
+    const serve = (pace) => {
+      const r = new Rally({
+        players: [{ name: '你' }, { name: '同學' }],
+        rnd: lcg(5),
+        server: 0,
+        pace,
+      });
+      for (let i = 0; i < 120 && r.ball.vu === 0; i++) {
+        r.swing(0);
+        r.step(1 / 60);
+      }
+      const b = r.ball,
+        sp = Math.hypot(b.vu, b.vv);
+      let t = 0;
+      while (r.state === 'play' && t < 5) {
+        r.step(1 / 120);
+        t += 1 / 120;
+        if (r.take().some((e) => e.type === 'bounce' || e.type === 'net')) break;
+      }
+      return { sp, t };
+    };
+    const real = serve(1),
+      slow = serve(0.72);
+    expect(real.sp).toBeGreaterThan(10);
+    expect(slow.sp).toBeLessThan(real.sp * 0.8);
+    expect(slow.t).toBeGreaterThan(real.t);
+  });
+});

@@ -1,7 +1,7 @@
 {
   "_doc": [
     "Wiki 的合作店家清單。npcs 列出在店裡出現的角色 id（data/npcs.json）；url 留空就不顯示連結，只接受 https 網址。",
-    "內容改動時請對照 docs/guide/game-design.md 的店家段落。"
+    "內容改動時請對照 docs/specs/gameplay-and-ui.md 的店家段落。"
   ],
   "shops": [
     {

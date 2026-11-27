@@ -11,6 +11,7 @@ import {
   renderPages,
   renderWiki,
 } from '../../wiki/build.mjs';
+import { llmsTxt } from '../../wiki/seo.mjs';
 
 const npcs = JSON.parse(fs.readFileSync('data/npcs.json', 'utf-8')).npcs;
 const { people, extras = [] } = JSON.parse(fs.readFileSync('wiki/people.json', 'utf-8'));
@@ -90,6 +91,15 @@ describe('wiki', () => {
   it('AI 夥伴都有頭貼（wiki/img/<id>_av.jpg）', () => {
     for (const c of loadWikiData().chars.filter((c) => c.group === 'ai'))
       expect(c.avatar, c.id).toBeTruthy();
+  });
+
+  it('隱藏密技與機密彩蛋不上 Wiki 與 llms.txt', () => {
+    const data = loadWikiData();
+    const text = `${renderWiki(data)}\n${llmsTxt(data)}`;
+    // 「慰勞大家」是一般用語，不算角色名
+    expect(text.replace(/慰勞大/g, ''), '勞大').not.toContain('勞大');
+    for (const w of ['肘擊', '隱藏款彥霖特調', 'garry_alarm', '?date='])
+      expect(text, w).not.toContain(w);
   });
 
   it('首頁放宣傳片；找不到影片時退回封面圖', () => {

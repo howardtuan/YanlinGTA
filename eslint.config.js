@@ -66,7 +66,7 @@ export default [
       'tools/perf/*.mjs',
       'tools/floorplan/**/*.mjs',
       'tools/promo/*.mjs',
-      'wiki/build.mjs',
+      'wiki/*.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node },

@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import * as THREE from 'three';
 

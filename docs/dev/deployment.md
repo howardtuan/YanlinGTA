@@ -90,7 +90,7 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 | Wiki 每頁 JSON-LD | `wiki/build.mjs` `pageJsonLd()` | 首頁 `WebSite`＋`FAQPage`；一般頁 `WebPage`＋`BreadcrumbList`；文章 `NewsArticle` |
 | Wiki 首頁「常見問題」 | `wiki/build.mjs` `faqs()` | 看得到的 Q&A，跟 `FAQPage` 與 `llms.txt` 共用同一份；遊戲內容改了（例如新玩法、操作鍵）記得改這裡 |
 
-`check:dist` 會確認三個檔案都有產出，`tests/unit/seo.test.js` 檢查 sitemap 網址、JSON-LD 合法、FAQ 問題在頁面上看得到。
+`check:dist` 會確認三個檔案都有產出，`tests/integration/seo.test.js` 檢查 sitemap 網址、JSON-LD 合法、FAQ 問題在頁面上看得到。
 
 **Google Search Console 設定（一次性）**
 1. 到 <https://search.google.com/search-console> 新增資源，選 **網域（Domain）** 輸入 `yanlin-gta.com`（會涵蓋 `www` 與 http/https）。

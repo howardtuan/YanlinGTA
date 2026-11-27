@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ZzInjury } from '../../src/systems/quests/ZzInjury.js';
 import { pickSent, Phone } from '../../src/ui/phone/Phone.js';

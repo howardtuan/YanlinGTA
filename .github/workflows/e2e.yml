@@ -12,10 +12,18 @@ on:
         required: false
         default: 'low'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   story-bot:
     name: Run Story Mode E2E Bot
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -41,6 +49,18 @@ jobs:
             --quality=${{ github.event.inputs.quality || 'low' }} \
             --timeout=${{ github.event.inputs.timeout || '20' }} \
             --no-shots
+
+      - name: Write E2E summary
+        if: always()
+        run: |
+          if [ -f tools/e2e/out/report.json ]; then
+            node -e "
+              const r = JSON.parse(require('fs').readFileSync('tools/e2e/out/report.json', 'utf8'));
+              console.log('### Story Bot E2E Result: ' + (r.passed ? 'PASS' : 'FAIL'));
+              console.log('- Step reached:', r.step ?? '-');
+              console.log('- Wall time (s):', r.wallSec ?? '-');
+            " >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload E2E Artifacts
         if: always()

@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // #302 外觀網格 vs 碰撞：tools/collision_mesh_check.mjs 在遊戲裡抓到「看得到卻穿得過」的位置，修好後這些點要被擋住。
 // 這裡在 node 裡建出那幾個街區（只建街屋，不建整張地圖），看玩家在那一點（身體半徑 0.38 m、腳在地面）會不會碰到牆。
 import { describe, it, expect, beforeAll } from 'vitest';

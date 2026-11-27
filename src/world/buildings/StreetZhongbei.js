@@ -1,5 +1,5 @@
 import { shrinkFont } from '../../graphics/FitText.js';
-import { paveGround } from './GroundDrape.js';
+import { footing, paveGround } from './GroundDrape.js';
 // 中北路兩側的街屋（照 Google 街景 2026-05 / 2024-08 與 OSM 店名建模，只做外觀，不能進入）。
 // 寫法比照 src/world/Interiors.js 的 DAREN_ST：每一格是 [s0, s1, side, spec]
 //   s = 沿 ZB_ROAD 從正門端往西量的公尺數；side +1 = 茶學苑側（往西走的右手邊，遊戲 z 較小），-1 = 大仁街側
@@ -2271,6 +2271,7 @@ export function buildZhongbeiStreet(I, scene, X) {
     const glassWall = sp.bal === 'glass';
     const wm = glassWall && sp.glass ? sp.glass : wallMat(sp.wall);
     shell(k, w, d, top, wm);
+    footing(k, w, d, wallMat(sp.wall)); // 地面往後或往旁邊變低時補地基，後牆、側牆底下才不會露縫
     if (sp.low && !glassWall)
       k.box(-0.01, w + 0.01, 0, gf, -0.05, 0, wallMat(sp.low), { col: false, tile: [0.6, 0.6] });
     for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊

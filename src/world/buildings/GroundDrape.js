@@ -57,3 +57,20 @@ export function paveGround(k, x0, x1, y0, y1, z0, z1, mat) {
   if (groundSlope(k, x0, x1, z0, z1) > 0.08) drapeGround(k, x0, x1, z0, z1, mat, y1);
   else k.box(x0, x1, y0, y1, z0, z1, mat, { col: false, surface: true });
 }
+
+// 街屋格的地基：Kit 只照原點（立面線起點）的地面高度畫，地面往後或往旁邊變低時，後牆、側牆底下會露出一條縫；
+// 照這一格實際最低的地面補一段往下的地基（不擋碰撞），平地（高低差 ≤ 15 cm）的格子不會多畫。寫法同 StreetXinzhongbei.js
+export function footing(k, w, d, mat) {
+  let drop = 0;
+  for (const [x, z] of [
+    [0, 0],
+    [w, 0],
+    [0, d],
+    [w, d],
+    [w / 2, d],
+    [0, d / 2],
+    [w, d / 2],
+  ])
+    drop = Math.max(drop, k.base - H(...k.w(x, z)));
+  if (drop > 0.15) k.box(0, w, -drop - 0.2, 0.01, 0, d, mat, { col: false, tile: [0.6, 0.6] });
+}

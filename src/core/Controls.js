@@ -190,7 +190,7 @@ const TOUCH = `<div class="touch-diagram">
     <div class="td-btns">
       ${[
         ['F', '上下車'],
-        ['E', '互動'],
+        ['E', '互動/手機'],
         ['📄', '發傳單', 1],
         ['⤒', '跳/甩尾'],
         ['»', '衝刺'],

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { pointInPoly, closestOnSeg, CollisionWorld, inAnyPoly } from '../physics/Collision.js';
 import { Hmin, groundY, nearStair } from './Terrain.js';
 import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
+import { railBand } from './Railway.js';
 
 const UP = [0, 1, 0],
   DOWN = [0, -1, 0];
@@ -339,6 +340,7 @@ export function buildFurniture(scene, world, data, ctx) {
     if (p) keepPts.push({ x: p.x, z: p.z, r: 4 });
   }
   // the point or one of 8 points pad m around it inside a reserved outline (inAnyPoly: grid index over coll.reserved)
+  const onRail = railBand(data);
   const nearReserved = (x, z, pad) => {
     const R = coll.reserved;
     if (inAnyPoly(R, x, z)) return true;
@@ -495,9 +497,11 @@ export function buildFurniture(scene, world, data, ctx) {
             ok = false;
             log.wallSkipped.push({ barrier: bi, x: +mx.toFixed(1), z: +mz.toFixed(1) });
           }
-          // near a reserved outline: dropped, but still splits the runs as a kept step (ghost)
-          const gh = ok && nearReserved(mx, mz, 3);
-          if (gh)
+          // near a reserved outline: dropped, but still splits the runs as a kept step (ghost); the same inside the
+          // railway fences (福特六和's wall is traced on the tracks there; the railway fence stands in for it)
+          const onTrack = ok && onRail(mx, mz, th / 2 + 0.1);
+          const gh = ok && (onTrack || nearReserved(mx, mz, 3));
+          if (gh && !onTrack)
             log.wallSkipped.push({
               barrier: bi,
               x: +mx.toFixed(1),
@@ -1036,9 +1040,10 @@ export function buildFurniture(scene, world, data, ctx) {
     const PP = col('#bdb9af'),
       ARM = col('#6d6a66');
     const placed = []; // {x,z,y,ax,az}
-    // near a reserved outline the pole is a ghost: in placed (found, spaced, counted) but not drawn, no wires to it
+    // near a reserved outline or inside the railway fences (src/world/Railway.js railBand: a procedural pole along a
+    // lane runs on across a level crossing) the pole is a ghost: in placed (found, spaced, counted) but not drawn, no wires to it
     const pole = (x, z, dx, dz) => {
-      if (nearReserved(x, z, 1.5) || nearReserved(x, z, 2)) {
+      if (nearReserved(x, z, 1.5) || nearReserved(x, z, 2) || onRail(x, z, 0.3)) {
         ghostPole(x, z, 0.2);
         const p = { x, z, ghost: true };
         placed.push(p);

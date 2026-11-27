@@ -42,6 +42,7 @@ import {
   concreteTex,
 } from '../graphics/Textures.js';
 import { plantVegetation } from './Vegetation.js';
+import { railBand, FENCE_D } from './Railway.js';
 import {
   canvasTexture,
   scaledCanvas,
@@ -746,6 +747,10 @@ function cutRects(items) {
 // bank, so like the open road cut the ground and draped layers are cut away over the water and
 // its banks (sinkPlan().cut, src/world/GroundCut.js) and src/world/MapBuilder.js draws water, banks, railings and caps.
 const SINK_COPE = 0.3; // concrete coping on top of a wall
+// half width of a track's right of way: its fence (src/world/Railway.js FENCE_D); trees keep their trunk
+// RAIL_TREE further out (a crown reaching over the fence would brush the trains)
+const RAIL_BAND = FENCE_D,
+  RAIL_TREE = 2.0;
 // low road bridges (OSM bridge=yes) over a sunk stream: the parapets along both deck edges across
 // the channel. near [x, z] picks the bridge (the crossing within 15 m); off = parapet line from the
 // road centre line (m; default half the road + 0.8, where the culvert used to start), the culvert
@@ -813,6 +818,24 @@ function sinkPlan(data) {
     }
     return g;
   };
+  // the railway (data.rail, src/world/Railway.js) over a sunk stream: 新街溪 passes under the 縱貫線 in a
+  // short concrete box bridge (NLSC 2024 正射: the ballast runs on across a deck with a headwall at each
+  // side, open channel up- and downstream). Each track covers the stream like a road does, out to its
+  // fence line (src/world/Railway.js FENCE_D 2.7 m) so the fence and the ballast stand on solid ground
+  // and the culvert headwalls (with their railing and collision) sit just outside the fence
+  const railBands = (data.rail || []).map((r) => {
+    let a = 1e9,
+      b = 1e9,
+      c = -1e9,
+      d = -1e9;
+    for (const [x, z] of r.pts) {
+      a = Math.min(a, x);
+      b = Math.min(b, z);
+      c = Math.max(c, x);
+      d = Math.max(d, z);
+    }
+    return { pts: r.pts, hw: RAIL_BAND, bridge: false, box: [a - 6, b - 6, c + 6, d + 6] };
+  });
   const sunkAreas = data.areas.filter((a) => a.kind === 'water' && a.sink);
   const areas = [];
   for (const a of sunkAreas) {
@@ -907,7 +930,7 @@ function sinkPlan(data) {
         dx = Bq[0] - A[0],
         dz = Bq[1] - A[1],
         l = Math.hypot(dx, dz) || 1;
-      for (const r of roads) {
+      for (const r of roads.concat(railBands)) {
         if (
           Math.max(A[0], Bq[0]) < r.box[0] ||
           Math.min(A[0], Bq[0]) > r.box[2] ||
@@ -8155,10 +8178,14 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     // ... and nothing grows on a flat pad an area builds on (opts.treeHide outlines, src/world/zones/ZoneA.js 圖書館南面平台; placement unchanged the same way)
     const treeHide = opts.treeHide || [],
       onPad = (x, z) => treeHide.some((p) => pointInPoly(x, z, p));
+    // ... and nothing grows inside the railway fences or right outside them where a crown would reach over
+    // the trains (data.rail, src/world/Railway.js railBand; placement unchanged the same way)
+    const onRail = railBand(data);
     const hideTree = (x, z) => {
       if (
         !onLevelEdge(x, z, 0.8) &&
         !sink.inside(x, z, 0.8) &&
+        !onRail(x, z, RAIL_TREE) &&
         pitAt(x, z, 0.8, true) === null &&
         !onPad(x, z)
       )
@@ -8177,7 +8204,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       if (
         roadGrid.nearest(m[0], m[1]).d < 1.0 ||
         collision.blocked(m[0], m[1], 0.8) ||
-        sink.inside(m[0], m[1], 0.8)
+        sink.inside(m[0], m[1], 0.8) ||
+        onRail(m[0], m[1], RAIL_TREE)
       )
         return true;
       p[0] = m[0];
@@ -8217,6 +8245,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         hide:
           onLevelEdge(x, z, 0.6) ||
           sink.inside(x, z, 0.6) ||
+          onRail(x, z, 0.6) ||
           hidden(x, z) ||
           onPad(x, z) ||
           pitAt(x, z, 0.6, true) !== null,

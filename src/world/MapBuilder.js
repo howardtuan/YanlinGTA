@@ -765,7 +765,7 @@ const BRIDGE_LOOK = [
     // 內側一條塗綠色的人行帶、一排橘色隔離桿；欄杆後面是粉紅色欄杆和溪邊大樹
     near: [-525.6, 199.7],
     look: 'wave',
-    off: 5.8,
+    off: 6.2,
   },
 ];
 const bridgeLook = (x, z) => BRIDGE_LOOK.find((b) => Math.hypot(b.near[0] - x, b.near[1] - z) < 15);
@@ -796,6 +796,7 @@ function sinkPlan(data) {
         pts: r.pts,
         hw: (r.w || 4) / 2,
         bridge: !!(r.bridge && !r.tunnel && !r.grade),
+        drive: !!r.drive,
         box: [a - r.w, b - r.w, c + r.w, d + r.w],
       };
     });
@@ -936,6 +937,7 @@ function sinkPlan(data) {
               ...bl,
               X,
               hw: r.hw,
+              self: r,
               u: [ex / el, ez / el],
               t: [dx / l, dz / l],
               top,
@@ -1011,7 +1013,7 @@ function sinkPlan(data) {
             h.poly.some((a, i) => segDist(x, z, ...a, ...h.poly[(i + 1) % h.poly.length]) < r))
         : segDist(x, z, ...h.seg[0], ...h.seg[1]) < h.seg[2] + r
     );
-  return { areas, runs, bridges, cut, inside };
+  return { areas, runs, bridges, roads, cut, inside };
 }
 
 const col = (h) => {
@@ -2111,10 +2113,29 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       for (const sd of [1, -1]) {
         const o = b.off * sd,
           a0 = (-W2 - o * k1) / k2,
-          a1 = (W2 - o * k1) / k2,
-          lo = Math.min(a0, a1),
-          hi = Math.max(a0, a1);
+          a1 = (W2 - o * k1) / k2;
         const at = (a, oo = o) => [b.X[0] + u[0] * a + nr[0] * oo, b.X[1] + u[1] * a + nr[1] * oo];
+        // the span [lo, hi] at offset oo, cut back where it would reach another drivable road
+        // (a lane leaving the bridge end, e.g. 中北路中北橋's lane to the Times car park) by less than 0.4 m
+        const gap = (p) => {
+          let g = Infinity;
+          for (const q of sink.roads) {
+            if (q === b.self || !q.drive) continue;
+            if (p[0] < q.box[0] || p[0] > q.box[2] || p[1] < q.box[1] || p[1] > q.box[3]) continue;
+            for (let i = 0; i < q.pts.length - 1; i++)
+              g = Math.min(g, segDist(p[0], p[1], ...q.pts[i], ...q.pts[i + 1]) - q.hw);
+          }
+          return g;
+        };
+        const trim = (lo0, hi0, oo) => {
+          let l = lo0,
+            h = hi0;
+          while (l < h && gap(at(l, oo)) < 0.4) l += 0.1;
+          while (h > l && gap(at(h, oo)) < 0.4) h -= 0.1;
+          return [l, h];
+        };
+        const [lo, hi] = trim(Math.min(a0, a1), Math.max(a0, a1), o);
+        if (hi - lo < 0.5) continue;
         const A = at(lo),
           B = at(hi),
           len = hi - lo,
@@ -2206,15 +2227,19 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
             }
           }
           // green painted walkway between the posts and the panels, orange delineator posts on its road side
-          const g0 = Math.min(b.off - 1.35, b.hw + 0.1),
-            g1 = b.off - 0.1;
-          const wa = [at(lo, g0 * sd), at(hi, g0 * sd), at(hi, g1 * sd), at(lo, g1 * sd)];
+          const g0 = b.off - 1.35,
+            g1 = b.off - 0.1,
+            [wl0, wh0] = trim(lo, hi, (g0 - 0.2) * sd),
+            [wl1, wh1] = trim(lo, hi, g1 * sd),
+            wl = Math.max(wl0, wl1),
+            wh = Math.min(wh0, wh1);
+          const wa = [at(wl, g0 * sd), at(wh, g0 * sd), at(wh, g1 * sd), at(wl, g1 * sd)];
           const wq = wa.map((p) => P3(p, yRoad(p) + 0.13));
           paint.quad(wq[0], wq[1], wq[2], wq[3], C.green, [0, 1, 0]);
           paint.quad(wq[3], wq[2], wq[1], wq[0], C.green, [0, 1, 0]);
-          const np = Math.max(2, Math.round(len / 1.1));
+          const np = Math.max(2, Math.round((wh - wl) / 1.1));
           for (let k = 0; k <= np; k++) {
-            const p = at(lo + (len * k) / np, (g0 - 0.12) * sd),
+            const p = at(wl + ((wh - wl) * k) / np, (g0 - 0.12) * sd),
               y = yRoad(p) + 0.1;
             bar([p[0], y, p[1]], [p[0], y + 0.85, p[1]], 0.1, C.orange);
             bar([p[0], y + 0.62, p[1]], [p[0], y + 0.72, p[1]], 0.11, C.white);

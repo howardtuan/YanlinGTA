@@ -8887,11 +8887,34 @@ body.mahjong #dialog {
   width: 96px;
   height: 96px;
   display: block;
-  animation: mj-sticker-pop 0.28s cubic-bezier(0.3, 1.6, 0.6, 1);
+  transform-origin: 50% 85%;
+  animation: mj-sticker-pop 0.25s ease-out;
 }
+/* 像手遊貼圖：0.25 秒彈出（稍微放大再回彈）、停住，最後 0.2 秒縮小淡出 */
 @keyframes mj-sticker-pop {
-  from {
-    transform: scale(0.3);
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+#mjUI .mj-bubble.sticker.out img {
+  animation: mj-sticker-out 0.2s ease-in forwards;
+}
+#mjUI .mj-bubble.sticker.out small {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+@keyframes mj-sticker-out {
+  to {
+    transform: scale(0.6);
+    opacity: 0;
   }
 }
 #mjUI .mj-bubble small {

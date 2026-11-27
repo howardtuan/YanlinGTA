@@ -542,6 +542,7 @@ export const CAM_VIEW = {
   far: (aspect) =>
     aspect < 0.8 ? { fov: 58, elev: 62, tz: 0.02 } : { fov: 42, elev: 38, tz: 0.02 },
 };
+const STICKER_OUT = 200; // 貼圖泡泡收起來的動畫長度（ms，對應 style.css 的 mj-sticker-out）
 const MJ_PIXELS = 2.6e6; // 牌桌最多畫這麼多像素（約 2560×1000）
 const CAM_MAX_Y = 2.55; // 天花板的燈（y 2.73）在桌子正上方，鏡頭不能高過它
 export function camPoints(mine) {
@@ -1862,6 +1863,7 @@ export class MahjongScene {
       el,
       born: performance.now(),
       ttl: 2800,
+      sticker: !!st,
     });
     this._tickBubbles();
   }
@@ -1898,12 +1900,14 @@ export class MahjongScene {
         ? Math.max(10, Math.min(90, tp.px))
         : Math.max(10, Math.min(90, ((p.x + 1) / 2) * 100));
       const py = tp ? Math.max(13, tp.py - 4) : Math.max(13, Math.min(82, ((1 - p.y) / 2) * 100));
-      const lift = (age / b.ttl) * 22;
+      // 文字泡泡慢慢往上飄、最後 0.5 秒淡出；貼圖像手遊一樣彈出來停住，最後 0.2 秒縮小淡出（style.css 的 .out）
+      const lift = b.sticker ? 0 : (age / b.ttl) * 22;
       b.el.style.left = `${px}%`;
       // (泡泡往上長；貼圖泡泡比較高，至少留它自己的高度，不會被畫面頂端切掉)
       const room = b.el.offsetHeight + 6;
       b.el.style.top = `calc(max(${py}%, ${room + lift}px) - ${lift.toFixed(1)}px)`;
-      b.el.style.opacity = age > b.ttl - 500 ? String(Math.max(0, (b.ttl - age) / 500)) : '1';
+      if (b.sticker) b.el.classList.toggle('out', age > b.ttl - STICKER_OUT);
+      else b.el.style.opacity = age > b.ttl - 500 ? String(Math.max(0, (b.ttl - age) / 500)) : '1';
     }
   }
   _mpBarHud() {

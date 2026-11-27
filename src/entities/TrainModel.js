@@ -49,26 +49,27 @@ const RING = [
 // ---------- 塗裝 ----------
 // nose：駕駛室長、slope：擋風玻璃每升高 1 m 往後幾 m、taper：車頭最前端縮窄的比例、drop：車頂往車頭降低多少
 // doors：中間車的車門位置（z）、cabDoors：駕駛室車、doorW：門寬、win：窗寬、band：窗帶（null：沒有）
-// 電力機車頭（貨物、軍運列車共用）：沒有客室窗與車門，側面是散熱百葉
+// 柴電機車頭（貨物、軍運列車共用，臺鐵 R 型柴電機車那種「罩式」車頭）：只用色票與 drawLoco 畫的色帶，
+// 車身的客車欄位只是讓 drawAtlas 照常畫完（貨車用不到那些區域）
 const LOCO = {
   body: '#de6a1f',
   band: null,
-  stripes: [['#f3f1ea', 1.55, 1.68]],
+  stripes: [],
   doorFrame: '#3a2a20',
   doorLeaf: '#de6a1f',
-  doors: [],
-  cabDoors: [],
+  doors: [0],
+  cabDoors: [0],
   doorW: 0.8,
   win: 1,
   face: '#de6a1f',
   faceLow: '#2b2622',
   faceBand: '#f3f1ea',
   sign: '貨物',
-  nose: 0.45,
+  nose: 0.5,
   slope: 0.1,
   taper: 0.04,
   drop: 0.03,
-  panto: 'cab',
+  panto: 'none',
   loco: true,
 };
 
@@ -198,21 +199,60 @@ function drawCargo(g, kind) {
       g.fillStyle = 'rgba(0,0,0,0.22)';
       for (let x = 0; x < TW; x += kind === 'container' ? 7 : 23) g.fillRect(x, y, 2, 64);
       g.fillStyle = 'rgba(0,0,0,0.35)';
-      g.fillRect(0, y, TW, 4);
-      g.fillRect(0, y + 60, TW, 4);
+      g.fillRect(0, y + 16, TW, 2);
+      g.fillRect(0, y + 46, TW, 2);
     }
     if (kind === 'container') {
       // 每 6 m 一道角柱（20 呎貨櫃的端框也落在這裡）
       g.fillStyle = 'rgba(0,0,0,0.4)';
       for (let x = 0; x < TW; x += (6.1 / CAR_L) * TW) g.fillRect(x, y, 5, 64);
       g.fillStyle = 'rgba(255,255,255,0.55)';
-      for (let x = 90; x < TW; x += (6.1 / CAR_L) * TW) g.fillRect(x, y + 14, 60, 7); // 公司標誌
+      // 公司標誌（從 x = 200 開始：0–151 px 是貨櫃端面用的那段）
+      for (let x = 200; x < TW; x += (6.1 / CAR_L) * TW) g.fillRect(x, y + 21, 50, 4);
     } else if (b === 0) {
       // 軍車車身：門線、小窗
       g.fillStyle = 'rgba(0,0,0,0.3)';
       for (let x = 0; x < TW; x += 40) g.fillRect(x, y, 2, 64);
     }
   });
+}
+
+// 柴電機車頭的四條色帶（貼圖集第二排 256–512，cbox 的第 4～7 條）：
+// 4 引擎室側面（散熱百葉、白色腰帶、檢修門）、5 駕駛室（側窗；u 0–151 px 是端面：兩片擋風玻璃）、6 素色、7 深色
+function drawLoco(g, L) {
+  const y4 = 256,
+    y5 = 320;
+  g.fillStyle = L.body;
+  g.fillRect(0, 256, TW, 192);
+  g.fillStyle = '#2b2622';
+  g.fillRect(0, 448, TW, 64);
+  // 引擎室：檢修門的門縫、散熱百葉、腰帶
+  g.fillStyle = 'rgba(0,0,0,0.3)';
+  for (let x = 160; x < TW; x += 64) g.fillRect(x, y4 + 16, 2, 32);
+  for (let x = 176; x < TW - 40; x += 128) {
+    g.fillStyle = '#3b3430';
+    g.fillRect(x, y4 + 19, 36, 12);
+    g.fillStyle = '#7a6d62';
+    for (let k = y4 + 20; k < y4 + 31; k += 3) g.fillRect(x + 1, k, 34, 1);
+  }
+  g.fillStyle = '#f3f1ea';
+  g.fillRect(0, y4 + 37, TW, 3);
+  // 駕駛室：側窗（駕駛室在 z 3.85～6.35 → u 0.69～0.82）、白色腰帶
+  const gl = (x, y, w, h) => {
+    g.fillStyle = '#1a1f24';
+    g.fillRect(x - 1, y - 1, w + 2, h + 2);
+    const gr = g.createLinearGradient(0, y, 0, y + h);
+    gr.addColorStop(0, '#4a5866');
+    gr.addColorStop(1, '#1a2128');
+    g.fillStyle = gr;
+    g.fillRect(x, y, w, h);
+  };
+  g.fillStyle = '#f3f1ea';
+  g.fillRect(0, y5 + 37, TW, 3);
+  for (const x of [712, 770]) gl(x, y5 + 21, 40, 12);
+  // 端面：兩片擋風玻璃、中間窗柱
+  gl(14, y5 + 21, 56, 12);
+  gl(82, y5 + 21, 56, 12);
 }
 
 function drawAtlas(L) {
@@ -286,7 +326,7 @@ function drawAtlas(L) {
       z = d + half + 0.25;
     }
     gaps.push([z, zEnd - 0.55]);
-    for (const [a, b] of L.loco ? [] : gaps) {
+    for (const [a, b] of gaps) {
       const n = Math.max(0, Math.round((b - a + 0.2) / (L.win + 0.2)));
       if (!n) continue;
       const w = (b - a - (n - 1) * 0.2) / n;
@@ -307,20 +347,8 @@ function drawAtlas(L) {
       g.fillStyle = '#3c4146';
       g.fillRect(...R(d - 0.012, d + 0.012, 1.1, 3.06));
     }
-    // 機車頭：側面一整排散熱百葉、上方兩個小窗
-    if (L.loco) {
-      for (let z0 = -HL + 0.8; z0 < zc - 2.4; z0 += 1.55) {
-        const [x, y, w, h] = R(z0, z0 + 1.3, 1.85, 3.15);
-        g.fillStyle = '#3b3430';
-        g.fillRect(x, y, w, h);
-        g.fillStyle = '#6d625a';
-        for (let k = y + 3; k < y + h - 2; k += 6) g.fillRect(x + 2, k, w - 4, 2);
-      }
-      g.fillStyle = 'rgba(0,0,0,0.3)';
-      for (const z0 of [-HL + 0.3, zc - 2.25]) g.fillRect(...R(z0, z0 + 0.03, 1.1, 3.35));
-    }
     // 側面的 LED 看板（第一個門旁）
-    if (!L.loco) {
+    {
       const d = doors[Math.floor(doors.length / 2)] ?? 0,
         z0 = d + L.doorW / 2 + 0.35;
       const [x, y, w, h] = R(z0, z0 + 0.95, 3.1, 3.3);
@@ -351,6 +379,7 @@ function drawAtlas(L) {
   side(0, false);
   side(256, true);
   if (L.cargo) drawCargo(g, L.cargo); // 貨車用不到中間車側面，那一排改畫貨櫃／軍車的四條色帶
+  if (L.loco) drawLoco(g, L); // 駕駛室車側面那一排改畫柴電機車頭的四條色帶
   // ---- 車頭正面（x：-HALF_W…HALF_W，y：0.9…3.95）----
   const FX = (x) => (0.5 + (0.5 * x) / HALF_W) * 256,
     FY = (y) => 512 + ((3.95 - y) / 3.05) * 256;
@@ -383,18 +412,13 @@ function drawAtlas(L) {
     g.fillRect(x + w * 0.1, y + 4, w * 0.25, h - 8);
     const sy = FY(3.32),
       sh = FY(3.12) - sy;
-    if (L.loco) {
-      // 機車頭：沒有 LED 看板，左右兩片窗中間一根窗柱
-      g.fillStyle = L.face;
-      g.fillRect(FX(-0.08), y - 3, FX(0.08) - FX(-0.08), h + 6);
-    } else
-      for (const c of [g, e]) {
-        c.fillStyle = '#ff9a1a';
-        c.font = `bold ${Math.round(sh * 0.85)}px sans-serif`;
-        c.textAlign = 'center';
-        c.textBaseline = 'middle';
-        c.fillText(`${L.sign}  中壢`, 128, sy + sh / 2 + 1);
-      }
+    for (const c of [g, e]) {
+      c.fillStyle = '#ff9a1a';
+      c.font = `bold ${Math.round(sh * 0.85)}px sans-serif`;
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(`${L.sign}  中壢`, 128, sy + sh / 2 + 1);
+    }
     // 雨刷
     g.strokeStyle = '#050607';
     g.lineWidth = 2;
@@ -521,7 +545,8 @@ class Builder {
       y1 = y + sy / 2,
       z0 = z - sz / 2,
       z1 = z + sz / 2;
-    const V = (yy) => 1 - (band * 64 + 4 + (1 - (yy - y0) / sy) * 56) / TH,
+    // 只用色帶中間 32 px（16–48）：遠處貼圖縮小時，相鄰色帶的顏色才不會滲進來
+    const V = (yy) => 1 - (band * 64 + 16 + (1 - (yy - y0) / sy) * 32) / TH,
       U = (zz) => (zz + HL) / CAR_L,
       Ux = (xx) => (xx + HALF_W) / CAR_L,
       top = 1 - (band * 64 + 32) / TH;
@@ -911,6 +936,55 @@ function wagonGeometry(look, kind) {
   void look;
   return B.geometry();
 }
+// 柴電機車頭（罩式）：長引擎室在後、駕駛室偏前、前面一小段短引擎室，四周是有扶手的走道平台
+function locoGeometry(kind) {
+  const B = new Builder(),
+    FL = 1.41; // 走道平台面
+  const RAIL = SW.insul; // 扶手漆白
+  B.box(0, FL - 0.11, 0, 2.9, 0.22, 17.8, SW.under); // 平台
+  for (const s of [-1, 1]) B.box(s * 1.44, FL - 0.32, 0, 0.04, 0.3, 17.6, SW.face); // 平台側面的橘色裙板
+  B.box(0, 0.75, 0, 2.3, 0.65, 5.0, SW.under); // 油箱
+  for (const s of [-1, 1]) {
+    B.box(0, 1.05, s * 8.95, 2.9, 0.55, 0.3, SW.face); // 端樑
+    B.box(0, 0.9, s * 9.3, 0.26, 0.24, 0.5, SW.steel); // 車鉤
+    for (const x of [-1.2, 1.2]) B.box(x, 0.75, s * 8.9, 0.5, 0.06, 0.25, SW.steel); // 上下車的踏階
+  }
+  // 排障器（前端）
+  B.box(0, 0.5, 9.15, 2.5, 0.45, 0.08, SW.plow);
+  // 車體：長引擎室、駕駛室、短引擎室
+  B.cbox(0, FL + 1.05, -2.35, 2.2, 2.1, 12.4, 4);
+  B.cbox(0, FL + 1.35, 5.1, 2.8, 2.7, 2.5, 5);
+  B.box(0, FL + 2.74, 5.1, 2.9, 0.08, 2.6, SW.roof); // 駕駛室屋簷
+  B.cbox(0, FL + 0.85, 7.55, 2.1, 1.7, 2.4, 4);
+  // 引擎室頂：排氣管、散熱風扇、喇叭
+  B.cyl(0, FL + 2.25, -0.8, 0.14, 0.3, 'y', SW.under, 8);
+  for (const z of [-5.6, -7.3]) B.cyl(0, FL + 2.12, z, 0.62, 0.05, 'y', SW.rubber, 14);
+  B.box(0, FL + 2.85, 4.6, 0.5, 0.12, 0.2, SW.steel);
+  // 頭燈（短引擎室前端）、後端尾燈
+  for (const s of [-1, 1]) {
+    B.cyl(s * 0.55, FL + 1.35, 8.76, 0.14, 0.06, 'z', kind === 'head' ? SW.headOn : SW.headOff, 14);
+    B.cyl(s * 0.85, FL + 0.6, 8.76, 0.08, 0.05, 'z', SW.tailOff, 10);
+    B.cyl(s * 0.6, FL + 1.8, -8.56, 0.12, 0.06, 'z', SW.headOff, 12);
+  }
+  // 扶手：兩側沿走道（駕駛室那段除外）、前後兩端橫過去
+  const post = (x, z) => B.box(x, FL + 0.5, z, 0.05, 1.0, 0.05, RAIL);
+  for (const s of [-1, 1]) {
+    for (const [z0, z1] of [
+      [-8.8, 3.7],
+      [6.5, 8.8],
+    ]) {
+      for (let z = z0; z <= z1 + 1e-6; z += (z1 - z0) / Math.max(1, Math.round((z1 - z0) / 1.6)))
+        post(s * 1.38, z);
+      B.box(s * 1.38, FL + 1.0, (z0 + z1) / 2, 0.05, 0.05, z1 - z0, RAIL);
+    }
+    for (const x of [-1.38, -0.5, 0.5, 1.38]) post(x, s * 8.8);
+  }
+  for (const s of [-1, 1]) B.box(0, FL + 1.0, s * 8.8, 2.76, 0.05, 0.05, RAIL);
+  bogie(B, -5.7);
+  bogie(B, 5.7);
+  return B.geometry();
+}
+
 // 貨物、軍運列車第 i 節是哪種車（第 0 節是機車頭）；seed：同一班車每次都一樣
 export function cargoKind(look, i, last, seed) {
   if (i === 0) return 'head';
@@ -923,6 +997,7 @@ export function cargoKind(look, i, last, seed) {
 export function carGeometry(look, kind) {
   if (kind[0] === 'w' || (kind[0] === 'm' && !kind.startsWith('mid')))
     return wagonGeometry(look, kind);
+  if (LOOK[look].loco) return locoGeometry(kind);
   const L = LOOK[look],
     B = new Builder();
   const cab = kind === 'head' || kind === 'tail';
@@ -930,9 +1005,7 @@ export function carGeometry(look, kind) {
   extrude(B, -HL, zc, cab ? 256 : 0);
   // 車底面（擠出那圈的最後一段已經是車底）；兩端
   endCap(B, -HL, -1);
-  if (!L.loco)
-    B.box(0, 2.15, -HL - 0.125, 1.25, 2.1, 0.25, SW.rubber); // 貫通道（往後）
-  else B.box(0, 0.88, -HL - 0.2, 0.24, 0.22, 0.5, SW.steel); // 機車頭後面的車鉤
+  B.box(0, 2.15, -HL - 0.125, 1.25, 2.1, 0.25, SW.rubber); // 貫通道（往後）
   if (cab) {
     const { front } = cabNose(B, L);
     // 頭燈、尾燈（車頭／車尾兩種只差在哪一組亮）
@@ -968,11 +1041,7 @@ export function carGeometry(look, kind) {
   underfloor(B);
   // 車頂：冷氣機、集電弓
   const panto = (kind === 'midP' && L.panto === 'mid') || (cab && L.panto === 'cab');
-  if (cab && L.loco) {
-    // 機車頭車頂：電阻器箱、集電弓
-    B.box(0, 3.95, -4.5, 1.6, 0.25, 5.5, SW.ac);
-    pantograph(B, 1.6);
-  } else if (cab) {
+  if (cab) {
     acUnit(B, -5.4);
     if (panto) pantograph(B, 1.6);
     else acUnit(B, 1.8);

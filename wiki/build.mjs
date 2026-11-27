@@ -340,11 +340,11 @@ function pageBody(page, data, base, opts) {
 ${
   opts.promo
     ? `<figure class="hero-media">
-  <video class="hero-img" controls playsinline preload="none" poster="${base}media/promo-poster.jpg" aria-label="YanlinGTA 58 秒宣傳片">
+  <video class="hero-img" controls playsinline preload="none" poster="${base}media/promo-poster.jpg" aria-label="YanlinGTA 100 秒宣傳片">
     <source src="${base}media/promo.mp4" type="video/mp4">
     <a href="${base}media/promo.mp4">下載宣傳片</a>
   </video>
-  <figcaption>▶ 58 秒宣傳片：第一人稱校園、手機 App、電腦操作全收錄</figcaption>
+  <figcaption>▶ 100 秒宣傳片：校園導覽、周邊店家、手機 App、電腦、無人機與隱藏 NPC 任務</figcaption>
 </figure>`
     : `<img class="hero-img" src="${base}img/cover.jpg" alt="中原順起來 · 資管要贏 票投彥霖 遊戲封面">`
 }

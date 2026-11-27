@@ -5,7 +5,9 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts YanlinPromo out/yanlin-promo.mp4",
-    "render:nobgm": "remotion render src/index.ts YanlinPromo out/yanlin-promo-nobgm.mp4 --props='{\"bgm\":false}'"
+    "render:nobgm": "remotion render src/index.ts YanlinPromo out/yanlin-promo-nobgm.mp4 --props='{\"bgm\":false}'",
+    "render3": "remotion render src/index.ts YanlinPromo3 out/yanlin-promo-v3.mp4",
+    "render3:nobgm": "remotion render src/index.ts YanlinPromo3 out/yanlin-promo-v3-nobgm.mp4 --props='{\"bgm\":false}'"
   },
   "dependencies": {
     "@remotion/cli": "4.0.484",

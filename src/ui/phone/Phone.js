@@ -6,6 +6,7 @@ import { locateUI } from '../../world/Locate.js';
 import { RIDE_PLACES } from '../../systems/minigames/PinHanRide.js';
 import { CONTACTS } from './Chats.js';
 import { Nano } from './Nano.js';
+import { insultsLaoda } from '../../systems/LaodaInsult.js';
 import { dual } from '../Prompts.js';
 import { PEOPLE, FEED, STORY_SETS, STORY_TIMES, FRIEND_ONLY, PCARD } from './Feeds.js';
 import { START, slotAt, nextIndex, gramPost, pcardPost, postsUpTo } from './FeedGen.js';
@@ -1869,7 +1870,7 @@ export class Phone {
     st.choice = Math.min(st.choice, opts.length - (free ? 0 : 1));
     box.innerHTML = `<div class="ph-choices">${opts.map((ch, i) => `<button class="ph-choice ${i === st.choice ? 'on' : ''}" data-i="${i}"><kbd>${i + 1}</kbd>${esc(ch.t)}</button>`).join('')}</div>
       ${free ? typeRow('自己輸入，或點選項帶入…', st.choice === opts.length) : `<div class="ph-input"><span>${esc(opts[st.choice].t)}</span><button class="ph-send" ${st.busy && !this._thinking(st) ? 'disabled' : ''}>↑</button></div>${pausedRow}`}
-      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${free ? '　· ✨ AI 無限對話・點選項帶入輸入框' : ''}</div>`;
+      <div class="ph-tabhint">${dual('<kbd>↑</kbd><kbd>↓</kbd> 或 <kbd>1</kbd><kbd>2</kbd> 選擇　<kbd>Tab</kbd> 傳送', '{Up}{Down} 選擇　{A} 傳送')}${free ? (Nano.on ? '　· ✨ AI 無限對話・點選項帶入輸入框' : '　· 也可以自己打字・點選項帶入輸入框') : ''}</div>`;
     // AI on: a click puts the option's words in the typing box; keyboard / pad still pick and send options directly
     box
       .querySelectorAll('.ph-choice')
@@ -1934,9 +1935,9 @@ export class Phone {
   _thinking(st) {
     return !!st.busy && st.aiWait != null && st.aiWait === st.tok;
   }
-  // the typing box is on (AI on, not paused, chat not locked by a quest line)
+  // the typing box is on (AI on, or a contact you can always type to like 勞大; chat not locked by a quest line)
   _typing(st) {
-    return Nano.on && !!st && !this._locked(st);
+    return !!st && (Nano.on || !!st.c.typing) && !this._locked(st);
   }
   _focusType() {
     const el = this.view.querySelector('.ph-type');
@@ -2002,6 +2003,34 @@ export class Phone {
     st.lastAt = g.clock;
     // a contact with `laugh` (勞大) always ends his answer with that line when you laughed
     st._laughNext = st.c.laugh && /哈哈|笑死|XD|lol|LOL|😂|🤣/.test(ch.t) ? st.c.laugh : null;
+    // 彩蛋：罵勞大（src/systems/LaodaInsult.js）—— 在他的聊天室罵他，或在別人的聊天室提到他罵：他衝過來肘擊你
+    // （src/entities/Pilot.js provoke）。他的聊天室：先回你幾句（Chats.js insulted），回完就出發
+    const W = g.airdrop?.walker,
+      toHim = st.c.id === 'laoda';
+    if (W && insultsLaoda(ch.t, toHim)) {
+      if (toHim) {
+        st.choice = 0;
+        st.aiOpts = null;
+        g.audio.send?.();
+        this._renderThread();
+        this._renderCompose();
+        setTimeout(() => {
+          st.read = true;
+          if (this.cur === st) this._renderThread();
+        }, 350);
+        const r = st.c.insulted?.(g) || ['Man……'];
+        this._deliver(
+          st,
+          r.map((text) => ({ who: st.c.id, text })),
+          0,
+          650,
+          () => W.provoke()
+        );
+        return;
+      }
+      W.provoke();
+      g.hud.toast('📱 這句話好像傳到勞大那邊了……他正在過來', 'bad', 2800);
+    }
     if (ch.ask) {
       // an `always` option: its reply is worked out from the game right now, then it may act (e.g. set a route)
       st.choice = 0;
@@ -2039,7 +2068,8 @@ export class Phone {
       : null;
     // votes: scripted choices carry their own; AI small talk gives +1 every 3 messages, up to 3 per contact
     let v = ch.v || 0;
-    if (ch.ai) {
+    if (ch.ai && Nano.on) {
+      // (only with the AI: typing to 勞大 without it earns nothing)
       st.aiSent = (st.aiSent || 0) + 1;
       if (st.aiSent % 3 === 0 && (st.aiVotes || 0) < 3) {
         st.aiVotes = (st.aiVotes || 0) + 1;
@@ -2047,7 +2077,7 @@ export class Phone {
       }
     }
     const fallback = scripted || [
-      { who: st.c.group ? (st.members || [st.c.name])[0] : st.c.id, text: this._filler() },
+      { who: st.c.group ? (st.members || [st.c.name])[0] : st.c.id, text: this._filler(st) },
     ];
     // scripted options always get their written reply (no AI); the AI only answers your own words and its own topics
     if (Nano.on && !scripted) {
@@ -2090,8 +2120,16 @@ export class Phone {
         });
     } else this._deliver(st, fallback, v, 650);
   }
-  _filler() {
-    const f = ['哈哈好啊', '收到 👍', '真的假的 😂', '好喔～', '有道理欸', '晚點再聊！'];
+  // a stock reply (no AI); a contact may have its own (勞大's 「Man」)
+  _filler(st) {
+    const f = st?.c.filler || [
+      '哈哈好啊',
+      '收到 👍',
+      '真的假的 😂',
+      '好喔～',
+      '有道理欸',
+      '晚點再聊！',
+    ];
     return f[Math.floor(Math.random() * f.length)];
   }
   // AI asks first when the scripted topics have run out

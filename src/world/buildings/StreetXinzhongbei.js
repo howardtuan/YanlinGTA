@@ -4,7 +4,9 @@
 //        'Z' 中山東路一～二段（s=0 在西南端跨縱貫線的高架橋上，往東北走；高架到 s≈199、弘揚路口 s≈749、地圖北緣 s≈905）、'H' 弘揚路（s=0 在中山東路口，往東北走到大仁街一帶，全長約 315）、
 //        'D3' 大仁三街（s=0 在大仁街口，往西南走到實踐路口，全長約 81）、'D4' 大仁四街（s=0 在大仁街口，往西南走；大仁五街口 s≈44.6、實踐路口 s≈90.5）、
 //        'F' 幸福街（s=0 在中北路口，往南走；中山東路口 s≈192.5、地圖南緣約 s 580；西側整條貼著老街溪）、
-//        'LB' 力行北街（s=0 在中北路口，往東南走；中原夜市 s≈150～225、日新路口 s≈240、弘揚路口 s≈446）
+//        'LB' 力行北街（s=0 在中北路口，往東南走；中原夜市 s≈150～225、日新路口 s≈240、弘揚路口 s≈446）、
+//        'Q' 新中北路249巷（s=0 在新中北路中心線，往北走；11弄口 s≈41.4、北端 s≈73 是縱貫線平交道）、
+//        'Q11' 新中北路249巷11弄（s=0 在 249巷口，往西南西走、和鐵道平行；s≈112 西端接一條往南通到新中北路的無名巷，再往西 Google 標成 185巷6弄）
 //   side +1 = 順著 s 走的右手邊（X 的北側＝靠校園側、L 的東側＝靠校園側、Z 與 H 的東南側、D3 與 D4 的西北側、F 的西側＝老街溪側、LB 的西南側），-1 = 左手邊
 //   spec 欄位與 src/world/buildings/StreetZhongbei.js 相同（nf、gf、fh、d、wall、low、sign、ground、sh、awn、bal、glass、hood、vert、round、banner、
 //        roof、bill、tin、arch、fins、big、sign2、noband、roofCol、door、tower、bikes、set）
@@ -47,9 +49,11 @@ import SegF3 from './xzb/SegF3.js';
 import SegLB1 from './xzb/SegLB1.js';
 import SegLB2 from './xzb/SegLB2.js';
 import SegLB3 from './xzb/SegLB3.js';
+import SegQ1 from './xzb/SegQ1.js';
+import SegQ2 from './xzb/SegQ2.js';
 import { shrinkFont } from '../../graphics/FitText.js';
 
-// SegX0、SegX9～SegX11、中山東路 SegZ*、弘揚路 SegH*、大仁三街 SegD3、大仁四街 SegD4、幸福街 SegF*、力行北街 SegLB* 依序加在最後面，前面各段的亂數種子（seed 用 SEGS 的索引）才不會變
+// SegX0、SegX9～SegX11、中山東路 SegZ*、弘揚路 SegH*、大仁三街 SegD3、大仁四街 SegD4、幸福街 SegF*、力行北街 SegLB*、249巷 SegQ* 依序加在最後面，前面各段的亂數種子（seed 用 SEGS 的索引）才不會變
 const SEGS = [
   SegL1,
   SegL2,
@@ -80,6 +84,8 @@ const SEGS = [
   SegLB1,
   SegLB2,
   SegLB3,
+  SegQ1,
+  SegQ2,
 ];
 
 // 參考線（data/cycu.json 的道路中心線，遊戲座標 x 東、z 南）
@@ -270,11 +276,26 @@ export const XZ_REF = {
     [-250.5, 440.1],
     [-183.5, 522.8],
   ],
+  // 新中北路249巷：s=0 在新中北路中心線（X s≈906），往北走到縱貫線平交道（data/cycu.json 的整條）
+  Q: [
+    [-264.1, -134.1],
+    [-265.9, -175.5],
+    [-267.1, -193.7],
+    [-274.4, -205.1],
+  ],
+  // 新中北路249巷11弄：s=0 在 249巷中心線（Q s≈41.4），往西南西走到 s≈113.8 和往南的無名巷交會（data/cycu.json 那條的東段）
+  Q11: [
+    [-265.9, -175.5],
+    [-332.0, -136.6],
+    [-363.9, -117.8],
+  ],
 };
-// 路寬的一半（data/cycu.json）：新中北路 8.5、469巷 7.5、中山東路 13（高架段 10）、弘揚路 10、大仁三街與大仁四街 5、幸福街 5、力行北街 6
-const HALF = { X: 4.25, L: 3.75, Z: 6.5, H: 5, D3: 2.5, D4: 2.5, F: 2.5, LB: 3 };
+// 路寬的一半（data/cycu.json）：新中北路 8.5、469巷 7.5、中山東路 13（高架段 10）、弘揚路 10、大仁三街與大仁四街 5、幸福街 5、力行北街 6、
+// 249巷 5、249巷11弄 3
+const HALF = { X: 4.25, L: 3.75, Z: 6.5, H: 5, D3: 2.5, D4: 2.5, F: 2.5, LB: 3, Q: 2.5, Q11: 1.5 };
 // 立面離參考線的預設距離（各格可用 spec.set 覆寫）；大仁三、四街、幸福街、力行北街的街屋立面在路面外 1.3 m（雨棚外伸 1.27 m 才不會伸到路面上）
-const SET = { X: 7.4, L: 4.8, Z: 10, H: 6.5, D3: 3.8, D4: 3.8, F: 3.8, LB: 4.3 };
+// 249巷與 11弄的路面比實景寬（11弄實景約 4 m、遊戲中心線偏南 1.5～2 m），立面只退到路面外 0.9 m，門前鋪面才不會鋪到路上
+const SET = { X: 7.4, L: 4.8, Z: 10, H: 6.5, D3: 3.8, D4: 3.8, F: 3.8, LB: 4.3, Q: 3.4, Q11: 2.4 };
 
 const LOTS = SEGS.flatMap((S, si) =>
   (S.lots || []).map((L, j) => Object.assign(L, { seed: 6000 + si * 1000 + j * 7 }))

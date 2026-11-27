@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { createCharacter, randomStudent } from '../../../entities/Character.js';
 import { reachArm } from '../../../entities/Armik.js';
 import { surfaceAt } from '../../../world/Terrain.js';
+import { makeLabel } from '../../../world/MapBuilder.js';
 import { TENNIS, tennisP, O, D, HL } from '../../../world/Tennis.js';
 import { Rally, SWING } from './Rules.js';
 
@@ -128,7 +129,9 @@ export class TennisCourts {
       holdRacket(ch, makeRacket(this.mats));
       return { ch, name, heading: 0 };
     };
-    this.kai = person({ ...randomStudent(rnd), shirt: '#1f6fb2', pants: '#f2f2f2' }, '阿凱');
+    let kaiLook = randomStudent(rnd);
+    while (kaiLook.female) kaiLook = randomStudent(rnd); // 阿凱 is a guy
+    this.kai = person({ ...kaiLook, shirt: '#1f6fb2', pants: '#f2f2f2' }, '阿凱');
     this.courts = [1, 2, 3].map((i) => ({
       i,
       people: [person(randomStudent(rnd), '同學'), person(randomStudent(rnd), '同學')],
@@ -141,15 +144,21 @@ export class TennisCourts {
     this.hudEl = null;
     // E behind the north baseline of court 0
     const [ax, az] = toW(0, -HL - 1.3, 0);
-    g.interiors.actions.push({
-      x: ax,
-      z: az,
+    const ask = {
       y: 0,
       r: 2.2,
       label: () => '按 <kbd>E</kbd> 和網球社的阿凱打一盤（先拿 3 局）',
       cond: () => !this.playing && this.open() && !g.player.vehicle,
       fn: () => this.start(),
-    });
+    };
+    g.interiors.actions.push({ ...ask, x: ax, z: az });
+    // or walk up to him where he waits (south baseline)
+    const [kx, kz] = toW(0, HL + 0.8, 0);
+    g.interiors.actions.push({ ...ask, x: kx, z: kz, r: 2.6, aimY: surfaceAt(kx, kz) + 1.2 });
+    // his name over his head
+    const tag = makeLabel('🎾 網球社 阿凱', { height: 0.26, size: 40 });
+    tag.position.y = 2.15;
+    this.kai.ch.root.add(tag);
   }
   _ballMesh() {
     const m = new THREE.Mesh(this.ballGeo, this.mats.ball),

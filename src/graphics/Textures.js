@@ -380,6 +380,21 @@ export const groundTex = {
         ),
       };
     }),
+  // blue PU running track (中原大學操場, src/world/Stadium.js)
+  trackBlue: () =>
+    cached('trackBlue', () => {
+      const S = 256,
+        f = fbmField(S, 16, 3, 75);
+      return {
+        map: toTex(
+          paint(S, (x, y, i) => {
+            const n = hash(x, y, 77);
+            const v = 0.85 + f[i] * 0.2 + (n - 0.5) * 0.12;
+            return [clamp255(66 * v), clamp255(100 * v), clamp255(160 * v)];
+          })
+        ),
+      };
+    }),
   dirt: () =>
     cached('dirt', () => {
       const S = 256,

@@ -8805,12 +8805,26 @@ body.mahjong #dialog {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 4px;
-  max-width: 240px;
+  max-width: 300px;
 }
-#mjUI .mj-react-row button {
-  padding: 4px 7px;
-  font-size: 12px;
-  border-radius: 999px;
+/* 觀戰表情：彥霖貼圖按鈕（P2P.js SPECTATE_REACTS） */
+#mjUI .mj-react-row button.mj-react {
+  padding: 2px;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: transform 0.12s ease;
+}
+#mjUI .mj-react-row button.mj-react:hover {
+  transform: scale(1.12);
+  background: rgba(255, 255, 255, 0.22);
+}
+#mjUI .mj-react-row button.mj-react img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 #mjUI .mj-spec-tag {
   position: absolute;
@@ -8838,6 +8852,7 @@ body.mahjong #dialog {
 }
 #mjUI .mj-bubble {
   position: absolute;
+  z-index: 4; /* 蓋在右上角按鈕上面（不吃點擊）；說明面板 z-index 5 還是在最上面 */
   transform: translate(-50%, -100%);
   padding: 4px 10px;
   border-radius: 14px;
@@ -8849,6 +8864,35 @@ body.mahjong #dialog {
   pointer-events: none;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   transition: opacity 0.25s ease;
+}
+/* 貼圖泡泡：不要白底，貼圖本身有白邊；名字掛在上面 */
+#mjUI .mj-bubble.sticker {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  text-align: center;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+}
+#mjUI .mj-bubble.sticker::after {
+  display: none;
+}
+#mjUI .mj-bubble.sticker small {
+  display: block;
+  margin: 0 0 2px;
+  color: #fff;
+  opacity: 0.9;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+#mjUI .mj-bubble.sticker img {
+  width: 96px;
+  height: 96px;
+  display: block;
+  animation: mj-sticker-pop 0.28s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+@keyframes mj-sticker-pop {
+  from {
+    transform: scale(0.3);
+  }
 }
 #mjUI .mj-bubble small {
   font-weight: 500;

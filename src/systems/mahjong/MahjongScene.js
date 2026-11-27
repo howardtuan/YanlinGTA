@@ -22,7 +22,7 @@ import {
 } from './Rules.js';
 import { DiceSet } from './Dice.js';
 import { normalizeRoomCode } from './Net.js';
-import { SPECTATE_REACTS } from './P2P.js';
+import { SPECTATE_REACTS, reactSticker } from './P2P.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeOutfitFigure } from '../Outfits.js';
 
@@ -1848,8 +1848,11 @@ export class MahjongScene {
       }
     }
     const el = document.createElement('div');
-    el.className = 'mj-bubble';
-    el.innerHTML = `<small>${esc(ev.name || '圍觀')}</small>${esc(ev.text)}`;
+    const st = reactSticker(ev.text);
+    el.className = st ? 'mj-bubble sticker' : 'mj-bubble';
+    el.innerHTML = st
+      ? `<small>${esc(ev.name || '圍觀')}</small><img src="${st.img}" alt="${esc(st.label)}">`
+      : `<small>${esc(ev.name || '圍觀')}</small>${esc(ev.text)}`;
     wrap.appendChild(el);
     this._bubbles.push({
       fromId: ev.fromId || ev.name || 'spec',
@@ -1895,7 +1898,9 @@ export class MahjongScene {
       const py = tp ? Math.max(13, tp.py - 4) : Math.max(13, Math.min(82, ((1 - p.y) / 2) * 100));
       const lift = (age / b.ttl) * 22;
       b.el.style.left = `${px}%`;
-      b.el.style.top = `calc(${py}% - ${lift.toFixed(1)}px)`;
+      // (泡泡往上長；貼圖泡泡比較高，至少留它自己的高度，不會被畫面頂端切掉)
+      const room = b.el.offsetHeight + 6;
+      b.el.style.top = `calc(max(${py}%, ${room + lift}px) - ${lift.toFixed(1)}px)`;
       b.el.style.opacity = age > b.ttl - 500 ? String(Math.max(0, (b.ttl - age) / 500)) : '1';
     }
   }
@@ -1909,7 +1914,7 @@ export class MahjongScene {
       .join('、');
     const reactRow = `<div class="mj-react-row">${SPECTATE_REACTS.map(
       (r) =>
-        `<button data-a='${JSON.stringify({ type: 'mpReact', text: r.text })}'>${esc(r.text)}</button>`
+        `<button class="mj-react" title="${esc(r.label)}" data-a='${JSON.stringify({ type: 'mpReact', text: r.text })}'><img src="${r.img}" alt="${esc(r.label)}"></button>`
     ).join('')}</div>`;
     if (this.mj.mpMode === 'host' && this.mj.mp && this.e) {
       const reveal = !!this.mj.mp.spectateReveal;

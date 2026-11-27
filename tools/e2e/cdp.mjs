@@ -24,17 +24,19 @@ export function defaultChromePath() {
     return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   }
   for (const p of [
-    '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/opt/google/chrome/google-chrome',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
   ])
     if (fs.existsSync(p)) return p;
   return 'google-chrome';
 }
 
-// gpu: 'swiftshader' | 'gpu'
-export function chromeArgs({ gpu, width, height, headless = true }) {
+// gpu: 'swiftshader' | 'gpu'; linuxBackend (optional): 'vulkan' | 'egl' | 'gl' | 'default'
+export function chromeArgs({ gpu, width, height, headless = true, linuxBackend = 'default' }) {
   const a = [
     '--no-first-run',
     '--no-default-browser-check',
@@ -59,7 +61,20 @@ export function chromeArgs({ gpu, width, height, headless = true }) {
   else if (process.platform === 'win32')
     a.push('--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization');
   else if (process.platform === 'darwin') a.push('--use-angle=metal', '--ignore-gpu-blocklist');
-  else a.push('--ignore-gpu-blocklist', '--enable-gpu');
+  else {
+    a.push('--ignore-gpu-blocklist', '--enable-gpu', '--enable-gpu-rasterization');
+    if (linuxBackend === 'vulkan') {
+      a.push(
+        '--use-gl=angle',
+        '--use-angle=vulkan',
+        '--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE'
+      );
+    } else if (linuxBackend === 'egl') {
+      a.push('--use-gl=angle', '--use-angle=gl-egl', '--ozone-platform=headless');
+    } else if (linuxBackend === 'gl') {
+      a.push('--use-gl=angle', '--use-angle=gl');
+    }
+  }
   // after a GPU-process hiccup Chrome would otherwise block WebGL for the page's origin
   if (gpu !== 'swiftshader')
     a.push('--disable-domain-blocking-for-3d-apis', '--disable-gpu-process-crash-limit');
@@ -72,11 +87,12 @@ export async function launchChrome({
   width = 1280,
   height = 720,
   headless = true,
+  linuxBackend = 'default',
   extraArgs = [],
 }) {
   const userDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yanlin-e2e-'));
   const args = [
-    ...chromeArgs({ gpu, width, height, headless }),
+    ...chromeArgs({ gpu, width, height, headless, linuxBackend }),
     ...extraArgs,
     `--user-data-dir=${userDir}`,
     '--remote-debugging-port=0',
@@ -230,4 +246,116 @@ export async function connectPage(port) {
     await sleep(100);
   }
   throw new Error('no page target');
+}
+
+const SOFTWARE_GPU_RE = /swiftshader|llvmpipe|software|basic render driver/i;
+
+export async function probeWebglRenderer(page) {
+  try {
+    return await page.eval(`(() => {
+      const cv = document.createElement('canvas');
+      const gl = cv.getContext('webgl2', { powerPreference: 'high-performance' }) ||
+                 cv.getContext('webgl', { powerPreference: 'high-performance' });
+      if (!gl || gl.isContextLost()) return { ok: false, renderer: '' };
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const renderer = ext
+        ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '')
+        : String(gl.getParameter(gl.RENDERER) || '');
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      return { ok: true, renderer };
+    })()`);
+  } catch {
+    return { ok: false, renderer: '' };
+  }
+}
+
+/**
+ * Launch Chrome ensuring real hardware WebGL acceleration on macOS (Metal), Linux (Vulkan/EGL/GL),
+ * and Windows (D3D11). On Linux, --headless=new often falls back to SwiftShader unless an explicit
+ * ANGLE backend is selected, so we probe WebGL on about:blank and pick the first hardware GPU hit.
+ */
+export async function launchHardwareChrome({
+  chrome,
+  width = 1280,
+  height = 720,
+  headless = true,
+  extraArgs = [],
+}) {
+  const candidates =
+    process.platform === 'linux' && headless
+      ? [
+          { headless: true, linuxBackend: 'vulkan', extra: [] },
+          { headless: true, linuxBackend: 'egl', extra: [] },
+          { headless: true, linuxBackend: 'gl', extra: [] },
+          ...(process.env.DISPLAY || process.env.WAYLAND_DISPLAY
+            ? [{ headless: false, linuxBackend: 'gl', extra: ['--window-position=-32000,-32000'] }]
+            : []),
+        ]
+      : [{ headless, linuxBackend: 'default', extra: [] }];
+
+  const attempts = [];
+  let fallback = null;
+
+  for (const c of candidates) {
+    let browser = null;
+    let page = null;
+    try {
+      browser = await launchChrome({
+        chrome,
+        gpu: 'gpu',
+        width,
+        height,
+        headless: c.headless,
+        linuxBackend: c.linuxBackend,
+        extraArgs: [...c.extra, ...extraArgs],
+      });
+      page = await connectPage(browser.port);
+      await page.send('Runtime.enable');
+      const probe = await probeWebglRenderer(page);
+      const isSoftware = !probe.ok || SOFTWARE_GPU_RE.test(probe.renderer);
+      attempts.push({
+        backend: c.linuxBackend,
+        headless: c.headless,
+        ok: probe.ok,
+        renderer: probe.renderer,
+        isSoftware,
+      });
+      if (probe.ok && !isSoftware) {
+        if (fallback) {
+          fallback.page.close();
+          await fallback.browser.kill();
+        }
+        const hit = { browser, page, renderer: probe.renderer, isSoftware: false, attempts };
+        browser = null;
+        page = null;
+        return hit;
+      }
+      if (probe.ok && !fallback) {
+        fallback = { browser, page, renderer: probe.renderer };
+        browser = null;
+        page = null;
+      }
+    } catch (err) {
+      attempts.push({
+        backend: c.linuxBackend,
+        headless: c.headless,
+        ok: false,
+        error: String(err?.message || err).slice(0, 200),
+      });
+    } finally {
+      if (page) page.close();
+      if (browser) await browser.kill();
+    }
+  }
+
+  if (fallback) {
+    return {
+      browser: fallback.browser,
+      page: fallback.page,
+      renderer: fallback.renderer,
+      isSoftware: true,
+      attempts,
+    };
+  }
+  throw new Error(`Failed to initialize WebGL in Chrome (${chrome}): ${JSON.stringify(attempts)}`);
 }

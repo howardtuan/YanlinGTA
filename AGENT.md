@@ -63,9 +63,19 @@ npm run ci
 # 等同依序執行：format:check -> lint -> test -> build -> check:dist
 ```
 
-- **Headless Chrome Smoke Test（CI 雲端固定配置優先，本機選配）**：
-  - `npm run ci` 維持純 Node 快速檢查、不綁定個人硬體；PR CI 的 `Verify` job 固定使用 `ubuntu-24.04` + SwiftShader + `960x540` + `low`（`timeout-minutes: 5`）自動執行 `npm run test:smoke`（[tools/e2e/smoke.mjs](tools/e2e/smoke.mjs)，掛載於 `/YanlinGTA/`），驗證「過初始讀取條進主畫面 (`title`) → 點擊開始過進場讀取條進入遊玩 (`play`)」且 0 執行期錯誤，並將**運行硬體與確定性效能摘要**寫入 GitHub Actions Job Summary（不設效能上限門檻）與上傳截圖／JSON artifact。
-  - **效能基線以 CI 雲端固定配置為優先依據**：凡 PR 涉及 `src/core/`、`src/graphics/`、`src/world/`、`src/physics/`、`data/`、`assets/`、`vite.config.js` 或任何影響載入／記憶體／渲染之改動，**必須依 [.github/pull_request_template.md](.github/pull_request_template.md) 填寫固定結構化的「效能與運行環境紀錄」表格**（優先取用 CI `Verify` Job Summary，本機 `npm run test:smoke` / `npm run profile:*` 僅作為輔助或真實 GPU FPS 補充）；無論數據來源為何，**禁止只貼效能數字而不附完整運行硬體表**（執行來源、OS、CPU 型號×核心數、RAM、瀏覽器版本、WebGL Renderer、視窗與畫質）。
+- **CI 進場煙霧測試與本機真 GPU 效能紀錄分流（iPhone 優先，支援 Mac M 系列與 Linux）**：
+  - **雲端 CI 僅作功能守門**：`npm run ci` 維持純 Node 快速檢查；PR CI 的 `Verify` job（`ubuntu-24.04` + SwiftShader 軟體渲染）自動執行 `npm run test:smoke`（[tools/e2e/smoke.mjs](tools/e2e/smoke.mjs)，掛載於 `/YanlinGTA/`），僅驗證「過初始讀取條進主畫面 (`title`) → 點擊開始過進場讀取條進入遊玩 (`play`)」且 0 執行期錯誤（雲端無硬體 GPU，SwiftShader 軟體幀率不具參考力，不作為效能優化依據）。
+  - **效能紀錄由開發者 Agent 自主判定並於本機真 GPU 自動執行**：目前最佳化第一優先為 **iPhone 瀏覽器**，其次為電腦瀏覽器。每次開 PR 時，**由該開發者的 Agent 依變更內容判斷是否需要補跑效能實測**：
+    - **應執行效能實測**：凡改動涉及地圖／建築／室內（`src/world/`）、實體／行人／車流／火車（`src/entities/`）、渲染／材質／貼圖／記憶體（`src/graphics/`）、核心迴圈與串流（`src/core/`）、物理碰撞（`src/physics/`），或執行期資產與打包設定（`assets/`、`data/`、`vite.config.js`）。
+    - **可略過效能實測**：僅修改文件（`docs/`）、Wiki（`wiki/`）、單元測試（`tests/`）、CI 設定、純劇情對白文字或純 2D DOM 介面等不影響 3D 場景／記憶體之變更（於 PR 模板勾選「與效能無關」即可）。
+  - **免手動抄表全自動流程**：判定需測效能時，Agent 於 `npm run ci`（已產出最新 `dist/`）通過後直接執行：
+    ```bash
+    npm run bench:iphone -- --no-build
+    # 若已建立 PR，亦可一鍵將剛跑完的結果與輕量標記自動寫入該 PR 內文：
+    npm run perf:attach -- <PR編號>
+    ```
+    > **沙盒權限提醒**：若 AI Agent 預設在受限沙盒內執行指令，執行 `npm run bench:iphone` 時**必須申請宿主機執行權限（跳脫沙盒）**，才能存取本機 Chrome 與真實硬體 GPU（Mac Apple Metal / Linux Vulkan·EGL 獨顯或內顯），避免退回軟體渲染。腳本會自動以 iPhone 模擬環境（`430x932@3x`、`tier=mobile-lite`）跑完遊戲內 99 秒三段 Benchmark 並連同**完整宿主機硬體資訊**與 `<!-- yanlin-perf:v1 -->` 輕量標記輸出至 `tools/e2e/out/bench/pr-perf-section.md`，嚴禁手填數字而省略硬體環境表。
+  - **按需對比原則（平時不自動做對比）**：開 PR 時僅記錄當次真實數據，不做前後對比輸出；**僅當使用者主動要求檢視歷史演進或比對特定 PR／修改前後差異時**，Agent 才執行 `npm run perf:history` 或 `npm run perf:compare`（自動從 GitHub Merged PRs 增量同步至本機輕量單檔 `tools/.cache/perf-history.jsonl`，自動區分跨機通用的 iPhone 記憶體／Draw Calls／三角形與同款 GPU 的 FPS／耗時）。
 
 若改動涉及特定子系統的進階驗證（如 WASM 精度測試、E2E 劇本測試、室內平面圖產圖等），請依改動性質視需要補跑，完整指令清冊見 [docs/guide/developer-guide.md](docs/guide/developer-guide.md)。
 

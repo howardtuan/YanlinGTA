@@ -16,34 +16,45 @@
 
 ## 效能與運行環境紀錄 (Performance & Hardware)
 
-<!-- 必填條件：改動涉及 src/core/、src/graphics/、src/world/、src/physics/、data/、assets/、vite.config.js 或任何影響載入／記憶體／渲染之變更時必填；其餘改動請勾選下方第一項略過。 -->
+<!--
+判定與自動化操作說明（由發起 PR 的 Agent 依變更範圍自主決定）：
+1. 無關效能：純文案、Wiki、文件、測試、CI 或純 2D DOM 修改 -> 勾選下方第一項並保留預設空表即可。
+2. 涉及效能：凡修改 src/world/、src/entities/、src/graphics/、src/core/、src/physics/、assets/、data/ 或 vite.config.js ->
+   請在 npm run ci 通過後於宿主機環境（非受限沙盒）執行：
+     npm run bench:iphone -- --no-build
+   執行完畢後，直接以產出的 tools/e2e/out/bench/pr-perf-section.md 內容整段替換本區塊（或開 PR 後執行 npm run perf:attach -- <PR編號> 自動寫入），勿手動抄寫。
+-->
 
-- [ ] 本次未涉及載入／記憶體／渲染改動（略過下表）
-- [ ] **（優先）** 數據來源為 GitHub Actions `Verify` Job Summary（統一固定 `ubuntu-24.04` + SwiftShader + `960x540` + `low`）
-- [ ] 數據來源為本機實測（僅作輔助或真實 GPU FPS 補充，已完整填寫下方硬體表）
+- [ ] 本次變更與地圖／建築／實體／渲染／物理／資產載入無關（純文案、Wiki、文件、測試或純 2D 介面等，略過效能實測）
+- [ ] 本次變更涉及效能相關模組，已由 Agent 執行 `npm run bench:iphone` 附上 iPhone 模擬遊戲內 Benchmark 與宿主硬體紀錄
 
-### 運行環境與硬體（附效能數據時必填，缺一不可）
+### 運行環境與宿主機硬體
 
 | 項目 | 數值 |
 | :--- | :--- |
-| 執行來源 | `GitHub Actions (Verify / ubuntu-24.04)` *(優先)* / `Local` |
-| 作業系統 (OS) | <!-- 例：Linux 6.8 (linux/x64) / Darwin 24.x (darwin/arm64) --> |
-| CPU（型號 × 核心數） | <!-- 例：AMD EPYC 7763 × 4 / Apple M3 × 8 --> |
-| 記憶體 (RAM) | <!-- 例：16 GB --> |
-| 瀏覽器版本 | <!-- 例：Chrome/131.0.0.0 --> |
-| WebGL Renderer | <!-- 例：ANGLE (SwiftShader) / ANGLE (Apple M3, Metal) --> |
-| 視窗與畫質 | <!-- 例：960x540 · low --> |
+| 作業系統 (OS) | `-` |
+| CPU（型號 × 核心數） | `-` |
+| 記憶體 (RAM) | `-` |
+| 瀏覽器 / 引擎 | `-` |
+| 真實 WebGL GPU | `-` |
+| 模擬裝置與畫質 | `-` |
 
-### 效能指標（可直接貼上 `smoke.mjs` 輸出表格；若為效能改動請填 `Before → After`）
+### iPhone 記憶體與載入帳本（跨機器通用指標）
 
-| 指標 | 數值 | 單位 |
+| 指標 | 數值 | 備註 |
 | :--- | ---: | :--- |
-| Draw Calls | `-` | calls |
-| Triangles | `-` | k |
-| Geometries / Renderer Textures | `-` / `-` | 個 |
-| Canvas 記憶體（GC 後） | `-` | MB |
-| GPU 貼圖估算（含 mip） | `-` | MB |
-| JS Heap / DOM Nodes | `-` / `-` | MB / 個 |
-| 載入資源數 / Transfer | `-` / `-` | 個 / KB |
-| 啟動至主畫面 (`title`) *(參考)* | `-` | ms |
-| 點擊開始至進入遊玩 (`play`) *(參考)* | `-` | ms |
+| Canvas 記憶體（GC 後） | `-` | iOS 警戒線 `<= 220 MB` |
+| GPU 貼圖估算（含 mip） | `-` | `-` |
+| 幾何體 / 著色器 (Shaders) | `-` / `-` | 個 |
+| JS Heap（GC 後 / 峰值） | `-` / `-` | `-` |
+| 載入資源數 / 傳輸量 | `-` / `-` | `-` |
+| 啟動至主畫面耗時 *(硬體相依)* | `-` | `-` |
+
+### 遊戲內 99s Benchmark（三段路線＋整體）
+
+| 段落 | 平均 FPS | 1% 低 | p50 / p95 (ms) | 卡頓 | 邏輯 JS (ms) | 繪圖提交 (ms) | Draw Calls | Triangles |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **整體平均** | `-` | `-` | `-` / `-` | `-` | `-` | `-` | `-` | `-` |
+| 校園街道（白天） | `-` | `-` | `-` / `-` | `-` | `-` | `-` | `-` | `-` |
+| 空拍（150m 全景） | `-` | `-` | `-` / `-` | `-` | `-` | `-` | `-` | `-` |
+| 夜間街道 | `-` | `-` | `-` / `-` | `-` | `-` | `-` | `-` | `-` |

@@ -55,8 +55,8 @@ export const SEGMENTS = [
 const pct = (sorted, p) =>
   sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] : 0;
 
-// frames: { dt: frame interval ms, cpu: main-thread ms } arrays of equal length
-export function frameSummary(dt, cpu = []) {
+// frames: { dt: frame interval ms, cpu: main-thread ms, logic: update/physics ms, render: submit ms }
+export function frameSummary(dt, cpu = [], logic = [], render = []) {
   const n = dt.length;
   if (!n) return null;
   const s = Float64Array.from(dt).sort();
@@ -71,6 +71,10 @@ export function frameSummary(dt, cpu = []) {
   for (const d of dt) if (d > lim) stutters++;
   const cs = Float64Array.from(cpu).sort();
   const cpuAvg = cpu.length ? cpu.reduce((a, b) => a + b, 0) / cpu.length : 0;
+  const ls = Float64Array.from(logic).sort();
+  const logicAvg = logic.length ? logic.reduce((a, b) => a + b, 0) / logic.length : 0;
+  const rs = Float64Array.from(render).sort();
+  const renderAvg = render.length ? render.reduce((a, b) => a + b, 0) / render.length : 0;
   return {
     frames: n,
     seconds: total / 1000,
@@ -85,6 +89,10 @@ export function frameSummary(dt, cpu = []) {
     stutters,
     cpuAvg,
     cpuP95: pct(cs, 0.95),
+    logicAvg,
+    logicP95: pct(ls, 0.95),
+    renderAvg,
+    renderP95: pct(rs, 0.95),
   };
 }
 
@@ -151,6 +159,9 @@ export class Benchmark {
         e.preventDefault();
         this.cancel();
       }
+    };
+    this._onVis = () => {
+      if (document.hidden && this.running) this._tabHidden = true;
     };
   }
 
@@ -248,18 +259,22 @@ export class Benchmark {
     };
   }
 
-  start(quality) {
+  start(quality, opts = {}) {
     const g = this.game;
     if (this.running || g.state !== 'title') return false;
     this._buildRoutes();
     this.prevQ = g.quality;
     if (quality && quality !== g.quality) g.setQuality(quality);
+    this.headless = Boolean(opts.headless);
     this.running = true;
     this.seg = 0;
     this.t = 0;
+    this._warmFrames = 0;
+    this._tabHidden = false;
+    this._skipFrame = false;
     this._lookS = null;
     this._prevT = null;
-    this.rec = { dt: [], cpu: [], calls: [], tris: [], seg: [] };
+    this.rec = { dt: [], cpu: [], logic: [], render: [], calls: [], tris: [], seg: [] };
     this.heapMax = 0;
     this._last0 = 0;
     this.prevAutoReset = g.renderer.info.autoReset;
@@ -268,6 +283,7 @@ export class Benchmark {
     $('title')?.classList.add('hidden');
     this._hud();
     addEventListener('keydown', this._onKey);
+    addEventListener('visibilitychange', this._onVis);
     return true;
   }
 
@@ -318,7 +334,13 @@ export class Benchmark {
       R = this._routes[this.seg];
     // the route runs on wall-clock time (the loop's dt is capped at 50 ms, so a slow machine would take far longer)
     const now = performance.now();
-    this.t += Math.min(0.25, (now - (this._prevT ?? now - dt * 1000)) / 1000);
+    if (!this.headless && (document.hidden || this._tabHidden)) {
+      this._tabHidden = document.hidden;
+      this._prevT = now;
+      this._skipFrame = true;
+      return;
+    }
+    this.t += Math.min(5, Math.max(0, (now - (this._prevT ?? now - dt * 1000)) / 1000));
     this._prevT = now;
     const cam = g.camera;
     const run = Math.max(0, this.t - WARM) / S.time; // 0..1 through the measured part
@@ -349,9 +371,10 @@ export class Benchmark {
     g.traffic?.update(dt, { pos, vehicle: null }, null);
     g.peds?.update(dt, { pos }, g.world.collision);
     this._progress();
-    if (this.t >= S.time + WARM) {
+    if (this.t >= S.time + WARM && this._warmFrames >= 2) {
       this.seg++;
       this.t = 0;
+      this._warmFrames = 0;
       this._lookS = null;
       if (this.seg >= SEGMENTS.length) this.finish();
     }
@@ -368,12 +391,24 @@ export class Benchmark {
   }
   frameEnd(now) {
     if (!this.running) return;
+    const end = performance.now();
     const ft = this._last0 ? now - this._last0 : 0;
     this._last0 = now;
-    if (!ft || this.t < WARM || ft > 1000) return; // warm-up, or the tab was hidden
+    if (this._skipFrame) {
+      this._skipFrame = false;
+      return;
+    }
+    if (this.t < WARM || this._warmFrames < 2) {
+      this._warmFrames++;
+      return;
+    }
+    if (!ft || (!this.headless && ft > 5000)) return; // first frame, or OS sleep
     const info = this.game.renderer.info.render;
+    const rs = this._rs ?? end;
     this.rec.dt.push(ft);
-    this.rec.cpu.push(performance.now() - this._fs);
+    this.rec.cpu.push(end - this._fs);
+    this.rec.logic.push(Math.max(0, rs - this._fs));
+    this.rec.render.push(Math.max(0, end - rs));
     this.rec.calls.push(info.calls);
     this.rec.tris.push(info.triangles);
     this.rec.seg.push(this.seg);
@@ -385,6 +420,7 @@ export class Benchmark {
     const g = this.game;
     this.running = false;
     removeEventListener('keydown', this._onKey);
+    removeEventListener('visibilitychange', this._onVis);
     if (this.el) this.el.style.display = 'none';
     g.renderer.info.autoReset = g.perfHud?.level !== 'off' ? false : this.prevAutoReset;
     if (this.prevQ && this.prevQ !== g.quality) g.setQuality(this.prevQ);
@@ -413,12 +449,12 @@ export class Benchmark {
       return {
         key: s.key,
         name: s.name,
-        ...frameSummary(pick(rec.dt), pick(rec.cpu)),
+        ...frameSummary(pick(rec.dt), pick(rec.cpu), pick(rec.logic), pick(rec.render)),
         calls: avg(pick(rec.calls)),
         tris: avg(pick(rec.tris)),
       };
     });
-    const overall = frameSummary(rec.dt, rec.cpu);
+    const overall = frameSummary(rec.dt, rec.cpu, rec.logic, rec.render);
     const res = `${cv.width}×${cv.height}`;
     this.result = {
       date: new Date().toLocaleString('zh-TW', { hour12: false }),

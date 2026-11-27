@@ -32,6 +32,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFurniture } from './Furniture.js';
 import { isCourt, paintCourts } from './Court.js';
 import { isTennis, paintTennis } from './Tennis.js';
+import { isStadiumTrack, isStadiumPitch, paintStadium } from './Stadium.js';
 import {
   groundTex,
   facadeTex,
@@ -2574,6 +2575,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       gAsph = new Geo(true, uvS(8)),
       gGreen = new Geo(true, uvS(6)),
       gTrack = new Geo(true, uvS(4)),
+      gBlue = new Geo(true, uvS(4)), // 中原大學操場的藍色跑道 (src/world/Stadium.js)
       gWater = new Geo(true, uvS(14)),
       gLines = new Geo(true);
     const gFarm = new Geo(true),
@@ -2607,7 +2609,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         k === 'water'
           ? gWater
           : k === 'track'
-            ? gTrack
+            ? isStadiumTrack(a)
+              ? gBlue
+              : gTrack
             : k === 'farm'
               ? gFarm
               : k === 'dirt' || k === 'construction'
@@ -2642,7 +2646,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
       if (a.kind === 'parking') parkingPolys.push(ring);
       // pitch markings on roughly rectangular pitches
-      if (a.kind === 'pitch' && !a.holes && !isCourt(a) && !isTennis(a)) {
+      if (a.kind === 'pitch' && !a.holes && !isCourt(a) && !isTennis(a) && !isStadiumPitch(a)) {
         const f = obb(a.pts),
           L = f.u1 - f.u0,
           W = f.v1 - f.v0;
@@ -2685,6 +2689,15 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     addFlat(gDirt, gmat(T.dirt(), { macroAmt: 0.3 }), 'areas');
     addFlat(gGreen, gmat(T.grass(), { macroAmt: 0.3, macroScale: 0.015, env: 0.4 }), 'areas');
     addFlat(gTrack, gmat(T.track(), { macroAmt: 0.1 }), 'areas');
+    {
+      // 中原大學操場：藍色跑道與田賽區、草地、分道線與足球場線 (src/world/Stadium.js)
+      const gGrass = new Geo(true, uvS(6)),
+        gSl = new Geo(true);
+      paintStadium({ blue: gBlue, grass: gGrass, lines: gSl }, col);
+      addFlat(gBlue, gmat(T.trackBlue(), { macroAmt: 0.1 }), 'areas');
+      addFlat(gGrass, gmat(T.grass(), { macroAmt: 0.3, macroScale: 0.015, env: 0.4 }), 'areas');
+      addFlat(gSl, null, 'areas');
+    }
     {
       const ct = data.areas.filter(isCourt),
         tn = data.areas.filter(isTennis);

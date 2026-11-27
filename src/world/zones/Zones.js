@@ -82,6 +82,7 @@ import { zoneCLook, zoneCVegHide, buildZoneC } from './ZoneC.js';
 import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
 import { tennisTreeHide, buildTennis } from '../Tennis.js';
 import { railWallTreeHide, buildRailWall } from '../RailWall.js';
+import { stadiumTreeHide, buildStadium } from '../Stadium.js';
 import {
   HZ_ST,
   hzFix,
@@ -255,6 +256,13 @@ export const ZONES = [
     terrain: courtTerrain,
     treeHide: courtTreeHide,
     build: (I, scene) => buildCourts(I, scene, Kit, regMat),
+  },
+  {
+    // 操場（實英運動場）：東看台＋聖火台、西側北／南小看台與主看台（司令台）、校名塔、足球門（跑道與劃線在 src/world/MapBuilder.js 的 areas 圖層）
+    name: '操場看台',
+    treeHide: stadiumTreeHide,
+    vegHide: stadiumTreeHide,
+    build: buildStadium,
   },
   {
     // 網球場：北塊兩面、南塊兩面、綠色練習場、圍網與出入口、球網、裁判椅、休息棚、燈桿、北緣管理室（鋪面與線在 src/world/MapBuilder.js 的 areas 圖層）

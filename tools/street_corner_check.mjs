@@ -70,6 +70,7 @@ export const XZ_SEGS = [
   'SegLB3',
   'SegQ1',
   'SegQ2',
+  'SegQ3',
 ];
 // 會畫車道的道路種類（service 巷道、停車場通道另外列，footway 不算）
 export const MAIN_TYPES = new Set([

@@ -575,6 +575,7 @@ class Game {
 
     this.vehicleSpawner.spawnParked();
     this.parkedScooters = new ParkedScooters(this);
+    this.peds.parked = this.parkedScooters; // walkers step round kerbside rows of parked bikes (src/entities/NPC.js)
     Vehicle.knock = (o, by, nx, nz, impact) =>
       this.vehicleSpawner.knockVehicle(o, by, nx, nz, impact);
     Vehicle.knockTraffic = (o, by, nx, nz, impact) =>

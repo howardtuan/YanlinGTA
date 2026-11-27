@@ -494,6 +494,20 @@ export class ParkedScooters {
     return anyHit;
   }
 
+  // whether a walker of radius r standing at (x, z) on level y would be inside a parked scooter / car
+  // (what resolveFoot pushes it out of): walkers pick their path round a kerbside row with it (src/entities/NPC.js)
+  footBlocked(x, z, r = 0.3, y = 0) {
+    if (!this.slots.length) return false;
+    let hit = false;
+    this._near(x, z, r + 2.5, (s) => {
+      if (hit || (s.state !== 'static' && s.state !== 'fallen')) return;
+      if (Math.abs(s.y - y) > 1.8) return;
+      const hw = s.state === 'fallen' ? s.hw * 0.85 : s.hw;
+      if (closestOnCapsule(x, z, s.x, s.z, s.yaw, s.hl, hw).dist < hw + r) hit = true;
+    });
+    return hit;
+  }
+
   // Feed nearby parked cars & scooters (static or fallen) into Rapier's kinematic movers list whenever the
   // player is driving OR dynamic knocked vehicles/ragdolls are moving, so falling bikes never clip through neighbors.
   appendMovers(list, x, z, pvOrY) {

@@ -140,7 +140,7 @@ const SHOP = [
   },
   {
     id: 'helmet',
-    name: 'JET SL 安全帽',
+    name: 'JAT SM 安全帽',
     icon: '⛑️',
     price: 890,
     desc: '極地白配色，騎車安全第一',
@@ -566,7 +566,7 @@ export class Phone {
     };
   }
   // ---------------- 呼叫載具 ----------------
-  // your JET SL, and after 霍華德's Two Sum (src/systems/quests/HowardTwoSum.js) his black 忍 400 too
+  // your JAT SM, and after 霍華德's Two Sum (src/systems/quests/HowardTwoSum.js) his black 忍 400 too
   _garage() {
     const g = this.g,
       p = g.player.worldPos(),
@@ -592,7 +592,7 @@ export class Phone {
     const c = this._frame(
       '呼叫載具',
       `<div class="ph-garage">
-        ${card('jet', g.myScooter, '🛵', '我的 SYM JET SL', '粉白配色')}
+        ${card('jet', g.myScooter, '🛵', '我的 JAT SM', '粉白配色')}
         ${ninja ? card('ninja', H.bike, '🏍️', '霍華德的忍 400', '黑色仿賽・借你騎') : ''}
         <div class="ph-note">彥霖航空直升機會把車吊過來，放在你旁邊的路上。免費，大約 15 秒送達。${ninja ? '' : '<br>🔒 解出霍華德的 Two Sum，他的忍 400 也能空投。'}</div>
       </div>`
@@ -840,7 +840,7 @@ export class Phone {
       this._frame(
         '天氣',
         `<div class="ph-weather ${n ? 'night' : ''}"><small>中壢區</small><b>${t}°</b><span>${n ? '晴朗夜空' : '多雲時晴'}</span><small>最高 27° 最低 18°</small></div>
-        <div class="ph-hours">${hours}</div><div class="ph-note">降雨機率 10%，適合騎 JET SL 去拉票 🛵</div>`,
+        <div class="ph-hours">${hours}</div><div class="ph-note">降雨機率 10%，適合騎 JAT SM 去拉票 🛵</div>`,
         { cls: 'ph-blue' }
       );
       return;

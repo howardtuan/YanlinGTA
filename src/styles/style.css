@@ -4400,7 +4400,7 @@ kbd.pb-nin.pb-face {
 .rr-btns button.go {
   background: #ff4fa3;
 }
-/* 選車 (src/systems/minigames/Race.js _pick): JET SL or 霍華德's 忍 400 */
+/* 選車 (src/systems/minigames/Race.js _pick): JAT SM or 霍華德's 忍 400 */
 .rr-picks {
   display: flex;
   flex-direction: column;

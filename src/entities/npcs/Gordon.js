@@ -9,7 +9,7 @@
 // 關掉的話他會睡過頭：那天 08:40 才醒、戈登肉鋪晚 40 分鐘開（src/world/buildings/GordonShop.js 看 overslept）；
 // 是好友的話，他醒來會很生氣地私訊你，問你為什麼要關，害他上班遲到。
 // 在宿舍找他：沒跟他買過東西又不是好友的話，他只會叫你別吵，室友會小聲提醒你要先去買他的肉才加得到好友。
-// 有些晚上 23:00–23:40 他跟吱吱各騎自己的 BW'S 去兜風（src/entities/npcs/Zz.js 的 gdOut），那段時間不在寢室。
+// 有些晚上 23:00–23:40 他跟吱吱各騎自己的大A去兜風（src/entities/npcs/Zz.js 的 gdOut），那段時間不在寢室。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';

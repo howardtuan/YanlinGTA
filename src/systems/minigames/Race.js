@@ -1,7 +1,7 @@
 // 新中北路障礙賽 — street race around the outside of the CYCU main campus.
-// Sign up at the door of 力行大樓 (the 力行 male dorm on 新中北路), ride your own JET SL against 7 rivals,
+// Sign up at the door of 力行大樓 (the 力行 male dorm on 新中北路), ride your own JAT SM against 7 rivals,
 // 2 laps, you start 6th of 8. Once 霍華德's Two Sum is solved (src/systems/quests/HowardTwoSum.js) you pick your bike
-// before the start: the JET SL or his black 忍 400 (src/entities/npcs/Howard.js lend). Normal traffic and pedestrians stay on the roads, and the organisers put
+// before the start: the JAT SM or his black 忍 400 (src/entities/npcs/Howard.js lend). Normal traffic and pedestrians stay on the roads, and the organisers put
 // cones and water barriers on the course.
 //
 // The course is built from the real road graph (world.driveNodes): A* between anchor points around the
@@ -307,7 +307,7 @@ export class Race {
       r: 3.6,
       y: 0,
       label: () =>
-        `按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（${this._canNinja() ? '可選 JET SL／忍 400' : '騎自己的 JET SL'}・2 圈・8 人）`,
+        `按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（${this._canNinja() ? '可選 JAT SM／忍 400' : '騎自己的 JAT SM'}・2 圈・8 人）`,
       cond: () => this.state === 'idle',
       fn: (g) => this.signup(),
     });
@@ -328,7 +328,7 @@ export class Race {
     return !!(this.g.howardQuest?.done && this.g.howard?.bike);
   }
   get rideName() {
-    return this.ride?.model === 'ninja' ? '忍 400' : 'JET SL';
+    return this.ride?.model === 'ninja' ? '忍 400' : 'JAT SM';
   }
 
   // ---------- course helpers ----------
@@ -577,7 +577,7 @@ export class Race {
   signup() {
     const g = this.g;
     if (!g.myScooter) {
-      g.hud.toast('找不到你的 JET SL…', 'bad');
+      g.hud.toast('找不到你的 JAT SM…', 'bad');
       return;
     }
     g.dialog(
@@ -608,7 +608,7 @@ export class Race {
         <span>${icon}</span><div><b>${dual(`<kbd>${key}</kbd>`, '')} ${name}</b><small>${sub}</small></div></button>`;
     this.el.res.innerHTML = `<h2>🏁 選擇你的車</h2>
       <div class="rr-picks">
-        ${btn(0, 1, '🛵', '我的 SYM JET SL', '粉白配色・極速約 79 km/h', false)}
+        ${btn(0, 1, '🛵', '我的 JAT SM', '粉白配色・極速約 79 km/h', false)}
         ${btn(1, 2, '🏍️', '霍華德的忍 400', out ? '霍華德騎出去兜風了，現在借不到' : '黑色仿賽重機・極速約 130 km/h', out)}
       </div>
       <div class="rr-btns"><button id="rrBack">${dual('<kbd>Esc</kbd>', '{B}')} 取消</button><button id="rrOk" class="go">${dual('<kbd>Enter</kbd>', '{A}')} 出發</button></div>`;
@@ -705,7 +705,7 @@ export class Race {
       this._placeRival(r, 0);
       this.rivals.push(r);
     });
-    // you, on your JET SL (or the 忍 400) in slot 6
+    // you, on your JAT SM (or the 忍 400) in slot 6
     if (pl.vehicle && pl.vehicle !== my) pl.exit(g.scene, g.world.collision);
     const ps = slot(PLAYER_SLOT),
       pp = ps.p;

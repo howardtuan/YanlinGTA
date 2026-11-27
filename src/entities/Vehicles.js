@@ -119,7 +119,7 @@ export function buildScooter(color) {
   return g;
 }
 
-// SYM JET SL 125 (極地白): white / dark-grey angular bodywork with red pinstripes, black split-spoke
+// JAT SM 125 (極地白): white / dark-grey angular bodywork with red pinstripes, black split-spoke
 // wheels, petal front disc, red-stitched black seat, pink rear hugger. Modelled from side and 3/4
 // reference photos; profiles below are in metres (z forward, y up, ground 0), scaled 1.08 to the
 // game's rider. Right side of the bike is -x (exhaust), left side +x (air box, front disc).
@@ -557,7 +557,7 @@ export function buildJetSL() {
   const amberDS = amber.clone();
   amberDS.side = THREE.DoubleSide;
   for (const s of [-1, 1]) {
-    // headlight unit, set into the slanted face like the real JET SL: an eye-shaped recess pointing
+    // headlight unit, set into the slanted face like the real JAT SM: an eye-shaped recess pointing
     // up to the outside, dark chrome reflector, small projector, an L-shaped LED light guide along the
     // top and outer edge, and a clear outer cover. Built in face-plane coordinates (u out, v up).
     {
@@ -1089,15 +1089,15 @@ export function buildJetSL() {
   g.add(pb);
   g.add(tube([0, 0.5, -0.97], [0, 0.52, -1.006], 0.012, black));
 
-  // ---- decals: JET SL on the tail panels, JET on the cowl, SYM on the fangs ----
+  // ---- decals: JAT SM on the tail panels, JAT on the cowl ----
   const jet = decalTex((c, w, h) => {
     c.font = 'italic 900 70px "Arial Black",system-ui';
     c.fillStyle = '#111';
     c.textBaseline = 'middle';
-    c.fillText('JET', 8, 46);
+    c.fillText('JAT', 8, 46);
     c.font = 'italic 900 34px system-ui';
     c.fillStyle = '#d4143c';
-    c.fillText('SL', 158, 34);
+    c.fillText('SM', 158, 34);
     c.fillStyle = '#d4143c';
     c.font = 'italic 700 14px system-ui';
     c.fillText('LIQUID COOLED', 10, 84);
@@ -2354,10 +2354,10 @@ export function buildZmax(color = '#0e0f11') {
   return g;
 }
 
-// Yamaha BW'S（使用者附圖）：方正直立的車頭面板、高平把手、平底踏板、長平座墊、後扶手、12 吋越野胎。z 向前、y 向上，單位公尺。
-//  'gd'：女拳大帝的新款 BW'S —— 夜幕灰（深灰藍消光側板、霧黑外殼），黑色面罩裡左右並排兩顆圓燈，黑框輪圈、塊狀越野胎；
-//  'zz'：吱吱的舊款 BW'S —— 白色車殼、紅色車頭上蓋、上小下大兩顆燈、紅色輪框與紅色後避震、黑座墊、管狀後扶手。
-export function buildBws(style = 'gd') {
+// 大A（使用者附圖）：方正直立的車頭面板、高平把手、平底踏板、長平座墊、後扶手、12 吋越野胎。z 向前、y 向上，單位公尺。
+//  'gd'：女拳大帝的新款大A —— 夜幕灰（深灰藍消光側板、霧黑外殼），黑色面罩裡左右並排兩顆圓燈，黑框輪圈、塊狀越野胎；
+//  'zz'：吱吱的舊款大A —— 白色車殼、紅色車頭上蓋、上小下大兩顆燈、紅色輪框與紅色後避震、黑座墊、管狀後扶手。
+export function buildDaA(style = 'gd') {
   const g = new THREE.Group(),
     gd = style === 'gd';
   const body = gd ? m('#3a4253', { roughness: 0.62, metalness: 0.25 }) : paint('#f1f1ee');
@@ -2496,7 +2496,7 @@ export function buildBws(style = 'gd') {
     )
   ); // high front fender
   for (const s of [-1, 1]) g.add(tube([0.09 * s, 0.86, 0.58], [0.09 * s, R, ZF], 0.026, matte));
-  // floorboard, black lower body, side panels in the body colour, BW'S lettering
+  // floorboard, black lower body, side panels in the body colour, 大A lettering
   g.add(box(0.42, 0.06, 0.6, matte, 0, 0.38, 0.14));
   g.add(
     panel(
@@ -2547,7 +2547,7 @@ export function buildBws(style = 'gd') {
       c.fillStyle = gd ? '#d9dde3' : '#cf1f2b';
       c.font = 'italic 900 66px Arial,sans-serif';
       c.textBaseline = 'middle';
-      c.fillText("BW'S", 24, h / 2);
+      c.fillText('大A', 24, h / 2);
     },
     256,
     96
@@ -2891,10 +2891,10 @@ export class Vehicle {
         exitSide: 1.0,
         label: '漢克的 ZMAX',
       });
-    } else if (kind === 'scooter' && (opt.model === 'bws_gd' || opt.model === 'bws_zz')) {
-      // 女拳大帝／吱吱的 BW'S (src/entities/npcs/Zz.js)
-      const gd = opt.model === 'bws_gd';
-      this.mesh = buildBws(gd ? 'gd' : 'zz');
+    } else if (kind === 'scooter' && (opt.model === 'daa_gd' || opt.model === 'daa_zz')) {
+      // 女拳大帝／吱吱的大A (src/entities/npcs/Zz.js)
+      const gd = opt.model === 'daa_gd';
+      this.mesh = buildDaA(gd ? 'gd' : 'zz');
       this.model = opt.model;
       Object.assign(this, {
         wb: 1.26,
@@ -2908,7 +2908,7 @@ export class Vehicle {
         grip: 9,
         seat: new THREE.Vector3(0, 0.08, -0.32),
         exitSide: 1.0,
-        label: gd ? "女拳大帝的 BW'S" : "吱吱的 BW'S",
+        label: gd ? '女拳大帝的大A' : '吱吱的大A',
       });
     } else if (kind === 'scooter' && BIKES[opt.model]) {
       // 重機 (big bike): handled like a scooter, faster, longer, the rider sits higher
@@ -2943,7 +2943,7 @@ export class Vehicle {
         grip: 9,
         seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29),
         exitSide: 1.0,
-        label: opt.jet ? '我的 SYM JET SL' : '機車',
+        label: opt.jet ? '我的 JAT SM' : '機車',
         jet: !!opt.jet,
       });
     } else if (SUPERCARS[opt.model]) {

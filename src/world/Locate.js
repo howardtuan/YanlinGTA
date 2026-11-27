@@ -79,7 +79,7 @@ export function friendLocations(g) {
         '🛵',
         '#1d1d1f',
         g.zz.cruiser && !g.zz.cruiser.ai.dormant ? g.zz.cruiser.pos : null,
-        "跟吱吱騎 BW'S 在學校附近兜風"
+        '跟吱吱騎大A在學校附近兜風'
       );
     else if (Gd?.night)
       add(

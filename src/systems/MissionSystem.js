@@ -572,7 +572,7 @@ Missions.prototype.steps = [
           WEDNESDAY,
           '任務：把傳單送到 5 個公布欄 —— 圖書館、學生活動中心、全人教育村、體育館、良善樓宿舍。',
         ],
-        [WEDNESDAY, '限時 3 分鐘！你的 JET SL 我已經遠端調度到系館前面了，騎它比較快 🛵'],
+        [WEDNESDAY, '限時 3 分鐘！你的 JAT SM 我已經遠端調度到系館前面了，騎它比較快 🛵'],
       ],
       () => {
         const cps = P.flyers;

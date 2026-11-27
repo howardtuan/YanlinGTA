@@ -28,7 +28,7 @@ export class VehicleSpawner {
     return v;
   }
 
-  // move the hero's JET SL next to (x,z) unless he's riding it
+  // move the hero's JAT SM next to (x,z) unless he's riding it
   bringMyScooter(x, z) {
     const v = this.game.myScooter;
     if (!v || this.game.player.vehicle === v) return;
@@ -58,7 +58,7 @@ export class VehicleSpawner {
           const near = w.nearestRoadPoint(px, pz);
           const v = this.addVehicle('scooter', px, pz, near ? near.dir : 0, null, { jet });
           if (jet) {
-            const l = makeLabel('🛵 我的 JET SL', { height: 0.42, color: '#ff8cc6' });
+            const l = makeLabel('🛵 我的 JAT SM', { height: 0.42, color: '#ff8cc6' });
             l.position.set(0, 1.95, 0);
             v.mesh.add(l);
             v.tag = l;

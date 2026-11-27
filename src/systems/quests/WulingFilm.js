@@ -1,4 +1,4 @@
-// 吱吱傳來的影片：傍晚、夕陽下的武嶺（台14甲）山路，兩台 BW'S 在雙黃線右邊的車道一前一後順向騎，
+// 吱吱傳來的影片：傍晚、夕陽下的武嶺（台14甲）山路，兩台大A在雙黃線右邊的車道一前一後順向騎，
 // 前面的女拳大帝（剛考到駕照）在有點急的左彎前急煞，
 // 後面的吱吱往右閃過她、過不了彎，在彎道處往外側（右邊）衝出路邊，人跟車一起摔進右邊的水溝（水溝再過去是樹叢、樹枝和樹）。
 // 以 21:9 電影畫面播放（上下黑邊、HUD 隱藏、玩家不能動），約 10 秒，按 Esc／E 可跳過。
@@ -6,7 +6,7 @@
 // 播放時 src/core/GameLoop.js 改畫這個場景（主場景的燈數不變，不會讓材質重新編譯）。場景第一次播放時才建立，之後重用。
 import * as THREE from 'three';
 import { createCharacter } from '../../entities/Character.js';
-import { buildBws } from '../../entities/Vehicles.js';
+import { buildDaA } from '../../entities/Vehicles.js';
 import { ZZ_LOOK, GD_LOOK } from '../../entities/npcs/FriendLooks.js';
 
 const DUR = 10.5,
@@ -306,9 +306,9 @@ function buildSet() {
   return { scene, curve, len: curve.getLength() };
 }
 
-// a rider on a BW'S, with a helmet
+// a rider on a 大A, with a helmet
 function rig(style, look, helmetColor) {
-  const bike = buildBws(style),
+  const bike = buildDaA(style),
     ch = createCharacter(look);
   ch.root.position.set(0, 0.08, -0.32);
   bike.add(ch.root);

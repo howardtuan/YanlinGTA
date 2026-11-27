@@ -36,7 +36,7 @@ rec a03_massage 45
 ev "(()=>{__rec.step(2); __D.shot({frames:45, ease:'linear', pos:__D.G([[-245.8,1.68,103.5],[-245.8,1.68,99]]), look:[[-245.8,2.6,92.8],[-245.8,2.6,92.8]]}); return 1})()"
 rec a03_tea 45; fi
 
-# 04 really ride the JET SL down 新中北路 (virtual joystick follows the road, 1.2 m right of centre)
+# 04 really ride the JAT SM down 新中北路 (virtual joystick follows the road, 1.2 m right of centre)
 if want ride; then reset
 ev "(()=>{__D.clock(10,20); const raw=[[222,-9],[209,-22],[194,-37],[188,-43],[170,-55],[146,-68],[110,-85],[88,-94],[71,-101],[51,-108],[29,-115],[12,-121],[-1,-126]]; window.__XP=__D.offsetPath(raw,1.2); __D.mount(220,-11,Math.atan2(-13,-13)); __D.ride(window.__XP, 11); __rec.step(110); return 1})()"
 rec a04_ride 120; fi

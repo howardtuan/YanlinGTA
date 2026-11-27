@@ -1094,7 +1094,7 @@
       if (!B._fCool || B.t > B._fCool) {
         press('KeyF');
         B._fCool = B.t + 0.4;
-        ev('mount', { vehicle: near === game.myScooter ? 'JET SL' : near.label });
+        ev('mount', { vehicle: near === game.myScooter ? 'JAT SM' : near.label });
       }
       return true;
     }

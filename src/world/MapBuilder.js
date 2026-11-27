@@ -8283,7 +8283,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       CAP = col('#d9d6cf'),
       HEDGE = col('#4d7a3a'),
       HTOP = col('#5f8f45');
-    const seal = [];
+    const seal = [],
+      rails = []; // stair centre rails: height-banded segments, added with the seals
     let sealed = 0;
     // ground beside a level: terrain or any other level
     const below = (L, x, z) => Math.max(H(x, z), levelTop(x, z, L));
@@ -8678,7 +8679,23 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           }
           return pts;
         };
-      if (d.rail === 'center') railing(lineAt(0, 0.3, len - 0.3), rc, 0.9);
+      if (d.rail === 'center') {
+        const pts = lineAt(0, 0.3, len - 0.3);
+        railing(pts, rc, 0.9);
+        // collision along it, one piece per post span: from below the walking slope up to the top rail
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const a = pts[i],
+            b = pts[i + 1];
+          rails.push([
+            a[0],
+            a[2],
+            b[0],
+            b[2],
+            Math.min(a[1], b[1]) - 0.6,
+            Math.max(a[1], b[1]) + 0.95,
+          ]);
+        }
+      }
       if (d.rail === 'sides')
         for (const e of [hw - 0.12, -(hw - 0.12)]) railing(lineAt(e, 0.2, len - 0.2), rc, 0.9);
       else if (d.edge === 'hedge')
@@ -8739,7 +8756,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         else collision.addSegment(s[0], s[1], s[2], s[3], -1e9, hi + 0.05);
         sealed++;
       }
-    world.levels = { pads: lvPads.length, stairs: lvStairs.length, sealed };
+    for (const r of rails) collision.addSegment(...r);
+    world.levels = { pads: lvPads.length, stairs: lvStairs.length, sealed, rails: rails.length };
   }
 
   // ---------- labels ----------

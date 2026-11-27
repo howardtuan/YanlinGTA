@@ -23,6 +23,11 @@
 import { H } from '../../Terrain.js';
 const R = 'LB';
 const NC = { col: false };
+// 地面鋪面：這一塊地面高低差超過 8 cm 就用 C.drape 鋪成貼地形的斜面（不會一格一階、低的那頭浮起來），平地照舊用平板
+const pave = (C, k, x0, x1, y0, y1, z0, z1, mat) =>
+  C.slopeOf(k, x0, x1, z0, z1) > 0.08
+    ? C.drape(k, x0, x1, z0, z1, mat, y1)
+    : k.box(x0, x1, y0, y1, z0, z1, mat, { col: false, surface: true });
 const PI = Math.PI;
 const seg = (C, side, s0, s1, set = 4.3) => {
   const k = C.kit(R, s0, s1, side, set);
@@ -635,7 +640,7 @@ export default {
       {
         const x0 = X(GATE1),
           x1 = X(GATE0);
-        k.box(x0, x1, -0.02, 0.03, 0, 6, '#a86a58', { col: false, surface: true });
+        pave(C, k, x0, x1, -0.02, 0.03, 0, 6, '#a86a58');
         for (let x = x0 + 0.1; x < x1 - 0.05; x += 0.28)
           k.box(x, x + 0.05, 0.05, 1.55, FZ + 0.05, FZ + 0.12, '#cfd3d6', NC);
         for (const y of [0.12, 1.5]) k.box(x0, x1, y, y + 0.06, FZ, FZ + 0.16, '#b9bdc1', NC);

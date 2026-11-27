@@ -18,6 +18,17 @@
 const R = 'F',
   SE = 3.8; // 立面離中心線（路面外 1.3 m 人行道）
 const NC = { col: false };
+// 地面鋪面：這一塊地面高低差超過 8 cm 就用 C.drape 鋪成貼地形的斜面（不會一格一階、低的那頭浮起來），平地照舊用平板
+const pave = (C, k, x0, x1, y0, y1, z0, z1, mat) =>
+  C.slopeOf(k, x0, x1, z0, z1) > 0.08
+    ? C.drape(k, x0, x1, z0, z1, mat, y1)
+    : k.box(x0, x1, y0, y1, z0, z1, mat, { col: false, surface: true });
+// 貼地的元件往下多做 d 公尺：一個 Kit 只照原點的地面高度畫，地面有坡時低的那頭才不會露出縫（高的那頭只是多埋進土裡）
+const sink = (k, d = 0.6) => {
+  const b = k.box.bind(k);
+  k.box = (x0, x1, y0, ...r) => b(x0, x1, y0 <= 0.01 ? y0 - d : y0, ...r);
+  return k;
+};
 // 開一個 Kit：k.sx(s) 把沿線距離換成區域 x（-1 側的 +x 朝 s 變小的方向）
 // C.kit 把格寬存在 k.w，會蓋掉 Kit 自己的 w()（區域→世界座標），所以把寬度搬到 k.W、還原 k.w
 const seg = (C, s0, s1, set = SE) => {
@@ -28,8 +39,7 @@ const seg = (C, s0, s1, set = SE) => {
   return k;
 };
 // 人行道（自建的東西前面也要有，和街屋格一樣）
-const apron = (C, k, x0, x1) =>
-  k.box(x0, x1, -0.5, 0.05, -k.apron, 0, C.MR.concrete, { col: false, surface: true });
+const apron = (C, k, x0, x1) => pave(C, k, x0, x1, -0.5, 0.05, -k.apron, 0, C.MR.concrete);
 
 const WT = '#eceae4', // 白色小磁磚
   PW = '#e6d6cf', // 粉白小磁磚
@@ -214,7 +224,7 @@ export default {
         gx0 = k.sx(41.2),
         gx1 = k.sx(38.4);
       apron(C, k, 0, W);
-      k.box(0, W, 0, 0.06, 0, 5.6, '#d8d4ca', { col: false, surface: true }); // 前庭地磚
+      pave(C, k, 0, W, 0, 0.06, 0, 5.6, '#d8d4ca'); // 前庭地磚
       // 花台矮牆（大門兩側）
       k.box(0, gx0, 0, 0.75, 0.1, 0.45, `wall${WT}`);
       k.box(gx1, W, 0, 0.75, 0.1, 0.45, `wall${WT}`);
@@ -411,7 +421,7 @@ export default {
 
     // ---- 冷卻水塔與白色鐵皮倉庫（s 151～173.5，牆就貼著人行道） ----
     {
-      const k = seg(C, 151, 173.5),
+      const k = sink(seg(C, 151, 173.5)),
         W = k.W,
         ST = '#dedfdc',
         x0 = k.sx(160); // 前段（橘色收邊的兩層鐵皮屋）到 160，之後是一長段鐵皮牆

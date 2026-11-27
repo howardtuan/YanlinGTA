@@ -13,6 +13,17 @@
 // 看不清的招牌不放字（SYM 旁邊的換電站招牌只看到一半，不寫字）。
 const R = 'F';
 const NC = { col: false };
+// 地面鋪面：這一塊地面高低差超過 8 cm 就用 C.drape 鋪成貼地形的斜面（不會一格一階、低的那頭浮起來），平地照舊用平板
+const pave = (C, k, x0, x1, y0, y1, z0, z1, mat) =>
+  C.slopeOf(k, x0, x1, z0, z1) > 0.08
+    ? C.drape(k, x0, x1, z0, z1, mat, y1)
+    : k.box(x0, x1, y0, y1, z0, z1, mat, { col: false, surface: true });
+// 貼地的元件往下多做 d 公尺：一個 Kit 只照原點的地面高度畫，地面有坡時低的那頭才不會露出縫（高的那頭只是多埋進土裡）
+const sink = (k, d = 0.6) => {
+  const b = k.box.bind(k);
+  k.box = (x0, x1, y0, ...r) => b(x0, x1, y0 <= 0.01 ? y0 - d : y0, ...r);
+  return k;
+};
 // 開一個對著街的 Kit：x=0 在 s1 那端（-1 側 +x 朝 s 變小），k.W 是寬度，k.X(s) 把里程換成區域 x
 const seg = (C, s0, s1, set = 3.8) => {
   const k = C.kit(R, s0, s1, -1, set);
@@ -380,7 +391,7 @@ export default {
     }
     // ---- 至德堂（s 419～435.3）：前院白欄杆（中間台階）、紅磚金爐、紅柱門廊、黑底金字匾、屋頂白欄杆與橘紅瓦頂 ----
     {
-      const k = seg(C, 419, 435.3),
+      const k = sink(seg(C, 419, 435.3)),
         W = k.W,
         F0 = 4.0, // 門廊前緣（離立面線）
         F1 = 5.6; // 祠堂正面牆
@@ -449,7 +460,7 @@ export default {
       [446.7, 452.4, '151'],
       [452.4, 458, '153'],
     ]) {
-      const k = seg(C, s0, s1, 4.4),
+      const k = sink(seg(C, s0, s1, 4.4)),
         W = k.W,
         gf = 3.3;
       k.box(0, W, 0, gf, 1.4, 13, NEWG); // 一樓（退 1.4 m）
@@ -459,7 +470,7 @@ export default {
       k.plane(YHT.win(), 1.2, 1.6, 4.9, 1.4, 1.37, FRONT);
       k.plane(paint(no, '#e86a8a', '#ffffff', null, 0.4, 0.2, 64), 0.4, 0.2, 2.0, 2.5, 1.35, FRONT);
       k.box(-0.02, 0.35, 0, 15.6, -0.25, 13, WT, NC); // 白磁磚分戶柱
-      k.box(-0.1, W + 0.1, -1.3, 0.02, -0.6, 1.4, '#c9b89a', { col: false, surface: true }); // 前院木紋地磚
+      pave(C, k, -0.1, W + 0.1, -1.3, 0.02, -0.6, 1.4, '#c9b89a'); // 前院木紋地磚
       // 深褐色直條格柵（南半，二到五樓）與玻璃陽台（北半）
       for (let x = 0.6; x < W / 2; x += 0.32)
         k.box(x, x + 0.1, gf + 0.1, 15.6, -0.55, -0.4, '#4a3a2c', NC);

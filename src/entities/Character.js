@@ -2267,7 +2267,8 @@ function animate(ch, dt, st) {
     t.elL = -0.4;
   } else if (sp > 0.3) {
     const run = Math.min(1, Math.max(0, (sp - 4) / 4));
-    ch.phase += dt * (sp * 1.55 + 2);
+    // steps per second: longer legs take longer strides, so a tall person steps slower at the same speed
+    ch.phase += (dt * (sp * 1.55 + 2)) / (ch.heightScale || 1);
     const s = Math.sin(ch.phase),
       c = Math.cos(ch.phase);
     const amp = lerp(0.55, 0.95, run);

@@ -60,6 +60,25 @@ npm run dev
 
 ---
 
+### URL 查詢與除錯參數全表
+
+| 參數 | 用途 | 對應模組 |
+| :--- | :--- | :--- |
+| `?bench[=xlow\|low\|medium\|high]` | 載入完自動開跑遊戲內效能測試（可指定畫質） | `Game.js`、`Benchmark.js` |
+| `?headless=1` | 搭配 `?bench` 的無頭模式 | `Game.js` |
+| `?perf` | 本次強制開啟開發者級效能浮層（不改存檔） | `PerfHud.js` |
+| `?diag=1\|halt` | 顯示啟動診斷麵包屑；`halt` 在前次未完成載入時暫停 | `BootDiag.js`、`PerfProfile.js` |
+| `?safemode=0\|1` | 停用／強制啟用安全降階模式 | `BootDiag.js`、`PerfProfile.js` |
+| `?tier=mobile-lite\|desktop-igpu\|desktop-dgpu` | 覆寫硬體分檔（`mobile-ios` 為別名） | `PerfProfile.js` |
+| `?texscale=0.25~2` | 覆寫畫布貼圖縮放比 | `PerfProfile.js`、`GpuMemLifecycle.js` |
+| `?date=YYYY-MM-DD` | 模擬真實日期（義務役、節慶、貨運班次、真實週末判定） | `Service.js`、`Season.js`、`PinHan.js`、`Ruizhe.js` |
+| `?mj=房號` | 直接加入 277 麻將多人房間 | `MahjongScene.js` |
+| `?keepgeo` | 保留靜態幾何 CPU 副本（碰撞網格檢查用） | `GpuMemLifecycle.js` |
+| `?nowasm` / `?nophysics` | 停用 Rust 圖形核心／Rapier，走純 JS 退回路徑 | `kernels.js`、`Physics.js` |
+| `?legacy` / `?noragdoll` / `?oldwalk` / `?arcadecar` / `?physdebug` | 舊角色網格、關布娃娃、舊步行、街機車、物理除錯線 | `Character.js`、`Game.js` |
+
+---
+
 ## 四、 測試金字塔手冊 (Testing Guide)
 
 專案建立了包含「演算法與靜態防護單元測試」、「WASM 雙軌整合測試」與「端對端測試」的多層級防護網：
@@ -105,6 +124,23 @@ flowchart TD
 3. **檔案命名與註解語言**：
    - 核心類別與業務模組採 `PascalCase.js`（如 `GameLoop.js`）；`tools/` 腳本採 `snake_case`（如 `check_wasm.mjs`）。
    - 通用底層與演算法註解以英文為主；校園地景、典故與任務劇情可使用繁體中文註解（詳見 [AGENT.md](../../AGENT.md)）。
+
+---
+
+## 六之一、 NPC 儀表板與新增自訂 NPC
+
+### `tools/npc-dashboard` 3D 視覺化儀表板
+```bash
+npm run dev
+# 開啟 http://localhost:5173/tools/npc-dashboard/
+```
+- 滑鼠拖曳 360 度檢視人偶（與遊戲內渲染一致）；可輸入文字特徵或上傳參考照片自動抽取主色調（照片僅存本機 `tools/npc-dashboard/photos/`，不進 Git）；按「儲存」寫入 `data/npcs.json`。
+- 欄位與 `look` 參數規格見 [`../specs/npcs-and-characters.md`](../specs/npcs-and-characters.md)。
+
+### 三分鐘新增自訂 NPC
+1. 在 `data/npcs.json` 的 `npcs` 陣列新增 `{ "id", "kind": "custom", "enabled": true, "name", "title", "gender", "height", "place", "look": {...}, "talks": [[["說話者","台詞"]]] }`。
+2. 重新整理遊戲，走到 `place` 地標 2.6m 內按 `E` 對話，多組 `talks` 依序輪播。
+3. 需要 24 小時作息、騎車、好友聊天等進階能力時，改寫專屬模組（參考 `Hank.js`、`Mingshan.js`、`Jianyu.js`、`TeaShop.js`），並同步更新 `docs/specs/npcs-and-characters.md`。
 
 ---
 

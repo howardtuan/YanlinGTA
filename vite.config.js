@@ -126,13 +126,25 @@ function npcDashboardPlugin() {
 // PWA manifest 的 <link> 在 Vite 處理完 HTML 之後才加上去：如果寫在 index.html 裡，Vite 會把它當資產搬到
 // assets/manifest-xxxx.webmanifest，裡面的 start_url "./" 就變成 /assets/，加到 iPhone 主畫面後會開到
 // yanlin-gta.com/assets/（icons 路徑也會跟著錯）。manifest 本身由 staticAssetsPlugin 原封不動複製到 dist 根目錄。
+// 網頁圖示同理：寫在 index.html 會被改成 assets/favicon-<雜湊>.ico，每次換圖網址就變，Google 搜尋結果的網站圖示
+// 抓不穩；改在這裡加上固定網址 assets/icon/…（staticAssetsPlugin 原樣複製），另外 dist 根目錄也放一份 favicon.ico。
+// Google 要求圖示是 48px 倍數的正方形，所以 192×192 的 PNG 放第一個。
 function manifestLinkPlugin() {
+  const link = (attrs) => ({ tag: 'link', attrs, injectTo: 'head' });
   return {
     name: 'manifest-link',
     transformIndexHtml: {
       order: 'post',
       handler: () => [
-        { tag: 'link', attrs: { rel: 'manifest', href: 'manifest.webmanifest' }, injectTo: 'head' },
+        link({
+          rel: 'icon',
+          type: 'image/png',
+          href: 'assets/icon/icon-192.png',
+          sizes: '192x192',
+        }),
+        link({ rel: 'icon', href: 'favicon.ico', sizes: '16x16 32x32 48x48' }),
+        link({ rel: 'apple-touch-icon', href: 'assets/icon/apple-touch-icon.png' }),
+        link({ rel: 'manifest', href: 'manifest.webmanifest' }),
       ],
     },
   };
@@ -168,6 +180,11 @@ function staticAssetsPlugin() {
           path.resolve(outDir, 'manifest.webmanifest')
         );
       }
+      // 網站根目錄的 /favicon.ico：Google 和瀏覽器找不到 <link rel="icon"> 時會直接抓這個網址
+      fs.copyFileSync(
+        path.resolve(ROOT, 'assets', 'icon', 'favicon.ico'),
+        path.resolve(outDir, 'favicon.ico')
+      );
       // 遊戲百科 Wiki：yanlin-gta.com/wiki/（wiki/build.mjs）
       buildWiki({ root: ROOT, outDir: path.resolve(outDir, 'wiki') });
       // SEO / AEO / GEO：sitemap.xml、robots.txt、llms.txt 放在網站根目錄（wiki/seo.mjs）

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Interiors, Kit, regMat, cullFurniture, FURNITURE_FAR } from '../../src/world/Kit.js';
 import { installOpaqueSort } from '../../src/graphics/RenderSort.js';
 
-// perf-refactor Phase 2 (phase-2-render-and-igpu-opt.md §三.3 / §三.4 / §三.5)
+// Kit.finish batching, furniture culling, and opaque shader-program sort
 const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.85, envMapIntensity: 0.5, ...o });
 const kit = () => {
   const scene = new THREE.Scene(),

@@ -1,4 +1,4 @@
-// Opaque draw order (perf-refactor Phase 2, phase-2-render-and-igpu-opt.md §三.5): three's default sorts the
+// Opaque draw order (docs/guide/architecture.md): three's default sorts the
 // opaque list by groupOrder, renderOrder, material, distance. This keeps the first two (the ground layers rely
 // on renderOrder) and then groups by the compiled shader program before the material, so materials that share a
 // program draw one after another and WebGL switches programs less often; then front to back as before.

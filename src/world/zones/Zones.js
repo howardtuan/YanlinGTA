@@ -80,6 +80,7 @@ import {
 } from '../buildings/Dorms.js';
 import { zoneCLook, zoneCVegHide, buildZoneC } from './ZoneC.js';
 import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
+import { tennisTreeHide, buildTennis } from '../Tennis.js';
 import {
   HZ_ST,
   hzFix,
@@ -253,6 +254,12 @@ export const ZONES = [
     terrain: courtTerrain,
     treeHide: courtTreeHide,
     build: (I, scene) => buildCourts(I, scene, Kit, regMat),
+  },
+  {
+    // 網球場：北塊兩面、南塊兩面、綠色練習場、圍網與出入口、球網、裁判椅、休息棚、燈桿、北緣管理室（鋪面與線在 src/world/MapBuilder.js 的 areas 圖層）
+    name: '網球場',
+    treeHide: tennisTreeHide,
+    build: (I, scene) => buildTennis(I, scene, Kit, regMat),
   },
   {
     // 環中東路（校園東南側）與環中東路708巷兩側街屋

@@ -85,11 +85,14 @@ export class Missions {
     this.P.crossroads = { x: -191.5, z: 269.9, name: '夜市十字路口' };
     // 任務一的 5 個公布欄：地形改版後「建築最近的道路點」會跑偏（電學大樓、良善樓疊在同一條路上），改成手選的固定座標。
     // 全人教育村在 (-80,-80) 西邊的全人大道東側路邊；體育館取代原本的電學大樓；良善樓維持原本自動算出的點。
+    // 任務四「布條保衛戰」的圖書館、全人教育村也用同一組手選的點（自動算的道路點一樣會跑偏）
     const fixed = (x, z, name) => ({ x, z, name });
+    this.P.lib = fixed(-180, 8, '張靜愚紀念圖書館');
+    this.P.village = fixed(-89.5, -80, '全人教育村');
     this.P.flyers = [
-      fixed(-180, 8, '張靜愚紀念圖書館'),
+      this.P.lib,
       fixed(-160, -80, '學生活動中心'),
-      fixed(-89.5, -80, '全人教育村'),
+      this.P.village,
       this.P.gym,
       this.P.dorm,
     ].filter(Boolean);
@@ -901,22 +904,22 @@ Missions.prototype.steps = [
       }
     );
   },
-  // 7 — platform speech at the Student Activity Center
+  // 7 — platform speech in front of 二一鐘塔: the tower stands behind 彥霖, the crowd faces him
   function () {
     const g = this.g,
       P = this.P;
     this.talk(
       [
         [MONDAY, '忙了一整天，晚上 7 點的政見發表會要開始了！'],
-        [MONDAY, '大家都在 學生活動中心 等你，路線已設定，快過去！'],
+        [MONDAY, '大家都在 二一鐘塔 前面等你，路線已設定，快過去！'],
       ],
       () => {
         this.goto(
-          P.sac,
+          P.tower,
           '終章 · 政見發表會',
-          '前往 <b>學生活動中心</b> 參加政見發表會',
+          '前往 <b>二一鐘塔</b> 前參加政見發表會',
           () => {
-            g.startSpeech(P.sac, () => this.next());
+            g.startSpeech(g.world.named['鐘塔'] || P.tower, () => this.next());
           },
           9
         );

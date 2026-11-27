@@ -87,11 +87,13 @@
 
 若需進一步了解系統底層設計或參與貢獻，請參閱專題手冊（總索引見 [docs/README.md](docs/README.md)）：
 
-- 🏛️ **[系統架構手冊 (Architecture Guide)](docs/guide/architecture.md)**：深入了解 7 大分層邊界、依賴拓撲規範、GameLoop 調度機制與雙 WASM 子系統。
-- 🎮 **[遊戲設計與內部梗手冊 (Game Design & Lore)](docs/guide/game-design.md)**：主線結構、特色小遊戲、NPC 人物誌與團隊內部梗／彩蛋總覽。
-- 💻 **[開發者與貢獻指南 (Developer Guide)](docs/guide/developer-guide.md)**：本機開發工作流、npm 指令清冊、測試金字塔執行與 GitHub Flow 操作步驟。
-- 🧑‍🤝‍🧑 **[NPC 創作與自訂指南 (NPC Creation Guide)](docs/guide/npc-creation-guide.md)**：視覺化儀表板使用手冊、`data/npcs.json` 綱要規格與手把手自訂 NPC 教學。
-- 🚢 **[部署與運維手冊 (Deployment & Operations Guide)](docs/guide/deployment.md)**：GitHub Pages 自動發布流程、Docker / Compose 容器化部署與 Nginx 快取策略。
+- 🏛️ **[系統架構 (architecture)](docs/specs/architecture.md)**：7 層分層、GameLoop、啟動自癒、GPU 記憶體生命週期與雙 WASM。
+- 🌍 **[世界與實體 (world-and-entities)](docs/specs/world-and-entities.md)**：地圖分塊、室內建模、火車平交道、機車車型與節慶。
+- 📜 **[任務與支線 (missions-and-quests)](docs/specs/missions-and-quests.md)**：主線、5 大支線與 SQL 偵探。
+- 🎮 **[玩法與介面 (gameplay-and-ui)](docs/specs/gameplay-and-ui.md)**：手機 App、無人機與拍照、電腦、麻將、打工店家與衣櫃。
+- 🧑‍🤝‍🧑 **[NPC 與角色 (npcs-and-characters)](docs/specs/npcs-and-characters.md)**：NPC 綱要、3D 造型、勞大與全名冊。
+- 🔒 **[彩蛋與機密 (easter-eggs-and-secrets)](docs/specs/easter-eggs-and-secrets.md)**：開發者專用，不對外公開。
+- 💻 **[開發者指南](docs/dev/developer-guide.md)**、🚢 **[部署維運](docs/dev/deployment.md)**
 - 🤖 **[開發規範與協作原則 (AGENT.md)](AGENT.md)**：專案共同開發原則、GitHub Flow 規則與命名規範單一真實來源（SSOT）。
 
 ---
@@ -103,5 +105,6 @@
 - 3D 渲染庫 [Three.js](https://threejs.org/) 採用 MIT 授權；物理引擎 [Rapier](https://rapier.rs/) 採用 Apache-2.0 授權。
 - 麻將洗牌實錄音效（`assets/sfx/mj_shuffle.m4a`）取材自 [Freesound #709628](https://freesound.org/people/Xena123457/sounds/709628/)（CC0 公有領域）；火車行駛聲（`assets/sfx/train_run.m4a`，取自 [Freesound #502935](https://freesound.org/people/Fission9/sounds/502935/) 中段並做成循環）與平交道警鈴（`assets/sfx/crossing_bell.m4a`，[Freesound #650317](https://freesound.org/people/JotrainG/sounds/650317/)）皆為 CC0 公有領域；其餘錄音音效由 Stable Audio Open 於本機生成。
 - 火車班表取自臺鐵開放資料「[鐵路時刻表](https://data.gov.tw/dataset/6138)」，依[政府資料開放授權條款第 1 版](https://data.gov.tw/license)使用（`tools/train_timetable.mjs` 產生 `src/entities/TrainTimetable.js`）。
+- 市區公車 155、156、167、167A 的站序、站點座標與發車時刻取自[桃園市公車動態資訊系統](https://ebus.tycg.gov.tw/ebus)（2026-11-25 平日資料，寫在 `src/systems/BusRoutes.js`），票價依[桃園市政府公告](https://travel.tycg.gov.tw/file/3943)；公車外觀為自製，不使用任何客運公司商標。
 - 這是學生系學會競選宣傳用的非商業校園同人作品；遊戲中出現的中原大學校園場景、店家與品牌名稱屬於各自之權利人。
 - 專案程式碼與重構架構由 YanlinGTA 開發團隊維護。祝彥霖高票當選！🎉

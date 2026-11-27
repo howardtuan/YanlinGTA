@@ -392,7 +392,8 @@ export class FirstPerson {
     // the player's own figure: hidden on foot in first person (the concert does the same inside the venue)
     // your own figure: hidden in first person; in a car always (third person too: a low roof cuts through the head)
     // (漢堡車 shows / hides you itself: you sit in his car without pl.vehicle, src/systems/minigames/PinHanRide.js)
-    if (!g.rig.fp && !g.pinhanRide?.cinema)
+    // (坐公車時也一樣：你在車裡看不到，src/systems/BusRide.js)
+    if (!g.rig.fp && !g.pinhanRide?.cinema && !pl.aboard)
       pl.ch.root.visible = !act && !(v && v.kind !== 'scooter');
     // the vehicle you are in: hidden in first person (the cockpit stands in for it)
     if (this.hidden && (this.hidden !== v || !act)) this._unhide();

@@ -71,13 +71,12 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 - **快取**：`style.css`、`game-controls.css`、`wiki.js` 的網址會加上內容雜湊 `?v=…`（`buildWiki`），更新後瀏覽器一定拿到新版，不會新 HTML 配舊 JS。
 - **版面**：技術文件式多頁網站（`wiki/build.mjs` 的 `PAGES`），每個主題一頁：`/wiki/`（介紹）、`news/`、`controls/`、`characters/`、`main-quests/`、`side-quests/`、`cases/`、`shops/`、`team/`。三欄整塊置中：左邊分組編號的目錄、中間麵包屑＋標題＋內容＋上一頁／下一頁、右邊「本頁內容」（捲動時標出目前段落；1200px 以下收起，900px 以下左邊目錄收成「☰ 目錄」抽屜）。舊的單頁網址（`/wiki/#characters`、`#npc-zz`、`#q-m1`…）會由 `wiki.js` 轉到對應的頁面。「操作教學」的按鍵圖直接用遊戲「⌨ 操作說明」的同一份 HTML（`src/core/Controls.js` 的 `controlsHTML`，手把以 Xbox 標示）和同一份樣式（build 時從 `src/styles/style.css` 抽出相關規則、加上 `.game-ctl` 前綴，輸出成 `dist/wiki/game-controls.css`），遊戲改按鍵 Wiki 重建就跟著變。截圖在 `wiki/shots/`，改了 HUD／觸控按鈕／標題畫面後 `npm run build && node tools/wiki_shots.mjs` 重截。
 - **虛構角色**：`wiki/people.json` 的 `group: "fiction"`（Tzuyu），只出現在手機聊天室、沒有遊戲 NPC 的 Winter 放在 `extras`（欄位跟 `data/npcs.json` 一樣）；虛構角色不放社群連結，卡片只標「虛構角色」。
-- **首頁宣傳片**：封面放 README 那支 58 秒宣傳片（`docs/media/promo/yanlin-promo-58s-v2.mp4`，約 47 MB），build 時複製成 `dist/wiki/media/promo.mp4`；`preload="none"`，先顯示 poster、按播放才下載。換影片時改 `wiki/build.mjs` 的檔名。
+- **首頁宣傳片**：封面放 58 秒宣傳片（`wiki/media/promo.mp4`＋封面 `wiki/media/promo-poster.jpg`，約 47 MB），build 時複製到 `dist/wiki/media/`；`preload="none"`，先顯示 poster、按播放才下載；缺檔時退回封面圖。換影片直接覆蓋 `wiki/media/` 同名檔。歷代母帶在 `docs/promo-archive/`，不進 `dist/`。
 - **網頁圖示與加入主畫面**：Wiki 有自己的圖示（`wiki/icons/`：favicon、192／512、iPhone 用的 apple-touch-icon）與 `wiki/manifest.webmanifest`（`start_url` 為 `./`，加到主畫面後開回 `/wiki/`）；build 時複製到 `dist/wiki/`。
 - **補社群連結**：改 `wiki/people.json` 的 `linkedin`／`github`（完整 `https://` 網址，留空就不顯示該按鈕，兩個都空則整個區塊不出現）；AI 設 `social: false` 不顯示。
-- **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前 Tzuyu、勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
-- **最新消息**：`news/` 是部落格／粉專式的文章列表，文章寫在 `wiki/news.json`（`id`、`date` YYYY-MM-DD、`title`、`image`、`alt`、`body` 一段一個字串、`tags` 不加 #），照片放 `wiki/news/`（先縮到寬 1600px 以內，例如 `ffmpeg -i in.jpg -vf scale=1600:-2 -q:v 4 out.jpg`），build 時複製到 `dist/wiki/news/`。頁面依日期新到舊排序，首頁「最新消息」段落顯示最新兩篇。文字一律當純文字輸出。
+- **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
+- **最新消息**：`news/` 是部落格／粉專式的文章列表，文章寫在 `wiki/news.json`（`id`、`date` YYYY-MM-DD、`title`、`image`、`alt`、`body` 一段一個字串、`tags` 不加 #），照片放 `wiki/news/`（先縮到寬 1600px 以內，例如 `ffmpeg -i in.jpg -vf scale=1600:-2 -q:v 4 out.jpg`），build 時複製到 `dist/wiki/news/`。頁面依日期新到舊排序，首頁「最新消息」段落顯示最新兩篇。文字一律當純文字輸出，但內文裡的 http(s) 網址會自動變成超連結（`target="_blank"`，開新分頁）；網址前後空一格或接全形標點即可。
 - **合作店家**：加在 `wiki/shops.json`（`url` 只收 `https://`，留空不顯示連結）。
-- **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/integration/wiki.test.js` 會擋下 CI。
 
 ### SEO / AEO / GEO 與 Google Search Console
 讓 Google 搜得到（SEO）、讓 Google 答案框與 ChatGPT／Perplexity／Gemini 等 AI 搜尋能正確引用（AEO / GEO）。全部在 build 時自動產生，新增 Wiki 頁面或最新消息文章不用另外維護。
@@ -101,6 +100,18 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 5. 驗證結構化資料：<https://search.google.com/test/rich-results> 貼 Wiki 首頁網址，應看到「常見問題」與「導覽標記（麵包屑）」。
 
 Bing（也供 ChatGPT 搜尋使用）可在 <https://www.bing.com/webmasters> 直接「從 Google Search Console 匯入」。
+
+**關鍵字**：Google 不看 `<meta name="keywords">`，只看頁面上真的寫出來的標題（`<title>`、`<h1>`／`<h2>`）、說明與內文，所以想被哪些字搜到，就把那些字自然寫進頁面。目前的佈局：
+
+| 關鍵字類型 | 例子 | 落在哪裡 |
+| :--- | :--- | :--- |
+| 品牌字 | 中原順起來、YanlinGTA、彥霖GTA、票投彥霖 | 每頁標題、首頁 JSON-LD `alternateName` |
+| 學校／地點 | 中原大學 3D 開放世界、中原夜市、中原資管系學會選舉 | 遊戲首頁 `<title>` 與說明、Wiki 介紹 |
+| 玩法長尾字 | 網頁台灣麻將好友連線、邊玩邊學 SQL／Python、麥當勞打工 | Wiki「玩法介紹」`features/`（`pageBody` 的 `sections`，每個玩法一個 `<h2>`） |
+
+新增玩法時在 `features` 加一段（標題寫「是什麼＋在哪玩」），內容要跟 README「校園開放世界探索特色」一致；實際被搜到哪些字，看 Search Console 的「成效 → 查詢」再調整。遊戲裡的名稱改了（例如機車改名 JAT SM），FAQ、`llms.txt`、`index.html` 的 JSON-LD 與 `<noscript>` 也要一起改。
+
+**搜尋結果的網站圖示（favicon）**：Google 只看網域首頁 `https://yanlin-gta.com/` 的 `<link rel="icon">`（Wiki 自己的圖示不影響搜尋結果），而且要求圖示是 48px 倍數的正方形、網址固定。所以首頁的圖示 `<link>` 不寫在 `index.html`（會被 Vite 改成帶雜湊的 `assets/favicon-xxxx.ico`），改由 `vite.config.js` 的 `manifestLinkPlugin` 在 build 後加上固定網址：第一個是 `assets/icon/icon-192.png`（192×192），另外 `dist/` 根目錄也複製一份 `favicon.ico`（`/favicon.ico`）。換圖示時直接覆蓋 `assets/icon/` 裡的檔案，網址不變；Google 重新爬首頁後才會更新（幾天到幾週），可在 Search Console 對首頁「要求建立索引」加快。
 
 ---
 

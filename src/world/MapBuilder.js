@@ -31,6 +31,7 @@ import { alongWay, centreStyles, lineRuns } from './RoadMarks.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFurniture } from './Furniture.js';
 import { isCourt, paintCourts } from './Court.js';
+import { isTennis, paintTennis } from './Tennis.js';
 import {
   groundTex,
   facadeTex,
@@ -201,9 +202,8 @@ function adaptPieces(poly, out, S) {
 // drape=true: flat helpers (flatPoly/disc/strip) follow the terrain and their
 // y argument becomes the offset above it
 const UP = [0, 1, 0];
-// ChunkedGeo cell size in metres (perf-refactor/specs/phase-2-render-and-igpu-opt.md): a Geo whose triangles spread wider
-// than two cells becomes one mesh per cell. Measured 2026-11-25 (perf-refactor/agent-handoff-log.md Session #010):
-// about -16 % triangles per view but +85 % draw calls on the M1; kept at the spec's 120 m by decision.
+// ChunkedGeo cell size in metres (docs/guide/architecture.md): a Geo whose triangles spread wider
+// than two cells becomes one mesh per cell.
 const GEO_CHUNK = 120;
 // outer buildings (Geo.routed): the fill (synthetic) and lod buildings further than this from the campus; a chunk of
 // them is not drawn while the fog hides it completely wherever it is on the screen: three's exp2 fog goes by the
@@ -246,7 +246,7 @@ class ChunkedMesh extends THREE.Object3D {
     return this._material;
   }
 }
-// outer buildings (perf-refactor Phase 2, phase-2-render-and-igpu-opt.md §三.1): while the building loop draws a
+// outer buildings (docs/guide/architecture.md): while the building loop draws a
 // far-off fill building, a routable Geo's triangles go to its twin, whose meshes are hidden under thick fog
 let ROUTE_OUTER = false;
 class Geo {
@@ -501,7 +501,7 @@ class Geo {
     }
   }
   // one mesh, or (when the triangles spread wider than two chunks) one mesh per GEO_CHUNK x GEO_CHUNK m cell, so frustum
-  // and shadow culling can drop the parts out of view (perf-refactor Phase 2, ChunkedGeo). Triangles go to the cell of
+  // and shadow culling can drop the parts out of view (ChunkedGeo). Triangles go to the cell of
   // their centroid, unchanged: the same pixels, the same random draws.
   mesh(mat) {
     const nt = this.p.length / 9;
@@ -1854,8 +1854,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   // purely visual extras (PBR upgrade) draw from their own stream so the shared sequence stays as it was
   const rnd2 = mulberry32(777034);
   const quality = opts.quality || (opts.low ? 'low' : 'high');
-  // low / xlow: walls and ground are MeshLambertMaterial, without normal or roughness / metalness maps (perf-refactor
-  // Phase 2, phase-2-render-and-igpu-opt.md §三.5; src/graphics/Textures.js setSurfaceDetail skips making those maps)
+  // low / xlow: walls and ground are MeshLambertMaterial, without normal or roughness / metalness maps
+  // (src/graphics/Textures.js setSurfaceDetail skips making those maps)
   const lite = quality === 'low';
   // ... but they still take the sky's diffuse light, as the standard material did from scene.environment
   // (src/graphics/SkySystem.js PMREM, re-baked as the sun moves): one blurred look-up of it per pixel, nothing
@@ -2642,7 +2642,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
       if (a.kind === 'parking') parkingPolys.push(ring);
       // pitch markings on roughly rectangular pitches
-      if (a.kind === 'pitch' && !a.holes && !isCourt(a)) {
+      if (a.kind === 'pitch' && !a.holes && !isCourt(a) && !isTennis(a)) {
         const f = obb(a.pts),
           L = f.u1 - f.u0,
           W = f.v1 - f.v0;
@@ -2686,13 +2686,15 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     addFlat(gGreen, gmat(T.grass(), { macroAmt: 0.3, macroScale: 0.015, env: 0.4 }), 'areas');
     addFlat(gTrack, gmat(T.track(), { macroAmt: 0.1 }), 'areas');
     {
-      const ct = data.areas.filter(isCourt);
-      if (ct.length) {
+      const ct = data.areas.filter(isCourt),
+        tn = data.areas.filter(isTennis);
+      if (ct.length || tn.length) {
         const g = new Geo(true);
-        paintCourts(ct, g);
+        if (ct.length) paintCourts(ct, g);
+        if (tn.length) paintTennis(tn, g);
         addFlat(g, null, 'areas');
       }
-    } // 體育園區籃球場 (src/world/Court.js)
+    } // 體育園區籃球場 (src/world/Court.js)、網球場 (src/world/Tennis.js)
     addFlat(gLines, null, 'areas');
     // water: dark, glossy, reflects the sky; ripples scroll
     const wn = T.waterNormal();
@@ -7806,7 +7808,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
 
   // ---------- night lights: a small pool of real point lights that follow the nearest street lamps ----------
   {
-    // integrated GPUs (src/core/PerfProfile.js desktop-igpu) keep at most 2 (perf-refactor Phase 2: was 4 on medium)
+    // integrated GPUs (src/core/PerfProfile.js desktop-igpu) keep at most 2 (was 4 on medium)
     const n0 = quality === 'high' ? 8 : quality === 'medium' ? 4 : 0,
       n = opts.tier === 'desktop-igpu' ? Math.min(n0, 2) : n0;
     const lights = [];
@@ -8281,7 +8283,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       CAP = col('#d9d6cf'),
       HEDGE = col('#4d7a3a'),
       HTOP = col('#5f8f45');
-    const seal = [];
+    const seal = [],
+      rails = []; // stair centre rails: height-banded segments, added with the seals
     let sealed = 0;
     // ground beside a level: terrain or any other level
     const below = (L, x, z) => Math.max(H(x, z), levelTop(x, z, L));
@@ -8676,7 +8679,23 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           }
           return pts;
         };
-      if (d.rail === 'center') railing(lineAt(0, 0.3, len - 0.3), rc, 0.9);
+      if (d.rail === 'center') {
+        const pts = lineAt(0, 0.3, len - 0.3);
+        railing(pts, rc, 0.9);
+        // collision along it, one piece per post span: from below the walking slope up to the top rail
+        for (let i = 0; i + 1 < pts.length; i++) {
+          const a = pts[i],
+            b = pts[i + 1];
+          rails.push([
+            a[0],
+            a[2],
+            b[0],
+            b[2],
+            Math.min(a[1], b[1]) - 0.6,
+            Math.max(a[1], b[1]) + 0.95,
+          ]);
+        }
+      }
       if (d.rail === 'sides')
         for (const e of [hw - 0.12, -(hw - 0.12)]) railing(lineAt(e, 0.2, len - 0.2), rc, 0.9);
       else if (d.edge === 'hedge')
@@ -8737,7 +8756,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         else collision.addSegment(s[0], s[1], s[2], s[3], -1e9, hi + 0.05);
         sealed++;
       }
-    world.levels = { pads: lvPads.length, stairs: lvStairs.length, sealed };
+    for (const r of rails) collision.addSegment(...r);
+    world.levels = { pads: lvPads.length, stairs: lvStairs.length, sealed, rails: rails.length };
   }
 
   // ---------- labels ----------

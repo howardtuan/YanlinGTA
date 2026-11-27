@@ -4129,6 +4129,107 @@ body.touch #dlgRing {
   }
 }
 
+/* ---- 公車站牌：到站時間、選下車站、搭乘中（src/systems/BusRide.js） ---- */
+#busPanel {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 320px;
+  z-index: 30;
+  background: rgba(14, 22, 40, 0.92);
+  color: #fff;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+#busPanel.hidden {
+  display: none;
+}
+.bp-head {
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+.bp-sub {
+  color: #aab4c8;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.bp-ride {
+  font-size: 13.5px;
+}
+.bp-ride b {
+  color: #ffd23f;
+}
+.bp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 6px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.bp-row {
+  cursor: pointer;
+  border-radius: 8px;
+}
+.bp-row.on {
+  background: rgba(32, 194, 63, 0.18);
+}
+.bp-row span {
+  flex: 1;
+}
+.bp-row small {
+  display: block;
+  color: #8792a8;
+  font-size: 10.5px;
+}
+.bp-row em {
+  font-style: normal;
+  color: #ffae1a;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.bp-no {
+  min-width: 42px;
+  text-align: center;
+  border-radius: 6px;
+  padding: 3px 4px;
+  font-size: 13px;
+}
+.bp-foot {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #8792a8;
+  text-align: right;
+}
+.bp-x {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  #busPanel {
+    top: auto;
+    bottom: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    transform: none;
+    padding: 10px;
+  }
+}
+
 /* ---- gamepad button prompts (prompts.js): shown instead of keyboard keys while the pad is the last device used ---- */
 body:not(.pad-mode) .pad-only,
 body.pad-mode .kb-only {

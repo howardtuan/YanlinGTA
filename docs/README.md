@@ -1,43 +1,50 @@
 # YanlinGTA 文件總索引 (`docs/`)
 
-本目錄集中管理專案的所有技術文件、遊戲設計說明、建模參考原材與宣傳媒體，嚴格切分為三大分類，與遊戲執行期資產（`assets/`、`data/`）清楚區隔：
+`docs/` 是**面向 AI Agent 與開發者的嚴謹單一事實來源（SSOT）**，嚴格切分為四區，與遊戲執行期資產（`assets/`、`data/`）及玩家百科（`wiki/`）區隔，且**絕不進入 `dist/`**。
 
 ```text
 docs/
-├── guide/        # 1. 程式文檔與遊戲設計（每次新增功能／彩蛋必同步更新）
-├── references/   # 2. 建模原材料、圖資來源與平面圖備份（非遊戲 runtime 資產）
-└── media/        # 3. README 與宣傳用影片／視覺資產（不打包進 dist/）
+├── specs/          # 1. 六大領域系統規格（遊戲變更必須同 PR 同步更新）
+├── dev/            # 2. 開發測試與部署維運手冊
+├── references/     # 3. 建模參考原材與室內平面圖備份
+└── promo-archive/  # 4. 對外宣傳母帶與社群素材歸檔（Agent 勿讀）
 ```
 
----
-
-## 1. 程式文檔與遊戲設計 (`docs/guide/`)
-
-所有工程架構、開發操作與遊戲特色設計（含團隊內部梗與彩蛋由來）統一收錄於此。**開發者與 Agent 每次新增功能、系統或特殊設計時，皆須同步更新對應文件**：
-
-- **[系統架構手冊 (architecture.md)](guide/architecture.md)**：7 大分層結構、單向無環依賴規則、GameLoop 固定步長與雙 WASM 運算子系統。
-- **[遊戲設計與內部梗手冊 (game-design.md)](guide/game-design.md)**：世界觀、主線任務、特色小遊戲、NPC 設定與各項「離奇但刻意設計」的團隊梗與彩蛋，動工前必讀以避免誤修。
-- **[開發者與貢獻指南 (developer-guide.md)](guide/developer-guide.md)**：本機環境建置、npm 指令清冊、測試金字塔與 GitHub Flow 操作步驟。
-- **[NPC 創作與自訂指南 (npc-creation-guide.md)](guide/npc-creation-guide.md)**：雙軌 NPC 架構、`tools/npc-dashboard` 視覺化工具與 `data/npcs.json` 格式規格。
-- **[部署與運維手冊 (deployment.md)](guide/deployment.md)**：GitHub Pages 自動發布、Docker 多階段建置、Nginx 配置與 CI/CD 管線。
+> [!IMPORTANT]
+> **鐵律**：每次更動遊戲內容，同一個 PR 必須同步更新 `docs/specs/` 對應規格檔。`wiki/` 由使用者維護，Agent 不當作規格撰寫（細則見 [AGENT.md](../AGENT.md)）。
 
 ---
 
-## 2. 建模原材料與圖資備份 (`docs/references/`)
+## 1. 系統規格 (`specs/`)
 
-> ⚠️ **資產邊界提醒**：實際遊戲運行會讀取的貼圖、音效、音樂與地圖資料請放在專案根目錄的 `assets/` 與 `data/`。本資料夾**僅供保存與備份**建模參考圖資、建築平面圖與人物參考原材，不會被 Vite 打包進 `dist/`。
+| 檔案 | 涵蓋範圍 |
+| :--- | :--- |
+| [architecture.md](specs/architecture.md) | 7 層架構、GameLoop、PerfProfile／BootDiag 自癒、GPU 記憶體生命週期、雙 WASM、存檔 |
+| [world-and-entities.md](specs/world-and-entities.md) | 地圖分塊與挖洞、Kit 室內契約、火車平交道、機車車型與街道剛體、節慶與校園機關 |
+| [missions-and-quests.md](specs/missions-and-quests.md) | 全息 AI、主線 M1–M6、5 大支線、SQL 偵探與一鍵通關 |
+| [gameplay-and-ui.md](specs/gameplay-and-ui.md) | 互動／觸控契約、手機全 App、無人機與拍照、電腦與終端機、277 麻將、打工店家、衣櫃 |
+| [npcs-and-characters.md](specs/npcs-and-characters.md) | NPC 綱要、3D 造型與球衣殼層、勞大三態、全角色排程、義務役日曆 |
+| [easter-eggs-and-secrets.md](specs/easter-eggs-and-secrets.md) | 🔒 機密：PYL 密技、肘擊、隱藏特調、鬧鐘、零錢、版權隱私紅線（不上 Wiki） |
 
-- **[參考原材目錄說明 (references/README.md)](references/README.md)**
-- **[建築室內平面圖 (references/floorplans/README.md)](references/floorplans/README.md)**：由 `tools/floorplan/make.mjs` 依據建模程式切出的建築室內 SVG 平面圖（力行宿舍、學生活動中心 B1 等）；學生活動中心一到四樓放的是使用者給的修改版參考圖，模型照它蓋。
+### Agent 任務導向路由表
 
----
+| 修改的 `src/` 子系統 | 先讀 | 改完同步更新 |
+| :--- | :--- | :--- |
+| `core/`、`graphics/`、`physics/`、`SaveSystem` | architecture | architecture |
+| `world/`、`Trains`、`ScooterVariants`、`Season` | world-and-entities | world-and-entities |
+| `MissionSystem`、`quests/`、`Detective`、`AutoSolve` | missions-and-quests、easter-eggs | missions-and-quests |
+| `ui/`（手機、PC、拍照）、`Drone`、`mahjong/`、`minigames/` | gameplay-and-ui、easter-eggs | gameplay-and-ui |
+| `entities/npcs/`、`Pilot`、`Character`、`Jersey`、`data/npcs.json` | npcs-and-characters、easter-eggs | npcs-and-characters（彩蛋同步 easter-eggs） |
 
-## 3. README 與宣傳媒體 (`docs/media/`)
+## 2. 開發維運手冊 (`dev/`)
 
-存放 `README.md` 展示或對外宣傳使用之影片、截圖、海報等媒體檔案，與遊戲執行期資產隔離：
+- [developer-guide.md](dev/developer-guide.md)：環境、npm 指令、URL 除錯參數全表、測試金字塔、NPC 儀表板、GitHub Flow。
+- [deployment.md](dev/deployment.md)：GitHub Pages、Wiki／SEO 管線、Docker、Nginx、CI/CD。
 
-- `docs/media/promo/`：遊戲展示影片（`yanlin-demo-30s.mp4`、`yanlin-promo-53s.mp4`、README 置頂的 `yanlin-promo-58s-v2.mp4` 與其封面 `yanlin-promo-58s-v2-poster.jpg`、無配樂版 `yanlin-promo-58s-v2-nobgm.mp4` 等；58 秒版的錄製與剪輯工具見 [`tools/promo/`](../tools/promo/README.md)）。
+## 3. 建模原材與圖資備份 (`references/`)
 
----
+僅供保存，不進入執行期：[references/README.md](references/README.md)、[floorplans/README.md](references/floorplans/README.md)。
 
-> 專案最高開發原則、GitHub Flow 規則與命名規範，請參閱根目錄 [AGENT.md](../AGENT.md)。
+## 4. 宣傳母帶歸檔 (`promo-archive/`)
+
+見 [promo-archive/README.md](promo-archive/README.md)。線上 Wiki 現行宣傳片位於 `wiki/media/`。

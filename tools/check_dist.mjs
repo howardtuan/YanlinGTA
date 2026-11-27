@@ -57,6 +57,7 @@ for (const need of [
   'assets/icon',
   'wiki/index.html',
   // SEO / AEO：Google Search Console 提交的 sitemap 與爬蟲規則（wiki/seo.mjs）
+  'favicon.ico',
   'sitemap.xml',
   'robots.txt',
   'llms.txt',

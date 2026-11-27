@@ -2076,6 +2076,10 @@ export function buildZoneA(I, scene, data) {
       const a = ring[i],
         c = ring[(i + 1) % N];
       k.slab('corten', a[0], a[1], c[0], c[1], 0.12, gy(a[0], a[1]) - 0.1, gy(a[0], a[1]) + 0.35);
+      // 圈高 0.35 m 超過 STEP_UP（src/world/Terrain.js），比照平台邊緣擋起來，不然機車直接從草皮裡穿過去。
+      // I.addWall 的高度相對牆中點地面（廣場底）；牆頂拉到 1 m：機車車身離地 0.35 m、走路的膠囊從腳上 0.35 m 起算，
+      // 只到圈頂的高度兩個都擋不住（src/physics/VehPhysics.js、src/entities/Walker.js）
+      wallC(a[0], a[1], c[0], c[1], -0.3, 1.0);
     }
     // 白色碎石庭園＋幾顆景石
     const gv = [];

@@ -28,6 +28,8 @@ const SPEED_BY_TYPE = {
   service: 5.5,
 };
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+// where along a bus (m from its centre) the circles that stand for it sit (Traffic.update check)
+const BUS_RING = [-4.4, -1.5, 1.5, 4.4];
 
 // ---------------- traffic ----------------
 // Each AI vehicle follows the road graph on its lane. So it reads as someone driving rather than a thing on
@@ -215,6 +217,93 @@ export class Traffic {
   vehicles() {
     return this.agents.filter((a) => a.ai && !a.ai.dormant);
   }
+  // 公車 (src/systems/Buses.js): a traffic agent that keeps to its route (route: the drive edges in order) instead of
+  // picking turns, is never spawned or recycled by traffic itself (hold) and asks ctl(v, want) how fast it may go
+  // (bus stops, red lights); the rest (following, gaps, pedestrians, 平交道) is the same as for every car
+  addBus(v, ctl) {
+    v.driver = 'ai';
+    v.rider = null;
+    v.ai = {
+      id: this.agents.length,
+      from: null,
+      to: null,
+      edge: null,
+      d: 0,
+      len: 1,
+      stunned: 0,
+      honkT: 0,
+      waitT: 0,
+      spK: 0.95,
+      acc: 1.4,
+      hw: 1.5,
+      gap0: 3,
+      patience: 2.5,
+      laneJ: 0,
+      ph: 0,
+      weave: 0,
+      lat: 0,
+      latT: 0,
+      stuckT: 0,
+      passT: 0,
+      passObj: null,
+      blocker: null,
+      ignore: null,
+      ignoreT: 0,
+      turnT: 0,
+      thPrev: null,
+      hold: true,
+      route: null,
+      ri: 0,
+      ctl,
+    };
+    this.scene.add(v.mesh);
+    this.agents.push(v);
+    v.mesh.visible = false;
+    v.ai.dormant = true;
+    return v;
+  }
+  // put a bus on its route: edge ri, d metres along it, at speed
+  placeBus(v, route, ri, d, speed = 0) {
+    const a = v.ai,
+      e = route[ri],
+      f = route.nodes[ri]; // route.nodes[i]: where route[i] starts
+    Object.assign(a, {
+      route,
+      ri,
+      from: f,
+      edge: e,
+      to: e.to,
+      len: Math.hypot(e.to.x - f.x, e.to.z - f.z) || 1,
+      d,
+      dormant: false,
+      stunned: 0,
+      wreck: 0,
+      ox: 0,
+      oz: 0,
+      pv: null,
+      lat: 0,
+      latT: 0,
+      stuckT: 0,
+      passT: 0,
+      passObj: null,
+      blocker: null,
+      ignore: null,
+      ignoreT: 0,
+      turnT: 0,
+      thPrev: null,
+      uturns: 0,
+      bStillT: 0,
+      bObj: null,
+      backing: false,
+      qx: undefined,
+    });
+    this._enter(v);
+    v.knocked = false;
+    v.hf = v.hb = undefined;
+    v.speed = speed;
+    v.mesh.visible = true;
+    this._place(v, 0);
+  }
   spawn(v, px, pz, minD, maxD) {
     const nodes = this.world.driveNodes;
     for (let tries = 0; tries < 40; tries++) {
@@ -285,6 +374,7 @@ export class Traffic {
   _pick(v) {
     const a = v.ai,
       n = a.to;
+    if (a.route) return a.route[a.ri + 1] || null; // a bus: the next edge of its route (null: it leaves the map)
     let opts = n.adj.filter((e) => e.drive && e.to !== a.from);
     if (!opts.length) opts = n.adj.filter((e) => e.drive);
     if (!opts.length) return null;
@@ -427,6 +517,7 @@ export class Traffic {
       return;
     }
     const e = a.next;
+    if (a.route) a.ri++;
     a.d -= a.len;
     a.pv = a.cv;
     a.from = a.to;
@@ -446,7 +537,7 @@ export class Traffic {
     const bx = v.pos.x - nx * a.lat,
       bz = v.pos.z - nz * a.lat; // its spot on the lane
     const ob = (o.pos.x - bx) * nx + (o.pos.z - bz) * nz;
-    const need = (o.radius || 0.5) + v.hw + 0.9,
+    const need = (o.bus ? o.hw : o.radius || 0.5) + v.hw + 0.9,
       lane = this._lane(v); // clear of check()'s margin in update()
     const left = ob - need,
       right = ob + need;
@@ -526,7 +617,7 @@ export class Traffic {
         }
         continue;
       }
-      if (dPl > 330) {
+      if (dPl > 330 && !a.route) {
         a.dormant = true;
         v.mesh.visible = false;
         continue;
@@ -583,17 +674,33 @@ export class Traffic {
       };
       const vm = v.hw + 0.4;
       for (const o of obstacles)
-        if (o !== v && !o.ai?.dormant)
-          check(o, o.pos.x, o.pos.z, o.radius, o.mesh.position.y, o.heading, vm);
-      check(
-        player,
-        p.x,
-        p.z,
-        player.vehicle ? player.vehicle.radius : 0.5,
-        player.vehicle ? player.vehicle.mesh.position.y : player.pos.y,
-        player.vehicle ? player.vehicle.heading : undefined,
-        v.hw + 0.6
-      );
+        if (o !== v && !o.ai?.dormant) {
+          if (o.bus) {
+            // 12 m long: four circles along it (one circle of its length would block the next lane too)
+            const bx = Math.sin(o.heading),
+              bz = Math.cos(o.heading);
+            for (const k of BUS_RING)
+              check(
+                o,
+                o.pos.x + bx * k,
+                o.pos.z + bz * k,
+                o.hw + 0.3,
+                o.mesh.position.y,
+                o.heading,
+                vm
+              );
+          } else check(o, o.pos.x, o.pos.z, o.radius, o.mesh.position.y, o.heading, vm);
+        }
+      if (!player.aboard)
+        check(
+          player,
+          p.x,
+          p.z,
+          player.vehicle ? player.vehicle.radius : 0.5,
+          player.vehicle ? player.vehicle.mesh.position.y : player.pos.y,
+          player.vehicle ? player.vehicle.heading : undefined,
+          v.hw + 0.6
+        );
       for (const o of player.extraObstacles || [])
         check(o, o.pos.x, o.pos.z, o.radius, o.mesh.position.y, o.heading, vm);
       // 平交道關著（src/world/Railway.js gates）：往平交道開的車停在停止線前；已經過了線的照常開出去
@@ -644,6 +751,7 @@ export class Traffic {
       }
       if (a.pv && a.d < a.pv.R) want = Math.min(want, a.pv.vc + (3 * a.d) / a.pv.R);
       if (a.turnT > 0) want = Math.min(want, 2.5);
+      if (a.ctl) want = Math.min(want, a.ctl(v, want, dt)); // 公車: bus stops and red lights (src/systems/Buses.js)
       // passing: creep past slowly while swinging out, until it is behind
       if (a.passT > 0) {
         a.passT -= dt;
@@ -688,7 +796,9 @@ export class Traffic {
       }
       a.honkT -= dt;
       if (a.stuckT > 1.5 + a.patience && a.passT <= 0 && blocker) this._pass(v, blocker);
-      if (a.stuckT > 8 + a.patience) {
+      if (a.stuckT > 8 + a.patience && a.route)
+        a.stuckT = 2.5 + a.patience - 0.5; // a bus waits it out
+      else if (a.stuckT > 8 + a.patience) {
         if ((a.uturns || 0) < 2 && this._uturn(v)) a.stuckT = 0;
         else if (dPl > 60 || !this.inView(v.pos)) {
           a.dormant = true;

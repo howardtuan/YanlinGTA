@@ -105,5 +105,6 @@
 - 3D 渲染庫 [Three.js](https://threejs.org/) 採用 MIT 授權；物理引擎 [Rapier](https://rapier.rs/) 採用 Apache-2.0 授權。
 - 麻將洗牌實錄音效（`assets/sfx/mj_shuffle.m4a`）取材自 [Freesound #709628](https://freesound.org/people/Xena123457/sounds/709628/)（CC0 公有領域）；火車行駛聲（`assets/sfx/train_run.m4a`，取自 [Freesound #502935](https://freesound.org/people/Fission9/sounds/502935/) 中段並做成循環）與平交道警鈴（`assets/sfx/crossing_bell.m4a`，[Freesound #650317](https://freesound.org/people/JotrainG/sounds/650317/)）皆為 CC0 公有領域；其餘錄音音效由 Stable Audio Open 於本機生成。
 - 火車班表取自臺鐵開放資料「[鐵路時刻表](https://data.gov.tw/dataset/6138)」，依[政府資料開放授權條款第 1 版](https://data.gov.tw/license)使用（`tools/train_timetable.mjs` 產生 `src/entities/TrainTimetable.js`）。
+- 市區公車 155、156、167、167A 的站序、站點座標與發車時刻取自[桃園市公車動態資訊系統](https://ebus.tycg.gov.tw/ebus)（2026-11-25 平日資料，寫在 `src/systems/BusRoutes.js`），票價依[桃園市政府公告](https://travel.tycg.gov.tw/file/3943)；公車外觀為自製，不使用任何客運公司商標。
 - 這是學生系學會競選宣傳用的非商業校園同人作品；遊戲中出現的中原大學校園場景、店家與品牌名稱屬於各自之權利人。
 - 專案程式碼與重構架構由 YanlinGTA 開發團隊維護。祝彥霖高票當選！🎉

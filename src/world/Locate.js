@@ -1,6 +1,9 @@
-// 「定位」App：在地圖上看好友現在在哪裡。勞大一開始就在名單上；吱吱、女拳大帝、漢克要先認識並加好友才會出現。
+// 「定位」App：在地圖上看好友現在在哪裡。勞大一開始就在名單上（他預設是藏起來的：在電腦終端機叫他回來才會出現，
+// src/systems/LaodaMode.js）；吱吱、女拳大帝、漢克要先認識並加好友才會出現。
 // 每個人的位置是即時的：吱吱在體育館門口或茶學苑上班、女拳大帝在戈登肉鋪櫃台、漢克在麥當勞值班／背吉他散步／
 // 騎 ZMAX 兜風（離你太遠時只知道在附近道路）／睡覺（離線），勞大在校園散步、在體育園區籃球場打球或開直升機。可以一鍵導航過去。
+import { laodaOn } from '../systems/LaodaMode.js';
+
 const esc = (t) =>
   String(t).replace(
     /[&<>"]/g,
@@ -41,25 +44,27 @@ export function friendLocations(g) {
       status,
     }); // 義務役: the prefix while serving (src/entities/npcs/Service.js, via Game)
   };
-  // 勞大: always (the pilot of 彥霖航空)
-  const A = g.airdrop,
-    w = A?.walker;
-  if (A?.busy && A.H?.g)
-    add('laoda', '勞大', '🚁', '#552583', A.H.g.position, '開直升機中（空運機車）');
-  else if (w?.on)
-    add(
-      'laoda',
-      '勞大',
-      w.grudge ? '💢' : w.mode === 'court' ? '🏀' : '🚁',
-      '#552583',
-      w.pos,
-      w.grudge
-        ? '正在衝過去找你（你罵了他）'
-        : w.mode === 'court'
-          ? '在體育園區籃球場打球'
-          : '在校園散步'
-    );
-  else add('laoda', '勞大', '🚁', '#552583', null, '不在校園（可能在停機坪）');
+  // 勞大: always (the pilot of 彥霖航空), once he has been called back at the terminal
+  if (laodaOn()) {
+    const A = g.airdrop,
+      w = A?.walker;
+    if (A?.busy && A.H?.g)
+      add('laoda', '勞大', '🚁', '#552583', A.H.g.position, '開直升機中（空運機車）');
+    else if (w?.on)
+      add(
+        'laoda',
+        '勞大',
+        w.grudge ? '💢' : w.mode === 'court' ? '🏀' : '🚁',
+        '#552583',
+        w.pos,
+        w.grudge
+          ? '正在衝過去找你（你罵了他）'
+          : w.mode === 'court'
+            ? '在體育園區籃球場打球'
+            : '在校園散步'
+      );
+    else add('laoda', '勞大', '🚁', '#552583', null, '不在校園（可能在停機坪）');
+  }
   if (has('zz')) {
     // his day: src/entities/npcs/Zz.js
     const Z = g.zz;

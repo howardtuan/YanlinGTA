@@ -7,12 +7,15 @@
 
 ---
 
-## 一、 💻 終端機隱藏密技 `PYL` 與彩蛋檔案 (`PC.js` / `MenuManager.js`)
+## 一、 💻 終端機隱藏密技 `PYL`、`mamba` 與彩蛋檔案 (`PC.js` / `MenuManager.js` / `LaodaMode.js`)
 
 1. **隱藏指令 `PYL`（不分大小寫）**：
    - 於任一電腦（彥霖舊家、力行 276 筆電、資管系館 101／301 教室）開啟「終端機」，在一般模式輸入 `PYL`（或 `pyl`），**刻意不列於 `help` 指令清單中**。
    - 觸發效果：立即關閉電腦桌面並呼叫 `MenuManager.openVideo()`，全螢幕彈出 `#video` 嵌入播放隱藏彩蛋影片（`https://www.youtube-nocookie.com/embed/-AiDMXovNmA?autoplay=1&rel=0&playsinline=1`），同時自動壓低背景音樂（`audio.duck(true)`）、關閉引擎聲，並在 `videoOpen === true` 期間暫停背後 3D 場景渲染；關閉影片（或按手把 `B`/`Start`）即恢復音量與滑鼠鎖定。
-2. **終端機趣味目錄與第 34 屆 IP 彩蛋**：
+2. **隱藏指令 `mamba` / `mamba out`（喚回／隱藏勞大）**：
+   - 遊戲預設由「彥霖航空機長」駕駛直升機，勞大預設隱藏（聊天室收於 `Phone._stash`、定位 App 不顯示、開關存於獨立 `localStorage` `yanlinGTA.laoda`）。
+   - 於終端機輸入 `mamba` 立即叫回勞大取代機長並同步切換模型與聊天室；輸入 `mamba out` 再次藏回（兩者皆刻意不列於 `help`；勞大未叫出時輸入 `mamba out` 視為未知指令）。
+3. **終端機趣味目錄與第 34 屆 IP 彩蛋**：
    - 輸入 `dir` 或 `ls` 會看到大學生真實趕稿檔名：`競選政見_final.docx`、`傳單_final_v3_真的最後.psd`（高達 48 MB）、`資料庫系統作業.sql`、`期中報告.pdf` 與查案用的 `校園紀錄_備份.db`。
    - 輸入 `ipconfig` 顯示 IPv4 位址為 **`192.168.34.34`**、預設閘道 `192.168.34.1`（呼應「第 34 屆」資管系學會選舉）。
 
@@ -20,7 +23,7 @@
 
 ## 二、 💥 罵勞大復仇肘擊完整狀態機 (`LaodaInsult.js` / `Pilot.js` / `Phone.js`)
 
-當玩家對彥霖航空駕駛 **勞大** 出言不遜時，勞大會放下手邊一切事務追上玩家使出招牌「肘擊」。
+**僅在終端機以 `mamba` 叫回勞大後生效**（預設彥霖航空機長無此彩蛋、`provoke` 一律拒絕）。當玩家對勞大出言不遜時，勞大會放下手邊一切事務追上玩家使出招牌「肘擊」。
 
 ### 1. 雙軌髒話與歧視字眼判定 (`src/systems/LaodaInsult.js` `insultsLaoda`)
 - **軌道 A — 種族歧視字眼（`SLUR`）無條件觸發**：

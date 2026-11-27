@@ -199,14 +199,14 @@ export class VehicleSpawner {
       rider1Mass: by === game.player?.vehicle ? game.player?.ch?.weight : by.rider?.weight,
       kind2: o.kind,
       rider2: !!o.rider || !sc,
-      rider2Mass: o.rider?.weight,
+      rider2Mass: o.bus ? 11000 : o.rider?.weight, // 公車：約 12 噸（車身 1.25 噸＋其餘算在這裡）
       parked2: false,
       vRel: impact,
     });
     // Require meaningful shock before knocking a moving traffic vehicle out of its lane. Below it the two still
     // trade momentum (Newton's 3rd law): traffic keeps driving with its speed changed by its share, -n * dv2
     // along its heading, and the hitter gets dv1 (Vehicle._hitVehicle)
-    const minDv2 = sc ? 2.2 : 3.2;
+    const minDv2 = o.bus ? Infinity : sc ? 2.2 : 3.2; // 公車不會被撞飛
     const [fx, fz] = o.forward();
     const sp0 = o.speed || 0; // before throwVehicle hands it to physics (and zeroes its arcade speed)
     if (sol.dv2 < minDv2) {

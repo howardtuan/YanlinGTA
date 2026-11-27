@@ -87,7 +87,7 @@ export function writeSave(g) {
     concerts: g.concerts?.toJSON() || null,
     stories: [...g.phone.storySeen].slice(-80),
     // typing bubbles are not saved; replies still on their way are (pending), and arrive after loading
-    chats: g.phone.chats.map((c) => ({
+    chats: (g.phone.allChats || g.phone.chats).map((c) => ({
       id: c.c.id,
       round: c.round,
       unread: c.unread,
@@ -141,7 +141,7 @@ export function applySave(g, d) {
   // by chat id. Older saves have none: their chats were matched by position to the first built-in rooms
   // (競選小組、小涵、阿哲…), which have since been removed, so those entries are dropped.
   (d.chats || []).forEach((c) => {
-    const ch = c?.id ? g.phone.chats.find((x) => x.c.id === c.id) : null;
+    const ch = c?.id ? (g.phone.allChats || g.phone.chats).find((x) => x.c.id === c.id) : null;
     if (ch && c) {
       ch.round = c.round;
       ch.unread = c.unread;

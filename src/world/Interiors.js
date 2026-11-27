@@ -2798,12 +2798,16 @@ function buildGuardhouse(I, scene, x, z, ang, name, gateOpt = null, lanes = null
         name,
       })
     : null;
+  // 柵欄的位置：公車（src/systems/Buses.js）開到柵欄前會減速，柵欄自動升起
+  for (const h of hinges) (I.barriers = I.barriers || []).push(h.at);
   I.updaters.push((dt, g) => {
-    // a barrier opens when the player drives up to it (or the guard lets a visitor through)
+    // a barrier opens when the player drives up to it (or the guard lets a visitor through, or a bus comes)
     const p = g.player.worldPos();
     for (const h of hinges) {
       const near =
-        (Math.hypot(p.x - h.at[0], p.z - h.at[1]) < 10 && g.player.vehicle) || gate?.forceOpen;
+        (Math.hypot(p.x - h.at[0], p.z - h.at[1]) < 10 && g.player.vehicle) ||
+        gate?.forceOpen ||
+        !!g.buses?.nearAny(h.at[0], h.at[1], 24);
       h.hinge.rotation.z += ((near ? 1.4 : 0) - h.hinge.rotation.z) * Math.min(1, dt * 4);
       if (near !== (h.hinge.userData.up ?? near)) g.audio.barrier(near, h.at[0], h.at[1]);
       h.hinge.userData.up = near;

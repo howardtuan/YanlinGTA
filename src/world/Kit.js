@@ -720,8 +720,8 @@ export class Kit {
     return g;
   }
   // high-density furniture (desks, chairs, monitors, beds, auditorium seats): what fn builds is merged into its
-  // own group, which Interiors hides while the camera is more than 45 m from it (cullFurniture; perf-refactor
-  // Phase 2, phase-2-render-and-igpu-opt.md §三.4). Collision and actions are added as before.
+  // own group, which Interiors hides while the camera is more than 45 m from it (cullFurniture).
+  // Collision and actions are added as before.
   furniture(fn) {
     const prev = this.fmode;
     this.fmode = true;
@@ -802,8 +802,8 @@ export class Kit {
     this._parent().add(m);
     return m;
   }
-  // perf-refactor Phase 2 (phase-2-render-and-igpu-opt.md §三.3): as finishRow does for the shop rows, the parts in
-  // nothing but a colour are merged into one mesh per kind of surface (colour in the vertices), and the static
+  // As finishRow does for the shop rows, the parts in nothing but a colour are merged into one mesh per kind of
+  // surface (colour in the vertices), and the static
   // k.plane()s (signs, posters, door plates) are packed into this building's atlas and merged per kind of material.
   // It looks the same; what stays as it was: glass, textured / glowing / see-through parts, the planes whose
   // texture or mesh is marked dynamic (userData.dynamic, markDynamic) and anything in a group of its own (lifts,

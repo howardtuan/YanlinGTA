@@ -38,6 +38,22 @@ const esc = (s) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+// 文章內文：純文字照樣跳脫，裡面的 http(s) 網址變成超連結、點了開新分頁
+// （網址遇到空白或全形標點就結束，句尾的半形 .,!?;:) 不算進網址）
+const URL_RE = /https?:\/\/[^\s<>"'，。！？、；：（）「」『』【】]+/g;
+const linkify = (s) => {
+  const text = String(s ?? '');
+  let out = '';
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    const url = m[0].replace(/[.,!?;:)]+$/, '');
+    out += esc(text.slice(last, m.index));
+    out += `<a class="post-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`;
+    last = m.index + url.length;
+  }
+  return out + esc(text.slice(last));
+};
+
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf-8'));
 
 // JPEG 的寬高（連結預覽的 og:image:width/height 用），讀不到就回傳 null
@@ -287,7 +303,7 @@ function postCard(n, base, { full = false } = {}) {
     ${full ? '' : `<h2><a href="${link(base, postSlug(n))}">${esc(n.title)}</a></h2>`}
   </header>
   ${n.image ? `<figure class="post-img"><img src="${base}news/${esc(n.image)}" alt="${esc(n.alt || n.title)}" loading="lazy"></figure>` : ''}
-  ${n.body.map((p) => `<p>${esc(p)}</p>`).join('')}
+  ${n.body.map((p) => `<p>${linkify(p)}</p>`).join('')}
   ${n.tags?.length ? `<p class="post-tags">${n.tags.map((t) => `<span>#${esc(t)}</span>`).join('')}</p>` : ''}
   ${
     full

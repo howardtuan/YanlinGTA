@@ -7,6 +7,7 @@ import { RIDE_PLACES } from '../../systems/minigames/PinHanRide.js';
 import { CONTACTS } from './Chats.js';
 import { Nano } from './Nano.js';
 import { insultsLaoda } from '../../systems/LaodaInsult.js';
+import { laodaOn } from '../../systems/LaodaMode.js';
 import { dual } from '../Prompts.js';
 import { PEOPLE, FEED, STORY_SETS, STORY_TIMES, FRIEND_ONLY, PCARD } from './Feeds.js';
 import { START, slotAt, nextIndex, gramPost, pcardPost, postsUpTo } from './FeedGen.js';
@@ -259,6 +260,8 @@ export class Phone {
       unread: c.unread || 0,
       busy: false,
     }));
+    this._stash = []; // chats put away for now: 勞大's until he is called back at the terminal (syncLaoda)
+    this.syncLaoda();
     this.cur = null;
     const el = (this.el = document.createElement('div'));
     el.id = 'phone';
@@ -283,6 +286,26 @@ export class Phone {
   }
   get unreadTotal() {
     return this.chats.reduce((s, c) => s + c.unread, 0);
+  }
+  // every chat, the ones put away included (saving and loading: 勞大's thread is kept while he is hidden)
+  get allChats() {
+    return [...this.chats, ...this._stash];
+  }
+  // 勞大's chat room is there only once he has been called back (src/systems/LaodaMode.js); hidden, his thread waits aside
+  syncLaoda() {
+    const on = laodaOn(),
+      selSt = this.chats[this.sel];
+    if (on) {
+      this.chats.push(...this._stash.filter((st) => !this.chats.includes(st)));
+      this._stash = [];
+    } else {
+      this._stash.push(...this.chats.filter((st) => st.c.laoda));
+      this.chats = this.chats.filter((st) => !st.c.laoda);
+      if (this.cur?.c.laoda) this.cur = null;
+    }
+    const i = selSt ? this.chats.indexOf(selSt) : -1;
+    this.sel = i >= 0 ? i : 0;
+    this._relist();
   }
   toggle() {
     this.open ? this.close() : this.show();
@@ -623,7 +646,7 @@ export class Phone {
       ['任務四 · 布條保衛戰', '依序把競選布條掛好，限時完成'],
       ['任務五 · 布條失竊案', '回到以前住的地方，用電腦的 SQL 查出拆布條的人'],
       ['任務六 · 宿舍拉票', '到力行宿舍二樓 276～281，每間寢室門口拉一次票'],
-      ['終章 · 政見發表會', '到學生活動中心發表政見'],
+      ['終章 · 政見發表會', '到二一鐘塔前發表政見'],
     ];
     const cur = M.done ? LIST.length : Math.max(0, M.idx);
     const obj = document.getElementById('objText')?.innerText || '';
@@ -2005,7 +2028,7 @@ export class Phone {
     st._laughNext = st.c.laugh && /哈哈|笑死|XD|lol|LOL|😂|🤣/.test(ch.t) ? st.c.laugh : null;
     // 彩蛋：罵勞大（src/systems/LaodaInsult.js）—— 在他的聊天室罵他，或在別人的聊天室提到他罵：他衝過來肘擊你
     // （src/entities/Pilot.js provoke）。他的聊天室：先回你幾句（Chats.js insulted），回完就出發
-    const W = g.airdrop?.walker,
+    const W = laodaOn() ? g.airdrop?.walker : null, // (勞大 hidden: nobody to insult, src/systems/LaodaMode.js)
       toHim = st.c.id === 'laoda';
     if (W && insultsLaoda(ch.t, toHim)) {
       if (toHim) {
@@ -2246,9 +2269,10 @@ export class Phone {
   }
   // after loading a save: drop leftover typing bubbles and deliver replies that were still on their way
   resumePending() {
-    for (const st of this.chats) {
+    for (const st of this.allChats) {
       st.msgs = st.msgs.filter((m) => !m.typing);
       st.busy = false;
+      if (!this.chats.includes(st)) continue; // put away (勞大 hidden): its replies stay pending, saved for later
       const p = st.pending;
       st.pending = null;
       if (p?.replies?.length) this._deliver(st, p.replies, p.v || 0, 2500);

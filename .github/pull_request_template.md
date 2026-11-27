@@ -7,12 +7,10 @@
 - [ ] 本次變更未擅自移除既有設計或彩蛋（若有設計改動已與使用者討論確認）
 - [ ] （若新增或修改遊戲內容、系統機制或彩蛋）已同步更新 `docs/specs/` 對應規格文件
 
-## 驗證方式與自動合併 (Verification)
+## 驗證方式 (Verification)
 
 - [ ] 已在本機執行 `npm run ci` 且全數通過（Format Check + ESLint + Vitest + Vite Build + `check:dist`）
-- [ ] PR CI `Verify` 的 Headless Chrome Smoke Test 通過（過讀取條進 `title` → 點開始進入 `play`，0 執行期錯誤）
 - [ ] 分支內無多餘 WIP commit
-- [ ] 已啟用 Auto-merge（`gh pr merge --auto --merge`）
 
 ## 效能與運行環境紀錄 (Performance & Hardware)
 

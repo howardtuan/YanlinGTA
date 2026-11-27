@@ -2,12 +2,6 @@
 
 本文件為「中原順起來 · 資管要贏 票投彥霖 (YanlinGTA)」專案的**唯一共同指導原則（Single Source of Truth）**，適用於所有人類開發者與 AI Agent。詳細系統規格（`docs/specs/`）與開發維運手冊（`docs/dev/`）見 [docs/README.md](docs/README.md)。
 
-> [!NOTE]
-> **🚧 過渡期公告：底層記憶體、全局動態載入與渲染效能重構進行中**
-> 目前專案正同步進行長週期的「手機端記憶體止血、全局動態載入與內顯效能最佳化」重構計畫（所有進度與規格獨立收錄於根目錄 [perf-refactor/README.md](perf-refactor/README.md)）。
-> - **一般內容與功能開發者／AI Agent 請忽略該目錄**：新增 NPC、支線劇情、單棟建築或小遊戲請完全維持既有寫法照常交付，重構組會確保底層 API 向後相容。
-> - **僅在下列情況才需閱讀 [perf-refactor/README.md](perf-refactor/README.md)**：(1) 你正在接手執行該效能重構階段任務；或 (2) 你的修改涉及 `src/core/`、`src/graphics/`、`src/physics/PhysWorld.js`、`src/world/Kit.js`、`src/world/MapBuilder.js`、`src/world/zones/Zones.js` 等底層管線。
-
 ---
 
 ## 一、 核心開發原則與最佳實踐
@@ -20,8 +14,7 @@
    - 既有玩法、劇情對白、彩蛋、角色與系統機制皆為團隊共識，**嚴禁未經討論擅自移除或覆寫**；有疑慮須先與使用者討論，取得同意後方可修改。
 3. **遊戲內容異動強制同步 `docs/specs/`（SSOT 鐵律）**
    - 凡新增、調整或修復任何遊戲機制、任務、NPC、建築互動、UI 功能或彩蛋密技，**必須在同一個 PR 內同步更新 `docs/specs/` 對應規格文件**，確保規格與程式碼對齊。
-   - **`wiki/` 由使用者主導維護，Agent 不主動改寫文案**：`wiki/` 是面向玩家的趣味百科，非系統規格來源；除非使用者明確指示，Agent 開發遊戲功能時不更動 `wiki/` 內容。唯一技術配合：新增 NPC 時因 `tests/unit/wiki.test.js` 要求 `data/npcs.json` 每個 id 皆登錄於 `wiki/people.json`，Agent 僅補 `"<id>": { "wiki": false }`。
-   - **機密防暴雷**：`easter-eggs-and-secrets.md` 所列隱藏密技、勞大機制與惡搞彩蛋**嚴禁寫入 `wiki/` 或 `llms.txt`**（單元測試把關）。
+   - **`wiki/` 由使用者主導維護，Agent 不主動改寫文案**：`wiki/` 是面向玩家的趣味百科，非系統規格來源；除非使用者明確指示，Agent 開發遊戲功能時不更動 `wiki/` 內容。
 4. **架構與工程底線**
    - **單向無環分層**：維持 `src/` 七大領域分層（`core` / `physics` / `graphics` / `world` / `entities` / `systems` / `ui`），不新增循環匯入或跨層反向依賴（由 `tests/unit/import-graph.test.js` 自動把關）。
    - **最小必要改動**：聚焦任務本身，不順手重構或異動與任務無關的檔案；程式碼格式統一由 Prettier 與 ESLint 把關（Push 前跑 `npm run ci`）。
@@ -47,6 +40,7 @@
 本專案採用 **GitHub Flow**，上游主倉庫（`upstream`: `howardtuan/YanlinGTA`）設有硬性 Rulesets 把關：
 
 ### 1. 上游保護與分支白名單
+- **開工前必先對齊遠端 `main`**：切出任何新分支或動工前，**必須先執行 `git fetch origin` 並確認本機 `main` 與 `origin/main` 完全同步**（`git merge --ff-only origin/main`），嚴禁在過舊的本機 `main` 上開工。
 - **禁止直接 commit 或 push 到 `main`**：本機 `main` 僅用於單向 fast-forward 同步上游最新進度（`git fetch && git merge --ff-only`）。
 - **分支命名白名單**：除受保護主幹 `main` 外，所有工作分支**必須**符合以下前綴（不符合者 `git push` 會直接被 GitHub 拒絕）：
   - `feat/*`：新功能或新遊戲內容
@@ -84,7 +78,7 @@ npm run ci
 ### 3. PR 策略與全自動合併 (Auto-merge)
 - **僅允許 Merge Commit**：上游鎖定 **Create a merge commit**（禁用 Squash / Rebase）。送出 PR 前請在分支內整理好乾淨、有意義的 Commit，避免把雜亂的 `wip` 歷史帶入 `main`。
 - **CI 必過才可合併**：須通過 [ci.yml](.github/workflows/ci.yml) 全部 2 項平行檢查（`Verify` 含 Headless Chrome Smoke Test、`Docker Build Verification`）。
-- **PR 內文須遵循模板並立即啟用 Auto-merge**：建立 PR 時須依 [.github/pull_request_template.md](.github/pull_request_template.md) 完整勾選驗證項（含獨立的 Auto-merge 確認項）與效能／硬體紀錄；上游已開放 Auto-merge（`Required approvals = 0`），建立 PR 後**務必立即設定自動合併**，讓 CI 全綠後直接合併，不需使用者手動同意：
+- **PR 內文須遵循模板**：建立 PR 時須依 [.github/pull_request_template.md](.github/pull_request_template.md) 填寫驗證項與效能／硬體紀錄；上游已開放 Auto-merge（`Required approvals = 0`），具權限者建立 PR 後可立即設定自動合併，讓 CI 全綠後直接合併：
 
 ```bash
 gh pr create --repo howardtuan/YanlinGTA --base main --head <owner>:<branch> --title "<type>(<scope>): <簡述>" --body-file <pr-body.md>

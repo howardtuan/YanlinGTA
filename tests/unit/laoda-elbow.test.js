@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import * as THREE from 'three';
 
 // 彩蛋：罵勞大（手機訊息或當面回嘴），他就衝過來肘擊你（src/systems/LaodaInsult.js、src/entities/Pilot.js provoke）。
+// 勞大預設是藏起來的（src/systems/LaodaMode.js）：這裡測的是在終端機輸入 mamba 叫他回來之後；預設的機長見 laoda-mode.test.js。
 
 // happy-dom has no 2D canvas: the pilot's jersey and name tag draw on one, so hand out a do-nothing stand-in
 const ctx2d = new Proxy(
@@ -21,12 +22,14 @@ const ctx2d = new Proxy(
 let insultsLaoda, CampusPilot, Phone, CONTACTS, FRIEND_CONTACTS;
 beforeAll(async () => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ctx2d);
+  (await import('../../src/systems/LaodaMode.js')).setLaoda(true); // called back at the terminal
   ({ insultsLaoda } = await import('../../src/systems/LaodaInsult.js'));
   ({ CampusPilot } = await import('../../src/entities/Pilot.js'));
   ({ Phone } = await import('../../src/ui/phone/Phone.js'));
   ({ CONTACTS, FRIEND_CONTACTS } = await import('../../src/ui/phone/Chats.js'));
 });
 afterEach(() => vi.useRealTimers());
+afterAll(async () => (await import('../../src/systems/LaodaMode.js')).setLaoda(false));
 
 describe('insultsLaoda：這句話算不算在罵勞大', () => {
   it('a racial slur counts anywhere, even in someone else’s chat and with spaces in it', () => {

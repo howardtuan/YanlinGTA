@@ -38,7 +38,7 @@ export function guessGpu() {
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch (_e) {}
   // laptop / entry GPUs: AMD APUs ("Radeon 780M Graphics"), GeForce MX; an unreadable name counts as weak too
-  // (perf-refactor Phase 2: the newer integrated GPUs below are not, see strong)
+  // (the newer integrated GPUs below are not, see strong)
   const weak =
     !name ||
     /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|radeon(\(tm\))? \d{3,4}m\b|vega \d|geforce mx|\bmx ?\d{3}\b/i.test(
@@ -115,7 +115,7 @@ export class GameLoop {
   }
 
   // auto quality: after a 3 s warm-up, step down one level when a 3 s window runs under 28 fps
-  // (perf-refactor Phase 2: was 8 s + 6 s; a struggling machine now steps down within the first 6 s)
+  // (a struggling machine steps down within the first 6 s)
   autoQuality(frameMs) {
     const game = this.game;
     if ((game.settings.quality || 'auto') !== 'auto' || game.quality === 'xlow' || document.hidden)

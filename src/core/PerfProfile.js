@@ -1,5 +1,5 @@
 /**
- * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?stream=`, `?diag=`, `?safemode=`).
+ * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?diag=`, `?safemode=`).
  * Visual quality settings (`far`, `fog`, `pr`, `shadows`, `view`, `PostFX`) remain owned solely by `GameLoop.js` (`QPROF`).
  */
 
@@ -9,68 +9,18 @@ export const TIERS = Object.freeze({
     texScale: 0.5,
     atlasMaxW: 1024,
     atlasMaxH: 2048,
-    streaming: 'mobile',
   }),
   'desktop-igpu': Object.freeze({
     tier: 'desktop-igpu',
     texScale: 0.75,
     atlasMaxW: 2048,
     atlasMaxH: 2048,
-    streaming: 'balanced',
   }),
   'desktop-dgpu': Object.freeze({
     tier: 'desktop-dgpu',
     texScale: 1,
     atlasMaxW: 2048,
     atlasMaxH: 4096,
-    streaming: 'high',
-  }),
-});
-
-export const STREAMING_PROFILES = Object.freeze({
-  off: Object.freeze({
-    mode: 'off',
-    enabled: false,
-    chunkSize: 120,
-    streetEnter: Infinity,
-    streetExit: Infinity,
-    interiorEnter: Infinity,
-    interiorExit: Infinity,
-    maxActiveChunks: Infinity,
-    physTileRadius: Infinity,
-  }),
-  mobile: Object.freeze({
-    mode: 'mobile',
-    enabled: true,
-    chunkSize: 120,
-    streetEnter: 150,
-    streetExit: 220,
-    interiorEnter: 38,
-    interiorExit: 60,
-    maxActiveChunks: 6,
-    physTileRadius: 1,
-  }),
-  balanced: Object.freeze({
-    mode: 'balanced',
-    enabled: true,
-    chunkSize: 120,
-    streetEnter: 320,
-    streetExit: 420,
-    interiorEnter: 65,
-    interiorExit: 95,
-    maxActiveChunks: 16,
-    physTileRadius: 2,
-  }),
-  high: Object.freeze({
-    mode: 'high',
-    enabled: true,
-    chunkSize: 120,
-    streetEnter: 550,
-    streetExit: 700,
-    interiorEnter: 100,
-    interiorExit: 140,
-    maxActiveChunks: Infinity,
-    physTileRadius: 3,
   }),
 });
 
@@ -123,15 +73,6 @@ export function detectTier({ touch = false, gpuRenderer = '' } = {}) {
   return 'desktop-igpu';
 }
 
-function resolveStreamMode(raw, tierDefaultMode) {
-  if (!raw) return 'off';
-  const norm = raw.trim().toLowerCase();
-  if (norm === '0' || norm === 'false' || norm === 'off') return 'off';
-  if (norm === '1' || norm === 'true' || norm === 'on') return tierDefaultMode;
-  if (Object.hasOwn(STREAMING_PROFILES, norm)) return norm;
-  return 'off';
-}
-
 function resolveDiagMode(params) {
   if (!params.has('diag')) return 'off';
   const norm = (params.get('diag') ?? '').trim().toLowerCase();
@@ -164,7 +105,7 @@ export function applySafeMode(profile) {
 }
 
 /**
- * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?stream=` / `?diag=` / `?safemode=` URL overrides.
+ * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?diag=` / `?safemode=` URL overrides.
  */
 export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const search =
@@ -194,9 +135,6 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const texScale =
     Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : base.texScale;
 
-  const streamParam = params.get('stream');
-  const stream = resolveStreamMode(streamParam, base.streaming);
-
   const diagParam = params.has('diag') ? params.get('diag') : null;
   const diagMode = resolveDiagMode(params);
   const safeModeOverride = resolveSafeModeOverride(params);
@@ -206,9 +144,6 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
     texScale,
     atlasMaxW: base.atlasMaxW,
     atlasMaxH: base.atlasMaxH,
-    stream,
-    streamEnabled: stream !== 'off',
-    streaming: STREAMING_PROFILES[stream],
     diagMode,
     diagEnabled: diagMode !== 'off',
     safeMode: false,
@@ -218,7 +153,6 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
       tier: hasValidTierOverride ? tierParam : null,
       texScale:
         Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : null,
-      stream: streamParam !== null ? streamParam : null,
       diag: diagParam,
       safeMode: safeModeOverride,
     },

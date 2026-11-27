@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { surfaceAt } from '../../world/Terrain.js';
 import { createPilot, CampusPilot, pilotCallVoice } from '../../entities/Pilot.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const T_IN = 7,
@@ -159,19 +160,7 @@ function buildHeli() {
     tail.add(b);
   }
   // green 彥霖航空 / YANLIN AIR on both sides of the cabin
-  const cv = document.createElement('canvas');
-  cv.width = 512;
-  cv.height = 128;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#00664f';
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-  c.font = '900 68px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-  c.fillText('彥霖航空', 256, 50);
-  c.font = '800 30px "Arial",sans-serif';
-  c.fillText('YANLIN AIR', 256, 106);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  const tex = yanlinAirTexture();
   for (const s of [1, -1]) {
     const p = new THREE.Mesh(
       new THREE.PlaneGeometry(2.1, 0.525),
@@ -182,6 +171,27 @@ function buildHeli() {
     g.add(p);
   }
   return { g, rotor, tail, pilot };
+}
+
+let airTex = null;
+function yanlinAirTexture() {
+  if (airTex) return airTex;
+  airTex = canvasTexture(
+    512,
+    128,
+    (c) => {
+      c.fillStyle = '#00664f';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.font = '900 68px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+      c.fillText('彥霖航空', 256, 50);
+      c.font = '800 30px "Arial",sans-serif';
+      c.fillText('YANLIN AIR', 256, 106);
+    },
+    false
+  );
+  if (airTex.isCanvasTexture) uploadAndRelease(airTex);
+  return airTex;
 }
 
 // the pilot, in the left seat (the side the film camera sees); he only casts a shadow inside the cabin anyway.

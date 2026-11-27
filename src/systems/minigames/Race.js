@@ -16,6 +16,7 @@ import { makeLabel, mulberry32 } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { pointInPoly } from '../../physics/Collision.js';
 import { dual } from '../../core/KeyHints.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 const _ax = new THREE.Vector3();
 const LAPS = 2,
@@ -196,34 +197,40 @@ function buildCourse(world, data, startNear) {
 let MATS = null;
 function mats() {
   if (MATS) return MATS;
-  const cv = document.createElement('canvas');
-  cv.width = 64;
-  cv.height = 16;
-  const g = cv.getContext('2d');
-  for (let x = 0; x < 8; x++)
-    for (let y = 0; y < 2; y++) {
-      g.fillStyle = (x + y) % 2 ? '#111' : '#fff';
-      g.fillRect(x * 8, y * 8, 8, 8);
-    }
-  const chk = new THREE.CanvasTexture(cv);
-  chk.colorSpace = THREE.SRGBColorSpace;
-  chk.magFilter = THREE.NearestFilter;
-  const ban = document.createElement('canvas');
-  ban.width = 1024;
-  ban.height = 160;
-  const b = ban.getContext('2d');
-  const gr = b.createLinearGradient(0, 0, 1024, 0);
-  gr.addColorStop(0, '#d81b60');
-  gr.addColorStop(1, '#ff8f00');
-  b.fillStyle = gr;
-  b.fillRect(0, 0, 1024, 160);
-  b.fillStyle = '#fff';
-  b.font = '900 78px "Microsoft JhengHei","Noto Sans TC",sans-serif';
-  b.textAlign = 'center';
-  b.textBaseline = 'middle';
-  b.fillText('🏁 新中北路障礙賽  START / FINISH', 512, 84);
-  const banner = new THREE.CanvasTexture(ban);
-  banner.colorSpace = THREE.SRGBColorSpace;
+  const chk = canvasTexture(
+    64,
+    16,
+    (g) => {
+      for (let x = 0; x < 8; x++)
+        for (let y = 0; y < 2; y++) {
+          g.fillStyle = (x + y) % 2 ? '#111' : '#fff';
+          g.fillRect(x * 8, y * 8, 8, 8);
+        }
+    },
+    false
+  );
+  if (chk.isCanvasTexture) {
+    chk.magFilter = THREE.NearestFilter;
+    uploadAndRelease(chk);
+  }
+  const banner = canvasTexture(
+    1024,
+    160,
+    (b) => {
+      const gr = b.createLinearGradient(0, 0, 1024, 0);
+      gr.addColorStop(0, '#d81b60');
+      gr.addColorStop(1, '#ff8f00');
+      b.fillStyle = gr;
+      b.fillRect(0, 0, 1024, 160);
+      b.fillStyle = '#fff';
+      b.font = '900 78px "Microsoft JhengHei","Noto Sans TC",sans-serif';
+      b.textAlign = 'center';
+      b.textBaseline = 'middle';
+      b.fillText('🏁 新中北路障礙賽  START / FINISH', 512, 84);
+    },
+    false
+  );
+  if (banner.isCanvasTexture) uploadAndRelease(banner);
   MATS = {
     chk: new THREE.MeshBasicMaterial({
       map: chk,
@@ -366,25 +373,29 @@ export class Race {
       const C = this.C,
         HW = 0.9, // half width (m)
         REP = 3.5; // one chevron every REP metres
-      const cv = document.createElement('canvas');
-      cv.width = 64;
-      cv.height = 64;
-      const c = cv.getContext('2d');
-      c.fillStyle = 'rgba(255,79,163,0.35)';
-      c.fillRect(0, 0, 64, 64);
-      c.strokeStyle = '#ff4fa3';
-      c.lineWidth = 11;
-      c.lineCap = 'round';
-      c.lineJoin = 'round';
-      c.beginPath();
-      c.moveTo(10, 46);
-      c.lineTo(32, 20);
-      c.lineTo(54, 46);
-      c.stroke();
-      const tex = new THREE.CanvasTexture(cv);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.anisotropy = 4;
+      const tex = canvasTexture(
+        64,
+        64,
+        (c) => {
+          c.fillStyle = 'rgba(255,79,163,0.35)';
+          c.fillRect(0, 0, 64, 64);
+          c.strokeStyle = '#ff4fa3';
+          c.lineWidth = 11;
+          c.lineCap = 'round';
+          c.lineJoin = 'round';
+          c.beginPath();
+          c.moveTo(10, 46);
+          c.lineTo(32, 20);
+          c.lineTo(54, 46);
+          c.stroke();
+        },
+        false
+      );
+      if (tex.isCanvasTexture) {
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.anisotropy = 4;
+        uploadAndRelease(tex);
+      }
       const n = C.n + 1, // closed loop: repeat the first sample at the end
         pos = new Float32Array(n * 6),
         uv = new Float32Array(n * 4),

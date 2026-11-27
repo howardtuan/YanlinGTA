@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { torsoProfile } from '../BodyMesh.js';
 import { surfaceAt } from '../../world/Terrain.js';
+import { canvasTexture, releaseCanvas, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 import { DevNPC, M, angDiff } from './DevNPC.js';
 
 const H32 = (n) => {
@@ -26,17 +27,6 @@ const H32 = (n) => {
   n = Math.imul(n, 0xc2b2ae35);
   n ^= n >>> 16;
   return (n >>> 0) / 4294967296;
-};
-const tex = (cv) => {
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-};
-const canvas = (w, h) => {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  return [cv, cv.getContext('2d')];
 };
 const ell = (g, x, y, rx, ry, rot = 0) => {
   g.beginPath();
@@ -709,7 +699,11 @@ function chestZ(x, y) {
 }
 // a red metal-band logo: the word, then spikes off its top and bottom edges (mirrored about the middle)
 function metalLogo(g, text, cx, cy, w, color) {
-  const [cv, c] = canvas(512, 200);
+  const cv = document.createElement('canvas');
+  cv.width = 512;
+  cv.height = 200;
+  const c = cv.getContext('2d', { willReadFrequently: true });
+  if (!c) return;
   c.font = '900 80px "Times New Roman",Georgia,serif';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
@@ -744,189 +738,196 @@ function metalLogo(g, text, cx, cy, w, color) {
     tri(px, bot - 3, 4 + ((r * 7) % 1) * 24 * (1 - m * 0.5), 1);
   }
   g.drawImage(cv, cx - 256, cy - 100);
+  releaseCanvas(cv);
 }
 // the print on the front of his tee (like the photo, drawn here): the red logo over a gothic frame with a white-haired
 // girl holding a black bear, red script under it; cracked and faded like a washed print
 let teeTex = null;
 function teePrint() {
   if (teeTex) return teeTex;
-  const [cv, g] = canvas(512, 700);
-  const WH = '#ebe8e2',
-    LN = '#1b1b1d',
-    RD = '#c4262c';
-  g.lineCap = g.lineJoin = 'round';
-  // frame
-  g.strokeStyle = WH;
-  g.lineWidth = 5;
-  g.beginPath();
-  g.moveTo(118, 640);
-  g.lineTo(118, 300);
-  g.quadraticCurveTo(118, 205, 256, 190);
-  g.quadraticCurveTo(394, 205, 394, 300);
-  g.lineTo(394, 640);
-  g.stroke();
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(130, 632);
-  g.lineTo(130, 302);
-  g.quadraticCurveTo(130, 218, 256, 204);
-  g.quadraticCurveTo(382, 218, 382, 302);
-  g.lineTo(382, 632);
-  g.stroke();
-  const curl = (cx, cy, r, dir) => {
-    g.beginPath();
-    for (let a = 0; a < 9; a += 0.2) {
-      const rr = r * (1 - a / 10);
-      g.lineTo(cx + Math.cos(a * dir) * rr, cy + Math.sin(a * dir) * rr);
-    }
-    g.stroke();
-  };
-  g.lineWidth = 3;
-  curl(102, 300, 16, 1);
-  curl(410, 300, 16, -1);
-  curl(102, 628, 14, -1);
-  curl(410, 628, 14, 1);
-  g.beginPath();
-  g.moveTo(256, 160);
-  g.lineTo(256, 190);
-  g.moveTo(246, 170);
-  g.lineTo(266, 170);
-  g.stroke();
-  // her long white hair
-  g.fillStyle = WH;
-  g.beginPath();
-  g.moveTo(256, 236);
-  g.bezierCurveTo(172, 234, 158, 300, 166, 380);
-  g.bezierCurveTo(176, 470, 138, 560, 148, 628);
-  g.lineTo(364, 628);
-  g.bezierCurveTo(374, 560, 336, 470, 346, 380);
-  g.bezierCurveTo(354, 300, 340, 234, 256, 236);
-  g.fill();
-  g.strokeStyle = '#8f8c86';
-  g.lineWidth = 1.5;
-  for (let i = 0; i < 7; i++) {
-    const sx = 172 + i * 4,
-      ex = 158 + i * 10;
-    g.beginPath();
-    g.moveTo(sx, 330 + i * 12);
-    g.bezierCurveTo(sx + 8, 420, ex - 10, 520, ex, 620);
-    g.stroke();
-    g.beginPath();
-    g.moveTo(512 - sx, 330 + i * 12);
-    g.bezierCurveTo(504 - sx, 420, 522 - ex, 520, 512 - ex, 620);
-    g.stroke();
-  }
-  // dress and frilled collar
-  g.fillStyle = '#121214';
-  g.beginPath();
-  g.moveTo(206, 384);
-  g.quadraticCurveTo(256, 372, 306, 384);
-  g.lineTo(326, 628);
-  g.lineTo(186, 628);
-  g.fill();
-  g.fillStyle = WH;
-  for (let i = 0; i < 6; i++) {
-    g.beginPath();
-    g.arc(216 + i * 16, 388, 9, 0, Math.PI);
-    g.fill();
-  }
-  // face
-  g.fillStyle = '#f6f1ea';
-  ell(g, 256, 322, 46, 54);
-  g.fill();
-  g.strokeStyle = LN;
-  g.lineWidth = 2.5;
-  g.stroke();
-  for (const ex of [236, 276]) {
-    g.fillStyle = '#1f1d22';
-    ell(g, ex, 330, 11, 14);
-    g.fill();
-    g.fillStyle = RD;
-    ell(g, ex, 334, 7, 9);
-    g.fill();
-    g.fillStyle = '#fff';
-    ell(g, ex - 3, 325, 3.5, 3.5);
-    g.fill();
-    g.strokeStyle = LN;
-    g.lineWidth = 3;
-    g.beginPath();
-    g.arc(ex, 332, 14, Math.PI * 1.15, Math.PI * 1.85);
-    g.stroke();
-  }
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(251, 356);
-  g.lineTo(261, 356);
-  g.stroke();
-  // jagged bangs
-  g.fillStyle = WH;
-  g.beginPath();
-  g.moveTo(204, 318);
-  const tips = [306, 296, 312, 300, 316, 298, 310, 302, 314];
-  tips.forEach((ty, i) => {
-    const x0 = 210 + i * 11.5;
-    g.lineTo(x0 + 5, 280);
-    g.lineTo(x0 + 9, ty);
-  });
-  g.lineTo(310, 318);
-  g.lineTo(312, 268);
-  g.quadraticCurveTo(256, 250, 200, 268);
-  g.fill();
-  // the black bear plush in her arms (one eye sewn on as an X)
-  g.fillStyle = '#0e0e10';
-  g.strokeStyle = WH;
-  g.lineWidth = 2;
-  for (const [x0, y0, r] of [
-    [214, 424, 20],
-    [298, 424, 20],
-    [256, 472, 56],
-  ]) {
-    g.beginPath();
-    g.arc(x0, y0, r, 0, Math.PI * 2);
-    g.fill();
-    g.stroke();
-  }
-  g.fillStyle = '#d9d5ce';
-  ell(g, 256, 494, 22, 15);
-  g.fill();
-  g.fillStyle = LN;
-  ell(g, 256, 488, 7, 5);
-  g.fill();
-  g.fillStyle = '#d9d5ce';
-  ell(g, 278, 460, 5, 5);
-  g.fill();
-  g.strokeStyle = '#d9d5ce';
-  g.lineWidth = 2.5;
-  g.beginPath();
-  g.moveTo(228, 454);
-  g.lineTo(240, 466);
-  g.moveTo(240, 454);
-  g.lineTo(228, 466);
-  g.stroke();
-  g.fillStyle = WH;
-  for (const d of [-1, 1]) {
-    ell(g, 256 + d * 58, 500, 22, 34, d * 0.5);
-    g.fill();
-  }
-  // red script and the logo
-  g.fillStyle = RD;
-  g.textAlign = 'center';
-  g.font = 'italic 600 23px "Snell Roundhand","Brush Script MT","Segoe Script",cursive';
-  g.fillText('Eternally online, forever in your chat', 256, 664);
-  g.font = 'italic 600 19px "Snell Roundhand","Brush Script MT","Segoe Script",cursive';
-  g.fillText('✝ the stream never ends ✝', 256, 690);
-  metalLogo(g, 'INVOLUTION', 256, 92, 470, RD);
-  // cracked, faded print
-  g.globalCompositeOperation = 'destination-out';
-  let sd = 5;
-  const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 2600; i++) {
-    g.globalAlpha = 0.3 + rnd() * 0.4;
-    g.fillRect(rnd() * 512, rnd() * 700, 1 + rnd() * 2, 1 + rnd() * 2);
-  }
-  g.globalAlpha = 1;
-  g.globalCompositeOperation = 'source-over';
-  teeTex = tex(cv);
+  teeTex = canvasTexture(
+    512,
+    700,
+    (g) => {
+      const WH = '#ebe8e2',
+        LN = '#1b1b1d',
+        RD = '#c4262c';
+      g.lineCap = g.lineJoin = 'round';
+      // frame
+      g.strokeStyle = WH;
+      g.lineWidth = 5;
+      g.beginPath();
+      g.moveTo(118, 640);
+      g.lineTo(118, 300);
+      g.quadraticCurveTo(118, 205, 256, 190);
+      g.quadraticCurveTo(394, 205, 394, 300);
+      g.lineTo(394, 640);
+      g.stroke();
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(130, 632);
+      g.lineTo(130, 302);
+      g.quadraticCurveTo(130, 218, 256, 204);
+      g.quadraticCurveTo(382, 218, 382, 302);
+      g.lineTo(382, 632);
+      g.stroke();
+      const curl = (cx, cy, r, dir) => {
+        g.beginPath();
+        for (let a = 0; a < 9; a += 0.2) {
+          const rr = r * (1 - a / 10);
+          g.lineTo(cx + Math.cos(a * dir) * rr, cy + Math.sin(a * dir) * rr);
+        }
+        g.stroke();
+      };
+      g.lineWidth = 3;
+      curl(102, 300, 16, 1);
+      curl(410, 300, 16, -1);
+      curl(102, 628, 14, -1);
+      curl(410, 628, 14, 1);
+      g.beginPath();
+      g.moveTo(256, 160);
+      g.lineTo(256, 190);
+      g.moveTo(246, 170);
+      g.lineTo(266, 170);
+      g.stroke();
+      // her long white hair
+      g.fillStyle = WH;
+      g.beginPath();
+      g.moveTo(256, 236);
+      g.bezierCurveTo(172, 234, 158, 300, 166, 380);
+      g.bezierCurveTo(176, 470, 138, 560, 148, 628);
+      g.lineTo(364, 628);
+      g.bezierCurveTo(374, 560, 336, 470, 346, 380);
+      g.bezierCurveTo(354, 300, 340, 234, 256, 236);
+      g.fill();
+      g.strokeStyle = '#8f8c86';
+      g.lineWidth = 1.5;
+      for (let i = 0; i < 7; i++) {
+        const sx = 172 + i * 4,
+          ex = 158 + i * 10;
+        g.beginPath();
+        g.moveTo(sx, 330 + i * 12);
+        g.bezierCurveTo(sx + 8, 420, ex - 10, 520, ex, 620);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(512 - sx, 330 + i * 12);
+        g.bezierCurveTo(504 - sx, 420, 522 - ex, 520, 512 - ex, 620);
+        g.stroke();
+      }
+      // dress and frilled collar
+      g.fillStyle = '#121214';
+      g.beginPath();
+      g.moveTo(206, 384);
+      g.quadraticCurveTo(256, 372, 306, 384);
+      g.lineTo(326, 628);
+      g.lineTo(186, 628);
+      g.fill();
+      g.fillStyle = WH;
+      for (let i = 0; i < 6; i++) {
+        g.beginPath();
+        g.arc(216 + i * 16, 388, 9, 0, Math.PI);
+        g.fill();
+      }
+      // face
+      g.fillStyle = '#f6f1ea';
+      ell(g, 256, 322, 46, 54);
+      g.fill();
+      g.strokeStyle = LN;
+      g.lineWidth = 2.5;
+      g.stroke();
+      for (const ex of [236, 276]) {
+        g.fillStyle = '#1f1d22';
+        ell(g, ex, 330, 11, 14);
+        g.fill();
+        g.fillStyle = RD;
+        ell(g, ex, 334, 7, 9);
+        g.fill();
+        g.fillStyle = '#fff';
+        ell(g, ex - 3, 325, 3.5, 3.5);
+        g.fill();
+        g.strokeStyle = LN;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(ex, 332, 14, Math.PI * 1.15, Math.PI * 1.85);
+        g.stroke();
+      }
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(251, 356);
+      g.lineTo(261, 356);
+      g.stroke();
+      // jagged bangs
+      g.fillStyle = WH;
+      g.beginPath();
+      g.moveTo(204, 318);
+      const tips = [306, 296, 312, 300, 316, 298, 310, 302, 314];
+      tips.forEach((ty, i) => {
+        const x0 = 210 + i * 11.5;
+        g.lineTo(x0 + 5, 280);
+        g.lineTo(x0 + 9, ty);
+      });
+      g.lineTo(310, 318);
+      g.lineTo(312, 268);
+      g.quadraticCurveTo(256, 250, 200, 268);
+      g.fill();
+      // the black bear plush in her arms (one eye sewn on as an X)
+      g.fillStyle = '#0e0e10';
+      g.strokeStyle = WH;
+      g.lineWidth = 2;
+      for (const [x0, y0, r] of [
+        [214, 424, 20],
+        [298, 424, 20],
+        [256, 472, 56],
+      ]) {
+        g.beginPath();
+        g.arc(x0, y0, r, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+      }
+      g.fillStyle = '#d9d5ce';
+      ell(g, 256, 494, 22, 15);
+      g.fill();
+      g.fillStyle = LN;
+      ell(g, 256, 488, 7, 5);
+      g.fill();
+      g.fillStyle = '#d9d5ce';
+      ell(g, 278, 460, 5, 5);
+      g.fill();
+      g.strokeStyle = '#d9d5ce';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.moveTo(228, 454);
+      g.lineTo(240, 466);
+      g.moveTo(240, 454);
+      g.lineTo(228, 466);
+      g.stroke();
+      g.fillStyle = WH;
+      for (const d of [-1, 1]) {
+        ell(g, 256 + d * 58, 500, 22, 34, d * 0.5);
+        g.fill();
+      }
+      // red script and the logo
+      g.fillStyle = RD;
+      g.textAlign = 'center';
+      g.font = 'italic 600 23px "Snell Roundhand","Brush Script MT","Segoe Script",cursive';
+      g.fillText('Eternally online, forever in your chat', 256, 664);
+      g.font = 'italic 600 19px "Snell Roundhand","Brush Script MT","Segoe Script",cursive';
+      g.fillText('✝ the stream never ends ✝', 256, 690);
+      metalLogo(g, 'INVOLUTION', 256, 92, 470, RD);
+      // cracked, faded print
+      g.globalCompositeOperation = 'destination-out';
+      let sd = 5;
+      const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 2600; i++) {
+        g.globalAlpha = 0.3 + rnd() * 0.4;
+        g.fillRect(rnd() * 512, rnd() * 700, 1 + rnd() * 2, 1 + rnd() * 2);
+      }
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    },
+    false
+  );
+  if (teeTex.isCanvasTexture) uploadAndRelease(teeTex);
   return teeTex;
 }
 let teeGeo = null;
@@ -994,24 +995,34 @@ function straps(ch) {
   }
 }
 // a little acrylic charm of みけにゃこ。 hanging off the left front pocket
+let charmTex = null;
 function charm(ch) {
-  const [cv, g] = canvas(96, 128);
-  g.fillStyle = 'rgba(255,255,255,.85)';
-  g.beginPath();
-  g.roundRect(4, 4, 88, 120, 14);
-  g.fill();
-  drawMike(g, 48, 52, 22, false, false);
+  const hp = ch.legs.find((l) => l.s > 0)?.hp;
+  if (!hp) return;
+  if (!charmTex) {
+    charmTex = canvasTexture(
+      96,
+      128,
+      (g) => {
+        g.fillStyle = 'rgba(255,255,255,.85)';
+        g.beginPath();
+        g.roundRect(4, 4, 88, 120, 14);
+        g.fill();
+        drawMike(g, 48, 52, 22, false, false);
+      },
+      false
+    );
+    if (charmTex.isCanvasTexture) uploadAndRelease(charmTex);
+  }
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(0.036, 0.048),
     new THREE.MeshStandardMaterial({
-      map: tex(cv),
+      map: charmTex,
       transparent: true,
       roughness: 0.3,
       side: THREE.DoubleSide,
     })
   );
-  const hp = ch.legs.find((l) => l.s > 0)?.hp;
-  if (!hp) return;
   m.position.set(0.075, -0.13, 0.098);
   m.rotation.y = 0.5;
   hp.add(m);
@@ -1217,28 +1228,35 @@ export class Ruizhe extends DevNPC {
       return o;
     };
     // the tapestry above the shelves
-    const [cv, g] = canvas(400, 440);
-    const gr = g.createLinearGradient(0, 0, 0, 440);
-    gr.addColorStop(0, '#bfe9f7');
-    gr.addColorStop(1, '#f4b6da');
-    g.fillStyle = gr;
-    g.fillRect(0, 0, 400, 440);
-    g.fillStyle = 'rgba(255,255,255,.5)';
-    for (let i = 0; i < 14; i++) {
-      g.beginPath();
-      g.arc((i * 97) % 400, (i * 151) % 440, 4 + (i % 3) * 3, 0, Math.PI * 2);
-      g.fill();
-    }
-    drawAkuwa(g, 200, 190, 82);
-    g.fillStyle = '#3c3f8c';
-    g.font = `900 42px ${FONT}`;
-    g.textAlign = 'center';
-    g.fillText('湊あくわ', 200, 400);
-    g.font = `700 18px ${FONT}`;
-    g.fillText('⚓ AKUWA ⚓', 200, 425);
+    const tapTex = canvasTexture(
+      400,
+      440,
+      (g) => {
+        const gr = g.createLinearGradient(0, 0, 0, 440);
+        gr.addColorStop(0, '#bfe9f7');
+        gr.addColorStop(1, '#f4b6da');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, 400, 440);
+        g.fillStyle = 'rgba(255,255,255,.5)';
+        for (let i = 0; i < 14; i++) {
+          g.beginPath();
+          g.arc((i * 97) % 400, (i * 151) % 440, 4 + (i % 3) * 3, 0, Math.PI * 2);
+          g.fill();
+        }
+        drawAkuwa(g, 200, 190, 82);
+        g.fillStyle = '#3c3f8c';
+        g.font = `900 42px ${FONT}`;
+        g.textAlign = 'center';
+        g.fillText('湊あくわ', 200, 400);
+        g.font = `700 18px ${FONT}`;
+        g.fillText('⚓ AKUWA ⚓', 200, 425);
+      },
+      false
+    );
+    if (tapTex.isCanvasTexture) uploadAndRelease(tapTex);
     const tap = new THREE.Mesh(
       new THREE.PlaneGeometry(0.46, 0.506),
-      new THREE.MeshStandardMaterial({ map: tex(cv), roughness: 0.9 })
+      new THREE.MeshStandardMaterial({ map: tapTex, roughness: 0.9 })
     );
     put(tap, wall + s * 0.03, desk.z, 1.92);
     // figures on the lower shelf (top at 1.12): あくわ, みけにゃこ。 and a white cat plush
@@ -1309,17 +1327,24 @@ export class Ruizhe extends DevNPC {
     put(mk, shelfX, desk.z - 0.14, 1.12);
     put(cat, shelfX, desk.z + 0.24, 1.12);
     // the acrylic stand on the desk, by the wall at the other end from the laptop
-    const [cv2, g2] = canvas(200, 300);
-    drawMike(g2, 100, 110, 52);
-    g2.fillStyle = '#18161a';
-    g2.font = `900 22px ${FONT}`;
-    g2.textAlign = 'center';
-    g2.fillText('みけにゃこ。', 100, 285);
+    const standTex = canvasTexture(
+      200,
+      300,
+      (g2) => {
+        drawMike(g2, 100, 110, 52);
+        g2.fillStyle = '#18161a';
+        g2.font = `900 22px ${FONT}`;
+        g2.textAlign = 'center';
+        g2.fillText('みけにゃこ。', 100, 285);
+      },
+      false
+    );
+    if (standTex.isCanvasTexture) uploadAndRelease(standTex);
     const ac = new THREE.Group();
     const pl = new THREE.Mesh(
       new THREE.PlaneGeometry(0.1, 0.15),
       new THREE.MeshStandardMaterial({
-        map: tex(cv2),
+        map: standTex,
         transparent: true,
         alphaTest: 0.1,
         roughness: 0.2,

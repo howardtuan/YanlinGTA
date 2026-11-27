@@ -6,7 +6,7 @@
 // 鋪面和線畫在 src/world/MapBuilder.js 的 areas 圖層（原本是草地），籃架、球網、頂棚在這裡蓋。
 import * as THREE from 'three';
 import { terrainGrid, surfaceAt } from './Terrain.js';
-import { scaledCanvas } from '../graphics/GpuMemLifecycle.js';
+import { markShared, scaledCanvas } from '../graphics/GpuMemLifecycle.js';
 
 // east side: local frame with its origin at the middle court's centre, u along the courts (south +), v across (east +)
 const E = { o: [191.14, -371.82], d: [0.2234, 0.9747] },
@@ -178,9 +178,12 @@ function buildNets(I, scene) {
     m4 = new THREE.Matrix4();
   const t = (() => {
     const { cv, g: c } = scaledCanvas(64, 64); // tier's texture scale (src/graphics/GpuMemLifecycle.js)
-    c.strokeStyle = '#222';
-    c.lineWidth = 5;
-    c.strokeRect(0, 0, 64, 64);
+    if (c) {
+      c.strokeStyle = '#222';
+      c.lineWidth = 5;
+      c.strokeRect(0, 0, 64, 64);
+    }
+    markShared(cv);
     const q = new THREE.CanvasTexture(cv);
     q.wrapS = q.wrapT = THREE.RepeatWrapping;
     q.repeat.set(70, 7);
@@ -233,21 +236,24 @@ function buildRoof(I, scene, Kit, regMat) {
   const k = new Kit(I, E.o[0], E.o[1], Math.atan2(-E.d[0], E.d[1]), 1); // local x = v, z = u
   const pv = (() => {
     const { cv, g: c } = scaledCanvas(256, 256);
-    c.fillStyle = '#1b2a4a';
-    c.fillRect(0, 0, 256, 256);
-    c.strokeStyle = 'rgba(150,170,205,.35)';
-    c.lineWidth = 2;
-    for (let i = 0; i <= 256; i += 32) {
-      c.beginPath();
-      c.moveTo(i, 0);
-      c.lineTo(i, 256);
-      c.moveTo(0, i);
-      c.lineTo(256, i);
-      c.stroke();
+    if (c) {
+      c.fillStyle = '#1b2a4a';
+      c.fillRect(0, 0, 256, 256);
+      c.strokeStyle = 'rgba(150,170,205,.35)';
+      c.lineWidth = 2;
+      for (let i = 0; i <= 256; i += 32) {
+        c.beginPath();
+        c.moveTo(i, 0);
+        c.lineTo(i, 256);
+        c.moveTo(0, i);
+        c.lineTo(256, i);
+        c.stroke();
+      }
+      c.strokeStyle = '#aab4c2';
+      c.lineWidth = 7;
+      c.strokeRect(0, 0, 256, 256);
     }
-    c.strokeStyle = '#aab4c2';
-    c.lineWidth = 7;
-    c.strokeRect(0, 0, 256, 256);
+    markShared(cv);
     const t = new THREE.CanvasTexture(cv);
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -379,16 +385,19 @@ export function buildCourts(I, scene, Kit, regMat) {
   }
   const netTex = (() => {
     const { cv, g: c } = scaledCanvas(128, 128);
-    c.strokeStyle = '#fff';
-    c.lineWidth = 5;
-    for (let i = -4; i < 8; i++) {
-      c.beginPath();
-      c.moveTo(i * 32, 0);
-      c.lineTo(i * 32 + 128, 128);
-      c.moveTo(i * 32 + 128, 0);
-      c.lineTo(i * 32, 128);
-      c.stroke();
+    if (c) {
+      c.strokeStyle = '#fff';
+      c.lineWidth = 5;
+      for (let i = -4; i < 8; i++) {
+        c.beginPath();
+        c.moveTo(i * 32, 0);
+        c.lineTo(i * 32 + 128, 128);
+        c.moveTo(i * 32 + 128, 0);
+        c.lineTo(i * 32, 128);
+        c.stroke();
+      }
     }
+    markShared(cv);
     const t = new THREE.CanvasTexture(cv);
     t.wrapS = THREE.RepeatWrapping;
     t.repeat.set(3, 1);

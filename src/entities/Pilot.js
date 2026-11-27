@@ -15,6 +15,7 @@ import { reachArm } from './Armik.js';
 import { COURTS, COLUMNS, courtP, courtRims, RIM_R } from '../world/Court.js';
 import { insultsLaoda } from '../systems/LaodaInsult.js';
 import { laodaOn } from '../systems/LaodaMode.js';
+import { canvasTexture, uploadAndRelease } from '../graphics/GpuMemLifecycle.js';
 
 export const PILOT_LOOK = {
   skin: '#6b4531',
@@ -424,6 +425,36 @@ const keyAt = (t) => {
   return a.map((v, n) => v + (b[n] - v) * e);
 };
 const V = () => new THREE.Vector3();
+let ballTex = null;
+function pilotBallTexture() {
+  if (ballTex) return ballTex;
+  ballTex = canvasTexture(
+    256,
+    128,
+    (c) => {
+      c.fillStyle = '#d2692a';
+      c.fillRect(0, 0, 256, 128);
+      c.strokeStyle = '#231a14';
+      c.lineWidth = 4;
+      c.beginPath();
+      c.moveTo(0, 64);
+      c.lineTo(256, 64);
+      for (const x of [2, 128]) {
+        c.moveTo(x, 0);
+        c.lineTo(x, 128);
+      }
+      c.stroke();
+      for (const x of [64, 192]) {
+        c.beginPath();
+        c.ellipse(x, 64, 30, 50, 0, 0, 7);
+        c.stroke();
+      }
+    },
+    false
+  );
+  if (ballTex.isCanvasTexture) uploadAndRelease(ballTex);
+  return ballTex;
+}
 // him and the ball on the middle court of the east side: dribble to a spot, shoot (jump shot), rebound, again; now and then the other basket
 class BallGame {
   constructor(p) {
@@ -438,32 +469,9 @@ class BallGame {
     this.from = V();
     this.a = V();
     this.b = V();
-    const cv = document.createElement('canvas');
-    cv.width = 256;
-    cv.height = 128;
-    const c = cv.getContext('2d');
-    c.fillStyle = '#d2692a';
-    c.fillRect(0, 0, 256, 128);
-    c.strokeStyle = '#231a14';
-    c.lineWidth = 4;
-    c.beginPath();
-    c.moveTo(0, 64);
-    c.lineTo(256, 64);
-    for (const x of [2, 128]) {
-      c.moveTo(x, 0);
-      c.lineTo(x, 128);
-    }
-    c.stroke();
-    for (const x of [64, 192]) {
-      c.beginPath();
-      c.ellipse(x, 64, 30, 50, 0, 0, 7);
-      c.stroke();
-    }
-    const t = new THREE.CanvasTexture(cv);
-    t.colorSpace = THREE.SRGBColorSpace;
     this.mesh = new THREE.Mesh(
       new THREE.SphereGeometry(BALL_R, 20, 14),
-      new THREE.MeshStandardMaterial({ map: t, roughness: 0.75 })
+      new THREE.MeshStandardMaterial({ map: pilotBallTexture(), roughness: 0.75 })
     );
     this.mesh.castShadow = true;
     this.mesh.visible = false;

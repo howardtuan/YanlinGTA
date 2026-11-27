@@ -13,6 +13,7 @@ import { createCharacter } from '../Character.js';
 import { dressCrew } from '../../systems/minigames/McUniform.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 export const MINGSHAN_LOOK = {
   skin: '#f3d6c4',
@@ -165,15 +166,18 @@ function buildCat() {
 let heartTex = null;
 function heart() {
   if (!heartTex) {
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    const x = c.getContext('2d');
-    x.font = '52px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
-    x.textAlign = 'center';
-    x.textBaseline = 'middle';
-    x.fillText('💗', 32, 36);
-    heartTex = new THREE.CanvasTexture(c);
-    heartTex.colorSpace = THREE.SRGBColorSpace;
+    heartTex = canvasTexture(
+      64,
+      64,
+      (x) => {
+        x.font = '52px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
+        x.textAlign = 'center';
+        x.textBaseline = 'middle';
+        x.fillText('💗', 32, 36);
+      },
+      false
+    );
+    if (heartTex.isCanvasTexture) uploadAndRelease(heartTex);
   }
   const s = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: heartTex, transparent: true, depthWrite: false })

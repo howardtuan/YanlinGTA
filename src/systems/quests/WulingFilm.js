@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { createCharacter } from '../../entities/Character.js';
 import { buildDaA } from '../../entities/Vehicles.js';
 import { ZZ_LOOK, GD_LOOK } from '../../entities/npcs/FriendLooks.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 const DUR = 10.5,
   ROAD_W = 6.5,
@@ -25,13 +26,9 @@ const SUBS = [
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const ease = (t) => t * t * (3 - 2 * t);
 
-function canvasTex(w, h, draw) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+function canvasTex(w, h, draw, repeat = false) {
+  const t = canvasTexture(w, h, draw, repeat);
+  if (t.isCanvasTexture) uploadAndRelease(t);
   return t;
 }
 
@@ -114,21 +111,25 @@ function buildSet() {
   roadG.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   roadG.setIndex(idx);
   roadG.computeVertexNormals();
-  const asphalt = canvasTex(64, 256, (g, w, h) => {
-    g.fillStyle = '#4b4d50';
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 900; i++) {
-      g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},0.06)`;
-      g.fillRect(Math.random() * w, Math.random() * h, 1, 1);
-    }
-    g.fillStyle = '#e8c33a';
-    g.fillRect(w / 2 - 3, 0, 2, h);
-    g.fillRect(w / 2 + 1, 0, 2, h);
-    g.fillStyle = '#e9e9e4';
-    g.fillRect(2, 0, 2, h);
-    g.fillRect(w - 4, 0, 2, h);
-  });
-  asphalt.wrapS = asphalt.wrapT = THREE.RepeatWrapping;
+  const asphalt = canvasTex(
+    64,
+    256,
+    (g, w, h) => {
+      g.fillStyle = '#4b4d50';
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 900; i++) {
+        g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},0.06)`;
+        g.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+      }
+      g.fillStyle = '#e8c33a';
+      g.fillRect(w / 2 - 3, 0, 2, h);
+      g.fillRect(w / 2 + 1, 0, 2, h);
+      g.fillStyle = '#e9e9e4';
+      g.fillRect(2, 0, 2, h);
+      g.fillRect(w - 4, 0, 2, h);
+    },
+    true
+  );
   scene.add(new THREE.Mesh(roadG, mat('#ffffff', { map: asphalt, roughness: 0.92 })));
   // hillside up on the inside (left) of the bend, a drop with a guardrail on the outside (right)
   const strip = (side, off0, off1, y0, y1, m) => {

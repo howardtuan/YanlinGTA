@@ -8,6 +8,7 @@ import { YANLIN_LOOK } from '../entities/Player.js';
 import { dressCrew } from './minigames/McUniform.js';
 import { buildHat } from '../entities/Hats.js';
 import { normalizeLook, wornParts, characterOpts, hatById } from './OutfitData.js';
+import { canvasTexture, uploadAndRelease } from '../graphics/GpuMemLifecycle.js';
 
 let M = null;
 const tone = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8, ...o });
@@ -29,12 +30,8 @@ function mats() {
 const texCache = new Map();
 function canvasTex(key, w, h, draw) {
   if (texCache.has(key)) return texCache.get(key);
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  const t = canvasTexture(w, h, draw, false);
+  if (t.isCanvasTexture) uploadAndRelease(t);
   texCache.set(key, t);
   return t;
 }

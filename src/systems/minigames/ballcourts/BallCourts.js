@@ -13,6 +13,7 @@ import { surfaceAt } from '../../../world/Terrain.js';
 import { COURTS, VBALL, courtP } from '../../../world/Court.js';
 import { Hoops, REL_BEST } from './Hoops.js';
 import { Volley, teamOf, tDown, HIT_H } from './Volley.js';
+import { canvasTexture, uploadAndRelease } from '../../../graphics/GpuMemLifecycle.js';
 
 const OPEN = [6 * 60, 23 * 60]; // minutes of the day people are out on the courts
 const FAR = 120; // past this (m from a court) nothing on it is simulated or drawn
@@ -56,12 +57,8 @@ const POLE_R = [-1, -0.4, -0.2],
   POLE_L = [1, -0.4, -0.2];
 
 function ballTexture(draw) {
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = 128;
-  draw(cv.getContext('2d'));
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  const t = canvasTexture(256, 128, (c) => draw(c), false);
+  if (t.isCanvasTexture) uploadAndRelease(t);
   return t;
 }
 

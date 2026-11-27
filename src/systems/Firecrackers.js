@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { isLunarNewYear } from '../world/Season.js';
+import { canvasTexture, uploadAndRelease } from '../graphics/GpuMemLifecycle.js';
 
 const LINK = 28, // crackers per string
   MAX_SHOWS = 3,
@@ -12,18 +13,25 @@ const LINK = 28, // crackers per string
   FLASH = 16,
   SMOKE = 28;
 
+const DOT_TEX = new Map();
 const dotTex = (soft) => {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 64;
-  const c = cv.getContext('2d'),
-    gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gr.addColorStop(0, 'rgba(255,255,255,1)');
-  gr.addColorStop(soft ? 0.5 : 0.25, `rgba(255,255,255,${soft ? 0.5 : 0.85})`);
-  gr.addColorStop(1, 'rgba(255,255,255,0)');
-  c.fillStyle = gr;
-  c.fillRect(0, 0, 64, 64);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  const key = Boolean(soft);
+  if (DOT_TEX.has(key)) return DOT_TEX.get(key);
+  const t = canvasTexture(
+    64,
+    64,
+    (c) => {
+      const gr = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,255,1)');
+      gr.addColorStop(soft ? 0.5 : 0.25, `rgba(255,255,255,${soft ? 0.5 : 0.85})`);
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = gr;
+      c.fillRect(0, 0, 64, 64);
+    },
+    false
+  );
+  if (t.isCanvasTexture) uploadAndRelease(t);
+  DOT_TEX.set(key, t);
   return t;
 };
 

@@ -3,6 +3,7 @@ import { buildSkinnedBody, torsoProfile } from './BodyMesh.js';
 import { buildHat } from './Hats.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { sampleAnthropometry, BASE_HEIGHT, RIDER_MASS } from '../physics/ImpactPhysics.js';
+import { canvasTexture, uploadAndRelease } from '../graphics/GpuMemLifecycle.js';
 
 // Body style: one continuous skinned mesh (src/entities/BodyMesh.js) by default; ?legacy in the URL brings back the old
 // sphere-and-capsule body for side-by-side comparison.
@@ -37,216 +38,235 @@ const pivot = (x = 0, y = 0, z = 0) => {
   return g;
 };
 
+let logoTex = null;
 function logoTexture() {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 64;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#f4f4f0';
-  g.beginPath();
-  g.roundRect(4, 8, 56, 48, 8);
-  g.fill();
-  g.fillStyle = '#1a1a1a';
-  g.beginPath();
-  g.arc(22, 30, 7, 0, 7);
-  g.arc(42, 30, 7, 0, 7);
-  g.fill();
-  g.fillStyle = '#f4f4f0';
-  g.beginPath();
-  g.arc(24, 29, 2.5, 0, 7);
-  g.arc(44, 29, 2.5, 0, 7);
-  g.fill();
-  g.fillStyle = '#1a1a1a';
-  g.fillRect(20, 42, 24, 4);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  if (logoTex) return logoTex;
+  logoTex = canvasTexture(
+    64,
+    64,
+    (g) => {
+      g.fillStyle = '#f4f4f0';
+      g.beginPath();
+      g.roundRect(4, 8, 56, 48, 8);
+      g.fill();
+      g.fillStyle = '#1a1a1a';
+      g.beginPath();
+      g.arc(22, 30, 7, 0, 7);
+      g.arc(42, 30, 7, 0, 7);
+      g.fill();
+      g.fillStyle = '#f4f4f0';
+      g.beginPath();
+      g.arc(24, 29, 2.5, 0, 7);
+      g.arc(44, 29, 2.5, 0, 7);
+      g.fill();
+      g.fillStyle = '#1a1a1a';
+      g.fillRect(20, 42, 24, 4);
+    },
+    false
+  );
+  if (logoTex.isCanvasTexture) uploadAndRelease(logoTex);
+  return logoTex;
 }
 
 // 系學會幹部T: the white line-drawn lion on the left chest (user's photo): a lion with a crown, a speech bubble
 // saying 34TH and CYIMSA written underneath; white strokes on a transparent canvas
+let lionTex = null;
 function lionTexture() {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 256;
-  const g = cv.getContext('2d');
-  g.strokeStyle = g.fillStyle = '#f6f6f2';
-  g.lineWidth = 6;
-  g.lineCap = g.lineJoin = 'round';
-  // mane: a zigzag ring
-  g.beginPath();
-  for (let i = 0; i <= 28; i++) {
-    const a = (i / 28) * Math.PI * 2,
-      r = i % 2 ? 50 : 62;
-    const x = 104 + Math.cos(a) * r,
-      y = 108 + Math.sin(a) * r * 0.95;
-    i ? g.lineTo(x, y) : g.moveTo(x, y);
-  }
-  g.stroke();
-  // face, eyes, nose and an open mouth
-  g.beginPath();
-  g.ellipse(104, 112, 36, 32, 0, 0, 7);
-  g.stroke();
-  g.beginPath();
-  g.arc(91, 104, 5, 0, 7);
-  g.arc(117, 104, 5, 0, 7);
-  g.fill();
-  g.beginPath();
-  g.moveTo(98, 118);
-  g.lineTo(110, 118);
-  g.lineTo(104, 124);
-  g.closePath();
-  g.fill();
-  g.beginPath();
-  g.ellipse(104, 132, 9, 6, 0, 0, 7);
-  g.stroke();
-  // little body and legs
-  g.beginPath();
-  g.moveTo(80, 166);
-  g.lineTo(78, 200);
-  g.moveTo(128, 166);
-  g.lineTo(130, 200);
-  g.moveTo(70, 200);
-  g.lineTo(140, 200);
-  g.stroke();
-  // crown
-  g.beginPath();
-  g.moveTo(86, 46);
-  g.lineTo(90, 26);
-  g.lineTo(98, 40);
-  g.lineTo(104, 22);
-  g.lineTo(110, 40);
-  g.lineTo(118, 26);
-  g.lineTo(122, 46);
-  g.closePath();
-  g.stroke();
-  // speech bubble: 34TH
-  g.beginPath();
-  g.ellipse(196, 104, 40, 46, 0, 0, 7);
-  g.stroke();
-  g.beginPath();
-  g.moveTo(170, 140);
-  g.lineTo(158, 162);
-  g.lineTo(184, 146);
-  g.stroke();
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.font = '700 34px "Comic Sans MS","Segoe Print",sans-serif';
-  g.fillText('34', 196, 88);
-  g.font = '700 26px "Comic Sans MS","Segoe Print",sans-serif';
-  g.fillText('TH', 196, 120);
-  g.font = '700 30px "Comic Sans MS","Segoe Print",sans-serif';
-  g.fillText('C Y I M S A', 104, 232);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  if (lionTex) return lionTex;
+  lionTex = canvasTexture(
+    256,
+    256,
+    (g) => {
+      g.strokeStyle = g.fillStyle = '#f6f6f2';
+      g.lineWidth = 6;
+      g.lineCap = g.lineJoin = 'round';
+      // mane: a zigzag ring
+      g.beginPath();
+      for (let i = 0; i <= 28; i++) {
+        const a = (i / 28) * Math.PI * 2,
+          r = i % 2 ? 50 : 62;
+        const x = 104 + Math.cos(a) * r,
+          y = 108 + Math.sin(a) * r * 0.95;
+        i ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+      // face, eyes, nose and an open mouth
+      g.beginPath();
+      g.ellipse(104, 112, 36, 32, 0, 0, 7);
+      g.stroke();
+      g.beginPath();
+      g.arc(91, 104, 5, 0, 7);
+      g.arc(117, 104, 5, 0, 7);
+      g.fill();
+      g.beginPath();
+      g.moveTo(98, 118);
+      g.lineTo(110, 118);
+      g.lineTo(104, 124);
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.ellipse(104, 132, 9, 6, 0, 0, 7);
+      g.stroke();
+      // little body and legs
+      g.beginPath();
+      g.moveTo(80, 166);
+      g.lineTo(78, 200);
+      g.moveTo(128, 166);
+      g.lineTo(130, 200);
+      g.moveTo(70, 200);
+      g.lineTo(140, 200);
+      g.stroke();
+      // crown
+      g.beginPath();
+      g.moveTo(86, 46);
+      g.lineTo(90, 26);
+      g.lineTo(98, 40);
+      g.lineTo(104, 22);
+      g.lineTo(110, 40);
+      g.lineTo(118, 26);
+      g.lineTo(122, 46);
+      g.closePath();
+      g.stroke();
+      // speech bubble: 34TH
+      g.beginPath();
+      g.ellipse(196, 104, 40, 46, 0, 0, 7);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(170, 140);
+      g.lineTo(158, 162);
+      g.lineTo(184, 146);
+      g.stroke();
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = '700 34px "Comic Sans MS","Segoe Print",sans-serif';
+      g.fillText('34', 196, 88);
+      g.font = '700 26px "Comic Sans MS","Segoe Print",sans-serif';
+      g.fillText('TH', 196, 120);
+      g.font = '700 30px "Comic Sans MS","Segoe Print",sans-serif';
+      g.fillText('C Y I M S A', 104, 232);
+    },
+    false
+  );
+  if (lionTex.isCanvasTexture) uploadAndRelease(lionTex);
+  return lionTex;
 }
 
 // 資管系服 (deep olive tee, user's photos): front — a white geometric (low-poly line) lion head facing left on the
 // left chest; back — "Information Management" with a little Java program and "Since.1988" written down the side
+let geoLionTex = null;
 function geoLionTexture() {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 256;
-  const g = cv.getContext('2d');
-  g.strokeStyle = '#f4f4ee';
-  g.lineWidth = 6;
-  g.lineJoin = 'round';
-  const P = {
-    // points of the head (muzzle on the left) and the mane spikes (right)
-    n: [40, 130],
-    m: [62, 150],
-    c: [92, 178],
-    j: [130, 196],
-    e: [92, 112],
-    f: [70, 104],
-    b: [112, 82],
-    t: [150, 64],
-    a: [118, 130],
-    k: [150, 150],
-    h: [176, 110],
-    i: [196, 74],
-    l: [204, 136],
-    o: [182, 180],
-    q: [214, 196],
-    r: [232, 110],
-    s: [222, 56],
-    u: [176, 40],
-    v: [240, 160],
-    w: [150, 214],
-    x: [120, 226],
-    y: [100, 210],
-  };
-  const L = (...ks) => {
-    g.beginPath();
-    ks.forEach((k, i) => (i ? g.lineTo(...P[k]) : g.moveTo(...P[k])));
-    g.stroke();
-  };
-  L('n', 'f', 'b', 't', 'u', 's', 'i', 'r', 'v', 'l', 'q', 'o', 'w', 'x', 'y', 'c', 'm', 'n');
-  L('f', 'e', 'a', 'k', 'j', 'c');
-  L('e', 'b');
-  L('a', 'b');
-  L('b', 'h', 't');
-  L('h', 'i');
-  L('h', 'k');
-  L('h', 'l');
-  L('l', 'k', 'o');
-  L('a', 'm');
-  L('k', 'w');
-  L('j', 'y');
-  L('l', 'i');
-  L('u', 'h');
-  L('o', 'l');
-  g.fillStyle = '#f4f4ee';
-  g.beginPath();
-  g.arc(98, 120, 6, 0, 7);
-  g.fill(); // eye
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  if (geoLionTex) return geoLionTex;
+  geoLionTex = canvasTexture(
+    256,
+    256,
+    (g) => {
+      g.strokeStyle = '#f4f4ee';
+      g.lineWidth = 6;
+      g.lineJoin = 'round';
+      const P = {
+        // points of the head (muzzle on the left) and the mane spikes (right)
+        n: [40, 130],
+        m: [62, 150],
+        c: [92, 178],
+        j: [130, 196],
+        e: [92, 112],
+        f: [70, 104],
+        b: [112, 82],
+        t: [150, 64],
+        a: [118, 130],
+        k: [150, 150],
+        h: [176, 110],
+        i: [196, 74],
+        l: [204, 136],
+        o: [182, 180],
+        q: [214, 196],
+        r: [232, 110],
+        s: [222, 56],
+        u: [176, 40],
+        v: [240, 160],
+        w: [150, 214],
+        x: [120, 226],
+        y: [100, 210],
+      };
+      const L = (...ks) => {
+        g.beginPath();
+        ks.forEach((k, i) => (i ? g.lineTo(...P[k]) : g.moveTo(...P[k])));
+        g.stroke();
+      };
+      L('n', 'f', 'b', 't', 'u', 's', 'i', 'r', 'v', 'l', 'q', 'o', 'w', 'x', 'y', 'c', 'm', 'n');
+      L('f', 'e', 'a', 'k', 'j', 'c');
+      L('e', 'b');
+      L('a', 'b');
+      L('b', 'h', 't');
+      L('h', 'i');
+      L('h', 'k');
+      L('h', 'l');
+      L('l', 'k', 'o');
+      L('a', 'm');
+      L('k', 'w');
+      L('j', 'y');
+      L('l', 'i');
+      L('u', 'h');
+      L('o', 'l');
+      g.fillStyle = '#f4f4ee';
+      g.beginPath();
+      g.arc(98, 120, 6, 0, 7);
+      g.fill(); // eye
+    },
+    false
+  );
+  if (geoLionTex.isCanvasTexture) uploadAndRelease(geoLionTex);
+  return geoLionTex;
 }
+let imBackTex = null;
 function imBackTexture() {
-  const cv = document.createElement('canvas');
-  cv.width = 1024;
-  cv.height = 768;
-  const g = cv.getContext('2d'),
-    W = '#f2f1ea';
-  g.fillStyle = W;
-  g.strokeStyle = W;
-  g.lineWidth = 4;
-  g.font = '600 66px Georgia,"Times New Roman",serif';
-  g.fillText('Information Management', 140, 130);
-  g.fillRect(60, 150, 450, 4);
-  const mono = (s, x, y, size = 36) => {
-    g.font = `700 ${size}px "Courier New",monospace`;
-    g.fillText(s, x, y);
-  };
-  mono('package CYCU;', 230, 230, 40);
-  g.fillRect(230, 248, 330, 4);
-  mono('public class CYIM', 90, 320);
-  mono('{', 90, 360);
-  mono('public static void main(String arg[])', 190, 400);
-  mono('{', 200, 440);
-  mono('System.out.print("Information Management");', 250, 480);
-  mono('}', 200, 520);
-  mono('}', 90, 560);
-  for (const [x, y, w] of [
-    [60, 410, 110],
-    [60, 490, 170],
-    [170, 530, 190],
-    [220, 500, 640],
-    [560, 410, 90],
-  ])
-    g.fillRect(x, y, w, 3);
-  g.fillRect(790, 60, 4, 140);
-  g.fillRect(700, 560, 4, 120);
-  g.fillRect(760, 560, 4, 170);
-  g.save();
-  g.translate(820, 230);
-  g.rotate(Math.PI / 2);
-  g.font = '500 54px Georgia,"Times New Roman",serif';
-  g.fillText('Since.1988', 0, 0);
-  g.restore();
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  if (imBackTex) return imBackTex;
+  imBackTex = canvasTexture(
+    1024,
+    768,
+    (g) => {
+      const W = '#f2f1ea';
+      g.fillStyle = W;
+      g.strokeStyle = W;
+      g.lineWidth = 4;
+      g.font = '600 66px Georgia,"Times New Roman",serif';
+      g.fillText('Information Management', 140, 130);
+      g.fillRect(60, 150, 450, 4);
+      const mono = (s, x, y, size = 36) => {
+        g.font = `700 ${size}px "Courier New",monospace`;
+        g.fillText(s, x, y);
+      };
+      mono('package CYCU;', 230, 230, 40);
+      g.fillRect(230, 248, 330, 4);
+      mono('public class CYIM', 90, 320);
+      mono('{', 90, 360);
+      mono('public static void main(String arg[])', 190, 400);
+      mono('{', 200, 440);
+      mono('System.out.print("Information Management");', 250, 480);
+      mono('}', 200, 520);
+      mono('}', 90, 560);
+      for (const [x, y, w] of [
+        [60, 410, 110],
+        [60, 490, 170],
+        [170, 530, 190],
+        [220, 500, 640],
+        [560, 410, 90],
+      ])
+        g.fillRect(x, y, w, 3);
+      g.fillRect(790, 60, 4, 140);
+      g.fillRect(700, 560, 4, 120);
+      g.fillRect(760, 560, 4, 170);
+      g.save();
+      g.translate(820, 230);
+      g.rotate(Math.PI / 2);
+      g.font = '500 54px Georgia,"Times New Roman",serif';
+      g.fillText('Since.1988', 0, 0);
+      g.restore();
+    },
+    false
+  );
+  if (imBackTex.isCanvasTexture) uploadAndRelease(imBackTex);
+  return imBackTex;
 }
 // a print that follows the torso's curve: a plane bent round the superellipse cross-section at the given height
 // (rx, rz: the cloth's radii there; back = on the back, facing -z; ox: where its centre sits across the body)
@@ -255,37 +275,39 @@ const VTEX = {};
 function volleyTexture(back) {
   const k = back ? 'b' : 'f';
   if (VTEX[k]) return VTEX[k];
-  const cv = document.createElement('canvas');
-  cv.width = 512;
-  cv.height = back ? 512 : 256;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#ffffff';
-  g.strokeStyle = '#ffffff';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  if (back) {
-    g.font = '900 64px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-    g.fillText('中原排球', 256, 86);
-    g.font = '900 300px Arial,sans-serif';
-    g.fillText('7', 256, 320);
-  } else {
-    g.lineWidth = 8;
-    g.beginPath();
-    g.arc(90, 128, 62, 0, Math.PI * 2);
-    g.stroke();
-    for (const a of [0.3, 2.4, 4.5]) {
-      g.beginPath();
-      g.arc(90 + Math.cos(a) * 62, 128 + Math.sin(a) * 62, 62, a + 2.2, a + 4.1);
-      g.stroke();
-    }
-    g.textAlign = 'left';
-    g.font = '900 80px Arial,sans-serif';
-    g.fillText('CYCU', 175, 92);
-    g.font = '800 46px Arial,sans-serif';
-    g.fillText('VOLLEYBALL', 175, 168);
-  }
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  const t = canvasTexture(
+    512,
+    back ? 512 : 256,
+    (g) => {
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = '#ffffff';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      if (back) {
+        g.font = '900 64px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+        g.fillText('中原排球', 256, 86);
+        g.font = '900 300px Arial,sans-serif';
+        g.fillText('7', 256, 320);
+      } else {
+        g.lineWidth = 8;
+        g.beginPath();
+        g.arc(90, 128, 62, 0, Math.PI * 2);
+        g.stroke();
+        for (const a of [0.3, 2.4, 4.5]) {
+          g.beginPath();
+          g.arc(90 + Math.cos(a) * 62, 128 + Math.sin(a) * 62, 62, a + 2.2, a + 4.1);
+          g.stroke();
+        }
+        g.textAlign = 'left';
+        g.font = '900 80px Arial,sans-serif';
+        g.fillText('CYCU', 175, 92);
+        g.font = '800 46px Arial,sans-serif';
+        g.fillText('VOLLEYBALL', 175, 168);
+      }
+    },
+    false
+  );
+  if (t.isCanvasTexture) uploadAndRelease(t);
   VTEX[k] = t;
   return t;
 }
@@ -310,84 +332,88 @@ export const PRINT_KINDS = ['cycu', 'sun', 'star', 'wave', 'smile', 'num', 'zh',
 function printTexture(kind, color) {
   const k = `${kind}|${color}`;
   if (PRINT_TEX.has(k)) return PRINT_TEX.get(k);
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 256;
-  const g = cv.getContext('2d');
-  g.fillStyle = g.strokeStyle = color;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.lineWidth = 14;
-  g.lineCap = g.lineJoin = 'round';
-  if (kind === 'cycu') {
-    g.font = '900 92px Arial,sans-serif';
-    g.fillText('CYCU', 128, 110);
-    g.fillRect(40, 168, 176, 12);
-  } else if (kind === 'sun') {
-    g.beginPath();
-    g.arc(128, 128, 52, 0, Math.PI * 2);
-    g.fill();
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      g.beginPath();
-      g.moveTo(128 + Math.cos(a) * 72, 128 + Math.sin(a) * 72);
-      g.lineTo(128 + Math.cos(a) * 108, 128 + Math.sin(a) * 108);
-      g.stroke();
-    }
-  } else if (kind === 'star') {
-    g.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const a = -Math.PI / 2 + (i / 10) * Math.PI * 2,
-        r = i % 2 ? 44 : 110;
-      g.lineTo(128 + Math.cos(a) * r, 132 + Math.sin(a) * r);
-    }
-    g.closePath();
-    g.fill();
-  } else if (kind === 'wave') {
-    for (const y of [92, 132, 172]) {
-      g.beginPath();
-      for (let x = 24; x <= 232; x += 4) g.lineTo(x, y + Math.sin((x / 208) * Math.PI * 4) * 16);
-      g.stroke();
-    }
-  } else if (kind === 'smile') {
-    g.beginPath();
-    g.arc(128, 128, 100, 0, Math.PI * 2);
-    g.stroke();
-    g.beginPath();
-    g.arc(92, 104, 13, 0, Math.PI * 2);
-    g.arc(164, 104, 13, 0, Math.PI * 2);
-    g.fill();
-    g.beginPath();
-    g.arc(128, 128, 60, 0.2 * Math.PI, 0.8 * Math.PI);
-    g.stroke();
-  } else if (kind === 'num') {
-    g.font = '900 170px Arial,sans-serif';
-    g.fillText(String(10 + ((color.charCodeAt(2) * 7) % 89)), 128, 136);
-  } else if (kind === 'zh') {
-    // I ❤ 彥霖: the heart always red
-    g.font = '900 84px Arial,sans-serif';
-    g.fillText('I', 84, 76);
-    g.fillStyle = '#e0303c';
-    g.beginPath();
-    g.moveTo(160, 112);
-    g.bezierCurveTo(108, 78, 118, 30, 160, 48);
-    g.bezierCurveTo(202, 30, 212, 78, 160, 112);
-    g.fill();
-    g.fillStyle = color;
-    g.font = '900 88px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-    g.fillText('彥霖', 128, 182);
-  } else {
-    // mount: two peaks over a horizon line
-    g.beginPath();
-    g.moveTo(24, 196);
-    g.lineTo(100, 64);
-    g.lineTo(146, 140);
-    g.lineTo(176, 100);
-    g.lineTo(232, 196);
-    g.closePath();
-    g.fill();
-  }
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  const t = canvasTexture(
+    256,
+    256,
+    (g) => {
+      g.fillStyle = g.strokeStyle = color;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.lineWidth = 14;
+      g.lineCap = g.lineJoin = 'round';
+      if (kind === 'cycu') {
+        g.font = '900 92px Arial,sans-serif';
+        g.fillText('CYCU', 128, 110);
+        g.fillRect(40, 168, 176, 12);
+      } else if (kind === 'sun') {
+        g.beginPath();
+        g.arc(128, 128, 52, 0, Math.PI * 2);
+        g.fill();
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          g.beginPath();
+          g.moveTo(128 + Math.cos(a) * 72, 128 + Math.sin(a) * 72);
+          g.lineTo(128 + Math.cos(a) * 108, 128 + Math.sin(a) * 108);
+          g.stroke();
+        }
+      } else if (kind === 'star') {
+        g.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const a = -Math.PI / 2 + (i / 10) * Math.PI * 2,
+            r = i % 2 ? 44 : 110;
+          g.lineTo(128 + Math.cos(a) * r, 132 + Math.sin(a) * r);
+        }
+        g.closePath();
+        g.fill();
+      } else if (kind === 'wave') {
+        for (const y of [92, 132, 172]) {
+          g.beginPath();
+          for (let x = 24; x <= 232; x += 4)
+            g.lineTo(x, y + Math.sin((x / 208) * Math.PI * 4) * 16);
+          g.stroke();
+        }
+      } else if (kind === 'smile') {
+        g.beginPath();
+        g.arc(128, 128, 100, 0, Math.PI * 2);
+        g.stroke();
+        g.beginPath();
+        g.arc(92, 104, 13, 0, Math.PI * 2);
+        g.arc(164, 104, 13, 0, Math.PI * 2);
+        g.fill();
+        g.beginPath();
+        g.arc(128, 128, 60, 0.2 * Math.PI, 0.8 * Math.PI);
+        g.stroke();
+      } else if (kind === 'num') {
+        g.font = '900 170px Arial,sans-serif';
+        g.fillText(String(10 + ((color.charCodeAt(2) * 7) % 89)), 128, 136);
+      } else if (kind === 'zh') {
+        // I ❤ 彥霖: the heart always red
+        g.font = '900 84px Arial,sans-serif';
+        g.fillText('I', 84, 76);
+        g.fillStyle = '#e0303c';
+        g.beginPath();
+        g.moveTo(160, 112);
+        g.bezierCurveTo(108, 78, 118, 30, 160, 48);
+        g.bezierCurveTo(202, 30, 212, 78, 160, 112);
+        g.fill();
+        g.fillStyle = color;
+        g.font = '900 88px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+        g.fillText('彥霖', 128, 182);
+      } else {
+        // mount: two peaks over a horizon line
+        g.beginPath();
+        g.moveTo(24, 196);
+        g.lineTo(100, 64);
+        g.lineTo(146, 140);
+        g.lineTo(176, 100);
+        g.lineTo(232, 196);
+        g.closePath();
+        g.fill();
+      }
+    },
+    false
+  );
+  if (t.isCanvasTexture) uploadAndRelease(t);
   PRINT_TEX.set(k, t);
   return t;
 }
@@ -1666,29 +1692,33 @@ export function createCharacter(opts = {}) {
   if (opts.helmet) {
     let tex = camoTex;
     if (!tex) {
-      const c = document.createElement('canvas');
-      c.width = c.height = 128;
-      const x = c.getContext('2d');
-      x.fillStyle = '#56643a';
-      x.fillRect(0, 0, 128, 128);
-      let sd = 11;
-      const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-      for (const col of ['#3b4528', '#7d6c47', '#2b2b22', '#3b4528'])
-        for (let i = 0; i < 9; i++) {
-          x.fillStyle = col;
-          x.beginPath();
-          const cx = rnd() * 128,
-            cy = rnd() * 128;
-          for (let a = 0; a < 6.28; a += 0.7) {
-            const r = 6 + rnd() * 10;
-            x.lineTo(cx + Math.cos(a) * r * 1.6, cy + Math.sin(a) * r);
-          }
-          x.fill();
-        }
-      tex = camoTex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(2, 1);
+      tex = camoTex = canvasTexture(
+        128,
+        128,
+        (x) => {
+          x.fillStyle = '#56643a';
+          x.fillRect(0, 0, 128, 128);
+          let sd = 11;
+          const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+          for (const col of ['#3b4528', '#7d6c47', '#2b2b22', '#3b4528'])
+            for (let i = 0; i < 9; i++) {
+              x.fillStyle = col;
+              x.beginPath();
+              const cx = rnd() * 128,
+                cy = rnd() * 128;
+              for (let a = 0; a < 6.28; a += 0.7) {
+                const r = 6 + rnd() * 10;
+                x.lineTo(cx + Math.cos(a) * r * 1.6, cy + Math.sin(a) * r);
+              }
+              x.fill();
+            }
+        },
+        true
+      );
+      if (tex.isCanvasTexture) {
+        tex.repeat.set(2, 1);
+        uploadAndRelease(tex);
+      }
     }
     const hm = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
     const shell = new THREE.Mesh(

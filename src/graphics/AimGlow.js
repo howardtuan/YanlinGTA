@@ -2,20 +2,26 @@
 // One camera-facing sprite with a radial gradient, additive and depth-tested without writing depth:
 // placed at the middle of a person, their own body hides the middle of it, so it reads as a glow around them.
 import * as THREE from 'three';
+import { canvasTexture, uploadAndRelease } from './GpuMemLifecycle.js';
 
+let glowTex = null;
 function glowTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const x = c.getContext('2d'),
-    g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,214,110,0.85)');
-  g.addColorStop(0.45, 'rgba(255,196,70,0.45)');
-  g.addColorStop(1, 'rgba(255,180,40,0)');
-  x.fillStyle = g;
-  x.fillRect(0, 0, 128, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  if (glowTex) return glowTex;
+  glowTex = canvasTexture(
+    128,
+    128,
+    (x) => {
+      const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+      g.addColorStop(0, 'rgba(255,214,110,0.85)');
+      g.addColorStop(0.45, 'rgba(255,196,70,0.45)');
+      g.addColorStop(1, 'rgba(255,180,40,0)');
+      x.fillStyle = g;
+      x.fillRect(0, 0, 128, 128);
+    },
+    false
+  );
+  if (glowTex.isCanvasTexture) uploadAndRelease(glowTex);
+  return glowTex;
 }
 
 export class AimGlow {

@@ -5,7 +5,7 @@
 //   node tools/profile_scene.mjs [--engine=chrome|webkit] [--gpu|--swiftshader] [--mobile]
 //     [--runs=3] [--spots=鐘塔,張靜愚紀念圖書館] [--warmup-sec=2] [--sample-sec=4] [--seed=1337]
 //     [--vsync] [--no-play] [--markdown] [--out=tools/.cache/profile.json] [--compare=tools/.cache/profile.json]
-//     [--assert-ios-budget] [--max-canvas-mb=220] [--if-available] [--chrome=path] [--dist=dist]
+//     [--assert-ios-budget] [--max-canvas-mb=16] [--max-peak-canvas-mb=220] [--if-available] [--chrome=path] [--dist=dist]
 //
 // What is measured (see docs/guide/architecture.md): deterministic numbers (canvas / texture / heap memory, draw
 // calls, triangles) are the gate; frame times are reported as a distribution (p50/p95/p99/stalls) with
@@ -64,7 +64,8 @@ const markdown = hasFlag('markdown');
 const outFile = argVal('out', '');
 const compareFile = argVal('compare', '');
 const assertBudget = hasFlag('assert-ios-budget');
-const maxCanvasMB = num('max-canvas-mb', 220);
+const maxCanvasMB = num('max-canvas-mb', 16);
+const maxPeakCanvasMB = num('max-peak-canvas-mb', 220);
 const ifAvailable = hasFlag('if-available');
 const chromePath = argVal('chrome', defaultChromePath());
 
@@ -201,6 +202,7 @@ async function singleRun(srvUrl, runIndex) {
     const last = spots[spots.length - 1]._snap;
     const memory = {
       canvasMB: canvas.canvasMB,
+      peakCanvasMB: canvas.peakCanvasMB,
       canvasCount: canvas.canvasCount,
       canvasInDom: canvas.canvasInDom,
       topCanvasSizes: canvas.topCanvasSizes,
@@ -274,7 +276,7 @@ try {
     if (!cmp.ok) process.exitCode = 1;
   }
   if (assertBudget) {
-    const v = budgetViolations(report, { maxCanvasMB });
+    const v = budgetViolations(report, { maxCanvasMB, maxPeakCanvasMB });
     if (v.length) {
       console.error(`iOS memory budget exceeded: ${v.join('; ')}`);
       process.exitCode = 1;

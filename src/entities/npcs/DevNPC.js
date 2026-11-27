@@ -12,6 +12,7 @@ import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { serviceWear } from './Service.js';
+import { blankTexture, markDynamic, scaledCanvas } from '../../graphics/GpuMemLifecycle.js';
 
 export const M = (h, m = 0) => h * 60 + m;
 export const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
@@ -170,16 +171,11 @@ export function buildLaptop(L, R, desk, { file, lines, games = {}, repo }) {
   const OZ = 0.2; // a little to one side, so you see the screen past his shoulder from the aisle
   const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.25), body);
   at(base, s * 0.05, OZ, 0.01);
-  const cv = document.createElement('canvas');
-  cv.width = 512;
-  cv.height = 320;
-  const x = cv.getContext('2d');
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const scr = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.34, 0.212),
-    new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })
-  );
+  let cv = null,
+    x = null,
+    tex = null;
+  const mat = new THREE.MeshBasicMaterial({ map: blankTexture(), toneMapped: false });
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.212), mat);
   const lid = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.23, 0.012), body);
   const hinge = new THREE.Group();
   at(hinge, -s * 0.075, OZ, 0.02); // the back edge of the keyboard (the wall side)
@@ -224,6 +220,17 @@ export function buildLaptop(L, R, desk, { file, lines, games = {}, repo }) {
       spot.d = dist;
       pickGlow(G);
       if (!near) return;
+      if (!cv) {
+        ({ cv, g: x } = scaledCanvas(512, 320));
+        if (x) {
+          tex = markDynamic(new THREE.CanvasTexture(cv));
+          tex.colorSpace = THREE.SRGBColorSpace;
+          mat.map = tex;
+          mat.needsUpdate = true;
+        }
+        drawn = '';
+        t = 0.12;
+      }
       if (m !== mode) {
         mode = m;
         drawn = '';
@@ -233,7 +240,7 @@ export function buildLaptop(L, R, desk, { file, lines, games = {}, repo }) {
         }
       }
       if (m === 'off') {
-        if (drawn !== 'off') {
+        if (drawn !== 'off' && x) {
           x.fillStyle = '#050607';
           x.fillRect(0, 0, 512, 320);
           tex.needsUpdate = true;
@@ -242,13 +249,14 @@ export function buildLaptop(L, R, desk, { file, lines, games = {}, repo }) {
         return;
       }
       if (m !== 'code') {
-        if (drawn !== m) {
+        if (drawn !== m && x) {
           (games[m] || games.default)?.(x, 512, 320);
           tex.needsUpdate = true;
           drawn = m;
         }
         return;
       }
+      if (!x) return;
       t += dt;
       if (hold > 0) {
         hold -= dt;

@@ -12,6 +12,7 @@ import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { VBALL, courtP } from '../../world/Court.js';
 import { DevNPC, M, angDiff } from './DevNPC.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 export const HOUSHE_LOOK = {
   skin: '#c99a72',
@@ -128,20 +129,26 @@ function buildCamera() {
 // with the white Nikon logo, a red accent line on the grip, mode dial top left, command dial and shutter on the grip,
 // tilting screen on the back) with a NIKKOR Z 24-70mm f/4 S (Ø77.5 × 88.5 mm retracted: wide ribbed zoom ring,
 // smooth control ring at the front, white lettering). Built in metres, origin at the middle of the base, lens towards +z.
+const TEXT_TEX = new Map();
 function textTex(t, w, h, font, color = '#f2f2f2', bg = '#141416') {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const x = c.getContext('2d');
-  x.fillStyle = bg;
-  x.fillRect(0, 0, w, h);
-  x.fillStyle = color;
-  x.font = font;
-  x.textAlign = 'center';
-  x.textBaseline = 'middle';
-  x.fillText(t, w / 2, h / 2);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  const key = `${t}|${w}|${h}|${font}|${color}|${bg}`;
+  if (TEXT_TEX.has(key)) return TEXT_TEX.get(key);
+  const tex = canvasTexture(
+    w,
+    h,
+    (x) => {
+      x.fillStyle = bg;
+      x.fillRect(0, 0, w, h);
+      x.fillStyle = color;
+      x.font = font;
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.fillText(t, w / 2, h / 2);
+    },
+    false
+  );
+  if (tex.isCanvasTexture) uploadAndRelease(tex);
+  TEXT_TEX.set(key, tex);
   return tex;
 }
 function buildZ50() {

@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { DevNPC, M, addCurls } from './DevNPC.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 const H32 = (n) => {
   n = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b);
@@ -47,32 +48,43 @@ const GYM = { x: -38.6, z: -228.6, h: Math.atan2(-0.996, -0.088) };
 export const GATE_SPOT = { x: -208.6, z: 77.6, h: Math.atan2(1, 0.45) };
 
 // the open book on his desk: an English vocabulary book or a cram-school reference book for the 資管所 entrance exam
+const PAGE_TEX = new Map();
 function pageTex(kind) {
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = 160;
-  const x = cv.getContext('2d');
-  x.fillStyle = '#f7f3e8';
-  x.fillRect(0, 0, 256, 160);
-  x.fillStyle = '#d9d2bf';
-  x.fillRect(126, 0, 4, 160);
-  x.fillStyle = '#2b2b2b';
-  x.font = '700 13px "Microsoft JhengHei",sans-serif';
-  const L =
-    kind === 'eng'
-      ? ['TOEIC 必考單字', 'abundant 豐富的', 'allocate 分配', 'comply 遵守', 'deficit 赤字']
-      : kind === 'ds'
-        ? ['資料結構 講義', 'Binary Search Tree', 'AVL rotation', 'Heap / Priority Q', 'Big-O 分析']
-        : kind === 'mis'
-          ? ['管理資訊系統', 'ERP / CRM / SCM', 'Porter 五力', '價值鏈分析', '決策支援系統']
-          : ['計算機概論', 'Cache / TLB', 'Pipeline hazard', 'OSI 七層', 'Two-phase lock'];
-  L.forEach((t, i) => x.fillText(t, 8, 22 + i * 26));
-  x.fillStyle = '#7a7a7a';
-  for (let i = 0; i < 6; i++) x.fillRect(138, 16 + i * 22, 100 - (i % 3) * 18, 3);
-  x.fillStyle = '#e04a4a';
-  x.fillRect(138, 140, 40, 3); // a red underline
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  if (PAGE_TEX.has(kind)) return PAGE_TEX.get(kind);
+  const t = canvasTexture(
+    256,
+    160,
+    (x) => {
+      x.fillStyle = '#f7f3e8';
+      x.fillRect(0, 0, 256, 160);
+      x.fillStyle = '#d9d2bf';
+      x.fillRect(126, 0, 4, 160);
+      x.fillStyle = '#2b2b2b';
+      x.font = '700 13px "Microsoft JhengHei",sans-serif';
+      const L =
+        kind === 'eng'
+          ? ['TOEIC 必考單字', 'abundant 豐富的', 'allocate 分配', 'comply 遵守', 'deficit 赤字']
+          : kind === 'ds'
+            ? [
+                '資料結構 講義',
+                'Binary Search Tree',
+                'AVL rotation',
+                'Heap / Priority Q',
+                'Big-O 分析',
+              ]
+            : kind === 'mis'
+              ? ['管理資訊系統', 'ERP / CRM / SCM', 'Porter 五力', '價值鏈分析', '決策支援系統']
+              : ['計算機概論', 'Cache / TLB', 'Pipeline hazard', 'OSI 七層', 'Two-phase lock'];
+      L.forEach((t, i) => x.fillText(t, 8, 22 + i * 26));
+      x.fillStyle = '#7a7a7a';
+      for (let i = 0; i < 6; i++) x.fillRect(138, 16 + i * 22, 100 - (i % 3) * 18, 3);
+      x.fillStyle = '#e04a4a';
+      x.fillRect(138, 140, 40, 3); // a red underline
+    },
+    false
+  );
+  if (t.isCanvasTexture) uploadAndRelease(t);
+  PAGE_TEX.set(kind, t);
   return t;
 }
 const BOOKS = ['eng', 'co', 'ds', 'mis'];

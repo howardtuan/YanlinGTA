@@ -95,6 +95,7 @@ export function buildCompactRecord(report, meta = {}) {
     },
     mem: {
       canvasMB: r2(report.perf?.canvasMB),
+      peakCanvasMB: r2(report.perf?.peakCanvasMB),
       canvasN: rInt(report.perf?.canvasCount),
       canvasDom: rInt(report.perf?.canvasInDom),
       texMB: r2(report.perf?.textureEstMB),
@@ -157,11 +158,16 @@ export function formatPrPerfSection(record) {
   const boot = record.boot || {};
   const b = record.bench || {};
   const canvasAlert =
-    mem.canvasMB == null
-      ? ''
-      : mem.canvasMB <= IOS_CANVAS_BUDGET_MB
-        ? ` ✅ (<= ${IOS_CANVAS_BUDGET_MB} MB)`
-        : ` ⚠️ (超過 iOS ${IOS_CANVAS_BUDGET_MB} MB 警戒線)`;
+    mem.peakCanvasMB != null
+      ? mem.peakCanvasMB <= IOS_CANVAS_BUDGET_MB
+        ? ` ✅ (峰值 <= ${IOS_CANVAS_BUDGET_MB} MB)`
+        : ` ⚠️ (峰值超過 iOS ${IOS_CANVAS_BUDGET_MB} MB 警戒線)`
+      : mem.canvasMB == null
+        ? ''
+        : mem.canvasMB <= IOS_CANVAS_BUDGET_MB
+          ? ` ✅ (<= ${IOS_CANVAS_BUDGET_MB} MB)`
+          : ` ⚠️ (超過 iOS ${IOS_CANVAS_BUDGET_MB} MB 警戒線)`;
+  const peakNote = mem.peakCanvasMB != null ? `，峰值 \`${fmt(mem.peakCanvasMB, ' MB')}\`` : '';
   const gpuWarn = hw.sw ? ' ⚠️ *(軟體渲染，FPS 不具參考性)*' : '';
   const vsyncTxt = hw.uncap ? '解除 VSync 上限' : '開啟 VSync';
 
@@ -193,7 +199,7 @@ export function formatPrPerfSection(record) {
     '',
     '| 指標 | 數值 | 備註 |',
     '| :--- | ---: | :--- |',
-    `| Canvas 記憶體（GC 後） | \`${fmt(mem.canvasMB, ' MB')}\` | 共 \`${fmt(mem.canvasN)}\` 個（DOM 內 \`${fmt(mem.canvasDom)}\`）${canvasAlert} |`,
+    `| Canvas 記憶體（GC 後） | \`${fmt(mem.canvasMB, ' MB')}\` | 共 \`${fmt(mem.canvasN)}\` 個（DOM 內 \`${fmt(mem.canvasDom)}\`${peakNote}）${canvasAlert} |`,
     `| GPU 貼圖估算（含 mip） | \`${fmt(mem.texMB, ' MB')}\` | 共 \`${fmt(mem.texN)}\` 張 |`,
     `| 幾何體 / 著色器 (Shaders) | \`${fmt(mem.geo)}\` / \`${fmt(mem.prog)}\` | 個 |`,
     `| JS Heap（GC 後 / 峰值） | \`${fmt(mem.heapMB, ' MB')}\` / \`${fmt(mem.heapPeakMB, ' MB')}\` | WebKit 無此欄位屬正常 |`,
@@ -278,6 +284,7 @@ const getPath = (obj, p) => p.split('.').reduce((o, k) => (o == null ? undefined
 
 const WORKLOAD_METRICS = Object.freeze([
   { path: 'mem.canvasMB', label: 'Canvas 記憶體', unit: 'MB', higherBetter: false },
+  { path: 'mem.peakCanvasMB', label: 'Canvas 瞬間峰值', unit: 'MB', higherBetter: false },
   { path: 'mem.canvasN', label: '存活 Canvas 數量', unit: '個', higherBetter: false },
   { path: 'mem.texMB', label: 'GPU 貼圖估算', unit: 'MB', higherBetter: false },
   { path: 'mem.geo', label: '幾何體 (Geometries)', unit: '個', higherBetter: false },

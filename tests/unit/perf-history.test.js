@@ -132,6 +132,26 @@ describe('perf history library', () => {
     expect(parsed).toEqual(rec);
   });
 
+  it('tracks peakCanvasMB in compact records, PR Markdown, and workload diffs', () => {
+    const before = buildCompactRecord(
+      makeReport({ perf: { ...makeReport().perf, canvasMB: 25.16, peakCanvasMB: 245.5 } }),
+      { pr: 378 }
+    );
+    const after = buildCompactRecord(
+      makeReport({ perf: { ...makeReport().perf, canvasMB: 6.4, peakCanvasMB: 112.2 } }),
+      { pr: 386 }
+    );
+    const md = formatPrPerfSection(after);
+    expect(md).toContain('峰值 `112.2 MB`');
+    expect(md).toContain('<= 220 MB');
+    expect(extractPerfTag(md)?.mem?.peakCanvasMB).toBe(112.2);
+
+    const cmp = compareRecords(before, after);
+    const peakDiff = cmp.workload.find((w) => w.path === 'mem.peakCanvasMB');
+    expect(peakDiff?.trend).toBe('better');
+    expect(peakDiff?.pct).toBeLessThan(-50);
+  });
+
   it('replaces the performance section in a PR body idempotently without touching other sections', () => {
     const templateBody = [
       '## 變更內容與設計說明 (What & Why)',

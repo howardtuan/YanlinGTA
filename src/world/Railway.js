@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { groundY } from './Terrain.js';
 import { G, groups } from '../physics/Physics.js';
 import { WALL_T } from '../physics/PhysWorld.js';
+import { canvasTexture } from '../graphics/GpuMemLifecycle.js';
 
 // 遊戲座標 x 東、z 南
 const GAUGE = 0.75; // 鋼軌離軌道中心（與 MapBuilder 畫的鋼軌一致）
@@ -229,20 +230,14 @@ class Geo {
 const col = (h) => new THREE.Color(h);
 
 function canvasTex(w, h, draw, { repeat = false } = {}) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
+  return canvasTexture(w, h, draw, repeat);
 }
 
 // 鐵道圍籬：綠色菱形鐵絲網
+let _meshTex = null;
 const meshTex = () =>
-  canvasTex(
+  _meshTex ||
+  (_meshTex = canvasTex(
     64,
     64,
     (g, w, h) => {
@@ -259,7 +254,7 @@ const meshTex = () =>
       g.stroke();
     },
     { repeat: true }
-  );
+  ));
 // 柵欄桿：黃黑相間斜紋
 const boomTex = () =>
   canvasTex(256, 16, (g, w, h) => {

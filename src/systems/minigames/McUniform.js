@@ -3,6 +3,7 @@
 // dressCrew() puts it on any createCharacter() figure and returns an undo function, so 彥霖 can take it
 // off again after a shift; the shop's NPC crew wear it permanently.
 import * as THREE from 'three';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 export const CREW_SHIRT = '#6a6d72';
 let M = null;
@@ -139,71 +140,81 @@ export function dressCrew(ch, { name = '', hairnet = false } = {}) {
 }
 
 // ------------------------------------------------------------------ small textures
-let _m = null;
+let _m = null,
+  _net = null;
 const _b = new Map();
 function mTex() {
   if (_m) return _m;
-  const cv = document.createElement('canvas');
-  cv.width = 128;
-  cv.height = 96;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#ffc72c';
-  g.font = '900 96px "Arial Black", Arial, sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.save();
-  g.scale(1.25, 1);
-  g.fillText('M', 51, 52);
-  g.restore();
-  _m = new THREE.CanvasTexture(cv);
-  _m.colorSpace = THREE.SRGBColorSpace;
+  _m = canvasTexture(
+    128,
+    96,
+    (g) => {
+      g.fillStyle = '#ffc72c';
+      g.font = '900 96px "Arial Black", Arial, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.save();
+      g.scale(1.25, 1);
+      g.fillText('M', 51, 52);
+      g.restore();
+    },
+    false
+  );
+  if (_m.isCanvasTexture) uploadAndRelease(_m);
   return _m;
 }
 function netTex() {
   // white hairnet: fine mesh over the dark hair, gathered by the elastic band
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 64;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#9a9ea3';
-  g.fillRect(0, 0, 64, 64);
-  g.strokeStyle = '#eef0f2';
-  g.lineWidth = 2.2;
-  for (let i = -64; i < 128; i += 8) {
-    g.beginPath();
-    g.moveTo(i, 0);
-    g.lineTo(i + 64, 64);
-    g.stroke();
-    g.beginPath();
-    g.moveTo(i, 64);
-    g.lineTo(i + 64, 0);
-    g.stroke();
+  if (_net) return _net;
+  _net = canvasTexture(
+    64,
+    64,
+    (g) => {
+      g.fillStyle = '#9a9ea3';
+      g.fillRect(0, 0, 64, 64);
+      g.strokeStyle = '#eef0f2';
+      g.lineWidth = 2.2;
+      for (let i = -64; i < 128; i += 8) {
+        g.beginPath();
+        g.moveTo(i, 0);
+        g.lineTo(i + 64, 64);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(i, 64);
+        g.lineTo(i + 64, 0);
+        g.stroke();
+      }
+    },
+    true
+  );
+  if (_net.isCanvasTexture) {
+    _net.repeat.set(6, 3);
+    uploadAndRelease(_net);
   }
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(6, 3);
-  return t;
+  return _net;
 }
 function badgeTex(name) {
   if (_b.has(name)) return _b.get(name);
-  const cv = document.createElement('canvas');
-  cv.width = 160;
-  cv.height = 64;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#f4f2ea';
-  g.fillRect(0, 0, 160, 64);
-  g.fillStyle = '#c8102e';
-  g.fillRect(0, 0, 36, 64);
-  g.fillStyle = '#ffc72c';
-  g.font = '900 34px Arial, sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText('M', 18, 34);
-  g.fillStyle = '#1b1b1b';
-  g.font = '900 34px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-  g.fillText(name, 98, 34);
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  const t = canvasTexture(
+    160,
+    64,
+    (g) => {
+      g.fillStyle = '#f4f2ea';
+      g.fillRect(0, 0, 160, 64);
+      g.fillStyle = '#c8102e';
+      g.fillRect(0, 0, 36, 64);
+      g.fillStyle = '#ffc72c';
+      g.font = '900 34px Arial, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('M', 18, 34);
+      g.fillStyle = '#1b1b1b';
+      g.font = '900 34px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+      g.fillText(name, 98, 34);
+    },
+    false
+  );
+  if (t.isCanvasTexture) uploadAndRelease(t);
   _b.set(name, t);
   return t;
 }

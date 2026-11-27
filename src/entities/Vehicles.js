@@ -9,7 +9,13 @@ import {
 } from './ScooterVariants.js';
 import { buildCityBus, BUS } from './BusModel.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
+import {
+  blankTexture,
+  markShared,
+  releaseCanvas,
+  scaledCanvas,
+  uploadAndRelease,
+} from '../graphics/GpuMemLifecycle.js';
 
 const MC = {};
 const m = (c, o = {}) => {
@@ -37,12 +43,17 @@ function wheel(r, w, x, y, z) {
   return o;
 }
 
+const PLATE_TEX = new Map();
 function plateTex(text, bg = '#fff', fg = '#111') {
-  // stored at the tier's texture scale, drawn in 256 x 96 units; static, so released once on the GPU
-  // (src/graphics/GpuMemLifecycle.js flushShared)
+  const key = `${text}|${bg}|${fg}`;
+  if (PLATE_TEX.has(key)) return PLATE_TEX.get(key);
+  // stored at the tier's texture scale, drawn in 256 x 96 units; static, uploaded and released immediately
   const { cv, g } = scaledCanvas(256, 96);
+  if (!g) {
+    releaseCanvas(cv);
+    return blankTexture();
+  }
   markShared(cv);
-  if (!g) return new THREE.CanvasTexture(cv);
   g.fillStyle = bg;
   g.fillRect(0, 0, 256, 96);
   g.fillStyle = fg;
@@ -61,6 +72,8 @@ function plateTex(text, bg = '#fff', fg = '#111') {
   g.fillText(text, 128, 52);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
+  uploadAndRelease(t);
+  PLATE_TEX.set(key, t);
   return t;
 }
 
@@ -159,16 +172,19 @@ function panel(pts, width, mat, { taper = null, bevel = 0.02, x = 0 } = {}) {
   return o;
 }
 function decalTex(draw, w = 256, h = 96) {
-  // stored at the tier's texture scale, drawn in w x h units; static (GpuMemLifecycle.flushShared)
+  // stored at the tier's texture scale, drawn in w x h units; static
   const { cv, g } = scaledCanvas(w, h);
-  markShared(cv);
-  if (g) {
-    g.clearRect(0, 0, w, h);
-    draw(g, w, h);
+  if (!g) {
+    releaseCanvas(cv);
+    return blankTexture();
   }
+  markShared(cv);
+  g.clearRect(0, 0, w, h);
+  draw(g, w, h);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
+  uploadAndRelease(t);
   return t;
 }
 const PM = {};

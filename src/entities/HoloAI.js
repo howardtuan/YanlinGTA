@@ -4,7 +4,8 @@
 // 一團球殼狀的光點，底下有投影光柱和地面光圈。全部是加色混合、不寫深度、顏色超過 1，夜裡會被 bloom 帶出光暈。
 // makeHoloNpc() 回傳跟 makeMissionNpc()（src/entities/NPC.js）一樣的形狀，主線任務、game.npcs 迴圈照用。
 import * as THREE from 'three';
-import { HOLO_AI, holoCanvas } from '../graphics/HoloRing.js';
+import { HOLO_AI, drawHolo } from '../graphics/HoloRing.js';
+import { canvasTexture, uploadAndRelease } from '../graphics/GpuMemLifecycle.js';
 import { makeLabel } from '../world/MapBuilder.js';
 import { surfaceAt } from '../world/Terrain.js';
 
@@ -21,9 +22,11 @@ const texCache = new Map();
 const texOf = (pal, o) => {
   const key = `${pal.id}|${JSON.stringify(o)}`;
   if (!texCache.has(key)) {
-    const t = new THREE.CanvasTexture(holoCanvas(pal, o));
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 4;
+    const t = canvasTexture(512, 512, (g, s) => drawHolo(g, s, 3.7, pal, o), false);
+    if (t.isCanvasTexture) {
+      t.anisotropy = 4;
+      uploadAndRelease(t);
+    }
     texCache.set(key, t);
   }
   return texCache.get(key);
@@ -31,16 +34,21 @@ const texOf = (pal, o) => {
 let dotTex = null;
 const dot = () => {
   if (dotTex) return dotTex;
-  const c = document.createElement('canvas');
-  c.width = c.height = 32;
-  const x = c.getContext('2d'),
-    g = x.createRadialGradient(16, 16, 0, 16, 16, 16);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.35, 'rgba(255,255,255,.55)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  x.fillStyle = g;
-  x.fillRect(0, 0, 32, 32);
-  return (dotTex = new THREE.CanvasTexture(c));
+  dotTex = canvasTexture(
+    32,
+    32,
+    (x) => {
+      const g = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.35, 'rgba(255,255,255,.55)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g;
+      x.fillRect(0, 0, 32, 32);
+    },
+    false
+  );
+  if (dotTex.isCanvasTexture) uploadAndRelease(dotTex);
+  return dotTex;
 };
 
 // the floating ring itself (no label): { root, update(dt), pal }

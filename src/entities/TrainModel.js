@@ -11,6 +11,12 @@
 //   y 512–768  x 0–256 車頭正面、256–512 貫通道端、512–768 車頂、768–1024 色票（4×4 格，零件用單色）
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import {
+  blankTexture,
+  markShared,
+  scaledCanvas,
+  uploadAndRelease,
+} from '../graphics/GpuMemLifecycle.js';
 
 export const CAR_L = 19.6; // 車廂長
 export const HALF_W = 1.45; // 車身半寬（台鐵車寬約 2.9 m）
@@ -309,13 +315,12 @@ function drawLoco(g, L) {
   gl(82, y5 + 21, 56, 12);
 }
 
+const ATLAS_CACHE = new Map();
 function drawAtlas(L) {
-  const cv = document.createElement('canvas'),
-    em = document.createElement('canvas');
-  cv.width = em.width = TW;
-  cv.height = em.height = TH;
-  const g = cv.getContext('2d'),
-    e = em.getContext('2d');
+  if (ATLAS_CACHE.has(L)) return ATLAS_CACHE.get(L);
+  const { cv, g } = scaledCanvas(TW, TH),
+    { cv: em, g: e } = scaledCanvas(TW, TH);
+  if (!g || !e) return { map: blankTexture(), em: blankTexture() };
   e.fillStyle = '#000';
   e.fillRect(0, 0, TW, TH);
   const zc = HL - L.nose;
@@ -537,12 +542,16 @@ function drawAtlas(L) {
     e.fillRect(x, y, 64, 64);
   });
   const t = (c) => {
+    markShared(c);
     const tx = new THREE.CanvasTexture(c);
     tx.colorSpace = THREE.SRGBColorSpace;
     tx.anisotropy = 4;
+    uploadAndRelease(tx);
     return tx;
   };
-  return { map: t(cv), em: t(em) };
+  const res = { map: t(cv), em: t(em) };
+  ATLAS_CACHE.set(L, res);
+  return res;
 }
 
 export function carMaterial(look) {

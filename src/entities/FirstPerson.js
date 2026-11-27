@@ -7,6 +7,7 @@
 // 後照鏡：一台朝後的相機每兩格畫一張低解析度畫面到 render target，三面鏡子各取一段（左右翻轉，像真的鏡子）。
 import * as THREE from 'three';
 import { saveSettings } from '../systems/AudioSystem.js';
+import { markDynamic } from '../graphics/GpuMemLifecycle.js';
 
 const box = (w, h, d, mat, x, y, z) => {
   const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -62,7 +63,7 @@ export class FirstPerson {
     const cv = document.createElement('canvas');
     cv.width = w;
     cv.height = h;
-    const tex = new THREE.CanvasTexture(cv);
+    const tex = markDynamic(new THREE.CanvasTexture(cv));
     tex.colorSpace = THREE.SRGBColorSpace;
     return { cv, g: cv.getContext('2d'), tex, key: '' };
   }

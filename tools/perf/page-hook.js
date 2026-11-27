@@ -27,16 +27,55 @@
   }
 
   const refs = [];
-  const seen = new WeakSet();
+  const alloc = new WeakMap();
+  let liveBytes = 0;
+  let peakBytes = 0;
+  const fin =
+    typeof FinalizationRegistry === 'function'
+      ? new FinalizationRegistry((st) => {
+          liveBytes = Math.max(0, liveBytes - st.bytes);
+          st.bytes = 0;
+        })
+      : null;
+  const syncCanvas = (cv) => {
+    const st = alloc.get(cv);
+    if (!st) return;
+    const next = Math.max(0, (Number(cv.width) || 0) * (Number(cv.height) || 0) * 4);
+    liveBytes = Math.max(0, liveBytes + next - st.bytes);
+    st.bytes = next;
+    if (liveBytes > peakBytes) peakBytes = liveBytes;
+  };
   const origGetContext = HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext = function (type, ...args) {
     const ctx = origGetContext.call(this, type, ...args);
-    if (ctx && !seen.has(this)) {
-      seen.add(this);
+    if (ctx && !alloc.has(this)) {
+      const st = { bytes: 0 };
+      alloc.set(this, st);
+      if (fin) fin.register(this, st);
       refs.push({ ref: new WeakRef(this), type });
+      syncCanvas(this);
     }
     return ctx;
   };
+  for (const prop of ['width', 'height']) {
+    let proto = HTMLCanvasElement.prototype;
+    let desc = null;
+    while (proto && !desc) {
+      desc = Object.getOwnPropertyDescriptor(proto, prop);
+      proto = Object.getPrototypeOf(proto);
+    }
+    if (desc?.set && desc?.get) {
+      Object.defineProperty(HTMLCanvasElement.prototype, prop, {
+        configurable: true,
+        enumerable: desc.enumerable,
+        get: desc.get,
+        set(v) {
+          desc.set.call(this, v);
+          syncCanvas(this);
+        },
+      });
+    }
+  }
 
   const mb = (bytes) => Number((bytes / 1048576).toFixed(2));
 
@@ -58,6 +97,8 @@
       e.bytes += b;
       sizes.set(key, e);
     }
+    liveBytes = bytes;
+    if (bytes > peakBytes) peakBytes = bytes;
     const top = [...sizes.values()]
       .sort((x, y) => y.bytes - x.bytes)
       .slice(0, 10)
@@ -67,6 +108,7 @@
       canvasCount: live,
       canvasInDom: inDom,
       canvasMB: mb(bytes),
+      peakCanvasMB: mb(peakBytes),
       topCanvasSizes: top,
     };
   };

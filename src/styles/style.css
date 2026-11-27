@@ -8701,17 +8701,41 @@ body.mahjong #dialog {
 #mjUI .mj-stk {
   pointer-events: auto;
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  justify-content: flex-end;
   margin-top: 6px;
   padding: 6px;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.55);
 }
+#mjUI .mj-stk.hidden {
+  display: none;
+}
+/* 一位一排：左邊名字，右邊 5 張（彥霖＋已加好友的同學） */
+#mjUI .mj-stk-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+}
+#mjUI .mj-stk-row > span {
+  flex: none;
+  min-width: 3.2em;
+  color: #fff;
+  font-size: 12px;
+  opacity: 0.85;
+  text-align: right;
+}
+#mjUI .mj-stk-row > div {
+  display: flex;
+  gap: 4px;
+}
 #mjUI .mj-stk button.mj-react {
   padding: 2px;
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.12);
   transition: transform 0.12s ease;

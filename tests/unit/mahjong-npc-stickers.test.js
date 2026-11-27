@@ -7,7 +7,9 @@ import {
   NPC_STICKER_KINDS,
   npcReactions,
   npcSticker,
+  stickerByText,
 } from '../../src/systems/mahjong/NpcStickers.js';
+import { SPECTATE_REACTS, reactSticker } from '../../src/systems/mahjong/P2P.js';
 
 const ids = [null, 'zz', 'houshe', 'jianyu'];
 const always = () => 0; // rnd：每個機率都會中
@@ -22,6 +24,21 @@ describe('同學表情貼圖', () => {
         expect(fs.existsSync(path.resolve(st.img))).toBe(true);
       }
     }
+  });
+
+  it('所有貼圖文字都不重複（含彥霖的），連線傳文字換得回同一張圖', () => {
+    const all = [
+      ...SPECTATE_REACTS.flatMap((r) => [r.text, r.label]),
+      ...Object.values(NPC_STICKERS).flatMap((set) => Object.values(set)),
+    ];
+    expect(new Set(all).size).toBe(all.length);
+    for (const id in NPC_STICKERS)
+      for (const k of NPC_STICKER_KINDS) {
+        const st = npcSticker(id, k);
+        expect(stickerByText(st.label)?.img).toBe(st.img);
+        expect(reactSticker(st.label)?.img).toBe(st.img);
+      }
+    expect(stickerByText('隨便講講')).toBeNull();
   });
 
   it('胡牌：胡的人跳「胡」、放槍的人跳「放槍」、其他同學可能跳「別人胡」', () => {

@@ -146,6 +146,7 @@ export const BANTER = {
 
 export class DormMahjong {
   constructor(game) {
+    this.roster = ROSTER; // (MahjongScene 的貼圖面板用：同學名字與順序)
     this.g = game;
     this.state = null; // null | 'gather' | 'play'
     this.party = [];

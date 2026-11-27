@@ -178,6 +178,29 @@ describe('Campaign Story & Missions Tests (MissionSystem.js)', () => {
       expect(missions.markers[0]).toMatchObject({ icon: '?' });
     });
   });
+  describe('任務二 · 食字路口', () => {
+    it('sends you to the 夜市 crossroads box junction with navigation already set', () => {
+      const game = makeMockGame();
+      game.nav = {
+        target: null,
+        set: vi.fn((x, z) => (game.nav.target = { x, z })),
+        clear: vi.fn(),
+      };
+      game.hud.toast = vi.fn();
+      const missions = new Missions(game);
+      missions.idx = 1;
+      missions.next();
+      expect(missions.idx).toBe(2);
+      expect(missions._title).toBe('任務二 · 食字路口');
+      expect(missions.step.target).toMatchObject({ x: -191.5, z: 269.9 });
+      expect(game.nav.set).toHaveBeenCalledWith(-191.5, 269.9);
+      // arriving clears that route and heads back to the 資管系館
+      missions.step.onArrive();
+      expect(game.nav.clear).toHaveBeenCalled();
+      expect(missions.step.target).toBe(missions.P.im);
+      expect(missions._startOf(2, 1)).toMatchObject({ x: -191.5, z: 269.9 });
+    });
+  });
   describe('任務六 · 宿舍拉票', () => {
     const withDorm = () => {
       const game = makeMockGame();

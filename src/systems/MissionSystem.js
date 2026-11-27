@@ -81,6 +81,8 @@ export class Missions {
     };
     const nm = w.nearestRoadPoint(w.nightMarket.x, w.nightMarket.z, true);
     if (nm) this.P.market = { x: nm.x, z: nm.z, name: '中原夜市' };
+    // 任務二「食字路口」的採買點：實踐路夜市那段的十字路口，瘋時尚 KTV 旁邊那塊黃色網狀線（data/cycu.json roadMarks 的 box）
+    this.P.crossroads = { x: -191.5, z: 269.9, name: '夜市十字路口' };
     // 任務一的 5 個公布欄：地形改版後「建築最近的道路點」會跑偏（電學大樓、良善樓疊在同一條路上），改成手選的固定座標。
     // 全人教育村在 (-80,-80) 西邊的全人大道東側路邊；體育館取代原本的電學大樓；良善樓維持原本自動算出的點。
     const fixed = (x, z, name) => ({ x, z, name });
@@ -215,7 +217,7 @@ export class Missions {
       const s = this.g.startPos;
       return s ? { x: s.x, z: s.z } : im;
     }
-    if (idx === 2 && sub >= 1) return P.market || im;
+    if (idx === 2 && sub >= 1) return P.crossroads;
     if (idx === 5 && sub >= 1 && yh) return { x: yh[0], z: yh[1] };
     if (idx === 6) return this._dormGate() || im;
     return im;
@@ -604,34 +606,39 @@ Missions.prototype.steps = [
       }
     );
   },
-  // 2 — breakfast run (the breakfast shops on the 中原夜市 street)
+  // 2 — 食字路口: buy snacks at the 夜市 crossroads (the yellow box junction on 實踐路), navigation set automatically
   function () {
     const g = this.g,
-      P = this.P;
+      P = this.P,
+      C = P.crossroads,
+      title = '任務二 · 食字路口';
     this.talk(
       [
-        [WEDNESDAY, '傳單全數送達，效率超出預期！不過團隊成員一大早就來幫忙，到現在都還沒吃早餐…'],
-        [MONDAY, '彥霖，請幫大家去中原夜市那條街的早餐店買蛋餅跟豆漿。'],
-        [WEDNESDAY, '根據計算，蛋餅 2 分鐘後就會冷掉。限時 2 分鐘來回！'],
+        [WEDNESDAY, '傳單全數送達，效率超出預期！不過團隊成員一大早就來幫忙，到現在都還沒吃東西…'],
+        [MONDAY, '彥霖，請幫大家去夜市的十字路口採買點心，就在那塊黃色網狀線的路口。'],
+        [WEDNESDAY, '導航已經幫你設好了。根據計算，點心 2 分鐘後就會冷掉。限時 2 分鐘來回！'],
       ],
       () => {
         this.timer = 120;
         this.goto(
-          P.market,
-          '任務二 · 早餐補給',
-          '騎去 <b>中原夜市</b> 那條街買蛋餅和豆漿',
+          C,
+          title,
+          '騎去 <b>夜市的十字路口</b>（黃色網狀線）採買點心',
           () => {
-            g.hud.toast('🥞 蛋餅 ×6、🥛 豆漿 ×6 買到了！', 'good', 2500);
+            // arrived: the route to the crossroads is done (no extra 📍 toast); a pin of your own stays
+            const nt = g.nav?.target;
+            if (nt && Math.hypot(nt.x - C.x, nt.z - C.z) < 1) g.nav.clear();
+            g.hud.toast('🍡 點心買齊了！趁熱帶回去', 'good', 2500);
             this.timer = Math.max(this.timer, 60);
             this.goto(
               P.im,
-              '任務二 · 早餐補給',
-              '趁熱把早餐送回 <b>資訊管理學系館</b>',
+              title,
+              '趁熱把點心送回 <b>資訊管理學系館</b>',
               () => {
                 this.timer = null;
                 g.hud.setTimer(null);
                 g.addVotes(5, '幹部士氣大增 +5 票');
-                g.hud.bigToast('任務完成！', '蛋餅還是熱的 🥞');
+                g.hud.bigToast('任務完成！', '點心還是熱的 🍡');
                 g.audio.fanfare();
                 this.g.after(() => this.next(), 1500);
               },
@@ -640,6 +647,8 @@ Missions.prototype.steps = [
           },
           12
         );
+        // the crossroads section is the one going on now (not passed through on a resume): navigate there
+        if (this.step?.target === C) g.nav?.set(C.x, C.z);
         this.step.onFail = null;
       }
     );

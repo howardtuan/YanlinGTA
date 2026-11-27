@@ -17,7 +17,7 @@ const CAR_GAP = 0.5; // 車廂之間（貫通道各伸出 0.25 m 接在一起）
 const RAIL_TOP = 0.04; // 鋼軌頂離地面（src/world/MapBuilder.js 的鋼軌）
 const WARN_D = 175; // 車頭到達前約 7 秒開始響鈴、閃燈
 const CLEAR_D = 6;
-export const GAP_MIN = 30; // 同方向兩班之間至少隔幾分鐘（遊戲時間）才開
+export const GAP_MIN = 17; // 同方向兩班之間至少隔幾分鐘（遊戲時間，現實 68 秒）才開：平日約 98 班、週六約 96 班（全部的一半）
 const FAR = 600; // 離玩家這麼遠的車廂不畫
 const NEILI = [1584.5, -1625.4]; // 內壢站（地圖座標，換算自經緯度）
 const REF_S = 2560; // 班表換算的參考點：rail[0] 上的弧長（地圖中段，三個平交道之間）
@@ -36,7 +36,7 @@ export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN) {
     out.push({ tRef: tN + (tZ - tN) * k, dir: tZ > tN ? 1 : -1, no, look, cars });
   }
   // 只開部分班次：同方向離上一班不到 gap 遊戲分鐘的不開（時刻照舊是真實班表的時刻）。全部都開的話，遊戲時鐘
-  // 快 15 倍，尖峰時段平交道約六成時間關著；每方向至少隔 30 分鐘時約兩成。gap 0：全部都開
+  // 快 15 倍，尖峰時段平交道約七成時間關著；每方向至少隔 17 分鐘時約三到四成。gap 0：全部都開
   const kept = [];
   for (const dir of [1, -1]) {
     let last = -Infinity;

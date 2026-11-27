@@ -3,6 +3,7 @@
 // new tab instead), 記事本 (kept in the save), 小畫家 (save the drawing to the phone's photos),
 // 小算盤, 踩地雷, 競選後台 (live campaign numbers), 資管學堂 (Python / MySQL lessons you run and get graded) and 終端機. Esc or the power button leaves the desk.
 // The easter-egg video is hidden in the terminal: typing PYL plays it. It is deliberately not listed anywhere.
+// So is 勞大 (src/systems/LaodaMode.js): mamba calls him back (his chat room, the helicopter, the court…), mamba out hides him again.
 // The terminal's `case` command is the detective console (src/systems/minigames/Detective.js, SQL); 🕵️ 案件檔案 lists the cases and your clues.
 // The desktop fills the whole screen; windows can be maximized (▢ or double-click the title bar).
 // The same desktop runs on 彥霖's old computer and on the 資管系館 computer-lab PCs (open(title)).
@@ -14,6 +15,7 @@ import { newsUI } from './phone/NewsUI.js';
 import { learnUI, hl } from '../systems/minigames/Learn.js';
 import { TWO_SUM_STARTER } from '../systems/quests/HowardTwoSum.js';
 import { askAutoSolve, askReplay, playAutoSolve } from './AutoSolveUI.js';
+import { laodaOn, setLaoda } from '../systems/LaodaMode.js';
 const $ = (id) => document.getElementById(id);
 const _esc = (t) =>
   String(t).replace(
@@ -891,6 +893,24 @@ export class PC {
       if (cmd.toUpperCase() === 'PYL') {
         this.close();
         g.openVideo();
+        return;
+      }
+      // 勞大 (not in help either): mamba calls him back; mamba out — only once he is back — sends him off again
+      const lc = cmd.toLowerCase().replace(/\s+/g, ' ');
+      if (lc === 'mamba' || (lc === 'mamba out' && laodaOn())) {
+        const on = lc === 'mamba';
+        if (!setLaoda(on, g)) print('Man，我一直都在啊 🐍', 'tm-dim');
+        else if (on)
+          [
+            ['Man! What can I say? 🐍', 'tm-ok'],
+            ['🚁 勞大回來了：直升機換他開，訊息 App 的好友裡也找得到他。'],
+            ['（想讓他休息的話，輸入 mamba out）', 'tm-dim'],
+          ].forEach(([l, k]) => print(l, k));
+        else
+          [['Mamba out. 🎤', 'tm-ok'], ['✈️ 勞大下班了，直升機換回彥霖航空機長。']].forEach(
+            ([l, k]) => print(l, k)
+          );
+        print('');
         return;
       }
       if (c === 'case' || c === 'cases' || c === '查案') {

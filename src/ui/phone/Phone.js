@@ -621,6 +621,7 @@ export class Phone {
       ['任務三 · 掃街拉票', '對路上的同學發傳單，拉到 15 票'],
       ['任務四 · 布條保衛戰', '依序把競選布條掛好，限時完成'],
       ['任務五 · 布條失竊案', '回到以前住的地方，用電腦的 SQL 查出拆布條的人'],
+      ['任務六 · 宿舍拉票', '到力行宿舍二樓 276～281，每間寢室門口拉一次票'],
       ['終章 · 政見發表會', '到學生活動中心發表政見'],
     ];
     const cur = M.done ? LIST.length : Math.max(0, M.idx);
@@ -743,6 +744,7 @@ export class Phone {
       const left = s.list.filter((c) => !c.hit);
       return left.length ? left[0] : null;
     }
+    if (s.type === 'until') return s.opt?.nav || null;
     return null;
   }
   _frame(title, body, opt = {}) {

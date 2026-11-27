@@ -125,7 +125,24 @@ describe('Save System & Height Synchronization Tests (save.js)', () => {
     };
 
     const mission = applySave(mockGame, legacySave);
-    expect(mission.idx).toBe(6); // Step shifted forward
+    expect(mission.idx).toBe(7); // shifted past both missions added later (任務五, 任務六)
+  });
+
+  it('moves mv 2 saves at the speech or the ending past 任務六 (宿舍拉票)', () => {
+    const mk = () => ({
+      hud: { setVotes: () => {}, setMoney: () => {}, setBallots: () => {} },
+      ballotList: [],
+      eggs: [],
+      job: {},
+      gate: {},
+      race: {},
+      phone: { storySeen: new Set(), chats: [], resumePending: () => {} },
+      missions: { rewarded: new Set() },
+    });
+    expect(applySave(mk(), { v: 1, mission: { mv: 2, idx: 5 } }).idx).toBe(5);
+    expect(applySave(mk(), { v: 1, mission: { mv: 2, idx: 6 } }).idx).toBe(7);
+    expect(applySave(mk(), { v: 1, mission: { mv: 2, idx: 7 } }).idx).toBe(8);
+    expect(applySave(mk(), { v: 1, mission: { mv: 3, idx: 6 } }).idx).toBe(6);
   });
 
   it('clearSave should remove the save record', () => {

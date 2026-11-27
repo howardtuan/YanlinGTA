@@ -49,12 +49,13 @@ describe('台鐵班表', () => {
       }
     }
   });
-  it('只開部分班次：同方向至少隔 GAP_MIN 分鐘，時刻照真實班表', () => {
+  it('只開大約一半班次：同方向至少隔 GAP_MIN 分鐘，時刻照真實班表', () => {
     const all = schedule(WEEKDAY, 446, 4376, 0),
       L = schedule(WEEKDAY, 446, 4376);
     expect(all).toHaveLength(WEEKDAY.length);
-    expect(L.length).toBeGreaterThan(40);
-    expect(L.length).toBeLessThan(WEEKDAY.length / 2);
+    // 大約開一半（平日約 100 班）
+    expect(L.length).toBeGreaterThan(WEEKDAY.length * 0.4);
+    expect(L.length).toBeLessThan(WEEKDAY.length * 0.6);
     for (const dir of [1, -1]) {
       const D = L.filter((t) => t.dir === dir).sort((a, b) => a.tRef - b.tRef);
       for (let i = 1; i < D.length; i++)

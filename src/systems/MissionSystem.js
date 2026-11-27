@@ -2,6 +2,7 @@
 // All story text lives here — edit freely.
 import { makeHoloNpc } from '../entities/HoloAI.js';
 import { NAME_ALIAS } from '../world/zones/ZoneA.js';
+import { surfaceAt } from '../world/Terrain.js';
 
 export const SPEECH = [
   ['彥霖', '各位同學晚安！我是第34屆資訊管理學系系學會會長候選人 —— 彥霖！'],
@@ -14,6 +15,38 @@ export const SPEECH = [
 // rings standing on the map (src/entities/HoloAI.js); exported for tools/npc-dashboard and the tests.
 export const MONDAY = 'M.O.N.D.A.Y'; // 舊正門起點，帶整條主線（青色）
 export const WEDNESDAY = 'W.E.D.N.E.S.D.A.Y'; // 資管系館前駐點（紫色）
+
+// 任務六「宿舍拉票」：力行宿舍（男生宿舍）二樓能進去的六間寢室，每間門口按 E 拉一次票（src/world/buildings/Lixing.js OPEN_ROOMS）。
+// 每間門口一句寢室同學的回應；拜訪過的寢室記在 rewarded（m6:寢號），所以存檔、暫停重來都不會重拜、重複給票。
+export const DORM_ROOMS = [276, 277, 278, 279, 280, 281];
+export const DORM_LINES = {
+  276: [
+    ['彥霖', '276 的各位，自己寢室也要拜一下票啦 ✌'],
+    ['276 寢同學', '室友選會長當然投！你的 3 號床我們幫你顧著 😆'],
+  ],
+  277: [
+    ['彥霖', '打擾了～我是資管系會長候選人彥霖！'],
+    ['277 寢同學', '（麻將桌旁抬頭）喔喔候選人！這圈打完就去投，碰！'],
+  ],
+  278: [
+    ['彥霖', '278 晚安！明天投票記得投彥霖！'],
+    ['278 寢同學', '我們整間都資管的啦，早就決定投你了 💪'],
+  ],
+  279: [
+    ['彥霖', '哈囉 279，耽誤你們一分鐘！'],
+    ['279 寢同學', '（吉他聲停下）候選人親自來敲門欸，好啦這票給你 🎸'],
+  ],
+  280: [
+    ['彥霖', '280 的同學好，我是彥霖，請多多支持！'],
+    ['280 寢同學', '程式卡住的時候系學會能開讀書會嗎？可以的話我就投你 💻'],
+    ['彥霖', '這個好，記下來了！'],
+  ],
+  281: [
+    ['彥霖', '281 晚安，最後一間了！拜託明天投彥霖 🙏'],
+    ['281 寢同學', '第一次有候選人走到宿舍來耶，衝著這點就投你！'],
+  ],
+};
+export const DORM_NOTE = '以後可以多去宿舍走走，認識其他同學 🏠';
 
 export class Missions {
   constructor(game) {
@@ -184,6 +217,7 @@ export class Missions {
     }
     if (idx === 2 && sub >= 1) return P.market || im;
     if (idx === 5 && sub >= 1 && yh) return { x: yh[0], z: yh[1] };
+    if (idx === 6) return this._dormGate() || im;
     return im;
   }
   _mark() {
@@ -201,7 +235,7 @@ export class Missions {
   // ---- leaving a section (時間到 / 暫停選單「退出目前任務」) and coming back to it ----
   // the section's progress is dropped; ▶ 繼續任務 (pause menu) starts that same section again
   get canExit() {
-    return !!this.step && !this.exited && !this.g.hud.inDialog && this.idx >= 1 && this.idx <= 5;
+    return !!this.step && !this.exited && !this.g.hud.inDialog && this.idx >= 1 && this.idx <= 6;
   }
   exit(reason = '') {
     if (!this.step) return false;
@@ -354,6 +388,67 @@ export class Missions {
     }));
     this.g.setBeam(show[0] || null, s.radius, show.slice(1));
     this.g.hud.setObjective(s.title, s.textFn(s.list.length - left.length, s.list.length, left));
+  }
+  // ---- 任務六 · 宿舍拉票：力行 276～281 的門口 ----
+  // the forecourt by 力行's 1F 大門 (where the paused mission's ▶ waits and the phone's 🧭 points to)
+  _dormGate() {
+    const L = this.g.interiors?.lixing;
+    if (!L?.park || !L.W) return null;
+    const [x, z] = L.W(L.park.x, L.park.z);
+    return { x, z };
+  }
+  // the six doorsteps on the 2F gallery, just outside each door (world x / z / y); one E action each, added once
+  dormDoors() {
+    if (this._dormDoors) return this._dormDoors;
+    const g = this.g,
+      L = g.interiors?.lixing;
+    if (!L?.rooms || !L.W) return [];
+    this._dormDoors = DORM_ROOMS.map((no) => {
+      const R = L.rooms[no];
+      if (!R?.door) return null;
+      const [x, z] = L.W(R.door[0], R.door[1] - 1.5);
+      return { no, x, z, y: L.B + R.y, name: `${no} 寢` };
+    }).filter(Boolean);
+    for (const d of this._dormDoors)
+      g.interiors.actions.push({
+        x: d.x,
+        z: d.z,
+        r: 1.5,
+        y: d.y - surfaceAt(d.x, d.z),
+        cond: () => this.step?.dorm && !this.dormVisited(d.no) && !g.hud.inDialog,
+        label: () => `按 <kbd>E</kbd> 在 ${d.no} 寢門口拉票`,
+        fn: () => this.canvassDorm(d.no),
+      });
+    return this._dormDoors;
+  }
+  dormVisited(no) {
+    return this.rewarded.has(`m6:${no}`);
+  }
+  get dormLeft() {
+    return this.dormDoors().filter((d) => !this.dormVisited(d.no));
+  }
+  // knock on one door: a line from the room, +2 votes, then the objective / markers follow
+  canvassDorm(no) {
+    const g = this.g;
+    if (!this.step?.dorm || this.dormVisited(no)) return;
+    g.dialog(DORM_LINES[no] || [['彥霖', `${no} 寢晚安，明天記得投彥霖！`]], () => {
+      if (!this.once(`m6:${no}`)) return;
+      g.addVotes(2, `力行 ${no} 寢 +2 票`);
+      g.audio.checkpoint?.();
+      this._dormRefresh();
+    });
+  }
+  _dormRefresh() {
+    const s = this.step;
+    if (!s?.dorm) return;
+    const all = this.dormDoors(),
+      left = this.dormLeft;
+    this.markers = left.map((d) => ({ x: d.x, z: d.z, big: true, icon: '🚪' }));
+    this.g.setBeam(left[0] || null, 1.5, left.slice(1));
+    this.g.hud.setObjective(
+      s.title,
+      `到力行宿舍（男生宿舍）二樓，在每間寢室門口按 <kbd>E</kbd> 拉票：<b>${all.length - left.length} / ${all.length}</b>${left.length ? `　（還沒拜訪：${left.map((d) => d.no).join('、')}）` : ''}`
+    );
   }
   fail(reason, retry) {
     this.exit(`${reason}這一小節先退出，進度沒有保存。回到 ▶ 任務起點，用手機「任務」App 繼續`);
@@ -743,7 +838,61 @@ Missions.prototype.steps = [
       }
     );
   },
-  // 6 — platform speech at the Student Activity Center
+  // 6 — 宿舍拉票: knock on the six open rooms of 力行宿舍 (the boys' dorm), 2F 276～281, one E at each door
+  // (dormDoors / canvassDorm above). Rooms already visited stay visited (rewarded), so a reload or a pause
+  // carries on with the rest. At the end a note: go walk round the dorms more and meet people.
+  function () {
+    const g = this.g,
+      title = '任務六 · 宿舍拉票';
+    this.talk(
+      [
+        [MONDAY, '破案的消息已經傳開了。離晚上的政見發表會還有一點時間，再衝一波！'],
+        [
+          WEDNESDAY,
+          '數據顯示：住宿生的投票率很高，但力行宿舍（男生宿舍）二樓 276～281 這幾間，還沒有人去拜過票。',
+        ],
+        ['彥霖', '276 就是我自己的寢室欸，從自己家開始拜 ✌'],
+        [MONDAY, '到二樓走廊，在每間寢室門口按 [[E|A]] 打聲招呼。六間都拜訪完就完成。'],
+      ],
+      () => {
+        const doors = this.dormDoors(),
+          gate = this._dormGate();
+        this.until(
+          title,
+          '到 <b>力行宿舍</b>（男生宿舍）二樓，在 276～281 每間寢室門口按 <kbd>E</kbd> 拉票',
+          () => this.dormLeft.length === 0,
+          () => {
+            if (this.once('m6:done')) g.addVotes(5, '宿舍拉票完成 +5 票');
+            g.hud.bigToast('任務完成！', '力行 276～281 都拜訪完了 🚪');
+            g.audio.fanfare();
+            g.dialog(
+              [
+                ['彥霖', '六間都拜完了！原來隔壁幾間住了這麼多有趣的人。'],
+                [MONDAY, '紀錄：今天在宿舍認識的同學，比過去一整個學期還多。'],
+                [MONDAY, `📝 註記：${DORM_NOTE}`],
+              ],
+              () => {
+                g.hud.toast(`📝 ${DORM_NOTE}`, 'good', 4200);
+                this.g.after(() => this.next(), 1500);
+              }
+            );
+          },
+          {
+            markers: doors.map((d) => ({ x: d.x, z: d.z, big: true, icon: '🚪' })),
+            beam: doors[0] || null,
+            radius: 1.5,
+            nav: gate || doors[0] || null,
+          }
+        );
+        if (this.step) {
+          this.step.dorm = true;
+          this.step.title = title;
+          this._dormRefresh();
+        }
+      }
+    );
+  },
+  // 7 — platform speech at the Student Activity Center
   function () {
     const g = this.g,
       P = this.P;
@@ -765,7 +914,7 @@ Missions.prototype.steps = [
       }
     );
   },
-  // 7 — ending
+  // 8 — ending
   function () {
     this.done = true;
     this.g.showEnding();

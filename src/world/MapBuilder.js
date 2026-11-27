@@ -795,6 +795,8 @@ function sinkPlan(data) {
       return {
         pts: r.pts,
         hw: (r.w || 4) / 2,
+        // half width per segment (tools/roads.json wat: r.wv, the width at each vertex)
+        hws: r.pts.slice(1).map((_, i) => (r.wv ? Math.max(r.wv[i], r.wv[i + 1]) : r.w || 4) / 2),
         bridge: !!(r.bridge && !r.tunnel && !r.grade),
         drive: !!r.drive,
         box: [a - r.w, b - r.w, c + r.w, d + r.w],
@@ -880,6 +882,7 @@ function sinkPlan(data) {
   const inSunkArea = (x, z) => areas.some((s) => pointInPoly(x, z, s.P));
   const runs = [],
     bridges = [];
+  const plans = [];
   for (const w of data.waterways) {
     if (!w.sink) continue;
     const pts = w.pts,
@@ -932,7 +935,12 @@ function sinkPlan(data) {
           const el = Math.hypot(ex, ez) || 1,
             c = bl ? (bl.off + 0.35) / sin : (r.hw + 0.8) / sin + ((top / 2) * cos) / sin,
             s = cum[i] + t * l;
-          shut.push([s - c, s + c, bl ? [ex / el, ez / el] : null]);
+          shut.push([
+            s - c,
+            s + c,
+            bl ? [ex / el, ez / el] : null,
+            bl ? { X, n: [-ez / el, ex / el], e: bl.off + 0.35 } : null,
+          ]);
           if (bl) {
             // u along the road, t along the stream
             bridges.push({
@@ -952,6 +960,59 @@ function sinkPlan(data) {
       const p = at(s);
       if (inSunkArea(p[0], p[1])) shut.push([s - 1, s + 1]);
     }
+    plans.push({ w, pts, cum, L, top, at, shut });
+  }
+  // a bridge culvert that reaches past the end of a waterway carries on into the piece joined
+  // there (data splits a stream where its profile changes). Where that piece turns away right at
+  // the joint (中北路中北橋: the stream bends north-east 6 m from the road), the channel first
+  // runs on straight in the crossing piece's direction to the parapet distance, so the mouth is
+  // cut along the road like the crossing side and is not stretched along it
+  const nearP = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.6;
+  for (const P of plans)
+    for (const [a, b, sk, m] of P.shut.slice()) {
+      if (!m) continue;
+      const ends = [];
+      if (b > P.L) ends.push([P.pts[P.pts.length - 1], P.pts[P.pts.length - 2]]);
+      if (a < 0) ends.push([P.pts[0], P.pts[1]]);
+      for (const [E, E1] of ends)
+        for (const Q of plans) {
+          if (Q === P) continue;
+          const fromStart = nearP(Q.pts[0], E),
+            fromEnd = nearP(Q.pts[Q.pts.length - 1], E);
+          if (!fromStart && !fromEnd) continue;
+          // straight on from E (away from P), until the parapet distance + 2 m of channel
+          const l = Math.hypot(E[0] - E1[0], E[1] - E1[1]) || 1,
+            T = [(E[0] - E1[0]) / l, (E[1] - E1[1]) / l],
+            dE = Math.abs((E[0] - m.X[0]) * m.n[0] + (E[1] - m.X[1]) * m.n[1]),
+            gain = Math.abs(T[0] * m.n[0] + T[1] * m.n[1]) || 0.35,
+            x = Math.max(0, (m.e - dE) / gain);
+          const J = [E[0] + T[0] * x, E[1] + T[1] * x],
+            J2 = [J[0] + T[0] * 2, J[1] + T[1] * 2];
+          // keep Q's own points that the straight bit does not pass
+          const rest = fromStart ? Q.pts.slice(1) : Q.pts.slice(0, -1).reverse();
+          while (rest.length > 1 && Math.hypot(rest[0][0] - E[0], rest[0][1] - E[1]) < x + 2.5)
+            rest.shift();
+          const np = [J, J2, ...rest];
+          if (!fromStart) np.reverse();
+          const oldL = Q.L;
+          Q.pts.splice(0, Q.pts.length, ...np);
+          Q.cum.length = 1;
+          for (let i = 1; i < Q.pts.length; i++)
+            Q.cum.push(
+              Q.cum[i - 1] +
+                Math.hypot(Q.pts[i][0] - Q.pts[i - 1][0], Q.pts[i][1] - Q.pts[i - 1][1])
+            );
+          Q.L = Q.cum[Q.cum.length - 1];
+          // Q's other covered stretches keep their distance from Q's far end
+          const shift = fromStart ? Q.L - oldL : 0;
+          for (const sh of Q.shut) {
+            sh[0] += shift;
+            sh[1] += shift;
+          }
+          Q.shut.push(fromStart ? [-1, 0.01, sk, m] : [Q.L - 0.01, Q.L + 1, sk, m]);
+        }
+    }
+  for (const { w, pts, cum, L, top, at, shut } of plans) {
     shut.sort((a, b) => a[0] - b[0]);
     let s0 = 0,
       sk0 = null;
@@ -964,6 +1025,34 @@ function sinkPlan(data) {
       }
     }
     if (s0 < L) open.push([s0, L, sk0, null]);
+    // a mouth cut along a bridge must not reach another drivable road with a corner (中北路中北橋:
+    // the lane to the Times car park runs along the west bank): move it up the stream until clear
+    const hwc = top / 2 + (w.sink.bank === 'slope' ? 0.1 : SINK_COPE);
+    const dirAt = (s) => {
+      const p = at(Math.max(0, s - 0.5)),
+        q = at(Math.min(L, s + 0.5)),
+        l = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+      return [-(q[1] - p[1]) / l, (q[0] - p[0]) / l];
+    };
+    const clear = (s, sk) => {
+      const c = at(s),
+        N = dirAt(s),
+        d = sk[0] * N[0] + sk[1] * N[1] || 0.35;
+      for (const sg of [1, -1]) {
+        const x = c[0] + (sk[0] * sg * hwc) / d,
+          z = c[1] + (sk[1] * sg * hwc) / d;
+        for (const q of roads) {
+          if (!q.drive || x < q.box[0] || x > q.box[2] || z < q.box[1] || z > q.box[3]) continue;
+          for (let i = 0; i < q.pts.length - 1; i++)
+            if (segDist(x, z, ...q.pts[i], ...q.pts[i + 1]) - q.hws[i] < 0.05) return false;
+        }
+      }
+      return true;
+    };
+    for (const o of open) {
+      if (o[2]) while (o[0] < o[1] && !clear(o[0], o[2])) o[0] += 0.1;
+      if (o[3]) while (o[1] > o[0] && !clear(o[1], o[3])) o[1] -= 0.1;
+    }
     for (const [a, b, ska, skb] of open) {
       if (b - a < 2) continue;
       const rp = [at(a), ...pts.filter((p, i) => cum[i] > a + 0.3 && cum[i] < b - 0.3), at(b)];
@@ -2156,7 +2245,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
             if (q === b.self || !q.drive) continue;
             if (p[0] < q.box[0] || p[0] > q.box[2] || p[1] < q.box[1] || p[1] > q.box[3]) continue;
             for (let i = 0; i < q.pts.length - 1; i++)
-              g = Math.min(g, segDist(p[0], p[1], ...q.pts[i], ...q.pts[i + 1]) - q.hw);
+              g = Math.min(g, segDist(p[0], p[1], ...q.pts[i], ...q.pts[i + 1]) - q.hws[i]);
           }
           return g;
         };

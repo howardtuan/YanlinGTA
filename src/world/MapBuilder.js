@@ -927,11 +927,13 @@ function sinkPlan(data) {
           const X = [A[0] + dx * t, A[1] + dz * t],
             look = r.bridge && bridgeLook(...X),
             bl = look ? { ...look, off: look.off || r.hw + 0.8 } : null;
-          const c = (bl ? bl.off + 0.35 : r.hw + 0.8) / sin + ((top / 2) * cos) / sin,
+          // a bridge in BRIDGE_LOOK: the culvert mouth is cut along the road (flush with the
+          // parapet line), not square to the stream, so no corner of it reaches the road
+          const el = Math.hypot(ex, ez) || 1,
+            c = bl ? (bl.off + 0.35) / sin : (r.hw + 0.8) / sin + ((top / 2) * cos) / sin,
             s = cum[i] + t * l;
-          shut.push([s - c, s + c]);
+          shut.push([s - c, s + c, bl ? [ex / el, ez / el] : null]);
           if (bl) {
-            const el = Math.hypot(ex, ez) || 1;
             // u along the road, t along the stream
             bridges.push({
               ...bl,
@@ -951,17 +953,22 @@ function sinkPlan(data) {
       if (inSunkArea(p[0], p[1])) shut.push([s - 1, s + 1]);
     }
     shut.sort((a, b) => a[0] - b[0]);
-    let s0 = 0;
+    let s0 = 0,
+      sk0 = null;
     const open = [];
-    for (const [a, b] of shut) {
-      if (a > s0) open.push([s0, a]);
-      s0 = Math.max(s0, b);
+    for (const [a, b, sk] of shut) {
+      if (a > s0) open.push([s0, a, sk0, sk || null]);
+      if (b > s0) {
+        s0 = b;
+        sk0 = sk || null;
+      }
     }
-    if (s0 < L) open.push([s0, L]);
-    for (const [a, b] of open) {
+    if (s0 < L) open.push([s0, L, sk0, null]);
+    for (const [a, b, ska, skb] of open) {
       if (b - a < 2) continue;
       const rp = [at(a), ...pts.filter((p, i) => cum[i] > a + 0.3 && cum[i] < b - 0.3), at(b)];
-      runs.push({ pts: rp, spec: w.sink, w: w.w, top });
+      // skew: the direction each end is cut along (a bridge's road), or null for a square end
+      runs.push({ pts: rp, spec: w.sink, w: w.w, top, skew: [ska, skb] });
     }
   }
   // a run that ends where the next piece of the stream begins (data splits a stream where its
@@ -991,6 +998,26 @@ function sinkPlan(data) {
       const A = r.pts[i],
         Bq = r.pts[i + 1],
         l = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]) || 1;
+      const ska = i === 0 ? r.skew[0] : null,
+        skb = i === r.pts.length - 2 ? r.skew[1] : null;
+      if (ska || skb) {
+        // an end cut along a bridge: the hole is that skewed quad
+        const N = [-(Bq[1] - A[1]) / l, (Bq[0] - A[0]) / l];
+        const edge = (p, sk, o) => {
+          if (!sk) return [p[0] + N[0] * o, p[1] + N[1] * o];
+          const d = sk[0] * N[0] + sk[1] * N[1];
+          return [p[0] + (sk[0] * o) / d, p[1] + (sk[1] * o) / d];
+        };
+        cut.polys.push([
+          edge(A, ska, hw),
+          edge(Bq, skb, hw),
+          edge(Bq, skb, -hw),
+          edge(A, ska, -hw),
+        ]);
+        if (i > 0 || r.join[0]) cut.discs.push([A[0], A[1], hw]);
+        holes.push({ seg: [A, Bq, hw] });
+        continue;
+      }
       cut.rects.push([
         (A[0] + Bq[0]) / 2,
         (A[1] + Bq[1]) / 2,
@@ -1990,7 +2017,13 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
       });
       const N = T2.map((t) => [-t[1], t[0]]);
-      const at = (i, o) => off(pts[i], N[i], o);
+      // an end cut along a bridge (r.skew): offsets run along the road instead of square to the stream
+      const at = (i, o) => {
+        const sk = i === 0 ? r.skew[0] : i === n - 1 ? r.skew[1] : null;
+        if (!sk) return off(pts[i], N[i], o);
+        const d = sk[0] * N[i][0] + sk[1] * N[i][1];
+        return [pts[i][0] + (sk[0] * o) / d, pts[i][1] + (sk[1] * o) / d];
+      };
       const yr = pts.map((p, i) => Math.min(H(...at(i, t2 + cope)), H(...at(i, -t2 - cope))));
       const yw = yr.map((y) => y - drop);
       for (let i = 0; i < n - 1; i++) {

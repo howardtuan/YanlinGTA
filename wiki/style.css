@@ -1074,6 +1074,9 @@ dd {
 .post p {
   margin: 0 0 10px;
 }
+.post-link {
+  overflow-wrap: anywhere;
+}
 .post-tags {
   display: flex;
   flex-wrap: wrap;

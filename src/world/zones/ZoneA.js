@@ -2185,7 +2185,10 @@ export function buildZoneA(I, scene, data) {
         [p1[0], yc, p1[1]],
         [q1[0], yc, q1[1]]
       );
-      if (coll) wallC(a[0], a[1], c[0], c[1], g0, Math.max(ya, yc));
+      // wallC（I.addWall）的高度帶是「相對牆中點地形」的（src/physics/PhysWorld.js 會再加上 H），
+      // g0、ya、yc 是世界高度，要先扣掉，不然整段碰撞帶會跟著地形高度偏掉
+      const gm = terrH((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
+      if (coll) wallC(a[0], a[1], c[0], c[1], g0 - gm, Math.max(ya, yc) - gm);
       if (text) {
         const m = along(a, e, e.l * 0.3, 0.12);
         sign(

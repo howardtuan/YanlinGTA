@@ -1,5 +1,6 @@
 import { texScale } from '../graphics/GpuMemLifecycle.js';
 import { HoloRingView, holoOf } from '../graphics/HoloRing.js';
+import { touchHints } from '../core/KeyHints.js';
 
 const $ = (id) => document.getElementById(id);
 const AREA_C = {
@@ -534,7 +535,7 @@ export class HUD {
   }
   setTip(title, html) {
     $('tipBox').querySelector('.tip-title').textContent = title;
-    $('tipText').innerHTML = html;
+    $('tipText').innerHTML = touchHints(html);
   }
   // called every frame: rewrite the DOM only when the content changes (avoids per-frame layout / style work)
   setPrompt(html) {
@@ -543,7 +544,7 @@ export class HUD {
     const p = $('prompt');
     if (!html) p.classList.add('hidden');
     else {
-      p.innerHTML = html;
+      p.innerHTML = touchHints(html);
       p.classList.remove('hidden');
     }
   }
@@ -566,7 +567,7 @@ export class HUD {
     }
     o.classList.remove('hidden');
     $('objTitle').textContent = title;
-    $('objText').innerHTML = text;
+    $('objText').innerHTML = touchHints(text);
   }
   setTimer(sec) {
     const t = $('objTimer');
@@ -602,7 +603,7 @@ export class HUD {
   toast(text, kind = 'good', ms = 1800) {
     const el = document.createElement('div');
     el.className = `toast-item ${kind}`;
-    el.textContent = text;
+    el.textContent = touchHints(text, false);
     const box = $('toast');
     box.appendChild(el);
     while (box.children.length > 4) box.firstChild.remove();
@@ -611,7 +612,7 @@ export class HUD {
   bigToast(title, sub = '', ms = 2600) {
     const b = $('bigToast');
     $('bigToastTitle').textContent = title;
-    $('bigToastSub').textContent = sub;
+    $('bigToastSub').textContent = touchHints(sub, false);
     b.classList.remove('hidden');
     b.style.animation = 'none';
     b.offsetHeight;
@@ -706,7 +707,11 @@ export class HUD {
     }
     const [name, raw] = this.dialogQueue.shift();
     this._replyBox(!!this.dialogReply && !this.dialogQueue.length);
-    const text = raw.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, kb, pad) => this.keyLabel(kb, pad)); // [[M|View]]
+    // [[M|View]]: the key of the device in use; on a touch screen the on-screen button instead (touchHints)
+    const text = touchHints(
+      raw.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, kb, pad) => this.keyLabel(kb, pad)),
+      false
+    );
     d.classList.remove('hidden');
     $('dlgName').textContent = name;
     // an AI talking (S.U.N.D.A.Y / M.O.N.D.A.Y / W.E.D.N.E.S.D.A.Y): its holographic ring next to the box

@@ -268,7 +268,7 @@ export class Phone {
       <div class="ph-view"></div>
       <div class="ph-boot hidden">${PEACH()}</div>
     </div><button class="ph-homebtn" title="Home 鍵（回主畫面）" aria-label="Home"><i></i></button><div class="ph-btn ph-btn-a"></div><div class="ph-btn ph-btn-b"></div><div class="ph-btn ph-btn-c"></div></div>
-    <div class="ph-hint"><kbd>E</kbd> 收起手機 · <kbd>Esc</kbd> 返回</div>`;
+    <div class="ph-hint"><span class="nt-only"><kbd>E</kbd> 收起手機 · <kbd>Esc</kbd> 返回</span><span class="touch-only">點 ‹ 返回 · 在主畫面點下方 Home 鍵收起手機</span></div>`;
     document.getElementById('app').appendChild(el);
     this.view = el.querySelector('.ph-view');
     // Home key: in an app -> home screen; on page 2 -> page 1; on page 1 -> put the phone away

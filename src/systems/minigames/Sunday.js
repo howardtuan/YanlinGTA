@@ -7,6 +7,7 @@
 // 沒在查案時給主線提示，或提醒還有案件沒破；電腦裡只能用滑鼠點她（J 會打進終端機）。
 
 import { HoloRingView } from '../../graphics/HoloRing.js';
+import { touchHints } from '../../core/KeyHints.js';
 
 // hints for mission idx (src/systems/MissionSystem.js), given the mission state; each returns a list shown one by one
 const HINTS = [
@@ -215,7 +216,7 @@ export class Sunday {
     el.querySelector('.sd-bang').classList.toggle('hidden', !this.fresh);
     if (!this.open || !list.length) return;
     const i = this.i % list.length;
-    el.querySelector('.sd-text').innerHTML = list[i];
+    el.querySelector('.sd-text').innerHTML = touchHints(list[i]);
     el.querySelector('.sd-n').textContent = `提示 ${i + 1} / ${list.length}`;
     el.querySelector('.sd-foot').classList.toggle('hidden', list.length < 2);
   }

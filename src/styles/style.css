@@ -4134,6 +4134,18 @@ body:not(.pad-mode) .pad-only,
 body.pad-mode .kb-only {
   display: none;
 }
+/* 手機觸控（body.touch，src/core/Input.js）：鍵盤說法換成觸控說法；文字裡的「按 M」由 src/core/KeyHints.js touchHints() 改寫 */
+body:not(.touch) .touch-only,
+body.touch .nt-only,
+body.touch #dlgHint .kb-only,
+body.touch #sunday .sd-tag kbd,
+body.touch #sunday .sd-key {
+  display: none;
+}
+/* 小遊戲、麻將等面板的按鈕上標著快捷鍵（<kbd>Enter</kbd> 出餐）：手機直接點按鈕，鍵名拿掉 */
+body.touch button kbd:not([data-pb]) {
+  display: none;
+}
 kbd.pb {
   font-family: system-ui, 'Segoe UI Symbol', sans-serif;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
@@ -7883,6 +7895,25 @@ body.touch #sunday {
 body.touch #sunday .sd-bubble {
   width: 240px;
   font-size: 13px;
+}
+/* 手機橫放（螢幕矮）：右側上有小地圖、下有觸控鈕，夾在中間會讓提示框掉出畫面 → 改放左上角，圓圈在上、提示往下展開 */
+@media (max-height: 500px) {
+  body.touch #sunday {
+    top: 8px;
+    left: 8px;
+    right: auto;
+    bottom: auto;
+    flex-direction: column-reverse;
+    align-items: flex-start;
+  }
+  body.touch #sunday .sd-btn {
+    width: 72px;
+    height: 72px;
+  }
+  body.touch #sunday .sd-bubble {
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+  }
 }
 
 /* 🛸 無人機 (src/entities/Drone.js): goggles view — corner brackets, LIVE tag, altitude / speed, the keys */

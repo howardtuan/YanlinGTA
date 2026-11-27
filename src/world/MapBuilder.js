@@ -31,6 +31,7 @@ import { alongWay, centreStyles, lineRuns } from './RoadMarks.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildFurniture } from './Furniture.js';
 import { isCourt, paintCourts } from './Court.js';
+import { isTennis, paintTennis } from './Tennis.js';
 import {
   groundTex,
   facadeTex,
@@ -2642,7 +2643,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       if (a.kind === 'pitch' || a.kind === 'track') sportPolys.push(a.pts);
       if (a.kind === 'parking') parkingPolys.push(ring);
       // pitch markings on roughly rectangular pitches
-      if (a.kind === 'pitch' && !a.holes && !isCourt(a)) {
+      if (a.kind === 'pitch' && !a.holes && !isCourt(a) && !isTennis(a)) {
         const f = obb(a.pts),
           L = f.u1 - f.u0,
           W = f.v1 - f.v0;
@@ -2686,13 +2687,15 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     addFlat(gGreen, gmat(T.grass(), { macroAmt: 0.3, macroScale: 0.015, env: 0.4 }), 'areas');
     addFlat(gTrack, gmat(T.track(), { macroAmt: 0.1 }), 'areas');
     {
-      const ct = data.areas.filter(isCourt);
-      if (ct.length) {
+      const ct = data.areas.filter(isCourt),
+        tn = data.areas.filter(isTennis);
+      if (ct.length || tn.length) {
         const g = new Geo(true);
-        paintCourts(ct, g);
+        if (ct.length) paintCourts(ct, g);
+        if (tn.length) paintTennis(tn, g);
         addFlat(g, null, 'areas');
       }
-    } // 體育園區籃球場 (src/world/Court.js)
+    } // 體育園區籃球場 (src/world/Court.js)、網球場 (src/world/Tennis.js)
     addFlat(gLines, null, 'areas');
     // water: dark, glossy, reflects the sky; ripples scroll
     const wn = T.waterNormal();

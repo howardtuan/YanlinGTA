@@ -711,10 +711,17 @@ export class Audio {
     if (b.p) b.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.15);
     b.s.playbackRate.setTargetAtTime(rate, t, 0.2);
   }
-  // 火車鳴笛：電聯車的雙音笛，從 (x, z) 傳來
-  // 鳴笛：鐵道旁兩三條街內聽得到（src/entities/Trains.js）
-  trainHorn(x, z) {
-    this.at(x, z, 240, () => {
+  // 火車鳴笛，從 (x, z) 傳來；鐵道旁一兩條街內聽得到（src/entities/Trains.js）。
+  // 一般列車：電聯車的雙音笛；small：工程車（軌道車、搗固車）短促偏高的「嗶、嗶」兩聲
+  trainHorn(x, z, small = false) {
+    this.at(x, z, 120, () => {
+      if (small) {
+        for (const d of [0, 0.45]) {
+          this.tone(660, 0.28, 'square', 0.035, d, 0.998, 2400);
+          this.tone(790, 0.28, 'square', 0.03, d, 0.998, 2400);
+        }
+        return;
+      }
       for (const [f, d] of [
         [370, 0],
         [440, 0],

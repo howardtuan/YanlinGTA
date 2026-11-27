@@ -5,6 +5,7 @@ import {
   camPoints,
   discardScale,
   fitCamera,
+  handLean,
   MahjongScene,
   specEdge,
   specSpot,
@@ -31,7 +32,8 @@ describe('fitCamera：重點區塊塞滿畫面又不被切掉', () => {
       const top = 40,
         side = 10,
         bottom = S.bar ? 6 : 34;
-      const r = fitCamera(c, CAM_VIEW[S.mode](S.w / S.h), { w: S.w, h: S.h, bar: S.bar, mine });
+      const view = CAM_VIEW[S.mode](S.w / S.h);
+      const r = fitCamera(c, view, { w: S.w, h: S.h, bar: S.bar, mine });
       expect(r.y).toBeLessThanOrEqual(2.55 + 1e-6); // 不撞到天花板的燈
       let minX = Infinity,
         maxX = -Infinity,
@@ -156,6 +158,26 @@ describe('specEdge：畫面外的觀戰者名牌貼在畫面邊緣、對著他�
       prev = [x, y];
     }
   });
+});
+
+describe('handLean：遠景的手牌仰到正對鏡頭', () => {
+  for (const [w, h] of [
+    [1280, 720],
+    [800, 600],
+  ])
+    it(`${w}×${h}`, () => {
+      const c = new THREE.PerspectiveCamera(50, w / h, 0.05, 30);
+      fitCamera(c, CAM_VIEW.far(w / h), { w, h, mine: true });
+      const a = handLean(c);
+      // 鏡頭 38° 從上面看下來，手牌要仰 50° 以上才不扁；牌面法線和視線的夾角很小
+      expect(a).toBeGreaterThan(0.85);
+      const n = new THREE.Vector3(0, Math.sin(a), Math.cos(a)),
+        v = c.position
+          .clone()
+          .sub(new THREE.Vector3(0, 0.75, 0.45))
+          .normalize();
+      expect(n.dot(v)).toBeGreaterThan(0.97);
+    });
 });
 
 describe('fitCamera：觀戰者繞桌轉鏡頭也塞得下', () => {

@@ -463,6 +463,14 @@ function buildSet(atlas) {
   return { scene, mark, newMark, tileMat };
 }
 
+// 你的 3D 手牌往後仰幾度（弧度）：鏡頭定位後依「手牌→鏡頭」的視線角度更新（見 handLean）
+let mineLean = 0.3;
+// 手牌（離桌心 d、站著高 h）要仰多少才正對鏡頭 c：視線與水平的夾角，夾在 0.3～1.25 之間
+export function handLean(c, d = MINE_D, h = TH * MINE_BIG) {
+  const dy = c.position.y - (Y0 + h / 2),
+    dz = Math.hypot(c.position.x, c.position.z) - d;
+  return Math.max(0.3, Math.min(1.25, Math.atan2(dy, Math.max(0.05, dz))));
+}
 // world transform of a slot: seat s, u along the seat's right, d from the centre towards the seat; how: 'stand' | 'up' | 'down' | 'mine'
 const _x = new THREE.Vector3(),
   _y = new THREE.Vector3(),
@@ -477,7 +485,8 @@ function slot(s, u, d, how, lift = 0, sc = 1) {
     _y.copy(UP);
     p.y = Y0 + (TH * sc) / 2 + lift;
   } else if (how === 'mine') {
-    const a = 0.3; // leaning back towards you（一點點就好，鏡頭夠低了，太斜看起來很扁）
+    // 往後仰到正對鏡頭（mineLean 由 _build 依鏡頭位置算），從上面看下來牌面也是正的
+    const a = mineLean;
     _z.copy(F).negate().multiplyScalar(Math.cos(a)).addScaledVector(UP, Math.sin(a));
     _y.copy(UP).multiplyScalar(Math.cos(a)).addScaledVector(F, Math.sin(a));
     p.y = Y0 + (sc * (TH * Math.cos(a) + TD * Math.sin(a))) / 2 + lift;
@@ -495,8 +504,8 @@ const WALL_D = 0.3; // the wall's distance from the centre (a little out, so the
 const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, WALL_D, 'down', lift);
 // 牌放大：海底與別家吃碰槓的牌比實際大一點，手機上也看得清楚。海底放大到碰到牌牆為止（排到第四排時自動縮回一點）
 const DISC_BIG = 1.3,
-  MELD_BIG = 1.2,
-  MINE_BIG = 1.3; // 遠景：你自己的 3D 手牌（和吃碰槓）放大，站在桌邊看得清楚
+  MELD_BIG = 1.35,
+  MINE_BIG = 1.45; // 遠景：你自己的 3D 手牌（和吃碰槓）放大，站在桌邊看得清楚
 const MINE_D = 0.43; // 你的手牌離桌子中心多遠（放大後往你這邊挪一點，不壓到花）
 // 近景（手機版）像麻將手遊一樣不擺牌牆（剩幾張寫在桌子中間），海底可以一路放大到花那排前面
 const DISC_BIG_NOWALL = 1.55,
@@ -526,6 +535,7 @@ export function discardScale(maxCount, wall = true) {
 // 不管視窗多大、橫拿直拿，都把「有用的牌」塞滿畫面：四家的海底、三家的手牌列（吃碰槓、花都在那一排），
 // 遠景再加上你自己的 3D 手牌。牆和桌邊空的綠布可以被切掉。
 // close：近景（手機版，手牌是底下那條）；far：遠景／觀戰／攤牌。elev＝鏡頭仰角（越大越接近正上方，對家的牌越不扁）
+// 遠景的 3D 手牌會往後仰到正對鏡頭（handLean），所以鏡頭可以高一點、桌上的牌不扁；別家的臉畫在名牌頭像上
 export const CAM_VIEW = {
   close: (aspect) => (aspect < 1 ? { fov: 58, elev: 76, tz: 0 } : { fov: 40, elev: 60, tz: 0 }),
   far: (aspect) =>
@@ -1022,6 +1032,14 @@ export class MahjongScene {
           mine: !mobCam,
         }
       );
+      // 遠景從你這邊看：手牌仰到正對鏡頭；角度變了就重排一次
+      if (!mobCam && !yaw) {
+        const a = handLean(c);
+        if (Math.abs(a - mineLean) > 0.01) {
+          mineLean = a;
+          if (this.e?.players) this._layout();
+        }
+      }
     }
     renderer.render(this.set.scene, c);
   }
@@ -1558,7 +1576,8 @@ export class MahjongScene {
     for (let s = 0; s < 4; s++) {
       const el = this.tagEls[s];
       this._placeTag(el, s, v);
-      const html = `${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}${s || e.spectate ? this._meldStrip(e, s) : ''}`;
+      const face = this._portrait(s);
+      const html = `${face ? `<img class="mj-face" src="${face}" alt="">` : ''}${s === e.dealer ? '<i class="mj-zhuang">莊</i>' : ''}${WINDS[e.seatWind(s)]}・${seatName(s)}${secs[s] != null ? ` ⏱${secs[s]}` : e.turn === s && e.phase !== 'end' ? ' ⏳' : ''}${s || e.spectate ? this._meldStrip(e, s) : ''}`;
       if (el.dataset.h !== html) {
         el.innerHTML = el.dataset.h = html;
         el._size = null; // (measured again by _placeTag)
@@ -2122,6 +2141,51 @@ export class MahjongScene {
       y = ((1 - v.y) / 2) * innerHeight;
     el.style.left = `${Math.min(innerWidth - r, Math.max(l, x))}px`;
     el.style.top = `${Math.min(innerHeight - b, Math.max(t, y))}px`;
+  }
+  // ---------------- 名牌頭像 ----------------
+  // 坐在 s 位的 3D 角色（多人時真人座位是穿他衣櫃造型的彥霖；自己的座位不畫）
+  _seatChar(s) {
+    if (!s) return null;
+    return this._seatFigs?.get(s)?.ch || this.mj.party?.find((p) => p.seat === s)?.ch || null;
+  }
+  // 那個角色的大頭照（從正面拍頭，一個角色拍一次就快取起來）；還沒坐好就先回空字串
+  _portrait(s) {
+    const ch = this._seatChar(s);
+    this._faces ||= [];
+    const P = this._faces[s];
+    if (!ch?.head || !ch.root.visible || ch.root.parent !== this.set?.scene)
+      return P?.ch === ch ? P.url : '';
+    if (P?.ch === ch) return P.url;
+    const R = this.g.renderer,
+      S = 96;
+    if (!this._faceRT) {
+      this._faceRT = new THREE.WebGLRenderTarget(S, S);
+      this._faceRT.texture.colorSpace = THREE.SRGBColorSpace;
+      this._faceCam = new THREE.PerspectiveCamera(30, 1, 0.05, 4);
+      this._faceBuf = new Uint8Array(S * S * 4);
+    }
+    const cam = this._faceCam,
+      h = ch.head.localToWorld(new THREE.Vector3(0, 0.1, 0)),
+      ry = ch.root.rotation.y; // (角色面向桌子中間：local +z)
+    cam.position.set(h.x + Math.sin(ry) * 0.62, h.y + 0.03, h.z + Math.cos(ry) * 0.62);
+    cam.lookAt(h);
+    const prev = R.getRenderTarget();
+    R.setRenderTarget(this._faceRT);
+    R.clear();
+    R.render(this.set.scene, cam);
+    R.readRenderTargetPixels(this._faceRT, 0, 0, S, S, this._faceBuf);
+    R.setRenderTarget(prev);
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = S;
+    const ctx = cv.getContext('2d'),
+      img = ctx.createImageData(S, S);
+    for (let y = 0; y < S; y++)
+      // (讀回來是上下顛倒的)
+      img.data.set(this._faceBuf.subarray((S - 1 - y) * S * 4, (S - y) * S * 4), y * S * 4);
+    ctx.putImageData(img, 0, 0);
+    const url = cv.toDataURL('image/png');
+    this._faces[s] = { ch, url };
+    return url;
   }
   // ---------------- mode picker & P2P multiplayer lobby ----------------
   chooseMode() {

@@ -457,10 +457,12 @@ class Game {
     this.traffic.peds = this.peds;
     // 火車照台鐵班表開過（src/entities/Trains.js）；平交道關著時車流停在停止線前
     {
-      const day = seasonDate().getDay();
+      const date = seasonDate(),
+        day = date.getDay();
       this.trains = new Trains(this.scene, this.railway, {
         weekend: day === 0 || day === 6,
         low: this.lowQ,
+        day: date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate(), // 今天哪幾班是貨物列車
       });
       this.traffic.gates = this.peds.gates = this.railway.gates;
     }

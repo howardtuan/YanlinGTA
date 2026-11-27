@@ -5,9 +5,9 @@ import { fbmWasm, normalWasm } from './wasm/kernels.js';
 import { texScale, releaseCanvas, markShared } from './GpuMemLifecycle.js';
 
 const CACHE = {};
-// perf-refactor Phase 2 (phase-2-render-and-igpu-opt.md §三.5): on low / xlow the world's walls and ground are
-// MeshLambertMaterial (src/world/MapBuilder.js), which reads no normal or roughness / metalness maps, so the ground
-// and facade textures skip making them (src/core/Game.js calls this before the world is built)
+// On low / xlow the world's walls and ground are MeshLambertMaterial (src/world/MapBuilder.js), which reads no
+// normal or roughness / metalness maps, so the ground and facade textures skip making them (src/core/Game.js calls
+// this before the world is built)
 let lite = false;
 export function setSurfaceDetail(full) {
   lite = !full;

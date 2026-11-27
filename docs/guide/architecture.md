@@ -169,8 +169,8 @@ sequenceDiagram
   - 開發者：再加 邏輯／物理／繪製 各自耗時、`renderer.info.memory` 紋理與幾何數、著色器數、車流／行人／NPC 數量、剛體與碰撞體、畫質與效能檔位、WASM、解析度×像素比、玩家座標與所在區域、GPU 名稱。
 - `GameLoop.loop()` 只在開啟時呼叫 `frameStart` / `renderStart` / `frameEnd`；文字每 0.5 秒更新一次。關閉時不做任何量測。效能重構要加的新數據（例如串流區塊數）請加在 `PerfHud._draw()` 的開發者層級。
 
-### 4. 畫布貼圖記憶體 (`src/graphics/GpuMemLifecycle.js`，效能重構 Phase 1A)
-iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB 就會把頁面殺掉；原本一次載入會留下約 1.75 GB 的畫布（光是 28 張 2048×4096 的街屋招牌圖集就 896 MB）。規格見 `perf-refactor/specs/phase-1-ios-memory-rescue.md`。
+### 4. 畫布貼圖記憶體 (`src/graphics/GpuMemLifecycle.js`)
+iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB 就會把頁面殺掉；原本一次載入會留下約 1.75 GB 的畫布（光是 28 張 2048×4096 的街屋招牌圖集就 896 MB）。
 - **設定**：`Game.init()` 建好 renderer 後呼叫 `configureGpuMem(perfProfile, renderer)`。每個檔位都照 `PerfProfile` 的 `texScale` 存放畫布貼圖：獨顯電腦（`desktop-dgpu`）1 倍、內顯電腦（`desktop-igpu`，含 Apple M 系列）0.75、手機（`mobile-lite`）0.5、BootDiag 安全模式 0.375，網址 `?texscale=` 可覆寫；圖集依 `atlasMaxW` × `atlasMaxH` 限制大小。
 - **建立畫布**：`canvasTexture(w, h, draw, repeat)` / `scaledCanvas(w, h)`。畫布以 `texScale` 存放，但 context 已縮放，`draw(g, w, h)` 照原本的 w × h 畫；縮小的畫布用 `cv.lw` / `cv.lh` 記住原尺寸。拿不到 2D context（記憶體不足）時回傳共用的 1×1 `blankTexture()`，不會當掉。`Kit.ctex`、各區（ZoneA～H）、`Dorms`、`Lixing`、`Sac` 的貼圖都走這裡。
 - **釋放**：
@@ -188,14 +188,14 @@ iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB
   - **地圖分塊（Phase 2）**：`MapBuilder` 的 `Geo.mesh()` 若三角形分布超過兩格（每格 120 m），會回傳 `ChunkedMesh`（`isChunkedMesh`），每格一個子 mesh，讓視錐與陰影剔除能丟掉畫面外的部分。它的 `castShadow`、`receiveShadow`、`frustumCulled`、`renderOrder` 會設到每個子 mesh；材質請用 `chunkMaterial`（它刻意沒有 `material`，否則 three.js 會把容器當成要畫的物件），也沒有 `geometry`。
   - **地面挖洞（Phase 2）**：地下道開口、下沉水池與水溝（含岸邊）、坑洞（`addPit()`，`mask` 為 true）的地面，改在建地圖時由 `src/world/GroundCut.js` 在 CPU 上切掉：地面網格與貼地圖層的三角形沿洞的邊線切開，洞裡的部分直接不產生（以前是 shader 的 `discard`，每個地面像素都要做幾十次判斷）。新增貼在地上的圖層請用 `MapBuilder` 的 `addFlat()` 搭配 `flatMat()`／`gmat()`（或用 `maskCut()` 標過的材質），才會一起被切；不要在 shader 裡 `discard` 挖洞。要多挖一個洞，在建地圖前用 `addPit()` 登記，或在資料裡加 `sink`。
   - 世界的靜態網格（`Geo.mesh()`、`Kit.finish()`、`finishRow()` 的輸出）在畫過之後沒有頂點資料可讀：不要對它們做 raycast、`Box3.setFromObject()`、合併或改頂點；要用請在建置時（第一次畫之前）做，或改用碰撞資料（`world.collision`、`interiors`）。
-- **量測**：`npm run profile:mobile -- --assert-ios-budget`（進標題時畫布 ≤ 220 MB）；數據記在 `perf-refactor/agent-handoff-log.md`。
-- **載入時不做的事（Phase 1B）**：
+- **量測**：日常 PR 效能與手機畫布記憶體由 `npm run bench:iphone`（`<!-- yanlin-perf:v1 -->`）與 `npm run perf:history` 追蹤；單機定點門禁可用 `npm run profile:mobile -- --assert-ios-budget`（進標題時畫布 ≤ 220 MB）。
+- **載入時不做的事**：
   - renderer 不要 stencil buffer（專案沒有任何地方用到；three r160 預設會要），非開發、非 `?diag` 時關掉 `debug.checkShaderErrors`（讀每支著色器的編譯紀錄是同步的 GPU 往返）。之後若要用 stencil，記得把 `Game.init()` 的 `stencil: false` 拿掉。
   - low／xlow 一開始就不開陰影（`shadowMap.enabled`、太陽 `castShadow`），畫質升上去時 `GameLoop.applyQuality()` 會打開。
   - 歌劇背景音樂（3 MB）`preload = 'none'`，第一次播放時才下載。
   - 第一人稱後照鏡的 render target 第一次坐上車才建立（`FirstPerson.rt`）；`renderer.localClippingEnabled` 只在坐進汽車、車艙被切開時才打開（每一幀每個繪圖呼叫都會多一次檢查）。
   - 林口體育館（`src/world/buildings/Arena.js`）：座椅 `A1`／`A2` 與螢光棒恢復視錐剔除（原本人在校園時每幀也畫 4 公里外約 46 萬個三角形）；場館外殼平常隱藏，`Concert.js` 搭接駁車去時才顯示、回中原時再隱藏。
-- **繪圖與畫質（Phase 2，`perf-refactor/specs/phase-2-render-and-igpu-opt.md`）**：
+- **繪圖與畫質最佳化**：
   - 後製（`src/graphics/PostFX.js`）：低畫質直接畫到畫面，後製模組（`EffectComposer` 等）第一次需要時才用動態 `import()` 載入；中畫質不開 MSAA、bloom 用 1/4 解析度；高畫質維持 4× MSAA、1/2 bloom。色調映射（`OutputPass`）和調色合成同一個 pass。
   - 內顯與手機（`perfProfile.tier` 不是 `desktop-dgpu`）的太陽陰影每兩幀更新一次（`shadowMap.autoUpdate = false`，`GameLoop.loop()` 隔幀設 `needsUpdate`）。另外再呼叫 `renderer.render()` 的地方（例如後照鏡 `FirstPerson.renderMirrors`）要先把 `needsUpdate` 存起來、畫完再還原，不要把那一幀的陰影更新用掉。
   - 不透明物件依 shader program 分組再依距離排序（`src/graphics/RenderSort.js`）；`groupOrder`、`renderOrder` 仍然優先，地面圖層的順序不變。
@@ -205,6 +205,10 @@ iPhone 的 Safari／LINE／IG 內建瀏覽器，`<canvas>` 佔用超過幾百 MB
   - 室內家具：建物在 `k.furniture(() => { ... })` 裡建的零件（課桌椅、電腦、床組、座椅）合成自己的群組，鏡頭離它超過 45 m 就不畫（`cullFurniture`，每秒檢查四次）；碰撞與互動不受影響。目前用在資管系館教室、活動中心（培英廳座椅、桌椅）、力行六人房。
   - 校外遠處的補建建築（`synthetic` 或 `lod`，且離校園 250 m 以上）：`MapBuilder` 的建物迴圈把它們寫進各 Geo 的外圍副本（`Geo.routed()`）；某一塊在畫面上任何位置都已經被霧蓋住 97% 以上時就不畫（three 的 exp2 霧依畫面深度計算，深度至少是距離乘上半個對角視角的餘弦）。可視距離以外本來就由遠平面裁掉。
   - 小地圖（`HUD.drawMinimap`）只在玩家移動超過 0.35 m、視角或朝向轉超過 0.02 rad、範圍改變，或距上次超過 50 ms 時重畫。
+- **底層防踩雷紅線**：
+  - **`Three.js r160` 陰影深度格式**：`r160` 的 `WebGLShadowMap` 與 `ShadowFix.js` 將 32-bit 深度打包進四通道 `RGBADepthPacking`，嚴禁將陰影貼圖改為單通道 `RedFormat`（會破壞陰影）。
+  - **禁用 `backdrop-filter`**：`src/styles/style.css` 嚴禁使用 `backdrop-filter`（iOS Safari 會擷取背後整張 WebGL 畫布做模糊導致記憶體暴衝重載，由 `tests/unit/no-backdrop-filter.test.js` 把關）。
+  - **讀回像素畫布必加 `willReadFrequently`**：凡需呼叫 `getImageData` 讀回像素的 2D 畫布必須傳入 `{ willReadFrequently: true }`，且計算用暫存畫布讀完後應立即 `releaseCanvas()`，避免硬體加速畫布同步讀回阻塞。
 
 ### 5. 可共用的小工具（隨涼韌足體養生加入）
 - **`hud.fade(text, mid, after, { midText, dark, hold })`**（`src/ui/HUD.js`）：全螢幕黑幕加一行字（跟睡覺同一層 `#sleepFade`）。變黑後執行 `mid()`，文字可換成 `midText`，再淡回來後執行 `after()`。適合「時間往後跳」「瞬間移動」的轉場。

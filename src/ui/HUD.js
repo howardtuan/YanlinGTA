@@ -315,13 +315,65 @@ export class HUD {
   }
   _setupBigmapPan() {
     let drag = null,
-      moved = 0;
+      moved = 0,
+      pinch = null;
+    const pts = new Map(); // pointerId -> [x, y] of every finger on the map
+    const pair = () => {
+      const [a, b] = [...pts.values()];
+      return {
+        d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1,
+        mx: (a[0] + b[0]) / 2,
+        my: (a[1] + b[1]) / 2,
+      };
+    };
+    // two fingers: pinch to zoom (−1..3, like the wheel) around the point between them, and drag them to pan;
+    // the map point under the fingers' midpoint stays under it
+    const startPinch = () => {
+      const p = pair(),
+        r = this.big.getBoundingClientRect(),
+        k = this._bigK || 1;
+      pinch = {
+        d0: p.d,
+        z0: this.bigView.zoom,
+        fit: k / Math.pow(2, this.bigView.zoom),
+        wx: this.bigView.cx + (p.mx - r.left - r.width / 2) / k,
+        wz: this.bigView.cz + (p.my - r.top - r.height / 2) / k,
+      };
+      moved = 99; // lifting the fingers after a pinch is not a tap (no waypoint)
+    };
+    const up = (e) => {
+      if (!pts.delete(e.pointerId)) return;
+      if (pts.size < 2) pinch = null;
+      if (pts.size === 2) startPinch();
+      // the finger left after a pinch carries on panning from where it is (no jump)
+      if (pts.size === 1) drag = [...pts.values()][0].slice();
+    };
     this.big.addEventListener('pointerdown', (e) => {
-      drag = [e.clientX, e.clientY];
-      moved = 0;
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
       this.big.setPointerCapture(e.pointerId);
+      if (pts.size === 1) {
+        drag = [e.clientX, e.clientY];
+        moved = 0;
+      } else if (pts.size === 2) startPinch();
+    });
+    this.big.addEventListener('pointercancel', (e) => {
+      up(e);
+      if (!pts.size) drag = null;
     });
     this.big.addEventListener('pointermove', (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pinch) {
+        const p = pair(),
+          r = this.big.getBoundingClientRect();
+        const z = Math.max(-1, Math.min(3, pinch.z0 + Math.log2(p.d / pinch.d0)));
+        const k = pinch.fit * Math.pow(2, z);
+        this.bigView.zoom = z;
+        this.bigView.cx = pinch.wx - (p.mx - r.left - r.width / 2) / k;
+        this.bigView.cz = pinch.wz - (p.my - r.top - r.height / 2) / k;
+        this._bigK = k;
+        return;
+      }
       if (!drag) return;
       const k = this._bigK || 1;
       moved += Math.abs(e.clientX - drag[0]) + Math.abs(e.clientY - drag[1]);
@@ -331,6 +383,9 @@ export class HUD {
     });
     // a click (no drag) drops the waypoint there; clicking the pin again removes it
     this.big.addEventListener('pointerup', (e) => {
+      const multi = pts.size > 1;
+      up(e);
+      if (multi) return; // one of several fingers lifted: keep going
       if (drag && moved < 6 && this.onPin) {
         const r = this.big.getBoundingClientRect(),
           k = this._bigK || 1;

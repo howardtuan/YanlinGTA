@@ -321,12 +321,6 @@ kbd {
 .soc.gh {
   background: #24292f;
 }
-.soc.todo {
-  background: none;
-  color: var(--muted);
-  border: 1px dashed var(--line);
-  font-weight: 500;
-}
 details {
   margin-top: 12px;
   border-top: 1px solid var(--line);

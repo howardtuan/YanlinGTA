@@ -138,10 +138,12 @@ function avatarHtml(c, base, size = '') {
 
 function socialHtml(c) {
   if (!c.social) return '';
+  // 沒填的連結不顯示；兩個都沒填就整個區塊都不出現
+  if (!c.linkedin && !c.github) return '';
   const a = (url, cls, label) =>
     url
       ? `<a class="soc ${cls}" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`
-      : `<span class="soc ${cls} todo" title="連結待補">${label}・待補</span>`;
+      : '';
   return `<div class="socials">${a(c.linkedin, 'li', 'LinkedIn')}${a(c.github, 'gh', 'GitHub')}</div>`;
 }
 

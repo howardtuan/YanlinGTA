@@ -144,7 +144,7 @@ const FRIENDS = [
   {
     img: 'yeeming_walk',
     who: 'YeeMing',
-    t: ['休假陪女朋友散步 💑 #戒菸還在努力', '收假前最後一頓，吃好吃滿'],
+    t: ['休假陪女朋友散步 💑 #珍惜放假時光', '收假前最後一頓，吃好吃滿'],
   },
   {
     img: 'yeeming_volley',

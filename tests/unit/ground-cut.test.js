@@ -21,7 +21,7 @@ const square = (x0, z0, s) => [
   [V(x0, z0), V(x0, z0 + s), V(x0 + s, z0 + s)],
 ];
 
-describe('GroundCut (perf-refactor Phase 2: CPU ground holes instead of a shader discard)', () => {
+describe('GroundCut (CPU ground holes instead of a shader discard)', () => {
   it('leaves triangles far from any hole alone', () => {
     const gc = makeGroundCut({ rects: [[5, 5, 1, 0, 2, 2]] });
     const { out, touched } = cutAll(gc, square(100, 100, 10));

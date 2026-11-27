@@ -6,7 +6,7 @@
 // close-up while he lowers the scooter. When he isn't flying he walks around campus (CampusPilot) — there is only ever one of him.
 import * as THREE from 'three';
 import { surfaceAt } from '../../world/Terrain.js';
-import { createPilot, CampusPilot, PILOT_CALL_VOICE } from '../../entities/Pilot.js';
+import { createPilot, CampusPilot, pilotCallVoice } from '../../entities/Pilot.js';
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const T_IN = 7,
@@ -111,14 +111,7 @@ function buildHeli() {
     add(new THREE.BoxGeometry(0.48, 0.8, 0.1), seatM, x, 0.08, NOSE + 0.04, -0.1, 0, 0);
   }
   add(new THREE.BoxGeometry(1.3, 0.28, 0.3), dark, 0, -0.12, NOSE + 1.05, -0.55, 0, 0);
-  // the pilot, in the left seat (the side the film camera sees); he only casts a shadow inside the cabin anyway
-  const pilot = createPilot();
-  pilot.root.position.set(0.4, -0.72, NOSE + 0.24);
-  pilot.root.traverse((o) => {
-    if (o.isMesh) o.castShadow = false;
-  });
-  g.add(pilot.root);
-  pilot.update(1, { mode: 'drive' });
+  const pilot = seatPilot(g);
   add(new THREE.BoxGeometry(2.12, 0.34, 2.2), green, 0, -0.45, -0.7); // green stripe
   add(new THREE.BoxGeometry(2.14, 0.07, 2.15), orange, 0, -0.24, -0.68); // orange pinstripe
   add(new THREE.CylinderGeometry(0.28, 0.13, 4.6, 10), white, 0, 0.35, -3.6, Math.PI / 2, 0, 0); // tail boom
@@ -191,6 +184,19 @@ function buildHeli() {
   return { g, rotor, tail, pilot };
 }
 
+// the pilot, in the left seat (the side the film camera sees); he only casts a shadow inside the cabin anyway.
+// 勞大 or the 彥霖航空 captain, whichever is flying now (src/systems/LaodaMode.js)
+function seatPilot(g) {
+  const pilot = createPilot();
+  pilot.root.position.set(0.4, -0.72, NOSE + 0.24);
+  pilot.root.traverse((o) => {
+    if (o.isMesh) o.castShadow = false;
+  });
+  g.add(pilot.root);
+  pilot.update(1, { mode: 'drive' });
+  return pilot;
+}
+
 // the pilot blinks and holds the controls; while he lowers the scooter he looks down out of his (left) window
 function pilotTick(H, dt, down) {
   const p = H.pilot;
@@ -210,6 +216,14 @@ export class Airdrop {
   }
   get busy() {
     return !!this.run;
+  }
+  // 勞大 called back / sent off at the terminal (src/systems/LaodaMode.js): the other pilot from now on, on foot and in the cockpit
+  syncPilot() {
+    this.walker.reset();
+    const H = this.H;
+    if (!H) return;
+    H.g.remove(H.pilot.root);
+    H.pilot = seatPilot(H.g);
   }
   _heli() {
     return this.H || (this.H = buildHeli());
@@ -376,7 +390,8 @@ export class Airdrop {
     };
     this._look.copy(this.run.from);
     this._cinema(true);
-    g.audio.voice(PILOT_CALL_VOICE, 1, 'pilot');
+    const voice = pilotCallVoice(); // (勞大's; the captain calls in silently)
+    if (voice) g.audio.voice(voice, 1, 'pilot');
     return null;
   }
   // rotor thump, louder when it is close

@@ -389,6 +389,24 @@ export class Audio {
     this.noise(0.18, 400, 0.8, 0.14, 0, 'lowpass');
     this.tone(180, 0.1, 'triangle', 0.08, 0.02, 0.7);
   }
+  // 公車（src/systems/Buses.js）氣動車門：開門先「噗」一聲洩氣再「嘶——」，關門短促的「嘶」接一聲門框碰到的「咚」
+  busDoor(open) {
+    if (open) {
+      this.noise(0.12, 300, 0.7, 0.16, 0, 'lowpass');
+      this.noise(0.9, 3800, 0.5, 0.07, 0.06, 'highpass', 0.55);
+    } else {
+      this.noise(0.45, 3200, 0.5, 0.06, 0, 'highpass', 0.7);
+      this.noise(0.14, 260, 0.8, 0.12, 0.62, 'lowpass');
+      this.tone(120, 0.12, 'triangle', 0.07, 0.62, 0.7);
+    }
+  }
+  // 公車到站提示音：車內廣播前那兩聲「叮——咚」
+  busChime() {
+    this.tone(1046.5, 0.5, 'sine', 0.1, 0, 1);
+    this.tone(1046.5 * 2, 0.3, 'sine', 0.015, 0, 1);
+    this.tone(784, 0.9, 'sine', 0.1, 0.42, 1);
+    this.tone(784 * 2, 0.5, 'sine', 0.015, 0.42, 1);
+  }
   paper() {
     if (this._play('paper', 0.5, 0, 0.94 + Math.random() * 0.12)) return;
     this.noise(0.16, 3500, 0.6, 0.12, 0, 'highpass', 0.6);

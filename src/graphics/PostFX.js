@@ -2,10 +2,9 @@
 // (contrast / saturation / split toning / vignette / grain) in one full-screen pass.
 // (Screen-space AO was tried and dropped: an extra full scene pass for an almost invisible gain here;
 //  contact shadows under buildings + sun shadows do that job.)
-// perf-refactor Phase 2 (phase-2-render-and-igpu-opt.md §三.5): the composer and its passes are loaded with a
-// dynamic import() the first time a quality needs them (low draws straight to the screen and never loads them);
-// medium renders without MSAA and blurs its bloom at a quarter of the resolution; the tone mapping (OutputPass)
-// and the grade share one pass instead of two.
+// The composer and its passes are loaded with a dynamic import() the first time a quality needs them
+// (low draws straight to the screen and never loads them); medium renders without MSAA and blurs its bloom at a
+// quarter of the resolution; the tone mapping (OutputPass) and the grade share one pass instead of two.
 import * as THREE from 'three';
 
 let FX = null; // the post-processing modules, once loaded

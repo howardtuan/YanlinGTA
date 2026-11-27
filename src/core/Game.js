@@ -120,6 +120,8 @@ import { PerfHud } from './PerfHud.js';
 import { Benchmark } from '../systems/Benchmark.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 import { ParkedScooters } from './ParkedScooters.js';
+import { Buses } from '../systems/Buses.js';
+import { BusRide } from '../systems/BusRide.js';
 import { tennisP } from '../world/Tennis.js';
 
 const TENNIS_MID = tennisP(18, 7); // the middle of the tennis courts (src/world/Tennis.js)
@@ -322,8 +324,7 @@ class Game {
     }
 
     await stage('renderer-and-sky', 0.05, '初始化渲染管線');
-    // Phase 1B (perf-refactor/specs/phase-1-ios-memory-rescue.md): no stencil buffer (nothing uses one; three r160
-    // asks for it by default), an opaque canvas
+    // no stencil buffer (nothing uses one; three r160 asks for it by default), an opaque canvas
     const r = (this.renderer = new THREE.WebGLRenderer({
       antialias: !this.lowQ,
       powerPreference: 'high-performance',
@@ -339,7 +340,7 @@ class Game {
     r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
-    // perf-refactor Phase 2: integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
+    // integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
     // and every tier sorts opaque draws by shader program (src/graphics/RenderSort.js)
     this.halfRateShadows = this.perfProfile.tier !== 'desktop-dgpu';
     r.shadowMap.autoUpdate = !this.halfRateShadows;
@@ -349,7 +350,7 @@ class Game {
     // canvas textures (src/graphics/GpuMemLifecycle.js): phones store them at texScale, atlas sheets go to the GPU as
     // soon as they are drawn and lose their canvases. Desktops draw the same pixels as before.
     configureGpuMem(this.perfProfile, r);
-    // low / xlow walls and ground are Lambert: their textures skip the normal and roughness maps (perf-refactor Phase 2)
+    // low / xlow walls and ground are Lambert: their textures skip the normal and roughness maps
     setSurfaceDetail(!this.lowQ);
     // released canvases cannot be uploaded again after a lost context: start over (the game saves on unload)
     r.domElement.addEventListener('webglcontextrestored', () => location.reload());
@@ -412,6 +413,10 @@ class Game {
     releaseAtlasSources(this.scene, TEX);
     gcNudge(); // Apple WebKit: collect the build's garbage now (GpuMemLifecycle)
 
+    // 市區公車路線（src/systems/Buses.js）：路線與站牌；OSM 沒有的站牌在這裡補（碰撞要在 build-physics 之前、
+    // 室內與停放車輛都排好之後加，才不會讓它們重排）
+    this.buses = new Buses(this);
+    this.buses.stopProps(this.scene, this.world.collision);
     await stage('build-physics', 0.79, '建立物理碰撞世界');
     try {
       this.physStats = buildPhysicsWorld(this.physics, this.world.collision, this.interiors);
@@ -640,6 +645,7 @@ class Game {
     this.pinhan = new PinHan(this);
     this.pinhanCar = new PinHanCar(this);
     this.pinhanRide = new PinHanRide(this); // 漢堡車: his free ride once a day (src/systems/minigames/PinHanRide.js)
+    this.ride = new BusRide(this, this.buses); // 搭公車：站牌按 E (src/systems/BusRide.js)
     this.ruizhe = new Ruizhe(this); // 瑞哲 in 278 (bed 5, the middle desk on the left; src/entities/npcs/Ruizhe.js)
     // 吱吱's day in 力行 276 / the two 大A, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
     this.zzQuest = new ZzInjury(this);
@@ -1152,6 +1158,7 @@ class Game {
       !this.drone?.cinema &&
       !this.mingshan?.cinema &&
       !this.pinhanRide?.cinema &&
+      !this.ride?.bus &&
       !this.zzQuest?.busy &&
       !this.mahjong?.playing &&
       !this.job.active &&
@@ -1199,11 +1206,15 @@ class Game {
         yaw: v.heading,
         r: v.hw,
         hl: v.hl,
-        ...(v.kind === 'scooter' ? { cy: 0.5, hh: 0.45 } : { cy: 0.8, hh: 0.75 }),
+        ...(v.kind === 'scooter'
+          ? { cy: 0.5, hh: 0.45 }
+          : v.bus
+            ? { cy: 1.65, hh: 1.55 }
+            : { cy: 0.8, hh: 0.75 }),
       });
     if (pv) {
       if (!pv.body) veh(pv);
-    } else if (!pl.seat)
+    } else if (!pl.seat && !pl.aboard)
       list.push({
         key: pl,
         x: pl.pos.x,
@@ -1285,7 +1296,7 @@ class Game {
           hud.toast('被火車擦撞了！🚆', 'bad', 2000);
         }
       }
-    } else if (!pl.rag && !pl.tumble) {
+    } else if (!pl.rag && !pl.tumble && !pl.aboard) {
       const h = T.hit(pl.pos.x, pl.pos.z, pl.pos.y, 0.35);
       if (h) {
         pl.pos.x += h.nx * h.depth;
@@ -1430,6 +1441,10 @@ class Game {
       // 漢堡車 (Esc / E skips to the place)
       this.pinhanRide.update(dt, inp);
       inp.pressed.clear();
+    } else if (this.ride?.busy) {
+      // 公車站牌的面板、坐公車（src/systems/BusRide.js）
+      this.ride.update(dt, inp);
+      inp.pressed.clear();
     } else if (this.zzQuest?.busy) {
       // 吱吱's 武嶺 film (Esc / E skips it) or the bath mini-game (its own keys): nothing else reacts
       if (this.zzQuest.film.active) this.zzQuest.film.update(dt, inp);
@@ -1458,6 +1473,7 @@ class Game {
       this.drone.active ||
       this.mingshan?.cinema ||
       this.pinhanRide?.cinema ||
+      this.ride?.busy ||
       this.zzQuest?.busy ||
       this.massage?.busy || // 涼韌足體養生: from paying until you stand up again
       this.mahjong?.playing ||
@@ -1648,7 +1664,7 @@ class Game {
         v.pos.z + fz * 15
       );
     } else {
-      pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors);
+      if (!pl.aboard) pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors); // 坐公車時跟著車（src/systems/BusRide.js）
       this._tennisTick(dt, inp); // after your walk animation: the racket arm goes on top of it
       if (pl.sfx) {
         const k = pl.sfx;
@@ -1660,7 +1676,7 @@ class Game {
         else if (k === 'jump') this.audio.jump();
         else if (k === 'land') this.audio.land(pl.landImpact);
       }
-      if (!pl.rag && !pl.tumble) {
+      if (!pl.rag && !pl.tumble && !pl.aboard) {
         let movedFoot = !!this.parkedScooters?.resolveFoot(pl.pos, 0.35);
         for (const v of [...this.vehicles, ...this.traffic.vehicles(), ...this.race.vehicles()]) {
           if (Math.abs(pl.pos.x - v.pos.x) > v.hl + 1 || Math.abs(pl.pos.z - v.pos.z) > v.hl + 1)
@@ -1787,12 +1803,14 @@ class Game {
     const info = {
       pos: fw,
       vehicle: pl.vehicle,
+      aboard: pl.aboard, // 坐在公車上：車流不把你當成路上的障礙
       // parked / left vehicles traffic stops or steers for (not only the ones by you: #302)
       extraObstacles: [
         ...Traffic.parkedObstacles(this.vehicles, pl.vehicle, wp),
         ...this.race.vehicles(),
       ],
     };
+    this.buses?.update(dt);
     this.traffic.update(dt, info, this.audio);
     this._trainTick(dt);
     this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
@@ -1899,6 +1917,7 @@ class Game {
     this.drone.camera(this.camera, dt);
     this.mingshan?.camera(this.camera, dt);
     this.pinhanRide?.camera(this.camera, dt);
+    this.ride?.camera(this.camera, dt);
     this.massage?.camera(this.camera, dt);
     this._aim();
     hud.setClock(this.clock);

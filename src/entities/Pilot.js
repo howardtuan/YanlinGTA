@@ -2,14 +2,19 @@
 // 戴著橄欖綠的航空耳機（麥克風桿伸到嘴邊）。他開「呼叫載具」空運機車的那架直升機（src/systems/minigames/Airdrop.js）；
 // 沒在飛的時候，會不定時出現在校園某處散步（CampusPilot），有幾天的早上或傍晚會到體育園區的籃球場打球（src/world/Court.js）。
 // 他不會同時出現在兩個地方：散步、打球、開直升機是同一個狀態（同一個模型），開直升機時校園和球場都看不到他。
+// 勞大預設是藏起來的（src/systems/LaodaMode.js）：這時候開直升機、在校園散步的是「彥霖航空機長」（createCaptain）——
+// 白襯衫、深藍長褲、肩章領帶、機長帽，打招呼講的是機長的話，不放勞大的語音、不去打籃球，罵他也不會被肘擊。
+// 在電腦終端機輸入 mamba 叫勞大回來，上面這些才會出現。
 import * as THREE from 'three';
 import { createCharacter } from './Character.js';
-import { dressLakers, LAKERS } from '../ui/Jersey.js';
+import { dressLakers, LAKERS, section, HIPS } from '../ui/Jersey.js';
+import { torsoProfile } from './BodyMesh.js';
 import { makeLabel } from '../world/MapBuilder.js';
 import { surfaceAt } from '../world/Terrain.js';
 import { reachArm } from './Armik.js';
 import { COURTS, COLUMNS, courtP, courtRims, RIM_R } from '../world/Court.js';
 import { insultsLaoda } from '../systems/LaodaInsult.js';
+import { laodaOn } from '../systems/LaodaMode.js';
 
 export const PILOT_LOOK = {
   skin: '#6b4531',
@@ -36,7 +41,12 @@ function mats() {
   return M;
 }
 
-export function createPilot() {
+// the pilot as he is right now: 勞大 once he has been called back at the terminal, otherwise the 彥霖航空 captain
+export function createPilot(laoda = laodaOn()) {
+  return laoda ? createLaoda() : createCaptain();
+}
+
+function createLaoda() {
   const ch = createCharacter(PILOT_LOOK);
   ch.root.scale.set(1.04, 1.06, 1.04); // a head taller than the students, and he still fits the cockpit
   const m = mats();
@@ -102,9 +112,206 @@ export function createPilot() {
   return ch;
 }
 
+// ---- 彥霖航空機長 (while 勞大 is hidden): a greying, clean-shaven captain in a short-sleeved white uniform shirt with
+// four-bar epaulettes, a navy tie and gold wings, navy trousers, black shoes and a navy peaked cap with a gold badge
+export const CAPTAIN_LOOK = {
+  skin: '#d9a87f',
+  shirt: '#f1f2ee',
+  shorts: '#1c2336',
+  pants: true,
+  arm: 1.08,
+  build: 1.06,
+  hair: '#5a544e',
+  hairStyle: 'short',
+  shoes: '#161616',
+  sole: '#161616',
+  sock: '#1a1d26',
+  mouth: 'flat',
+  face: true,
+};
+let CM = null;
+function captainMats() {
+  if (CM) return CM;
+  const m = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
+  CM = {
+    navy: m('#1a2134'),
+    tie: m('#141a2c', { roughness: 0.55, side: THREE.DoubleSide }),
+    board: m('#111111', { roughness: 0.7 }),
+    visor: m('#0c0c0c', { roughness: 0.22, metalness: 0.2, side: THREE.DoubleSide }),
+    gold: m('#d6a83c', { roughness: 0.35, metalness: 0.75 }),
+    white: m(CAPTAIN_LOOK.shirt, { roughness: 0.9, side: THREE.DoubleSide }),
+  };
+  return CM;
+}
+// the front of the chest in the torso's frame (y up from the torso pivot): z of the shirt at height y (root frame), x = 0
+const chestZ = (y) => {
+  const s = section(torsoProfile(0), y, CAPTAIN_LOOK.build);
+  return s.cz + s.rz - 0.004;
+};
+
+function createCaptain() {
+  const ch = createCharacter(CAPTAIN_LOOK);
+  ch.root.scale.set(1.02, 1.04, 1.02);
+  const m = captainMats();
+  const add = (parent, geo, mat, x, y, z) => {
+    const o = new THREE.Mesh(geo, mat);
+    o.position.set(x, y, z);
+    parent.add(o);
+    return o;
+  };
+  const T = ch.torso,
+    Y = (y) => y - HIPS; // root height → torso frame
+
+  // ---- shirt collar round the neck, its two points lying on the chest either side of the tie knot ----
+  const collar = add(
+    T,
+    new THREE.TorusGeometry(0.074, 0.019, 6, 20, Math.PI * 1.55),
+    m.white,
+    0,
+    Y(1.537),
+    -0.006
+  );
+  collar.geometry.scale(1, 1, 0.7);
+  collar.geometry.rotateX(Math.PI / 2);
+  collar.geometry.rotateY(-2.36);
+  const tipGeo = new THREE.ExtrudeGeometry(
+    new THREE.Shape([
+      new THREE.Vector2(0, 0),
+      new THREE.Vector2(0.056, 0.012),
+      new THREE.Vector2(0.018, -0.058),
+    ]),
+    { depth: 0.005, bevelEnabled: false }
+  );
+  for (const sx of [-1, 1]) {
+    const tip = add(T, tipGeo, m.white, 0.008 * sx, Y(1.536), 0.072);
+    tip.scale.x = sx;
+    tip.rotation.x = -0.38;
+  }
+
+  // ---- tie: a knot under the collar and a blade laid on the shirt down to the belt, widening to a point ----
+  const knot = add(
+    T,
+    new THREE.CylinderGeometry(0.017, 0.011, 0.03, 4),
+    m.tie,
+    0,
+    Y(1.515),
+    chestZ(1.515) + 0.006
+  );
+  knot.rotation.set(-0.3, Math.PI / 4, 0);
+  knot.scale.set(1, 1, 0.55);
+  {
+    const ys = [1.5, 1.44, 1.36, 1.28, 1.21, 1.185],
+      half = [0.011, 0.015, 0.019, 0.023, 0.026, 0.026],
+      pos = [];
+    ys.forEach((y, i) => {
+      const z = chestZ(y);
+      pos.push(-half[i], Y(y), z, half[i], Y(y), z);
+    });
+    pos.push(0, Y(1.155), chestZ(1.155)); // the point
+    const idx = [];
+    for (let i = 0; i + 1 < ys.length; i++) {
+      const a = i * 2;
+      idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+    const n = ys.length * 2;
+    idx.push(n - 2, n, n - 1);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    add(T, g, m.tie, 0, 0, 0);
+  }
+
+  // ---- gold wings over the left breast (the character's left = +x) ----
+  const wings = new THREE.Group();
+  wings.position.set(0.082, Y(1.405), chestZ(1.405) - 0.006);
+  wings.rotation.y = 0.32;
+  T.add(wings);
+  add(wings, new THREE.BoxGeometry(0.064, 0.009, 0.003), m.gold, 0, 0, 0);
+  for (const sx of [-1, 1]) {
+    const f = add(wings, new THREE.BoxGeometry(0.026, 0.006, 0.003), m.gold, 0.02 * sx, 0.006, 0);
+    f.rotation.z = 0.25 * sx;
+  }
+  add(
+    wings,
+    new THREE.CylinderGeometry(0.008, 0.008, 0.004, 12),
+    m.gold,
+    0,
+    0.001,
+    0.001
+  ).rotation.x = Math.PI / 2;
+
+  // ---- epaulettes: black boards along the top of each shoulder, four gold bars at the outer end (captain) ----
+  const boardGeo = new THREE.BoxGeometry(0.115, 0.007, 0.05),
+    barGeo = new THREE.BoxGeometry(0.0055, 0.002, 0.051);
+  for (const s of [-1, 1]) {
+    const b = add(T, boardGeo, m.board, 0.158 * s, Y(1.528), -0.004);
+    b.rotation.z = -0.4 * s;
+    for (let k = 0; k < 4; k++) add(b, barGeo, m.gold, (0.022 + 0.01 * k) * s, 0.0045, 0);
+  }
+
+  // ---- peaked cap (head-pivot frame; the short hair's crown reaches y ~0.25): navy band and a flared top, a glossy
+  // black visor, a gold cord over the visor and a badge at the front ----
+  const cap = (ch.cap = new THREE.Group());
+  ch.head.add(cap);
+  const band = add(
+    cap,
+    new THREE.CylinderGeometry(0.143, 0.138, 0.062, 28, 1, true),
+    m.navy,
+    0,
+    0.18,
+    -0.004
+  );
+  band.scale.z = 1.08;
+  const top = add(
+    cap,
+    new THREE.CylinderGeometry(0.168, 0.143, 0.05, 28),
+    m.navy,
+    0,
+    0.234,
+    -0.004
+  );
+  top.scale.z = 1.1;
+  top.rotation.x = -0.12; // higher at the front
+  const visor = add(
+    cap,
+    new THREE.CylinderGeometry(0.118, 0.118, 0.01, 24, 1, false, -Math.PI / 2, Math.PI),
+    m.visor,
+    0,
+    0.152,
+    0.078
+  );
+  visor.scale.z = 0.95;
+  visor.rotation.x = 0.36;
+  const cord = add(
+    cap,
+    new THREE.CylinderGeometry(0.1445, 0.1445, 0.011, 24, 1, true, -Math.PI / 2.6, Math.PI / 1.3),
+    m.gold,
+    0,
+    0.166,
+    -0.004
+  );
+  cord.scale.z = 1.08;
+  const badge = add(cap, new THREE.SphereGeometry(0.018, 12, 8), m.gold, 0, 0.212, 0.152);
+  badge.scale.set(1.1, 1, 0.45);
+  for (const sx of [-1, 1]) {
+    const w = add(cap, new THREE.BoxGeometry(0.03, 0.007, 0.004), m.gold, 0.026 * sx, 0.214, 0.149);
+    w.rotation.set(0, 0.2 * sx, 0.18 * sx);
+  }
+  // (CampusPilot shows / hides ch.headset with 勞大's moods; the captain's cap stays on whatever he does)
+  ch.headset = cap;
+
+  ch.root.traverse((o) => {
+    if (o.isMesh && o.geometry.boundingSphere?.radius < 0.04) o.castShadow = false;
+  });
+  return ch;
+}
+
 // ---- the pilot on foot: turns up somewhere on campus near you, strolls the footpaths for a few minutes, wanders off,
 // and shows up again somewhere else later. Hidden whenever he is flying (Airdrop passes busy = true).
-export const PILOT_CALL_VOICE = 'assets/sfx/pilot/voice1.mp3'; // played when you call the helicopter (src/systems/minigames/Airdrop.js)
+const PILOT_CALL_VOICE = 'assets/sfx/pilot/voice1.mp3';
+// played when you call the helicopter (src/systems/minigames/Airdrop.js): 勞大's voice; the captain says nothing
+export const pilotCallVoice = () => (laodaOn() ? PILOT_CALL_VOICE : null);
 const PILOT_VOICES = [2, 3, 4].map((n) => `assets/sfx/pilot/voice${n}.mp3`); // greeting him on foot: one of these at random
 // greeting him also opens a dialog: one of these jokes at random (question, then the punchline after a key press),
 // always followed by the same closing line
@@ -114,6 +321,27 @@ const PILOT_JOKES = [
   ['Man 你知道為什麼我的背號從8號變成24號嗎？', '因為以前一天睡8小時，現在一天睡24小時'],
 ];
 const PILOT_JOKE_END = '孩子們，這並不好笑';
+// the 彥霖航空 captain's greetings instead (勞大 hidden, src/systems/LaodaMode.js): one at random, never the same twice running
+const CAPTAIN_LINES = [
+  [
+    ['彥霖', '機長辛苦了！'],
+    ['機長', '不辛苦，能飛就是福氣'],
+    ['機長', '要空運機車的話，手機打開「呼叫載具」，我隨時待命 🚁'],
+  ],
+  [
+    ['機長', '各位旅客您好，這裡是機長廣播……'],
+    ['機長', '啊，不好意思，在地面上也講習慣了 😅'],
+  ],
+  [
+    ['彥霖', '今天適合飛嗎？'],
+    ['機長', '天氣晴朗、能見度良好，很適合飛行'],
+    ['機長', '也很適合出去掃街拜票，加油 👍'],
+  ],
+  [
+    ['機長', '彥霖航空的口號是「使命必達」'],
+    ['機長', '機車吊在纜繩底下，比你自己騎還穩 🛵'],
+  ],
+];
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
 // ---- 彩蛋：罵勞大（src/systems/LaodaInsult.js）—— 手機訊息罵他（src/ui/phone/Phone.js）或打招呼時當面回嘴罵他，
@@ -585,14 +813,32 @@ export class CampusPilot {
     this.y = 0;
     this.lift = 0; // (coming for you) an interior floor's height above the ground under him, src/world/Kit.js groundAt
     this.grudge = null; // you insulted him (provoke): he is on his way to elbow you
+    this.laoda = laodaOn(); // 勞大, or the 彥霖航空 captain while 勞大 is hidden (src/systems/LaodaMode.js)
+  }
+  get name() {
+    return this.laoda ? '勞大' : '機長';
   }
   _build() {
-    const ch = (this.ch = createPilot());
-    const tag = makeLabel('🚁 勞大', { height: 0.26, size: 40 });
+    this.laoda = laodaOn();
+    const ch = (this.ch = createPilot(this.laoda));
+    const tag = makeLabel(this.laoda ? '🚁 勞大' : '🚁 彥霖航空機長', { height: 0.26, size: 40 });
     tag.position.set(0, 2.12, 0);
     ch.root.add(tag);
     ch.root.visible = false;
     this.g.scene.add(ch.root);
+    if (!this._act) this._addAction();
+  }
+  // 勞大 called back / sent off at the terminal (src/systems/LaodaMode.js): drop the model; the next one has the other look
+  reset() {
+    this.grudge = null;
+    this.hide(20 + Math.random() * 20); // (a route following him lets go once he is off: navPos() null)
+    this.court = null;
+    if (this.ch) this.g.scene.remove(this.ch.root);
+    this.ch = null;
+    this.laoda = laodaOn();
+  }
+  _addAction() {
+    this._act = true;
     // walk up to him and press E: he stops, turns to you and says one of his lines (a random clip, never the same twice running)
     const pos = this.pos;
     this.g.interiors.actions.push({
@@ -607,11 +853,17 @@ export class CampusPilot {
       anyY: true,
       cond: () => this.on && !this.grudge && this.mode !== 'leave',
       label: () =>
-        this.mode === 'court' ? '按 <kbd>E</kbd> 和打球的勞大聊聊' : '按 <kbd>E</kbd> 和勞大打招呼',
+        this.mode === 'court'
+          ? '按 <kbd>E</kbd> 和打球的勞大聊聊'
+          : `按 <kbd>E</kbd> 和${this.name}打招呼`,
       fn: () => this.greet(),
     });
   }
   async greet() {
+    if (!this.laoda) {
+      this._captainGreet();
+      return;
+    }
     let i;
     do i = Math.floor(Math.random() * PILOT_VOICES.length);
     while (PILOT_VOICES.length > 1 && i === this._lastVoice);
@@ -656,6 +908,21 @@ export class CampusPilot {
     const len = await this.g.audio.voice(PILOT_VOICES[i], 1, 'pilot');
     if (len && this.on && !this.grudge) this.pause = Math.max(this.pause, len + 0.8);
   }
+  // the captain: stops, turns to you and has a word (no voice clip, no box to answer back)
+  _captainGreet() {
+    const p = this.g.player.worldPos();
+    this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
+    this.pause = Math.max(this.pause, 2.5);
+    let j;
+    do j = Math.floor(Math.random() * CAPTAIN_LINES.length);
+    while (CAPTAIN_LINES.length > 1 && j === this._lastJoke);
+    this._lastJoke = j;
+    this.talking = true;
+    this.g.dialog(CAPTAIN_LINES[j], () => {
+      this.talking = false;
+      this.pause = Math.max(this.pause, 1);
+    });
+  }
   // what you said back to him face to face (the box at the end of his greeting): insult him and he elbows you
   hear(text) {
     this.talking = true;
@@ -685,15 +952,15 @@ export class CampusPilot {
     );
   }
   // you insulted him (a message, src/ui/phone/Phone.js, or to his face): he comes over and elbows you (_revenge).
-  // false: already on his way
+  // false: already on his way, or he is the captain (勞大 hidden: no elbow)
   provoke() {
-    if (this.grudge) return false;
+    if (this.grudge || !this.laoda) return false;
     this.grudge = { t: 0, st: 'run', k: 0, best: Infinity, stuck: 0 };
     return true;
   }
   // where the route goes when you asked him 你在哪？ on the phone (nav.track); null once he has gone
   get navArrive() {
-    return '📍 找到勞大了！走到他旁邊按 E 打招呼';
+    return `📍 找到${this.name}了！走到他旁邊按 E 打招呼`;
   }
   navPos() {
     return this.on ? { x: this.pos.x, z: this.pos.z } : null;
@@ -726,6 +993,7 @@ export class CampusPilot {
   }
   // at the basketball court for a while. You are there already: he comes dribbling in from a path, out of your sight
   playBall() {
+    if (!this.laoda) return false; // basketball is 勞大's (the captain never goes to the court)
     const c = COURTS[0].c,
       p = this.g.player.worldPos();
     let q = null;
@@ -806,7 +1074,7 @@ export class CampusPilot {
     }
     if (!this.on) {
       this.wait -= dt;
-      if (pilotBall(this.g.clock)) {
+      if (this.laoda && pilotBall(this.g.clock)) {
         if (this.wait <= 0) this.playBall();
         return;
       } // a basketball day: there or on his way, not strolling as well
@@ -820,7 +1088,7 @@ export class CampusPilot {
     const dPl = Math.hypot(this.pos.x - p.x, this.pos.z - p.z);
     this.life -= dt;
     if (this.g.nav?.follow === this) this.life = Math.max(this.life, 30); // he waits for you while you are on your way
-    const ball = pilotBall(this.g.clock); // time for basketball: off to the court once you can't see him
+    const ball = this.laoda && pilotBall(this.g.clock); // time for basketball (勞大 only): off to the court once you can't see him
     if (dPl > 170 || ((this.life <= 0 || ball) && dPl > 60 && this.g.nav?.follow !== this)) {
       this.hide(ball ? 4 : undefined);
       return;

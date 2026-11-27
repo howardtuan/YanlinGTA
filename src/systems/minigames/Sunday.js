@@ -92,7 +92,7 @@ const HINTS = [
   (M) =>
     !M.talked
       ? ['發表會要開始了，先聽 M.O.N.D.A.Y 說。']
-      : ['前往 <b>學生活動中心</b>，跟著地圖上的 ★ 走。', '到了之後演講會自動開始，好好表現 ✌'],
+      : ['前往 <b>二一鐘塔</b> 前面，跟著地圖上的 ★ 走。', '到了之後演講會自動開始，好好表現 ✌'],
 ];
 
 // the little AI chip in front of the name: a sparkle and "AI"

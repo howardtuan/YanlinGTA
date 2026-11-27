@@ -1,4 +1,4 @@
-// Canvas texture memory (perf-refactor/specs/phase-1-ios-memory-rescue.md, Phase 1A).
+// Canvas texture memory (see docs/guide/architecture.md).
 // iOS Safari / LINE / IG WKWebView kill the page when its <canvas> backing stores pass a few hundred MB; a full load
 // used to keep ~1.75 GB of them (every shop-row atlas sheet and every sign it was packed from). This module:
 //  - creates canvases at the phone texture scale with the context pre-scaled, so the drawing code keeps drawing at
@@ -21,7 +21,7 @@ const floorPow2 = (v) => 2 ** Math.floor(Math.log2(Math.max(16, v)));
 
 // called once by src/core/Game.js after the renderer exists and before the world builds: every tier stores its
 // canvas textures at PerfProfile's texScale (desktop-dgpu 1, desktop-igpu 0.75, mobile-lite 0.5, safe mode 0.375,
-// or ?texscale=) and its atlas sheets within atlasMaxW x atlasMaxH (perf-refactor/specs/phase-1-ios-memory-rescue.md)
+// or ?texscale=) and its atlas sheets within atlasMaxW x atlasMaxH (docs/guide/architecture.md)
 export function configureGpuMem(profile = {}, renderer = null) {
   const s = clampScale(profile.texScale ?? 1);
   const maxW = profile.atlasMaxW || 2048,
@@ -210,8 +210,8 @@ function guardUpload(t) {
 
 // ---- static geometry: the CPU copy of its vertex arrays is dropped once WebGL has it ----
 // Only for merged, never-changing world geometry (MapBuilder's Geo meshes, Kit.finish, finishRow): nothing reads those
-// arrays after loading (no raycasts against the world; physics is built from the collision data). The four rules of
-// perf-refactor/pitfalls-and-memory.md (pitfall #9): bounds first (frustum culling and ShadowFix use them), a whitelist,
+// arrays after loading (no raycasts against the world; physics is built from the collision data). Four rules
+// (docs/guide/architecture.md): bounds first (frustum culling and ShadowFix use them), a whitelist,
 // count stays (draw ranges use it), and a lost WebGL context reloads the page (src/core/Game.js).
 function dropAfterUpload() {
   this.array = new this.array.constructor(0);
@@ -230,7 +230,7 @@ export function markStaticGeometry(geo) {
   return geo;
 }
 
-// ---- Apple WebKit: a nudge for the JavaScriptCore garbage collector after a big build (perf-refactor Phase 1) ----
+// ---- Apple WebKit: a nudge for the JavaScriptCore garbage collector after a big build ----
 // Making and removing a hidden iframe prompts JSC to collect; only on Apple's engine, at most once every 5 s.
 let lastNudge = -Infinity;
 export function gcNudge() {

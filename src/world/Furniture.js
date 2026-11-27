@@ -743,13 +743,19 @@ export function buildFurniture(scene, world, data, ctx) {
   const junctions = [];
   for (const [id, A] of arms)
     if (A.length >= 3 && inB(A[0].x, A[0].z, 40)) junctions.push({ id, x: A[0].x, z: A[0].z, A });
+  // world.signals: every signal junction / mid-block signal with its phase groups (36 s cycle below), so vehicles
+  // that keep to the lights (公車, src/systems/Buses.js) know when to stop and where (stop: the stop line, m from the node)
+  const signals = (world.signals = []);
   const signalJunction = (J) => {
     // phase groups relative to the first arm: roughly parallel arms share one
     const A0 = J.A[0];
+    const sig = { id: J.id, x: J.x, z: J.z, arms: [] };
+    signals.push(sig);
     for (const a of J.A) {
       const grp = Math.abs(a.ex * A0.ex + a.ez * A0.ez) > 0.7 ? 0 : 1;
-      if (a.road.bridge) continue;
       const s = Math.max(...J.A.filter((o) => o !== a).map((o) => o.w / 2)) + 1.5;
+      sig.arms.push({ ex: a.ex, ez: a.ez, grp, stop: s + 4.6 });
+      if (a.road.bridge) continue;
       {
         const zx = a.x + a.ex * (s + 1.8),
           zz = a.z + a.ez * (s + 1.8);
@@ -809,6 +815,7 @@ export function buildFurniture(scene, world, data, ctx) {
       // mid-block signal (pedestrian crossing): one pole, heads both ways
       const r = roadAt(s.x, s.z);
       if (!r || r.d > 3) continue;
+      signals.push({ mid: true, x: r.q[0], z: r.q[1], grp: 0 });
       const [rx, rz] = right(r.tx, r.tz),
         px = r.q[0] + rx * (r.w / 2 + 0.8),
         pz = r.q[1] + rz * (r.w / 2 + 0.8);

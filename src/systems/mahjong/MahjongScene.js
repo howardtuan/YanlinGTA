@@ -495,8 +495,8 @@ const WALL_D = 0.3; // the wall's distance from the centre (a little out, so the
 const wallSlot = (ws, si, lift = 0) => slot(ws, -0.25 + TW / 2 + si * TW, WALL_D, 'down', lift);
 // 牌放大：海底與別家吃碰槓的牌比實際大一點，手機上也看得清楚。海底放大到碰到牌牆為止（排到第四排時自動縮回一點）
 const DISC_BIG = 1.3,
-  MELD_BIG = 1.2,
-  MINE_BIG = 1.3; // 遠景：你自己的 3D 手牌（和吃碰槓）放大，站在桌邊看得清楚
+  MELD_BIG = 1.35,
+  MINE_BIG = 1.45; // 遠景：你自己的 3D 手牌（和吃碰槓）放大，站在桌邊看得清楚
 const MINE_D = 0.43; // 你的手牌離桌子中心多遠（放大後往你這邊挪一點，不壓到花）
 // 近景（手機版）像麻將手遊一樣不擺牌牆（剩幾張寫在桌子中間），海底可以一路放大到花那排前面
 const DISC_BIG_NOWALL = 1.55,
@@ -530,7 +530,7 @@ export function discardScale(maxCount, wall = true) {
 export const CAM_VIEW = {
   close: (aspect) => (aspect < 1 ? { fov: 58, elev: 76, tz: 0 } : { fov: 40, elev: 60, tz: 0 }),
   far: (aspect) =>
-    aspect < 0.8 ? { fov: 58, elev: 62, tz: 0.02 } : { fov: 52, elev: 20, tz: 0.02, face: true },
+    aspect < 0.8 ? { fov: 58, elev: 62, tz: 0.02 } : { fov: 52, elev: 16, tz: 0.02, face: true },
 };
 const FACE_Y = 1.72; // 坐著的人頭頂（含頭髮）大約這麼高
 const MJ_PIXELS = 2.6e6; // 牌桌最多畫這麼多像素（約 2560×1000）

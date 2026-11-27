@@ -1,5 +1,5 @@
 // 力行宿舍 277 寢的迷你麻將桌（桌子在 src/world/buildings/Lixing.js 的 rooms[277].mahjong）：台式麻將 16 張，底 30、一台 10。
-// 整天都能打，只要錢包 > 0（錢可以輸到負的，但 0 或負的時候不能開打）。按 E 揪人：只找我們力行的 7 個人 ——
+// 整天都能打，只要錢包 > 0（錢可以輸到負的，但 0 或負的時候不能開打）。按 E 揪人：只找我們力行的 7 個人和住彥霖隔壁的蓋瑞 ——
 //   先找醒著、在寢室的（直接走過來），再打電話叫在外面的回來（打工、顧店、約會、兜風都會來），最後去敲門叫醒在睡覺的；
 //   湊滿 3 家就等他們到（看 g.clock；按 E 可以快轉），人到齊按 E 開打。
 // 打牌時畫面換到自己的小場景（src/systems/mahjong/MahjongScene.js，有自己的燈，主場景燈數不變）；
@@ -22,7 +22,7 @@ import {
   seatsFromWinds,
 } from './Rules.js';
 
-// 力行的 7 個人：找人的順序（同一種狀態裡）＝ 離 277 近的寢室先；style 是打牌個性（src/systems/mahjong/AI.js）
+// 力行的 7 個人＋住彥霖隔壁的蓋瑞：找人的順序（同一種狀態裡）＝ 離 277 近的寢室先；style 是打牌個性（src/systems/mahjong/AI.js）
 export const ROSTER = [
   { id: 'zz', name: '吱吱', room: 276, style: { attack: 0.75, defense: 0.3 } },
   { id: 'houshe', name: '侯舌', room: 276, style: { attack: 0.5, defense: 0.5 } },
@@ -31,6 +31,8 @@ export const ROSTER = [
   { id: 'gd', name: '肉舖老闆', room: 279, style: { attack: 0.85, defense: 0.2 } },
   { id: 'howard', name: '霍華德', room: 279, style: { attack: 0.45, defense: 0.6 } },
   { id: 'richard', name: '理查', room: 280, style: { attack: 0.4, defense: 0.65 } },
+  // 黃蓋瑞不住力行（住彥霖隔壁）：永遠算「在外面」或「在睡覺」，要打電話叫他來，所以排在最後
+  { id: 'garry', name: '蓋瑞', room: null, style: { attack: 0.45, defense: 0.6 } },
 ];
 const NAME = Object.fromEntries(ROSTER.map((r) => [r.id, r.name]));
 const DEV_DORM = new Set(['code', 'game', 'dorm']);
@@ -88,6 +90,7 @@ export const BANTER = {
     gd: '連胡成這樣？好啊，接下來我可不手軟了 😤',
     howard: '數據顯示你勝率偏高，我決定把演算法開認真一點 🤓',
     richard: '靠，一直被你胡，我要開始記你打過的牌了 😤',
+    garry: '彥霖今天手氣太好了吧，看來我也得切回認真測試模式了 🧐',
   },
   up3: {
     zz: '太扯了吧！全員警戒，這把絕不能再放槍給你 🔥',
@@ -97,6 +100,7 @@ export const BANTER = {
     gd: '想把我們全桌掃光？門都沒有，全力開幹 🔥',
     howard: '認真模式拉滿，別想再輕鬆摸大牌了 🔥',
     richard: '你開掛喔？好啦我也不划水了，全力盯牌 🔥',
+    garry: '你贏太多了啦，我先把安全動線規劃好，全力防守了 🛡️',
   },
   hot: {
     zz: '你今天到底拜哪間廟，連胡成這樣太離譜了吧 🔥',
@@ -106,6 +110,7 @@ export const BANTER = {
     gd: '可惡，全力還擋不住，下一把一定討回來 🔥',
     howard: '這勝率已經超出模型預測了，太扯 🔥',
     richard: '連全力記牌都擋不住你，今天你最大 🙇',
+    garry: '我都防成這樣還能被你連胡，這牌局是不是有 bug 啊 😅',
   },
   down1: {
     zz: '呼，總算追回一點，大家可以先喘口氣囉 😅',
@@ -115,6 +120,7 @@ export const BANTER = {
     gd: '哼，總算輪到我們出氣了，先收一點力。',
     howard: '局勢回到均衡了，切回一般節奏打。',
     richard: '好啦先不那麼緊繃，正常節奏繼續摸。',
+    garry: '有追回一點囉，手感像調好音的古箏一樣穩下來了 😊',
   },
   down0: {
     zz: '欸別氣餒啦，大家放輕鬆邊聊天邊打比較好玩 😌',
@@ -124,6 +130,7 @@ export const BANTER = {
     gd: '看你臉都綠了，好啦這幾把不盯那麼兇 😌',
     howard: '幫你調回休閒模式，順便聊點別的吧 😂',
     richard: '手氣差難免的啦，大家放輕鬆陪你打幾圈 😌',
+    garry: '別在意輸贏啦，反正我就住你隔壁，大家輕鬆陪你慢慢打 ☕',
   },
   cold: {
     zz: '沒事沒事，運氣隨時會反彈，下把一定讓你胡回來 💪',
@@ -133,6 +140,7 @@ export const BANTER = {
     gd: '我已經放超鬆了欸，快胡一把振作起來啊 😂',
     howard: '根據大數法則，你下一把應該快轉運了 🍀',
     richard: '幫你集氣啦，這把穩穩摸一定有機會 🍀',
+    garry: '別灰心啦，就像去體育園區跑步一樣，撐過撞牆期就順了 💪',
   },
 };
 

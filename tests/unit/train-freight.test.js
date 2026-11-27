@@ -2,7 +2,13 @@
 // 同一天每次都一樣、不同天不一樣；貨櫃方塊的每個三角形都朝外（三角形方向反了會變成只看得到兩端的薄片）
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { schedule, FREIGHT_PER_DAY, SPEED } from '../../src/entities/Trains.js';
+import {
+  schedule,
+  FREIGHT_PER_DAY,
+  SPEED,
+  MAINT_CLEAR,
+  MAINT_SPEED,
+} from '../../src/entities/Trains.js';
 import { carGeometry, cargoKind, CAR_L } from '../../src/entities/TrainModel.js';
 import { WEEKDAY, WEEKEND } from '../../src/entities/TrainTimetable.js';
 
@@ -33,6 +39,51 @@ describe('貨物列車班次', () => {
     expect(cargoKind('freight', 0, false, 3)).toBe('head');
     expect(cargoKind('freight', 12, true, 3)).toMatch(/^w\dT$/);
     expect(cargoKind('military', 5, false, 3)).toMatch(/^m\d$/);
+  });
+});
+
+describe('半夜的軌道維修工程車', () => {
+  const days = [];
+  for (let m = 1; m <= 12; m++)
+    for (let d = 1; d <= 28; d += 3) days.push(2026 * 10000 + m * 100 + d);
+  const eng = (day, T = WEEKDAY) =>
+    schedule(T, 446, 4376, 17, day).filter((t) => t.look === 'engineering');
+  it('大約一半的夜晚有一班，同一天每次都一樣，沒給日期就沒有', () => {
+    const n = days.filter((d) => eng(d).length).length;
+    expect(n / days.length).toBeGreaterThan(0.3);
+    expect(n / days.length).toBeLessThan(0.7);
+    for (const d of days) expect(eng(d).length).toBeLessThanOrEqual(1);
+    expect(eng(days[0])).toEqual(eng(days[0]));
+    expect(schedule(WEEKDAY, 446, 4376).some((t) => t.look === 'engineering')).toBe(false);
+  });
+  it('只在 1:00～4:30 慢速開，同方向前後 MAINT_CLEAR 分鐘內沒有別班車', () => {
+    for (const T of [WEEKDAY, WEEKEND])
+      for (const d of days) {
+        const L = schedule(T, 446, 4376, 17, d),
+          e = L.find((t) => t.look === 'engineering');
+        if (!e) continue;
+        expect(e.tRef).toBeGreaterThanOrEqual(60);
+        expect(e.tRef).toBeLessThanOrEqual(270);
+        expect(e.v).toBe(MAINT_SPEED);
+        expect(e.v).toBeLessThan(SPEED);
+        for (const u of L)
+          if (u !== e && u.dir === e.dir) {
+            const dd = Math.abs(u.tRef - e.tRef) % 1440;
+            expect(Math.min(dd, 1440 - dd)).toBeGreaterThanOrEqual(MAINT_CLEAR);
+          }
+      }
+  });
+  it('編組：搗固車在前、道碴車、平車，最後是掛尾燈的軌道車', () => {
+    const k = Array.from({ length: 5 }, (_, i) => cargoKind('engineering', i, i === 4, 0));
+    expect(k).toEqual(['e0', 'e1', 'e1', 'e2', 'e3T']);
+    for (const kind of k) {
+      const g = carGeometry('engineering', kind),
+        P = g.attributes.position.array;
+      expect(P.length / 9).toBeLessThan(3000);
+      expect(P.every(Number.isFinite)).toBe(true);
+      expect(g.boundingBox.max.y).toBeLessThan(5.5);
+      expect(g.boundingBox.max.x).toBeLessThan(1.5);
+    }
   });
 });
 

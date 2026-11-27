@@ -10,7 +10,16 @@
 import * as THREE from 'three';
 import { groundY } from '../world/Terrain.js';
 import { WEEKDAY, WEEKEND } from './TrainTimetable.js';
-import { CAR_L, HALF_W, ROOF, LOOK, carGeometry, carMaterial, cargoKind } from './TrainModel.js';
+import {
+  CAR_L,
+  HALF_W,
+  ROOF,
+  LOOK,
+  ENG_CARS,
+  carGeometry,
+  carMaterial,
+  cargoKind,
+} from './TrainModel.js';
 
 export const SPEED = 25; // m/s（90 km/h，內壢—中壢站間的行駛速度）
 const CAR_GAP = 0.5; // 車廂之間（貫通道各伸出 0.25 m 接在一起）
@@ -18,6 +27,13 @@ const RAIL_TOP = 0.04; // 鋼軌頂離地面（src/world/MapBuilder.js 的鋼軌
 const WARN_D = 175; // 車頭到達前約 7 秒開始響鈴、閃燈
 const CLEAR_D = 6;
 export const FREIGHT_PER_DAY = 4; // 每天幾班換成貨物列車
+// 軌道維修工程車：大約一半的夜晚有一班，1:00～4:30 之間、同方向前後 MAINT_CLEAR 遊戲分鐘內沒有別班車的時候開，
+// 慢速通過（追不上前一班；後一班 MAINT_CLEAR 分鐘後才來，地圖範圍內不會追上它）
+export const MAINT_P = 0.5;
+export const MAINT_SPEED = 10; // m/s（36 km/h）
+export const MAINT_CLEAR = 60;
+const MAINT_FROM = 60,
+  MAINT_TO = 270;
 export const GAP_MIN = 17; // 同方向兩班之間至少隔幾分鐘（遊戲時間，現實 68 秒）才開：平日約 98 班、週六約 96 班（全部的一半）
 const FAR = 600; // 離玩家這麼遠的車廂不畫
 const NEILI = [1584.5, -1625.4]; // 內壢站（地圖座標，換算自經緯度）
@@ -60,6 +76,28 @@ export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN, day = null) {
       t.look = mil ? 'military' : 'freight';
       t.cars = mil ? 10 : 13;
       t.seed = Math.floor(rnd() * 1000);
+    }
+    // 工程車（亂數接在貨物列車後面抽，不影響當天挑哪幾班貨物列車）
+    if (rnd() < MAINT_P) {
+      const dir = rnd() < 0.5 ? 1 : -1;
+      const near = (a, b) => {
+        const d = Math.abs(a - b) % 1440;
+        return Math.min(d, 1440 - d);
+      };
+      const same = kept.filter((t) => t.dir === dir),
+        ok = [];
+      for (let t = MAINT_FROM; t <= MAINT_TO; t += 5)
+        if (same.every((u) => near(u.tRef, t) >= MAINT_CLEAR)) ok.push(t);
+      const pick = Math.floor(rnd() * ok.length);
+      if (ok.length)
+        kept.push({
+          tRef: ok[pick],
+          dir,
+          no: `工${day % 1000}`,
+          look: 'engineering',
+          cars: ENG_CARS,
+          v: MAINT_SPEED,
+        });
     }
   }
   // 同方向前後兩班太近（追撞）：後一班往後挪到至少隔一列車長加 80 m
@@ -132,7 +170,7 @@ export class Trains {
   headS(t, clock) {
     let dtMin = clock - t.tRef;
     dtMin -= Math.round(dtMin / 1440) * 1440; // 跨午夜
-    return REF_S + t.dir * SPEED * dtMin * 4; // 遊戲 1 分鐘 = 現實 4 秒
+    return REF_S + t.dir * (t.v || SPEED) * dtMin * 4; // 遊戲 1 分鐘 = 現實 4 秒；t.v：工程車慢速
   }
   // 這一刻在地圖上（任何一節還在軌道範圍內）的班次
   _visible(clock) {
@@ -204,7 +242,7 @@ export class Trains {
           heading,
           dirX: hx,
           dirZ: hz,
-          speed: SPEED,
+          speed: t.v || SPEED,
           hl: CAR_L / 2,
           hw: HALF_W,
           no: t.no,
@@ -233,7 +271,8 @@ export class Trains {
           scI = c.sI[t.dir];
         const L = t.cars * (CAR_L + CAR_GAP);
         const ahead = (scI - h) * t.dir; // 車頭到平交道（正：還沒到）
-        if (ahead < WARN_D && ahead > -(L + CLEAR_D)) warn = true;
+        // 響鈴距離照車速縮放：慢速的工程車也是到達前約 7 秒才響
+        if (ahead < (WARN_D * (t.v || SPEED)) / SPEED && ahead > -(L + CLEAR_D)) warn = true;
         // 快到平交道鳴笛
         if (audio && ahead < 180 && ahead > 150) {
           const key = `${t.no}@${this.rw.crossings.indexOf(c)}`;

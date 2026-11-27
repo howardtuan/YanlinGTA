@@ -7,7 +7,8 @@
 //        'LB' 力行北街（s=0 在中北路口，往東南走；中原夜市 s≈150～225、日新路口 s≈240、弘揚路口 s≈446）、
 //        'Q' 新中北路249巷（s=0 在新中北路中心線，往北走；11弄口 s≈41.4、北端 s≈73 是縱貫線平交道）、
 //        'Q11' 新中北路249巷11弄（s=0 在 249巷口，往西南西走、和鐵道平行；s≈112 西端接一條往南通到新中北路的無名巷，再往西 Google 標成 185巷6弄）、
-//        'Q6' 新中北路185巷6弄（s=0 在 11弄西端的無名巷口，往西南西走；185巷口 s≈42、西端 s≈68.7 到老街溪邊）
+//        'Q6' 新中北路185巷6弄（s=0 在 11弄西端的無名巷口，往西南西走；185巷口 s≈42、西端 s≈68.7 到老街溪邊）、
+//        'Q185' 新中北路185巷（s=0 在 6弄口，往南南東走；s≈31.9 是新中北路中心線，side +1 是西側）
 //   side +1 = 順著 s 走的右手邊（X 的北側＝靠校園側、L 的東側＝靠校園側、Z 與 H 的東南側、D3 與 D4 的西北側、F 的西側＝老街溪側、LB 的西南側），-1 = 左手邊
 //   spec 欄位與 src/world/buildings/StreetZhongbei.js 相同（nf、gf、fh、d、wall、low、sign、ground、sh、awn、bal、glass、hood、vert、round、banner、
 //        roof、bill、tin、arch、fins、big、sign2、noband、roofCol、door、tower、bikes、set）
@@ -53,6 +54,7 @@ import SegLB3 from './xzb/SegLB3.js';
 import SegQ1 from './xzb/SegQ1.js';
 import SegQ2 from './xzb/SegQ2.js';
 import SegQ3 from './xzb/SegQ3.js';
+import SegQ4 from './xzb/SegQ4.js';
 import { shrinkFont } from '../../graphics/FitText.js';
 
 // SegX0、SegX9～SegX11、中山東路 SegZ*、弘揚路 SegH*、大仁三街 SegD3、大仁四街 SegD4、幸福街 SegF*、力行北街 SegLB*、249巷 SegQ* 依序加在最後面，前面各段的亂數種子（seed 用 SEGS 的索引）才不會變
@@ -89,6 +91,7 @@ const SEGS = [
   SegQ1,
   SegQ2,
   SegQ3,
+  SegQ4,
 ];
 
 // 參考線（data/cycu.json 的道路中心線，遊戲座標 x 東、z 南）
@@ -301,9 +304,14 @@ export const XZ_REF = {
     [-416.0, -87.8],
     [-423.0, -83.5],
   ],
+  // 新中北路185巷：s=0 在 6弄口（Q6 s≈47.5），往南南東到新中北路中心線（X s≈1048，s≈31.9；data/cycu.json roads「新中北路185巷」）
+  Q185: [
+    [-404.2, -93.2],
+    [-388.6, -65.4],
+  ],
 };
 // 路寬的一半（data/cycu.json）：新中北路 8.5、469巷 7.5、中山東路 13（高架段 10）、弘揚路 10、大仁三街與大仁四街 5、幸福街 5、力行北街 6、
-// 249巷 5、249巷11弄與 185巷6弄 3
+// 249巷與 185巷 5、249巷11弄與 185巷6弄 3
 const HALF = {
   X: 4.25,
   L: 3.75,
@@ -316,6 +324,7 @@ const HALF = {
   Q: 2.5,
   Q11: 1.5,
   Q6: 1.5,
+  Q185: 2.5,
 };
 // 立面離參考線的預設距離（各格可用 spec.set 覆寫）；大仁三、四街、幸福街、力行北街的街屋立面在路面外 1.3 m（雨棚外伸 1.27 m 才不會伸到路面上）
 // 249巷與 11弄的路面比實景寬（11弄實景約 4 m、遊戲中心線偏南 1.5～2 m），立面只退到路面外 0.9 m，門前鋪面才不會鋪到路上
@@ -331,6 +340,7 @@ const SET = {
   Q: 3.4,
   Q11: 2.4,
   Q6: 2.4,
+  Q185: 3.1,
 };
 
 const LOTS = SEGS.flatMap((S, si) =>

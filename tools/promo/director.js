@@ -5,6 +5,12 @@
   const st = document.createElement('style');
   st.id = 'promoCss';
   document.head.appendChild(st);
+  // promo footage always shows the computer's default wallpaper (the blue gradient), never a custom wallpaper from assets/pc/
+  const wall = document.createElement('style');
+  wall.id = 'promoWall';
+  wall.textContent =
+    '.pc-screen { background: radial-gradient(circle at 70% 30%, #3a7bd5 0, #1c3f7a 45%, #0f2147 100%) !important; }';
+  document.head.appendChild(wall);
   D.hud = (show) => {
     st.textContent = show
       ? ''

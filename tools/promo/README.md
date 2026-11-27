@@ -1,6 +1,6 @@
 # 宣傳片錄製與剪輯工具（`tools/promo/`）
 
-線上 Wiki 首頁播放的 58 秒宣傳片（`wiki/media/promo.mp4` 與封面 `wiki/media/promo-poster.jpg`），以及歸檔於 `docs/promo-archive/promo/` 的無配樂母帶（`yanlin-promo-58s-v2-nobgm.mp4`）與歷代展示片，都是用這裡的工具做的：畫面全部是遊戲本身實際跑出來的，用 GPU Chrome 以**固定時間步逐格錄製**（不掉幀、可重現），再用 [Remotion](https://www.remotion.dev/) 剪輯、上字幕與配樂。不進遊戲執行期，只有 `wiki/media/` 會隨 Wiki 靜態站輸出至 `dist/wiki/media/`。
+線上 Wiki 首頁播放的 100 秒宣傳片（v3）（`wiki/media/promo.mp4` 與封面 `wiki/media/promo-poster.jpg`），以及歸檔於 `docs/promo-archive/promo/` 的無配樂母帶（`yanlin-promo-100s-v3-nobgm.mp4`、`yanlin-promo-58s-v2-nobgm.mp4`）與歷代展示片，都是用這裡的工具做的：畫面全部是遊戲本身實際跑出來的，用 GPU Chrome 以**固定時間步逐格錄製**（不掉幀、可重現），再用 [Remotion](https://www.remotion.dev/) 剪輯、上字幕與配樂。不進遊戲執行期，只有 `wiki/media/` 會隨 Wiki 靜態站輸出至 `dist/wiki/media/`。
 
 ## 檔案
 
@@ -39,6 +39,22 @@ npm run render:nobgm   # out/yanlin-promo-nobgm.mp4（只有音效）
 ```
 
 交付檔另外以 `-crf 23` 壓縮並把響度標準化到約 -16 LUFS（`ffmpeg -af loudnorm=I=-16:TP=-1.5:LRA=11`）。
+
+## v3：2 分鐘版（`YanlinPromo3`）
+
+分鏡與設計 spec 在 [`storyboard-v3.md`](storyboard-v3.md)。錄影改用 bash 腳本，JS 經由 stdin 傳給 daemon（Windows 的命令列參數會把中文弄亂）：
+
+```bash
+node tools/promo/rec.mjs &                  # 等 out/rec.log 印出 recorder ready，再照 boot.sh 進入自由探索
+tools/promo/shots_v3.sh campus              # campus / area / phone / pc / zz / end，或單支名稱，例如 "t_train z_film"
+tools/promo/shots_v3.sh "pc_setup c_sql"    # 電腦段先跑 pc_setup（預熱 Pyodide / sql.js）
+```
+
+- 錄影時電腦桌布一律是遊戲預設的藍色漸層（`director.js` 的 `#promoWall`），不會拍到自訂桌布。
+- 吱吱支線（`z_*`）要照順序錄：加好友 → 邀約 → 來電 → 影片 → 殘廢澡 → 排球 T。
+- Wiki 畫面最後錄：把 daemon 的頁面導到 `/wiki/`，錄首頁捲動 `w_home`，各頁截圖放 `video/public/stills/`。
+- 手機版 `d13_mobile` 要用 `rec.mjs --mobile` 另開一次。
+- 渲染：`cd tools/promo/video && npm run render3`（配樂版）、`npm run render3:nobgm`（只有音效）。
 
 ## 注意
 

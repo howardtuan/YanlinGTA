@@ -7,6 +7,18 @@
   const realRAF = window.requestAnimationFrame.bind(window);
   const realNow = performance.now.bind(performance);
   const R = (window.__rec = { manual: false, vnow: realNow(), draw: 0, hook: null, frame: 0 });
+  // promo footage shows the computers' default blue wallpaper: custom wallpapers under assets/pc/ are never loaded
+  // (the 3D lab monitors draw it into their texture, src/world/Kit.js; the 2D desktop is covered by director.js)
+  try {
+    const d = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      ...d,
+      set(v) {
+        if (/assets\/pc\/[^/]+\.(jpe?g|png|webp)(\?|$)/i.test(String(v))) return;
+        d.set.call(this, v);
+      },
+    });
+  } catch (e) {}
   try {
     const k = 'cycu-shun-settings-v2';
     localStorage.setItem(

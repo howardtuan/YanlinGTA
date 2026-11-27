@@ -24,7 +24,7 @@ flowchart LR
 - **`npcs[]` 單筆結構**：
   | 欄位 | 型別 | 說明 |
   | :--- | :--- | :--- |
-  | `id` | `string` | 唯一英文識別碼（**注意**：每新增一筆 `npcs` 項目，`wiki/people.json` 必須存在對應鍵值，未公開角色填 `{ "wiki": false }`，由 `tests/unit/wiki.test.js` 強制驗證）。 |
+  | `id` | `string` | 唯一英文識別碼。 |
   | `kind` | `'custom' \| 'builtin'` | `'custom'` 由 `CustomNPCs.js` 自動生成於場景；`'builtin'` 由專屬模組控制行為。 |
   | `enabled` | `boolean` | `custom` 角色是否啟用生成（預設 `true`）。 |
   | `name` / `title` / `gender` | `string` | 顯示名稱、頭銜稱謂與性別。 |

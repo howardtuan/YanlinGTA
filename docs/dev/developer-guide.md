@@ -145,9 +145,8 @@ npm run dev
 
 ### 三分鐘新增自訂 NPC
 1. 在 `data/npcs.json` 的 `npcs` 陣列新增 `{ "id", "kind": "custom", "enabled": true, "name", "title", "gender", "height", "place", "look": {...}, "talks": [[["說話者","台詞"]]] }`。
-2. 在 `wiki/people.json` 的 `people` 補 `"<id>": { "wiki": false }`（否則 `tests/unit/wiki.test.js` 失敗；是否公開由使用者決定）。
-3. 重新整理遊戲，走到 `place` 地標 2.6m 內按 `E` 對話，多組 `talks` 依序輪播。
-4. 需要 24 小時作息、騎車、好友聊天等進階能力時，改寫專屬模組（參考 `Hank.js`、`Mingshan.js`、`Jianyu.js`、`TeaShop.js`），並同步更新 `docs/specs/npcs-and-characters.md`。
+2. 重新整理遊戲，走到 `place` 地標 2.6m 內按 `E` 對話，多組 `talks` 依序輪播。
+3. 需要 24 小時作息、騎車、好友聊天等進階能力時，改寫專屬模組（參考 `Hank.js`、`Mingshan.js`、`Jianyu.js`、`TeaShop.js`），並同步更新 `docs/specs/npcs-and-characters.md`。
 
 ---
 

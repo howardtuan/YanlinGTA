@@ -9,7 +9,7 @@ import { H } from './Terrain.js';
 import { scaledCanvas } from '../graphics/GpuMemLifecycle.js';
 
 // local frame: origin at the north-west court's centre, u along the courts (south +), v across (east +)
-const O = [-44.6, -316.4],
+export const O = [-44.6, -316.4],
   D = [-0.026, 0.9997];
 export const tennisP = (u, v) => [O[0] + D[0] * u + D[1] * v, O[1] + D[1] * u - D[0] * v];
 // court centres (u, v): north block two, south block two
@@ -19,7 +19,7 @@ export const TENNIS = [
   [35.9, -22.35],
   [35.9, -7.25],
 ];
-const HL = 23.77 / 2,
+export const HL = 23.77 / 2,
   HW = 10.97 / 2,
   SW = 8.23 / 2,
   SV = 6.4,
@@ -136,7 +136,7 @@ function quadGeo(list) {
 
 const FH = 4, // perimeter fence height
   IH = 3, // fences between the blocks
-  CELL = 0.6; // one texture tile of chain link (m)
+  CELL = 0.3; // one texture tile of chain link (m): four diamonds across, 7.5 cm each
 // fence lines (u, v) → (u, v), gates as [s0, s1] along the line from its start, height
 const FENCES = [
   [[-16.6, -10.2], [-16.6, 25.4], [[25.4, 27.2]], FH], // north, gate east of the hut

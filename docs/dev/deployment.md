@@ -77,7 +77,6 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 - **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
 - **最新消息**：`news/` 是部落格／粉專式的文章列表，文章寫在 `wiki/news.json`（`id`、`date` YYYY-MM-DD、`title`、`image`、`alt`、`body` 一段一個字串、`tags` 不加 #），照片放 `wiki/news/`（先縮到寬 1600px 以內，例如 `ffmpeg -i in.jpg -vf scale=1600:-2 -q:v 4 out.jpg`），build 時複製到 `dist/wiki/news/`。頁面依日期新到舊排序，首頁「最新消息」段落顯示最新兩篇。文字一律當純文字輸出，但內文裡的 http(s) 網址會自動變成超連結（`target="_blank"`，開新分頁）；網址前後空一格或接全形標點即可。
 - **合作店家**：加在 `wiki/shops.json`（`url` 只收 `https://`，留空不顯示連結）。
-- **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/unit/wiki.test.js` 會擋下 CI；使用者未指示上架時 Agent 只補 `"<id>": { "wiki": false }`。`wiki/` 內容由使用者維護，隱藏彩蛋禁止寫入。
 
 ### SEO / AEO / GEO 與 Google Search Console
 讓 Google 搜得到（SEO）、讓 Google 答案框與 ChatGPT／Perplexity／Gemini 等 AI 搜尋能正確引用（AEO / GEO）。全部在 build 時自動產生，新增 Wiki 頁面或最新消息文章不用另外維護。
@@ -101,6 +100,8 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 5. 驗證結構化資料：<https://search.google.com/test/rich-results> 貼 Wiki 首頁網址，應看到「常見問題」與「導覽標記（麵包屑）」。
 
 Bing（也供 ChatGPT 搜尋使用）可在 <https://www.bing.com/webmasters> 直接「從 Google Search Console 匯入」。
+
+**搜尋結果的網站圖示（favicon）**：Google 只看網域首頁 `https://yanlin-gta.com/` 的 `<link rel="icon">`（Wiki 自己的圖示不影響搜尋結果），而且要求圖示是 48px 倍數的正方形、網址固定。所以首頁的圖示 `<link>` 不寫在 `index.html`（會被 Vite 改成帶雜湊的 `assets/favicon-xxxx.ico`），改由 `vite.config.js` 的 `manifestLinkPlugin` 在 build 後加上固定網址：第一個是 `assets/icon/icon-192.png`（192×192），另外 `dist/` 根目錄也複製一份 `favicon.ico`（`/favicon.ico`）。換圖示時直接覆蓋 `assets/icon/` 裡的檔案，網址不變；Google 重新爬首頁後才會更新（幾天到幾週），可在 Search Console 對首頁「要求建立索引」加快。
 
 ---
 

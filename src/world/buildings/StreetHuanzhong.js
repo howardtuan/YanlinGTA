@@ -713,13 +713,14 @@ export const HZ_ST = {
     // 兩邊都是中原大學的機車停車場：北側（side +1）一整排校內機車棚、停車場柵門、紅磚圓花台與大樹、紅磚矮牆；
     // 南側（side -1）是高起的水泥機車停車平台（東區、西臂），平台後面才是一排 1～2 樓的老房子背牆（杯情城市、老莊工作室、斑馬壁畫的藍樓）；
     // 西端轉彎處有 4 棟真正面對巷子的房子（修改衣服、50 號黃樓、48 號白磁磚窄樓，46 號在 G 段）
-    ['L8', 97, 119, 1, { own: 'cpRow', set: 5, d: 5.2, apron: 0, lines: 1 }],
+    // 轉角幾格的長方形角會戳進相鄰那段巷子：機車棚從 s 99 起、紅磚矮牆與樹穴往後退 0.4～0.6 m（正射）
+    ['L8', 99, 119, 1, { own: 'cpRow', set: 5, d: 5.2, apron: 0, lines: 1 }],
     ['L8', 122, 133, 1, { own: 'cpRow', set: 6, d: 5, apron: 0, lines: 1, hedge: 1 }],
     ['L8', 133.5, 138.5, 1, { own: 'parkGate', set: 3, d: 6, apron: 0 }],
-    ['L8', 139, 146, 1, { own: 'treeBed', set: 2.2, d: 8, apron: 0 }],
+    ['L8', 139, 146, 1, { own: 'treeBed', set: 2.8, d: 8, apron: 0 }],
     ['L8', 146, 165, 1, { own: 'cpRow', set: 6.5, d: 5, apron: 0, wall: 1 }],
-    ['L8', 166, 175, 1, { own: 'redWall', set: 2.2, d: 6, apron: 0 }],
-    ['L8', 176.5, 185, 1, { own: 'redWall', set: 2.2, d: 6, apron: 0 }],
+    ['L8', 167.5, 175, 1, { own: 'redWall', set: 2.6, d: 6, apron: 0 }],
+    ['L8', 176.5, 185, 1, { own: 'redWall', set: 2.6, d: 6, apron: 0 }],
     ['L8', 101, 133, -1, { own: 'platE', set: 2.5, d: 10, apron: 0 }],
     ['L8', 101, 121, -1, { own: 'fS2', set: 13, d: 9, apron: 0 }],
     ['L8', 121, 129, -1, { own: 'fS3', set: 17, d: 8, apron: 0 }],
@@ -770,7 +771,8 @@ export const HZ_ST = {
     ['L8', 228, 232.5, -1, { own: 'dagy', set: 2.8, d: 9, apron: 0 }],
     ['L8', 232.5, 237.5, -1, { own: 'fastfood', set: 2.8, d: 9, apron: 0 }],
     ['L8', 237.5, 241.5, -1, { own: 'roundShop', set: 2.8, d: 9, apron: 0 }],
-    ['L8', 241.5, 245, -1, { own: 'no30', set: 2.8, d: 10, apron: 0 }],
+    // 30 號轉角：朝北這面只到西側牆（no30w）的牆線為止；原本 s 241.5～245、深 10 m 會越過髮夾彎壓到往南那段巷子（正射、2024-08 街景）
+    ['L8', 241.5, 243.5, -1, { own: 'no30', set: 2.8, d: 3, apron: 0 }],
     ['L8', 250, 257, -1, { own: 'no30w', set: 2.5, d: 5.5, apron: 0 }],
     ['L8', 257, 264.5, -1, { own: 'home4', set: 3, d: 10, apron: 0 }],
     ['L8', 264.5, 271.5, -1, { own: 'no26', set: 3, d: 10, apron: 0 }],
@@ -6112,7 +6114,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
     no30(k, w, d) {
       k.box(0, w, -0.6, 12.4, 0, d, 'wall#d8d2c0', { tile: [0.6, 0.3] });
       k.box(-0.02, w + 0.02, 12.4, 12.5, -0.04, d, 'gray', nb);
-      k.plane(shutterTex('#5a5754'), 4, 2.7, w / 2 + 0.4, 1.35, -0.03, FRONT);
+      k.plane(shutterTex('#5a5754'), Math.min(4, w - 0.3), 2.7, w / 2 + 0.1, 1.35, -0.03, FRONT);
       k.plane(
         paint('30', '#c8202a', '#ffffff', null, 0.3, 0.2, 128),
         0.3,

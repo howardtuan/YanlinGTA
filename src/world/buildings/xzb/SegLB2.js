@@ -542,6 +542,7 @@ export default {
       const GATE0 = 185.3,
         GATE1 = 189.5,
         FZ = 2.2; // 圍牆離路面邊緣 2.2 m
+      // 這一段 46 m 只用一個 Kit，地面往 s 150 那頭低約 0.4 m：花台、矮牆、柱子都往下多做 0.6 m，低的那頭才不會懸空
       // 花台：灰色水泥矮台，裡面種灌木
       for (const [a, b] of [
         [150, 157],
@@ -550,7 +551,7 @@ export default {
         [175.6, 184.8],
         [190.2, 196.2],
       ]) {
-        k.box(X(b), X(a), 0, 0.5, 0.35, 1.75, '#b9b7b0', { surface: false });
+        k.box(X(b), X(a), -0.6, 0.5, 0.35, 1.75, '#b9b7b0', { surface: false });
         for (let s = a + 0.6; s < b - 0.4; s += 1.1)
           shrub(C, k, X(s), 1.05, 0.42 + ((s * 7) % 3) * 0.08, 0.45, GREEN[Math.round(s) % 4]);
       }
@@ -584,11 +585,11 @@ export default {
           w = x1 - x0,
           n = Math.max(1, Math.round(w / 3.2)),
           bw = w / n;
-        k.box(x0, x1, 0, 0.6, FZ, FZ + 0.25, '#c4c1b8');
+        k.box(x0, x1, -0.6, 0.6, FZ, FZ + 0.25, '#c4c1b8');
         k.wallLine(x0, FZ + 0.12, x1, FZ + 0.12, 0.6, 1.8);
         for (let j = 0; j <= n; j++) {
           const c = Math.min(Math.max(x0 + j * bw, x0 + 0.25), x1 - 0.25);
-          k.box(c - 0.25, c + 0.25, 0, 1.95, FZ - 0.12, FZ + 0.37, '#a4513c');
+          k.box(c - 0.25, c + 0.25, -0.6, 1.95, FZ - 0.12, FZ + 0.37, '#a4513c');
           k.box(c - 0.3, c + 0.3, 1.95, 2.1, FZ - 0.17, FZ + 0.42, '#e2dfd6', NC);
           if (j < n)
             k.plane(fence, bw - 0.5, 1.15, x0 + (j + 0.5) * bw, 1.2, FZ + 0.12, C.FRONT, {

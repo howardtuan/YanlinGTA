@@ -56,7 +56,7 @@ npm run dev
 | `npm run ci` | 一鍵串聯：`format:check && lint && test && build && check:dist`。 | **Push / 送 PR 前必跑**，模擬 CI 完整門禁。 |
 | `node tools/floorplan/make.mjs` | 依建模程式重新產生 [docs/references/floorplans/](../references/floorplans/README.md) 室內 SVG 平面圖。 | 調整可進入室內建築與牆線後同步驗圖。 |
 | `node tools/street_corner_check.mjs [--out 報告.md] [--json 結果.json]` | 重建遊戲實際會畫的建物（OSM、填充樓、各街屋檔佔地，扣掉 drop／hide），跟車道、人行道比對：列出侵入車道的建物（哪個檔、侵入幾公尺）、每個路口轉角有沒有建物、兩個檔重複蓋的地方、路口附近的街面空缺。 | 照街景補街屋、改路寬之後檢查路口有沒有越界、漏蓋或重複蓋。 |
-| `npm run build && node tools/collision_mesh_check.mjs [--out 報告.md] [--json 結果.json] [--cdp=<port> --url=<網址>]` | 在遊戲頁面裡（`?keepgeo` 保留靜態幾何的 CPU 副本）把全圖網格跟碰撞對一次：「看得到卻穿得過」（離地 0.4～1.5 m 的牆面，玩家中心站得到、身體會陷進去）與「看不到卻被擋住」（碰撞線 0.75 m 內沒有網格），只報從出生點走得到的地方，對到哪個建物、哪個檔。`--cdp` 接到別台開好的無頭 Chrome（例如家裡的 GPU 機器），`--url` 給那台連得到的網址。 | 補街屋、改立面或碰撞之後，檢查有沒有走得進去的牆、擋人的空氣牆（#302）。 |
+| `npm run build && node tools/collision_mesh_check.mjs [--out 報告.md] [--json 結果.json] [--cdp=<port> --url=<網址>]` | 在遊戲頁面裡（`?keepgeo` 保留靜態幾何的 CPU 副本）把全圖網格跟碰撞對一次：「看得到卻穿得過」（離地 0.4～1.5 m 的牆面，玩家中心站得到、身體會陷進去）與「看不到卻被擋住」（碰撞線 0.75 m 內沒有網格），只報從出生點走得到的地方，對到哪個建物、哪個檔。多層室內（學生活動中心、宿舍）每一層各自比對；埤塘、溪邊、排水溝兩岸的空氣牆是刻意的，不列。`--low` 改抓腰部以下沒有碰撞的量體（箱子、貨架）。`--cdp` 接到別台開好的無頭 Chrome（例如家裡的 GPU 機器），`--url` 給那台連得到的網址。 | 補街屋、改立面或碰撞之後，檢查有沒有走得進去的牆、擋人的空氣牆（#302）。 |
 
 ---
 

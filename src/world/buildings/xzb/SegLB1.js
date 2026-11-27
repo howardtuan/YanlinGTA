@@ -385,7 +385,6 @@ export default {
       sign(C, k, '麻辣鴛鴦火鍋', '#c8302a', '#ffffff', 4.0, 0.9, w / 2 - 3.2, 4.4, 0.22);
       k.box(w / 2 - 0.6, w / 2 + 0.6, 3.8, 5.0, 0.18, 0.24, '#f4f2ec', NC); // 徽記底
       ball(C, k, w / 2, 4.4, 0.16, 0.4, '#a06a3a', 1.2);
-      k.box(-0.3, w + 0.3, 3.5, 3.62, -1.6, 0, '#8a2a22', NC); // 屋簷
       for (const x of [0.5, w - 1.0]) {
         k.box(x, x + 0.5, 0.2, 3.3, -1.3, -1.15, '#c8282a', NC);
         k.plane(
@@ -409,6 +408,15 @@ export default {
         for (const dz of [-1.25, -0.1]) k.box(x, x + 1.4, 0.4, 0.45, dz - 0.15, dz, '#6a4a30', NC);
       }
       k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, C.MR.concrete, { col: false, surface: true });
+    }
+    // 朝天椒的屋簷：這段路上坡，三格店面各自貼地，屋簷也照三格分開蓋才會和牆對齊
+    for (const [a, b] of [
+      [110, 118],
+      [118, 126],
+      [126, 134],
+    ]) {
+      const k = seg(C, 1, a, b, 5.2);
+      k.box(a === 110 ? -0.3 : 0, k.W + (b === 134 ? 0.3 : 0), 3.5, 3.62, -1.6, 0, '#8a2a22', NC);
     }
     // 鐵皮棚停車處：細鐵柱、往後傾的浪板屋頂，停一台綠色帆布小貨車
     {
@@ -440,9 +448,21 @@ export default {
     // ================= 東北側（-1）=================
     // 人行道外側的洗石子花台＋灌木、行道樹、紅磚方柱加黑色花式鐵欄杆圍牆（開口留給車道與出入口）
     const FO = 7.4; // 圍牆離中心線
+    // 這段路從中北路往東南一路上坡（s 14～150 地面高差約 3 m），一個 Kit 只照原點那一點的地面高度畫，
+    // 所以人行道、花台、圍牆切成最長 4 m 一段，每段各自貼地，才不會在低的那頭浮起來
+    const PIECES = [];
     for (let i = 0; i < BEND.length - 1; i++) {
       const a = BEND[i],
-        b = BEND[i + 1];
+        b = BEND[i + 1],
+        n = Math.ceil((b - a) / 4);
+      for (let j = 0; j < n; j++) PIECES.push([a + ((b - a) * j) / n, a + ((b - a) * (j + 1)) / n]);
+    }
+    // 行道樹沿線每 6～8.5 m 一棵（車道開口不種）
+    const TREES = [];
+    for (let s = 15.5 + r() * 2; s < 148.8; s += 6 + r() * 2.5)
+      if (!GAPS.some(([g0, g1]) => s > g0 - 1.2 && s < g1 + 1.2))
+        TREES.push([s, 8.5 + r() * 2.5, 2.2 + r() * 0.6]);
+    for (const [a, b] of PIECES) {
       const k = seg(C, -1, a, b, 4.5),
         w = k.W;
       // 花台：從人行道邊到圍牆前（車道開口那段不做）
@@ -458,30 +478,29 @@ export default {
       }
       if (x0 < w) spans.push([x0, w]);
       for (const [p0, p1] of spans) {
-        if (p1 - p0 < 0.6) continue;
+        if (p1 - p0 < 0.3) continue;
         k.box(p0, p1, -0.4, 0.55, 0.2, 2.2, '#c9c5ba'); // 洗石子花台
-        k.box(p0 + 0.1, p1 - 0.1, 0.55, 1.05, 0.35, 2.05, '#3f7a3a', NC); // 灌木
-        // 圍牆：矮牆、紅磚方柱（灰色石帽）、黑色鐵欄杆
+        k.box(p0 + 0.02, p1 - 0.02, 0.55, 1.05, 0.35, 2.05, '#3f7a3a', NC); // 灌木
+        // 圍牆：矮牆、紅磚方柱（灰色石帽）、黑色鐵欄杆；方柱約 3.2 m 一支，放在這一小段的頭尾
         const z = FO - 4.5;
-        k.box(p0, p1, 0, 0.6, z, z + 0.3, '#bdb9ae');
-        const n = Math.max(1, Math.round((p1 - p0) / 3.2)),
-          bay = (p1 - p0) / n;
-        for (let j = 0; j <= n; j++) {
-          const x = Math.min(p1 - 0.4, Math.max(p0, p0 + j * bay - 0.2));
+        k.box(p0, p1, -0.4, 0.6, z, z + 0.3, '#bdb9ae');
+        for (const x of p1 - p0 > 2.4 ? [p0, p1 - 0.4] : [p0]) {
           k.box(x, x + 0.4, 0.6, 1.95, z - 0.05, z + 0.35, '#a0523a', NC);
           k.box(x - 0.05, x + 0.45, 1.95, 2.25, z - 0.1, z + 0.4, '#cfcac0', NC);
         }
-        for (let j = 0; j < n; j++)
-          k.plane(C.bars, bay - 0.44, 1.2, p0 + (j + 0.5) * bay, 1.25, z + 0.15, PI, {
+        if (p1 - p0 > 0.9)
+          k.plane(C.bars, p1 - p0 - 0.44, 1.2, (p0 + p1) / 2, 1.25, z + 0.15, PI, {
             transparent: true,
             double: true,
           });
         k.wallLine(p0, z + 0.15, p1, z + 0.15, 0, 2.0);
         // 行道樹（在花台裡）
-        for (let x = p0 + 1.5 + r() * 2; x < p1 - 1.2; x += 6 + r() * 2.5)
-          tree(C, k, x, 1.2, 8.5 + r() * 2.5, 2.2 + r() * 0.6, r);
+        for (const [ts, th, tr] of TREES) {
+          const x = k.X(ts);
+          if (x >= p0 && x < p1) tree(C, k, x, 1.2, th, tr, r);
+        }
       }
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -1.5, 0.2, C.MR.concrete, { col: false, surface: true });
+      k.box(-0.01, w + 0.01, -0.6, 0.05, -1.5, 0.2, C.MR.concrete, { col: false, surface: true });
     }
     // s 16～32：圍牆後面的黑色鐵棚架（停車棚），下面停一排機車
     {
@@ -511,6 +530,7 @@ export default {
         top = gf + (nf - 1) * fh,
         wm = C.wallMat(wall);
       C.shell(k, w, d, top, wm);
+      k.box(0, w, -2, 0.01, 0, d, wm, NC); // 基座：這段路往西北下坡，大樓低的那頭不會懸空
       k.box(0.3, w - 0.3, 0.3, gf - 0.5, -0.04, 0, '#3a4046', NC); // 一樓深色窗帶
       for (let x = 1.2; x < w - 1; x += 3.4)
         k.plane(C.bars, 2.4, 1.6, x + 1.2, 1.6, -0.08, PI, { transparent: true });

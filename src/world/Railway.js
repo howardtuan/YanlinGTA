@@ -7,6 +7,8 @@
 // 新中北路 249 巷、普忠路 211 巷、西邊一條無名巷（-513, -50），兩側各一支橫跨整條路的柵欄桿。
 import * as THREE from 'three';
 import { groundY } from './Terrain.js';
+import { G, groups } from '../physics/Physics.js';
+import { WALL_T } from '../physics/PhysWorld.js';
 
 // 遊戲座標 x 東、z 南
 const GAUGE = 0.75; // 鋼軌離軌道中心（與 MapBuilder 畫的鋼軌一致）
@@ -366,6 +368,9 @@ export function buildRailway(scene, world, data, { low = false } = {}) {
       const lx = px + dx * -0.9 + rx * 0.35,
         lz = pz + dz * -0.9 + rz * 0.35,
         ly = Y(lx, lz);
+      // 柵欄機與警示燈桿：一直都擋（加進 world.collision 的圓柱，build-physics 會做成 Rapier 樹幹，走路、開車都撞得到）
+      coll.addCircle(px, pz, 0.3);
+      coll.addCircle(lx, lz, 0.1);
       for (let k = 0; k < 7; k++)
         parts.box(
           lx,
@@ -612,23 +617,39 @@ export function buildRailway(scene, world, data, { low = false } = {}) {
         closed: () => c.warn || c.phase > 0.05,
       }))
     ),
-    // 柵欄桿放下時的碰撞：遊戲自己的碰撞（走路的人、一般車輛）加一段只擋腳在地面附近的牆，升起時移到遠處。
-    // 要在 build-physics 之後才加（src/core/Game.js），不然會被 src/physics/PhysWorld.js 做成永遠在的 Rapier 牆
-    gateCollision(coll) {
+    // 柵欄桿放下時的碰撞，要在 build-physics 之後才加（src/core/Game.js），不然會被 src/physics/PhysWorld.js 做成
+    // 永遠在的牆：
+    // - world.collision 加一段只擋腳在地面附近的牆（沒有物理時走路、NPC 車輛的碰撞），升起時移到遠處；
+    // - Rapier 每支柵欄桿一個固定碰撞體，標成牆（physics.tags.walls：走路的角色控制器 src/entities/Walker.js 只認牆
+    //   和樹幹），放下時開、升起時關。開的車（src/physics/VehPhysics.js）、被撞飛的東西都會撞到
+    gateCollision(coll, physics) {
       this._coll = coll;
+      const P = physics?.ready && physics.world ? physics : null;
       for (const c of crossings)
         for (const s of c.sides) {
-          s.seg = [
-            s.boomX,
-            s.boomZ,
-            s.boomX + s.boomDX * s.boomL,
-            s.boomZ + s.boomDZ * s.boomL,
-            s.boomY - 1.5,
-            s.boomY + 0.7, // 腳比柵欄桿還高（跳過去）就不擋
-          ];
+          const ex = s.boomX + s.boomDX * s.boomL,
+            ez = s.boomZ + s.boomDZ * s.boomL;
+          s.seg = [s.boomX, s.boomZ, ex, ez, s.boomY - 1.5, s.boomY + 0.7]; // 腳比柵欄桿還高（跳過去）不擋
           s.si = coll.segs.length;
           coll.addSegment(...s.seg);
           coll.segs[s.si] = GATE_OFF;
+          if (!P) continue;
+          const R = P.R;
+          const q = new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            Math.atan2(s.boomDX, s.boomDZ)
+          );
+          s.body = P.world.createRigidBody(
+            R.RigidBodyDesc.fixed()
+              .setTranslation((s.boomX + ex) / 2, s.boomY + 0.5, (s.boomZ + ez) / 2)
+              .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
+          );
+          const col = P.world.createCollider(
+            R.ColliderDesc.cuboid(WALL_T, 0.45, s.boomL / 2).setCollisionGroups(groups(G.WORLD)),
+            s.body
+          );
+          P.tags?.walls.add(col.handle);
+          s.on = true;
         }
       this._syncGates();
     },
@@ -636,25 +657,14 @@ export function buildRailway(scene, world, data, { low = false } = {}) {
       const coll = this._coll;
       if (!coll) return;
       for (const c of crossings)
-        for (const s of c.sides) coll.segs[s.si] = c.phase > GATE_SHUT ? s.seg : GATE_OFF;
-    },
-    // 物理用的碰撞箱（src/physics/Physics.js movers）：擋住玩家開的車（有自己的 Rapier 車體）與被撞飛的東西
-    movers(list, x, z, r) {
-      for (const c of crossings) {
-        if (c.phase <= GATE_SHUT || Math.abs(c.x - x) > r || Math.abs(c.z - z) > r) continue;
-        for (const s of c.sides)
-          list.push({
-            key: s,
-            x: s.boomX + (s.boomDX * s.boomL) / 2,
-            y: s.boomY,
-            z: s.boomZ + (s.boomDZ * s.boomL) / 2,
-            yaw: Math.atan2(s.boomDX, s.boomDZ),
-            r: 0.08,
-            hl: s.boomL / 2,
-            cy: 0.5,
-            hh: 0.4,
-          });
-      }
+        for (const s of c.sides) {
+          const shut = c.phase > GATE_SHUT;
+          coll.segs[s.si] = shut ? s.seg : GATE_OFF;
+          if (s.body && s.on !== shut) {
+            s.body.setEnabled(shut);
+            s.on = shut;
+          }
+        }
     },
     update(dt) {
       this._syncGates();

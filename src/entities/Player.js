@@ -493,32 +493,66 @@ export class CameraRig {
     const cp = Math.cos(this.pitch),
       sp = Math.sin(this.pitch);
     let d = this.dist;
-    // camera collision: pull in if a building is between target and camera
-    for (let s = 0.6; s <= this.dist; s += 0.4) {
-      const x = this.target.x - Math.sin(this.yaw) * cp * s,
-        z = this.target.z - Math.cos(this.yaw) * cp * s;
-      const y = this.target.y + sp * s;
-      if (y < collision.topAt(x, z)) {
-        d = Math.max(0.8, s - 0.4);
+    // camera collision (#302): pull in to just short of the first building / wall between the target and the
+    // camera. No minimum: with your back to a wall the camera comes right up to you (and rises over your head,
+    // below) instead of being put inside the building behind you
+    // camera to wall, measured level (along the view that is CLEAR / cos(pitch)): the near plane (0.2 m) and the
+    // view's half width at it stay outside
+    const CLEAR = 0.35 / Math.max(0.5, cp);
+    const at = (s) => [
+      this.target.x - Math.sin(this.yaw) * cp * s,
+      this.target.y + sp * s,
+      this.target.z - Math.cos(this.yaw) * cp * s,
+    ];
+    const inside = (s) => {
+      const [x, y, z] = at(s);
+      return y < collision.topAt(x, z);
+    };
+    let prev = 0;
+    for (let s = 0.2; s <= this.dist + 1e-6; s += 0.2) {
+      if (inside(s)) {
+        let a = prev,
+          b = s; // a outside, b inside: halve down to 2 cm
+        for (let k = 0; k < 4; k++) {
+          const m = (a + b) / 2;
+          if (inside(m)) b = m;
+          else a = m;
+        }
+        d = Math.max(0.03, a - CLEAR);
         break;
       }
+      prev = s;
     }
     if (interiors) {
-      const ex = this.target.x - Math.sin(this.yaw) * cp * d,
-        ez = this.target.z - Math.cos(this.yaw) * cp * d,
-        ey = this.target.y + sp * d;
-      const f = interiors.ray(this.target.x, this.target.y, this.target.z, ex, ey, ez);
-      if (f < 1) d = Math.max(0.6, d * f - 0.3);
+      const [ex, ey, ez] = at(d + CLEAR),
+        f = interiors.ray(this.target.x, this.target.y, this.target.z, ex, ey, ez);
+      if (f < 1) d = Math.max(0.03, Math.min(d, f * (d + CLEAR) - CLEAR));
+    }
+    // right up against you: rise over your head (your vehicle's roof) and look down, and hide your body when it
+    // would fill the view
+    const near = v ? (v.hl || 1) + 0.6 : 1.2,
+      lift = d < near ? (near - d) * 0.7 : 0;
+    const hide = !v && d <= 0.45;
+    if (hide !== !!this._hid) {
+      // only undo our own hiding (a ride, a cutscene may hide the body for their own reasons)
+      if (hide) player.ch.root.visible = false;
+      else if (!v) player.ch.root.visible = true;
+      this._hid = hide;
     }
     const px = this.target.x - Math.sin(this.yaw) * cp * d;
     const pz = this.target.z - Math.cos(this.yaw) * cp * d;
-    let py = Math.max(surfaceAt(px, pz, this.target.y) + 0.3, this.target.y + sp * d);
+    let py = Math.max(surfaceAt(px, pz, this.target.y) + 0.3, this.target.y + sp * d + lift);
     if (zone) py = Math.min(py, zone.ceil(player.y) + gy);
     if (this.first) {
       this.cur.set(px, py, pz);
       this.first = false;
     }
-    this.cur.lerp(new THREE.Vector3(px, py, pz), Math.min(1, dt * 14));
+    // smoothed, except towards you: a wall the camera backs into is never seen from inside for a few frames
+    const want = new THREE.Vector3(px, py, pz);
+    const dw = Math.hypot(px - this.target.x, pz - this.target.z),
+      dc = Math.hypot(this.cur.x - this.target.x, this.cur.z - this.target.z);
+    if (dw < dc - 0.05) this.cur.copy(want);
+    else this.cur.lerp(want, Math.min(1, dt * 14));
     this.cam.position.copy(this.cur);
     this.cam.lookAt(this.target);
   }

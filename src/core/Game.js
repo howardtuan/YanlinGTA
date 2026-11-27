@@ -123,8 +123,10 @@ import { ParkedScooters } from './ParkedScooters.js';
 import { Buses } from '../systems/Buses.js';
 import { BusRide } from '../systems/BusRide.js';
 import { tennisP } from '../world/Tennis.js';
+import { COURTS } from '../world/Court.js';
 
 const TENNIS_MID = tennisP(18, 7); // the middle of the tennis courts (src/world/Tennis.js)
+const BALL_SITES = [COURTS[0].c, COURTS[4].c]; // the east and west basketball / volleyball courts (src/world/Court.js)
 
 const $ = (id) => document.getElementById(id);
 const onClick = (id, fn) => {
@@ -938,6 +940,22 @@ class Game {
     }
     this.tennis.update(dt, inp);
   }
+  // 體育園區的籃球、排球場（src/systems/minigames/ballcourts/）: its own chunk too, loaded within 160 m of the courts
+  _ballTick(dt, inp) {
+    if (!this.balls) {
+      const p = this.player.pos;
+      if (this._ballsLoading || !BALL_SITES.some((c) => Math.hypot(p.x - c[0], p.z - c[1]) < 160))
+        return;
+      this._ballsLoading = true;
+      import('../systems/minigames/ballcourts/BallCourts.js')
+        .then((m) => {
+          this.balls = new m.BallCourts(this);
+        })
+        .catch((e) => console.warn('ballcourts', e));
+      return;
+    }
+    this.balls.update(dt, inp);
+  }
   addVotes(n, msg) {
     this.votes = Math.max(0, this.votes + n);
     this.hud.setVotes(this.votes);
@@ -1456,6 +1474,8 @@ class Game {
       if (hud.bigOpen) this.closeMap();
       // Esc in a tennis match leaves it
       else if (this.tennis?.playing) this.tennis.quit('你離開了比賽');
+      // and a basketball / volleyball game (or getting one together)
+      else if (this.balls?.playing) this.balls.quit('你離開了球場');
       // Esc on the race results = 繼續, not the pause menu
       else if (this.race.state === 'results') this.race.close(false);
       // Esc while choosing your bike for the race = 取消
@@ -1666,6 +1686,7 @@ class Game {
     } else {
       if (!pl.aboard) pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors); // 坐公車時跟著車（src/systems/BusRide.js）
       this._tennisTick(dt, inp); // after your walk animation: the racket arm goes on top of it
+      this._ballTick(dt, inp); // (the same for your arms in a basketball / volleyball game)
       if (pl.sfx) {
         const k = pl.sfx;
         pl.sfx = null;
@@ -1768,7 +1789,14 @@ class Game {
       }
       hud.setSpeed(null);
       this.headlight.intensity = 0;
-      if (!pl.frozen && !pl.seat && !pl.tumble && !this.tennis?.playing && inp.hit('Mouse0'))
+      if (
+        !pl.frozen &&
+        !pl.seat &&
+        !pl.tumble &&
+        !this.tennis?.playing &&
+        !this.balls?.playing &&
+        inp.hit('Mouse0')
+      )
         this._flyer();
       if (this.concerts?.player && inp.hit('KeyU')) this.concerts.toggleMute();
       if (!pl.frozen && inp.hit('KeyG')) {
@@ -1816,6 +1844,7 @@ class Game {
     this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
     if (pl.vehicle) this._tennisTick(dt, inp);
+    if (pl.vehicle) this._ballTick(dt, inp);
     const inZn = !pl.vehicle ? this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) : null;
     if (!this._showerSpot && this.interiors.lixing?.bathW) {
       const L = this.interiors.lixing,

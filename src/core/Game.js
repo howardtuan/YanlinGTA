@@ -1044,15 +1044,6 @@ class Game {
     this.phone.show();
     document.exitPointerLock?.();
   }
-  // the touch button next to 🗺 (index.html #tbHorn): 📯 喇叭 (KeyH) on a vehicle, 📱 手機 on foot; only touched when it changes
-  touchHornBtn(onVehicle) {
-    if (this._hornBtnVeh === onVehicle) return;
-    const b = document.getElementById('tbHorn');
-    if (!b) return;
-    this._hornBtnVeh = onVehicle;
-    b.dataset.key = onVehicle ? 'KeyH' : 'Phone';
-    b.innerHTML = onVehicle ? '📯<small>喇叭</small>' : '📱<small>手機</small>';
-  }
 
   startSpeech(at, cb) {
     const rnd = mulberry32(19);
@@ -1483,12 +1474,6 @@ class Game {
     } else if (!act && !pl.seat && !inDialog && !pl.frozen && inp.hit('KeyE')) {
       this.openPhone();
       inp.pressed.delete('KeyE');
-    }
-    // 手機觸控：走路時喇叭鈕變成 📱 手機鈕（騎車／開車時才是 📯 喇叭），點了直接打開手機
-    if (this.input.touch) this.touchHornBtn(!!pl.vehicle);
-    if (!pl.vehicle && !inDialog && !pl.frozen && inp.hit('Phone')) {
-      this.openPhone();
-      inp.pressed.delete('Phone');
     }
 
     if (

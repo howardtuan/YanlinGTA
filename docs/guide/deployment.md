@@ -102,6 +102,8 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 
 Bing（也供 ChatGPT 搜尋使用）可在 <https://www.bing.com/webmasters> 直接「從 Google Search Console 匯入」。
 
+**搜尋結果的網站圖示（favicon）**：Google 只看網域首頁 `https://yanlin-gta.com/` 的 `<link rel="icon">`（Wiki 自己的圖示不影響搜尋結果），而且要求圖示是 48px 倍數的正方形、網址固定。所以首頁的圖示 `<link>` 不寫在 `index.html`（會被 Vite 改成帶雜湊的 `assets/favicon-xxxx.ico`），改由 `vite.config.js` 的 `manifestLinkPlugin` 在 build 後加上固定網址：第一個是 `assets/icon/icon-192.png`（192×192），另外 `dist/` 根目錄也複製一份 `favicon.ico`（`/favicon.ico`）。換圖示時直接覆蓋 `assets/icon/` 裡的檔案，網址不變；Google 重新爬首頁後才會更新（幾天到幾週），可在 Search Console 對首頁「要求建立索引」加快。
+
 ---
 
 ## 三、 模式 B & C：Docker 容器化部署

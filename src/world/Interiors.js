@@ -3217,7 +3217,7 @@ function buildYanlinHome(I, scene) {
   k.box(TX1 - 0.13, TX1 - 0.07, F + 0.76, F + 0.79, 1.2, 1.5, MT.black, { col: false }); // monitor foot
   k.box(TX1 - 0.11, TX1 - 0.08, F + 0.79, F + 0.95, 1.32, 1.38, MT.black, { col: false });
   k.box(TX1 - 0.15, TX1 - 0.11, F + 0.92, F + 1.3, 1.01, 1.69, MT.black, { col: false }); // bezel
-  k.plane(T.screen(), 0.64, 0.34, TX1 - 0.155, F + 1.11, 1.35, -Math.PI / 2, { emissive: 0.9 });
+  k.plane(T.screenOwn(), 0.64, 0.34, TX1 - 0.155, F + 1.11, 1.35, -Math.PI / 2, { emissive: 0.9 });
   k.box(TX0 + 0.05, TX1 - 0.03, F + 0.76, F + 1.2, 1.88, 2.08, MT.black, { col: false }); // tower
   k.box(TX0 + 0.049, TX0 + 0.05, F + 1.1, F + 1.12, 1.93, 2.03, '#3ad07a', { col: false }); // power LED
   k.box(TX0 + 0.03, TX0 + 0.18, F + 0.76, F + 0.78, 1.12, 1.58, '#2a2a2e', { col: false }); // keyboard

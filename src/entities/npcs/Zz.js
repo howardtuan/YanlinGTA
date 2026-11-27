@@ -201,6 +201,16 @@ export class Zz {
     x.fillText('票投彥霖 34', 128, 100);
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
+    // his wallpaper, the same as on the laptop's desktop (src/ui/PC.js .pc-screen.own)
+    const wp = new Image();
+    wp.onload = () => {
+      const k = Math.max(256 / wp.width, 160 / wp.height),
+        w = wp.width * k,
+        h = wp.height * k;
+      x.drawImage(wp, (256 - w) / 2, (160 - h) / 2, w, h);
+      tex.needsUpdate = true;
+    };
+    wp.src = 'assets/pc/yanlin.jpg';
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.018, 0.24), body);
     const hinge = new THREE.Group(),
       lid = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.01), body),

@@ -5751,10 +5751,13 @@ kbd.pb-nin.pb-face {
 .ph-mrow.todo {
   opacity: 0.55;
 }
-/* computer wallpaper: assets/pc/wallpaper.jpg when present, otherwise the blue gradient */
+/* computer wallpaper: the blue gradient (computer lab, ...); 彥霖's own desktop and laptop: assets/pc/yanlin.jpg */
 .pc-screen {
+  background: radial-gradient(circle at 70% 30%, #3a7bd5 0, #1c3f7a 45%, #0f2147 100%);
+}
+.pc-screen.own {
   background:
-    url(../../assets/pc/wallpaper.jpg) center/cover no-repeat,
+    url(../../assets/pc/yanlin.jpg) center/cover no-repeat,
     radial-gradient(circle at 70% 30%, #3a7bd5 0, #1c3f7a 45%, #0f2147 100%);
 }
 

@@ -683,7 +683,7 @@ export class MahjongScene {
       <div class="mj-spec-tags"></div><div class="mj-bubbles"></div>
       <div class="mj-acts"></div><div class="mj-hint"></div><div class="mj-res hidden"></div>
       <div class="mj-pop hidden"><img alt=""><b></b></div><div class="mj-say"></div><div class="mj-wait hidden"></div><div class="mj-timer hidden"></div><div class="mj-zoom hidden"></div><div class="mj-center hidden"></div>
-      <div class="mj-side"><div class="mj-info"></div><div class="mj-side-btns"><button class="mj-view" data-a='{"type":"view"}'></button><button class="mj-help-btn" data-a='{"type":"help"}' title="操作說明（I）" aria-label="操作說明">i</button></div><div class="mj-mp-bar hidden"></div></div>
+      <div class="mj-side"><div class="mj-info"></div><div class="mj-side-btns"><button class="mj-view" data-a='{"type":"view"}'></button><button class="mj-stk-btn hidden" data-a='{"type":"stickers"}' title="丟貼圖（T）" aria-label="丟貼圖"><img src="${SPECTATE_REACTS[0].img}" alt=""></button><button class="mj-help-btn" data-a='{"type":"help"}' title="操作說明（I）" aria-label="操作說明">i</button></div><div class="mj-stk hidden">${SPECTATE_REACTS.map((r) => `<button class="mj-react" title="${r.label}" data-a='${JSON.stringify({ type: 'sticker', text: r.text })}'><img src="${r.img}" alt="${r.label}"></button>`).join('')}</div><div class="mj-mp-bar hidden"></div></div>
       <div class="mj-help hidden"></div>
       <div class="mj-hand hidden"></div>
       <div class="mj-rotate hidden"><div><b>📱↻</b><p>把手機轉橫的打，牌比較大</p><button data-a='{"type":"rotateOk"}'>直的也沒關係</button></div></div>`;
@@ -880,6 +880,7 @@ export class MahjongScene {
     if (!typing && inp.hit('KeyV')) this._toggleView();
     if (!typing && inp.hit('KeyI')) this._toggleHelp();
     this._viewBtn();
+    if (!typing && this._canSticker() && inp.hit('KeyT')) this._stickerMenu();
     if (this.menu || this.lobby) return this._menuKeys(inp, typing);
     if (this.choosing) return this._stakeKeys(inp);
     if (this.intro) {
@@ -1459,6 +1460,8 @@ export class MahjongScene {
     if (a.type === 'mpReact') {
       return this.mj.sendReaction(a.text);
     }
+    if (a.type === 'stickers') return this._stickerMenu();
+    if (a.type === 'sticker') return this._sendSticker(a.text);
     if (a.type === 'mpCopy') {
       const code = this.lobby?.code || '';
       if (!code) return;
@@ -2696,6 +2699,7 @@ export class MahjongScene {
             sec('其他', [
               row('🔍', '點桌上翻開的牌（海底、吃碰槓、花）看大張的'),
               row('🔭', '右上角按鈕切換遠景／近景'),
+              row('😆', '右上角的貼圖按鈕，點一張丟出去'),
               row('👀', '觀賽時拖曳畫面繞著牌桌走'),
             ]),
           ]
@@ -2715,6 +2719,7 @@ export class MahjongScene {
             ]),
             sec('其他', [
               row(k('V'), '切換遠景／近景'),
+              row(k('T'), '打開貼圖，點一張丟出去'),
               row(k('I'), '打開／關掉這個說明'),
               row('🔍', '滑鼠移到桌上翻開的牌上，會放大給你看'),
               row(`${k('Esc')}×2`, '離開牌桌（打到一半離開這局不算錢）'),
@@ -2728,6 +2733,32 @@ export class MahjongScene {
   _viewBtn() {
     const txt = `<kbd>${this.g.prompts?.pad ? 'View' : 'V'}</kbd> ${this._mobile ? '🔭 遠景' : '🔍 近景'}`;
     if (txt !== this._vb) this.$('.mj-view').innerHTML = this._vb = txt;
+    const can = this._canSticker();
+    if (can !== this._stkCan) {
+      this._stkCan = can;
+      this.$('.mj-stk-btn').classList.toggle('hidden', !can);
+      if (!can) this._stickerMenu(false);
+    }
+  }
+
+  // ---------------- 打牌中丟貼圖（彥霖貼圖，P2P.js 的 SPECTATE_REACTS） ----------------
+  // 坐在桌上打牌的人（單人模式，或多人模式上桌的人）才有；觀戰者用右上角那排表情（_mpBarHud）
+  _canSticker() {
+    return !!this.e && !this.intro && !this.menu && !this.lobby && !this.mj.sess?.spectating;
+  }
+  _stickerMenu(open = this.$('.mj-stk').classList.contains('hidden')) {
+    this.$('.mj-stk').classList.toggle('hidden', !open);
+    this.$('.mj-stk-btn').classList.toggle('on', open);
+  }
+  _sendSticker(text) {
+    this._stickerMenu(false);
+    if (this.mj.isMulti) return this.mj.sendReaction(text); // (房主廣播給大家，自己也會收到一份)
+    // 單人模式：貼在自己座位上方；1 秒內不能連丟
+    const now = performance.now();
+    if (now - (this._stkAt || 0) < 1000) return false;
+    this._stkAt = now;
+    this.showReaction({ text, name: this.names[0], seat: 0, fromId: 'me' });
+    return true;
   }
 
   // ---------------- the tile just played, shown big next to whoever played it ----------------

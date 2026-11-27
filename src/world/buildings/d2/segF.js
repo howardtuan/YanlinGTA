@@ -22,7 +22,7 @@ const slope = (k, x0, x1, y0, y1, z0, z1, hex, dir = 'f', th = 0.1) => {
   const ym = (y0 + y1) / 2,
     xm = (x0 + x1) / 2,
     zm = (z0 + z1) / 2;
-  return morph(k.box(x0, x1, y0, y1, z0, z1, hex, NC), (x, y, z) => {
+  return morph(k.box(x0, x1, y0, y1, z0, z1, hex, { ...NC, loose: false }), (x, y, z) => {
     if (y < ym) return [x, y, z];
     const low = dir === 'f' ? z < zm : dir === 'b' ? z > zm : dir === 'l' ? x < xm : x > xm;
     return [x, low ? y0 + th : y1, z];
@@ -33,7 +33,7 @@ const gable = (k, x0, x1, y0, y1, z0, z1, hex, axis = 'z') => {
   const ym = (y0 + y1) / 2,
     xm = (x0 + x1) / 2,
     zm = (z0 + z1) / 2;
-  return morph(k.box(x0, x1, y0, y1, z0, z1, hex, NC), (x, y, z) =>
+  return morph(k.box(x0, x1, y0, y1, z0, z1, hex, { ...NC, loose: false }), (x, y, z) =>
     y < ym ? [x, y, z] : axis === 'z' ? [xm, y, z] : [x, y, zm]
   );
 };

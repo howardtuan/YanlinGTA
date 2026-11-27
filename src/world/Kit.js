@@ -375,6 +375,7 @@ export class Interiors {
     this.wst = [];
     this.scooters = [];
     this.cars = [];
+    this.crates = []; // loose boxes in front of the shop rows (finishRow -> src/world/WorldProps.js spawnWorldCrates)
   }
   _key(ix, iz) {
     return ix * 73856 + iz;
@@ -623,6 +624,8 @@ export class Kit {
     this.fparts = new Map();
     this.fmode = false;
     this.fgroup = null;
+    this.loose = []; // looseBox(): drawn by finish() as before, or knocked about by finishRow
+    this.low = []; // other boxes low in front of the facade (a seat on a stool's base keeps the base in place)
     // render base = terrain at the (flattened) building origin
     this.base = H(ox, oz);
     this.group = new THREE.Group();
@@ -677,6 +680,10 @@ export class Kit {
         }
     }
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    if (!this.fmode && looseBox(x0, x1, y0, y1, z0, z1, mat, o)) {
+      this.loose.push({ x0, x1, y0, y1, z0, z1, mat, g });
+      return g;
+    }
     this._part(mat, g);
     if (o.col !== false) this.wallRect(x0, x1, z0, z1, y0, y1);
     if (o.surface) this.I.addSurface(this.rect(x0, x1, z0, z1), y1 * this.sc);
@@ -700,6 +707,13 @@ export class Kit {
     this.I.addCone(wx, wz);
   }
   _part(mat, g) {
+    // anything low in front of the facade: finishRow checks whether it stands on a loose box (looseBox)
+    if (!this.fmode && this.low) {
+      if (!g.boundingBox) g.computeBoundingBox();
+      const b = g.boundingBox;
+      if (b.min.y < 1.5 && b.min.z < 0.02)
+        this.low.push([b.min.x, b.max.x, b.min.y, b.max.y, b.min.z, b.max.z]);
+    }
     const parts = this.fmode ? this.fparts : this.parts;
     if (!parts.has(mat)) parts.set(mat, []);
     parts.get(mat).push(g);
@@ -795,6 +809,10 @@ export class Kit {
   // texture or mesh is marked dynamic (userData.dynamic, markDynamic) and anything in a group of its own (lifts,
   // gates, doors) or added to k.group directly.
   finish(scene, shadow = true) {
+    // a building of its own (campus, interiors): loose boxes stay part of it, as they always were
+    for (const L of this.loose) this._part(L.mat, L.g);
+    this.loose.length = 0;
+    this.low.length = 0;
     for (const [parts, parent] of [
       [this.parts, this.group],
       [this.fparts, this.fparts.size ? this.furniture(() => this._parent()) : null],
@@ -1126,11 +1144,85 @@ function batchKitPlanes(k) {
   // the sheets are this building's alone: straight to the GPU, their canvases are not needed again
   for (const sh of new Set([...at.values()].map((A) => A.sheet))) uploadAndRelease(sh.tex);
 }
+// A plain-coloured box with no collision standing on the street side of a row building's front (z <= 0),
+// box-sized: a crate, a carton, a cooler, a sign board by the door. In a shop row (finishRow) these become
+// props you knock about like the traffic cones (src/world/WorldProps.js spawnWorldCrates); before they were
+// drawn into the row and you walked straight through them (#302). { loose: false } keeps one where it is.
+function looseBox(x0, x1, y0, y1, z0, z1, mat, o) {
+  if (o.col !== false || o.loose === false || o.surface || o.tile || mat === 'glass') return false;
+  const W = x1 - x0,
+    H = y1 - y0,
+    D = z1 - z0;
+  if (y0 > 0.08 || y0 < -0.6 || H < 0.35 || H > 1.3 || y1 < 0.3) return false;
+  // box-shaped and steady on its own: thin boards and posts (sign boards, pilasters) would just fall over
+  if (Math.max(W, D) > 1.3 || Math.min(W, D) < 0.15 || H > 3 * Math.min(W, D)) return false;
+  if (z1 > 0.02) return false; // street side of the front only
+  const m = M(mat);
+  return !!(plainKey(m) || vcPlain(m));
+}
+// the rows' vertex-coloured paint (vcKit in the street builders: the colour is in the geometry)
+const vcPlain = (m) =>
+  m?.type === 'MeshStandardMaterial' &&
+  m.vertexColors &&
+  !m.map &&
+  !m.transparent &&
+  m.opacity === 1 &&
+  !m.emissiveMap &&
+  m.visible;
+const looseColor = (L) => {
+  const m = M(L.mat),
+    c = L.g.attributes.color;
+  if (m.vertexColors && c)
+    return `#${new THREE.Color().setRGB(c.getX(0), c.getY(0), c.getZ(0)).getHexString()}`;
+  return `#${m.color.getHexString()}`;
+};
 export function finishRow(scene, kits, shadow = true) {
   const parts = new Map(); // material key -> geometries in world space
   const planes = []; // { mesh, matrix }
+  const v = new THREE.Vector3();
   for (const k of kits) {
     k.group.updateMatrix();
+    // a loose box with something else standing on it or rising through it (a stool's seat, a second crate on
+    // top, the pillar on its plinth) stays part of the row: knocking the lower piece away would leave the rest in the air
+    const pieces = [...k.loose.map((L) => [L.x0, L.x1, L.y0, L.y1, L.z0, L.z1]), ...k.low];
+    k.loose = k.loose.filter((L) => {
+      const stacked = pieces.some(
+        ([a0, a1, b0, b1, c0, c1]) =>
+          !(
+            a0 === L.x0 &&
+            a1 === L.x1 &&
+            b0 === L.y0 &&
+            b1 === L.y1 &&
+            c0 === L.z0 &&
+            c1 === L.z1
+          ) &&
+          a0 < L.x1 - 0.02 &&
+          a1 > L.x0 + 0.02 &&
+          c0 < L.z1 - 0.02 &&
+          c1 > L.z0 + 0.02 &&
+          b0 <= L.y1 + 0.05 &&
+          b1 > L.y1 + 0.02
+      );
+      if (stacked) k._part(L.mat, L.g);
+      return !stacked;
+    });
+    k.low.length = 0;
+    // loose boxes -> knockable props (looseBox): their world centre, footing, size and colour
+    for (const L of k.loose) {
+      v.set((L.x0 + L.x1) / 2, L.y0, (L.z0 + L.z1) / 2).applyMatrix4(k.group.matrix);
+      k.I.crates.push({
+        x: v.x,
+        y: v.y,
+        z: v.z,
+        yaw: k.group.rotation.y,
+        w: (L.x1 - L.x0) * k.sc,
+        h: (L.y1 - L.y0) * k.sc,
+        d: (L.z1 - L.z0) * k.sc,
+        color: looseColor(L),
+      });
+      L.g.dispose();
+    }
+    k.loose.length = 0;
     for (const [mat, list] of k.fparts) {
       if (!k.parts.has(mat)) k.parts.set(mat, []);
       k.parts.get(mat).push(...list);

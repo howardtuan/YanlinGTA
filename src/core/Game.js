@@ -98,7 +98,7 @@ import { Chassis } from '../physics/VehPhysics.js';
 import { Ragdoll } from '../physics/Ragdoll.js';
 import { Walker } from '../entities/Walker.js';
 import { buildPhysicsWorld } from '../physics/PhysWorld.js';
-import { spawnWorldCones } from '../world/WorldProps.js';
+import { spawnWorldCones, spawnWorldCrates } from '../world/WorldProps.js';
 import { isLunarNewYear } from '../world/Season.js';
 import { buildNewYearDecor } from '../world/Festive.js';
 import { Firecrackers } from '../systems/Firecrackers.js';
@@ -416,6 +416,7 @@ class Game {
       this.physics.world = null;
     }
     this.worldCones = spawnWorldCones(this.scene, this.physics, this.interiors.cones);
+    this.worldCrates = spawnWorldCrates(this.scene, this.physics, this.interiors.crates);
     await stage('spawn-entities', 0.82, '召喚同學與機車');
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);

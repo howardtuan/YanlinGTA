@@ -61,3 +61,56 @@ export function spawnWorldCones(scene, physics, cones = []) {
   }
   return out;
 }
+
+// Loose boxes in front of the shop rows (crates, cartons, coolers, sign boards: src/world/Kit.js looseBox, collected
+// by finishRow into interiors.crates): props you knock about like the cones (#302: you walked through them).
+// All of them are one InstancedMesh (one draw call); each has its own sleeping physics body, and a moved one
+// writes its new matrix into its instance (Physics.js calls obj.updateMatrix() after every step it moves).
+export function spawnWorldCrates(scene, physics, crates = []) {
+  if (!crates.length) return null;
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  geo.translate(0, 0.5, 0); // origin on the floor
+  const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 });
+  const im = new THREE.InstancedMesh(geo, mat, crates.length);
+  im.name = 'worldCrates';
+  im.castShadow = true;
+  im.receiveShadow = true;
+  const col = new THREE.Color(),
+    up = new THREE.Vector3(0, 1, 0),
+    props = [];
+  crates.forEach((c, i) => {
+    const o = new THREE.Object3D();
+    o.position.set(c.x, Math.max(surfaceAt(c.x, c.z), c.y), c.z);
+    o.quaternion.setFromAxisAngle(up, c.yaw);
+    o.scale.set(c.w, c.h, c.d);
+    o.matrixAutoUpdate = false;
+    o.updateMatrix = function () {
+      this.matrix.compose(this.position, this.quaternion, this.scale);
+      im.setMatrixAt(i, this.matrix);
+      im.instanceMatrix.needsUpdate = true;
+      im.boundingSphere = null; // a crate knocked out of the row's bounds stays visible
+    };
+    o.updateMatrix();
+    im.setColorAt(i, col.set(c.color));
+    const vol = c.w * c.h * c.d;
+    const rec = physics?.ready
+      ? physics.addProp(o, {
+          shape: 'box',
+          hx: c.w / 2,
+          hy: c.h / 2,
+          hz: c.d / 2,
+          y: c.h / 2,
+          mass: Math.min(60, Math.max(3, vol * 120)), // a carton of drinks, not a bank safe
+          friction: 0.6,
+          restitution: 0.15,
+          sound: 'barrier',
+        })
+      : null;
+    if (rec) rec.crate = true; // the walker stops at / shoves these (src/entities/Walker.js)
+    props.push(rec);
+  });
+  im.instanceMatrix.needsUpdate = true;
+  if (im.instanceColor) im.instanceColor.needsUpdate = true;
+  scene.add(im);
+  return { mesh: im, props, count: crates.length };
+}

@@ -60,6 +60,10 @@ function bez(c, s) {
 // shove harder than SHOVE_MAX would have knocked them down (solvePersonImpact knockDownV) instead
 const SHOVE_DECEL = 4,
   SHOVE_MAX = 3;
+// a walker more than LAG_MAX m from the spot on its path waits for itself to catch up; LAG_T s of that and it
+// gets back to the path the way one that got up does (Peds.update)
+const LAG_MAX = 2.5,
+  LAG_T = 5;
 
 export class Traffic {
   // the vehicles left standing (game.vehicles, not the one you ride) that traffic has to stop or steer for: every one
@@ -932,6 +936,9 @@ export class Peds {
         ghost: false,
         corner: null,
         nx: null,
+        tgD: 0,
+        lagT: 0,
+        anchor: null,
       });
       // campus peds are students; more voters near campus
       p.ch.root.visible = true;
@@ -967,27 +974,43 @@ export class Peds {
     return [f.x + dx * k - (dz / l) * off, f.z + dz * k + (dx / l) * off];
   }
   // where to walk next: on the pavement path, or, where a shop front / a wall stands on it, the nearest free
-  // spot towards the road (up to 3 m), so walkers go round it instead of pressing into it (#302)
+  // spot towards the road (up to 3 m), so walkers go round it instead of pressing into it (#302).
+  // A kerbside row of parked bikes (src/core/ParkedScooters.js) stands right on the pavement line too (新中北路
+  // in front of 力行: a 100 m row on each side); walkers stuck at its end, pushed back along the row by the
+  // first bike, step out beside it instead (towards the road, else behind the row)
   _clearTarget(p) {
     let tg = this._target(p, p.dodge);
     const C = this.coll;
     if (!C || p.ghost || p.corner) return tg;
     const nr = C.noReserved;
     C.noReserved = true; // reserved outlines are for building the map, not walls
-    const blocked = ([x, z]) => C.insideAny(x, z) || C.blocked(x, z, 0.3);
+    const P = this.parked;
+    const blocked = ([x, z]) => this._blocked(p, x, z);
     if (blocked(tg)) {
       const base = this._offset(p) + p.dodge,
         sg = Math.sign(base) || 1;
-      for (let s = 0.3; s <= 3.001; s += 0.3) {
-        const q = this._target(p, 0, base - sg * s);
-        if (!blocked(q)) {
-          tg = q;
-          break;
-        }
+      let q = null;
+      for (let s = 0.3; s <= 3.001 && !q; s += 0.3) {
+        const a = this._target(p, 0, base - sg * s);
+        if (!blocked(a)) q = a;
       }
+      // nothing free towards the road (a wall, or a row of bikes along the kerb): the other way
+      for (let s = 0.3; s <= 2.101 && !q && P; s += 0.3) {
+        const a = this._target(p, 0, base + sg * s);
+        if (!blocked(a)) q = a;
+      }
+      if (q) tg = q;
     }
     C.noReserved = nr;
     return tg;
+  }
+  // whether a walker can't stand at (x, z): a wall / shop front, or a parked bike or car (with C.noReserved set)
+  _blocked(p, x, z) {
+    const C = this.coll,
+      P = this.parked;
+    return (
+      C.insideAny(x, z) || C.blocked(x, z, 0.3) || (P ? P.footBlocked(x, z, 0.3, p.y || 0) : false)
+    );
   }
   // sp: its speed (it never moves much faster than that, e.g. onto the pavement of a street it turns into)
   _place(p, dt, sp = 1.5) {
@@ -1026,6 +1049,7 @@ export class Peds {
       if (p.corner && Math.hypot(p.corner[0] - p.pos.x, p.corner[1] - p.pos.z) < 0.3)
         p.corner = null;
     }
+    p.tgD = Math.hypot(tx - p.pos.x, tz - p.pos.z); // how far behind the spot it is making for (update)
     // face where it goes (turning round corners), along the path when standing
     const mx = p.pos.x - x0,
       mz = p.pos.z - z0;
@@ -1090,6 +1114,14 @@ export class Peds {
     const over = p.d - (p.len - nx.cut);
     if (nx.flip) p.side = -p.side;
     p.corner = nx.corner;
+    // a corner of the two pavements that falls inside a wall or a parked bike can't be reached: straight on
+    if (p.corner && this.coll) {
+      const C = this.coll,
+        nr = C.noReserved;
+      C.noReserved = true;
+      if (this._blocked(p, p.corner[0], p.corner[1])) p.corner = null;
+      C.noReserved = nr;
+    }
     p.from = n;
     p.to = e.to;
     p.edge = e;
@@ -1355,9 +1387,26 @@ export class Peds {
           }
           p.dodge += (dodge - p.dodge) * Math.min(1, dt * 2.5);
           speed = sp;
-          if (!p.corner) p.d += sp * dt;
+          // the spot on the path runs on only while the walker keeps up with it: one held back by a wall or a
+          // row of parked bikes used to fall behind it by tens of metres, then cut straight for a corner far
+          // off through the buildings in between and never get there (新中北路 in front of 力行)
+          if (!p.corner && !(p.tgD > LAG_MAX)) p.d += sp * dt;
           while (p.d >= this._end(p)) this._next(p);
           this._place(p, dt, sp);
+          // still held back after a while: back to the path like one getting up (state 'return': through
+          // what is in the way after a while, or put back on it out of sight)
+          // ... and so is one pressing into something without getting anywhere (under 1 m in LAG_T s)
+          const an = p.anchor;
+          if (!an || sp < 0.3 || Math.hypot(p.pos.x - an[0], p.pos.z - an[1]) > 1)
+            p.anchor = [p.pos.x, p.pos.z, 0];
+          else an[2] += dt;
+          if (!(p.tgD > LAG_MAX)) p.lagT = 0;
+          else p.lagT = (p.lagT || 0) + dt;
+          if (p.lagT > LAG_T || p.anchor[2] > LAG_T) {
+            p.lagT = 0;
+            p.anchor = null;
+            this._goBack(p, false);
+          }
         }
       }
       // walkers on a footbridge / viaduct way use its deck, others keep their level

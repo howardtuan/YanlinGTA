@@ -15,7 +15,7 @@ const GAUGE = 0.75; // 鋼軌離軌道中心（與 MapBuilder 畫的鋼軌一致
 const PANEL = 1.25; // 平交道板離軌道中心的半寬
 const GATE_D = 3.0; // 柵欄桿離最近一條軌道中心的垂直距離
 const STOP_D = 4.8; // 停止線
-const FENCE_D = 2.7; // 圍籬離外側軌道中心
+export const FENCE_D = 2.7; // 圍籬離外側軌道中心
 const FENCE_H = 1.8;
 const DOWN_T = 4.5; // 柵欄桿放下要幾秒
 const UP_T = 3.5;
@@ -66,6 +66,39 @@ export function polyline(pts) {
     return best;
   };
   return { pts, cum, len, at, project };
+}
+
+// 鐵道用地：離任一條軌道中心不到 FENCE_D + r（兩側圍籬以內，r 是物體半徑或額外留的空間）。
+// src/world/MapBuilder.js（樹、溪溝的涵洞）與 src/world/Furniture.js（電線桿、圍牆）用來讓開鐵道
+export function railBand(data) {
+  const S = [];
+  for (const r of data.rail || [])
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const [ax, az] = r.pts[i],
+        [bx, bz] = r.pts[i + 1];
+      S.push([
+        ax,
+        az,
+        bx,
+        bz,
+        Math.min(ax, bx),
+        Math.min(az, bz),
+        Math.max(ax, bx),
+        Math.max(az, bz),
+      ]);
+    }
+  return (x, z, r = 0) => {
+    const R = FENCE_D + r;
+    for (const q of S) {
+      if (x < q[4] - R || x > q[6] + R || z < q[5] - R || z > q[7] + R) continue;
+      const ex = q[2] - q[0],
+        ez = q[3] - q[1],
+        l2 = ex * ex + ez * ez || 1,
+        t = Math.max(0, Math.min(1, ((x - q[0]) * ex + (z - q[1]) * ez) / l2));
+      if (Math.hypot(q[0] + ex * t - x, q[1] + ez * t - z) < R) return true;
+    }
+    return false;
+  };
 }
 
 const segX = (a, b, c, d) => {

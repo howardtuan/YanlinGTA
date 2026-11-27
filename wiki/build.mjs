@@ -341,7 +341,7 @@ ${
   <div class="ov"><span class="ov-n">${chars.length}</span><span>登場角色</span></div>
   <div class="ov"><span class="ov-n">34</span><span>金色選票</span></div>
 </div>
-<p>投票日就在明天。玩家扮演候選人<b>彥霖</b>，跟著兩個全息 AI 夥伴 M.O.N.D.A.Y 與 W.E.D.N.E.S.D.A.Y 完成競選主線：貼傳單、買早餐、掃街拉票、搶救布條，最後用真正的 SQL 查出是誰割了競選布條。卡關的時候，右下角的金色小助手 S.U.N.D.A.Y 會給提示。</p>
+<p>投票日就在明天。玩家扮演候選人<b>彥霖</b>，跟著兩個全息 AI 夥伴 M.O.N.D.A.Y 與 W.E.D.N.E.S.D.A.Y 完成競選主線：貼傳單、去「食字路口」採買點心、掃街拉票、搶救布條、用真正的 SQL 查出是誰割了競選布條，再到男生宿舍逐間拉票，最後站上政見發表會。卡關的時候，右下角的金色小助手 S.U.N.D.A.Y 會給提示。</p>
 <p>主線之外，校園裡每個角色都有自己的 24 小時作息、宿舍床位、對白和手機社群動態。跟他們聊天加好友，就會觸發各自的支線劇情。另外還有麥當勞打工、新中北路障礙賽、力行 277 寢 3D 台灣麻將（可以跟朋友連線）、資管學堂程式課、靈感股市和直升機空投等玩法。</p>
 ${
   news.length
@@ -361,7 +361,7 @@ ${
   <a class="card" href="${game}"><span class="num">▶</span><b>開始玩</b><span>免安裝，電腦與手機瀏覽器都能玩</span></a>
   <a class="card" href="${link(base, 'controls')}"><span class="num">${pageNum('controls')}</span><b>操作教學</b><span>鍵盤滑鼠、手把、手機觸控</span></a>
   <a class="card" href="${link(base, 'characters')}"><span class="num">${pageNum('characters')}</span><b>角色介紹</b><span>真人改編的同學、室友與開發者</span></a>
-  <a class="card" href="${link(base, 'main-quests')}"><span class="num">${pageNum('main-quests')}</span><b>主線任務</b><span>五個競選任務攻略</span></a>
+  <a class="card" href="${link(base, 'main-quests')}"><span class="num">${pageNum('main-quests')}</span><b>主線任務</b><span>${quests.filter((q) => q.type === 'main').length} 個競選任務攻略</span></a>
 </div>
 <h2 id="faq">常見問題</h2>
 ${faqs(data)

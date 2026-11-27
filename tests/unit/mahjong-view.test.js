@@ -5,6 +5,7 @@ import {
   camPoints,
   discardScale,
   fitCamera,
+  facePoint,
   MahjongScene,
   specEdge,
   specSpot,
@@ -31,13 +32,15 @@ describe('fitCamera：重點區塊塞滿畫面又不被切掉', () => {
       const top = 40,
         side = 10,
         bottom = S.bar ? 6 : 34;
-      const r = fitCamera(c, CAM_VIEW[S.mode](S.w / S.h), { w: S.w, h: S.h, bar: S.bar, mine });
+      const view = CAM_VIEW[S.mode](S.w / S.h);
+      const r = fitCamera(c, view, { w: S.w, h: S.h, bar: S.bar, mine });
       expect(r.y).toBeLessThanOrEqual(2.55 + 1e-6); // 不撞到天花板的燈
       let minX = Infinity,
         maxX = -Infinity,
         minY = Infinity,
         maxY = -Infinity;
-      for (const p of camPoints(mine)) {
+      // 橫的遠景：對家的臉也算在重點區塊裡
+      for (const p of [...camPoints(mine), ...(view.face ? [facePoint(0)] : [])]) {
         const v = p.clone().project(c);
         const x = ((v.x + 1) / 2) * S.w,
           y = ((1 - v.y) / 2) * S.h;
@@ -156,6 +159,26 @@ describe('specEdge：畫面外的觀戰者名牌貼在畫面邊緣、對著他�
       prev = [x, y];
     }
   });
+});
+
+describe('fitCamera：橫的遠景壓低，對家的臉在畫面裡', () => {
+  for (const [w, h] of [
+    [1280, 720],
+    [800, 600],
+    [1920, 1080],
+  ])
+    for (const yaw of [0, 90, 180]) {
+      it(`${w}×${h} yaw ${yaw}°`, () => {
+        const c = new THREE.PerspectiveCamera(50, w / h, 0.05, 30);
+        const view = { ...CAM_VIEW.far(w / h), yaw };
+        expect(view.elev).toBeLessThanOrEqual(25); // 低角度，像坐在桌邊
+        fitCamera(c, view, { w, h, mine: true });
+        const v = facePoint((yaw * Math.PI) / 180).project(c);
+        expect(v.z).toBeLessThan(1); // 在鏡頭前面
+        expect(((1 - v.y) / 2) * h).toBeGreaterThanOrEqual(39); // 頭頂沒被上方名牌區切掉
+        expect(Math.abs(v.x)).toBeLessThan(0.2); // 在畫面中間
+      });
+    }
 });
 
 describe('fitCamera：觀戰者繞桌轉鏡頭也塞得下', () => {

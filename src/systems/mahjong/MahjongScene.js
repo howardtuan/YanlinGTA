@@ -526,11 +526,13 @@ export function discardScale(maxCount, wall = true) {
 // 不管視窗多大、橫拿直拿，都把「有用的牌」塞滿畫面：四家的海底、三家的手牌列（吃碰槓、花都在那一排），
 // 遠景再加上你自己的 3D 手牌。牆和桌邊空的綠布可以被切掉。
 // close：近景（手機版，手牌是底下那條）；far：遠景／觀戰／攤牌。elev＝鏡頭仰角（越大越接近正上方，對家的牌越不扁）
+// 橫的遠景壓低到像坐在桌邊：正視自己的牌，抬頭就看得到別家的臉（face：對家的臉也算進取景，見 fitCamera）
 export const CAM_VIEW = {
   close: (aspect) => (aspect < 1 ? { fov: 58, elev: 76, tz: 0 } : { fov: 40, elev: 60, tz: 0 }),
   far: (aspect) =>
-    aspect < 0.8 ? { fov: 58, elev: 62, tz: 0.02 } : { fov: 42, elev: 38, tz: 0.02 },
+    aspect < 0.8 ? { fov: 58, elev: 62, tz: 0.02 } : { fov: 52, elev: 20, tz: 0.02, face: true },
 };
+const FACE_Y = 1.72; // 坐著的人頭頂（含頭髮）大約這麼高
 const MJ_PIXELS = 2.6e6; // 牌桌最多畫這麼多像素（約 2560×1000）
 const CAM_MAX_Y = 2.55; // 天花板的燈（y 2.73）在桌子正上方，鏡頭不能高過它
 export function camPoints(mine) {
@@ -559,6 +561,10 @@ export function camPoints(mine) {
   }
   return pts;
 }
+// 鏡頭正對面那個座位的人的頭頂（yaw 同 fitCamera）
+export function facePoint(yawRad = 0) {
+  return new THREE.Vector3(-Math.sin(yawRad) * SEAT_R, FACE_Y, -Math.cos(yawRad) * SEAT_R);
+}
 const _cp = { true: camPoints(true), false: camPoints(false) },
   _pv = new THREE.Vector3();
 // 用給定的視角（fov、仰角）找出能把重點區塊完整塞進可用範圍的最近距離，再用 view offset 把它置中。
@@ -568,7 +574,7 @@ export function fitCamera(
   view,
   { w, h, bar = 0, mine = false, top = 40, side = 10, bottom } = {}
 ) {
-  const pts = _cp[!!mine];
+  const base = _cp[!!mine];
   bottom ??= bar ? 6 : 34;
   const x0 = -1 + (2 * side) / w,
     x1 = 1 - (2 * side) / w,
@@ -581,6 +587,9 @@ export function fitCamera(
     yaw = ((view.yaw || 0) * Math.PI) / 180,
     dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(e), Math.sin(e), Math.cos(yaw) * Math.cos(e)),
     tgt = new THREE.Vector3(Math.sin(yaw) * view.tz, Y0, Math.cos(yaw) * view.tz);
+  // 遠景：鏡頭正對面那家的臉也要在畫面裡（不然只看得到手臂和胸口）；左右兩家坐得太開，
+  // 硬塞會把牌縮得很小，讓他們在畫面兩邊
+  const pts = view.face ? [...base, facePoint(yaw)] : base;
   c.aspect = w / h;
   if (c.view?.enabled) c.clearViewOffset();
   const box = (d, fov) => {

@@ -270,11 +270,14 @@ export class Input {
       { passive: true }
     );
     for (const b of document.querySelectorAll('#touchBtns .tb')) {
-      const k = b.dataset.key;
+      // the key is read on each touch: a button can change what it does (#tbHorn: 📯 喇叭 on a vehicle, 📱 手機 on foot,
+      // src/core/Game.js touchHornBtn); the release lets go of the key that was pressed
+      let k = b.dataset.key;
       b.addEventListener(
         'touchstart',
         (e) => {
           e.preventDefault();
+          k = b.dataset.key;
           this.pressed.add(k);
           this.keys.add(k);
         },

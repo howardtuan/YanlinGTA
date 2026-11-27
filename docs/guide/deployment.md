@@ -75,7 +75,7 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 - **網頁圖示與加入主畫面**：Wiki 有自己的圖示（`wiki/icons/`：favicon、192／512、iPhone 用的 apple-touch-icon）與 `wiki/manifest.webmanifest`（`start_url` 為 `./`，加到主畫面後開回 `/wiki/`）；build 時複製到 `dist/wiki/`。
 - **補社群連結**：改 `wiki/people.json` 的 `linkedin`／`github`（完整 `https://` 網址，留空就不顯示該按鈕，兩個都空則整個區塊不出現）；AI 設 `social: false` 不顯示。
 - **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前 Tzuyu、勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
-- **最新消息**：`news/` 是部落格／粉專式的文章列表，文章寫在 `wiki/news.json`（`id`、`date` YYYY-MM-DD、`title`、`image`、`alt`、`body` 一段一個字串、`tags` 不加 #），照片放 `wiki/news/`（先縮到寬 1600px 以內，例如 `ffmpeg -i in.jpg -vf scale=1600:-2 -q:v 4 out.jpg`），build 時複製到 `dist/wiki/news/`。頁面依日期新到舊排序，首頁「最新消息」段落顯示最新兩篇。文字一律當純文字輸出。
+- **最新消息**：`news/` 是部落格／粉專式的文章列表，文章寫在 `wiki/news.json`（`id`、`date` YYYY-MM-DD、`title`、`image`、`alt`、`body` 一段一個字串、`tags` 不加 #），照片放 `wiki/news/`（先縮到寬 1600px 以內，例如 `ffmpeg -i in.jpg -vf scale=1600:-2 -q:v 4 out.jpg`），build 時複製到 `dist/wiki/news/`。頁面依日期新到舊排序，首頁「最新消息」段落顯示最新兩篇。文字一律當純文字輸出，但內文裡的 http(s) 網址會自動變成超連結（`target="_blank"`，開新分頁）；網址前後空一格或接全形標點即可。
 - **合作店家**：加在 `wiki/shops.json`（`url` 只收 `https://`，留空不顯示連結）。
 - **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/unit/wiki.test.js` 會擋下 CI。
 

@@ -101,9 +101,9 @@ export function releaseCanvas(cv) {
 }
 
 // put a canvas texture on the GPU now and release its canvas. Only for textures nothing draws into again.
-// Returns false (and keeps the canvas) when no renderer is configured.
+// Returns false (and keeps the canvas) when no renderer is configured or already released.
 export function uploadAndRelease(tex) {
-  if (!S.renderer || !tex?.image) return false;
+  if (!S.renderer || !tex?.image || tex.userData?.canvasReleased) return false;
   S.renderer.initTexture(tex);
   // the size it lives at on the GPU (tools/perf/page-hook.js counts it: the canvas is 1x1 from now on)
   tex.userData.gpuW = tex.image.width;
@@ -113,35 +113,81 @@ export function uploadAndRelease(tex) {
   return true;
 }
 
-// ---- atlas sources: canvas textures finishRow copied into a sheet ----
+export const TEX_SLOTS = [
+  'map',
+  'emissiveMap',
+  'normalMap',
+  'roughnessMap',
+  'metalnessMap',
+  'alphaMap',
+  'aoMap',
+  'bumpMap',
+  'lightMap',
+];
+
+function forEachSceneTex(scene, fn, fromChild = 0) {
+  const roots = fromChild > 0 ? scene.children.slice(fromChild) : [scene];
+  const seenMat = new Set();
+  for (const root of roots) {
+    root.traverse((o) => {
+      if (!o.material) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (!m || seenMat.has(m)) continue;
+        seenMat.add(m);
+        for (let i = 0; i < TEX_SLOTS.length; i++) {
+          const t = m[TEX_SLOTS[i]];
+          if (t?.isTexture) fn(t);
+        }
+        if (m.uniforms)
+          for (const u of Object.values(m.uniforms)) if (u?.value?.isTexture) fn(u.value);
+      }
+    });
+  }
+}
+
+// ---- atlas sources: canvas textures finishRow / batchKitPlanes copied into a sheet ----
 const PACKED = new Set();
+const PACKED_REUSABLE = new Set();
+// cross-zone shared textures (Kit.js T.* / YHT.* / ROWT.*): kept in cache during buildZones() and released at the end
+export function markReusable(t) {
+  if (t?.userData) t.userData.reusable = true;
+  return t;
+}
 export function markAtlasSource(tex) {
-  if (S.renderer && tex?.image) PACKED.add(tex);
+  if (!S.renderer || !tex?.image || tex.userData?.dynamic) return;
+  if (tex.userData?.reusable) PACKED_REUSABLE.add(tex);
+  else PACKED.add(tex);
 }
 // Release the packed sources nothing in the scene still shows on its own; `cache` (Kit's TEX) loses their keys,
 // so a later ctex() with the same key draws a fresh canvas (the drawings are deterministic: the same pixels).
-// Called after each zone is built (src/world/zones/Zones.js) and once more after all interiors. Returns how many.
-export function releaseAtlasSources(scene, cache = null) {
-  if (!PACKED.size) return 0;
+// Called after zones in buildZones (with minBatch + keepReusable + fromChild) and once more after all interiors.
+export function releaseAtlasSources(
+  scene,
+  cache = null,
+  { minBatch = 0, keepReusable = false, fromChild = 0 } = {}
+) {
+  const checkReusable = !keepReusable && PACKED_REUSABLE.size > 0;
+  if (PACKED.size < minBatch && !checkReusable) return 0;
+  if (!PACKED.size && !checkReusable) return 0;
+  const targets = checkReusable ? [...PACKED, ...PACKED_REUSABLE] : [...PACKED];
   const used = new Set();
-  scene.traverse((o) => {
-    if (!o.material) return;
-    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-      for (const k in m) if (m[k]?.isTexture && m[k].image) used.add(m[k].image);
-      if (m.uniforms)
-        for (const u of Object.values(m.uniforms))
-          if (u?.value?.isTexture && u.value.image) used.add(u.value.image);
-    }
-  });
+  forEachSceneTex(
+    scene,
+    (t) => {
+      if (t.image) used.add(t.image);
+    },
+    fromChild
+  );
   const gone = new Set();
-  for (const t of PACKED) {
-    if (!t.image || used.has(t.image)) continue;
+  for (const t of targets) {
+    if (!t.image || t.userData?.dynamic || used.has(t.image)) continue;
     gone.add(t);
     t.dispose();
     releaseCanvas(t.image);
   }
   if (cache && gone.size) for (const k in cache) if (gone.has(cache[k])) delete cache[k];
   PACKED.clear();
+  if (checkReusable) PACKED_REUSABLE.clear();
   return gone.size;
 }
 
@@ -163,18 +209,11 @@ export function markShared(cv) {
 export function flushShared(scene) {
   if (!S.renderer) return 0;
   const byCanvas = new Map();
-  scene.traverse((o) => {
-    if (!o.material) return;
-    for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-      const add = (t) => {
-        const cv = t?.isTexture ? t.image : null;
-        if (!cv || !SHARED.has(cv)) return;
-        if (!byCanvas.has(cv)) byCanvas.set(cv, new Set());
-        byCanvas.get(cv).add(t);
-      };
-      for (const k in m) add(m[k]);
-      if (m.uniforms) for (const u of Object.values(m.uniforms)) add(u?.value);
-    }
+  forEachSceneTex(scene, (t) => {
+    const cv = t.image;
+    if (!cv || !SHARED.has(cv)) return;
+    if (!byCanvas.has(cv)) byCanvas.set(cv, new Set());
+    byCanvas.get(cv).add(t);
   });
   let n = 0;
   for (const [cv, texs] of byCanvas) {
@@ -252,4 +291,5 @@ export function resetGpuMem() {
   S.atlasMaxH = 4096;
   S.renderer = null;
   PACKED.clear();
+  PACKED_REUSABLE.clear();
 }

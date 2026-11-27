@@ -407,12 +407,18 @@ class Game {
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality();
     await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
+    const interiorStart = this.scene.children.length;
     this.interiors = buildInteriors(this.scene, data, this.world.collision, {
       createCharacter,
-      // after each zone: drop the sign canvases its shop rows copied into their atlas sheets
-      afterZone: () => releaseAtlasSources(this.scene, TEX),
+      // batch-release one-off shop sign canvases during buildZones while keeping cross-street shared kit textures
+      afterZone: () =>
+        releaseAtlasSources(this.scene, TEX, {
+          minBatch: 80,
+          keepReusable: true,
+          fromChild: interiorStart,
+        }),
     });
-    releaseAtlasSources(this.scene, TEX);
+    releaseAtlasSources(this.scene, TEX, { fromChild: interiorStart });
     gcNudge(); // Apple WebKit: collect the build's garbage now (GpuMemLifecycle)
 
     // 市區公車路線（src/systems/Buses.js）：路線與站牌；OSM 沒有的站牌在這裡補（碰撞要在 build-physics 之前、

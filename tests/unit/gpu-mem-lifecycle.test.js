@@ -2,13 +2,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import {
+  TEX_SLOTS,
   blankTexture,
   canvasTexture,
   configureGpuMem,
   flushShared,
   gcNudge,
-  markStaticGeometry,
   markAtlasSource,
+  markDynamic,
+  markReusable,
+  markStaticGeometry,
   releaseAtlasSources,
   resetGpuMem,
   scaledCanvas,
@@ -93,25 +96,98 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     expect(r.initTexture).toHaveBeenCalledWith(t);
     expect([t.image.width, t.image.height]).toEqual([1, 1]);
     expect(t.userData.canvasReleased).toBe(true);
+    expect([t.userData.gpuW, t.userData.gpuH]).toEqual([64, 64]);
+    // idempotent: a second call never overwrites gpuW / gpuH with 1x1
+    expect(uploadAndRelease(t)).toBe(false);
+    expect([t.userData.gpuW, t.userData.gpuH]).toEqual([64, 64]);
   });
 
   it('atlas sources: released unless the scene still shows them, and their cache keys go', () => {
     fakeContext();
     configureGpuMem(profile('desktop-dgpu'), fakeRenderer());
     const shown = canvasTexture(32, 32, () => {}),
+      shaderTex = canvasTexture(32, 32, () => {}),
       packed = canvasTexture(32, 32, () => {});
-    const cache = { shown, packed, other: canvasTexture(8, 8, () => {}) };
+    const cache = { shown, shaderTex, packed, other: canvasTexture(8, 8, () => {}) };
     const scene = new THREE.Scene();
     scene.add(
-      new THREE.Mesh(new THREE.PlaneGeometry(), new THREE.MeshBasicMaterial({ map: shown }))
+      new THREE.Mesh(
+        new THREE.PlaneGeometry(),
+        new THREE.MeshStandardMaterial({ map: shown, emissiveMap: shown })
+      )
+    );
+    scene.add(
+      new THREE.Mesh(
+        new THREE.PlaneGeometry(),
+        new THREE.ShaderMaterial({ uniforms: { uTex: { value: shaderTex } } })
+      )
     );
     markAtlasSource(shown);
+    markAtlasSource(shaderTex);
     markAtlasSource(packed);
+    expect(TEX_SLOTS).toContain('map');
+    expect(TEX_SLOTS).toContain('emissiveMap');
     expect(releaseAtlasSources(scene, cache)).toBe(1);
     expect(shown.image.width).toBe(32);
+    expect(shaderTex.image.width).toBe(32);
     expect(packed.image.width).toBe(1);
-    expect(Object.keys(cache)).toEqual(['shown', 'other']);
+    expect(Object.keys(cache)).toEqual(['shown', 'shaderTex', 'other']);
     expect(releaseAtlasSources(scene, cache)).toBe(0); // marked once, released once
+  });
+
+  it('atlas sources: minBatch, keepReusable, and fromChild batch release without scanning MapBuilder meshes', () => {
+    fakeContext();
+    configureGpuMem(profile('desktop-dgpu'), fakeRenderer());
+    const worldTex = canvasTexture(16, 16, () => {}),
+      reusable = markReusable(canvasTexture(32, 32, () => {})),
+      oneOff1 = canvasTexture(24, 24, () => {}),
+      oneOff2 = canvasTexture(24, 24, () => {}),
+      dyn = markDynamic(canvasTexture(24, 24, () => {}));
+    const cache = { reusable, oneOff1, oneOff2, dyn };
+    const scene = new THREE.Scene();
+    const worldGroup = new THREE.Group();
+    const worldMat = new THREE.MeshBasicMaterial({ map: worldTex });
+    const traverseSpy = vi.spyOn(worldGroup, 'traverse');
+    worldGroup.add(new THREE.Mesh(new THREE.PlaneGeometry(), worldMat));
+    scene.add(worldGroup); // child 0: pre-existing MapBuilder world
+    const interiorStart = scene.children.length;
+    scene.add(new THREE.Group()); // child 1: interiors subtree
+
+    markAtlasSource(reusable);
+    markAtlasSource(oneOff1);
+    markAtlasSource(dyn); // ignored because dynamic
+    expect(dyn.userData.dynamic).toBe(true);
+    // below minBatch: deferred
+    expect(
+      releaseAtlasSources(scene, cache, {
+        minBatch: 2,
+        keepReusable: true,
+        fromChild: interiorStart,
+      })
+    ).toBe(0);
+    expect(oneOff1.image.width).toBe(24);
+    expect(traverseSpy).not.toHaveBeenCalled();
+
+    // meets minBatch: one-offs released, reusable kept, worldGroup skipped
+    markAtlasSource(oneOff2);
+    expect(
+      releaseAtlasSources(scene, cache, {
+        minBatch: 2,
+        keepReusable: true,
+        fromChild: interiorStart,
+      })
+    ).toBe(2);
+    expect(traverseSpy).not.toHaveBeenCalled();
+    expect(oneOff1.image.width).toBe(1);
+    expect(oneOff2.image.width).toBe(1);
+    expect(reusable.image.width).toBe(32);
+    expect(dyn.image.width).toBe(24);
+    expect(Object.keys(cache)).toEqual(['reusable', 'dyn']);
+
+    // final release at end of buildInteriors: reusable atlas-only sources are released too
+    expect(releaseAtlasSources(scene, cache, { fromChild: interiorStart })).toBe(1);
+    expect(reusable.image.width).toBe(1);
+    expect(Object.keys(cache)).toEqual(['dyn']);
   });
 
   it('unconfigured (tests, tools): nothing is marked, scaled or released', () => {

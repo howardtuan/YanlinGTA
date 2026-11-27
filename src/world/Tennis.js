@@ -6,7 +6,7 @@
 // 鋪面和線畫在 src/world/MapBuilder.js 的 areas 圖層（和 src/world/Court.js 同一層），圍網、球網、燈桿、棚子在這裡蓋。
 import * as THREE from 'three';
 import { H } from './Terrain.js';
-import { scaledCanvas } from '../graphics/GpuMemLifecycle.js';
+import { markShared, scaledCanvas } from '../graphics/GpuMemLifecycle.js';
 
 // local frame: origin at the north-west court's centre, u along the courts (south +), v across (east +)
 export const O = [-44.6, -316.4],
@@ -81,16 +81,19 @@ export function paintTennis(areas, geo) {
 // chain link: a diamond mesh in green-coated wire, cut out with alphaTest
 function meshTex(rep) {
   const { cv, g: c } = scaledCanvas(64, 64);
-  c.strokeStyle = '#2f4a37';
-  c.lineWidth = 2.5;
-  c.beginPath();
-  for (let i = -4; i <= 4; i++) {
-    c.moveTo(i * 16, 0);
-    c.lineTo(i * 16 + 64, 64);
-    c.moveTo(i * 16 + 64, 0);
-    c.lineTo(i * 16, 64);
+  if (c) {
+    c.strokeStyle = '#2f4a37';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    for (let i = -4; i <= 4; i++) {
+      c.moveTo(i * 16, 0);
+      c.lineTo(i * 16 + 64, 64);
+      c.moveTo(i * 16 + 64, 0);
+      c.lineTo(i * 16, 64);
+    }
+    c.stroke();
   }
-  c.stroke();
+  markShared(cv);
   const t = new THREE.CanvasTexture(cv);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (rep) t.repeat.set(...rep);
@@ -371,9 +374,12 @@ export function buildTennis(I, scene, Kit, regMat) {
   const netMat = new THREE.MeshStandardMaterial({
     map: (() => {
       const { cv, g: c } = scaledCanvas(32, 32);
-      c.strokeStyle = '#1c1c1c';
-      c.lineWidth = 3;
-      c.strokeRect(0, 0, 32, 32);
+      if (c) {
+        c.strokeStyle = '#1c1c1c';
+        c.lineWidth = 3;
+        c.strokeRect(0, 0, 32, 32);
+      }
+      markShared(cv);
       const t = new THREE.CanvasTexture(cv);
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       return t;

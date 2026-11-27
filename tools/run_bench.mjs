@@ -374,6 +374,7 @@ try {
       quality: benchResult.quality,
       safeMode: postSnap.snap.safeMode,
       canvasMB: postSnap.canvas.canvasMB,
+      peakCanvasMB: postSnap.canvas.peakCanvasMB,
       canvasCount: postSnap.canvas.canvasCount,
       canvasInDom: postSnap.canvas.canvasInDom,
       topCanvasSizes: postSnap.canvas.topCanvasSizes,

@@ -248,6 +248,7 @@ export class HoloRingView {
   constructor(name, px = 96) {
     this.px = px;
     const c = (this.canvas = document.createElement('canvas'));
+    c.width = c.height = 1;
     c.className = 'holo-ring';
     c.setAttribute('aria-hidden', 'true');
     this.ctx = c.getContext('2d');

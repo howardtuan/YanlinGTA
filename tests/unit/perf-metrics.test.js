@@ -14,6 +14,7 @@ const run = (over = {}) => ({
   boot: { toTitleMs: 10000, bootDiagMs: 9000, resourceCount: 20, transferKB: 5000 },
   memory: {
     canvasMB: 1800,
+    peakCanvasMB: 1950,
     canvasCount: 3000,
     canvasInDom: 3,
     textureEstMB: 1700,
@@ -92,10 +93,19 @@ describe('perf metrics helpers', () => {
     expect(cmp.regressions).toHaveLength(0);
   });
 
-  it('budgetViolations checks the canvas ceiling', () => {
+  it('budgetViolations checks the post-GC canvas and peak canvas ceilings', () => {
     const rep = aggregateRuns([run()]);
+    expect(rep.memory.peakCanvasMB).toBe(1950);
     expect(budgetViolations(rep, { maxCanvasMB: 220 })).toHaveLength(1);
     expect(budgetViolations(rep, { maxCanvasMB: 5000 })).toHaveLength(0);
+    expect(budgetViolations(rep, { maxCanvasMB: 16, maxPeakCanvasMB: 220 })).toEqual([
+      'canvasMB 1800 > limit 16',
+      'peakCanvasMB 1950 > limit 220',
+    ]);
+    const within = aggregateRuns([
+      run({ memory: { ...run().memory, canvasMB: 8.5, peakCanvasMB: 120 } }),
+    ]);
+    expect(budgetViolations(within, { maxCanvasMB: 16, maxPeakCanvasMB: 220 })).toEqual([]);
   });
 
   it('envMismatch lists the fields that differ between machines', () => {

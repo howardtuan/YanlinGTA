@@ -19,6 +19,7 @@ import { ZZ_LOOK, GD_LOOK } from './FriendLooks.js';
 import { zzOnShift } from '../../systems/minigames/TeaShop.js';
 import { buildLaptop, gameScreen } from './DevNPC.js';
 import { serviceWear } from './Service.js';
+import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 const M = (h, m = 0) => h * 60 + m;
 const minuteOf = (clock) => ((clock % 1440) + 1440) % 1440;
@@ -184,33 +185,37 @@ export class Zz {
       s = Math.sign(-Math.sin(myDesk.face)) || 1;
     const lap = new THREE.Group(),
       body = new THREE.MeshStandardMaterial({ color: '#c9ccd1', roughness: 0.35, metalness: 0.6 });
-    const cv = document.createElement('canvas');
-    cv.width = 256;
-    cv.height = 160;
-    const x = cv.getContext('2d');
-    const gr = x.createLinearGradient(0, 0, 256, 160);
-    gr.addColorStop(0, '#1d3557');
-    gr.addColorStop(1, '#ffd23f');
-    x.fillStyle = gr;
-    x.fillRect(0, 0, 256, 160);
-    x.fillStyle = '#fff';
-    x.font = '900 26px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-    x.textAlign = 'center';
-    x.fillText('資管要贏', 128, 70);
-    x.font = '700 18px sans-serif';
-    x.fillText('票投彥霖 34', 128, 100);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    // his wallpaper, the same as on the laptop's desktop (src/ui/PC.js .pc-screen.own)
-    const wp = new Image();
-    wp.onload = () => {
-      const k = Math.max(256 / wp.width, 160 / wp.height),
-        w = wp.width * k,
-        h = wp.height * k;
-      x.drawImage(wp, (256 - w) / 2, (160 - h) / 2, w, h);
-      tex.needsUpdate = true;
-    };
-    wp.src = 'assets/pc/yanlin.jpg';
+    // dynamic: his wallpaper (assets/pc/yanlin.jpg) is drawn in when it has loaded, so its canvas is never released
+    let tex = null;
+    tex = canvasTexture(
+      256,
+      160,
+      (x) => {
+        const gr = x.createLinearGradient(0, 0, 256, 160);
+        gr.addColorStop(0, '#1d3557');
+        gr.addColorStop(1, '#ffd23f');
+        x.fillStyle = gr;
+        x.fillRect(0, 0, 256, 160);
+        x.fillStyle = '#fff';
+        x.font = '900 26px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+        x.textAlign = 'center';
+        x.fillText('資管要贏', 128, 70);
+        x.font = '700 18px sans-serif';
+        x.fillText('票投彥霖 34', 128, 100);
+        // his wallpaper, the same as on the laptop's desktop (src/ui/PC.js .pc-screen.own)
+        const wp = new Image();
+        wp.onload = () => {
+          const k = Math.max(256 / wp.width, 160 / wp.height),
+            w = wp.width * k,
+            h = wp.height * k;
+          x.drawImage(wp, (256 - w) / 2, (160 - h) / 2, w, h);
+          if (tex) tex.needsUpdate = true;
+        };
+        wp.src = 'assets/pc/yanlin.jpg';
+      },
+      false,
+      { dynamic: true }
+    );
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.018, 0.24), body);
     const hinge = new THREE.Group(),
       lid = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.01), body),

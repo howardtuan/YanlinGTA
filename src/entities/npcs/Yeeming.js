@@ -10,6 +10,7 @@ import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { VBALL, courtP } from '../../world/Court.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 export const YEEMING_LOOK = {
   skin: '#e9c6a6',
@@ -29,23 +30,28 @@ const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const GAP = 0.8; // between the two of them, hand in hand
 
 // a volleyball: white with blue and yellow panels
+let ballTex = null;
 function buildBall() {
-  const c = document.createElement('canvas');
-  c.width = 128;
-  c.height = 64;
-  const x = c.getContext('2d');
-  x.fillStyle = '#f4f4f0';
-  x.fillRect(0, 0, 128, 64);
-  x.fillStyle = '#1f4fbf';
-  x.fillRect(0, 8, 128, 12);
-  x.fillRect(0, 44, 128, 12);
-  x.fillStyle = '#ffd23f';
-  x.fillRect(0, 26, 128, 12);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
+  if (!ballTex) {
+    ballTex = canvasTexture(
+      128,
+      64,
+      (x) => {
+        x.fillStyle = '#f4f4f0';
+        x.fillRect(0, 0, 128, 64);
+        x.fillStyle = '#1f4fbf';
+        x.fillRect(0, 8, 128, 12);
+        x.fillRect(0, 44, 128, 12);
+        x.fillStyle = '#ffd23f';
+        x.fillRect(0, 26, 128, 12);
+      },
+      false
+    );
+    if (ballTex.isCanvasTexture) uploadAndRelease(ballTex);
+  }
   const m = new THREE.Mesh(
     new THREE.SphereGeometry(0.105, 18, 12),
-    new THREE.MeshStandardMaterial({ map: t, roughness: 0.5 })
+    new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.5 })
   );
   m.castShadow = true;
   return m;

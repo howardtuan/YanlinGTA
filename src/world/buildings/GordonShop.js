@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { H } from '../Terrain.js';
 import { ctex, MATS, M, Kit, lcg, YHT } from '../Kit.js';
 import { pointInPoly } from '../../physics/Collision.js';
-import { scaledCanvas } from '../../graphics/GpuMemLifecycle.js';
+import { markShared, scaledCanvas } from '../../graphics/GpuMemLifecycle.js';
 
 // =====================================================================
 // 戈登肉鋪 Gordon Meat Shop: 一層樓的獨棟店面，蓋在校史館西南側、緊鄰校史館的那片椰子樹草坪上（不是鐘塔那片大草坪），
@@ -763,6 +763,7 @@ export function buildGordon(I, scene) {
       s2.fillRect(0, y + 2, 64, 1);
     }
   }
+  markShared(shc);
   const shTex = new THREE.CanvasTexture(shc);
   shTex.colorSpace = THREE.SRGBColorSpace;
   shTex.wrapS = shTex.wrapT = THREE.RepeatWrapping;
@@ -785,6 +786,7 @@ export function buildGordon(I, scene) {
     s2.textBaseline = 'middle';
     s2.fillText('本店已打烊・營業時間 08:00–23:00', 512, 128, 980);
   }
+  markShared(sgc);
   const sgTex = new THREE.CanvasTexture(sgc);
   sgTex.colorSpace = THREE.SRGBColorSpace;
   const closedSign = new THREE.Mesh(

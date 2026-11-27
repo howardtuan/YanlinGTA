@@ -15,19 +15,28 @@ import {
   vec as V,
 } from '../world/Modeling.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import {
+  blankTexture,
+  markShared,
+  releaseCanvas,
+  scaledCanvas,
+  texScale,
+  uploadAndRelease,
+} from '../graphics/GpuMemLifecycle.js';
 
 // ---------------------------------------------------------------- textures
 const TEX = {};
 const cached = (k, f) => TEX[k] || (TEX[k] = f());
 function canvasTex(w, h, draw, { srgb = true, repeat = false } = {}) {
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  draw(cv.getContext('2d'), w, h);
+  const { cv, g } = scaledCanvas(w, h);
+  if (!g) return blankTexture();
+  draw(g, w, h);
+  markShared(cv);
   const t = new THREE.CanvasTexture(cv);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 8;
+  uploadAndRelease(t);
   return t;
 }
 // height canvases are only drawn once and read back: keep them on the CPU (no GPU readback, which stalls for seconds
@@ -36,12 +45,15 @@ const HEIGHT_CTX = { willReadFrequently: true };
 function heightToNormal(cv, strength = 2) {
   const w = cv.width,
     h = cv.height,
-    src = cv.getContext('2d').getImageData(0, 0, w, h).data;
+    ctx = cv.getContext('2d', HEIGHT_CTX);
+  if (!ctx) return blankTexture();
+  const src = ctx.getImageData(0, 0, w, h).data;
   const out = document.createElement('canvas');
   out.width = w;
   out.height = h;
-  const g = out.getContext('2d'),
-    img = g.createImageData(w, h),
+  const g = out.getContext('2d');
+  if (!g) return blankTexture();
+  const img = g.createImageData(w, h),
     d = img.data;
   const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
   for (let y = 0; y < h; y++)
@@ -56,9 +68,25 @@ function heightToNormal(cv, strength = 2) {
       d[i + 3] = 255;
     }
   g.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(out);
+  const s = texScale();
+  let finalCv = out;
+  if (s < 1) {
+    const scaled = document.createElement('canvas');
+    scaled.width = Math.max(1, Math.round(w * s));
+    scaled.height = Math.max(1, Math.round(h * s));
+    const sg = scaled.getContext('2d');
+    if (sg) {
+      sg.imageSmoothingQuality = 'high';
+      sg.drawImage(out, 0, 0, scaled.width, scaled.height);
+      releaseCanvas(out);
+      finalCv = scaled;
+    }
+  }
+  markShared(finalCv);
+  const t = new THREE.CanvasTexture(finalCv);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 8;
+  uploadAndRelease(t);
   return t;
 }
 const rng = (s) => () => {
@@ -100,11 +128,13 @@ function seatTex() {
         g.fillStyle = '#1b1b1d';
         g.fillRect(0, 0, S, S);
         g.globalAlpha = 0.18;
-        g.drawImage(hc, 0, 0);
+        g.drawImage(hc, 0, 0, S, S);
       },
       { repeat: true }
     );
-    return { map, normalMap: heightToNormal(hc, 3) };
+    const normalMap = heightToNormal(hc, 3);
+    releaseCanvas(hc);
+    return { map, normalMap };
   });
 }
 function tireTex() {
@@ -144,11 +174,13 @@ function tireTex() {
         g.fillStyle = '#161617';
         g.fillRect(0, 0, W, H);
         g.globalAlpha = 0.25;
-        g.drawImage(hc, 0, 0);
+        g.drawImage(hc, 0, 0, W, H);
       },
       { repeat: true }
     );
-    return { map, normalMap: heightToNormal(hc, 4) };
+    const normalMap = heightToNormal(hc, 4);
+    releaseCanvas(hc);
+    return { map, normalMap };
   });
 }
 function floorMatTex() {
@@ -172,7 +204,9 @@ function floorMatTex() {
       },
       { repeat: true }
     );
-    return { map, normalMap: heightToNormal(hc, 3) };
+    const normalMap = heightToNormal(hc, 3);
+    releaseCanvas(hc);
+    return { map, normalMap };
   });
 }
 function plasticTex() {
@@ -190,24 +224,28 @@ function plasticTex() {
       h.fillStyle = `rgb(${v},${v},${v})`;
       h.fillRect(r() * S, r() * S, 1.5, 1.5);
     }
-    return heightToNormal(hc, 1.2);
+    const normalMap = heightToNormal(hc, 1.2);
+    releaseCanvas(hc);
+    return normalMap;
   });
 }
 function plateTex(text) {
-  return canvasTex(256, 128, (g, W, H) => {
-    g.fillStyle = '#f4f4f0';
-    g.beginPath();
-    g.roundRect(4, 4, W - 8, H - 8, 10);
-    g.fill();
-    g.strokeStyle = '#1a1a1a';
-    g.lineWidth = 5;
-    g.stroke();
-    g.fillStyle = '#111';
-    g.font = '900 64px "Arial Narrow", system-ui';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(text, W / 2, H / 2 + 6);
-  });
+  return cached(`plate:${text}`, () =>
+    canvasTex(256, 128, (g, W, H) => {
+      g.fillStyle = '#f4f4f0';
+      g.beginPath();
+      g.roundRect(4, 4, W - 8, H - 8, 10);
+      g.fill();
+      g.strokeStyle = '#1a1a1a';
+      g.lineWidth = 5;
+      g.stroke();
+      g.fillStyle = '#111';
+      g.font = '900 64px "Arial Narrow", system-ui';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(text, W / 2, H / 2 + 6);
+    })
+  );
 }
 
 // ---------------------------------------------------------------- materials (shared)

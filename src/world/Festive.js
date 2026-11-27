@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { surfaceAt } from './Terrain.js';
 import { isChristmas } from './Season.js';
+import { canvasTexture } from '../graphics/GpuMemLifecycle.js';
 
 const seeded = (a) => () => {
   a |= 0;
@@ -247,34 +248,38 @@ function lanternGeo() {
   ]);
 }
 // couplet / 橫批 texture: red paper, gold rim, black brush characters
+const PAPER_TEX = new Map();
 function redPaper(text, vertical) {
+  const key = `${vertical ? 'v' : 'h'}:${text}`;
+  if (PAPER_TEX.has(key)) return PAPER_TEX.get(key);
   const W = vertical ? 128 : 512,
     Hh = vertical ? 512 : 128;
-  const cv = document.createElement('canvas');
-  cv.width = W;
-  cv.height = Hh;
-  const c = cv.getContext('2d');
-  c.fillStyle = '#c8101e';
-  c.fillRect(0, 0, W, Hh);
-  c.strokeStyle = '#e8b84a';
-  c.lineWidth = 6;
-  c.strokeRect(7, 7, W - 14, Hh - 14);
-  c.fillStyle = '#1a0d08';
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-  const chars = [...text];
-  if (vertical) {
-    const step = (Hh - 30) / chars.length;
-    c.font = `900 ${Math.floor(step * 0.86)}px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif`;
-    chars.forEach((ch, i) => c.fillText(ch, W / 2, 15 + step * (i + 0.5)));
-  } else {
-    const step = (W - 40) / chars.length;
-    c.font = `900 ${Math.floor(Math.min(step, Hh) * 0.72)}px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif`;
-    chars.forEach((ch, i) => c.fillText(ch, 20 + step * (i + 0.5), Hh / 2 + 2));
-  }
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  const tex = canvasTexture(
+    W,
+    Hh,
+    (c) => {
+      c.fillStyle = '#c8101e';
+      c.fillRect(0, 0, W, Hh);
+      c.strokeStyle = '#e8b84a';
+      c.lineWidth = 6;
+      c.strokeRect(7, 7, W - 14, Hh - 14);
+      c.fillStyle = '#1a0d08';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      const chars = [...text];
+      if (vertical) {
+        const step = (Hh - 30) / chars.length;
+        c.font = `900 ${Math.floor(step * 0.86)}px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif`;
+        chars.forEach((ch, i) => c.fillText(ch, W / 2, 15 + step * (i + 0.5)));
+      } else {
+        const step = (W - 40) / chars.length;
+        c.font = `900 ${Math.floor(Math.min(step, Hh) * 0.72)}px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif`;
+        chars.forEach((ch, i) => c.fillText(ch, 20 + step * (i + 0.5), Hh / 2 + 2));
+      }
+    },
+    false
+  );
+  PAPER_TEX.set(key, tex);
   return tex;
 }
 

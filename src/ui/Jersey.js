@@ -5,6 +5,16 @@
 // 袖口和領口用 alphaTest 挖空，滾邊寬度用貼圖上的表面距離算，所以轉角、腋下都一樣寬。
 import * as THREE from 'three';
 import { torsoProfile, LEG_PROF } from '../entities/BodyMesh.js';
+import {
+  blankTexture,
+  canvasTexture,
+  markShared,
+  releaseCanvas,
+  texScale,
+  uploadAndRelease,
+} from '../graphics/GpuMemLifecycle.js';
+
+const READBACK = { willReadFrequently: true };
 
 // Lakers gold is the official #FDB927. The official purple #552583 comes out blue-violet under the game's sky light
 // (measured on screen: 51, 27, 158), so the cloth uses a warmer #74267a that lands near it at midday (82, 29, 143).
@@ -152,7 +162,8 @@ function jerseyTexture(prof, bw) {
   const wc = document.createElement('canvas');
   wc.width = ww;
   wc.height = wh;
-  const g = wc.getContext('2d');
+  const g = wc.getContext('2d', READBACK);
+  if (!g) return blankTexture();
   g.font = 'italic 900 150px "Arial Black","Helvetica Neue",Arial,sans-serif';
   g.textBaseline = 'middle';
   g.textAlign = 'center';
@@ -166,6 +177,7 @@ function jerseyTexture(prof, bw) {
   g.fillStyle = LAKERS.gold;
   g.fillText('LAKERS', 0, 0);
   const wd = g.getImageData(0, 0, ww, wh).data;
+  releaseCanvas(wc);
   // the number 24: a small one under LAKERS on the chest, a big one on the back (metres, x as seen by the viewer)
   const NUM = '24';
   const numStamp = (x0, x1, yt, yb) => {
@@ -174,7 +186,7 @@ function jerseyTexture(prof, bw) {
     const nc = document.createElement('canvas');
     nc.width = nw;
     nc.height = nh;
-    const ng = nc.getContext('2d');
+    const ng = nc.getContext('2d', READBACK);
     ng.font = '900 400px "Arial Black","Helvetica Neue",Arial,sans-serif';
     ng.textBaseline = 'middle';
     ng.textAlign = 'center';
@@ -190,7 +202,9 @@ function jerseyTexture(prof, bw) {
     ng.strokeText(NUM, 0, 0);
     ng.fillStyle = LAKERS.gold;
     ng.fillText(NUM, 0, 0);
-    return { x0, x1, yt, yb, w: nw, h: nh, d: ng.getImageData(0, 0, nw, nh).data };
+    const d = ng.getImageData(0, 0, nw, nh).data;
+    releaseCanvas(nc);
+    return { x0, x1, yt, yb, w: nw, h: nh, d };
   };
   const numFront = numStamp(-0.06, 0.06, 1.265, 1.165),
     numBack = numStamp(-0.115, 0.115, 1.42, 1.13);
@@ -199,6 +213,7 @@ function jerseyTexture(prof, bw) {
   cv.width = TW;
   cv.height = TH;
   const ctx = cv.getContext('2d');
+  if (!ctx) return blankTexture();
   const img = ctx.createImageData(TW, TH),
     px = img.data;
   const rgb = (h) => [
@@ -254,9 +269,25 @@ function jerseyTexture(prof, bw) {
     px[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(cv);
+  const s = texScale();
+  let out = cv;
+  if (s < 1) {
+    const scaled = document.createElement('canvas');
+    scaled.width = Math.max(1, Math.round(TW * s));
+    scaled.height = Math.max(1, Math.round(TH * s));
+    const sg = scaled.getContext('2d');
+    if (sg) {
+      sg.imageSmoothingQuality = 'high';
+      sg.drawImage(cv, 0, 0, scaled.width, scaled.height);
+      releaseCanvas(cv);
+      out = scaled;
+    }
+  }
+  markShared(out);
+  const tex = new THREE.CanvasTexture(out);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  uploadAndRelease(tex);
   texCache.set(key, tex);
   return tex;
 }
@@ -302,22 +333,24 @@ let stripeTex = null;
 function shortsStripeTexture() {
   // across the stripe: white | gold | black | gold | white
   if (stripeTex) return stripeTex;
-  const cv = document.createElement('canvas');
-  cv.width = 64;
-  cv.height = 4;
-  const g = cv.getContext('2d');
-  for (const [x, w, c] of [
-    [0, 4, LAKERS.white],
-    [4, 7, LAKERS.gold],
-    [11, 42, LAKERS.black],
-    [53, 7, LAKERS.gold],
-    [60, 4, LAKERS.white],
-  ]) {
-    g.fillStyle = c;
-    g.fillRect(x, 0, w, 4);
-  }
-  stripeTex = new THREE.CanvasTexture(cv);
-  stripeTex.colorSpace = THREE.SRGBColorSpace;
+  stripeTex = canvasTexture(
+    64,
+    4,
+    (g) => {
+      for (const [x, w, c] of [
+        [0, 4, LAKERS.white],
+        [4, 7, LAKERS.gold],
+        [11, 42, LAKERS.black],
+        [53, 7, LAKERS.gold],
+        [60, 4, LAKERS.white],
+      ]) {
+        g.fillStyle = c;
+        g.fillRect(x, 0, w, 4);
+      }
+    },
+    false
+  );
+  if (stripeTex.isCanvasTexture) uploadAndRelease(stripeTex);
   return stripeTex;
 }
 // one side stripe on the outside of a shorts leg (hip-pivot frame, same cross-section as bodymesh's loose shorts)

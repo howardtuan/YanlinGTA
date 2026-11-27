@@ -13,6 +13,14 @@ import { shellGeometry, section, onCloth, pe, HIPS, Y0, Y1, TW, TH } from '../..
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { pointInPoly } from '../../physics/Collision.js';
+import {
+  blankTexture,
+  canvasTexture,
+  markShared,
+  releaseCanvas,
+  texScale,
+  uploadAndRelease,
+} from '../../graphics/GpuMemLifecycle.js';
 import { serviceWear } from './Service.js';
 
 const BUILD = 0.92;
@@ -153,6 +161,7 @@ function alohaTexture(prof) {
   cv.width = TW;
   cv.height = TH;
   const g = cv.getContext('2d', { willReadFrequently: true }); // read back below: keep it on the CPU
+  if (!g) return blankTexture();
   paintPrint(g, TW, TH, 77, 1.3);
   // buttons down the front centre (u = 0.5; the seam is at the back)
   for (let y = 120; y < TH; y += 90) {
@@ -185,21 +194,35 @@ function alohaTexture(prof) {
     }
   }
   g.putImageData(img, 0, 0);
-  shirtTex = new THREE.CanvasTexture(cv);
+  const s = texScale();
+  let out = cv;
+  if (s < 1) {
+    const scaled = document.createElement('canvas');
+    scaled.width = Math.max(1, Math.round(TW * s));
+    scaled.height = Math.max(1, Math.round(TH * s));
+    const sg = scaled.getContext('2d');
+    if (sg) {
+      sg.imageSmoothingQuality = 'high';
+      sg.drawImage(cv, 0, 0, scaled.width, scaled.height);
+      releaseCanvas(cv);
+      out = scaled;
+    }
+  }
+  markShared(out);
+  shirtTex = new THREE.CanvasTexture(out);
   shirtTex.colorSpace = THREE.SRGBColorSpace;
   shirtTex.anisotropy = 4;
+  uploadAndRelease(shirtTex);
   return shirtTex;
 }
 let sleeveTex = null;
 function sleeveTexture() {
   if (sleeveTex) return sleeveTex;
-  const cv = document.createElement('canvas');
-  cv.width = 512;
-  cv.height = 256;
-  paintPrint(cv.getContext('2d'), 512, 256, 31, 0.45);
-  sleeveTex = new THREE.CanvasTexture(cv);
-  sleeveTex.colorSpace = THREE.SRGBColorSpace;
-  sleeveTex.wrapS = THREE.RepeatWrapping;
+  sleeveTex = canvasTexture(512, 256, (g, w, h) => paintPrint(g, w, h, 31, 0.45), false);
+  if (sleeveTex.isCanvasTexture) {
+    sleeveTex.wrapS = THREE.RepeatWrapping;
+    uploadAndRelease(sleeveTex);
+  }
   return sleeveTex;
 }
 function dressAloha(ch, skin) {

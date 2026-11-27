@@ -16,6 +16,13 @@ import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { Vehicle } from '../Vehicles.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import {
+  canvasTexture,
+  markDynamic,
+  releaseCanvas,
+  scaledCanvas,
+  uploadAndRelease,
+} from '../../graphics/GpuMemLifecycle.js';
 
 export const JIANYU_LOOK = {
   skin: '#e9c2a0',
@@ -41,12 +48,10 @@ const NAME = '劍玉';
 export function drawPoster(cb) {
   const W = 540,
     H = 760,
-    cv = document.createElement('canvas');
-  cv.width = W;
-  cv.height = H;
-  const g = cv.getContext('2d'),
+    { cv, g } = scaledCanvas(W, H),
     Y = '#ffbf00',
     K = '#0d0d0d';
+  if (!g) return;
   const paint = (img) => {
     g.fillStyle = '#fff';
     g.fillRect(0, 0, W, H);
@@ -293,24 +298,26 @@ export class Jianyu {
       new THREE.MeshStandardMaterial({ color: '#1b1c20', roughness: 0.4, metalness: 0.4 })
     );
     at(base, s * 0.05, 0.05, 0.01);
-    const cv = document.createElement('canvas');
-    cv.width = 256;
-    cv.height = 160;
-    const g = cv.getContext('2d');
-    const gr = g.createLinearGradient(0, 0, 256, 160);
-    gr.addColorStop(0, '#0f1923');
-    gr.addColorStop(1, '#3b0d14');
-    g.fillStyle = gr;
-    g.fillRect(0, 0, 256, 160);
-    g.fillStyle = '#ff4655';
-    g.font = '900 30px sans-serif';
-    g.textAlign = 'center';
-    g.fillText('RANKED', 128, 70);
-    g.fillStyle = '#e8f1ff';
-    g.font = '700 18px sans-serif';
-    g.fillText('鑽石 II ◆', 128, 102);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    const tex = canvasTexture(
+      256,
+      160,
+      (g) => {
+        const gr = g.createLinearGradient(0, 0, 256, 160);
+        gr.addColorStop(0, '#0f1923');
+        gr.addColorStop(1, '#3b0d14');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, 256, 160);
+        g.fillStyle = '#ff4655';
+        g.font = '900 30px sans-serif';
+        g.textAlign = 'center';
+        g.fillText('RANKED', 128, 70);
+        g.fillStyle = '#e8f1ff';
+        g.font = '700 18px sans-serif';
+        g.fillText('鑽石 II ◆', 128, 102);
+      },
+      false
+    );
+    if (tex.isCanvasTexture) uploadAndRelease(tex);
     const scr = new THREE.Mesh(
       new THREE.PlaneGeometry(0.34, 0.21),
       new THREE.MeshBasicMaterial({ map: tex })
@@ -332,9 +339,12 @@ export class Jianyu {
     // his 班代 poster, on the end of the wardrobe under his loft bed, facing the door (you see it as you come in, on the right)
     const sx = Math.sign(R.center[0] - bed.x) || 1,
       zA = bed.z - 1.0; // sx: from his wall towards the aisle; zA: the door end of his loft bed
-    const ptex = new THREE.CanvasTexture(document.createElement('canvas'));
+    const initCv = document.createElement('canvas');
+    initCv.width = initCv.height = 1;
+    const ptex = markDynamic(new THREE.CanvasTexture(initCv));
     ptex.colorSpace = THREE.SRGBColorSpace;
     drawPoster((cv) => {
+      if (ptex.image !== cv) releaseCanvas(ptex.image);
       ptex.image = cv;
       ptex.needsUpdate = true;
       this._posterCv = cv;

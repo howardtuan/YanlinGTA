@@ -16,6 +16,7 @@ import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { GD_LOOK } from './FriendLooks.js';
 import { serviceWear } from './Service.js';
+import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 export const GD_ZONES = {
   hotpot: {
@@ -371,24 +372,26 @@ export class Gordon {
     ch.root.visible = false;
     game.scene.add(ch.root);
     // his gaming laptop, the screen glowing blue and gold
-    const cv = document.createElement('canvas');
-    cv.width = 256;
-    cv.height = 160;
-    const x = cv.getContext('2d');
-    const gr = x.createLinearGradient(0, 0, 256, 160);
-    gr.addColorStop(0, '#0a1a2f');
-    gr.addColorStop(1, '#0d3b4f');
-    x.fillStyle = gr;
-    x.fillRect(0, 0, 256, 160);
-    x.fillStyle = '#c8aa6e';
-    x.font = '900 28px sans-serif';
-    x.textAlign = 'center';
-    x.fillText('積分對戰', 128, 66);
-    x.fillStyle = '#e8f1ff';
-    x.font = '700 18px sans-serif';
-    x.fillText('鑽石 I ◆ 連敗中 😤', 128, 100);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    const tex = canvasTexture(
+      256,
+      160,
+      (x) => {
+        const gr = x.createLinearGradient(0, 0, 256, 160);
+        gr.addColorStop(0, '#0a1a2f');
+        gr.addColorStop(1, '#0d3b4f');
+        x.fillStyle = gr;
+        x.fillRect(0, 0, 256, 160);
+        x.fillStyle = '#c8aa6e';
+        x.font = '900 28px sans-serif';
+        x.textAlign = 'center';
+        x.fillText('積分對戰', 128, 66);
+        x.fillStyle = '#e8f1ff';
+        x.font = '700 18px sans-serif';
+        x.fillText('鑽石 I ◆ 連敗中 😤', 128, 100);
+      },
+      false
+    );
+    if (tex.isCanvasTexture) uploadAndRelease(tex);
     const base = new THREE.Mesh(
       new THREE.BoxGeometry(0.36, 0.02, 0.25),
       new THREE.MeshStandardMaterial({ color: '#1b1c20', roughness: 0.4, metalness: 0.4 })
@@ -419,22 +422,24 @@ export class Gordon {
         new THREE.MeshStandardMaterial({ color: '#111114', roughness: 0.3, metalness: 0.5 })
       )
     );
-    const pc = document.createElement('canvas');
-    pc.width = 64;
-    pc.height = 128;
-    const px = pc.getContext('2d');
-    px.fillStyle = '#ff3b5c';
-    px.fillRect(0, 0, 64, 128);
-    px.fillStyle = '#fff';
-    px.textAlign = 'center';
-    px.font = '900 30px sans-serif';
-    px.fillText('⏰', 32, 50);
-    px.font = '800 17px sans-serif';
-    px.fillText('06:00', 32, 80);
-    px.font = '700 11px sans-serif';
-    px.fillText('鬧鐘', 32, 100);
-    const ptex = new THREE.CanvasTexture(pc);
-    ptex.colorSpace = THREE.SRGBColorSpace;
+    const ptex = canvasTexture(
+      64,
+      128,
+      (px) => {
+        px.fillStyle = '#ff3b5c';
+        px.fillRect(0, 0, 64, 128);
+        px.fillStyle = '#fff';
+        px.textAlign = 'center';
+        px.font = '900 30px sans-serif';
+        px.fillText('⏰', 32, 50);
+        px.font = '800 17px sans-serif';
+        px.fillText('06:00', 32, 80);
+        px.font = '700 11px sans-serif';
+        px.fillText('鬧鐘', 32, 100);
+      },
+      false
+    );
+    if (ptex.isCanvasTexture) uploadAndRelease(ptex);
     const pscr = new THREE.Mesh(
       new THREE.PlaneGeometry(0.066, 0.142),
       new THREE.MeshBasicMaterial({ map: ptex, color: '#0d1020' })

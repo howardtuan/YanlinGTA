@@ -69,6 +69,7 @@ export function aggregateRuns(runs, meta = {}) {
 
   const memKeys = [
     'canvasMB',
+    'peakCanvasMB',
     'canvasCount',
     'canvasInDom',
     'textureEstMB',
@@ -113,6 +114,7 @@ export function aggregateRuns(runs, meta = {}) {
 // metric path, label, max allowed relative increase, 'fail' | 'warn'
 export const COMPARE_RULES = Object.freeze([
   { path: 'memory.canvasMB', label: 'Canvas MB', tol: 0.05, level: 'fail' },
+  { path: 'memory.peakCanvasMB', label: 'Canvas 峰值 MB', tol: 0.05, level: 'fail' },
   { path: 'memory.canvasCount', label: 'Canvas 數', tol: 0.05, level: 'fail' },
   { path: 'memory.textureEstMB', label: '貼圖估算 MB', tol: 0.05, level: 'fail' },
   { path: 'memory.jsHeapMB', label: 'JS heap MB', tol: 0.1, level: 'warn' },
@@ -181,11 +183,15 @@ export function envMismatch(current, baseline) {
 }
 
 /** Hard memory budget gate (e.g. iOS): returns violation strings. */
-export function budgetViolations(report, { maxCanvasMB }) {
+export function budgetViolations(report, { maxCanvasMB, maxPeakCanvasMB } = {}) {
   const out = [];
   const mb = report.memory?.canvasMB;
   if (maxCanvasMB != null && mb != null && mb > maxCanvasMB) {
     out.push(`canvasMB ${mb} > limit ${maxCanvasMB}`);
+  }
+  const peak = report.memory?.peakCanvasMB;
+  if (maxPeakCanvasMB != null && peak != null && peak > maxPeakCanvasMB) {
+    out.push(`peakCanvasMB ${peak} > limit ${maxPeakCanvasMB}`);
   }
   return out;
 }
@@ -195,6 +201,8 @@ const cell = (v, suffix = '') => (v == null ? '-' : `${v}${suffix}`);
 export function formatMarkdown(report) {
   const m = report.meta;
   const reliable = m.frameTimeReliable;
+  const peakTxt =
+    report.memory.peakCanvasMB != null ? `，峰值 ${cell(report.memory.peakCanvasMB, ' MB')}` : '';
   const lines = [
     `**${m.engine}${m.mobile ? ' · mobile' : ' · desktop'} · ${m.renderer || '?'}** — tier \`${m.tier || '-'}\`, quality \`${m.quality || '-'}\`, ${m.runs} run(s), ${
       m.uncapped ? 'vsync 解除' : 'vsync 開'
@@ -202,7 +210,7 @@ export function formatMarkdown(report) {
     '',
     '| 記憶體 / 啟動 | 值 |',
     '| :--- | :--- |',
-    `| Canvas | ${cell(report.memory.canvasMB, ' MB')} (${cell(report.memory.canvasCount)} 個，DOM 內 ${cell(report.memory.canvasInDom)}) |`,
+    `| Canvas | ${cell(report.memory.canvasMB, ' MB')} (${cell(report.memory.canvasCount)} 個，DOM 內 ${cell(report.memory.canvasInDom)}${peakTxt}) |`,
     `| 貼圖估算 (GPU, 含 mip) | ${cell(report.memory.textureEstMB, ' MB')} (${cell(report.memory.textureCount)} 張) |`,
     `| JS heap | ${cell(report.memory.jsHeapMB, ' MB')} |`,
     `| 啟動到標題 | ${cell(report.boot.toTitleMs, ' ms')}${report.boot.toTitleRange ? ` (範圍 ${report.boot.toTitleRange[0]}–${report.boot.toTitleRange[1]})` : ''} |`,

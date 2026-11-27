@@ -120,7 +120,7 @@ export const Promo: React.FC<{ bgm?: boolean }> = ({ bgm = true }) => {
       </At>
       <At s={S.ride} name="04 新中北路">
         <Clip name="a04_ride" from={30} />
-        <Caption text="騎上 JET SL，衝出新中北路" dur={S.ride[1]} delay={4} />
+        <Caption text="騎上 JAT SM，衝出新中北路" dur={S.ride[1]} delay={4} />
       </At>
       <Sequence from={S.ride[0] + S.ride[1] - 4} durationInFrames={9} name="whip">
         <Whip />

@@ -1,6 +1,6 @@
 // Played as a short film: 21:9 letterbox, HUD hidden, the player can't move, and a street-level camera
 // follows the helicopter in, watches the scooter touch down and the helicopter leave, then hands back.
-// 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JET SL (or, after 霍華德's Two Sum,
+// 呼叫載具 (phone app): a 彥霖航空 (Yanlin Air) helicopter flies in with your JAT SM (or, after 霍華德's Two Sum,
 // his 忍 400: src/systems/quests/HowardTwoSum.js) hanging under it on a cable, lowers it
 // onto the road next to you, lets go and flies off again. Its pilot (src/entities/Pilot.js) sits behind a glass canopy and gets a short
 // close-up while he lowers the scooter. When he isn't flying he walks around campus (CampusPilot) — there is only ever one of him.
@@ -282,7 +282,7 @@ export class Airdrop {
     }
   }
   // returns an error message, or null when the helicopter is on its way.
-  // what: 'jet' (your JET SL, default) or 'ninja' (霍華德's 忍 400 once his Two Sum is solved, src/entities/npcs/Howard.js lend)
+  // what: 'jet' (your JAT SM, default) or 'ninja' (霍華德's 忍 400 once his Two Sum is solved, src/entities/npcs/Howard.js lend)
   call(what = 'jet') {
     const g = this.g,
       pl = g.player;

@@ -248,7 +248,7 @@ graph TD
 ### 1. Rapier 3D 物理引擎 (Physics Subsystem)
 - **架構優勢**：採用 Rust 編譯的 `@dimforge/rapier3d-compat` WASM 模組，提供極致穩定的連續碰撞檢測（CCD）與剛體計算。
 - **機車懸吊物理 (`src/physics/VehPhysics.js`)**：
-  - 模擬 SYM JET SL 的車重、轉向幾何（Caster Angle）、傾角回正力矩與輪胎抓地力曲線。
+  - 模擬 JAT SM 的車重、轉向幾何（Caster Angle）、傾角回正力矩與輪胎抓地力曲線。
 - **可撞飛的街道道具 (`src/world/WorldProps.js`)**：
   - 三角錐（`spawnWorldCones`）與街屋門口的小箱子（`spawnWorldCrates`）都是休眠中的 Rapier 剛體，離玩家 150 m 外自動停用。
   - 街屋（`finishRow`）裡站在地上、在立面前方、0.35～1.3 m 高、邊長 0.15～1.3 m、站得穩（高不超過最窄邊 3 倍）、上面沒有疊別的零件、沒有碰撞的純色小箱體（貨箱、紙箱、冰桶，`Kit.js` 的 `looseBox`）會自動收進 `interiors.crates`，全部用一個 InstancedMesh 畫；不想讓某個箱子變成道具就在 `k.box(…, { col: false, loose: false })` 加上 `loose: false`。

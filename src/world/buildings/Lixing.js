@@ -2194,7 +2194,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
   }
   k.finish(scene);
   // bathW: the west end block's 浴廁 (each floor; 2F is the one nearest 276, src/systems/quests/ZzInjury.js); park: a spot on the
-  // forecourt by the 1F 大門 where 吱吱 and 女拳大帝 leave their BW'S at night (src/entities/npcs/Zz.js)
+  // forecourt by the 1F 大門 where 吱吱 and 女拳大帝 leave their 大A at night (src/entities/npcs/Zz.js)
   I.lixing = {
     k,
     FL,

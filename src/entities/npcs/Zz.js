@@ -3,12 +3,12 @@
 // 一天（遊戲時鐘）：
 //   02:00–08:00 睡 2 號床；08:00–22:00 照四天排班去茶學苑打工（src/systems/minigames/TeaShop.js），沒班時在體育館門口
 //   （src/ui/phone/Friends.js 的 zz 站點）；22:00–02:00 在 276 書桌打 LOL 或楓吱谷；
-//   23:00–23:40 大約每 10 天有 6 天跟女拳大帝各騎自己的 BW'S 在學校附近兜風（女拳大帝在前、吱吱在後），兜風那天
+//   23:00–23:40 大約每 10 天有 6 天跟女拳大帝各騎自己的大A在學校附近兜風（女拳大帝在前、吱吱在後），兜風那天
 //   女拳大帝 23:40 才回寢室（src/entities/npcs/Gordon.js 看 gdOut）。
 // 女朋友 Yulu（src/entities/npcs/Yulu.js）：有些晚上 19:00–21:00（沒打工、沒受傷的日子）跟她手牽手在校園散步，那段時間不在體育館。
 // 支線「吱吱武嶺跑山受傷」（src/systems/quests/ZzInjury.js）期間：不打工、不打球、不兜風，一直待在 276 養傷；
 //   受傷不好爬上舖，所以他睡 3 號床、彥霖睡 2 號床（座位不換）；晚上 8 點到 12 點還沒洗澡的話，他在力行二樓浴室等你。
-// 兩台 BW'S（src/entities/Vehicles.js buildBws）：吱吱的白紅舊款打工時停在茶學苑旁、女拳大帝的夜幕灰新款顧店時停在戈登肉鋪門口，
+// 兩台大A（src/entities/Vehicles.js buildDaA）：吱吱的白紅舊款打工時停在茶學苑旁、女拳大帝的夜幕灰新款顧店時停在戈登肉鋪門口，
 //   其他時間停在力行宿舍大門前的前院；兜風時兩台都騎走。互加好友後可以借騎（按 F），騎走之後放著不管，會自己回到該停的地方。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
@@ -316,7 +316,7 @@ export class Zz {
     g.friends?.talk('zz', null);
   }
 
-  // ---------------- the two BW'S: parked ones you can borrow, and the pair that rides at night ----------------
+  // ---------------- the two 大A: parked ones you can borrow, and the pair that rides at night ----------------
   _bikes(L) {
     const g = this.g;
     const park = (model, id, label) => {
@@ -335,8 +335,8 @@ export class Zz {
       v.mesh.add(t);
       return v;
     };
-    this.zzBike = park('bws_zz', 'zz', "吱吱的 BW'S");
-    this.gdBike = park('bws_gd', 'gd', "女拳大帝的 BW'S");
+    this.zzBike = park('daa_zz', 'zz', '吱吱的大A');
+    this.gdBike = park('daa_gd', 'gd', '女拳大帝的大A');
     // spots: 茶學苑 (beside the deck), 戈登肉鋪 (beside its paving), 力行 forecourt (two side by side)
     const tea = g.interiors.tea,
       S = g.interiors.gordon;
@@ -364,19 +364,19 @@ export class Zz {
       this.spots.dormZz = { x: ax, z: az, h };
       this.spots.dormGd = { x: bx, z: bz, h };
     }
-    // the night ride: her BW'S joins the traffic with her on it; his follows her path TRAIL m behind (not traffic)
+    // the night ride: her 大A joins the traffic with her on it; his follows her path TRAIL m behind (not traffic)
     const gr = (this.gdRider = createCharacter(GD_LOOK)),
       gt = makeLabel('🛵 女拳大帝（兜風中）', { height: 0.26, size: 40, color: '#ff9a9a' });
     gt.position.set(0, 2.1, 0);
     gr.root.add(gt);
     serviceWear('gd', gr, GD_LOOK, { tag: gt }); // 義務役 (src/entities/npcs/Service.js)
-    this.cruiser = g.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'bws_gd' }), gr);
+    this.cruiser = g.traffic?.adopt(new Vehicle('scooter', Math.random, { model: 'daa_gd' }), gr);
     if (this.cruiser) {
       this.cruiser.ai.hold = true;
-      this.cruiser.label = "女拳大帝的 BW'S（兜風中）";
+      this.cruiser.label = '女拳大帝的大A（兜風中）';
       this.cruiser.lock = () => '🔒 女拳大帝正在騎，不能借';
     }
-    const tv = (this.trailBike = new Vehicle('scooter', Math.random, { model: 'bws_zz' }));
+    const tv = (this.trailBike = new Vehicle('scooter', Math.random, { model: 'daa_zz' }));
     const zr = (this.zzRider = createCharacter(ZZ_LOOK)),
       zt = makeLabel('🛵 吱吱（兜風中）', { height: 0.26, size: 40, color: '#ffd23f' });
     zt.position.set(0, 2.1, 0);
@@ -603,7 +603,7 @@ export class Zz {
     if (m === 'shop') return '在正門外的茶學苑打工';
     if (m === 'gym') return '在體育館門口';
     if (m === 'walk') return '跟女朋友 Yulu 在校園散步 💕';
-    if (m === 'ride') return "跟女拳大帝騎 BW'S 在學校附近兜風 🛵";
+    if (m === 'ride') return '跟女拳大帝騎大A在學校附近兜風 🛵';
     return `在力行宿舍 276 寢打${Math.floor(this.g.clock / 30) % 2 ? '楓吱谷 🍁' : ' LOL 🎮'}`;
   }
   // where he is on the map (定位): null if far off

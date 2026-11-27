@@ -51,7 +51,7 @@ const SHOVE_DECEL = 4,
 
 export class Traffic {
   // the vehicles left standing (game.vehicles, not the one you ride) that traffic has to stop or steer for: every one
-  // within r of you, not only those right by you. With 25 m a car that passed your parked JET SL while you were away
+  // within r of you, not only those right by you. With 25 m a car that passed your parked JAT SM while you were away
   // drove straight through it, and was stuck inside it when you came back (#302). r: cars stay awake up to 330 m
   // (update), the ones you can see are what matter
   static parkedObstacles(vehicles, riding, pos, r = 150) {

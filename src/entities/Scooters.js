@@ -1,7 +1,7 @@
 // Generic Taiwanese commuter scooter for traffic and parked bikes: a rounder body built from mirrored
 // section lofts (closed solids, no see-through shells), lathe tyres seated on black alloy rims, wave
 // disc, CVT case, muffler, handlebar with grips and mirrors. Geometry is built once and shared by every
-// instance; only the paint material changes per colour. (The hero's SYM JET SL lives in src/entities/Vehicles.js.)
+// instance; only the paint material changes per colour. (The hero's JAT SM lives in src/entities/Vehicles.js.)
 // Vehicle-space axes: +z forward, +y up, +x = rider's left.
 import * as THREE from 'three';
 import {

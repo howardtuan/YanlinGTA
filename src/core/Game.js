@@ -635,7 +635,7 @@ class Game {
     this.pinhanCar = new PinHanCar(this);
     this.pinhanRide = new PinHanRide(this); // 漢堡車: his free ride once a day (src/systems/minigames/PinHanRide.js)
     this.ruizhe = new Ruizhe(this); // 瑞哲 in 278 (bed 5, the middle desk on the left; src/entities/npcs/Ruizhe.js)
-    // 吱吱's day in 力行 276 / the two BW'S, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
+    // 吱吱's day in 力行 276 / the two 大A, and the 武嶺 side quest (src/entities/npcs/Zz.js, src/systems/quests/ZzInjury.js)
     this.zzQuest = new ZzInjury(this);
     this.tzuyuQuest = new TzuyuWagyu(this); // 支線「幫 Winter 帶和牛」(src/systems/quests/TzuyuWagyu.js)
     this.zz = new Zz(this);

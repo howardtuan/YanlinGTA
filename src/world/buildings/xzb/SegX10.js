@@ -1069,6 +1069,7 @@ export default {
         for (let i = 0; i < 4; i++)
           k.cyl(x, z, 0.33, i * 0.2, i * 0.2 + 0.19, '#1e1e20', { seg: 10 });
       k.plane(C.bars, k.W, 1.8, k.W / 2, 0.9, 12, FRONT, { transparent: true, double: true });
+      k.wallLine(0, 12, k.W, 12, 0, 1.8); // 後面圍網擋人
     }
 
     // ======================= 南側（-1） =======================

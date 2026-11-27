@@ -3420,6 +3420,12 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     deckSides.quad(P(-hw - 1, -0.3), P(-hw, -0.3), P(-hw, hh + 1), P(-hw - 1, hh + 1), C, F);
     deckSides.quad(P(hw, -0.3), P(hw + 1, -0.3), P(hw + 1, hh + 1), P(hw, hh + 1), C, F);
     deckSides.quad(P(-hw, hh), P(hw, hh), P(hw, hh + 1), P(-hw, hh + 1), C, F);
+    // the portal is a painted face on the surface (the way itself runs underground): it blocks like a wall
+    {
+      const a = P(-hw - 1, 0),
+        b = P(hw + 1, 0);
+      collision.addSegment(a[0], a[2], b[0], b[2]);
+    }
     deckSides.quad(
       P(-hw - 1, hh + 1),
       P(hw + 1, hh + 1),

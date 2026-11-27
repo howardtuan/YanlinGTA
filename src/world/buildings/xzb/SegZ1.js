@@ -934,7 +934,7 @@ export default {
     {
       const k = seg(C, 1, 68, 80, SR1),
         w = k.W;
-      k.box(0, w, -0.5, 0.03, -1.2, 16, '#5c5c5a', { col: false, surface: true });
+      C.pave(k, 0, w, -0.5, 0.03, -1.2, 16, '#5c5c5a');
       k.box(4.6, 6.0, 0, 2.3, 5.2, 6.6, '#c8302a');
       k.box(4.4, 6.2, 2.3, 2.45, 5.0, 6.8, '#e8e8e4', NC);
       k.box(7.2, 7.8, 0, 1.6, 0.3, 0.8, '#e8c22a');
@@ -1076,7 +1076,7 @@ export default {
         g.fillRect(0, 30, 256, 3);
       });
       k.box(0, w, 0, H, 0, 30, '#e8e7e2');
-      k.box(-0.2, w + 4, -0.5, 0.06, -4.5, 0, C.MR.concrete, { col: false, surface: true }); // 店前寬人行道
+      C.pave(k, -0.2, w + 4, -0.5, 0.06, -4.5, 0, C.MR.concrete); // 店前寬人行道
       // 一樓：西段服飾店玻璃、中段 NET 店面、東段すき家（紅磚柱、紅黃招牌）
       C.shopGlass(k, 0.3, 7.6, 0, 3.6, C.openTex);
       C.shopGlass(k, 7.9, 19.2, 0, 3.6, C.openTex);

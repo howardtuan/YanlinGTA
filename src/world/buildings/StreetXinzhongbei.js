@@ -487,8 +487,8 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
   };
   // 貼著地形的鋪面（門前鋪面、人行道）：每 2.5 m 一個頂點照那一點的地面高度，斜坡上是連續的斜面，
   // 不會像平板那樣一格一階、低的那頭浮起來；可走表面照樣登記（遊戲邏輯的高度本來就是離地高度）。
-  // mat 是 #hex 就用頂點色，否則直接用那個材質（例如 MR.concrete）
-  const drape = (k, x0, x1, z0, z1, mat, up = 0.05) => {
+  // mat 是 #hex 就用頂點色，否則直接用那個材質（例如 MR.concrete）；surf = false 不登記可走表面（地上畫的白線）
+  const drape = (k, x0, x1, z0, z1, mat, up = 0.05, surf = true) => {
     const nx = Math.max(1, Math.ceil((x1 - x0) / 2.5)),
       nz = Math.max(1, Math.ceil((z1 - z0) / 2.5)),
       pos = [],
@@ -515,7 +515,7 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     g.computeVertexNormals();
     if (typeof mat === 'string') k._part(VC, paintGeo(g, mat));
     else k._part(mat, g);
-    k.I.addSurface(k.rect(x0, x1, z0, z1), up);
+    if (surf) k.I.addSurface(k.rect(x0, x1, z0, z1), up);
   };
   // 這一塊地面的高低差（四角與中間）
   const slopeOf = (k, x0, x1, z0, z1) => {
@@ -535,6 +535,22 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     }
     return hi - lo;
   };
+  // 地面鋪面（停車場柏油、店前人行道）：這一塊高低差超過 8 cm 就用 drape 鋪成貼地斜面，平地照舊用平板
+  const pave = (k, x0, x1, y0, y1, z0, z1, mat) =>
+    slopeOf(k, x0, x1, z0, z1) > 0.08
+      ? drape(k, x0, x1, z0, z1, mat, y1)
+      : k.box(x0, x1, y0, y1, z0, z1, mat, { col: false, surface: true });
+  // 貼地的 box／cyl（y0 ≤ 1 cm）往下多做 d 公尺：一個 Kit 只照原點的地面高度畫，地面有坡時低的那頭才不會浮起來
+  // （高的那頭只是多埋進土裡）。寬的 Kit（停車場、空地）坡上的矮柱、看板腳 d 要給到 1 m
+  const sink = (k, d = 0.6) => {
+    const b = k.box.bind(k),
+      c = k.cyl.bind(k);
+    k.box = (x0, x1, y0, ...r) => b(x0, x1, y0 <= 0.01 ? y0 - d : y0, ...r);
+    k.cyl = (x, z, r, y0, ...q) => c(x, z, r, y0 <= 0.01 ? y0 - d : y0, ...q);
+    return k;
+  };
+  // Kit 區域座標 (x, z) 那一點的地面離 Kit 原點地面多高（坡上的護欄、鐵鍊一段一段照地面擺）
+  const groundY = (k, x, z) => H(...k.w(x, z)) - k.base;
   const vcKit = (k) => {
     const kb = k.box.bind(k),
       kc = k.cyl.bind(k),
@@ -1117,6 +1133,9 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     paintGeo,
     drape,
     slopeOf,
+    pave,
+    sink,
+    groundY,
     shell,
     win,
     ac,

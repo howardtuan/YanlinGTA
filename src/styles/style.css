@@ -8383,6 +8383,17 @@ body.mahjong #dialog {
 #mjUI .mj-tag.on {
   background: #e0622f;
 }
+/* 名牌頭像：那家 3D 角色的大頭照（MahjongScene._portrait） */
+#mjUI .mj-tag .mj-face {
+  width: 40px;
+  height: 40px;
+  margin: -8px 6px -8px -10px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background: #d8d2c6;
+  object-fit: cover;
+  vertical-align: middle;
+}
 #mjUI .mj-tag.me {
   transform: translate(-100%, -50%);
 }

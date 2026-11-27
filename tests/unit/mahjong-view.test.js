@@ -5,7 +5,7 @@ import {
   camPoints,
   discardScale,
   fitCamera,
-  facePoint,
+  handLean,
   MahjongScene,
   specEdge,
   specSpot,
@@ -39,8 +39,7 @@ describe('fitCamera：重點區塊塞滿畫面又不被切掉', () => {
         maxX = -Infinity,
         minY = Infinity,
         maxY = -Infinity;
-      // 橫的遠景：對家的臉也算在重點區塊裡
-      for (const p of [...camPoints(mine), ...(view.face ? [facePoint(0)] : [])]) {
+      for (const p of camPoints(mine)) {
         const v = p.clone().project(c);
         const x = ((v.x + 1) / 2) * S.w,
           y = ((1 - v.y) / 2) * S.h;
@@ -161,24 +160,24 @@ describe('specEdge：畫面外的觀戰者名牌貼在畫面邊緣、對著他�
   });
 });
 
-describe('fitCamera：橫的遠景壓低，對家的臉在畫面裡', () => {
+describe('handLean：遠景的手牌仰到正對鏡頭', () => {
   for (const [w, h] of [
     [1280, 720],
     [800, 600],
-    [1920, 1080],
   ])
-    for (const yaw of [0, 90, 180]) {
-      it(`${w}×${h} yaw ${yaw}°`, () => {
-        const c = new THREE.PerspectiveCamera(50, w / h, 0.05, 30);
-        const view = { ...CAM_VIEW.far(w / h), yaw };
-        expect(view.elev).toBeLessThanOrEqual(25); // 低角度，像坐在桌邊
-        fitCamera(c, view, { w, h, mine: true });
-        const v = facePoint((yaw * Math.PI) / 180).project(c);
-        expect(v.z).toBeLessThan(1); // 在鏡頭前面
-        expect(((1 - v.y) / 2) * h).toBeGreaterThanOrEqual(39); // 頭頂沒被上方名牌區切掉
-        expect(Math.abs(v.x)).toBeLessThan(0.2); // 在畫面中間
-      });
-    }
+    it(`${w}×${h}`, () => {
+      const c = new THREE.PerspectiveCamera(50, w / h, 0.05, 30);
+      fitCamera(c, CAM_VIEW.far(w / h), { w, h, mine: true });
+      const a = handLean(c);
+      // 鏡頭 38° 從上面看下來，手牌要仰 50° 以上才不扁；牌面法線和視線的夾角很小
+      expect(a).toBeGreaterThan(0.85);
+      const n = new THREE.Vector3(0, Math.sin(a), Math.cos(a)),
+        v = c.position
+          .clone()
+          .sub(new THREE.Vector3(0, 0.75, 0.45))
+          .normalize();
+      expect(n.dot(v)).toBeGreaterThan(0.97);
+    });
 });
 
 describe('fitCamera：觀戰者繞桌轉鏡頭也塞得下', () => {

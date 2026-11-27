@@ -307,8 +307,8 @@ export class GameLoop {
           oy = 0;
         if (sh > 0.01) {
           const t = game.time * 60;
-          ox = Math.sin(t * 1.7) * 0.012 * sh;
-          oy = Math.sin(t * 2.3 + 1) * 0.018 * sh;
+          ox = Math.sin(t * 1.7) * 0.024 * sh; // 鐵軌旁約 2.5 cm、249 巷 11 弄約 1 cm
+          oy = Math.sin(t * 2.3 + 1) * 0.035 * sh;
           cp.x += ox;
           cp.y += oy;
           game.camera.updateMatrixWorld();

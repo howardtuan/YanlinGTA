@@ -45,8 +45,16 @@ const REF_S = 2560; // 班表換算的參考點：rail[0] 上的弧長（地圖�
 // 新中北路 249 巷 11 弄（離軌道約 21～29 m）聽得到，力行宿舍（最近的角落約 47 m、整棟中心約 96 m）聽不太到
 export const RUN_FULL = 15;
 export const RUN_ZERO = 50;
-const BELL_D = 70; // 平交道警鈴（249 巷 11 弄口離新中北路 249 巷平交道約 33 m）
-const SHAKE_D = 30; // 這距離內感覺得到地面輕微震動（鏡頭微晃）：只有第一排住家
+// 平交道警鈴：45 m 內聽得到。站在平交道旁聽得清楚，249 巷 11 弄口（離平交道 33 m）小小聲，
+// 力行宿舍（外牆離平交道最近 55 m）聽不到
+export const BELL_D = 45;
+export const bellLoud = (d) => Math.pow(Math.max(0, 1 - d / BELL_D), 1.6) * 0.7;
+// 地面震動（鏡頭微晃）：SHAKE_FULL 內最強，到 SHAKE_ZERO 完全沒有。249 巷 11 弄（離軌道 21～29 m）有些微震動，
+// 再遠（力行宿舍 47 m 以外）就沒有
+export const SHAKE_FULL = 8;
+export const SHAKE_ZERO = 35;
+export const shakeAt = (d) =>
+  Math.pow(Math.max(0, Math.min(1, (SHAKE_ZERO - d) / (SHAKE_ZERO - SHAKE_FULL))), 1.5);
 // 0…1：離最近車廂 d 公尺時行駛聲的大小
 export const runLoud = (d) =>
   Math.pow(Math.max(0, Math.min(1, (RUN_ZERO - d) / (RUN_ZERO - RUN_FULL))), 1.5);
@@ -315,7 +323,7 @@ export class Trains {
       if (!best[k] || d < best[k].d) best[k] = { d, qx, qz, c };
     }
     const dMin = Math.min(best.run?.d ?? Infinity, best.eng?.d ?? Infinity);
-    this.shake = Math.pow(Math.max(0, 1 - dMin / SHAKE_D), 2);
+    this.shake = shakeAt(dMin);
     // 聲音的大小、左右聲道、都卜勒（車子在聽者前後時，接近的那半邊音調高一點）
     const at = (b) => {
       const dx = b.qx - Lp.x,
@@ -343,7 +351,7 @@ export class Trains {
       const dx = c.x - Lp.x,
         dz = c.z - Lp.z,
         d = Math.hypot(dx, dz);
-      const v = on ? Math.pow(Math.max(0, 1 - d / BELL_D), 1.6) * 0.7 : 0;
+      const v = on ? bellLoud(d) : 0;
       const pan = d < 2 ? 0 : (-dx * Math.cos(Lp.yaw) + dz * Math.sin(Lp.yaw)) / d;
       audio.loopBufAt(`xbell${i}`, 'crossing_bell', v, dt, pan * 0.8);
     });

@@ -1001,7 +1001,7 @@ export default {
     }
     {
       // 白色鐵皮屋：招牌上面整面水果甜點插畫
-      const k = seg(C, 1, 1056, 1066, 7);
+      const k = C.sink(seg(C, 1, 1056, 1066, 7));
       k.box(0, k.W, 4.4, 6.2, 0, 0.25, '#eeeeea', NC);
       k.plane(T.mural(), 9.8, 1.7, 5, 5.3, -0.02, FRONT);
       // 屋前的紅色小立架
@@ -1059,7 +1059,7 @@ export default {
     {
       // 碎石空地（s 1194.5～1205）：輪胎堆、後面圍網
       const k = seg(C, 1, 1194.5, 1205, 8);
-      k.box(0, k.W, -0.5, 0.04, -1.2, 12, '#8a8478', { col: false, surface: true });
+      C.pave(k, 0, k.W, -0.5, 0.04, -1.2, 12, '#8a8478');
       flat(k, T.gravel(), k.W, 13, k.W / 2, 5.3, 0.05);
       for (const [x, z] of [
         [0.8, 0.6],
@@ -1094,7 +1094,7 @@ export default {
     }
     {
       // 平面停車場（s 1096～1105）：藍色 P 牌、柵欄機；之後綠色鐵皮圍籬一直到 s 1165
-      const k = seg(C, -1, 1096, 1105, 6.5);
+      const k = C.sink(seg(C, -1, 1096, 1105, 6.5), 1); // 往西低 0.7 m：P 牌桿、柵欄機、圍籬往下補
       const P = paint('P', '#1f4aa0', '#ffffff', '入口', 0.7, 1.0);
       k.cyl(k.sx(1097.2), -0.6, 0.05, 0, 2.6, '#8a8d90', { seg: 6, col: true });
       k.plane(P, 0.7, 1.0, k.sx(1097.2), 2.2, -0.66, FRONT, { emissive: 0.3 });
@@ -1106,10 +1106,10 @@ export default {
     }
     for (let s = 1105; s < 1165; s += 6) {
       const e = Math.min(s + 6, 1165),
-        k = seg(C, -1, s, e, 6.6),
+        k = C.sink(seg(C, -1, s, e, 6.6)),
         w = e - s;
       k.box(0, w, 0, 2.5, 0, 0.06, '#3f7a52');
-      k.plane(T.fence(w), w, 2.5, w / 2, 1.25, -0.01, FRONT);
+      k.plane(T.fence(w), w, 3.1, w / 2, 0.95, -0.01, FRONT); // 往下多 0.6 m，坡上低的那頭不露縫
       k.wallLine(0, 0.03, w, 0.03, 0, 2.5);
       if ((s - 1105) % 12 === 0) k.cyl(w / 2, -0.2, 0.06, 0, 2.6, '#5a6a5e', { seg: 6 });
     }

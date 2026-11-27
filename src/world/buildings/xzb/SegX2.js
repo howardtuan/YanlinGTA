@@ -462,7 +462,7 @@ export default {
     }
     {
       // N1 的女兒牆盆栽與水泥雨遮
-      const k = seg(C, 1, 163.5, 169.8, 7.2);
+      const k = C.sink(seg(C, 1, 163.5, 169.8, 7.2));
       k.box(0.3, k.W - 1.2, 2.9, 3.02, -0.7, 0, '#b9b6ae', { col: false });
       k.box(0, k.W, 7.7, 8.5, -0.05, 0.15, 'wall#d6cdbb', { col: false }); // 高女兒牆（實景一樓、二樓都很高，整棟約 8.5 m）
       for (let x = 0.6; x < k.W - 0.5; x += 1.1) ball(C, k, x, 8.8, 0.35, 0.3, '#4b8a3e');
@@ -519,7 +519,7 @@ export default {
     }
     {
       // N3 西半：門邊紅色春聯、屋頂鐵欄杆
-      const k = seg(C, 1, 186.6, 191.3, 6.4),
+      const k = C.sink(seg(C, 1, 186.6, 191.3, 6.4)),
         w = k.W,
         top = 3.3 + 3 * 3.0;
       for (const x of [0.3, w - 1.45])

@@ -652,7 +652,7 @@ export default {
           g.stroke();
         }
       });
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -ap, 0, MR.concrete, { col: false, surface: true });
+      C.pave(k, -0.01, w + 0.01, -0.5, 0.05, -ap, 0, MR.concrete);
       const n = Math.round(w / 2.5),
         pw = w / n;
       for (let j = 0; j <= n; j++) {

@@ -9,6 +9,7 @@ import { makeLabel } from '../world/MapBuilder.js';
 import { surfaceAt } from '../world/Terrain.js';
 import { reachArm } from './Armik.js';
 import { COURTS, COLUMNS, courtP, courtRims, RIM_R } from '../world/Court.js';
+import { insultsLaoda } from '../systems/LaodaInsult.js';
 
 export const PILOT_LOOK = {
   skin: '#6b4531',
@@ -114,6 +115,31 @@ const PILOT_JOKES = [
 ];
 const PILOT_JOKE_END = '孩子們，這並不好笑';
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+
+// ---- 彩蛋：罵勞大（src/systems/LaodaInsult.js）—— 手機訊息罵他（src/ui/phone/Phone.js）或打招呼時當面回嘴罵他，
+// 他就放下手邊的事衝過來給你一記肘擊（CampusPilot.provoke）：不在附近就從你視線外冒出來跑過來，在開直升機就等降落再來。
+// 到你面前拉肘、打中（你被打飛，布娃娃倒地），站著瞪你一下，然後走開。一次罵一次肘擊。
+// 騎車騎快一點他打不到你（停下來就被拉下車）；對話框、小遊戲開著的時候他在旁邊等；看手機的話手機一起被打掉。
+const RUN = 7.2, // m/s, a bit slower than your sprint: you can get away for a moment, not for good
+  REACH = 1.05, // m: close enough to land it (on foot; next to a vehicle add its half width)
+  WIND = 0.36, // s: drawing the elbow back
+  SWING = 0.9, // s: the swing through and back to standing
+  STAND = 2.4, // s: standing over you afterwards
+  GRUDGE_MAX = 240; // s: still not there after this (you kept riding off): he gives up
+const FRIENDLY = ['Man，有你的 🤙', 'What can I say，說得好', '好，記住了，Mamba 精神 🐍'];
+const sm = (k) => {
+  const c = Math.max(0, Math.min(1, k));
+  return c * c * (3 - 2 * c);
+};
+// the elbow's key poses in his own frame (x + = his left, z + = forward): the right palm, the way the right elbow points, the torso twist
+const ELBOW = {
+  rest: { p: [-0.25, 0.95, 0.06], e: [0, -0.3, -1], tw: 0 },
+  cock: { p: [-0.12, 1.42, 0.14], e: [-1, 0.15, -0.45], tw: -0.5 },
+  hit: { p: [0.1, 1.4, 0.18], e: [-0.25, 0.1, 1], tw: 0.6 },
+};
+const GUARD = { p: [0.14, 1.32, 0.26], e: [1, -0.6, 0.2] }; // the left fist up
+const _v = new THREE.Vector3(),
+  _w = new THREE.Vector3();
 
 // ---- basketball: some mornings (07:00–08:30) and afternoons (15:30–18:00) he shoots hoops on the 體育園區 court
 const BALL_LINES = [
@@ -557,6 +583,8 @@ export class CampusPilot {
     this.pos = new THREE.Vector3();
     this.heading = 0;
     this.y = 0;
+    this.lift = 0; // (coming for you) an interior floor's height above the ground under him, src/world/Kit.js groundAt
+    this.grudge = null; // you insulted him (provoke): he is on his way to elbow you
   }
   _build() {
     const ch = (this.ch = createPilot());
@@ -577,7 +605,7 @@ export class CampusPilot {
       r: 2.4,
       y: 0,
       anyY: true,
-      cond: () => this.on,
+      cond: () => this.on && !this.grudge && this.mode !== 'leave',
       label: () =>
         this.mode === 'court' ? '按 <kbd>E</kbd> 和打球的勞大聊聊' : '按 <kbd>E</kbd> 和勞大打招呼',
       fn: () => this.greet(),
@@ -591,14 +619,20 @@ export class CampusPilot {
     const p = this.g.player.worldPos();
     this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
     this.pause = Math.max(this.pause, 2.5);
+    // the last line of his greeting has a box to say something back to him (src/ui/HUD.js reply): see hear()
+    const reply = { send: (text) => this.hear(text) };
     if (this.mode === 'court') {
       // between shots: about basketball
       this.talking = true;
       this._ballLine = ((this._ballLine ?? -1) + 1) % BALL_LINES.length;
-      this.g.dialog(BALL_LINES[this._ballLine], () => {
-        this.talking = false;
-        this.pause = Math.min(this.pause, 1);
-      });
+      this.g.dialog(
+        BALL_LINES[this._ballLine],
+        () => {
+          this.talking = false;
+          this.pause = Math.min(this.pause, 1);
+        },
+        { reply }
+      );
       return;
     }
     let j;
@@ -616,10 +650,46 @@ export class CampusPilot {
       () => {
         this.talking = false;
         this.pause = Math.max(this.pause, 1);
-      }
+      },
+      { reply }
     );
     const len = await this.g.audio.voice(PILOT_VOICES[i], 1, 'pilot');
-    if (len && this.on) this.pause = Math.max(this.pause, len + 0.8);
+    if (len && this.on && !this.grudge) this.pause = Math.max(this.pause, len + 0.8);
+  }
+  // what you said back to him face to face (the box at the end of his greeting): insult him and he elbows you
+  hear(text) {
+    this.talking = true;
+    this.pause = Math.max(this.pause, 2);
+    if (insultsLaoda(text, true)) {
+      this.g.dialog(
+        [
+          ['勞大', 'Man……你剛剛說什麼？'],
+          ['勞大', '你再說一次看看'],
+        ],
+        () => {
+          this.talking = false;
+          this.provoke();
+        }
+      );
+      return;
+    }
+    this.g.dialog(
+      [
+        ['彥霖', text],
+        ['勞大', FRIENDLY[Math.floor(Math.random() * FRIENDLY.length)]],
+      ],
+      () => {
+        this.talking = false;
+        this.pause = Math.max(this.pause, 1);
+      }
+    );
+  }
+  // you insulted him (a message, src/ui/phone/Phone.js, or to his face): he comes over and elbows you (_revenge).
+  // false: already on his way
+  provoke() {
+    if (this.grudge) return false;
+    this.grudge = { t: 0, st: 'run', k: 0, best: Infinity, stuck: 0 };
+    return true;
   }
   // where the route goes when you asked him 你在哪？ on the phone (nav.track); null once he has gone
   get navArrive() {
@@ -709,6 +779,7 @@ export class CampusPilot {
     this.on = false;
     this.mode = null;
     this.talking = false;
+    this.lift = 0;
     this.wait = wait;
     this.court?.stop();
     if (this.ch) this.ch.root.visible = false;
@@ -723,8 +794,16 @@ export class CampusPilot {
     if (busy) {
       if (this.on) this.hide(40 + Math.random() * 40);
       return;
-    } // he's up in the helicopter
+    } // he's up in the helicopter (insulted meanwhile: he comes once he has landed)
+    if (this.grudge) {
+      this._revenge(dt);
+      return;
+    }
     const p = this.g.player.worldPos();
+    if (this.mode === 'leave') {
+      this._leaving(dt, p);
+      return;
+    }
     if (!this.on) {
       this.wait -= dt;
       if (pilotBall(this.g.clock)) {
@@ -805,6 +884,243 @@ export class CampusPilot {
       this.ch.update(dt, { speed: a.speed, mode: 'foot' });
     }
     this.court.pose(Math.min(dt, 0.05), a.act);
+  }
+  // ---- coming for you after an insult (provoke): run up, draw the elbow back, swing, stand over you, walk off ----
+  _revenge(dt) {
+    const g = this.g,
+      P = g.player,
+      R = this.grudge,
+      p = P.worldPos(),
+      v = P.vehicle;
+    R.t += dt;
+    if (!this.ch) this._build();
+    if (!this.on || this.mode !== 'revenge') {
+      // drops whatever he was doing; nowhere near (or not out at all): turns up out of your sight and runs over
+      const far = !this.on || Math.hypot(this.pos.x - p.x, this.pos.z - p.z) > 60;
+      this.court?.stop();
+      this.on = true;
+      this.mode = 'revenge';
+      this.talking = false;
+      this.face = null;
+      this.pause = 0;
+      this.ch.root.visible = true;
+      this.ch.headset.visible = true;
+      if (far) this._ambush(p, 22);
+      else this.lift = 0;
+    }
+    let dx = p.x - this.pos.x,
+      dz = p.z - this.pos.z,
+      d = Math.hypot(dx, dz);
+    const py = v ? (v.mesh?.position.y ?? this.y) : P.pos.y,
+      level = Math.abs(py - this.y) < 1.6,
+      reach = REACH + (v ? v.hw || 0.5 : 0),
+      fast = !!v && Math.abs(v.speed || 0) > 3,
+      // something on screen (a dialog, a minigame…, src/core/Game.js uiBusy) or you are already down: he waits
+      free = !g.uiBusy && !P.tumble && !P.rag && !fast;
+    let speed = 0;
+    if (R.st === 'run') {
+      if (d > reach * 0.85) {
+        const s = Math.min(d - reach * 0.8, RUN * dt);
+        this.pos.x += (dx / d) * s;
+        this.pos.z += (dz / d) * s;
+        speed = RUN;
+        this._collide();
+        dx = p.x - this.pos.x;
+        dz = p.z - this.pos.z;
+        d = Math.hypot(dx, dz);
+      }
+      this.heading += angDiff(Math.atan2(dx, dz), this.heading) * Math.min(1, dt * 10);
+      // getting nowhere (a wall in between, you upstairs, you ran off): turns up closer, out of sight
+      if (d < R.best - 0.8) {
+        R.best = d;
+        R.stuck = 0;
+      } else if (!fast && (d > reach * 1.5 || !level)) R.stuck += dt;
+      if (!fast && (d > 70 || R.stuck > 5)) {
+        this._ambush(p, d > 14 ? 9 : 5);
+        R.best = Infinity;
+        R.stuck = 0;
+      } else if (d <= reach && level && free) {
+        R.st = 'wind';
+        R.k = 0;
+        const i = Math.floor(Math.random() * PILOT_VOICES.length);
+        g.audio.voice?.(PILOT_VOICES[i], 1, 'pilot');
+      } else if (R.t > GRUDGE_MAX) {
+        g.hud.toast('😮‍💨 勞大追累了，這次先放過你', 'good', 2600);
+        this._leave();
+        return;
+      }
+    } else if (R.st === 'wind') {
+      R.k += dt;
+      this.heading += angDiff(Math.atan2(dx, dz), this.heading) * Math.min(1, dt * 14);
+      if (!free || d > reach * 1.6) {
+        R.st = 'run'; // you got away (or something came up) just in time
+        R.k = 0;
+      } else if (R.k >= WIND) {
+        this._strike();
+        R.st = 'swing';
+        R.k = 0;
+      }
+    } else {
+      // swing: a short lunge into it, then he stands there
+      R.k += dt;
+      if (R.k < 0.15) {
+        this.pos.x += Math.sin(this.heading) * 1.6 * dt;
+        this.pos.z += Math.cos(this.heading) * 1.6 * dt;
+        this._collide();
+      }
+      if (R.k >= SWING + STAND) {
+        this._leave();
+        return;
+      }
+    }
+    this._block();
+    this._ground();
+    const r = this.ch.root;
+    r.visible = true;
+    r.position.set(this.pos.x, this.y, this.pos.z);
+    r.rotation.y = this.heading;
+    this.ch.setDetail(d < 35);
+    this.ch.update(dt, { speed, mode: 'foot' });
+    if (R.st === 'wind') this._elbow(ELBOW.rest, ELBOW.cock, sm(R.k / WIND), sm(R.k / 0.2));
+    else if (R.st === 'swing') {
+      if (R.k < 0.5) this._elbow(ELBOW.cock, ELBOW.hit, sm(R.k / 0.12), 1);
+      else if (R.k < SWING) {
+        const k = sm((R.k - 0.5) / (SWING - 0.5));
+        this._elbow(ELBOW.hit, ELBOW.rest, k, 1 - k);
+      }
+    }
+  }
+  // the elbow: his right arm and torso between two key poses (k), the left fist up by guard (0…1). After ch.update
+  _elbow(a, b, k, guard) {
+    const ch = this.ch,
+      [aR, aL] = ch.arms,
+      L = (i, key) => a[key][i] + (b[key][i] - a[key][i]) * k;
+    ch.torso.rotation.y = a.tw + (b.tw - a.tw) * k;
+    ch.root.updateMatrixWorld(true);
+    reachArm(ch, aR, L(0, 'p'), L(1, 'p'), L(2, 'p'), L(0, 'e'), L(1, 'e'), L(2, 'e'));
+    if (guard > 0) {
+      const R0 = ELBOW.rest.p,
+        G = GUARD.p;
+      reachArm(
+        ch,
+        aL,
+        -R0[0] + (G[0] + R0[0]) * guard,
+        R0[1] + (G[1] - R0[1]) * guard,
+        R0[2] + (G[2] - R0[2]) * guard,
+        GUARD.e[0],
+        GUARD.e[1],
+        GUARD.e[2]
+      );
+    }
+    ch.setHandPose?.('grip');
+  }
+  // the elbow lands: off the scooter / up from the bench first, the phone flies, and you go down (a ragdoll, src/entities/Player.js)
+  _strike() {
+    const g = this.g,
+      P = g.player,
+      v = P.vehicle;
+    if (P.seat) P.standUp();
+    if (v) {
+      g.audio.engineStop?.(v.kind);
+      P.exit(g.scene, g.world.collision, g.interiors);
+      g.audio.setEngine?.(false, 0);
+      g.hud.setSpeed?.(null);
+      if (g.headlight) g.headlight.intensity = 0;
+    }
+    if (g.phone?.open) g.phone.close();
+    // away from him and a little to his left: the elbow swings from his right across
+    const q = P.pos,
+      fx = q.x - this.pos.x,
+      fz = q.z - this.pos.z,
+      f = Math.hypot(fx, fz) || 1,
+      lx = Math.cos(this.heading),
+      lz = -Math.sin(this.heading);
+    let nx = fx / f + lx * 0.35,
+      nz = fz / f + lz * 0.35;
+    const n = Math.hypot(nx, nz) || 1;
+    nx /= n;
+    nz /= n;
+    P.throwOff(nx * 6.5, nz * 6.5, 3.4, 2.2);
+    g.audio.hitPed?.();
+    g.hud.bigToast?.('💥 被勞大肘擊了！', '勞大：Man，嘴巴放乾淨一點', 2800);
+  }
+  // done with you: walks off the other way and is gone once out of sight (back another time as usual)
+  _leave() {
+    const p = this.g.player.worldPos();
+    this.grudge = null;
+    this.mode = 'leave';
+    this.leaveT = 0;
+    this.leaveDir = Math.atan2(this.pos.x - p.x, this.pos.z - p.z) + (Math.random() - 0.5) * 0.8;
+  }
+  _leaving(dt, p) {
+    this.leaveT += dt;
+    const d = Math.hypot(this.pos.x - p.x, this.pos.z - p.z);
+    if (d > 45 || this.leaveT > 30) {
+      this.hide();
+      return;
+    }
+    this.pos.x += Math.sin(this.leaveDir) * 1.5 * dt;
+    this.pos.z += Math.cos(this.leaveDir) * 1.5 * dt;
+    this._collide();
+    this.heading += angDiff(this.leaveDir, this.heading) * Math.min(1, dt * 5);
+    this._block();
+    this._ground();
+    const r = this.ch.root;
+    r.position.set(this.pos.x, this.y, this.pos.z);
+    r.rotation.y = this.heading;
+    this.ch.setDetail(d < 35);
+    this.ch.update(dt, { speed: 1.5, mode: 'foot' });
+  }
+  // put him somewhere around p, r m off, out of your view (to the side of or behind the camera) with a clear run to you,
+  // on your floor; nowhere like that: right behind you
+  _ambush(p, r) {
+    const g = this.g,
+      w = g.world,
+      P = g.player,
+      floor = P.vehicle ? 0 : P.ground || 0,
+      ground = g.interiors?.groundAt ? (x, z) => g.interiors.groundAt(x, z, floor) : () => 0,
+      cd = g.camera.getWorldDirection(_w),
+      cy = Math.atan2(cd.x, cd.z);
+    const clear = (x, z) => {
+      const L = Math.hypot(p.x - x, p.z - z);
+      for (let t = 1.5; t < L - 1; t += 1.5)
+        if (!w.isFree(x + ((p.x - x) * t) / L, z + ((p.z - z) * t) / L, 0.3)) return false;
+      return true;
+    };
+    for (const R of [r, Math.min(r, 9), 5, 3])
+      for (const a of [0.5, -0.5, 0.7, -0.7, 1, 0.35, -0.35]) {
+        const x = p.x + Math.sin(cy + a * Math.PI) * R,
+          z = p.z + Math.cos(cy + a * Math.PI) * R;
+        if (!w.isFree(x, z, 0.4) || Math.abs(ground(x, z) - floor) > 0.5 || !clear(x, z)) continue;
+        this._put(x, z, floor, p);
+        return;
+      }
+    const h = P.worldHeading?.() ?? P.heading ?? 0;
+    this._put(p.x - Math.sin(h) * 1.6, p.z - Math.cos(h) * 1.6, floor, p);
+  }
+  _put(x, z, floor, p) {
+    const P = this.g.player,
+      base = P.vehicle ? (P.vehicle.mesh?.position.y ?? 0) : P.pos.y - (P.y || 0);
+    this.pos.set(x, 0, z);
+    this.lift = this.g.interiors?.groundAt?.(x, z, floor) ?? 0;
+    this.y = surfaceAt(x, z, base + 0.5) + this.lift;
+    this.heading = Math.atan2(p.x - x, p.z - z);
+    this.ch.root.position.set(x, this.y, z);
+  }
+  // walls push him out (on his floor)
+  _collide() {
+    const c = this.g.world.collision;
+    if (!c) return;
+    _v.set(this.pos.x, this.y, this.pos.z);
+    c.resolve(_v, 0.36, this.lift);
+    this.pos.x = _v.x;
+    this.pos.z = _v.z;
+  }
+  // his feet: the ground, or an interior floor he has walked up onto (stairs, like you, src/entities/Player.js)
+  _ground() {
+    const surf = surfaceAt(this.pos.x, this.pos.z, this.y - this.lift + 0.5);
+    this.lift = this.g.interiors?.groundAt?.(this.pos.x, this.pos.z, this.lift) ?? 0;
+    this.y = surf + this.lift;
   }
   _block() {
     // nobody walks through him

@@ -924,8 +924,8 @@ class Game {
     }
   }
 
-  dialog(lines, cb) {
-    this.hud.dialog(lines, cb);
+  dialog(lines, cb, opts) {
+    this.hud.dialog(lines, cb, opts);
   }
 
   earn(n, what) {
@@ -1361,6 +1361,11 @@ class Game {
     hud.update(dt);
     const inDialog = hud.inDialog;
     this.photo.update(dt, inp); // 📷 holding the phone up: eats the shutter / back keys before anything else sees them
+    // T: into the box to say something back (勞大's greeting, src/ui/HUD.js reply)
+    if (inDialog && hud.replyOn && inp.hit('KeyT')) {
+      hud.focusReply();
+      inp.pressed.clear();
+    }
     if (inDialog && inp.hit('KeyE', 'Enter', 'NumpadEnter', 'Space', 'Mouse0', 'Tap')) {
       if (hud.advanceDialog()) this.audio.talk();
       inp.pressed.clear();
@@ -1442,6 +1447,7 @@ class Game {
       this.pc.isOpen ||
       this.wardrobe.isOpen ||
       this._modalOpen;
+    this.uiBusy = busy; // (勞大 waits with his elbow while any of these is on, src/entities/Pilot.js)
     pl.frozen = busy || this.phone.open;
     const phoneDrive =
       this.phone.open &&

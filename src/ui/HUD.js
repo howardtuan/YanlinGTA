@@ -620,10 +620,75 @@ export class HUD {
     this._bt = setTimeout(() => b.classList.add('hidden'), ms);
   }
   // dialog: lines = [[name, text], ...]
-  dialog(lines, cb) {
+  // opts.reply = { send(text) }: the last line gets a box to say something back (勞大's greeting, src/entities/Pilot.js hear).
+  // Optional: E / a click still closes the dialog; T (src/core/Game.js) or a click on the box to type, Enter to say it
+  dialog(lines, cb, opts = {}) {
     this.dialogQueue = lines.slice();
     this.dialogCb = cb;
+    this.dialogReply = opts.reply || null;
     this._showNext();
+  }
+  get replyOn() {
+    return !!this._reply && !this._reply.classList.contains('hidden');
+  }
+  focusReply() {
+    if (!this.replyOn) return;
+    const el = this._reply.querySelector('input');
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }
+  _replyBox(on) {
+    if (!on) {
+      if (this._reply) {
+        this._reply.classList.add('hidden');
+        this._reply.querySelector('input').blur();
+      }
+      return;
+    }
+    if (!this._reply) {
+      const row = (this._reply = document.createElement('div'));
+      row.id = 'dlgReply';
+      row.innerHTML =
+        '<b>彥霖</b><input maxlength="40" autocomplete="off" spellcheck="false" enterkeyhint="send"><button type="button">說</button>';
+      const el = row.querySelector('input');
+      // the box's clicks are not "next line", and the keys typed in it are not the game's (keyup still goes through,
+      // so no key stays held down in src/core/Input.js)
+      for (const ev of ['click', 'mousedown', 'pointerdown', 'touchstart'])
+        row.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+          e.preventDefault();
+          this._say();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          el.blur();
+        }
+      });
+      row.querySelector('button').addEventListener('click', () => this._say());
+      $('dialog').insertBefore(row, $('dlgHint'));
+    }
+    const el = this._reply.querySelector('input');
+    el.value = '';
+    el.placeholder = document.body.classList.contains('touch')
+      ? '點這裡回他一句…（可以不填）'
+      : '按 T 回他一句…（可以不填，Enter 說出口）';
+    this._reply.classList.remove('hidden');
+  }
+  // Enter in the box: the dialog closes (its callback runs), then what you typed goes to reply.send
+  _say() {
+    const el = this._reply.querySelector('input'),
+      text = el.value.trim(),
+      r = this.dialogReply;
+    if (!text || !r) {
+      el.focus();
+      return;
+    }
+    el.value = '';
+    this.dialogReply = null;
+    this.dialogQueue = [];
+    this._showNext();
+    r.send(text);
   }
   get inDialog() {
     return !$('dialog').classList.contains('hidden');
@@ -632,12 +697,15 @@ export class HUD {
     const d = $('dialog');
     if (!this.dialogQueue.length) {
       d.classList.add('hidden');
+      this._replyBox(false);
+      this.dialogReply = null;
       const cb = this.dialogCb;
       this.dialogCb = null;
       cb && cb();
       return;
     }
     const [name, raw] = this.dialogQueue.shift();
+    this._replyBox(!!this.dialogReply && !this.dialogQueue.length);
     const text = raw.replace(/\[\[(.+?)\|(.+?)\]\]/g, (_, kb, pad) => this.keyLabel(kb, pad)); // [[M|View]]
     d.classList.remove('hidden');
     $('dlgName').textContent = name;

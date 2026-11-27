@@ -70,6 +70,16 @@ export const CONTACTS = [
     color: '#552583',
     unread: 1,
     laugh: '孩子們，這並不好笑', // 你傳的訊息有「哈哈」之類的笑，他的回覆最後一定補這句（src/ui/phone/Phone.js）
+    // 他的聊天室在每個瀏覽器都能自己打字（不只 Gemini Nano）；沒有 AI 時，你自己打的話他回這幾句之一
+    typing: true,
+    filler: ['Man', 'What can I say 🤙', '收到，Man', '好，Mamba 收到 🐍'],
+    // 彩蛋：在這裡罵他（src/systems/LaodaInsult.js），他回這幾句，然後衝過來肘擊你（src/entities/Pilot.js provoke）
+    insulted: (g) =>
+      g.airdrop?.walker?.grudge
+        ? ['Man 我已經在路上了', '站好別跑']
+        : g.airdrop?.busy
+          ? ['Man，我在天上都看到了', '等我降落，馬上過去找你 💢']
+          : ['Man……你剛剛說什麼？', '站在那邊不要動', '我現在過去找你 💪'],
     history: [
       { day: '今天' },
       ['laoda', 'Man 我勞大，要空運機車打給我 🚁'],
@@ -94,6 +104,7 @@ export const CONTACTS = [
           const A = g.airdrop,
             w = A?.walker;
           if (!w) return { r: ['Man 我在忙，等等再說'] };
+          if (w.grudge) return { r: ['Man 你不用找我', '我正在過去找你 💢'] }; // you insulted him: he is coming
           if (A.busy) return { r: ['Man 我在天上開直升機啦 🚁', '等我降落再說'] };
           if (!w.on && pilotBall(g.clock)) w.playBall();
           if (w.mode === 'court')

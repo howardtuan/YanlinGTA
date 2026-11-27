@@ -50,10 +50,14 @@ export function friendLocations(g) {
     add(
       'laoda',
       '勞大',
-      w.mode === 'court' ? '🏀' : '🚁',
+      w.grudge ? '💢' : w.mode === 'court' ? '🏀' : '🚁',
       '#552583',
       w.pos,
-      w.mode === 'court' ? '在體育園區籃球場打球' : '在校園散步'
+      w.grudge
+        ? '正在衝過去找你（你罵了他）'
+        : w.mode === 'court'
+          ? '在體育園區籃球場打球'
+          : '在校園散步'
     );
   else add('laoda', '勞大', '🚁', '#552583', null, '不在校園（可能在停機坪）');
   if (has('zz')) {

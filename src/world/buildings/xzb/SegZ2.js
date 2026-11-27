@@ -780,7 +780,7 @@ export default {
         FRONT,
         { emissive: 0.2, double: true }
       );
-      k.box(0.4, 1.6, 0, 1.9, -0.5, -0.4, '#c8282a', NC);
+      k.box(0.4, 1.6, 0, 1.9, -0.5, -0.4, '#c8282a'); // 落地的繳費機立牌，擋人
       k.plane(
         paint('Q-Parking', '#c8282a', '#ffffff', '計時收費 請先繳費', 1.2, 0.9),
         1.2,

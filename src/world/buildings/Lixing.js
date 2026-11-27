@@ -1087,6 +1087,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
       // 曬衣場: steel racks, white tile dado
       room(f, xa, xb, bm.z0, bm.zA, { floor: MT.tileD, step: 3 });
       bx(xa, xb, y, c, bm.z0, bm.z0 + 0.1, MT.tileW, { tile: [0.6, 0.6] });
+      wl(xa, bm.z0 + 0.1, xb, bm.z0 + 0.1, y, c); // 外牆內側貼了磁磚，牆面往裡 0.35 m，碰撞跟著磁磚面
       bx(xo - (sideW ? 0 : 0.1), xo + (sideW ? 0.1 : 0), y, c, bm.z0, bm.zA, MT.tileW, {
         tile: [0.6, 0.6],
       });

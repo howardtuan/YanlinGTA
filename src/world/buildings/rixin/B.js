@@ -97,7 +97,7 @@ const stripeTex = (c) =>
     for (let x = 0; x < W; x += W / 7) g.fillRect(x, 0, W / 14, H);
   });
 const covered = (x) => (k, c) => {
-  k.box(x, x + 1.4, 0, 1.8, -1.35, -0.45, '#d8a8a4', { col: false });
+  k.box(x, x + 1.4, 0, 1.8, -1.35, -0.45, '#d8a8a4'); // 帆布蓋著的貨架，擋人
   k.plane(stripeTex(c), 1.4, 1.8, x + 0.7, 0.9, -1.36, c.FRONT);
 };
 // 理髮店的旋轉燈柱（紅白藍）
@@ -609,8 +609,8 @@ export default {
         d: 12,
         extra: all(
           (k, c) => {
-            k.box(0.3, 2.4, 0, 1.6, -1.0, -0.1, '#7f98ad', { col: false });
-            k.box(2.6, 3.9, 0, 1.2, -0.9, -0.1, '#5c4a44', { col: false });
+            k.box(0.3, 2.4, 0, 1.6, -1.0, -0.1, '#7f98ad'); // 帆布蓋著的攤架，擋人
+            k.box(2.6, 3.9, 0, 1.2, -0.9, -0.1, '#5c4a44');
           },
           standee('鹽烤魚', '#d8342c', '#ffffff', 3.3)
         ),

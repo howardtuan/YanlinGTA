@@ -1947,6 +1947,10 @@ export function buildZoneC(I, scene, data, collision) {
           top + 1.6 + i * 0.5,
           3
         );
+        // 凸出牆面 0.45 m、落地：外緣擋人
+        const pa = along(O, eN, s0 - 0.4, 0.45),
+          qa = along(O, eN, s0 + 3.0, 0.45);
+        boxColl([p, pa, qa, q], groundY(...p) - 0.2, groundY(...p) + 4);
       });
     }
     // --- 外牆零星暗紅小方磚（東北面、東面，約每兩層一顆） ---

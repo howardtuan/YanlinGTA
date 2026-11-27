@@ -1557,7 +1557,8 @@ function buildYusheng(k, I, b, group) {
         Y(top + 0.3),
         4
       );
-      if (i > 0 && i < piers.length - 1) blockOn(I, e, s0, s1, 0, D, -0.5, 4);
+      // 轉角柱也擋人（凸出輪廓 0.9 m，轉角那根包到相鄰那面的柱外緣）
+      blockOn(I, e, i === 0 ? -D : s0, i === piers.length - 1 ? e.l : s1, 0, D, -0.5, 4);
     });
     // 樓板梁和頂上的牆帶
     for (let f = 1; f < 4; f++) {
@@ -1673,6 +1674,9 @@ function buildYusheng(k, I, b, group) {
   // 藤蔓：西面整面、北面東端開間整面＋上半部垂藤、四面頂上牆帶垂一圈（屋頂邊）
   k.face('vineFull', fW, -0.2, fW.l + 0.2, D + 0.06, Y(-0.3), Y(top + 0.3), 6);
   k.face('vineFull2', fN, 11.8 - 0.4, fN.l + 0.2, D + 0.06, Y(-0.3), Y(top + 0.3), 6);
+  // 整面藤蔓蓋住凹窗，碰撞跟著藤蔓面走（不然人可以走進柱與柱之間、陷進藤蔓）
+  blockOn(I, fW, -0.2, fW.l + 0.2, 0, D + 0.06, -0.5, 4);
+  blockOn(I, fN, 11.8 - 0.4, fN.l + 0.2, 0, D + 0.06, -0.5, 4);
   k.face('vineDrape', fN, -0.2, 11.8 - 0.4, D + 0.06, Y(FL[2] - 0.6), Y(top + 0.3), 'stretch');
   for (const e of [fE, fS])
     k.face('vineDrape', e, -0.2, e.l + 0.2, D + 0.06, Y(FL[4] - 1.8), Y(top + 0.3), 'stretch');

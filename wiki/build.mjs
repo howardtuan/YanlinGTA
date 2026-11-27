@@ -316,6 +316,7 @@ function pageBody(page, data, base, opts) {
         ['story', '遊戲概覽', 2],
         ...(news.length ? [['latest', '最新消息', 2]] : []),
         ['start', '從哪裡開始', 2],
+        ['faq', '常見問題', 2],
       ],
       html: `
 <h2 id="promo">宣傳片</h2>
@@ -361,7 +362,11 @@ ${
   <a class="card" href="${link(base, 'controls')}"><span class="num">${pageNum('controls')}</span><b>操作教學</b><span>鍵盤滑鼠、手把、手機觸控</span></a>
   <a class="card" href="${link(base, 'characters')}"><span class="num">${pageNum('characters')}</span><b>角色介紹</b><span>真人改編的同學、室友與開發者</span></a>
   <a class="card" href="${link(base, 'main-quests')}"><span class="num">${pageNum('main-quests')}</span><b>主線任務</b><span>${quests.filter((q) => q.type === 'main').length} 個競選任務攻略</span></a>
-</div>`,
+</div>
+<h2 id="faq">常見問題</h2>
+${faqs(data)
+  .map(([q, a]) => `<details class="faq"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`)
+  .join('\n')}`,
     };
   }
 
@@ -522,6 +527,110 @@ function sidebarHtml(current, base) {
 </aside>`;
 }
 
+// 常見問題：Wiki 首頁看得到的「常見問題」段落、FAQPage 結構化資料與 llms.txt 共用同一份（AEO：AI 答案引擎直接引用）
+export function faqs(data) {
+  const { chars = [], quests = [], shops = [] } = data;
+  const n = (t) => quests.filter((q) => q.type === t).length;
+  return [
+    [
+      'YanlinGTA（中原順起來）是什麼遊戲？',
+      `YanlinGTA（Yanlin Great Times Adventure，中文名「中原順起來 · 資管要贏 票投彥霖」）是一款用瀏覽器就能玩的 3D 開放世界競選遊戲。玩家扮演第 34 屆中原大學資訊管理學系系學會會長候選人彥霖，騎著 SYM JET SL 穿梭真實比例的中原大學校園與中原夜市，完成任務幫自己拉票。角色由真實的資管系同學、室友與開發者改編。`,
+    ],
+    [
+      '要付費或下載安裝嗎？',
+      `不用。遊戲完全免費，打開 ${SITE}/ 就能直接玩，不需要下載或安裝任何東西。`,
+    ],
+    [
+      '手機可以玩嗎？',
+      '可以。電腦與手機（iPhone、Android）的瀏覽器都能玩，手機請橫放；手機用左下虛擬搖桿移動、右側拖曳轉視角、右下按鈕互動與上下車。電腦也支援 Xbox / PlayStation 手把。',
+    ],
+    [
+      '電腦版怎麼操作？',
+      'W A S D 移動、滑鼠轉視角、Shift 衝刺、Space 跳躍、E 互動、F 上下車、滑鼠左鍵發傳單、M 大地圖、V 切換第一／第三人稱、Esc 暫停。',
+    ],
+    [
+      '遊戲裡有哪些內容？',
+      `${n('main')} 個主線任務、${n('side')} 個支線任務、${n('case')} 個 SQL 偵探案件、${chars.length} 位登場角色、${shops.length} 家合作店家；另外有麥當勞打工、新中北路障礙賽、宿舍 3D 台灣麻將（可以跟朋友連線）、資管學堂程式課、靈感股市與直升機空投等玩法。`,
+    ],
+    [
+      '遊戲地圖是真的中原大學嗎？',
+      '是。地圖以 OpenStreetMap（ODbL）的真實地理資料與內政部 20m 數值地形模型為骨架，重現桃園市中壢區的中原大學校園、新中北路與中原夜市周邊街區。',
+    ],
+    [
+      '遊戲是用什麼技術做的？',
+      '用 Three.js（WebGL 3D 繪圖）、Rapier 3D（WebAssembly 物理引擎）與 Vite 打造，全部在瀏覽器裡執行，原始碼公開在 GitHub。',
+    ],
+  ];
+}
+
+// 結構化資料（schema.org JSON-LD）：讓 Google 顯示麵包屑、讓 AI 答案引擎看懂這頁是什麼。
+// 首頁宣告 WebSite＋遊戲本體（VideoGame），一般頁面是 WebPage＋麵包屑，最新消息文章是 NewsArticle。
+const GAME_LD = {
+  '@type': 'VideoGame',
+  '@id': `${SITE}/#game`,
+  name: '中原順起來 · 資管要贏 票投彥霖',
+  alternateName: ['YanlinGTA', 'Yanlin Great Times Adventure', '彥霖GTA'],
+  url: `${SITE}/`,
+};
+export function pageJsonLd(page, { url, desc, image, faq = [] }) {
+  const crumbs = [{ name: 'YanlinGTA Wiki', item: pageUrl('') }];
+  if (page.post) crumbs.push({ name: '最新消息', item: pageUrl('news') });
+  if (page.slug) crumbs.push({ name: page.title, item: url });
+  const graph = [];
+  if (!page.slug) {
+    graph.push({
+      '@type': 'WebSite',
+      '@id': `${pageUrl('')}#website`,
+      name: 'YanlinGTA Wiki',
+      url,
+      inLanguage: 'zh-Hant-TW',
+      about: GAME_LD,
+    });
+    if (faq.length)
+      graph.push({
+        '@type': 'FAQPage',
+        url,
+        mainEntity: faq.map(([q, a]) => ({
+          '@type': 'Question',
+          name: q,
+          acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
+      });
+  } else if (page.post) {
+    graph.push({
+      '@type': 'NewsArticle',
+      headline: page.post.title,
+      description: desc,
+      datePublished: page.post.date,
+      image: [image],
+      url,
+      mainEntityOfPage: url,
+      inLanguage: 'zh-Hant-TW',
+      author: { '@type': 'Organization', name: '彥霖競選團隊', url: pageUrl('team') },
+      publisher: { '@type': 'Organization', name: 'YanlinGTA', url: `${SITE}/` },
+      about: GAME_LD,
+    });
+  } else {
+    graph.push({
+      '@type': 'WebPage',
+      name: `${page.title} · YanlinGTA Wiki`,
+      description: desc,
+      url,
+      inLanguage: 'zh-Hant-TW',
+      about: GAME_LD,
+    });
+  }
+  if (crumbs.length > 1)
+    graph.push({
+      '@type': 'BreadcrumbList',
+      itemListElement: crumbs.map((c, i) => ({ '@type': 'ListItem', position: i + 1, ...c })),
+    });
+  return { '@context': 'https://schema.org', '@graph': graph };
+}
+// JSON 裡的 < 轉成 \u003c，避免內容裡出現 </script> 提早結束標籤
+export const jsonLdScript = (obj) =>
+  `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
+
 function renderPage(page, data, opts) {
   // 文章頁（news/<id>）掛在「最新消息」底下：目錄標亮最新消息、頁碼也用它的
   const navPage = page.post ? PAGES.find((p) => p.slug === 'news') : page;
@@ -586,6 +695,7 @@ ${ogW ? `<meta property="og:image:width" content="${ogW}">\n<meta property="og:i
 <meta name="twitter:description" content="${esc(desc)}">
 <meta name="twitter:image" content="${SITE}/wiki/${ogImg}">
 <meta name="theme-color" content="#2e105c">
+${jsonLdScript(pageJsonLd(page, { url, desc, image: `${SITE}/wiki/${ogImg}`, faq: page.slug ? [] : faqs(data) }))}
 <link rel="icon" href="${base}img/wiki-favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" href="${base}img/wiki-icon-192.png" sizes="192x192">
 <link rel="apple-touch-icon" href="${base}img/wiki-apple-touch-icon.png">

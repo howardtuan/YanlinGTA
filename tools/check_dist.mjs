@@ -56,6 +56,10 @@ for (const need of [
   'manifest.webmanifest',
   'assets/icon',
   'wiki/index.html',
+  // SEO / AEO：Google Search Console 提交的 sitemap 與爬蟲規則（wiki/seo.mjs）
+  'sitemap.xml',
+  'robots.txt',
+  'llms.txt',
 ]) {
   if (!fs.existsSync(path.join(dist, need))) problems.push(`${need} is missing from dist/`);
 }

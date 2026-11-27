@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { findCrossings } from '../../src/world/Railway.js';
-import { schedule, SPEED } from '../../src/entities/Trains.js';
+import { schedule, SPEED, GAP_MIN } from '../../src/entities/Trains.js';
 import { WEEKDAY, WEEKEND } from '../../src/entities/TrainTimetable.js';
 
 const data = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../data/cycu.json'), 'utf8'));
@@ -47,6 +47,20 @@ describe('台鐵班表', () => {
         const gapM = (D[i].tRef - D[i - 1].tRef) * 4 * SPEED; // 遊戲 1 分鐘 = 現實 4 秒
         expect(gapM).toBeGreaterThan(D[i - 1].cars * 20);
       }
+    }
+  });
+  it('只開部分班次：同方向至少隔 GAP_MIN 分鐘，時刻照真實班表', () => {
+    const all = schedule(WEEKDAY, 446, 4376, 0),
+      L = schedule(WEEKDAY, 446, 4376);
+    expect(all).toHaveLength(WEEKDAY.length);
+    expect(L.length).toBeGreaterThan(40);
+    expect(L.length).toBeLessThan(WEEKDAY.length / 2);
+    for (const dir of [1, -1]) {
+      const D = L.filter((t) => t.dir === dir).sort((a, b) => a.tRef - b.tRef);
+      for (let i = 1; i < D.length; i++)
+        expect(D[i].tRef - D[i - 1].tRef).toBeGreaterThanOrEqual(GAP_MIN);
+      // 開的每一班都是班表上的一班
+      for (const t of D) expect(all.some((u) => u.no === t.no && u.tRef === t.tRef)).toBe(true);
     }
   });
 });

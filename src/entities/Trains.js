@@ -18,6 +18,7 @@ const HALF_W = 1.45;
 const ROOF = 4.0; // 車頂離軌面
 const WARN_D = 175; // 車頭到達前約 7 秒開始響鈴、閃燈
 const CLEAR_D = 6;
+export const GAP_MIN = 30; // 同方向兩班之間至少隔幾分鐘（遊戲時間）才開
 const FAR = 600; // 離玩家這麼遠的車廂不畫
 const NEILI = [1584.5, -1625.4]; // 內壢站（地圖座標，換算自經緯度）
 const REF_S = 2560; // 班表換算的參考點：rail[0] 上的弧長（地圖中段，三個平交道之間）
@@ -260,21 +261,32 @@ function carGeometry(cab) {
 
 // ---------- 班表 ----------
 // 每班：在地圖參考點的時刻 tRef（遊戲分鐘）、方向 dir（+1 南下）、外觀、節數
-export function schedule(rows, sNeili, sZhongli) {
+export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN) {
   const out = [];
   for (const [tN, tZ, no, look, cars] of rows) {
     const k = (REF_S - sNeili) / (sZhongli - sNeili);
     out.push({ tRef: tN + (tZ - tN) * k, dir: tZ > tN ? 1 : -1, no, look, cars });
   }
+  // 只開部分班次：同方向離上一班不到 gap 遊戲分鐘的不開（時刻照舊是真實班表的時刻）。全部都開的話，遊戲時鐘
+  // 快 15 倍，尖峰時段平交道約六成時間關著；每方向至少隔 30 分鐘時約兩成。gap 0：全部都開
+  const kept = [];
+  for (const dir of [1, -1]) {
+    let last = -Infinity;
+    for (const t of out.filter((t) => t.dir === dir).sort((a, b) => a.tRef - b.tRef)) {
+      if (t.tRef - last < gap) continue;
+      kept.push(t);
+      last = t.tRef;
+    }
+  }
   // 同方向前後兩班太近（追撞）：後一班往後挪到至少隔一列車長加 80 m
   for (const dir of [1, -1]) {
-    const L = out.filter((t) => t.dir === dir).sort((a, b) => a.tRef - b.tRef);
+    const L = kept.filter((t) => t.dir === dir).sort((a, b) => a.tRef - b.tRef);
     for (let i = 1; i < L.length; i++) {
       const need = (L[i - 1].cars * (CAR_L + CAR_GAP) + 80) / SPEED / 4 + 0.01; // 遊戲分鐘（現實秒 ÷ 4）
       if (L[i].tRef - L[i - 1].tRef < need) L[i].tRef = L[i - 1].tRef + need;
     }
   }
-  return out;
+  return kept;
 }
 
 export class Trains {

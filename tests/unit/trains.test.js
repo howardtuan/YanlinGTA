@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { findCrossings } from '../../src/world/Railway.js';
-import { schedule, SPEED, GAP_MIN } from '../../src/entities/Trains.js';
+import { schedule, SPEED, GAP_MIN, runLoud } from '../../src/entities/Trains.js';
 import { WEEKDAY, WEEKEND } from '../../src/entities/TrainTimetable.js';
 
 const data = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../data/cycu.json'), 'utf8'));
@@ -63,5 +63,18 @@ describe('台鐵班表', () => {
       // 開的每一班都是班表上的一班
       for (const t of D) expect(all.some((u) => u.no === t.no && u.tRef === t.tRef)).toBe(true);
     }
+  });
+});
+
+describe('火車行駛聲傳多遠', () => {
+  // 離軌道的距離由 data/cycu.json 量：249 巷 11 弄沿線 21～29 m；力行宿舍最近的角落 47 m、整棟中心 96 m
+  it('新中北路 249 巷 11 弄聽得到，力行宿舍聽不太到', () => {
+    for (const d of [21, 25, 29]) expect(runLoud(d)).toBeGreaterThan(0.4);
+    expect(runLoud(5)).toBe(1);
+    expect(runLoud(47)).toBeLessThan(0.05);
+    expect(runLoud(96)).toBe(0);
+  });
+  it('越遠越小聲', () => {
+    for (let d = 0; d < 60; d++) expect(runLoud(d + 1)).toBeLessThanOrEqual(runLoud(d));
   });
 });

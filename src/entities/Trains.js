@@ -41,8 +41,15 @@ const REF_S = 2560; // 班表換算的參考點：rail[0] 上的弧長（地圖�
 
 // ---------- 外觀 ----------
 // 車廂模型與塗裝在 src/entities/TrainModel.js：每種塗裝一份材質，車頭／車尾／中間車／有集電弓的中間車各一份幾何
-const TRAIN_RUN_D = 170; // 行駛聲傳得到的距離：鐵道旁第一排住家（10～40 m）聽得清楚，再一兩條街就聽不到
-const SHAKE_D = 45; // 這距離內感覺得到地面輕微震動（鏡頭微晃）
+// 行駛聲：離最近車廂 RUN_FULL 內最大聲，到 RUN_ZERO 完全聽不到。照使用者實際住過的經驗校正：
+// 新中北路 249 巷 11 弄（離軌道約 21～29 m）聽得到，力行宿舍（最近的角落約 47 m、整棟中心約 96 m）聽不太到
+export const RUN_FULL = 15;
+export const RUN_ZERO = 50;
+const BELL_D = 70; // 平交道警鈴（249 巷 11 弄口離新中北路 249 巷平交道約 33 m）
+const SHAKE_D = 30; // 這距離內感覺得到地面輕微震動（鏡頭微晃）：只有第一排住家
+// 0…1：離最近車廂 d 公尺時行駛聲的大小
+export const runLoud = (d) =>
+  Math.pow(Math.max(0, Math.min(1, (RUN_ZERO - d) / (RUN_ZERO - RUN_FULL))), 1.5);
 
 // ---------- 班表 ----------
 // 每班：在地圖參考點的時刻 tRef（遊戲分鐘）、方向 dir（+1 南下）、外觀、節數
@@ -243,6 +250,7 @@ export class Trains {
           dirX: hx,
           dirZ: hz,
           speed: t.v || SPEED,
+          eng: t.look === 'engineering',
           hl: CAR_L / 2,
           hw: HALF_W,
           no: t.no,
@@ -279,7 +287,7 @@ export class Trains {
           if (!this._hornT[key]) {
             this._hornT[key] = 1;
             const p = tk.at(this._toTrack(tk, h));
-            audio.trainHorn?.(p.x, p.z);
+            audio.trainHorn?.(p.x, p.z, t.look === 'engineering');
           }
         }
       }
@@ -289,38 +297,53 @@ export class Trains {
     this.rw.update(dt);
   }
   // 行駛聲：離聽者最近那節車廂的距離，循環錄音（assets/sfx/train_run.m4a）；平交道警鈴（crossing_bell）
+  // 一般列車：循環錄音（assets/sfx/train_run.m4a）；工程車：同一段錄音放慢、壓低（慢慢壓過鋼軌接縫），
+  // 再疊一層柴油引擎的低沉轟隆聲（engine_car.m4a 放慢）。平交道警鈴（crossing_bell）
   _sound(dt, audio) {
     this.shake = 0;
     if (!audio || !audio.ctx) return;
     const Lp = audio.L;
-    let best = null;
+    const best = { run: null, eng: null };
     for (const c of this.cars) {
       const dx = Lp.x - c.x,
         dz = Lp.z - c.z,
         a = Math.max(-c.hl, Math.min(c.hl, dx * c.dirX + dz * c.dirZ)),
         qx = c.x + c.dirX * a,
         qz = c.z + c.dirZ * a,
-        d = Math.hypot(Lp.x - qx, Lp.z - qz);
-      if (!best || d < best.d) best = { d, qx, qz, c };
+        d = Math.hypot(Lp.x - qx, Lp.z - qz),
+        k = c.eng ? 'eng' : 'run';
+      if (!best[k] || d < best[k].d) best[k] = { d, qx, qz, c };
     }
-    this.shake = best ? Math.pow(Math.max(0, 1 - best.d / SHAKE_D), 2) : 0;
-    if (best) {
-      const v = Math.pow(Math.max(0, 1 - best.d / TRAIN_RUN_D), 2.2) * 1.1;
-      const dx = best.qx - Lp.x,
-        dz = best.qz - Lp.z,
-        d = best.d || 1;
-      const pan = d < 2 ? 0 : (-dx * Math.cos(Lp.yaw) + dz * Math.sin(Lp.yaw)) / d;
-      // 都卜勒：車子在聽者前後時，接近的那半邊音調高一點
-      const along = -(dx * best.c.dirX + dz * best.c.dirZ) / Math.max(d, 8);
-      const rate = 1 + Math.max(-0.06, Math.min(0.06, along * 0.06));
-      audio.loopBufAt('train', 'train_run', v, dt, pan * 0.8, rate);
-    } else audio.loopBufAt('train', 'train_run', 0, dt);
+    const dMin = Math.min(best.run?.d ?? Infinity, best.eng?.d ?? Infinity);
+    this.shake = Math.pow(Math.max(0, 1 - dMin / SHAKE_D), 2);
+    // 聲音的大小、左右聲道、都卜勒（車子在聽者前後時，接近的那半邊音調高一點）
+    const at = (b) => {
+      const dx = b.qx - Lp.x,
+        dz = b.qz - Lp.z,
+        d = b.d || 1;
+      const pan = d < 2 ? 0 : ((-dx * Math.cos(Lp.yaw) + dz * Math.sin(Lp.yaw)) / d) * 0.8;
+      const along = -(dx * b.c.dirX + dz * b.c.dirZ) / Math.max(d, 8);
+      const dop = 1 + Math.max(-0.06, Math.min(0.06, along * 0.06)) * (b.c.speed / SPEED);
+      return { v: runLoud(b.d), pan, dop };
+    };
+    const r = best.run ? at(best.run) : null,
+      e = best.eng ? at(best.eng) : null;
+    audio.loopBufAt('train', 'train_run', r ? r.v * 1.1 : 0, dt, r?.pan ?? 0, r?.dop ?? 1);
+    audio.loopBufAt(
+      'trainEng',
+      'train_run',
+      e ? e.v * 0.75 : 0,
+      dt,
+      e?.pan ?? 0,
+      (e?.dop ?? 1) * 0.55
+    );
+    audio.loopBufAt('trainDiesel', 'engine_car', e ? e.v * 0.8 : 0, dt, e?.pan ?? 0, 0.45);
     this.rw.crossings.forEach((c, i) => {
       const on = c.warn || c.phase > 0.02;
       const dx = c.x - Lp.x,
         dz = c.z - Lp.z,
         d = Math.hypot(dx, dz);
-      const v = on ? Math.pow(Math.max(0, 1 - d / 110), 1.6) * 0.7 : 0;
+      const v = on ? Math.pow(Math.max(0, 1 - d / BELL_D), 1.6) * 0.7 : 0;
       const pan = d < 2 ? 0 : (-dx * Math.cos(Lp.yaw) + dz * Math.sin(Lp.yaw)) / d;
       audio.loopBufAt(`xbell${i}`, 'crossing_bell', v, dt, pan * 0.8);
     });

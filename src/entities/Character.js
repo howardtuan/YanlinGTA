@@ -670,18 +670,27 @@ export function createCharacter(opts = {}) {
     anthro.weight = opts.weight;
     anthro.bmi = opts.weight / (anthro.height * anthro.height);
   }
-  const bmiBuild = Math.max(0.86, Math.min(1.18, Math.sqrt(anthro.bmi / 22.0)));
+  // body shape from the BMI (sampled people only; a named NPC's opts.build / opts.belly is its own fixed look):
+  // fat = -1 at BMI 16 … 0 at 22 … 1.6 at ~31.6. It widens the torso, deepens it, thickens arms and legs, rounds the
+  // tummy and fills out the cheeks, so a thin and a heavy person of the same height read differently at a glance.
+  const fat = Math.max(-1, Math.min(1.6, (anthro.bmi - 22) / 6));
+  const auto = !hero && opts.build == null;
   const fv = hero
     ? { eye: 1, gap: 1, jaw: 1, nose: 1, build: 1.04 }
     : {
         eye: 0.9 + hash01(id, 1) * 0.24,
         gap: 0.94 + hash01(id, 2) * 0.12,
-        jaw: 0.92 + hash01(id, 3) * 0.16,
+        jaw: (0.92 + hash01(id, 3) * 0.16) * (1 + 0.07 * fat),
         nose: 0.85 + hash01(id, 4) * 0.35,
-        build: (female ? 0.94 : 0.98) * bmiBuild,
+        build: (female ? 0.95 : 1) * (1 + 0.13 * fat),
       };
   if (opts.build) fv.build = opts.build;
   if (opts.jaw) fv.jaw = opts.jaw;
+  const girth = auto ? 1 + 0.12 * fat : 1; // limb thickness and torso depth on top of the width (BodyMesh)
+  const belly = opts.belly ?? (auto ? Math.max(0, Math.min(1, (anthro.bmi - 24.5) / 7)) : 0);
+  // shoulders and hips move out with a broader body so the arms don't sink into the chest
+  const shX = 0.235 + (auto ? 0.2 * (fv.build - 1) : 0),
+    hpX = 0.1 + (auto ? 0.05 * (fv.build * girth - 1) : 0);
 
   const root = new THREE.Group();
   root.scale.setScalar(anthro.heightScale);
@@ -967,7 +976,9 @@ export function createCharacter(opts = {}) {
     );
   const head = pivot(0, 0.68, 0.005);
   torso.add(head);
-  head.scale.setScalar(hero ? 1.14 : 1.08);
+  // the whole figure scales with the height (root.scale), but heads vary far less than legs and torso between
+  // people: counter-scale the head so it only grows by sqrt(heightScale)
+  head.scale.setScalar((hero ? 1.14 : 1.08) / Math.sqrt(anthro.heightScale));
   // head with the jaw/cheeks merged into one smooth surface (faceGeo), per jaw width
   const jk = Math.round(fv.jaw * 100) / 100,
     ck = Math.round((opts.chin || 0) * 100) / 100;
@@ -1678,7 +1689,7 @@ export function createCharacter(opts = {}) {
   // arms
   const arms = [];
   for (const s of [-1, 1]) {
-    const sh = pivot(0.235 * s, 0.5, 0);
+    const sh = pivot(shX * s, 0.5, 0);
     torso.add(sh);
     if (!sk)
       sh.add(
@@ -1793,7 +1804,7 @@ export function createCharacter(opts = {}) {
   // legs
   const legs = [];
   for (const s of [-1, 1]) {
-    const hp = pivot(0.1 * s, 0.02, 0);
+    const hp = pivot(hpX * s, 0.02, 0);
     hips.add(hp);
     if (sk) {
       /* legs are part of the skinned body */
@@ -1904,9 +1915,10 @@ export function createCharacter(opts = {}) {
         pants,
         female,
         build: fv.build,
+        girth,
         hem: opts.hem,
         arm: opts.arm,
-        belly: opts.belly,
+        belly,
         camo: opts.camo,
         longTee: opts.longTee,
         wash: opts.wash,
@@ -1947,6 +1959,7 @@ export function createCharacter(opts = {}) {
     height: anthro.height,
     weight: anthro.weight,
     heightScale: anthro.heightScale,
+    bmi: anthro.bmi,
     pose: null,
     poseT: 0,
     blend: 0,

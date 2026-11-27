@@ -149,7 +149,8 @@ export function buildSkinnedBody(ch, o) {
     sock = C(o.sock || '#fafafa');
   const out = { pos: [], ref: [], ao: [], si: [], sw: [], idx: [] };
   const f = o.female ? 1 : 0,
-    bw = o.build || 1; // build: 1 = default, >1 broader
+    bw = o.build || 1, // build: 1 = default, >1 broader
+    gk = o.girth || 1; // girth (from the BMI): thicker limbs and a deeper torso, 1 = as before
   // baked ambient occlusion (vertex shade): armpits, crotch, inner arms and thighs, backs of the knees
   const bump = (y, c, wd) => Math.exp(-(((y - c) / wd) ** 2));
   const bel = o.belly || 0;
@@ -185,7 +186,7 @@ export function buildSkinnedBody(ch, o) {
     rings.push({
       y,
       rx: (rx + 0.035 * tum(y) + 0.04 * drape(y)) * bw,
-      rz: (rz + 0.06 * tum(y) + 0.02 * drape(y)) * (0.5 + bw / 2),
+      rz: (rz + 0.06 * tum(y) + 0.02 * drape(y)) * (0.5 + bw / 2) * (y < 1.54 ? gk : 1),
       cz: cz + 0.035 * tum(y),
       e: y < 1.54 ? 2.5 : 2,
       w: wAt(tw, y),
@@ -196,7 +197,7 @@ export function buildSkinnedBody(ch, o) {
       rings.push({
         y: 0.872,
         rx: (rx + 0.042) * bw,
-        rz: (rz + 0.022) * (0.5 + bw / 2),
+        rz: (rz + 0.022) * (0.5 + bw / 2) * gk,
         cz,
         e: 2.5,
         w: wAt(tw, 0.872),
@@ -207,7 +208,7 @@ export function buildSkinnedBody(ch, o) {
         {
           y: 0.94,
           rx: (rx + 0.004 + 0.035 * tum(0.94)) * bw,
-          rz: (rz + 0.004 + 0.06 * tum(0.94)) * (0.5 + bw / 2),
+          rz: (rz + 0.004 + 0.06 * tum(0.94)) * (0.5 + bw / 2) * gk,
           cz: cz + 0.035 * tum(0.94),
           e: 2.5,
           w: wAt(tw, 0.94),
@@ -216,7 +217,7 @@ export function buildSkinnedBody(ch, o) {
         {
           y: 0.95,
           rx: (rx + 0.014 + 0.035 * tum(0.95)) * bw,
-          rz: (rz + 0.012 + 0.06 * tum(0.95)) * (0.5 + bw / 2),
+          rz: (rz + 0.012 + 0.06 * tum(0.95)) * (0.5 + bw / 2) * gk,
           cz: cz + 0.035 * tum(0.95),
           e: 2.5,
           w: wAt(tw, 0.95),
@@ -269,7 +270,7 @@ export function buildSkinnedBody(ch, o) {
       [0.062, 0.016, 1],
     ];
     const side = a.s; // the inner side of the arm faces the torso (-side in x)
-    const ak = o.arm || 1;
+    const ak = (o.arm || 1) * gk;
     const kA = (y) => 1 + (ak - 1) * Math.min(1, Math.max(0.15, (y + 0.48) / 0.26)); // thicker upper arm, wrist nearly as is
     // o.longSleeve (jackets): the sleeve runs down to a cuff at the wrist and sits a little off the arm
     // o.longTee: wide sleeves down to just above the elbow
@@ -358,7 +359,11 @@ export function buildSkinnedBody(ch, o) {
             : skin;
     const ringsL = [];
     for (const { y, r: r0 } of rr) {
-      const r = r0 * (1 + 0.22 * bel * Math.min(1, Math.max(0, (y + 0.6) / 0.5))); // belly: fuller thighs
+      // belly: fuller thighs; girth: the whole leg thicker, most at the thigh, least at the ankle
+      const r =
+        r0 *
+        (1 + 0.22 * bel * Math.min(1, Math.max(0, (y + 0.6) / 0.5))) *
+        (1 + (gk - 1) * Math.min(1, Math.max(0.35, (y + 0.85) / 0.6)));
       const loose = o.wide
         ? y > -0.05
           ? 0
@@ -458,6 +463,10 @@ export function buildSkinnedBody(ch, o) {
   const mesh = new THREE.SkinnedMesh(g, MAT);
   mesh.castShadow = true;
   root.add(mesh);
+  // bind with the mesh's real world matrix (it includes root.scale, the height): with a stale identity matrix the
+  // skinned torso, arms and legs ignored the height and only the rigid head, hands and shoes were scaled — a tall
+  // person got a long neck, a short one a head sunk into the shoulders
+  mesh.updateMatrixWorld(true);
   mesh.bind(new THREE.Skeleton(bones), mesh.matrixWorld);
   // recolour (e.g. a crew shirt): map = { shirt, bottom }; {} restores the original clothes
   mesh.userData.recolor = (map) => {

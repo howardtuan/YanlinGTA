@@ -8287,7 +8287,13 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     const below = (L, x, z) => Math.max(H(x, z), levelTop(x, z, L));
     // one straight edge A->B of level L, outward normal (nx,nz); top(t) = drawn
     // top, walk(t) = walking height just inside. Returns the per-interval drop.
-    const edge = (L, A, B, nx, nz, top, walk, wall, m) => {
+    // guard(d) = a railing / hedge is drawn on an interval of drop d: that part is sealed at every height.
+    // Elsewhere the seal only reaches 0.05 m above the higher side: whatever stands below it (a walker's
+    // feet, a vehicle's body) is stopped from climbing, but you can ride or walk off the top and drop down
+    // (src/physics/Collision.js height bands; src/physics/PhysWorld.js builds the wall from far below up to
+    // there, which the bodies on top clear: a vehicle's box rides 0.35 m up, a walker's capsule starts 0.35 m
+    // above the feet). Game-collision walkers on top (NPCs) still stand inside the band and stay up there.
+    const edge = (L, A, B, nx, nz, top, walk, wall, m, guard) => {
       const dx = B[0] - A[0],
         dz = B[1] - A[1],
         len = Math.hypot(dx, dz);
@@ -8334,9 +8340,21 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         const dn = Math.max(p.w - p.g, q.w - q.g),
           up = Math.max(p.terr ? p.g - p.w : 0, q.terr ? q.g - q.w : 0);
         if (dn > STEP_UP || up > STEP_UP) {
-          if (!run) run = [p.x, p.z];
-          run[2] = q.x;
-          run[3] = q.z;
+          // full: guarded; otherwise the higher side's walking height (stairs: one run per ~0.1 m of it)
+          const full = !!(guard && guard(d)),
+            hi = Math.max(p.w, q.w, p.g, q.g);
+          if (
+            run &&
+            (run.full !== full || (!full && Math.max(run.hi, hi) - Math.min(run.lo, hi) > 0.1))
+          ) {
+            seal.push(run);
+            run = null;
+          }
+          if (!run) run = { s: [p.x, p.z, q.x, q.z], full, lo: hi, hi };
+          run.s[2] = q.x;
+          run.s[3] = q.z;
+          run.lo = Math.min(run.lo, hi);
+          run.hi = Math.max(run.hi, hi);
         } else if (run) {
           seal.push(run);
           run = null;
@@ -8473,7 +8491,13 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           nz,
           () => L.y + 0.06,
           () => L.y,
-          d.wall
+          d.wall,
+          undefined,
+          // the planter's shrubs, the hedge and the railing drawn below
+          (dr) =>
+            d.top === 'grass' ||
+            (d.edge === 'hedge' && dr > 0.6) ||
+            (d.edge === 'railing' && dr > 0.45)
         );
         const m = drop.length,
           at = (k) => [A[0] + (ex * k) / m, A[1] + (ez * k) / m];
@@ -8615,7 +8639,10 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           (t) => treadY(t * len) + 0.05,
           (t) => walk(t * len),
           d.wall || 'granite',
-          mSide || undefined
+          mSide || undefined,
+          // as the side rails / hedge drawn below ('none': parapets drawn elsewhere)
+          (dr) =>
+            d.rail === 'sides' || (d.edge === 'hedge' ? dr > 0.6 : d.rail === 'none' || dr > 0.45)
         );
       }
       edge(
@@ -8704,9 +8731,10 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       scene.add(mesh);
       world.tris.levels = (world.tris.levels || 0) + g.tris;
     }
-    for (const s of seal)
+    for (const { s, full, hi } of seal)
       if (Math.hypot(s[2] - s[0], s[3] - s[1]) > 0.05) {
-        collision.addSegment(s[0], s[1], s[2], s[3]);
+        if (full) collision.addSegment(s[0], s[1], s[2], s[3]);
+        else collision.addSegment(s[0], s[1], s[2], s[3], -1e9, hi + 0.05);
         sealed++;
       }
     world.levels = { pads: lvPads.length, stairs: lvStairs.length, sealed };

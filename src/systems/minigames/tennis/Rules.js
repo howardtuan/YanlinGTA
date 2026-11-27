@@ -71,9 +71,11 @@ export function stepBall(b, dt) {
 }
 
 // p: { side, ai: { skill 0..1, speed m/s } | null, name }
+// pace: how fast every shot leaves the racket (1 = real; your own matches play slower, so there is time to get there)
 export class Rally {
-  constructor({ players, gamesToWin = 3, rnd = Math.random, server = 0 }) {
+  constructor({ players, gamesToWin = 3, rnd = Math.random, server = 0, pace = 1 }) {
     this.rnd = rnd;
+    this.pace = pace;
     this.gamesToWin = gamesToWin;
     this.players = players.map((p, i) => ({
       side: i ? 1 : -1,
@@ -131,15 +133,15 @@ export class Rally {
       return a === b ? 'Deuce' : `Ad ${this.players[a > b ? 0 : 1].name || ''}`.trim();
     return `${NAMES[a]} - ${NAMES[b]}`;
   }
-  // a human presses swing (the AI swings on its own)
-  swing(i) {
+  // a human presses swing (the AI swings on its own); lag: how long ago it really was (a friend's swing over the network)
+  swing(i, lag = 0) {
     const p = this.players[i];
     if (this.state === 'serve' && i === this.server) {
       if (this.t > 0.4) this._serve(i);
       return;
     }
     if (p.swingT < 0 || p.swingT > SWING) {
-      p.swingT = 0;
+      p.swingT = lag;
       const b = this.ball;
       p.kind = (b.v - p.v) * p.side >= 0 ? 'fore' : 'back';
     }
@@ -165,7 +167,7 @@ export class Rally {
       else if (k < 0.75) tv = Math.sign(tv) * (SW + 0.3 + r() * 0.8);
       else tu = -p.side * 1.2;
     }
-    const v = solveShot(b, tu, tv, first ? 17 + skill * 7 : 12 + skill * 3, 0.12);
+    const v = solveShot(b, tu, tv, (first ? 17 + skill * 7 : 12 + skill * 3) * this.pace, 0.12);
     Object.assign(b, { vu: v.u, vh: v.h, vv: v.v, live: true, held: false });
     b.serve = true;
     b.box = Math.sign(tv); // the diagonal service box (before any fault pushed the aim out)
@@ -196,7 +198,7 @@ export class Rally {
       else clear = null;
     }
     tv = clamp(tv, -SW - 2.5, SW + 2.5);
-    const sp = (p.ai ? 13 + skill * 7 : 12 + q * 10) * (0.9 + r() * 0.2);
+    const sp = (p.ai ? 13 + skill * 7 : 12 + q * 10) * (0.9 + r() * 0.2) * this.pace;
     const v = solveShot(b, tu, tv, sp, clear ?? 0.15);
     if (clear === null && v.u) {
       // into the net: the same line, but only half a metre up when it gets there

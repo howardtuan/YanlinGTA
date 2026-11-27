@@ -572,6 +572,10 @@ export class Traffic {
       );
       for (const o of player.extraObstacles || [])
         check(o, o.pos.x, o.pos.z, o.radius, o.mesh.position.y, o.heading, vm);
+      // 平交道關著（src/world/Railway.js gates）：往平交道開的車停在停止線前；已經過了線的照常開出去
+      for (const g of this.gates || [])
+        if (fx * g.inX + fz * g.inZ > 0.3 && g.closed())
+          check(g, g.pos.x, g.pos.z, 0.3, g.mesh.position.y, undefined, g.radius + 0.2);
       for (const q of peds)
         if (!q.dormant && q.state !== 'fly')
           check(q, q.pos.x, q.pos.z, 0.3, q.y ?? 0, undefined, v.hw + 0.35, 12);
@@ -595,6 +599,7 @@ export class Traffic {
         a.passT <= 0 &&
         a.bStillT > 0.6 + a.patience * 0.4 &&
         blocked < 16 &&
+        !blocker.gate &&
         (!blocker.ai || blocker.ai.wreck > 0 || blocker.ai.stuckT > 1)
       )
         this._pass(v, blocker);
@@ -650,7 +655,7 @@ export class Traffic {
       const brake = blocked < 4 ? 14 : 8;
       v.speed += Math.max(-brake * dt, Math.min(a.acc * dt, want - v.speed));
       // stuck behind something: honk (if you are around), swing out, turn back, and at last be recycled
-      const stuck = blocker && !a.backing && v.speed < 0.6 && want < 1;
+      const stuck = blocker && !blocker.gate && !a.backing && v.speed < 0.6 && want < 1; // 等平交道不算卡住
       if (stuck) a.stuckT += dt;
       else a.stuckT = Math.max(0, a.stuckT - dt * 2);
       if (stuck && a.stuckT > 1.5 + a.patience && dPl < 25 && a.honkT <= 0) {
@@ -1327,6 +1332,14 @@ export class Peds {
               else if (bh < 1) sp = Math.min(sp, q.run > 0 ? 4.4 : q.speed);
               break;
             }
+          // 平交道關著（src/world/Railway.js gates）：往平交道走的人走到停止線就停下來等
+          for (const g of this.gates || []) {
+            if (fx * g.inX + fz * g.inZ < 0.3 || !g.closed()) continue;
+            const gx = g.pos.x - p.pos.x,
+              gz = g.pos.z - p.pos.z,
+              gh = gx * fx + gz * fz;
+            if (gh > -0.3 && gh < 1.2 && Math.abs(gx * fz - gz * fx) < g.radius + 2.5) sp = 0;
+          }
           p.dodge += (dodge - p.dodge) * Math.min(1, dt * 2.5);
           speed = sp;
           if (!p.corner) p.d += sp * dt;

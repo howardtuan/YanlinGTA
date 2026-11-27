@@ -1,4 +1,5 @@
 import { shrinkFont } from '../../../graphics/FitText.js';
+import { drapeLoose } from '../GroundDrape.js';
 // 實踐路街屋資料：N 段 s 0～110（中北路口往北，z 130→20），兩側。格式見 src/world/buildings/StreetShijian.js 檔頭。
 // 照 Google 街景 2026-05 與國土測繪 2024 正射建模。s 0～約 14（西）／24（東）是中北路街屋的路口樓，這裡不重做。
 // 實景：東側南半是一整棟 5F 紫褐磁磚公寓，北半是 9F 米色「柏德公園」大樓；西側南半是 5～6F 老公寓，北半是 10F 米色柏德大樓；
@@ -605,7 +606,7 @@ export default {
         door: 0,
         extra: (k, c) => {
           sideCage(k, c, c.w, 1, 3.0, 7.0, '#b5c24a');
-          k.box(c.w + 0.05, c.w + 14.5, -0.6, 0.04, -1.5, 16, '#a9a69e', { col: false }); // 空地的水泥地
+          drapeLoose(k, c.w + 0.05, c.w + 14.5, -0.6, 0.04, -1.5, 16, '#a9a69e'); // 空地的水泥地（往後低 0.8 m，照地勢鋪）
           k.cyl(c.w + 0.7, -0.6, 0.14, 0, 9.5, '#5a4a3a', { seg: 6, col: true });
           k.box(c.w + 0.3, c.w + 1.1, 6.6, 6.75, -0.68, -0.52, '#3a3a3a', { col: false }); // 牆角的電桿
           for (const dz of [-0.95, -0.25])
@@ -1224,7 +1225,7 @@ export default {
             64
           );
           board(k, fam, w - 0.15, 1.0, w / 2, gf - 0.44, '#ffffff', 0.28);
-          k.box(-9.45, -0.15, -1.2, 0.04, -4.5, 14, '#b9aeaa', { col: false }); // 柏德廣場入口的灰粉地磚（地形往北降，掛在這格才不會被蓋住）
+          drapeLoose(k, -9.45, -0.15, -1.2, 0.04, -4.5, 14, '#b9aeaa'); // 柏德廣場入口的灰粉地磚（地形往北降，掛在這格才不會被蓋住）
           for (const x of [0, 5.1, 10.3, w - 0.4])
             k.box(x, x + 0.4, 0, gf - 0.95, -0.12, 0, '#2a2a2c', { col: false });
           for (const x of [1.5, w - 1.0])

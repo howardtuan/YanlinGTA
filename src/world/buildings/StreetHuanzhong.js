@@ -3307,7 +3307,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
       k.box(0.5, 4.5, 0, 0.9, 0, 0.4, '#9c5a44');
       k.box(0.6, 4.4, 0.9, 1.3, 0.05, 0.35, '#4c7d3a', nb);
       k.box(4.9, 5.5, 0, 1.1, 0.3, 0.38, '#f0f0ec', nb); // 紅磚矮花台與盆栽、白色立牌
-      k.box(5, 10.5, -0.5, 0.06, -ap, 5, '#b5b2aa', { col: false, surface: true }); // 水泥車道
+      paveGround(k, 5, 10.5, -0.5, 0.06, -ap, 5, '#b5b2aa'); // 水泥車道
       k.box(0, 13.6, -0.5, 0.045, 5, d, '#55575a', { col: false, surface: true });
       k.box(10.5, w, -0.5, 0.04, 0, 5, '#6f6a55', { col: false, surface: true });
       k.box(13.6, w, -0.5, 0.04, 5, d, '#5d6b45', { col: false, surface: true });
@@ -3483,7 +3483,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
     },
     // B3 紅鐵皮大車棚（2026-05）：人行道邊一排藍盆矮綠籬（中間留車道開口）、水泥前庭、鋼柱撐起的紅色鐵皮屋頂（簷口 3.2 m，深灰封板），沒有招牌
     carport(k, w, d, r) {
-      k.box(0, w, -0.5, 0.05, 0, d, '#b5b2aa', { col: false, surface: true });
+      paveGround(k, 0, w, -0.5, 0.05, 0, d, '#b5b2aa');
       for (const [x0, x1] of [
         [1.5, 6.0],
         [9.5, 13.5],
@@ -3499,18 +3499,18 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         blob(k, x, sz * 0.8, z, sz, '#3f7a3a');
       for (const x of [1.7, 7.0, 12.3])
         for (const z of [3.4, 9.2, 15.0, 20.8])
-          k.box(x - 0.08, x + 0.08, 0, 3.2, z - 0.08, z + 0.08, '#8a8d90', nb);
+          k.box(x - 0.08, x + 0.08, -0.6, 3.2, z - 0.08, z + 0.08, '#8a8d90', nb);
       k.box(1.3, 12.7, 3.2, 3.6, 2.9, 3.1, '#3a3d3d', nb);
       k.box(1.3, 12.7, 3.5, 3.62, 3.0, 21.3, '#d9534a', nb);
       for (const x of [4.6, 9.2]) k.box(x, x + 0.9, 3.62, 3.64, 4, 20, '#7a3a36', nb); // 屋頂上兩條深色採光帶
-      k.box(1.5, 12.5, 0, 3.2, 21.0, 21.2, '#77797c'); // 車棚後牆
+      k.box(1.5, 12.5, -0.6, 3.2, 21.0, 21.2, '#77797c'); // 車棚後牆（往下補，坡下那頭不露縫）
       car(k, 2.6, 6.0, '#c9c9c4');
       car(k, 8.4, 5.6, '#2a2d33');
       car(k, 5.4, 13.0, '#5a6a7a');
     },
     // B4 Garden 花園 Hair Salon（2026-05）：水泥車道一路通到退縮約 9 m 的 1 層白色店面，整面落地玻璃、白色平雨庇、招牌帶黑字
     garden(k, w, d) {
-      k.box(0, w, -0.5, 0.05, 0, d, '#b5b2aa', { col: false, surface: true });
+      paveGround(k, 0, w, -0.5, 0.05, 0, d, '#b5b2aa');
       k.box(0.5, 9.0, 0, 5.0, 9, 16, '#f0f0ee');
       k.box(0.4, 9.1, 5.0, 5.12, 8.9, 16.1, '#dcdcd8', nb);
       shopGlass(k, 1.0, 7.5, 0, 3.0, ROWT.shop('hzGarden', '#f4efe6', '#8a8580', 77), 8.98);
@@ -3536,7 +3536,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
     // B6 工地（2026-05）：臨街白色浪板圍籬、6 片白鐵門、往西是混凝土基座上的圍籬板（白浪板與灰綠彩繪帆布交替，帆布上的字「打造中原新商圈　再創城市永恆新頁」）、
     // 圍籬頂往人行道外挑的白色防護棚與紅色警示燈；後面是包著藍色鷹架防護網、蓋到 3～4 層的 RC 結構體。完工後的樣子不知道，照現況做成興建中
     site(k, w, d) {
-      k.box(0, w, -0.5, 0.03, 0, d, '#a89a78', { col: false, surface: true }); // 整過地的黃土
+      paveGround(k, 0, w, -0.5, 0.03, 0, d, '#a89a78'); // 整過地的黃土
       k.box(0, 12.5, 0, 2.6, 0, 0.1, '#dcdcd8'); // 白色浪板圍籬
       for (let x = 0.6; x < 12.5; x += 0.6) k.box(x, x + 0.03, 0, 2.6, -0.02, 0, '#c4c4c0', nb);
       for (let j = 0; j < 6; j++) {
@@ -3581,7 +3581,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         x1 = w,
         z0 = 6.5,
         z1 = d - 1;
-      k.box(x0 + 0.3, x1, 0, 11.2, z0 + 0.3, z1, '#8a8d8c');
+      k.box(x0 + 0.3, x1, -0.6, 11.2, z0 + 0.3, z1, '#8a8d8c');
       for (const [a, b, h] of [
         [x0 + 6, x0 + 10, 13.6],
         [x0 + 20, x0 + 25, 13.9],
@@ -3735,7 +3735,7 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         bw = (w - X0) / bays,
         RC = ['#c8473f', '#c9c9c4', '#7a3f45', '#c9c9c4', '#7a3f45', '#c9c9c4'],
         D = 11;
-      k.box(X0, w, -0.5, 0.05, 0, D, '#b5b2aa', { col: false, surface: true });
+      paveGround(k, X0, w, -0.5, 0.05, 0, D, '#b5b2aa');
       k.box(1.0, X0, -0.5, 0.05, 0, 6, '#b5b2aa', { col: false, surface: true });
       for (let j = 0; j <= bays; j++)
         for (const z of [0.1, D / 2, D - 0.2]) {
@@ -4616,7 +4616,8 @@ export function buildHuanzhongStreet(I, scene, X, data, collision) {
         k.wallLine(x0, 0, x1, 0, 0, 1.6);
       }
       k.box(14, 20, 0.1, 1.6, -0.05, 0.05, '#c9ccce');
-      for (let x = 14.3; x < 20; x += 0.6) k.box(x, x + 0.05, 0.1, 1.6, -0.08, 0.08, '#9a9d9f', nb);
+      for (let x = 14.3; x < 20; x += 0.6)
+        k.box(x, x + 0.05, -0.4, 1.6, -0.08, 0.08, '#9a9d9f', nb);
       k.box(20.3, 23.3, 0.9, 1.7, -0.3, -0.2, '#8a8c88', nb);
       k.plane(tpcPlate, 3, 0.8, 21.8, 1.3, -0.31, FRONT);
       k.box(24, 25.6, 1.2, 1.8, -0.35, -0.2, '#1a1a1a', nb);

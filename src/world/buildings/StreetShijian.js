@@ -446,7 +446,8 @@ export function buildShijianStreet(I, scene, X) {
     footing(k, w, d, wallMat(sp.wall)); // 地面往後或往旁邊變低時補地基，後牆、側牆底下才不會露縫
     if (sp.low && !glassWall)
       k.box(-0.01, w + 0.01, 0, gf, -0.05, 0, wallMat(sp.low), { col: false, tile: [0.6, 0.6] });
-    for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊
+    for (const x of [0, w - 0.12])
+      k.box(x, x + 0.12, -0.6, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊（往下補，坡上不露縫）
     // ---- 一樓 ----
     if (sp.sign) {
       const [text, bg, fg, sub, style] = sp.sign,
@@ -529,7 +530,7 @@ export function buildShijianStreet(I, scene, X) {
         x += per ? 0.8 : 1.9 + r() * 0.5;
       }
     }
-    if (r() < 0.3) k.box(w - 0.38, w - 0.3, 0, top, -0.13, -0.05, '#8a8d90', { col: false }); // 外牆水管
+    if (r() < 0.3) k.box(w - 0.38, w - 0.3, -0.6, top, -0.13, -0.05, '#8a8d90', { col: false }); // 外牆水管
     if ((gk === 'shop' || gk === 'stall') && w > 3.5 && r() < 0.4) {
       const sx = 0.4 + r() * (w - 2);
       k.box(sx, sx + 0.55, 0, 0.95, -1.5, -1.45, '#26282b', { col: false });

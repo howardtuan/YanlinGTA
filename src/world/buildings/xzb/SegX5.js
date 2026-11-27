@@ -10,6 +10,7 @@
 //   南側 s 454～470 後面有 src/world/CampusFix.js 新增的 6F cf-f1070b（立面在離中心線 7.5～8.3 m，不是這個檔能 DROP 的），
 //   所以小時代西半、米褐 3F、星城東半只蓋 1～1.5 m 深的「門面」貼在它前面；f1070（填充）DROP 掉，星城西半自己蓋 15 m 深。
 //   Kit 的區域座標：北側 x=0 在東端（s 小的那端），南側 x=0 在西端（s 大的那端）；-z 是街道。
+import { drapeLoose } from '../GroundDrape.js';
 const R = 'X',
   SET = 6.2;
 const FNT = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
@@ -618,7 +619,7 @@ export default {
         [24, 9, 8.5, 3.0],
       ])
         tree(k, x, z, h, cr, r);
-      k.box(0, w, -0.5, 0.04, 0.3, 24, '#8a8a72', NC); // 院子地面
+      drapeLoose(k, 0, w, -0.5, 0.04, 0.3, 24, '#8a8a72'); // 院子地面（往後低半公尺，照地勢鋪）
       // 院子深處的老屋（從大門正對看得到：米白 2F、綠色飾邊、紅門；正射上離中心線約 30～40 m、屋頂灰色帶一塊紅色）
       const hx0 = 11,
         hx1 = 25,

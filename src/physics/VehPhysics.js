@@ -55,6 +55,15 @@ const SPEC = {
 const A_AIR = 2; // servo limit in the air (m/s^2)
 const AIR_GRACE = 0.25; // s after the last wheel contact that still counts as on the ground
 const HIT_MIN = 0.3; // m/s taken by contacts before a step is checked for hits
+// ground stick (see _stick): the terrain is a 10 m grid of flat triangles (src/world/Terrain.js H), so every grid
+// line on a slope is a sharp kink where a real road would have a smooth vertical curve. Without help the body
+// leaves such a crest on its own momentum (a 0.4 m hump at 60 km/h: half a metre up, 0.6 s in the air).
+// Close above the ground the upward speed beyond what the ground ahead asks for is taken off at STICK_A
+// (on top of gravity), so ordinary slopes keep the wheels down; a real ledge or a big crest at speed still
+// gets airborne (above STICK_H, or more upward speed than STICK_A can take off in time)
+const STICK_A = 20, // m/s^2
+  STICK_H = 0.45, // m above the ground (body origin rests on it)
+  STICK_LOOK = 0.12; // s of travel ahead for the ground's slope
 const SLIP_MAX = 0.5,
   COS_SLIP = Math.cos(SLIP_MAX); // rad: see post()
 const NO_INPUT = { throttle: 0, steer: 0, handbrake: false };
@@ -217,9 +226,25 @@ export class Chassis {
     this.vset.x = vc.x + dx;
     this.vset.z = vc.z + dz;
     this.spSet = arcSpeed(this.vset.x, this.vset.z, v.moveAng);
-    b.setLinvel({ x: this.vset.x, y: vc.y, z: this.vset.z }, true);
+    b.setLinvel({ x: this.vset.x, y: this._stick(dt, vc.y), z: this.vset.z }, true);
     b.setAngvel({ x: 0, y: wrap(v.heading - yawOf(b.rotation())) / dt, z: 0 }, true);
     this.ctrl.updateVehicle(dt, undefined, this.rayGroups);
+  }
+  // the body's vertical speed after the ground stick: within STICK_H above the ground, upward speed beyond the
+  // ground's own rise along the way it is going (lookahead STICK_LOOK) loses up to STICK_A * dt this step.
+  // Never pushes down harder than that, never slows a fall, nothing at walking pace
+  _stick(dt, vy) {
+    const hx = this.vset.x,
+      hz = this.vset.z,
+      hs = Math.hypot(hx, hz);
+    if (vy <= 0 || hs < 2) return vy;
+    const t = this.body.translation(),
+      g0 = surfaceAt(t.x, t.z, t.y);
+    if (!(t.y - g0 < STICK_H)) return vy;
+    const la = hs * STICK_LOOK,
+      g1 = surfaceAt(t.x + (hx / hs) * la, t.z + (hz / hs) * la, t.y),
+      vg = ((g1 - g0) / la) * hs;
+    return vy > vg ? Math.max(vg, vy - STICK_A * dt) : vy;
   }
   // every physics step, after it: write speed / heading / movement direction back; collect hits.
   // The arcade velocity is speed along moveAng (which lags the heading in a turn or drift). When contacts

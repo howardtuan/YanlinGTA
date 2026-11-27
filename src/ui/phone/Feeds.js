@@ -85,7 +85,7 @@ export const FRIEND_POSTS = {
     {
       who: 'YeeMing',
       img: G('yeeming_walk'),
-      cap: '放假第一件事：陪女朋友散步 💑 #宿營認識的 #戒菸第 200 天',
+      cap: '放假第一件事：陪女朋友散步 💑 #宿營認識的',
       likes: 486,
       ago: 340,
     },

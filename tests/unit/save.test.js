@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readSave, writeSave, applySave, clearSave } from '../../src/systems/SaveSystem.js';
 

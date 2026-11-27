@@ -8,7 +8,7 @@
 //   1. 侵入車道的建物：哪一棟、哪個檔、侵入幾公尺（離車道邊緣往中心線的深度）
 //   2. 侵入人行道（沒碰到車道）的建物
 //   3. 每個路口每個轉角：有沒有建物；空著的話，原始資料在那裡有沒有樓（被 drop／hide 掉了 → 多半是漏蓋）
-// 只讀資料、不改任何檔案；tests/unit/street-encroach.test.js 用同一套函式把關。
+// 只讀資料、不改任何檔案；tests/world/street-encroach.test.js 用同一套函式把關。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

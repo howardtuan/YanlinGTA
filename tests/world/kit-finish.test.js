@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { Interiors, Kit, regMat, cullFurniture, FURNITURE_FAR } from '../../src/world/Kit.js';

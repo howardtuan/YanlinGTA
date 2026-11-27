@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { BOOT_DIAG_KEY, HEALTHY_RECOVERY_SEC, createBootDiag } from '../../src/core/BootDiag.js';
 

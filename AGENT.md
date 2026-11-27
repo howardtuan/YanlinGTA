@@ -22,7 +22,7 @@
 3. **功能與文件同步（Doc-as-Code）**
    - 每次新增功能、系統、彩蛋或調整重要架構，**必須同步更新 `docs/guide/` 對應文件**，讓未來的開發者與 Agent 能快速理解設計脈絡。
 4. **架構與工程底線**
-   - **單向無環分層**：維持 `src/` 七大領域分層（`core` / `physics` / `graphics` / `world` / `entities` / `systems` / `ui`），不新增循環匯入或跨層反向依賴（由 `tests/unit/import-graph.test.js` 自動把關）。
+   - **單向無環分層**：維持 `src/` 七大領域分層（`core` / `physics` / `graphics` / `world` / `entities` / `systems` / `ui`），不新增循環匯入或跨層反向依賴（由 `tests/arch/import-graph.test.js` 自動把關）。
    - **最小必要改動**：聚焦任務本身，不順手重構或異動與任務無關的檔案；程式碼格式統一由 Prettier 與 ESLint 把關（Push 前跑 `npm run ci`）。
    - **誠實回報**：不猜測測試或指令結果；若有環境限制導致無法驗證，請如實說明。
    - **個人暫時檔不上 Git**：個人任務清單、草稿、工作記憶檔等暫時性檔案不納入版本控制，由各開發者依習慣於本機自行管理。

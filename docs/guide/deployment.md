@@ -77,7 +77,7 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 - **不上 Wiki 的角色**：在 `wiki/people.json` 設 `"wiki": false`（目前 Tzuyu、勞大與校園人物小芸、小琪、小萱、阿宇）；只想換掉 Wiki 上的人際關係文字時填 `relations`（彥霖那筆用來拿掉女朋友）。
 - **最新消息**：`news/` 是部落格／粉專式的文章列表，文章寫在 `wiki/news.json`（`id`、`date` YYYY-MM-DD、`title`、`image`、`alt`、`body` 一段一個字串、`tags` 不加 #），照片放 `wiki/news/`（先縮到寬 1600px 以內，例如 `ffmpeg -i in.jpg -vf scale=1600:-2 -q:v 4 out.jpg`），build 時複製到 `dist/wiki/news/`。頁面依日期新到舊排序，首頁「最新消息」段落顯示最新兩篇。文字一律當純文字輸出。
 - **合作店家**：加在 `wiki/shops.json`（`url` 只收 `https://`，留空不顯示連結）。
-- **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/unit/wiki.test.js` 會擋下 CI。
+- **新增 NPC 時**：`data/npcs.json` 每個 id 都要在 `wiki/people.json` 有一筆，否則 `tests/integration/wiki.test.js` 會擋下 CI。
 
 ### SEO / AEO / GEO 與 Google Search Console
 讓 Google 搜得到（SEO）、讓 Google 答案框與 ChatGPT／Perplexity／Gemini 等 AI 搜尋能正確引用（AEO / GEO）。全部在 build 時自動產生，新增 Wiki 頁面或最新消息文章不用另外維護。
@@ -91,7 +91,7 @@ Wiki 是遊戲網站底下的靜態頁面，原始檔在 `wiki/`，由 `wiki/bui
 | Wiki 每頁 JSON-LD | `wiki/build.mjs` `pageJsonLd()` | 首頁 `WebSite`＋`FAQPage`；一般頁 `WebPage`＋`BreadcrumbList`；文章 `NewsArticle` |
 | Wiki 首頁「常見問題」 | `wiki/build.mjs` `faqs()` | 看得到的 Q&A，跟 `FAQPage` 與 `llms.txt` 共用同一份；遊戲內容改了（例如新玩法、操作鍵）記得改這裡 |
 
-`check:dist` 會確認三個檔案都有產出，`tests/unit/seo.test.js` 檢查 sitemap 網址、JSON-LD 合法、FAQ 問題在頁面上看得到。
+`check:dist` 會確認三個檔案都有產出，`tests/integration/seo.test.js` 檢查 sitemap 網址、JSON-LD 合法、FAQ 問題在頁面上看得到。
 
 **Google Search Console 設定（一次性）**
 1. 到 <https://search.google.com/search-console> 新增資源，選 **網域（Domain）** 輸入 `yanlin-gta.com`（會涵蓋 `www` 與 http/https）。

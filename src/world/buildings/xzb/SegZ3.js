@@ -691,9 +691,10 @@ export default {
       for (let z = r; z < d; z += 1)
         k.box(0, Math.min(xm(z), 8), 0, top, z, Math.min(z + 1, d), `wall${WT}`);
       k.cyl(cx, r, r, 0, top, `wall${WT}`, { seg: 16, col: true });
-      // 斜面外皮與窗
-      const p0 = [cx + r * 0.816, r - r * 0.579],
-        p1 = [xm(d) - 0.05, d];
+      // 斜面外皮與窗：只做到主體還貼著斜路的地方（主體最多做到 x 8，再往後斜板會變成一片獨立的白色薄板）
+      const zc = Math.min(d, (8 - 3.13) / 0.71),
+        p0 = [cx + r * 0.816, r - r * 0.579],
+        p1 = [xm(zc) - 0.05, zc];
       C.paintGeo(k.slab(p0[0], p0[1], p1[0], p1[1], 0.15, 0, top, C.WVC, NC), WT);
       slantWins(C, k, p0[0], p0[1], p1[0], p1[1], 0.816, -0.579, gf, fh, nf);
       // 圓弧上的樓層線與一樓紅白招牌
@@ -737,9 +738,13 @@ export default {
       // 一樓往裡退 1.6 m 是騎樓
       k.box(cx, w, gf, top, 0, r + 0.2, '#efeeea');
       k.box(cx, w, 0, gf, 1.6, r + 0.2, '#efeeea');
+      let ze = r; // 主體最後一階的後緣，斜板做到這裡為止
       for (let z = r; z < d; z += 1) {
         const x0 = xs(Math.min(z + 1, d));
-        if (x0 < w - 0.5) k.box(x0, w, 0, top, z, Math.min(z + 1, d), '#efeeea');
+        if (x0 < w - 0.5) {
+          k.box(x0, w, 0, top, z, Math.min(z + 1, d), '#efeeea');
+          ze = Math.min(z + 1, d);
+        }
       }
       k.cyl(cx, r, r, 0, top, '#efeeea', { seg: 16, col: true });
       for (let f = 1; f < nf; f++) {
@@ -749,7 +754,7 @@ export default {
         C.win(k, (cx + w) / 2, gf + (f - 1) * fh + 1.5, w - cx - 0.8, 1.3, false);
       }
       const p0 = [cx - r * 0.816, r + r * 0.579],
-        p1 = [Math.min(xs(d), w - 0.3), Math.min(d, (w - 0.3 - 0.5) / 0.71)];
+        p1 = [xs(ze), ze];
       C.paintGeo(k.slab(p0[0], p0[1], p1[0], p1[1], 0.15, 0, top, C.WVC, NC), '#efeeea');
       slantWins(C, k, p0[0], p0[1], p1[0], p1[1], -0.816, 0.579, gf, fh, nf);
       // 一樓玻璃店面（往裡退成騎樓）與白柱

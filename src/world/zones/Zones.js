@@ -81,6 +81,7 @@ import {
 import { zoneCLook, zoneCVegHide, buildZoneC } from './ZoneC.js';
 import { courtTerrain, courtTreeHide, buildCourts } from '../Court.js';
 import { tennisTreeHide, buildTennis } from '../Tennis.js';
+import { railWallTreeHide, buildRailWall } from '../RailWall.js';
 import {
   HZ_ST,
   hzFix,
@@ -260,6 +261,12 @@ export const ZONES = [
     name: '網球場',
     treeHide: tennisTreeHide,
     build: (I, scene) => buildTennis(I, scene, Kit, regMat),
+  },
+  {
+    // 體育園區北緣鐵路邊的水泥圍牆（網球場西北角到鐵路涵洞，原本畫成明溝的那段）：擋住球場看向縱貫線的視線，有碰撞
+    name: '體育園區鐵路圍牆',
+    treeHide: railWallTreeHide,
+    build: (I, scene) => buildRailWall(I, scene, Kit, regMat),
   },
   {
     // 環中東路（校園東南側）與環中東路708巷兩側街屋

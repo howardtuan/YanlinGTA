@@ -71,7 +71,6 @@ npm run dev
 | `?safemode=0\|1` | 停用／強制啟用安全降階模式 | `BootDiag.js`、`PerfProfile.js` |
 | `?tier=mobile-lite\|desktop-igpu\|desktop-dgpu` | 覆寫硬體分檔（`mobile-ios` 為別名） | `PerfProfile.js` |
 | `?texscale=0.25~2` | 覆寫畫布貼圖縮放比 | `PerfProfile.js`、`GpuMemLifecycle.js` |
-| `?stream=off\|mobile\|balanced\|high` | 空間串流實驗旗標 | `PerfProfile.js` |
 | `?date=YYYY-MM-DD` | 模擬真實日期（義務役、節慶、貨運班次、真實週末判定） | `Service.js`、`Season.js`、`PinHan.js`、`Ruizhe.js` |
 | `?mj=房號` | 直接加入 277 麻將多人房間 | `MahjongScene.js` |
 | `?keepgeo` | 保留靜態幾何 CPU 副本（碰撞網格檢查用） | `GpuMemLifecycle.js` |

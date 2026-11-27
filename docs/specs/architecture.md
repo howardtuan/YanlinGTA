@@ -102,15 +102,15 @@ flowchart TD
 ## 四、 硬體分檔、啟動診斷與安全降階自癒 (`PerfProfile.js` & `BootDiag.js`)
 
 ### 1. 執行期硬體分檔 (`src/core/PerfProfile.js`)
-啟動時依觸控能力（`matchMedia('(pointer: coarse)')` / `maxTouchPoints`）與 WebGL `UNMASKED_RENDERER_WEBGL` 字串，將裝置歸類為三檔（可用 `?tier=`、`?texscale=`、`?stream=` 覆寫）：
+啟動時依觸控能力（`matchMedia('(pointer: coarse)')` / `maxTouchPoints`）與 WebGL `UNMASKED_RENDERER_WEBGL` 字串，將裝置歸類為三檔（可用 `?tier=`、`?texscale=` 覆寫）：
 
-| 檔位 (`tier`) | 判定條件 | `texScale` | 圖集上限 (`atlasMaxW × H`) | 預設串流檔位 |
-| :--- | :--- | :---: | :---: | :---: |
-| `mobile-lite`（別名 `mobile-ios`） | 觸控裝置（手機／平板） | `0.5` | `1024 × 2048` | `mobile` |
-| `desktop-igpu` | Apple M 系列、Intel Iris / UHD / HD、AMD Radeon 內顯、GeForce MX、軟體渲染或未知 GPU | `0.75` | `2048 × 2048` | `balanced` |
-| `desktop-dgpu` | NVIDIA GTX / RTX / Quadro、Radeon RX / Pro、Intel Arc A/B 系列獨顯 | `1.0` | `2048 × 4096` | `high` |
+| 檔位 (`tier`) | 判定條件 | `texScale` | 圖集上限 (`atlasMaxW × H`) |
+| :--- | :--- | :---: | :---: |
+| `mobile-lite`（別名 `mobile-ios`） | 觸控裝置（手機／平板） | `0.5` | `1024 × 2048` |
+| `desktop-igpu` | Apple M 系列、Intel Iris / UHD / HD、AMD Radeon 內顯、GeForce MX、軟體渲染或未知 GPU | `0.75` | `2048 × 2048` |
+| `desktop-dgpu` | NVIDIA GTX / RTX / Quadro、Radeon RX / Pro、Intel Arc A/B 系列獨顯 | `1.0` | `2048 × 4096` |
 
-> **單一畫質職責邊界**：`PerfProfile` 僅管轄貼圖縮放、圖集尺寸、空間串流參數與診斷旗標；視覺畫質（視距 `far`、霧濃度 `fog`、像素比 `pr`、陰影、後製 `PostFX`）統一由 `GameLoop.js` 的 `QPROF` 單一持有。
+> **單一畫質職責邊界**：`PerfProfile` 僅管轄貼圖縮放、圖集尺寸與診斷旗標；視覺畫質（視距 `far`、霧濃度 `fog`、像素比 `pr`、陰影、後製 `PostFX`）統一由 `GameLoop.js` 的 `QPROF` 單一持有。
 
 ### 2. 啟動檢查點與自癒安全模式 (`src/core/BootDiag.js`)
 為防止行動端在載入階段因記憶體尖峰遭瀏覽器強制重整並陷入無限迴圈，`BootDiag` 將啟動麵包屑持久化於 `localStorage`（金鑰 `yanlinGTA.bootDiag.v1`）：

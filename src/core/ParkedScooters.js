@@ -21,6 +21,7 @@ import {
   instanceMask,
   buildScooterVariant,
   addScooterAccessories,
+  addScooterLivery,
 } from '../entities/ScooterVariants.js';
 import { knockPeopleWith } from '../physics/DebrisPeople.js';
 import {
@@ -300,7 +301,9 @@ export class ParkedScooters {
     for (const items of buckets.values()) {
       const { geo, mat } = getVariantInstancedAssets(instancedGroupOf(items[0].type));
       const im = new THREE.InstancedMesh(geo, mat, items.length);
-      const acc = new Float32Array(items.length);
+      const acc = new Float32Array(items.length),
+        col2 = new Float32Array(items.length * 3),
+        col3 = new Float32Array(items.length * 3);
       let minX = Infinity,
         maxX = -Infinity,
         minY = Infinity,
@@ -316,7 +319,9 @@ export class ParkedScooters {
         _P.set(s.x, s.y, s.z);
         _M.compose(_P, _Q, _S);
         im.setMatrixAt(i, _M);
-        im.setColorAt(i, _C.set(s.color));
+        im.setColorAt(i, _C.set(s.colors[0]));
+        _C.set(s.colors[1]).toArray(col2, i * 3);
+        _C.set(s.colors[2]).toArray(col3, i * 3);
         minX = Math.min(minX, s.x);
         maxX = Math.max(maxX, s.x);
         minY = Math.min(minY, s.y);
@@ -329,6 +334,8 @@ export class ParkedScooters {
       const g = new THREE.BufferGeometry();
       for (const k of Object.keys(geo.attributes)) g.setAttribute(k, geo.attributes[k]);
       g.setAttribute('iAcc', new THREE.InstancedBufferAttribute(acc, 1));
+      g.setAttribute('iColor2', new THREE.InstancedBufferAttribute(col2, 3));
+      g.setAttribute('iColor3', new THREE.InstancedBufferAttribute(col3, 3));
       g.boundingSphere = geo.boundingSphere;
       im.geometry = g;
       im.userData.group = instancedGroupOf(items[0].type);
@@ -442,6 +449,7 @@ export class ParkedScooters {
           slot.type = v.type;
           slot.acc = v.acc;
           slot.color = v.color;
+          slot.colors = v.colors;
         }
         slot.physKey = {
           parkedSlot: slot,
@@ -549,13 +557,16 @@ export class ParkedScooters {
 
   _makeDebrisMesh(slot) {
     if (slot.kind !== 'car' && slot.type > 0)
-      return buildScooterVariant(slot.type, slot.color, slot.acc);
+      return buildScooterVariant(slot.type, slot.colors, slot.acc);
     const assets = slot.kind === 'car' ? this.carAssets : this.scooterAssets;
     if (!assets?.paintGeo) return null;
     const grp = new THREE.Group();
     grp.add(new THREE.Mesh(assets.paintGeo, this._debrisPaintMat(slot.kind, slot.color)));
     if (assets.trimGeo) grp.add(new THREE.Mesh(assets.trimGeo, assets.trimMat));
-    if (slot.kind !== 'car') addScooterAccessories(grp, 0, slot.acc);
+    if (slot.kind !== 'car') {
+      addScooterLivery(grp, 0, slot.colors, true);
+      addScooterAccessories(grp, 0, slot.acc);
+    }
     return grp;
   }
 
@@ -700,7 +711,10 @@ export class ParkedScooters {
       Math.random,
       spot.kind === 'car'
         ? { color: spot.color }
-        : { color: spot.color, variant: { type: spot.type || 0, acc: spot.acc || 0 } }
+        : {
+            color: spot.color,
+            variant: { type: spot.type || 0, acc: spot.acc || 0, colors: spot.colors },
+          }
     );
     v.fallen = false;
     this.claimed.push(v);

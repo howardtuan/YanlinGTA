@@ -145,6 +145,25 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(pickScooterVariant(5, 5, '#123456', true).color).toBe('#123456');
   });
 
+  it('paints bikes in one, two or three colours ([main, secondary, accent])', () => {
+    const n = [0, 0, 0, 0];
+    for (let i = 0; i < 3000; i++) {
+      const v = pickScooterVariant((i % 60) * 0.8, Math.floor(i / 60) * 2.3, '#e8e8e4');
+      expect(v.colors[0]).toBe(v.color);
+      n[new Set(v.colors.map((c) => c.toLowerCase())).size]++;
+    }
+    for (const k of [1, 2, 3]) expect(n[k] / 3000).toBeGreaterThan(0.2);
+    // every type has secondary and accent pieces; the instanced shader picks the colour by slot
+    for (let gi = 0; gi < 5; gi++) {
+      const pm = getVariantInstancedAssets(gi).geo.attributes.paintMask.array;
+      for (const slot of [1, 2, 3]) expect(pm.includes(slot)).toBe(true);
+    }
+    const g = buildScooterVariant(1, ['#ff0000', '#00ff00', '#0000ff'], 0);
+    const cols = new Set();
+    g.traverse((o) => o.isMesh && cols.add(o.material.color.getHexString()));
+    for (const c of ['ff0000', '00ff00', '0000ff']) expect(cols.has(c)).toBe(true);
+  });
+
   it('keeps every body type inside the parked footprint, standing on its two wheels', () => {
     for (let t = 1; t < SCOOTER_TYPES; t++) {
       const g = buildScooterVariant(t, '#888888', 2); // with a delivery box (a hanging helmet sticks out sideways)
@@ -221,7 +240,11 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     expect(veh).not.toBeNull();
     expect(veh.color).toBe(found.spot.color);
     // the ridden bike keeps the parked body type and accessories
-    expect(veh.variant).toEqual({ type: found.spot.type, acc: found.spot.acc });
+    expect(veh.variant).toEqual({
+      type: found.spot.type,
+      acc: found.spot.acc,
+      colors: found.spot.colors,
+    });
     expect(addedVehicles.length).toBe(1);
     expect(found.spot.state).toBe('taken');
     expect(ps.nearestSpot(10.5, 10.5, 0, 3.2)).toBeNull();

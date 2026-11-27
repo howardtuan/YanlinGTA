@@ -20,6 +20,7 @@
 // 原本兩側是 src/world/buildings/NightMarketFill.js 照正射補的通用量體（nm36～nm53，都有店面牆）與填充樓 f1681～f1688：
 //   一律放 hide（資料留著、全圖亂數不變）；f1683、f1685 原本就 noShop，drop 掉會讓全圖停放機車重排，所以也放 hide。
 // 看不清的招牌不放字。
+import { H } from '../../Terrain.js';
 const R = 'LB';
 const NC = { col: false };
 const PI = Math.PI;
@@ -538,11 +539,25 @@ export default {
       const S0 = 150,
         S1 = 196.5,
         k = seg(C, -1, S0, S1, 3.0),
-        X = (s) => sx(-1, S0, S1, s);
+        X = (s) => sx(-1, S0, S1, s),
+        // 這段 46 m 只用一個 Kit，地面往 s 150 那頭低約 0.4 m：花台、矮牆、柱子、欄杆照所在位置的地面高度上下移，貼著坡度
+        dy = (x, z = 1) => {
+          const [wx, wz] = k.w(x, z);
+          return H(wx, wz) - k.base;
+        },
+        // 一段長的矮台切成 1.2 m 一塊，每塊照自己的地面高度
+        run = (x0, x1, y0, y1, z0, z1, hex) => {
+          const n = Math.max(1, Math.ceil((x1 - x0) / 1.2));
+          for (let i = 0; i < n; i++) {
+            const a = x0 + ((x1 - x0) * i) / n,
+              b = x0 + ((x1 - x0) * (i + 1)) / n,
+              h = dy((a + b) / 2, (z0 + z1) / 2);
+            k.box(a, b, y0 + h, y1 + h, z0, z1, hex, { surface: false });
+          }
+        };
       const GATE0 = 185.3,
         GATE1 = 189.5,
         FZ = 2.2; // 圍牆離路面邊緣 2.2 m
-      // 這一段 46 m 只用一個 Kit，地面往 s 150 那頭低約 0.4 m：花台、矮牆、柱子都往下多做 0.6 m，低的那頭才不會懸空
       // 花台：灰色水泥矮台，裡面種灌木
       for (const [a, b] of [
         [150, 157],
@@ -551,9 +566,17 @@ export default {
         [175.6, 184.8],
         [190.2, 196.2],
       ]) {
-        k.box(X(b), X(a), -0.6, 0.5, 0.35, 1.75, '#b9b7b0', { surface: false });
+        run(X(b), X(a), -0.4, 0.5, 0.35, 1.75, '#b9b7b0');
         for (let s = a + 0.6; s < b - 0.4; s += 1.1)
-          shrub(C, k, X(s), 1.05, 0.42 + ((s * 7) % 3) * 0.08, 0.45, GREEN[Math.round(s) % 4]);
+          shrub(
+            C,
+            k,
+            X(s),
+            1.05,
+            0.42 + ((s * 7) % 3) * 0.08,
+            0.45 + dy(X(s)),
+            GREEN[Math.round(s) % 4]
+          );
       }
       // 行道樹
       let n = 0;
@@ -585,17 +608,27 @@ export default {
           w = x1 - x0,
           n = Math.max(1, Math.round(w / 3.2)),
           bw = w / n;
-        k.box(x0, x1, -0.6, 0.6, FZ, FZ + 0.25, '#c4c1b8');
+        run(x0, x1, -0.4, 0.6, FZ, FZ + 0.25, '#c4c1b8');
         k.wallLine(x0, FZ + 0.12, x1, FZ + 0.12, 0.6, 1.8);
         for (let j = 0; j <= n; j++) {
-          const c = Math.min(Math.max(x0 + j * bw, x0 + 0.25), x1 - 0.25);
-          k.box(c - 0.25, c + 0.25, -0.6, 1.95, FZ - 0.12, FZ + 0.37, '#a4513c');
-          k.box(c - 0.3, c + 0.3, 1.95, 2.1, FZ - 0.17, FZ + 0.42, '#e2dfd6', NC);
+          const c = Math.min(Math.max(x0 + j * bw, x0 + 0.25), x1 - 0.25),
+            h = dy(c, FZ);
+          k.box(c - 0.25, c + 0.25, -0.4 + h, 1.95 + h, FZ - 0.12, FZ + 0.37, '#a4513c');
+          k.box(c - 0.3, c + 0.3, 1.95 + h, 2.1 + h, FZ - 0.17, FZ + 0.42, '#e2dfd6', NC);
           if (j < n)
-            k.plane(fence, bw - 0.5, 1.15, x0 + (j + 0.5) * bw, 1.2, FZ + 0.12, C.FRONT, {
-              transparent: true,
-              double: true,
-            });
+            k.plane(
+              fence,
+              bw - 0.5,
+              1.15,
+              x0 + (j + 0.5) * bw,
+              1.2 + dy(x0 + (j + 0.5) * bw, FZ),
+              FZ + 0.12,
+              C.FRONT,
+              {
+                transparent: true,
+                double: true,
+              }
+            );
         }
       }
       // 車道：紅磚鋪面，入口一道不鏽鋼伸縮大門（斜格子），兩邊各一根紅磚門柱

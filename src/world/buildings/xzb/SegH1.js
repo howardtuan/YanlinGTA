@@ -477,7 +477,8 @@ export default {
       bal: 'plain',
       d: 13,
     }),
-    W(56, 66, {
+    // 協同街斜接，長方形後角會壓進協同街：照正射東北牆退到 s 65、深 10 m（原本 s 66、深 11 m，壓進 2.1 m）
+    W(56, 65, {
       nf: 5,
       wall: RB,
       sign: ['全家 FamilyMart', '#f4f4f0', '#2a5aa8', null, 'fam'],
@@ -485,9 +486,9 @@ export default {
       vert: ['FamilyMart', '#2fb34a', '#ffffff'],
       bal: 'plain',
       roof: 'tank',
-      d: 11,
+      d: 10,
     }),
-    // ---- 協同街（s 66～73）----
+    // ---- 協同街（s 65～73）----
     // 6 樓米色陽台公寓：一樓綠白條紋雨棚（住家），巷口那頭綠色鐵捲門小店
     W(73, 79, {
       nf: 6,

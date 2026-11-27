@@ -39,8 +39,9 @@ export function writeSave(g) {
     ballots: g.ballotList.map((b, i) => (b.got ? i : -1)).filter((i) => i >= 0),
     // where you are inside the current mission (talk heard, objective, checkpoints): missions.resumeAt()
     // mv 2: mission 5 (布條失竊案) was added before the speech, so older saves past it are one step behind
+    // mv 3: mission 6 (宿舍拉票) was added before the speech too
     mission: {
-      mv: 2,
+      mv: 3,
       idx: M.idx,
       rewarded: [...M.rewarded],
       done: M.done,
@@ -185,5 +186,6 @@ export function applySave(g, d) {
   M.homeFound = !!d.mission?.homeFound;
   const m = d.mission || { idx: -1 };
   if (!m.mv && m.idx >= 5) m.idx++; // saved at the speech (5) or the ending (6) before mission 5 existed
+  if ((m.mv || 0) < 3 && m.idx >= 6) m.idx++; // saved at the speech (6) or the ending (7) before mission 6 existed
   return m;
 }

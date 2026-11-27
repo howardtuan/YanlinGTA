@@ -1199,6 +1199,8 @@
     if (s.type === 'votes') return { kind: 'votes', need: s.need, base: s.base };
     // mission 5 (布條失竊案): both `until` steps are solved at 彥霖's old desk (walk in, use the computer)
     if (s.type === 'until' && m.idx === 5 && game.interiors.yh) return { kind: 'yh' };
+    // mission 6 (宿舍拉票): the 2F doors of 力行 are not driven yet — knocked through the game's own action, reported as a fallback
+    if (s.type === 'until' && s.dorm) return { kind: 'dorm' };
     return null;
   }
 
@@ -1803,6 +1805,18 @@
     }
     if (obj.kind === 'yh') {
       yhTick(dt);
+      return;
+    }
+    if (obj.kind === 'dorm') {
+      neutral();
+      const d = m.dormLeft[0];
+      if (d && !game.hud.inDialog && (!B._dormCool || B.t > B._dormCool)) {
+        B._dormCool = B.t + 1;
+        B.curStep &&
+          B.curStep.fallbacks.push({ reason: `dorm door ${d.no}`, t: +game.playTime.toFixed(1) });
+        ev('FALLBACK_DORM', { room: d.no });
+        m.canvassDorm(d.no);
+      }
       return;
     }
     // still inside 彥霖's old home (after mission 5): walk back out to the street first

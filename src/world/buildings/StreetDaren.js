@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, sg, ROWT, rowTools } from '../Kit.js';
 import { makeSideShop } from './StreetZhongbei.js';
 import { shrinkFont } from '../../graphics/FitText.js';
+import { paveGround } from './GroundDrape.js';
 
 // =====================================================================
 // The corner across 中北路 from 大門口, where 大仁街 leaves 中北路 for the main gate (user's street-view photos).
@@ -906,7 +907,7 @@ export function buildDarenCorner(I, scene) {
         col: false,
         surface: true,
       });
-    kB.box(-0.3, 31.7, -0.5, 0.05, -S.apronB, 0, MR.concrete, { col: false, surface: true });
+    paveGround(kB, -0.3, 31.7, -0.5, 0.05, -S.apronB, 0, MR.concrete);
   }
   finishRow(scene, kits);
 }

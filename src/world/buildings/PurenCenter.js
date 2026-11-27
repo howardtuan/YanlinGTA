@@ -10,6 +10,7 @@
 // 再在實景的位置自己蓋。
 // 這個檔案不 import src/world/Interiors.js；src/world/zones/Zones.js import 這裡的 pcLook、pcFootprints、buildPurenCenter。
 import { rxLotFrame } from './StreetRixin.js';
+import { paveGround } from './GroundDrape.js';
 
 const HIDE = new Set(['w1039910328']);
 // 日新路右側（side +1），s 從中山東路口量；區域座標 x=0 在 s 54 那端（站在街上面對它時的右手邊）
@@ -221,7 +222,7 @@ export function buildPurenCenter(I, scene, X, data, collision) {
     k.box(a, b, TOP, TOP + 0.9, c, d, TRIM, { col: false }); // 女兒牆
   k.box(0.1, W - 0.1, GF - 0.25, GF, 0, ARC, FLOOR, { col: false }); // 騎樓天花
   k.box(-0.01, W + 0.01, -0.5, 0.18, 0, ARC, FLOOR, { col: false, surface: true }); // 騎樓地坪（比人行道高一階）
-  k.box(-0.01, W + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true }); // 人行道
+  paveGround(k, -0.01, W + 0.01, -0.5, 0.05, -apron, 0, MR.concrete); // 人行道
   // 塔樓：中間一跨往上多一層，頂上白邊三角山牆
   const TD = 7; // 塔樓那一層往裡的深度
   k.box(RW, LW, TOP, TT, 0, TD, BRICK, { tile: [0.6, 0.6], col: false });

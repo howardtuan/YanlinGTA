@@ -33,7 +33,7 @@
 // 次數因此不變；名稱、look、parts 都在 src/world/MapBuilder.js 的共用抽取之後才用到（行政大樓新名稱在 STYLE_BY_NAME 也是 white）。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { groundY, Hgrid, addPit } from '../Terrain.js';
+import { groundY, Hgrid, H as terrH, addPit } from '../Terrain.js';
 import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 export const A_IDS = { adm: 'w392023425', hue: 'w229238548', lib: 'w392023426', sci: 'w392023392' };
@@ -1908,8 +1908,19 @@ export function buildZoneA(I, scene, data) {
           ];
           k.tri('skyGlass', [a[0], yk, a[1]], [b[0], yk, b[1]], [m[0], ya, m[1]]);
           k.slab('rail', a[0], a[1], c[0], c[1], 0.15, yk, yk + 0.12);
-          wallC(a[0], a[1], b[0], b[1], yP - 0.05, ya);
+          // 底座邊的矮牆：走路會被 0.35 m 的底座擋住，跳一下就上得去、站在上面（腳離平台 0.35 m 以上）也走得下來。
+          // 碰撞牆的高度是「地形以上」（src/physics/PhysWorld.js 會加上 H()），平台底下的地形比平台低約 1.4 m，要扣掉
+          const g = terrH((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+          wallC(a[0], a[1], b[0], b[1], yP - 0.05 - g, yP + 0.6 - g);
         }
+        // 玻璃斜面當地板（跳上去站在玻璃上，不會掉進天窗裡）：從底座邊的 yk 斜升到四片三角的頂點（離邊 0.85r）；
+        // 高度是平台面以上（src/entities/Player.js 的 y 是 surfaceAt 以上）
+        I.addSurface(cor, (x, z) => {
+          const dx = x - c[0],
+            dz = z - c[1],
+            t = r - Math.max(Math.abs(dx * cs + dz * sn), Math.abs(-dx * sn + dz * cs));
+          return yk - yP + (ya - yk) * Math.min(1, Math.max(0, t) / (0.85 * r));
+        });
         shapes.push({ name: 'libSkylight', pts: cor, y0: yP, y1: ya });
       }
     }

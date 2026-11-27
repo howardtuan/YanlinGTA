@@ -87,6 +87,29 @@ describe('誰在哪', () => {
   });
 });
 
+describe('蓋瑞（住彥霖隔壁，不住力行）', () => {
+  const withGarry = (mode, modes = {}) =>
+    fakeGame(modes, { garry: { mode, ch: { root: {}, update() {} } } });
+  it('跑步、古箏社、在房間都算「在外面」（要打電話叫他）；睡覺就是睡覺', () => {
+    for (const m of ['run', 'club', 'desk']) expect(statusOf(withGarry(m), 'garry')).toBe('out');
+    expect(statusOf(withGarry('sleep'), 'garry')).toBe('sleep');
+  });
+  it('力行的人醒著在寢室時優先，湊不滿才輪到蓋瑞', () => {
+    expect(pickPlayers(withGarry('desk')).map((r) => r.id)).not.toContain('garry');
+    const asleep = { mode: 'sleep' };
+    const g = withGarry('desk', {
+      zz: asleep,
+      houshe: asleep,
+      jianyu: asleep,
+      howard: asleep,
+      richard: asleep,
+      hank: { mode: 'dorm', asleep: true },
+      gordon: { asleep: true },
+    });
+    expect(pickPlayers(g).map((r) => r.id)).toEqual(['garry', 'zz', 'houshe']);
+  });
+});
+
 describe('揪人', () => {
   it('awake in the dorm first, nearest rooms first', () => {
     const g = fakeGame();

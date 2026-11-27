@@ -47,6 +47,13 @@ export const NPC_STICKERS = {
     other: '幫你記帳！',
   },
   richard: { hu: '胡了！', gun: '放槍了…', ting: '聽牌！', call: '碰！', other: '好牌！' },
+  garry: {
+    hu: '承讓囉！',
+    gun: '哎呀放槍了',
+    ting: '我聽牌囉！',
+    call: '這張先收囉',
+    other: '打得漂亮！',
+  },
 };
 
 // 那位同學那種時機的貼圖；沒有就 null

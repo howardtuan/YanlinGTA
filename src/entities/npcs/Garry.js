@@ -308,6 +308,7 @@ export function garryPlan(clock) {
   return 'desk';
 }
 const PLACE = {
+  mahjong: '力行宿舍 277 寢（打麻將）',
   run: '體育園區跑道',
   club: '活動中心 3 樓的古箏社教室',
   desk: '房間',
@@ -496,8 +497,19 @@ export class Garry {
   }
   // ---- per frame ----
   update(dt) {
-    const g = this.g,
-      plan = garryPlan(g.clock),
+    const g = this.g;
+    // 被揪去力行 277 打麻將（src/systems/mahjong/Mahjong.js）：角色交給牌桌，散場後 plan 不一樣就照行程回去
+    if (g.mahjong?.has('garry')) {
+      if (this.mode !== 'mahjong') {
+        this.mode = 'mahjong';
+        this.talking = false;
+        this.ch.setOutfit(false); // (穿印花襯衫上桌，不穿跑步的運動 T)
+      }
+      this.mark.visible = false;
+      g.mahjong.hold('garry', this.ch, dt, this.pos);
+      return;
+    }
+    const plan = garryPlan(g.clock),
       wp = g.player.worldPos();
     if (plan !== this.mode) this._enter(plan);
     const ch = this.ch,

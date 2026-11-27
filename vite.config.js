@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildWiki } from './wiki/build.mjs';
+import { buildSeo } from './wiki/seo.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -169,6 +170,8 @@ function staticAssetsPlugin() {
       }
       // 遊戲百科 Wiki：yanlin-gta.com/wiki/（wiki/build.mjs）
       buildWiki({ root: ROOT, outDir: path.resolve(outDir, 'wiki') });
+      // SEO / AEO / GEO：sitemap.xml、robots.txt、llms.txt 放在網站根目錄（wiki/seo.mjs）
+      buildSeo({ root: ROOT, outDir });
     },
   };
 }

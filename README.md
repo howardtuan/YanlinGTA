@@ -87,11 +87,13 @@
 
 若需進一步了解系統底層設計或參與貢獻，請參閱專題手冊（總索引見 [docs/README.md](docs/README.md)）：
 
-- 🏛️ **[系統架構手冊 (Architecture Guide)](docs/guide/architecture.md)**：深入了解 7 大分層邊界、依賴拓撲規範、GameLoop 調度機制與雙 WASM 子系統。
-- 🎮 **[遊戲設計與內部梗手冊 (Game Design & Lore)](docs/guide/game-design.md)**：主線結構、特色小遊戲、NPC 人物誌與團隊內部梗／彩蛋總覽。
-- 💻 **[開發者與貢獻指南 (Developer Guide)](docs/guide/developer-guide.md)**：本機開發工作流、npm 指令清冊、測試金字塔執行與 GitHub Flow 操作步驟。
-- 🧑‍🤝‍🧑 **[NPC 創作與自訂指南 (NPC Creation Guide)](docs/guide/npc-creation-guide.md)**：視覺化儀表板使用手冊、`data/npcs.json` 綱要規格與手把手自訂 NPC 教學。
-- 🚢 **[部署與運維手冊 (Deployment & Operations Guide)](docs/guide/deployment.md)**：GitHub Pages 自動發布流程、Docker / Compose 容器化部署與 Nginx 快取策略。
+- 🏛️ **[系統架構 (architecture)](docs/specs/architecture.md)**：7 層分層、GameLoop、啟動自癒、GPU 記憶體生命週期與雙 WASM。
+- 🌍 **[世界與實體 (world-and-entities)](docs/specs/world-and-entities.md)**：地圖分塊、室內建模、火車平交道、機車車型與節慶。
+- 📜 **[任務與支線 (missions-and-quests)](docs/specs/missions-and-quests.md)**：主線、5 大支線與 SQL 偵探。
+- 🎮 **[玩法與介面 (gameplay-and-ui)](docs/specs/gameplay-and-ui.md)**：手機 App、無人機與拍照、電腦、麻將、打工店家與衣櫃。
+- 🧑‍🤝‍🧑 **[NPC 與角色 (npcs-and-characters)](docs/specs/npcs-and-characters.md)**：NPC 綱要、3D 造型、勞大與全名冊。
+- 🔒 **[彩蛋與機密 (easter-eggs-and-secrets)](docs/specs/easter-eggs-and-secrets.md)**：開發者專用，不對外公開。
+- 💻 **[開發者指南](docs/dev/developer-guide.md)**、🚢 **[部署維運](docs/dev/deployment.md)**
 - 🤖 **[開發規範與協作原則 (AGENT.md)](AGENT.md)**：專案共同開發原則、GitHub Flow 規則與命名規範單一真實來源（SSOT）。
 
 ---

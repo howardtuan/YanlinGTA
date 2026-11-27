@@ -841,12 +841,12 @@ export function buildWiki({ root = ROOT, outDir = path.join(root, 'dist', 'wiki'
   const data = loadWikiData(root);
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(outDir, 'img'), { recursive: true });
-  // 首頁宣傳片：README 用的同一支（docs/media/promo/），poster 先顯示、按播放才下載。
-  // 找不到影片（例如 Docker 建置時 docs/ 被 .dockerignore 排除）就退回封面圖，不讓建置失敗。
-  const promoDir = path.join(root, 'docs', 'media', 'promo');
+  // 首頁宣傳片：位於 wiki/media/，poster 先顯示、按播放才下載。
+  // 找不到影片時退回封面圖，不讓建置失敗。
+  const promoDir = path.join(root, 'wiki', 'media');
   const promoFiles = [
-    ['yanlin-promo-58s-v2.mp4', 'promo.mp4'],
-    ['yanlin-promo-58s-v2-poster.jpg', 'promo-poster.jpg'],
+    ['promo.mp4', 'promo.mp4'],
+    ['promo-poster.jpg', 'promo-poster.jpg'],
   ];
   const promo = promoFiles.every(([src]) => fs.existsSync(path.join(promoDir, src)));
   if (!promo) console.warn('wiki: 找不到宣傳片，首頁改用封面圖');

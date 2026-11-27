@@ -419,6 +419,7 @@ class Game {
       } catch (_e2) {}
       this.physics.world = null;
     }
+    this.railway?.gateCollision(this.world.collision); // 平交道柵欄桿：要在 Rapier 牆做完之後才加
     this.worldCones = spawnWorldCones(this.scene, this.physics, this.interiors.cones);
     this.worldCrates = spawnWorldCrates(this.scene, this.physics, this.interiors.crates);
     await stage('spawn-entities', 0.82, '召喚同學與機車');
@@ -1203,6 +1204,7 @@ class Game {
     // whenever any dynamic knocked vehicle/ragdoll is moving, so falling scooters never clip through neighbors
     // 火車車廂（src/entities/Trains.js）：推開開著的車、被撞飛的東西
     this.trains?.movers(list, wp.x, wp.z, 80);
+    this.railway?.movers(list, wp.x, wp.z, 60); // 放下的平交道柵欄桿
     if (pv?.body || P.knocked.size > 0 || P.rags.size > 0) {
       const near = [];
       for (const o of this.vehicles) {

@@ -712,8 +712,9 @@ export class Audio {
     b.s.playbackRate.setTargetAtTime(rate, t, 0.2);
   }
   // 火車鳴笛：電聯車的雙音笛，從 (x, z) 傳來
+  // 鳴笛：鐵道旁兩三條街內聽得到（src/entities/Trains.js）
   trainHorn(x, z) {
-    this.at(x, z, 420, () => {
+    this.at(x, z, 240, () => {
       for (const [f, d] of [
         [370, 0],
         [440, 0],

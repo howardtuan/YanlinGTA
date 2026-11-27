@@ -300,7 +300,25 @@ export class GameLoop {
           game.renderer.setPixelRatio(pr);
           game.post.setSize(innerWidth, innerHeight);
         }
+        // 火車經過鐵道旁：地面輕微震動，鏡頭只在這一幀畫的時候微晃，畫完放回去（src/entities/Trains.js shake）
+        const sh = game.state === 'play' ? game.trains?.shake || 0 : 0,
+          cp = game.camera.position;
+        let ox = 0,
+          oy = 0;
+        if (sh > 0.01) {
+          const t = game.time * 60;
+          ox = Math.sin(t * 1.7) * 0.012 * sh;
+          oy = Math.sin(t * 2.3 + 1) * 0.018 * sh;
+          cp.x += ox;
+          cp.y += oy;
+          game.camera.updateMatrixWorld();
+        }
         game.post.render(dt, { night: game.night, sunset: game.skySys.sunset });
+        if (ox || oy) {
+          cp.x -= ox;
+          cp.y -= oy;
+          game.camera.updateMatrixWorld();
+        }
       }
     }
     perf?.frameEnd(now);

@@ -17,6 +17,8 @@ const FENCE_D = 2.7; // 圍籬離外側軌道中心
 const FENCE_H = 1.8;
 const DOWN_T = 4.5; // 柵欄桿放下要幾秒
 const UP_T = 3.5;
+const GATE_SHUT = 0.85; // 柵欄桿放到這程度（幾乎水平）才擋人擋車
+const GATE_OFF = [1e9, 1e9, 1e9, 1e9, 0, 0]; // 升起時的碰撞段：移到地圖外
 
 // 折線的累積長度與取點
 export function polyline(pts) {
@@ -455,6 +457,10 @@ export function buildRailway(scene, world, data, { low = false } = {}) {
         hw,
         boomX: px,
         boomZ: pz,
+        boomY: py, // 柵欄機腳下的地面
+        boomDX: -rx, // 柵欄桿放下時從柵欄機伸出去的方向（橫過整條路）
+        boomDZ: -rz,
+        boomL: c.w + 0.45,
       });
     }
     c.lx = c.x;
@@ -606,7 +612,52 @@ export function buildRailway(scene, world, data, { low = false } = {}) {
         closed: () => c.warn || c.phase > 0.05,
       }))
     ),
+    // 柵欄桿放下時的碰撞：遊戲自己的碰撞（走路的人、一般車輛）加一段只擋腳在地面附近的牆，升起時移到遠處。
+    // 要在 build-physics 之後才加（src/core/Game.js），不然會被 src/physics/PhysWorld.js 做成永遠在的 Rapier 牆
+    gateCollision(coll) {
+      this._coll = coll;
+      for (const c of crossings)
+        for (const s of c.sides) {
+          s.seg = [
+            s.boomX,
+            s.boomZ,
+            s.boomX + s.boomDX * s.boomL,
+            s.boomZ + s.boomDZ * s.boomL,
+            s.boomY - 1.5,
+            s.boomY + 0.7, // 腳比柵欄桿還高（跳過去）就不擋
+          ];
+          s.si = coll.segs.length;
+          coll.addSegment(...s.seg);
+          coll.segs[s.si] = GATE_OFF;
+        }
+      this._syncGates();
+    },
+    _syncGates() {
+      const coll = this._coll;
+      if (!coll) return;
+      for (const c of crossings)
+        for (const s of c.sides) coll.segs[s.si] = c.phase > GATE_SHUT ? s.seg : GATE_OFF;
+    },
+    // 物理用的碰撞箱（src/physics/Physics.js movers）：擋住玩家開的車（有自己的 Rapier 車體）與被撞飛的東西
+    movers(list, x, z, r) {
+      for (const c of crossings) {
+        if (c.phase <= GATE_SHUT || Math.abs(c.x - x) > r || Math.abs(c.z - z) > r) continue;
+        for (const s of c.sides)
+          list.push({
+            key: s,
+            x: s.boomX + (s.boomDX * s.boomL) / 2,
+            y: s.boomY,
+            z: s.boomZ + (s.boomDZ * s.boomL) / 2,
+            yaw: Math.atan2(s.boomDX, s.boomDZ),
+            r: 0.08,
+            hl: s.boomL / 2,
+            cy: 0.5,
+            hh: 0.4,
+          });
+      }
+    },
     update(dt) {
+      this._syncGates();
       for (let i = 0; i < crossings.length; i++) {
         const c = crossings[i];
         c.t = c.warn ? c.t + dt : 0;

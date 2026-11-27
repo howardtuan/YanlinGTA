@@ -10,12 +10,11 @@
 import * as THREE from 'three';
 import { groundY } from '../world/Terrain.js';
 import { WEEKDAY, WEEKEND } from './TrainTimetable.js';
+import { CAR_L, HALF_W, ROOF, carGeometry, carMaterial } from './TrainModel.js';
 
 export const SPEED = 25; // m/s（90 km/h，內壢—中壢站間的行駛速度）
-const CAR_L = 19.6; // 車廂長
-const CAR_GAP = 0.5;
-const HALF_W = 1.45;
-const ROOF = 4.0; // 車頂離軌面
+const CAR_GAP = 0.5; // 車廂之間（貫通道各伸出 0.25 m 接在一起）
+const RAIL_TOP = 0.04; // 鋼軌頂離地面（src/world/MapBuilder.js 的鋼軌）
 const WARN_D = 175; // 車頭到達前約 7 秒開始響鈴、閃燈
 const CLEAR_D = 6;
 export const GAP_MIN = 30; // 同方向兩班之間至少隔幾分鐘（遊戲時間）才開
@@ -24,240 +23,9 @@ const NEILI = [1584.5, -1625.4]; // 內壢站（地圖座標，換算自經緯�
 const REF_S = 2560; // 班表換算的參考點：rail[0] 上的弧長（地圖中段，三個平交道之間）
 
 // ---------- 外觀 ----------
-// 每種塗裝一張 1024×512 貼圖：上半是車身側面，下半依序是駕駛室端、貫通道端、車頂、車底
-const LOOK = {
-  local: {
-    body: '#e8ebee',
-    band: '#1b2330',
-    stripes: [
-      ['#f0b81c', 0.6],
-      ['#1d4f9e', 0.42],
-    ],
-    doors: 3,
-    face: '#f0b81c',
-    faceLow: '#1d4f9e',
-  },
-  express: {
-    body: '#eef0f0',
-    band: '#202426',
-    stripes: [['#e0602a', 0.5]],
-    doors: 2,
-    face: '#eef0f0',
-    faceLow: '#202426',
-  },
-  chukuang: {
-    body: '#d8642c',
-    band: '#2a1e18',
-    stripes: [['#f2e2c0', 0.55]],
-    doors: 2,
-    face: '#d8642c',
-    faceLow: '#2a1e18',
-  },
-};
-
-function lookTextures(L) {
-  const cv = document.createElement('canvas'),
-    em = document.createElement('canvas');
-  cv.width = em.width = 1024;
-  cv.height = em.height = 512;
-  const g = cv.getContext('2d'),
-    e = em.getContext('2d');
-  e.fillStyle = '#000';
-  e.fillRect(0, 0, 1024, 512);
-  // --- 側面 (0,0)-(1024,256)：橫向 = 車長 19.6 m，縱向 = 車底 FLOOR 到車頂 ROOF ---
-  const H = 256,
-    yOf = (m) => H - ((m - 0.6) / (ROOF - 0.6)) * H; // 側面貼圖從軌面上 0.6 m 開始
-  g.fillStyle = L.body;
-  g.fillRect(0, 0, 1024, H);
-  // 窗帶
-  const w0 = yOf(2.95),
-    w1 = yOf(1.95);
-  g.fillStyle = L.band;
-  g.fillRect(0, w0, 1024, w1 - w0);
-  // 腰帶
-  let y = yOf(1.85);
-  for (const [c, h] of L.stripes) {
-    const hh = (h / (ROOF - 0.6)) * H * 0.5;
-    g.fillStyle = c;
-    g.fillRect(0, y, 1024, hh);
-    y += hh;
-  }
-  // 車門（深色框）與窗
-  const doors = [];
-  for (let i = 0; i < L.doors; i++) doors.push(((i + 0.5) / L.doors) * 1024);
-  for (const x of doors) {
-    g.fillStyle = '#9aa0a6';
-    g.fillRect(x - 36, yOf(3.05), 72, yOf(0.75) - yOf(3.05));
-    g.fillStyle = L.body;
-    g.fillRect(x - 32, yOf(3.0), 64, yOf(0.8) - yOf(3.0));
-    g.fillStyle = '#2b3138';
-    g.fillRect(x - 26, yOf(2.85), 22, yOf(1.9) - yOf(2.85));
-    g.fillRect(x + 4, yOf(2.85), 22, yOf(1.9) - yOf(2.85));
-    g.fillStyle = '#5a6068';
-    g.fillRect(x - 1, yOf(3.0), 2, yOf(0.8) - yOf(3.0));
-    e.fillStyle = '#ffe9c4';
-    e.fillRect(x - 26, yOf(2.85), 22, yOf(1.9) - yOf(2.85));
-    e.fillRect(x + 4, yOf(2.85), 22, yOf(1.9) - yOf(2.85));
-  }
-  // 窗（門之間）
-  g.fillStyle = '#3a4652';
-  for (let x = 20; x < 1004; x += 70) {
-    if (doors.some((d) => Math.abs(d - x - 28) < 70)) continue;
-    g.fillRect(x, yOf(2.85), 56, yOf(2.05) - yOf(2.85));
-    e.fillStyle = '#ffe9c4';
-    e.fillRect(x, yOf(2.85), 56, yOf(2.05) - yOf(2.85));
-  }
-  // 車底裙
-  g.fillStyle = '#2a2d31';
-  g.fillRect(0, yOf(1.05), 1024, H - yOf(1.05));
-  // --- 駕駛室端 (0,256)-(256,512) ---
-  const F = (x0) => {
-    g.fillStyle = L.face;
-    g.fillRect(x0, 256, 256, 256);
-    g.fillStyle = L.faceLow;
-    g.fillRect(x0, 256 + 176, 256, 40);
-    g.fillStyle = '#15191d';
-    g.fillRect(x0 + 20, 256 + 40, 216, 84); // 擋風玻璃
-    g.fillStyle = '#2a2d31';
-    g.fillRect(x0, 256 + 216, 256, 40);
-  };
-  F(0);
-  // 頭燈
-  for (const x of [40, 216]) {
-    g.fillStyle = '#fffbe8';
-    g.beginPath();
-    g.arc(x, 256 + 150, 12, 0, 7);
-    g.fill();
-    e.fillStyle = '#fff6d8';
-    e.beginPath();
-    e.arc(x, 256 + 150, 12, 0, 7);
-    e.fill();
-  }
-  // --- 貫通道端 (256,256)-(512,512) ---
-  g.fillStyle = L.body;
-  g.fillRect(256, 256, 256, 256);
-  g.fillStyle = '#3a3e44';
-  g.fillRect(256 + 88, 256 + 30, 80, 190);
-  g.fillStyle = '#2a2d31';
-  g.fillRect(256, 256 + 216, 256, 40);
-  // --- 車頂 (512,256)-(768,512) ---
-  g.fillStyle = '#8d9296';
-  g.fillRect(512, 256, 256, 256);
-  g.fillStyle = '#6f7478';
-  for (let x = 512; x < 768; x += 32) g.fillRect(x, 256, 3, 256);
-  // --- 車底、轉向架 (768,256)-(1024,512) ---
-  g.fillStyle = '#1f2124';
-  g.fillRect(768, 256, 256, 256);
-  const t = (c) => {
-    const tx = new THREE.CanvasTexture(c);
-    tx.colorSpace = THREE.SRGBColorSpace;
-    tx.anisotropy = 4;
-    return tx;
-  };
-  return { map: t(cv), em: t(em) };
-}
-
-// 一節車廂的幾何（本地：+z 往前、x 橫向、y 往上，原點在軌面中心）；cab：前端是駕駛室
-function carGeometry(cab) {
-  const P = [],
-    N = [],
-    U = [];
-  const R = (u0, v0, u1, v1) => [u0 / 1024, 1 - v1 / 512, u1 / 1024, 1 - v0 / 512]; // 像素 → uv
-  const quad = (a, b, c, d, uv, n) => {
-    const [u0, v0, u1, v1] = uv;
-    const UV = [
-      [u0, v0],
-      [u1, v0],
-      [u1, v1],
-      [u0, v1],
-    ];
-    for (const k of [0, 1, 2, 0, 2, 3]) {
-      P.push(...[a, b, c, d][k]);
-      N.push(...n);
-      U.push(...UV[k]);
-    }
-  };
-  const hl = CAR_L / 2,
-    w = HALF_W,
-    y0 = 0.6,
-    y1 = ROOF - 0.25,
-    y2 = ROOF;
-  const SIDE = R(0, 0, 1024, 256);
-  // 兩側
-  quad(
-    [w, y0, -hl],
-    [w, y0, hl],
-    [w, y1 + 0.25 * 0, hl],
-    [w, y1, -hl],
-    [SIDE[2], SIDE[1], SIDE[0], SIDE[3] - (0.25 / 3.4) * (SIDE[3] - SIDE[1])],
-    [1, 0, 0]
-  );
-  quad(
-    [-w, y0, hl],
-    [-w, y0, -hl],
-    [-w, y1, -hl],
-    [-w, y1, hl],
-    [SIDE[0], SIDE[1], SIDE[2], SIDE[3] - (0.25 / 3.4) * (SIDE[3] - SIDE[1])],
-    [-1, 0, 0]
-  );
-  // 車頂（兩片斜面＋平頂）
-  const ROOFUV = R(512, 256, 768, 512);
-  quad([w, y1, -hl], [w, y1, hl], [w - 0.35, y2, hl], [w - 0.35, y2, -hl], ROOFUV, [0.6, 0.8, 0]);
-  quad(
-    [-w + 0.35, y2, -hl],
-    [-w + 0.35, y2, hl],
-    [-w, y1, hl],
-    [-w, y1, -hl],
-    ROOFUV,
-    [-0.6, 0.8, 0]
-  );
-  quad(
-    [w - 0.35, y2, -hl],
-    [w - 0.35, y2, hl],
-    [-w + 0.35, y2, hl],
-    [-w + 0.35, y2, -hl],
-    ROOFUV,
-    [0, 1, 0]
-  );
-  // 兩端
-  const end = (z, s, uv) => {
-    const pts = [
-      [-w * s, y0, z],
-      [w * s, y0, z],
-      [w * s, y1, z],
-      [-w * s, y1, z],
-    ];
-    quad(...pts, uv, [0, 0, s]);
-    // 頂端的斜角
-    quad(
-      [-w * s, y1, z],
-      [w * s, y1, z],
-      [(w - 0.35) * s, y2, z],
-      [-(w - 0.35) * s, y2, z],
-      R(512, 256, 768, 300),
-      [0, 0, s]
-    );
-  };
-  end(hl, 1, cab ? R(0, 256, 256, 472) : R(256, 256, 512, 472));
-  end(-hl, -1, R(256, 256, 512, 472));
-  // 車底機器箱與轉向架
-  const UND = R(768, 256, 1024, 512);
-  const box = (cx, cy, cz, hx, hy, hz) => {
-    const v = (i, j, k) => [cx + hx * i, cy + hy * j, cz + hz * k];
-    quad(v(1, -1, -1), v(1, -1, 1), v(1, 1, 1), v(1, 1, -1), UND, [1, 0, 0]);
-    quad(v(-1, -1, 1), v(-1, -1, -1), v(-1, 1, -1), v(-1, 1, 1), UND, [-1, 0, 0]);
-    quad(v(1, -1, hz > 0 ? 1 : 1), v(-1, -1, 1), v(-1, 1, 1), v(1, 1, 1), UND, [0, 0, 1]);
-    quad(v(-1, -1, -1), v(1, -1, -1), v(1, 1, -1), v(-1, 1, -1), UND, [0, 0, -1]);
-  };
-  for (const z of [-hl + 2.6, hl - 2.6]) box(0, 0.45, z, 1.2, 0.35, 1.3); // 轉向架
-  box(0, 0.75, 0, 1.15, 0.25, 4.5); // 機器箱
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2));
-  g.computeBoundingSphere();
-  return g;
-}
+// 車廂模型與塗裝在 src/entities/TrainModel.js：每種塗裝一份材質，車頭／車尾／中間車／有集電弓的中間車各一份幾何
+const TRAIN_RUN_D = 170; // 行駛聲傳得到的距離：鐵道旁第一排住家（10～40 m）聽得清楚，再一兩條街就聽不到
+const SHAKE_D = 45; // 這距離內感覺得到地面輕微震動（鏡頭微晃）
 
 // ---------- 班表 ----------
 // 每班：在地圖參考點的時刻 tRef（遊戲分鐘）、方向 dir（+1 南下）、外觀、節數
@@ -321,28 +89,22 @@ export class Trains {
     this.list = schedule(weekend ? WEEKEND : WEEKDAY, this.sN, this.sZ);
     this.low = low;
     this.mats = {};
-    this.geo = { cab: carGeometry(true), mid: carGeometry(false) };
+    this.geo = {};
+    this.shake = 0; // 0…1：玩家附近有火車經過時地面的震動（src/core/GameLoop.js 讓鏡頭微晃）
     this.active = new Map(); // 班次 → { t, cars: [mesh], s }
     this.cars = []; // 這幀在地圖上的車廂 { mesh, x, z, y, heading, speed, dirX, dirZ }
     this.night = 0;
     this._hornT = {};
   }
   _mat(look) {
-    if (!this.mats[look]) {
-      const t = lookTextures(LOOK[look]);
-      this.mats[look] = new THREE.MeshStandardMaterial({
-        map: t.map,
-        emissiveMap: t.em,
-        emissive: '#ffffff',
-        emissiveIntensity: 0.15,
-        roughness: 0.45,
-        metalness: 0.25,
-      });
-    }
+    if (!this.mats[look]) this.mats[look] = carMaterial(look);
     return this.mats[look];
   }
-  _mesh(look, cab) {
-    const m = new THREE.Mesh(cab ? this.geo.cab : this.geo.mid, this._mat(look));
+  // kind：head／tail／mid／midP（src/entities/TrainModel.js carGeometry）
+  _mesh(look, kind) {
+    const k = `${look}:${kind}`;
+    if (!this.geo[k]) this.geo[k] = carGeometry(look, kind);
+    const m = new THREE.Mesh(this.geo[k], this._mat(look));
     m.castShadow = !this.low;
     m.receiveShadow = false;
     m.matrixAutoUpdate = false;
@@ -377,8 +139,8 @@ export class Trains {
       if (!a) {
         a = { t, cars: [] };
         for (let i = 0; i < t.cars; i++) {
-          const cab = i === 0 || i === t.cars - 1;
-          a.cars.push(this._mesh(t.look, cab));
+          const kind = i === 0 ? 'head' : i === t.cars - 1 ? 'tail' : i % 4 === 2 ? 'midP' : 'mid';
+          a.cars.push(this._mesh(t.look, kind));
         }
         this.active.set(t, a);
       }
@@ -393,7 +155,7 @@ export class Trains {
           b = tk.at(this._toTrack(tk, sb));
         const x = (f.x + b.x) / 2,
           z = (f.z + b.z) / 2;
-        const y = (groundY(f.x, f.z) + groundY(b.x, b.z)) / 2 + 0.12;
+        const y = (groundY(f.x, f.z) + groundY(b.x, b.z)) / 2 + RAIL_TOP;
         let hx = f.x - b.x,
           hz = f.z - b.z;
         const hl = Math.hypot(hx, hz) || 1;
@@ -427,7 +189,7 @@ export class Trains {
         this.active.delete(t);
       }
     // 夜裡車窗亮
-    for (const k in this.mats) this.mats[k].emissiveIntensity = 0.12 + this.night * 0.55;
+    for (const k in this.mats) this.mats[k].emissiveIntensity = 0.06 + this.night * 0.9;
     this._crossings(dt, vis, ctx.audio);
     this._sound(dt, ctx.audio);
   }
@@ -461,6 +223,7 @@ export class Trains {
   }
   // 行駛聲：離聽者最近那節車廂的距離，循環錄音（assets/sfx/train_run.m4a）；平交道警鈴（crossing_bell）
   _sound(dt, audio) {
+    this.shake = 0;
     if (!audio || !audio.ctx) return;
     const Lp = audio.L;
     let best = null;
@@ -473,8 +236,9 @@ export class Trains {
         d = Math.hypot(Lp.x - qx, Lp.z - qz);
       if (!best || d < best.d) best = { d, qx, qz, c };
     }
+    this.shake = best ? Math.pow(Math.max(0, 1 - best.d / SHAKE_D), 2) : 0;
     if (best) {
-      const v = Math.pow(Math.max(0, 1 - best.d / 320), 1.8) * 1.1;
+      const v = Math.pow(Math.max(0, 1 - best.d / TRAIN_RUN_D), 2.2) * 1.1;
       const dx = best.qx - Lp.x,
         dz = best.qz - Lp.z,
         d = best.d || 1;
@@ -489,7 +253,7 @@ export class Trains {
       const dx = c.x - Lp.x,
         dz = c.z - Lp.z,
         d = Math.hypot(dx, dz);
-      const v = on ? Math.pow(Math.max(0, 1 - d / 160), 1.6) * 0.7 : 0;
+      const v = on ? Math.pow(Math.max(0, 1 - d / 110), 1.6) * 0.7 : 0;
       const pan = d < 2 ? 0 : (-dx * Math.cos(Lp.yaw) + dz * Math.sin(Lp.yaw)) / d;
       audio.loopBufAt(`xbell${i}`, 'crossing_bell', v, dt, pan * 0.8);
     });

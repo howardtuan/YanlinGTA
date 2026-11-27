@@ -7,6 +7,13 @@ import { ParkedScooters } from '../../src/core/ParkedScooters.js';
 import { VehicleSpawner } from '../../src/core/VehicleSpawner.js';
 import { Vehicle } from '../../src/entities/Vehicles.js';
 import {
+  pickScooterVariant,
+  getVariantInstancedAssets,
+  instancedGroupOf,
+  buildScooterVariant,
+  SCOOTER_TYPES,
+} from '../../src/entities/ScooterVariants.js';
+import {
   solveVehicleImpact,
   solvePersonImpact,
   solvePersonPersonImpact,
@@ -86,6 +93,7 @@ function makeMockGame(opts = {}) {
           pos: new THREE.Vector3(x, 0, z),
           heading: yaw,
           color: opt?.color,
+          variant: opt?.variant,
           mesh: new THREE.Group(),
         };
         game.vehicles.push(v);
@@ -98,12 +106,57 @@ function makeMockGame(opts = {}) {
 }
 
 describe('ParkedScooters (Option B: instanced render + collision + domino knock + claim)', () => {
-  it('merges Furniture + street scooters into one InstancedMesh and deduplicates overlaps', () => {
+  it('merges Furniture + street scooters into per-type InstancedMeshes and deduplicates overlaps', () => {
     const { game } = makeMockGame();
     const ps = new ParkedScooters(game);
     expect(ps.slots.length).toBe(3); // 2 deduplicated motoSpots + 1 street scooter
     expect(ps.im).toBeInstanceOf(THREE.InstancedMesh);
-    expect(ps.im.count).toBe(3);
+    const ims = new Set(ps.scooterSlots.map((s) => s.chunk.paintIm));
+    expect([...ims].reduce((n, im) => n + im.count, 0)).toBe(3);
+    // each mesh holds one body-type group, each slot sits at its own index
+    for (const s of ps.scooterSlots) {
+      expect(s.chunk.paintIm.userData.group).toBe(instancedGroupOf(s.type));
+      expect(s.chunk.paintIm.geometry.attributes.iAcc.count).toBe(s.chunk.paintIm.count);
+    }
+  });
+
+  it('picks body types, accessories and colours from the slot position only (no shared rnd draws)', () => {
+    const a = pickScooterVariant(123.4, -56.7, '#b8282a');
+    expect(pickScooterVariant(123.4, -56.7, '#2c5aa0')).toEqual(a); // the Furniture colour draw does not matter
+    const counts = new Array(SCOOTER_TYPES).fill(0);
+    let delivery = 0,
+      helmets = 0;
+    for (let i = 0; i < 4000; i++) {
+      const v = pickScooterVariant((i % 80) * 0.8, Math.floor(i / 80) * 2.3, '#e8e8e4');
+      counts[v.type]++;
+      if (v.acc & 6) delivery++;
+      if (v.acc & 24) helmets++;
+      expect(v.color).toMatch(/^#[0-9a-f]{6}$/);
+    }
+    // every type shows up; the plain commuter is the most common, big manual bikes / maxi scooters are rare
+    expect(counts.every((c) => c > 100)).toBe(true);
+    expect(counts[0]).toBe(Math.max(...counts));
+    expect(counts[0] / 4000).toBeGreaterThan(0.24);
+    expect(counts[6] / 4000).toBeLessThan(0.11);
+    expect(delivery / 4000).toBeGreaterThan(0.02);
+    expect(delivery / 4000).toBeLessThan(0.1);
+    expect(helmets / 4000).toBeGreaterThan(0.08);
+    // hand-placed bikes keep their builder's colour
+    expect(pickScooterVariant(5, 5, '#123456', true).color).toBe('#123456');
+  });
+
+  it('keeps every body type inside the parked footprint, standing on its two wheels', () => {
+    for (let t = 1; t < SCOOTER_TYPES; t++) {
+      const g = buildScooterVariant(t, '#888888', 2); // with a delivery box (a hanging helmet sticks out sideways)
+      g.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(g);
+      expect(box.min.z).toBeGreaterThan(-1.25); // a delivery box overhangs the tail, as on real bikes
+      expect(box.max.z).toBeLessThan(1.0);
+      expect(box.max.x - box.min.x).toBeLessThan(0.8);
+      expect(box.min.y).toBeGreaterThan(-0.02);
+      expect(box.min.y).toBeLessThan(0.02); // wheels touch the ground
+      expect(g.userData.wheels.length).toBe(2);
+    }
   });
 
   it('pushes walking player out of static parked scooters', () => {
@@ -162,11 +215,13 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     const ps = new ParkedScooters(game);
     const found = ps.nearestSpot(10.5, 10.5, 0, 3.2);
     expect(found).not.toBeNull();
-    expect(found.spot.color).toBe('#b8282a');
+    expect(found.spot.color).toBe(pickScooterVariant(10, 10, '#b8282a').color);
 
     const veh = ps.claimAsVehicle(found.spot);
     expect(veh).not.toBeNull();
-    expect(veh.color).toBe('#b8282a');
+    expect(veh.color).toBe(found.spot.color);
+    // the ridden bike keeps the parked body type and accessories
+    expect(veh.variant).toEqual({ type: found.spot.type, acc: found.spot.acc });
     expect(addedVehicles.length).toBe(1);
     expect(found.spot.state).toBe('taken');
     expect(ps.nearestSpot(10.5, 10.5, 0, 3.2)).toBeNull();
@@ -203,7 +258,7 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     const ps = new ParkedScooters(game);
     // Scooters render with real Scooters.js paint + trim InstancedMeshes
     expect(ps.scooterPaintIm).toBeInstanceOf(THREE.InstancedMesh);
-    expect(ps.scooterTrimIm).toBeInstanceOf(THREE.InstancedMesh);
+    expect(ps.scooterTrimIm).toBeNull(); // paint + trim share one draw (paintMask vertex attribute)
     // Cars render with real Vehicles.js buildCar paint + trim InstancedMeshes
     expect(ps.carPaintIm).toBeInstanceOf(THREE.InstancedMesh);
     expect(ps.carTrimIm).toBeInstanceOf(THREE.InstancedMesh);
@@ -252,9 +307,12 @@ describe('ParkedScooters (Option B: instanced render + collision + domino knock 
     game.quality = 'low';
     const ps = new ParkedScooters(game);
     const triCount = (g) => (g.index ? g.index.count : g.attributes.position.count) / 3;
-    const scooterTris = triCount(ps.scooterAssets.paintGeo) + triCount(ps.scooterAssets.trimGeo);
+    // one geometry per body-type group (common types alone, rare ones in pairs), accessories included
+    for (let gi = 0; gi < 5; gi++) {
+      const tris = triCount(getVariantInstancedAssets(gi).geo);
+      expect(tris).toBeLessThan(gi < 3 ? 1400 : 2600);
+    }
     const carTris = triCount(ps.carAssets.paintGeo) + triCount(ps.carAssets.trimGeo);
-    expect(scooterTris).toBeLessThan(1200);
     expect(carTris).toBeLessThan(600);
     // Distant 120m chunk is frustum-culled & hidden when far from player on mobile/low quality
     expect(ps.chunks.every((c) => c.paintIm.frustumCulled && c.paintIm.boundingSphere)).toBe(true);

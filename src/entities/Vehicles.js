@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { buildScooter as buildCommuter } from './Scooters.js';
+import { buildScooterVariant, addScooterAccessories, TYPE_NAMES } from './ScooterVariants.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { scaledCanvas, markShared } from '../graphics/GpuMemLifecycle.js';
 
@@ -2930,7 +2931,15 @@ export class Vehicle {
         label: B.name,
       });
     } else if (kind === 'scooter') {
-      this.mesh = opt.jet ? buildJetSL() : buildCommuter(opt.color || pick(SCOOTER_COLORS)); // traffic / parked: detailed commuter (src/entities/Scooters.js)
+      // traffic / parked: detailed commuter (src/entities/Scooters.js); a roadside bike ridden away keeps its
+      // body type and accessories (opt.variant from src/core/ParkedScooters.js, src/entities/ScooterVariants.js)
+      const vt = opt.jet ? 0 : opt.variant?.type || 0,
+        vacc = opt.jet ? 0 : opt.variant?.acc || 0;
+      const col = opt.color || pick(SCOOTER_COLORS);
+      if (opt.jet) this.mesh = buildJetSL();
+      else if (vt > 0) this.mesh = buildScooterVariant(vt, col, vacc);
+      else this.mesh = addScooterAccessories(buildCommuter(col), 0, vacc);
+      if (vt > 0 || vacc) this.variant = { type: vt, acc: vacc };
       Object.assign(this, {
         wb: 1.25,
         radius: 0.75,
@@ -2943,7 +2952,7 @@ export class Vehicle {
         grip: 9,
         seat: opt.jet ? new THREE.Vector3(0, 0.08, -0.3) : new THREE.Vector3(0, 0.09, -0.29),
         exitSide: 1.0,
-        label: opt.jet ? '我的 JAT SM' : '機車',
+        label: opt.jet ? '我的 JAT SM' : TYPE_NAMES[vt],
         jet: !!opt.jet,
       });
     } else if (SUPERCARS[opt.model]) {

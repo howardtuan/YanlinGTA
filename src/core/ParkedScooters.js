@@ -3,7 +3,9 @@
 //   and hand-built street/lot parked cars (interiors.cars) into InstancedMeshes using the EXACT same
 //   3D models as the drivable Vehicles (Scooters.js buildScooter + Vehicles.js buildCar) so mounting
 //   never swaps the look.
-// - Total draw calls across the entire map: 2 for all scooters (paint + trim) + 2 for all cars (paint + trim).
+// - Scooters come in seven body types with accessories (src/entities/ScooterVariants.js, picked from a hash of
+//   the slot position): one InstancedMesh per (240 m chunk, type group), paint + trim in one draw; cars draw paint +
+//   trim per 120 m chunk.
 // - Provides lightweight spatial-grid foot collision & vehicle collision (blocking slow creep, solid bounce
 //   against heavy parked cars, Rapier physics.knock + domino chain knocks for scooters & hard car hits,
 //   baking final fallen/resting pose back into the InstancedMeshes with zero permanent draw-call growth).
@@ -12,6 +14,14 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { sameLevel, getParkedCarAssets, CRASH_THROW } from '../entities/Vehicles.js';
 import { getParkedScooterAssets } from '../entities/Scooters.js';
+import {
+  pickScooterVariant,
+  getVariantInstancedAssets,
+  instancedGroupOf,
+  instanceMask,
+  buildScooterVariant,
+  addScooterAccessories,
+} from '../entities/ScooterVariants.js';
 import { knockPeopleWith } from '../physics/DebrisPeople.js';
 import {
   vehicleSpec,
@@ -23,6 +33,8 @@ import {
 
 const CELL = 10;
 const CHUNK = 120;
+// scooters: one mesh per type per chunk, so their chunks are larger to keep the draw count where it was
+const SCOOTER_CHUNK = 240;
 const SCOOTER_MASS = 110;
 const SCOOTER_HL = 0.78;
 const SCOOTER_HW = 0.34;
@@ -274,6 +286,74 @@ export class ParkedScooters {
     return [firstPaint, firstTrim];
   }
 
+  // scooters: bucket by (SCOOTER_CHUNK, body type group); each mesh carries paint + trim + accessories in one
+  // geometry, the per-instance iAcc bitmask showing only that slot's accessories
+  _buildScooterInstanced(list) {
+    const buckets = new Map();
+    for (const s of list) {
+      const key = `${Math.floor(s.x / SCOOTER_CHUNK)},${Math.floor(s.z / SCOOTER_CHUNK)},${instancedGroupOf(s.type)}`;
+      let b = buckets.get(key);
+      if (!b) buckets.set(key, (b = []));
+      b.push(s);
+    }
+    let first = null;
+    for (const items of buckets.values()) {
+      const { geo, mat } = getVariantInstancedAssets(instancedGroupOf(items[0].type));
+      const im = new THREE.InstancedMesh(geo, mat, items.length);
+      const acc = new Float32Array(items.length);
+      let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity,
+        minZ = Infinity,
+        maxZ = -Infinity;
+      for (let i = 0; i < items.length; i++) {
+        const s = items[i];
+        s.imIdx = i;
+        acc[i] = instanceMask(s.type, s.acc);
+        _E.set(0, s.yaw, s.tilt, 'YXZ');
+        _Q.setFromEuler(_E);
+        _P.set(s.x, s.y, s.z);
+        _M.compose(_P, _Q, _S);
+        im.setMatrixAt(i, _M);
+        im.setColorAt(i, _C.set(s.color));
+        minX = Math.min(minX, s.x);
+        maxX = Math.max(maxX, s.x);
+        minY = Math.min(minY, s.y);
+        maxY = Math.max(maxY, s.y);
+        minZ = Math.min(minZ, s.z);
+        maxZ = Math.max(maxZ, s.z);
+      }
+      // a geometry attribute on the per-mesh geometry would be shared by every mesh of this type, so each
+      // mesh gets a shallow geometry copy that shares the vertex buffers and adds its own iAcc
+      const g = new THREE.BufferGeometry();
+      for (const k of Object.keys(geo.attributes)) g.setAttribute(k, geo.attributes[k]);
+      g.setAttribute('iAcc', new THREE.InstancedBufferAttribute(acc, 1));
+      g.boundingSphere = geo.boundingSphere;
+      im.geometry = g;
+      im.userData.group = instancedGroupOf(items[0].type);
+      const midX = (minX + maxX) * 0.5,
+        midZ = (minZ + maxZ) * 0.5;
+      const radius =
+        Math.hypot((maxX - minX) * 0.5, (maxY - minY) * 0.5 + 1.2, (maxZ - minZ) * 0.5) + 4;
+      im.instanceMatrix.needsUpdate = true;
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      im.castShadow = false;
+      im.receiveShadow = true;
+      im.frustumCulled = true;
+      im.boundingSphere = new THREE.Sphere(
+        new THREE.Vector3(midX, (minY + maxY) * 0.5 + 0.9, midZ),
+        radius
+      );
+      this.game.scene?.add(im);
+      const chunk = { paintIm: im, trimIm: null, midX, midZ, radius };
+      for (const s of items) s.chunk = chunk;
+      this.chunks.push(chunk);
+      if (!first) first = im;
+    }
+    return first;
+  }
+
   _build() {
     const g = this.game;
     const rawScooters = [];
@@ -285,6 +365,7 @@ export class ParkedScooters {
         color: m[3] || '#2a2a2c',
         tilt: m[4] ?? 0.07,
         y: m[5],
+        keep: false, // Furniture.js colours are a random palette draw: the body type picks its own colour
       });
     }
     for (const s of g.interiors?.scooters || []) {
@@ -295,6 +376,7 @@ export class ParkedScooters {
         color: s[3] || '#2a2a30',
         tilt: (rawScooters.length % 2 ? 1 : -1) * 0.06,
         y: undefined,
+        keep: !!s[3], // hand-placed bikes keep the colour their builder chose (e.g. mostly black / grey sheds)
       });
     }
 
@@ -355,6 +437,12 @@ export class ParkedScooters {
           cx: 0,
           cz: 0,
         };
+        if (!isCar) {
+          const v = pickScooterVariant(item.x, item.z, item.color, item.keep);
+          slot.type = v.type;
+          slot.acc = v.acc;
+          slot.color = v.color;
+        }
         slot.physKey = {
           parkedSlot: slot,
           label: isCar ? '路邊汽車' : '路邊機車',
@@ -372,10 +460,8 @@ export class ParkedScooters {
 
     if (this.scooterSlots.length) {
       this.scooterAssets = getParkedScooterAssets();
-      [this.scooterPaintIm, this.scooterTrimIm] = this._buildChunkedInstanced(
-        this.scooterSlots,
-        this.scooterAssets
-      );
+      this.scooterPaintIm = this._buildScooterInstanced(this.scooterSlots);
+      this.scooterTrimIm = null;
       this.im = this.scooterPaintIm;
     }
     if (this.carSlots.length) {
@@ -462,11 +548,14 @@ export class ParkedScooters {
   }
 
   _makeDebrisMesh(slot) {
+    if (slot.kind !== 'car' && slot.type > 0)
+      return buildScooterVariant(slot.type, slot.color, slot.acc);
     const assets = slot.kind === 'car' ? this.carAssets : this.scooterAssets;
     if (!assets?.paintGeo) return null;
     const grp = new THREE.Group();
     grp.add(new THREE.Mesh(assets.paintGeo, this._debrisPaintMat(slot.kind, slot.color)));
     if (assets.trimGeo) grp.add(new THREE.Mesh(assets.trimGeo, assets.trimMat));
+    if (slot.kind !== 'car') addScooterAccessories(grp, 0, slot.acc);
     return grp;
   }
 
@@ -609,7 +698,9 @@ export class ParkedScooters {
       spot.z,
       spot.yaw,
       Math.random,
-      { color: spot.color }
+      spot.kind === 'car'
+        ? { color: spot.color }
+        : { color: spot.color, variant: { type: spot.type || 0, acc: spot.acc || 0 } }
     );
     v.fallen = false;
     this.claimed.push(v);

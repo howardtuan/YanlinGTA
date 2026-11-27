@@ -10,13 +10,14 @@
 import * as THREE from 'three';
 import { groundY } from '../world/Terrain.js';
 import { WEEKDAY, WEEKEND } from './TrainTimetable.js';
-import { CAR_L, HALF_W, ROOF, carGeometry, carMaterial } from './TrainModel.js';
+import { CAR_L, HALF_W, ROOF, LOOK, carGeometry, carMaterial, cargoKind } from './TrainModel.js';
 
 export const SPEED = 25; // m/s（90 km/h，內壢—中壢站間的行駛速度）
 const CAR_GAP = 0.5; // 車廂之間（貫通道各伸出 0.25 m 接在一起）
 const RAIL_TOP = 0.04; // 鋼軌頂離地面（src/world/MapBuilder.js 的鋼軌）
 const WARN_D = 175; // 車頭到達前約 7 秒開始響鈴、閃燈
 const CLEAR_D = 6;
+export const FREIGHT_PER_DAY = 4; // 每天幾班換成貨物列車
 export const GAP_MIN = 17; // 同方向兩班之間至少隔幾分鐘（遊戲時間，現實 68 秒）才開：平日約 98 班、週六約 96 班（全部的一半）
 const FAR = 600; // 離玩家這麼遠的車廂不畫
 const NEILI = [1584.5, -1625.4]; // 內壢站（地圖座標，換算自經緯度）
@@ -29,7 +30,8 @@ const SHAKE_D = 45; // 這距離內感覺得到地面輕微震動（鏡頭微晃
 
 // ---------- 班表 ----------
 // 每班：在地圖參考點的時刻 tRef（遊戲分鐘）、方向 dir（+1 南下）、外觀、節數
-export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN) {
+// day（例如 20261127）：當天隨機挑 FREIGHT_PER_DAY 班改成貨物列車（貨櫃或軍運），同一天每次都挑一樣的；省略就不換
+export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN, day = null) {
   const out = [];
   for (const [tN, tZ, no, look, cars] of rows) {
     const k = (REF_S - sNeili) / (sZhongli - sNeili);
@@ -46,6 +48,20 @@ export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN) {
       last = t.tRef;
     }
   }
+  // 貨物列車：臺鐵開放資料的班表沒有貨運班次，所以每天從會開的班次裡隨機挑幾班換成貨櫃列車或軍運列車
+  // （時刻不變；節數改成貨物列車的節數，下面的追撞間隔照新節數算）
+  if (day !== null) {
+    let r = day % 2147483647 || 1;
+    const rnd = () => (r = (r * 48271) % 2147483647) / 2147483647;
+    const pool = [...kept].sort((a, b) => a.tRef - b.tRef);
+    for (let n = 0; n < FREIGHT_PER_DAY && pool.length; n++) {
+      const t = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+      const mil = rnd() < 0.3;
+      t.look = mil ? 'military' : 'freight';
+      t.cars = mil ? 10 : 13;
+      t.seed = Math.floor(rnd() * 1000);
+    }
+  }
   // 同方向前後兩班太近（追撞）：後一班往後挪到至少隔一列車長加 80 m
   for (const dir of [1, -1]) {
     const L = kept.filter((t) => t.dir === dir).sort((a, b) => a.tRef - b.tRef);
@@ -59,7 +75,8 @@ export function schedule(rows, sNeili, sZhongli, gap = GAP_MIN) {
 
 export class Trains {
   // railway: src/world/Railway.js buildRailway() 的結果
-  constructor(scene, railway, { weekend = false, low = false } = {}) {
+  // day：今天的日期（20261127 這種數字），決定今天哪幾班是貨物列車
+  constructor(scene, railway, { weekend = false, low = false, day = null } = {}) {
     this.scene = scene;
     this.rw = railway;
     const [t0, t1] = railway.tracks;
@@ -86,7 +103,7 @@ export class Trains {
         this.sLo = Math.min(this.sLo, s);
         this.sHi = Math.max(this.sHi, s);
       }
-    this.list = schedule(weekend ? WEEKEND : WEEKDAY, this.sN, this.sZ);
+    this.list = schedule(weekend ? WEEKEND : WEEKDAY, this.sN, this.sZ, GAP_MIN, day);
     this.low = low;
     this.mats = {};
     this.geo = {};
@@ -139,8 +156,19 @@ export class Trains {
       if (!a) {
         a = { t, cars: [] };
         for (let i = 0; i < t.cars; i++) {
-          const kind = i === 0 ? 'head' : i === t.cars - 1 ? 'tail' : i % 4 === 2 ? 'midP' : 'mid';
-          a.cars.push(this._mesh(t.look, kind));
+          const last = i === t.cars - 1;
+          const kind = LOOK[t.look].cargo
+            ? cargoKind(t.look, i, last, t.seed || 0)
+            : i === 0
+              ? 'head'
+              : last
+                ? 'tail'
+                : i % 4 === 2
+                  ? 'midP'
+                  : 'mid';
+          const m = this._mesh(t.look, kind);
+          m.userData.tail = kind === 'tail'; // 客車最後一節的駕駛室朝後；貨物列車最後一節不轉
+          a.cars.push(m);
         }
         this.active.set(t, a);
       }
@@ -164,7 +192,7 @@ export class Trains {
         const heading = Math.atan2(hx, hz);
         m.position.set(x, y, z);
         // 最後一節的駕駛室朝後
-        m.rotation.set(0, i === t.cars - 1 && t.cars > 1 ? heading + Math.PI : heading, 0);
+        m.rotation.set(0, m.userData.tail ? heading + Math.PI : heading, 0);
         m.updateMatrix();
         // 遠在霧裡的不畫（ctx.focus：玩家位置）
         m.visible = !F || (Math.abs(x - F.x) < FAR && Math.abs(z - F.z) < FAR);

@@ -43,13 +43,19 @@ export class Walker {
     this.ctrl.setSlideEnabled(true);
     this.ctrl.disableAutostep?.();
     this.ctrl.disableSnapToGround?.();
-    this.ctrl.setApplyImpulsesToDynamicBodies(false);
+    // the only dynamic bodies it can touch are the shop-front crates (below): it shoves them with your weight
+    this.ctrl.setApplyImpulsesToDynamicBodies(true);
+    this.ctrl.setCharacterMass?.(70);
     this.col = W.createCollider(
       R.ColliderDesc.capsule(HALF, CR).setCollisionGroups(0).setTranslation(0, -1000, 0)
     );
     const tags = P.tags || {};
-    this.isWall = (c) => !!(tags.walls?.has(c.handle) || tags.trunks?.has(c.handle));
-    this.groups = ((G.CHAR & 0xffff) << 16) | (G.WORLD & 0xffff);
+    // walls, trunks, and the loose crates in front of the shop rows (src/world/WorldProps.js spawnWorldCrates): you
+    // push one ahead of you and stop at one that is jammed against a wall, instead of walking into it (#302).
+    // Cones and barriers stay out: your physics stand-in kicks those (src/core/Game.js _physMovers)
+    this.isWall = (c) =>
+      !!(tags.walls?.has(c.handle) || tags.trunks?.has(c.handle) || P.ownerOf(c)?.key?.crate);
+    this.groups = ((G.CHAR & 0xffff) << 16) | ((G.WORLD | G.PROP) & 0xffff);
     this.out = { x: 0, y: 0, z: 0 };
   }
   // move pos (the feet; pos.y is their height) by (mx, mz), sliding along walls: pos.x / pos.z are updated

@@ -249,6 +249,10 @@ graph TD
 - **架構優勢**：採用 Rust 編譯的 `@dimforge/rapier3d-compat` WASM 模組，提供極致穩定的連續碰撞檢測（CCD）與剛體計算。
 - **機車懸吊物理 (`src/physics/VehPhysics.js`)**：
   - 模擬 SYM JET SL 的車重、轉向幾何（Caster Angle）、傾角回正力矩與輪胎抓地力曲線。
+- **可撞飛的街道道具 (`src/world/WorldProps.js`)**：
+  - 三角錐（`spawnWorldCones`）與街屋門口的小箱子（`spawnWorldCrates`）都是休眠中的 Rapier 剛體，離玩家 150 m 外自動停用。
+  - 街屋（`finishRow`）裡站在地上、在立面前方、0.35～1.3 m 高、邊長 0.15～1.3 m、站得穩（高不超過最窄邊 3 倍）、上面沒有疊別的零件、沒有碰撞的純色小箱體（貨箱、紙箱、冰桶，`Kit.js` 的 `looseBox`）會自動收進 `interiors.crates`，全部用一個 InstancedMesh 畫；不想讓某個箱子變成道具就在 `k.box(…, { col: false, loose: false })` 加上 `loose: false`。
+  - 走路時角色控制器（`src/entities/Walker.js`）把這些箱子當障礙物：推得動就邊推邊走，貼牆推不動就停下（#302）。
 
 ### 2. Rust WASM 圖形計算核心 (`tools/wasm-kernels/`)
 - **應用場景**：遊戲啟動時需程序化生成校園柏油路面、人行道花崗岩、操場 PU 跑道等數十張高解析度貼圖。

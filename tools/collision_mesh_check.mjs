@@ -15,6 +15,7 @@
 //   --chrome=<path>    本機 Chrome（沒給 --cdp 時用）
 //   --min=<格數>       少於這麼多格（每格 0.0625 m²）的群不列，預設 8
 //   --props            連實例化道具也算進「看得到卻穿得過」
+//   --low              改抓腰部以下的量體（離地 0.45～0.7 m 都有東西、水平 ≥ 0.3 m：箱子、貨架、冰櫃）
 //   --out=<檔>         Markdown 報告（預設印到終端機）
 //   --json=<檔>        原始結果
 //   遠景剪影（skyline）、地面、會動的車與人不算。
@@ -161,13 +162,14 @@ export function pageScan(opts) {
       nz = ux * vy - uy * vx,
       nl = Math.hypot(nx, ny, nz);
     if (!(nl > 1e-9) || Math.abs(ny) / nl > 0.5) return; // 地板、桌面、屋頂
-    if (ylo > g0 + LO || yhi < g0 + HI) return; // 沒有整段擋住身體（矮花台、窗台以上的招牌）
+    // 沒有整段擋住身體（矮花台、窗台以上的招牌）；--low：腰部以下的量體（箱子、貨架、冰櫃，離地 0.45～0.7 m 都有東西）
+    if (opts.low ? ylo > g0 + 0.45 || yhi < g0 + 0.7 : ylo > g0 + LO || yhi < g0 + HI) return;
     const hl = Math.max(
       Math.hypot(A.x - Bv.x, A.z - Bv.z),
       Math.hypot(A.x - Cv.x, A.z - Cv.z),
       Math.hypot(Bv.x - Cv.x, Bv.z - Cv.z)
     );
-    if (hl < 1) return; // 竹子、欄杆立柱、燈桿
+    if (hl < (opts.low ? 0.3 : 1)) return; // 竹子、欄杆立柱、燈桿
     let p = clipY([{ ...A }, { ...Bv }, { ...Cv }], g0 + LO, true);
     if (p.length < 3) return;
     p = clipY(p, g0 + HI, false);
@@ -539,7 +541,7 @@ async function main() {
     }
     console.error(`標題畫面：${((Date.now() - t0) / 1000).toFixed(0)} 秒，開始比對`);
     const res = await page.eval(
-      `(${pageScan.toString()})(${JSON.stringify({ min: o.min, props: !!o.props })})`,
+      `(${pageScan.toString()})(${JSON.stringify({ min: o.min, props: !!o.props, low: !!o.low })})`,
       {
         timeoutMs: 900e3,
       }

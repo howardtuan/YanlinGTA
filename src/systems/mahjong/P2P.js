@@ -16,13 +16,16 @@ import { normalizeLook } from '../OutfitData.js';
 const APP_ID = 'yanlin-gta-mahjong-v1';
 const peerIdOf = (ctx) => (typeof ctx === 'string' ? ctx : ctx?.peerId || null);
 
+// 觀戰表情：畫面上是彥霖貼圖（assets/mahjong/react-*.webp，家裡 GPU 的 Qwen-Image 畫的）。
+// 連線時照舊只傳 text（舊版客端也看得懂），收到後用 reactSticker 換回貼圖
 export const SPECTATE_REACTS = [
-  { id: 'clap', text: '👏 好牌！' },
-  { id: 'shock', text: '😱 放槍了' },
-  { id: 'fire', text: '🔥 聽牌！' },
-  { id: 'lol', text: '😂 笑死' },
-  { id: 'pray', text: '🙏 自摸！' },
-];
+  { id: 'clap', text: '👏 好牌！', label: '好牌！' },
+  { id: 'shock', text: '😱 放槍了', label: '放槍了' },
+  { id: 'fire', text: '🔥 聽牌！', label: '聽牌！' },
+  { id: 'lol', text: '😂 笑死', label: '笑死' },
+  { id: 'pray', text: '🙏 自摸！', label: '自摸！' },
+].map((r) => ({ ...r, img: `assets/mahjong/react-${r.id}.webp` }));
+export const reactSticker = (text) => SPECTATE_REACTS.find((r) => r.text === text) || null;
 
 // 封裝 trystero@0.27 MessageAction（{ send(data, { target }), onMessage(cb(data, ctx)) }）
 function bindAction(room, name) {

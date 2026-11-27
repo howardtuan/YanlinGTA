@@ -6,7 +6,7 @@ export function dual(kb, pad) {
 }
 
 // ---- 手機觸控：把「按 M」「<kbd>J</kbd>」這種鍵盤說法換成畫面上的觸控按鈕 ----
-// 手機沒有鍵盤，玩家看到的是右下角那排觸控鈕（index.html #touchBtns：F 上下車、E 互動、📄 發傳單、⤒ 跳、» 衝刺、
+// 手機沒有鍵盤，玩家看到的是右下角那排觸控鈕（index.html #touchBtns：F 上下車、E 互動/手機、📄 發傳單、⤒ 跳、» 衝刺、
 // 🗺 地圖、📯 喇叭、⚙ 設定）和 S.U.N.D.A.Y 自己的圓圈按鈕。touchHints() 在 body.touch 時改寫提示文字（HTML 或純文字都可以），
 // 由 src/ui/HUD.js（任務目標、互動提示、toast、對話）與 src/systems/minigames/Sunday.js 呼叫；桌機原樣不動。
 // 鍵 → 觸控鈕上的字（null：手機上沒有對應的鍵，整句改寫見 PHRASES）

@@ -32,7 +32,7 @@
 - 劍玉睡覺時也能瞄他「看看高架床上的劍玉（睡著了）」，不再被品漢堡蓋過去。
 
 ### 0b. 手機觸控版的操作提示 (`src/core/KeyHints.js` 的 `touchHints` / `TOUCH_KEYS`)
-- 手機（`body.touch`，`src/core/Input.js`）沒有鍵盤，玩家看到的是右下角的觸控鈕（F 上下車、E 互動、📄 發傳單、⤒、»、🗺 地圖、📯、⚙）和 S.U.N.D.A.Y 自己的圓圈。所以提示文字在手機上不能寫「按 M」「按 J」。
+- 手機（`body.touch`，`src/core/Input.js`）沒有鍵盤，玩家看到的是右下角的觸控鈕（F 上下車、E 互動/手機（附近沒東西可互動時打開手機）、📄 發傳單、⤒、»、🗺 地圖、📯、⚙）和 S.U.N.D.A.Y 自己的圓圈。所以提示文字在手機上不能寫「按 M」「按 J」。
 - `touchHints(text)` 在觸控時把鍵盤說法換成觸控鈕：`<kbd>M</kbd>`／「按 M」→「點 🗺 地圖」，J →「點 S.U.N.D.A.Y」，滑鼠左鍵 → 📄，Esc → ⚙，E／F 只把「按」改成「點」；整句改寫：「按 E 或 Enter 繼續」→「點一下畫面繼續」，「按 Esc 關掉電腦」→「點右下角 ⏻ 離開電腦」，並拿掉已經重複的「（手機按 📄）」。桌機完全不變。
 - 套用的地方：`src/ui/HUD.js` 的任務目標、互動提示（按 E …）、操作說明框、toast、大字提示、對話框（`[[M|View]]` 先換成鍵名再改寫），以及 S.U.N.D.A.Y 的提示（`src/systems/minigames/Sunday.js`）。新寫提示照常用 `<kbd>鍵</kbd>` 或「按 X」就好；手機上沒有對應觸控鈕的說法，請加進 `TOUCH_KEYS` 或 `PHRASES`。
 - 固定在 HTML 的提示用 `touch-only`／`nt-only`（非觸控才顯示）兩個 class 分開寫：對話框底下的「點一下畫面繼續」（`index.html` `#dlgHint`）、手機 App 底下的「點 ‹ 返回 · 在主畫面點下方 Home 鍵收起手機」（`src/ui/phone/Phone.js`，手機打開時會蓋住 E 鈕，所以不寫「點 E」）。S.U.N.D.A.Y 的 J 鍵標籤和「, . 切換・J 收起」在觸控時隱藏；小遊戲面板按鈕上的快捷鍵（`<kbd>Enter</kbd> 出餐`）也隱藏，直接點按鈕。

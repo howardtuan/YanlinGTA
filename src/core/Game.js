@@ -120,6 +120,9 @@ import { PerfHud } from './PerfHud.js';
 import { Benchmark } from '../systems/Benchmark.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
 import { ParkedScooters } from './ParkedScooters.js';
+import { tennisP } from '../world/Tennis.js';
+
+const TENNIS_MID = tennisP(18, 7); // the middle of the tennis courts (src/world/Tennis.js)
 
 const $ = (id) => document.getElementById(id);
 const onClick = (id, fn) => {
@@ -914,6 +917,21 @@ class Game {
     due.forEach((f) => f());
   }
 
+  // 網球場（src/systems/minigames/tennis/）: its own chunk, loaded the first time you come within 160 m of the courts
+  _tennisTick(dt, inp) {
+    if (!this.tennis) {
+      const p = this.player.pos;
+      if (this._tennisLoading || Math.hypot(p.x - TENNIS_MID[0], p.z - TENNIS_MID[1]) > 160) return;
+      this._tennisLoading = true;
+      import('../systems/minigames/tennis/TennisCourts.js')
+        .then((m) => {
+          this.tennis = new m.TennisCourts(this);
+        })
+        .catch((e) => console.warn('tennis', e));
+      return;
+    }
+    this.tennis.update(dt, inp);
+  }
   addVotes(n, msg) {
     this.votes = Math.max(0, this.votes + n);
     this.hud.setVotes(this.votes);
@@ -1421,6 +1439,8 @@ class Game {
       inp.pressed.clear();
     } else if (inp.hit('Escape')) {
       if (hud.bigOpen) this.closeMap();
+      // Esc in a tennis match leaves it
+      else if (this.tennis?.playing) this.tennis.quit('你離開了比賽');
       // Esc on the race results = 繼續, not the pause menu
       else if (this.race.state === 'results') this.race.close(false);
       // Esc while choosing your bike for the race = 取消
@@ -1629,6 +1649,7 @@ class Game {
       );
     } else {
       pl.updateFoot(dt, inp, this.rig.yaw, w.collision, this.interiors);
+      this._tennisTick(dt, inp); // after your walk animation: the racket arm goes on top of it
       if (pl.sfx) {
         const k = pl.sfx;
         pl.sfx = null;
@@ -1731,7 +1752,8 @@ class Game {
       }
       hud.setSpeed(null);
       this.headlight.intensity = 0;
-      if (!pl.frozen && !pl.seat && !pl.tumble && inp.hit('Mouse0')) this._flyer();
+      if (!pl.frozen && !pl.seat && !pl.tumble && !this.tennis?.playing && inp.hit('Mouse0'))
+        this._flyer();
       if (this.concerts?.player && inp.hit('KeyU')) this.concerts.toggleMute();
       if (!pl.frozen && inp.hit('KeyG')) {
         pl.setPose('peace', 1.6);
@@ -1775,6 +1797,7 @@ class Game {
     this._trainTick(dt);
     this.peds.update(dt, { pos: fw, vehicle: pl.vehicle }, w.collision);
     this.race.update(dt);
+    if (pl.vehicle) this._tennisTick(dt, inp);
     const inZn = !pl.vehicle ? this.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y) : null;
     if (!this._showerSpot && this.interiors.lixing?.bathW) {
       const L = this.interiors.lixing,

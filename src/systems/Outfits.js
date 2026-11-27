@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { createCharacter } from '../entities/Character.js';
 import { YANLIN_LOOK } from '../entities/Player.js';
 import { dressCrew } from './minigames/McUniform.js';
+import { buildHat } from '../entities/Hats.js';
 import { normalizeLook, wornParts, characterOpts, hatById } from './OutfitData.js';
 
 let M = null;
@@ -20,15 +21,9 @@ function mats() {
     white: tone('#f6f6f4', { roughness: 0.6 }),
     tie: tone('#1b2233', { roughness: 0.5 }),
     scarf: tone('#e07b39', { roughness: 0.75 }),
-    hats: new Map(),
   };
   return M;
 }
-const hatMat = (c) => {
-  const m = mats().hats;
-  if (!m.has(c)) m.set(c, tone(c, { roughness: 0.85, side: THREE.DoubleSide }));
-  return m.get(c);
-};
 
 // ------------------------------------------------------------------ textures
 const texCache = new Map();
@@ -99,59 +94,6 @@ const decal = (tex, w, h) =>
     new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.2, roughness: 0.5 })
   );
 
-// ------------------------------------------------------------------ hats (head-pivot frame; the hair cap of
-// src/entities/Character.js is a sphere r 0.127 scaled y 1.1 round y 0.108, so its top is near y 0.25)
-function buildHat(kind, color) {
-  const g = new THREE.Group(),
-    m = hatMat(color);
-  if (kind === 'cap') {
-    // a baseball cap big enough to cover 彥霖's bowl cut (the crown of the hair reaches y 0.26, its sides r 0.142),
-    // the brim sticking out over the bangs, a button on top
-    const crown = new THREE.Mesh(
-      new THREE.SphereGeometry(0.15, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      m
-    );
-    crown.scale.set(1.02, 0.86, 1.08);
-    crown.position.set(0, 0.14, -0.004);
-    const brim = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 0.014, 24, 1, false, -Math.PI / 2, Math.PI),
-      m
-    );
-    brim.scale.set(1, 1, 1.1);
-    brim.position.set(0, 0.145, 0.1);
-    brim.rotation.x = 0.3;
-    const btn = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), m);
-    btn.position.set(0, 0.268, -0.004);
-    g.add(crown, brim, btn);
-  } else if (kind === 'bucket') {
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.138, 0.1, 24, 1, false), m);
-    crown.position.y = 0.2;
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.05, 28, 1, true), m);
-    brim.position.y = 0.135;
-    const band = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.139, 0.139, 0.022, 24, 1, true),
-      hatMat('#5a4a32')
-    );
-    band.position.y = 0.162;
-    g.add(crown, brim, band);
-    g.rotation.x = -0.08;
-  } else if (kind === 'beanie') {
-    const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(0.15, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      m
-    );
-    dome.scale.set(1.02, 1.12, 1.08);
-    dome.position.set(0, 0.11, -0.006);
-    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.157, 0.16, 0.05, 24, 1, true), m);
-    cuff.scale.set(1, 1, 1.06);
-    cuff.position.set(0, 0.125, -0.006);
-    cuff.rotation.x = -0.12;
-    const pom = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), hatMat('#f2f0ea'));
-    pom.position.set(0, 0.3, -0.01);
-    g.add(dome, cuff, pom);
-  }
-  return g;
-}
 // 機長帽：深藍帽頂（前面略高）、黑色帽帶、亮黑帽簷、金色帽繩和機翼徽章
 function pilotCap() {
   const m = mats(),

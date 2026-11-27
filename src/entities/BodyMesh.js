@@ -23,10 +23,10 @@ function sweep(rings0, M, out) {
   });
   const base = out.pos.length / 3,
     v = new THREE.Vector3();
-  const push = (x, y, z, r, sa = 0, ca = 1) => {
+  const push = (x, y, z, r, sa = 0, ca = 1, ring = false) => {
     v.set(x, y, z).applyMatrix4(M);
     out.pos.push(v.x, v.y, v.z);
-    out.ref.push(r.col);
+    out.ref.push(r.colAt && ring ? r.colAt(sa, ca) : r.col); // colAt: a colour per vertex round the ring
     out.ao.push(r.ao ? r.ao(sa, ca) : 1);
     const w = r.w.slice(0, 4);
     while (w.length < 4) w.push([0, 0]);
@@ -42,7 +42,7 @@ function sweep(rings0, M, out) {
       const a = (i / N) * Math.PI * 2,
         sa = Math.sin(a),
         ca = Math.cos(a);
-      push((r.cx || 0) + r.rx * p(sa), r.y, (r.cz || 0) + r.rz * p(ca), r, sa, ca);
+      push((r.cx || 0) + r.rx * p(sa), r.y, (r.cz || 0) + r.rz * p(ca), r, sa, ca, true);
     }
   }
   for (let j = 0; j + 1 < rings.length; j++)
@@ -146,10 +146,36 @@ export function buildSkinnedBody(ch, o) {
     bottom = C(o.bottom),
     lower = C(o.lower || o.bottom),
     skin = C(o.skin),
-    sock = C(o.sock || '#fafafa');
+    sock = C(o.sock || '#fafafa'),
+    shirt2 = C(o.pattern?.color || o.shirt), // the pattern's second colour (o.pattern)
+    pants2 = C(o.bottomPattern?.color || o.bottom); // the trousers' second colour (o.bottomPattern)
+  // o.bottomPattern { kind, color }: track (a stripe down the outer side of each leg), cuff (trousers turned up at the
+  // ankle, the inside showing in color), ripped (jeans torn open at the knees), camo (woodland camouflage, trousers only)
+  const bk = o.bottomPattern?.kind;
+  // o.pattern { kind, color, w }: the shirt isn't one plain colour —
+  //   stripes: horizontal bands w apart (default 0.045 m) from the neckline down, sleeves too
+  //   block: a wide band across the chest; ringer: the collar and the sleeve cuffs; raglan: both sleeves
+  const pk = o.pattern?.kind,
+    sw = o.pattern?.w || 0.045;
+  const stripeOdd = (d) => Math.floor(d / sw + 1e-6) % 2 === 1;
+  const torsoCol = (y) =>
+    (pk === 'stripes' && stripeOdd(1.52 - y)) ||
+    (pk === 'block' && y >= 1.18 && y < 1.34) ||
+    (pk === 'ringer' && y >= 1.515)
+      ? shirt2
+      : shirt;
+  const torsoCuts =
+    pk === 'stripes'
+      ? Array.from({ length: 16 }, (_, k) => 1.52 - (k + 1) * sw).filter((y) => y > 0.89)
+      : pk === 'block'
+        ? [1.18, 1.34]
+        : pk === 'ringer'
+          ? [1.515]
+          : [];
   const out = { pos: [], ref: [], ao: [], si: [], sw: [], idx: [] };
   const f = o.female ? 1 : 0,
-    bw = o.build || 1; // build: 1 = default, >1 broader
+    bw = o.build || 1, // build: 1 = default, >1 broader
+    gk = o.girth || 1; // girth (from the BMI): thicker limbs and a deeper torso, 1 = as before
   // baked ambient occlusion (vertex shade): armpits, crotch, inner arms and thighs, backs of the knees
   const bump = (y, c, wd) => Math.exp(-(((y - c) / wd) ** 2));
   const bel = o.belly || 0;
@@ -161,6 +187,16 @@ export function buildSkinnedBody(ch, o) {
 
   // ---- torso + neck (root frame) ----
   const prof = torsoProfile(f);
+  // the pattern's edges need rings of their own (sweep() makes the colour switch sharp there)
+  for (const yc of torsoCuts) {
+    if (prof.some((q) => Math.abs(q[0] - yc) < 0.004)) continue;
+    const j = prof.findIndex((q) => q[0] > yc);
+    if (j <= 0) continue;
+    const a = prof[j - 1],
+      b = prof[j],
+      t = (yc - a[0]) / (b[0] - a[0]);
+    prof.splice(j, 0, [yc, ...[1, 2, 3].map((k) => a[k] + (b[k] - a[k]) * t)]);
+  }
   const tw = [
     [1.6, [[B.head, 1]]],
     [
@@ -176,7 +212,7 @@ export function buildSkinnedBody(ch, o) {
   ];
   const rings = [];
   for (const [y, rx, rz, cz] of prof) {
-    const col = y >= 1.54 ? skin : y >= teeHem ? shirt : bottom;
+    const col = y >= 1.54 ? skin : y >= teeHem ? torsoCol(y + 1e-4) : bottom;
     const ao = (sa, ca) =>
       1 -
       0.26 * bump(y, 1.37, 0.07) * Math.abs(sa) ** 6 -
@@ -185,7 +221,7 @@ export function buildSkinnedBody(ch, o) {
     rings.push({
       y,
       rx: (rx + 0.035 * tum(y) + 0.04 * drape(y)) * bw,
-      rz: (rz + 0.06 * tum(y) + 0.02 * drape(y)) * (0.5 + bw / 2),
+      rz: (rz + 0.06 * tum(y) + 0.02 * drape(y)) * (0.5 + bw / 2) * (y < 1.54 ? gk : 1),
       cz: cz + 0.035 * tum(y),
       e: y < 1.54 ? 2.5 : 2,
       w: wAt(tw, y),
@@ -196,18 +232,18 @@ export function buildSkinnedBody(ch, o) {
       rings.push({
         y: 0.872,
         rx: (rx + 0.042) * bw,
-        rz: (rz + 0.022) * (0.5 + bw / 2),
+        rz: (rz + 0.022) * (0.5 + bw / 2) * gk,
         cz,
         e: 2.5,
         w: wAt(tw, 0.872),
-        col: shirt,
+        col: torsoCol(0.872),
       }); // the hem's edge (below it the colour snaps to the trousers, sweep())
     if (y === 0.925 && !lt)
       rings.push(
         {
           y: 0.94,
           rx: (rx + 0.004 + 0.035 * tum(0.94)) * bw,
-          rz: (rz + 0.004 + 0.06 * tum(0.94)) * (0.5 + bw / 2),
+          rz: (rz + 0.004 + 0.06 * tum(0.94)) * (0.5 + bw / 2) * gk,
           cz: cz + 0.035 * tum(0.94),
           e: 2.5,
           w: wAt(tw, 0.94),
@@ -216,11 +252,11 @@ export function buildSkinnedBody(ch, o) {
         {
           y: 0.95,
           rx: (rx + 0.014 + 0.035 * tum(0.95)) * bw,
-          rz: (rz + 0.012 + 0.06 * tum(0.95)) * (0.5 + bw / 2),
+          rz: (rz + 0.012 + 0.06 * tum(0.95)) * (0.5 + bw / 2) * gk,
           cz: cz + 0.035 * tum(0.95),
           e: 2.5,
           w: wAt(tw, 0.95),
-          col: shirt,
+          col: torsoCol(0.95),
         }
       ); // tee hem over the waistband
   }
@@ -268,8 +304,29 @@ export function buildSkinnedBody(ch, o) {
       [0.045, 0.038, 1],
       [0.062, 0.016, 1],
     ];
+    // pattern edges on the sleeve (shoulder-pivot frame): stripes, or the ringer's cuff band
+    const cuffY = o.longSleeve ? -0.43 : -0.15;
+    const armCuts =
+      pk === 'stripes'
+        ? Array.from({ length: 12 }, (_, k) => 0.04 - (k + 1) * sw).filter((y) => y > -0.46)
+        : pk === 'ringer'
+          ? [cuffY]
+          : [];
+    for (const yc of armCuts) {
+      if (prof.some((q) => Math.abs(q[0] - yc) < 0.004)) continue;
+      const j = prof.findIndex((q) => q[0] > yc);
+      if (j <= 0) continue;
+      const qa = prof[j - 1],
+        qb = prof[j],
+        t = (yc - qa[0]) / (qb[0] - qa[0]);
+      prof.splice(j, 0, [yc, qa[1] + (qb[1] - qa[1]) * t, qa[2] && qb[2] ? 1 : 0]);
+    }
+    const sleeveCol = (y) =>
+      pk === 'raglan' || (pk === 'stripes' && stripeOdd(0.04 - y)) || (pk === 'ringer' && y < cuffY)
+        ? shirt2
+        : shirt;
     const side = a.s; // the inner side of the arm faces the torso (-side in x)
-    const ak = o.arm || 1;
+    const ak = (o.arm || 1) * gk;
     const kA = (y) => 1 + (ak - 1) * Math.min(1, Math.max(0.15, (y + 0.48) / 0.26)); // thicker upper arm, wrist nearly as is
     // o.longSleeve (jackets): the sleeve runs down to a cuff at the wrist and sits a little off the arm
     // o.longTee: wide sleeves down to just above the elbow
@@ -281,7 +338,7 @@ export function buildSkinnedBody(ch, o) {
       rx: (rr * kA(y) * (1 - 0.1 * f) + off(y, sl)) * bw,
       rz: rr * kA(y) * (1 - 0.1 * f) + off(y, sl),
       w: wAt(keys, y),
-      col: sleeve(y, sl) ? shirt : skin,
+      col: sleeve(y, sl) ? sleeveCol(y + 1e-4) : skin,
       ao: (sa) => 1 - (0.1 + 0.22 * bump(y, -0.05, 0.07)) * Math.max(0, -side * sa) ** 2,
     }));
     r[0].cap = 0.012;
@@ -344,21 +401,42 @@ export function buildSkinnedBody(ch, o) {
       for (const y of [split, split + 0.008, split - 0.004]) rr.push({ y, r: 0.064 });
       rr.sort((a, b) => a.y - b.y);
     }
+    const cuff = bk === 'cuff' && o.pants && !o.wide && split == null;
+    if (cuff) {
+      rr = rr.filter((q) => Math.abs(q.y - -0.775) > 0.012);
+      rr.push({ y: -0.775, r: 0.047 }, { y: -0.77, r: 0.047 });
+      rr.sort((a, b) => a.y - b.y);
+    }
     const pantsCol = (y) =>
-      o.pants
-        ? y > -0.845 || o.wide
-          ? split != null && y < split - 0.001
-            ? lower
-            : bottom
-          : sock
-        : y > (hem ?? -0.3) - (hem ? 0.0005 : 0)
-          ? bottom
-          : y < -0.775
-            ? sock
-            : skin;
+      cuff && y > -0.845 && y <= -0.775
+        ? pants2
+        : o.pants
+          ? y > -0.845 || o.wide
+            ? split != null && y < split - 0.001
+              ? lower
+              : bottom
+            : sock
+          : y > (hem ?? -0.3) - (hem ? 0.0005 : 0)
+            ? bottom
+            : y < -0.775
+              ? sock
+              : skin;
+    const cuffOff = (y) => (cuff && y > -0.845 && y <= -0.775 ? 0.008 : 0); // the turned-up cuff sits off the leg
+    // per-vertex colours on a ring of the trouser leg (sa > 0 is +x in the hip frame; side = l.s points outwards)
+    const legColAt = (y, c, side) => {
+      const cloth = c === bottom || c === lower;
+      if (bk === 'track' && cloth && y < 0.03) return (sa) => (sa * side > 0.88 ? pants2 : c);
+      if (bk === 'ripped' && o.pants && !o.wide && cloth && y < -0.4 && y > -0.46)
+        return (sa, ca) => (ca > 0.8 ? skin : c);
+      return null;
+    };
     const ringsL = [];
     for (const { y, r: r0 } of rr) {
-      const r = r0 * (1 + 0.22 * bel * Math.min(1, Math.max(0, (y + 0.6) / 0.5))); // belly: fuller thighs
+      // belly: fuller thighs; girth: the whole leg thicker, most at the thigh, least at the ankle
+      const r =
+        r0 *
+        (1 + 0.22 * bel * Math.min(1, Math.max(0, (y + 0.6) / 0.5))) *
+        (1 + (gk - 1) * Math.min(1, Math.max(0.35, (y + 0.85) / 0.6)));
       const loose = o.wide
         ? y > -0.05
           ? 0
@@ -383,10 +461,11 @@ export function buildSkinnedBody(ch, o) {
           0.16 * Math.max(0, -ca) ** 2 * bump(y, -0.43, 0.06);
       ringsL.push({
         y,
-        rx: (r + loose) * (1 + 0.04 * f) * bw,
-        rz: r + loose,
+        rx: (r + loose + cuffOff(y)) * (1 + 0.04 * f) * bw,
+        rz: r + loose + cuffOff(y),
         w: wAt(keys, y),
         col: pantsCol(y),
+        colAt: legColAt(y, pantsCol(y), side),
         ao,
       });
       if (!hem && !o.pants && y === -0.28)
@@ -417,9 +496,11 @@ export function buildSkinnedBody(ch, o) {
   const col = g.attributes.color; // THREE.Color already holds linear values, as vertex colours expect
   // o.camo (YeeMing's army uniform, src/entities/npcs/Yeeming.js): the shirt and trousers become woodland camouflage — blotches from
   // a smooth noise of the bind-pose vertex position, in four colours (the vertex colours blend into soft patches)
-  const CAMO = o.camo
-    ? ['#56643a', '#3b4528', '#7d6c47', '#2b2b22'].map((c) => new THREE.Color(c))
-    : null;
+  const camoBottom = bk === 'camo';
+  const CAMO =
+    o.camo || camoBottom
+      ? ['#56643a', '#3b4528', '#7d6c47', '#2b2b22'].map((c) => new THREE.Color(c))
+      : null;
   const camoAt = (i) => {
     const x = out.pos[i * 3],
       y = out.pos[i * 3 + 1],
@@ -448,7 +529,11 @@ export function buildSkinnedBody(ch, o) {
       let c = over.get(out.ref[i]) || out.ref[i];
       const k = out.ao[i];
       if (washed && !over.has(shirt) && out.ref[i] === shirt) c = washAt(i);
-      if (CAMO && !over.has(out.ref[i]) && (out.ref[i] === shirt || out.ref[i] === bottom))
+      if (
+        CAMO &&
+        !over.has(out.ref[i]) &&
+        ((out.ref[i] === shirt && !camoBottom) || out.ref[i] === bottom)
+      )
         c = camoAt(i);
       col.setXYZ(i, c.r * k, c.g * k, c.b * k);
     }
@@ -458,12 +543,22 @@ export function buildSkinnedBody(ch, o) {
   const mesh = new THREE.SkinnedMesh(g, MAT);
   mesh.castShadow = true;
   root.add(mesh);
+  // bind with the mesh's real world matrix (it includes root.scale, the height): with a stale identity matrix the
+  // skinned torso, arms and legs ignored the height and only the rigid head, hands and shoes were scaled — a tall
+  // person got a long neck, a short one a head sunk into the shoulders
+  mesh.updateMatrixWorld(true);
   mesh.bind(new THREE.Skeleton(bones), mesh.matrixWorld);
   // recolour (e.g. a crew shirt): map = { shirt, bottom }; {} restores the original clothes
   mesh.userData.recolor = (map) => {
     const over = new Map();
-    if (map.shirt) over.set(shirt, new THREE.Color(map.shirt));
-    if (map.bottom) over.set(bottom, new THREE.Color(map.bottom));
+    if (map.shirt) {
+      over.set(shirt, new THREE.Color(map.shirt));
+      over.set(shirt2, new THREE.Color(map.shirt)); // a uniform covers the pattern too
+    }
+    if (map.bottom) {
+      over.set(bottom, new THREE.Color(map.bottom));
+      over.set(pants2, new THREE.Color(map.bottom)); // a uniform covers the pattern too
+    }
     paint(over);
   };
   return mesh;

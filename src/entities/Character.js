@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { buildSkinnedBody } from './BodyMesh.js';
+import { buildSkinnedBody, torsoProfile } from './BodyMesh.js';
+import { buildHat } from './Hats.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { sampleAnthropometry, BASE_HEIGHT, RIDER_MASS } from '../physics/ImpactPhysics.js';
 
@@ -303,6 +304,123 @@ function curvedPrint(w, h, rx, rz, back, segs = 18, ox = 0) {
   return g;
 }
 
+// chest prints on the passers-by's tees (opts.print { kind, color }): made-up graphics, no real brands
+const PRINT_TEX = new Map();
+export const PRINT_KINDS = ['cycu', 'sun', 'star', 'wave', 'smile', 'num', 'zh', 'mount'];
+function printTexture(kind, color) {
+  const k = `${kind}|${color}`;
+  if (PRINT_TEX.has(k)) return PRINT_TEX.get(k);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const g = cv.getContext('2d');
+  g.fillStyle = g.strokeStyle = color;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineWidth = 14;
+  g.lineCap = g.lineJoin = 'round';
+  if (kind === 'cycu') {
+    g.font = '900 92px Arial,sans-serif';
+    g.fillText('CYCU', 128, 110);
+    g.fillRect(40, 168, 176, 12);
+  } else if (kind === 'sun') {
+    g.beginPath();
+    g.arc(128, 128, 52, 0, Math.PI * 2);
+    g.fill();
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(128 + Math.cos(a) * 72, 128 + Math.sin(a) * 72);
+      g.lineTo(128 + Math.cos(a) * 108, 128 + Math.sin(a) * 108);
+      g.stroke();
+    }
+  } else if (kind === 'star') {
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i / 10) * Math.PI * 2,
+        r = i % 2 ? 44 : 110;
+      g.lineTo(128 + Math.cos(a) * r, 132 + Math.sin(a) * r);
+    }
+    g.closePath();
+    g.fill();
+  } else if (kind === 'wave') {
+    for (const y of [92, 132, 172]) {
+      g.beginPath();
+      for (let x = 24; x <= 232; x += 4) g.lineTo(x, y + Math.sin((x / 208) * Math.PI * 4) * 16);
+      g.stroke();
+    }
+  } else if (kind === 'smile') {
+    g.beginPath();
+    g.arc(128, 128, 100, 0, Math.PI * 2);
+    g.stroke();
+    g.beginPath();
+    g.arc(92, 104, 13, 0, Math.PI * 2);
+    g.arc(164, 104, 13, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.arc(128, 128, 60, 0.2 * Math.PI, 0.8 * Math.PI);
+    g.stroke();
+  } else if (kind === 'num') {
+    g.font = '900 170px Arial,sans-serif';
+    g.fillText(String(10 + ((color.charCodeAt(2) * 7) % 89)), 128, 136);
+  } else if (kind === 'zh') {
+    // I ❤ 彥霖: the heart always red
+    g.font = '900 84px Arial,sans-serif';
+    g.fillText('I', 84, 76);
+    g.fillStyle = '#e0303c';
+    g.beginPath();
+    g.moveTo(160, 112);
+    g.bezierCurveTo(108, 78, 118, 30, 160, 48);
+    g.bezierCurveTo(202, 30, 212, 78, 160, 112);
+    g.fill();
+    g.fillStyle = color;
+    g.font = '900 88px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+    g.fillText('彥霖', 128, 182);
+  } else {
+    // mount: two peaks over a horizon line
+    g.beginPath();
+    g.moveTo(24, 196);
+    g.lineTo(100, 64);
+    g.lineTo(146, 140);
+    g.lineTo(176, 100);
+    g.lineTo(232, 196);
+    g.closePath();
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  PRINT_TEX.set(k, t);
+  return t;
+}
+
+// a 0.21 m square print centred at y 1.34 (root frame), every vertex on the front of the skinned torso + 4 mm:
+// the same rings as buildSkinnedBody (src/entities/BodyMesh.js) — superellipse e 2.5, widths by build, depths by
+// (0.5 + build / 2) * girth, the tummy pushing out round y 1.12
+function chestPrint(prof, bw, gk, bel) {
+  const S = 0.21,
+    g = new THREE.PlaneGeometry(S, S, 12, 8),
+    P = g.attributes.position;
+  const ring = (y) => {
+    let j = prof.findIndex((q) => q[0] > y);
+    if (j <= 0) j = 1;
+    const a = prof[j - 1],
+      b = prof[j],
+      t = Math.min(1, Math.max(0, (y - a[0]) / (b[0] - a[0])));
+    const [rx, rz, cz] = [1, 2, 3].map((k) => a[k] + (b[k] - a[k]) * t);
+    const tum = bel * Math.exp(-(((y - 1.12) / 0.17) ** 2));
+    return [(rx + 0.035 * tum) * bw, (rz + 0.06 * tum) * (0.5 + bw / 2) * gk, cz + 0.035 * tum];
+  };
+  for (let i = 0; i < P.count; i++) {
+    const y = 1.34 + P.getY(i),
+      [rx, rz, cz] = ring(y),
+      sa = Math.min(0.999, Math.abs(P.getX(i)) / rx) ** 1.25,
+      ca = Math.sqrt(1 - sa * sa);
+    P.setY(i, y);
+    P.setZ(i, cz + rz * ca ** 0.8 + 0.004);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 // ---------- wolf cut (瑞哲, src/entities/npcs/Ruizhe.js) ----------
 // Locks of hair: each a tapered cone from its root b to its tip t (head frame), flattened against the head (the flat side
 // faces out from the middle of the head). One merged geometry per list.
@@ -588,6 +706,7 @@ function faceGeo(jaw, chin = 0) {
 // are merged into one mesh per material — the small detail parts (hidden at distance) apart from the rest.
 // About 15–25 pieces become 5–8: fewer draw calls for every person on screen. skip: parts that must stay
 // separate (the eyelids). Only plain materials (no texture) are merged; anything else stays as it is.
+const HAT_PROTO = new Map();
 const _rel = new THREE.Matrix4(),
   _inv = new THREE.Matrix4();
 function mergeHead(head, skip) {
@@ -670,18 +789,27 @@ export function createCharacter(opts = {}) {
     anthro.weight = opts.weight;
     anthro.bmi = opts.weight / (anthro.height * anthro.height);
   }
-  const bmiBuild = Math.max(0.86, Math.min(1.18, Math.sqrt(anthro.bmi / 22.0)));
+  // body shape from the BMI (sampled people only; a named NPC's opts.build / opts.belly is its own fixed look):
+  // fat = -1 at BMI 16 … 0 at 22 … 1.6 at ~31.6. It widens the torso, deepens it, thickens arms and legs, rounds the
+  // tummy and fills out the cheeks, so a thin and a heavy person of the same height read differently at a glance.
+  const fat = Math.max(-1, Math.min(1.6, (anthro.bmi - 22) / 6));
+  const auto = !hero && opts.build == null;
   const fv = hero
     ? { eye: 1, gap: 1, jaw: 1, nose: 1, build: 1.04 }
     : {
         eye: 0.9 + hash01(id, 1) * 0.24,
         gap: 0.94 + hash01(id, 2) * 0.12,
-        jaw: 0.92 + hash01(id, 3) * 0.16,
+        jaw: (0.92 + hash01(id, 3) * 0.16) * (1 + 0.07 * fat),
         nose: 0.85 + hash01(id, 4) * 0.35,
-        build: (female ? 0.94 : 0.98) * bmiBuild,
+        build: (female ? 0.95 : 1) * (1 + 0.15 * fat),
       };
   if (opts.build) fv.build = opts.build;
   if (opts.jaw) fv.jaw = opts.jaw;
+  const girth = auto ? 1 + 0.16 * fat : 1; // limb thickness and torso depth on top of the width (BodyMesh)
+  const belly = opts.belly ?? (auto ? Math.max(0, Math.min(1, (anthro.bmi - 24.5) / 7)) : 0);
+  // shoulders and hips move out with a broader body so the arms don't sink into the chest
+  const shX = 0.235 + (auto ? 0.2 * (fv.build - 1) : 0),
+    hpX = 0.1 + (auto ? 0.05 * (fv.build * girth - 1) : 0);
 
   const root = new THREE.Group();
   root.scale.setScalar(anthro.heightScale);
@@ -857,6 +985,22 @@ export function createCharacter(opts = {}) {
     backP.position.set(0, 1.3 + y0, -0.009);
     torso.add(backP);
   }
+  if (opts.print && sk && !opts.jacket) {
+    // a print on the chest, laid on the skinned torso's own surface (torsoProfile with the build, girth and tummy)
+    const bw = fv.build,
+      key = `pr${female ? 1 : 0}|${bw.toFixed(3)}|${girth.toFixed(3)}|${belly.toFixed(2)}`;
+    const pm = new THREE.Mesh(
+      geo(key, () => chestPrint(torsoProfile(female ? 1 : 0), bw, girth, belly)),
+      new THREE.MeshStandardMaterial({
+        map: printTexture(opts.print.kind, opts.print.color),
+        transparent: true,
+        alphaTest: 0.3,
+        roughness: 0.85,
+      })
+    );
+    pm.position.y = -0.93; // torso-pivot frame = root frame - 0.93
+    torso.add(pm);
+  }
   // leather biker jacket (opts.jacket colour; the sleeves come from the skinned body): open front over the tee,
   // wide lapels with silver snaps, a stand collar round the back of the neck, a slanted silver zip and pocket zips.
   // Torso-pivot frame: root y - 0.93; the chest surface is about z 0.13-0.14 between y 1.25 and 1.45 (torsoProfile).
@@ -967,7 +1111,9 @@ export function createCharacter(opts = {}) {
     );
   const head = pivot(0, 0.68, 0.005);
   torso.add(head);
-  head.scale.setScalar(hero ? 1.14 : 1.08);
+  // the whole figure scales with the height (root.scale), but heads vary far less than legs and torso between
+  // people: counter-scale the head so it only grows by sqrt(heightScale)
+  head.scale.setScalar((hero ? 1.14 : 1.08) / Math.sqrt(anthro.heightScale));
   // head with the jaw/cheeks merged into one smooth surface (faceGeo), per jaw width
   const jk = Math.round(fv.jaw * 100) / 100,
     ck = Math.round((opts.chin || 0) * 100) / 100;
@@ -1678,7 +1824,7 @@ export function createCharacter(opts = {}) {
   // arms
   const arms = [];
   for (const s of [-1, 1]) {
-    const sh = pivot(0.235 * s, 0.5, 0);
+    const sh = pivot(shX * s, 0.5, 0);
     torso.add(sh);
     if (!sk)
       sh.add(
@@ -1793,7 +1939,7 @@ export function createCharacter(opts = {}) {
   // legs
   const legs = [];
   for (const s of [-1, 1]) {
-    const hp = pivot(0.1 * s, 0.02, 0);
+    const hp = pivot(hpX * s, 0.02, 0);
     hips.add(hp);
     if (sk) {
       /* legs are part of the skinned body */
@@ -1904,9 +2050,12 @@ export function createCharacter(opts = {}) {
         pants,
         female,
         build: fv.build,
+        girth,
+        pattern: opts.pattern,
+        bottomPattern: opts.bottomPattern,
         hem: opts.hem,
         arm: opts.arm,
-        belly: opts.belly,
+        belly,
         camo: opts.camo,
         longTee: opts.longTee,
         wash: opts.wash,
@@ -1926,6 +2075,16 @@ export function createCharacter(opts = {}) {
     o.userData.detail = o.geometry.boundingSphere.radius < 0.04;
   });
   mergeHead(head, new Set(lids));
+  // opts.hat { kind: 'cap'|'bucket'|'beanie', color }: one shared model per kind and colour, cloned (no new geometry)
+  if (opts.hat) {
+    const key = `${opts.hat.kind}|${opts.hat.color}`;
+    if (!HAT_PROTO.has(key)) HAT_PROTO.set(key, buildHat(opts.hat.kind, opts.hat.color));
+    const hat = HAT_PROTO.get(key).clone();
+    hat.traverse((o) => {
+      if (o.isMesh) o.castShadow = false;
+    });
+    head.add(hat);
+  }
   const details = [];
   root.traverse((o) => {
     if (o.isMesh && o.userData.detail) {
@@ -1947,6 +2106,7 @@ export function createCharacter(opts = {}) {
     height: anthro.height,
     weight: anthro.weight,
     heightScale: anthro.heightScale,
+    bmi: anthro.bmi,
     pose: null,
     poseT: 0,
     blend: 0,
@@ -2072,12 +2232,15 @@ function animate(ch, dt, st) {
     torsoY: 0,
     rootRotX: 0,
   };
+  const seatK = ch.root.scale.y || 1;
   if (st.mode === 'down' || st.mode === 'prone') {
     // down: on the back (asleep in bed); prone: face down (the massage bed in src/systems/minigames/Massage.js)
     t.rootRotX = (st.mode === 'prone' ? 1 : -1) * (Math.PI / 2) * 0.95;
     t.hipsY = 0.2;
   } else if (st.mode === 'sit') {
-    t.hipsY = 0.5;
+    // chairs and scooter seats are the same height for everybody: the pelvis stays there whatever the person's
+    // height (root.scale), instead of a tall person floating over the seat and a short one sinking into it
+    t.hipsY = 0.5 / seatK;
     t.hpR = t.hpL = -1.5;
     t.knR = t.knL = 1.5;
     t.shR = [-0.7, 0, -0.1];
@@ -2085,7 +2248,7 @@ function animate(ch, dt, st) {
     t.elR = t.elL = -0.9;
     t.headX = Math.sin(ch.poseT * 0.5) * 0.08;
   } else if (st.mode === 'ride' || st.mode === 'drive') {
-    t.hipsY = st.mode === 'ride' ? 0.78 : 0.55;
+    t.hipsY = (st.mode === 'ride' ? 0.78 : 0.55) / seatK;
     t.hpR = t.hpL = -1.45;
     t.knR = t.knL = st.mode === 'ride' ? 1.2 : 1.5;
     t.shR = [-1.05, 0, -0.15];
@@ -2416,15 +2579,50 @@ const SHIRTS = [
   '#3a5a40',
   '#bc6c25',
   '#adb5bd',
+  '#111111',
+  '#7a1f2b',
+  '#c9b48a',
+  '#a3c4dc',
+  '#f4a259',
+  '#556b2f',
+  '#d8c3e8',
+  '#3c3c44',
 ];
-const BOTTOMS = ['#2b2d42', '#1d3557', '#5c677d', '#e5e5e5', '#a68a64', '#333333', '#4361ee'];
+const BOTTOMS = [
+  '#2b2d42',
+  '#1d3557',
+  '#5c677d',
+  '#e5e5e5',
+  '#a68a64',
+  '#333333',
+  '#4361ee',
+  '#3d5a80',
+  '#4f5536',
+  '#7c7f86',
+  '#c9b48a',
+];
 const HAIRS = ['#111', '#1a1410', '#2b1d14', '#3b2a1e', '#6b4a2e'];
 const BAGS = ['#222', '#3d405b', '#81b29a', '#e07a5f', '#f2cc8f', null, null];
 const SKINS = ['#efd0b5', '#e8c3a2', '#d9ad88', '#c99a74', '#f3d9c4'];
+const JACKETS = ['#1b1b1d', '#3b2a1e', '#2f3e5c', '#4f5536', '#6b6f78'];
+const HAT_KINDS = ['cap', 'cap', 'bucket', 'beanie'];
+const HAT_COLORS = ['#18181b', '#b3202a', '#eeede8', '#c9b48a', '#2f3e5c', '#4f5536'];
+const PATTERN_COLORS = [
+  '#ffffff',
+  '#1d3557',
+  '#111111',
+  '#e63946',
+  '#e9c46a',
+  '#adb5bd',
+  '#2a9d8f',
+  '#ff8fab',
+  '#f4a259',
+];
+const SHOES = ['#f5f5f2', '#222', '#c0392b', '#7f8c8d', '#2f3e5c', '#c9b48a', '#e9c46a'];
 export function randomStudent(rnd) {
   const pick = (a) => a[Math.floor(rnd() * a.length)];
   const female = rnd() < 0.48;
-  return {
+  const look = {
     female,
     seed: Math.floor(rnd() * 1e9),
     skin: pick(SKINS),
@@ -2434,8 +2632,86 @@ export function randomStudent(rnd) {
     hair: pick(HAIRS),
     hairStyle: female ? (rnd() < 0.5 ? 'long' : 'pony') : 'short',
     glasses: rnd() < 0.35,
-    shoes: pick(['#f5f5f2', '#222', '#c0392b', '#7f8c8d']),
+    shoes: pick(SHOES),
     bag: pick(BAGS),
     face: true,
   };
+  // the rest of the outfit comes from a hash of the seed, not from rnd(): the same number of rnd() draws as
+  // before, so whatever is drawn after a person (the parked scooters…) stays where it was
+  const id = String(look.seed),
+    h = (k) => hash01(id, 100 + k),
+    hp = (k, a) => a[Math.floor(h(k) * a.length) % a.length];
+  // top: plain tee, long sleeves, an oversized tee, acid-washed, or a jacket over it
+  const top = h(1);
+  if (top < 0.14) look.longSleeve = true;
+  else if (top < 0.24) look.longTee = true;
+  else if (top < 0.3) look.wash = true;
+  else if (top < 0.37) look.jacket = hp(2, JACKETS);
+  // bottom: wide-leg trousers, jorts over jeans, or knee-length shorts
+  const bot = h(3);
+  if (look.pants) {
+    if (bot < 0.16) look.wide = true;
+    else if (bot < 0.22) {
+      look.pantsLow = '#3d5a80';
+      look.shorts = hp(4, ['#5c7ea8', '#2b2d42']);
+    }
+  } else if (bot < 0.3) look.hem = -0.4;
+  // hair: girls also get a bob or blunt bangs; boys a buzz cut, a bowl cut or a wolf cut
+  const hair = h(5);
+  if (female) {
+    if (hair < 0.18) look.hairStyle = 'bob';
+    else if (hair < 0.28) look.hairStyle = 'hime';
+  } else if (hair < 0.12) look.hairStyle = 'buzz';
+  else if (hair < 0.24) look.hairStyle = 'bowl';
+  else if (hair < 0.3) look.hairStyle = 'wolf';
+  if (look.glasses) {
+    const g = h(6);
+    if (g < 0.3) look.glassesStyle = 'thick';
+    else if (g < 0.4) {
+      look.glassesStyle = 'browline';
+      look.glassesColor = '#2b1d14';
+    }
+  }
+  if (h(7) < 0.13) look.hat = { kind: hp(8, HAT_KINDS), color: hp(9, HAT_COLORS) };
+  // shirt pattern: stripes, a chest print, a ringer tee, raglan sleeves or a colour-blocked chest (about half the
+  // people); the second colour is never the shirt's own
+  if (!look.jacket && !look.wash) {
+    const pat = h(10),
+      c2 = PATTERN_COLORS.filter((c) => c !== look.shirt),
+      col2 = hp(11, c2);
+    if (pat < 0.17) look.pattern = { kind: 'stripes', color: col2, w: 0.03 + h(12) * 0.035 };
+    else if (pat < 0.3) {
+      // a colour print only when it stands out from the shirt, else black on light shirts and white on dark ones
+      const lum = (c) =>
+        0.3 * parseInt(c.slice(1, 3), 16) +
+        0.59 * parseInt(c.slice(3, 5), 16) +
+        0.11 * parseInt(c.slice(5, 7), 16);
+      const ls = lum(look.shirt);
+      look.print = {
+        kind: hp(13, PRINT_KINDS),
+        color:
+          h(14) < 0.5 && Math.abs(lum(col2) - ls) > 90 ? col2 : ls > 140 ? '#1d1d22' : '#f4f4f0',
+      };
+    } else if (pat < 0.38) look.pattern = { kind: 'ringer', color: col2 };
+    else if (pat < 0.45) look.pattern = { kind: 'raglan', color: col2 };
+    else if (pat < 0.51) look.pattern = { kind: 'block', color: col2 };
+  }
+  // trousers / shorts: track stripes, camouflage, ripped knees, turned-up cuffs (about a third of the people)
+  const bp = h(15),
+    plainLeg = look.pants && !look.wide && !look.pantsLow;
+  if (bp < 0.1)
+    look.bottomPattern = {
+      kind: 'track',
+      color: hp(16, ['#f4f4f0', '#f4f4f0', '#e63946', '#111111']),
+    };
+  else if (bp < 0.16 && !look.pantsLow) look.bottomPattern = { kind: 'camo' };
+  else if (bp < 0.25 && plainLeg) {
+    look.bottomPattern = { kind: 'ripped' };
+    look.shorts = hp(17, ['#3d5a80', '#5c7ea8', '#2b2d42', '#111111']); // jeans
+  } else if (bp < 0.33 && plainLeg)
+    look.bottomPattern = {
+      kind: 'cuff',
+      color: hp(18, ['#7d9cc4', '#c9b48a', '#a63d40', '#8a8f98']),
+    };
+  return look;
 }

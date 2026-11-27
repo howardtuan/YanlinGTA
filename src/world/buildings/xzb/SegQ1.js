@@ -261,7 +261,7 @@ export default {
       winRow(C, k11, 0.6, k11.W - 0.6, 4.9, 1, 1.4, 1.2);
       winRow(C, k11, 0.6, k11.W - 0.6, 7.8, 1, 1.3, 1.2, false);
       k11.box(-0.01, k11.W + 0.01, -0.5, 0.05, -0.8, 0, MR.concrete, { col: false, surface: true });
-      kq.box(-0.01, W + 0.01, -0.5, 0.05, -0.9, 0, MR.concrete, { col: false, surface: true });
+      C.pave(kq, -0.01, W + 0.01, -0.5, 0.05, -0.9, 0, MR.concrete);
     }
 
     // ---- 西側 IAD SELECT SHOP 轉角樓（多邊形，四樓；主立面朝 11弄）----

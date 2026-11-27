@@ -2047,6 +2047,7 @@ export function createCharacter(opts = {}) {
         shirt: opts.jacket || opts.shirt || '#161616',
         bottom: opts.shorts || '#f1f0ea',
         skin: opts.skin || '#e8c3a2',
+        sock: opts.sock,
         pants,
         female,
         build: fv.build,

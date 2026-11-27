@@ -63,7 +63,9 @@ export const CONTACTS = [
   {
     // 勞大（彥霖航空的直升機駕駛員，src/entities/Pilot.js）：一開始就是好友。「你在哪？」每一輪都能問，
     // 他會回現在在哪；在校園散步或在籃球場打球的話會設定導航，路線跟著他走（nav.track）。
+    // laoda: 預設隱藏，在電腦終端機輸入 mamba 叫他回來才會出現在訊息裡（src/systems/LaodaMode.js、Phone.js syncLaoda）
     id: 'laoda',
+    laoda: true,
     name: '勞大',
     sub: '彥霖航空・直升機駕駛員',
     avatar: '<img class="ph-avimg" src="assets/gram/laoda_av.jpg" alt="">',

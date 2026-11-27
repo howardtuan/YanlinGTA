@@ -15,7 +15,7 @@ import Bseg from './rixin/B.js';
 import C from './rixin/C.js';
 import D from './rixin/D.js';
 import { shrinkFont } from '../../graphics/FitText.js';
-import { paveGround } from './GroundDrape.js';
+import { footing, paveGround } from './GroundDrape.js';
 
 // 路中心線（data/cycu.json 的日新路，寬 7.5 m）
 export const RX_ROADS = {
@@ -409,6 +409,7 @@ export function buildRixinStreet(I, scene, X) {
     const glassWall = sp.bal === 'glass';
     const wm = glassWall && sp.glass ? sp.glass : wallMat(sp.wall);
     shell(k, w, d, top, wm);
+    footing(k, w, d, wallMat(sp.wall)); // 地面往後或往旁邊變低時補地基，後牆、側牆底下才不會露縫
     if (sp.low && !glassWall)
       k.box(-0.01, w + 0.01, 0, gf, -0.05, 0, wallMat(sp.low), { col: false, tile: [0.6, 0.6] });
     for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊

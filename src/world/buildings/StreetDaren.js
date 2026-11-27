@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, sg, ROWT, rowTools } from '../Kit.js';
 import { makeSideShop } from './StreetZhongbei.js';
 import { shrinkFont } from '../../graphics/FitText.js';
-import { paveGround } from './GroundDrape.js';
+import { footing, paveGround } from './GroundDrape.js';
 
 // =====================================================================
 // The corner across 中北路 from 大門口, where 大仁街 leaves 中北路 for the main gate (user's street-view photos).
@@ -1686,6 +1686,7 @@ export function buildDarenStreet(I, scene) {
       top = F * nf,
       d = sp.d || 10;
     shell(k, w, d, top, WALL[sp.wall] || WALL.tile);
+    footing(k, w, d, WALL[sp.wall] || WALL.tile); // 地面往後或往旁邊變低時補地基，後牆、側牆底下才不會露縫
     for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // party-wall edges
     // ground floor
     if (sp.sign) {

@@ -938,7 +938,7 @@ export class Peds {
   _offset(p, e = p.edge) {
     return e.road.drive ? (e.w / 2 + 0.5 + p.offK * 0.7) * p.side : (0.15 + p.offK * 0.55) * p.side;
   }
-  _target(p, dodge = 0) {
+  _target(p, dodge = 0, off = this._offset(p) + dodge) {
     if (p.corner) return p.corner; // round the corner of the pavement first (_next)
     const f = p.from,
       t = p.to,
@@ -946,12 +946,34 @@ export class Peds {
       k = p.d / l,
       dx = t.x - f.x,
       dz = t.z - f.z;
-    const off = this._offset(p) + dodge;
     return [f.x + dx * k - (dz / l) * off, f.z + dz * k + (dx / l) * off];
+  }
+  // where to walk next: on the pavement path, or, where a shop front / a wall stands on it, the nearest free
+  // spot towards the road (up to 3 m), so walkers go round it instead of pressing into it (#302)
+  _clearTarget(p) {
+    let tg = this._target(p, p.dodge);
+    const C = this.coll;
+    if (!C || p.ghost || p.corner) return tg;
+    const nr = C.noReserved;
+    C.noReserved = true; // reserved outlines are for building the map, not walls
+    const blocked = ([x, z]) => C.insideAny(x, z) || C.blocked(x, z, 0.3);
+    if (blocked(tg)) {
+      const base = this._offset(p) + p.dodge,
+        sg = Math.sign(base) || 1;
+      for (let s = 0.3; s <= 3.001; s += 0.3) {
+        const q = this._target(p, 0, base - sg * s);
+        if (!blocked(q)) {
+          tg = q;
+          break;
+        }
+      }
+    }
+    C.noReserved = nr;
+    return tg;
   }
   // sp: its speed (it never moves much faster than that, e.g. onto the pavement of a street it turns into)
   _place(p, dt, sp = 1.5) {
-    const [tx, tz] = this._target(p, p.dodge);
+    const [tx, tz] = this._clearTarget(p);
     const x0 = p.pos.x,
       z0 = p.pos.z;
     if (dt === 0) {
@@ -967,6 +989,22 @@ export class Peds {
       }
       p.pos.x += mx;
       p.pos.z += mz;
+      // the pavement path runs at a fixed offset from the road; where a shop front or a wall stands closer (a
+      // new street row, a sign stand) walkers slide along it instead of walking through it (#302)
+      if (this.coll && !p.ghost) {
+        // ... and two squeezed into the same spot (by a wall, at a corner) step apart
+        for (const q of this.list) {
+          if (q === p || q.dormant || q.state === 'fly' || q.state === 'down') continue;
+          const ox = p.pos.x - q.pos.x,
+            oz = p.pos.z - q.pos.z,
+            o = Math.hypot(ox, oz);
+          if (o < 0.5 && o > 1e-4) {
+            p.pos.x += (ox / o) * (0.5 - o) * 0.5;
+            p.pos.z += (oz / o) * (0.5 - o) * 0.5;
+          }
+        }
+        this.coll.resolve(p.pos, 0.3, 0, p.ch.root.position.y);
+      }
       if (p.corner && Math.hypot(p.corner[0] - p.pos.x, p.corner[1] - p.pos.z) < 0.3)
         p.corner = null;
     }
@@ -1126,6 +1164,7 @@ export class Peds {
   }
   update(dt, player, collision) {
     this.time += dt;
+    this.coll = collision; // _place keeps walkers out of walls
     const pl = player.pos;
     const plY = player.vehicle ? player.vehicle.mesh.position.y : pl.y;
     for (const p of this.list) {

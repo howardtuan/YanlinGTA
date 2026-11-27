@@ -10,6 +10,6 @@
 
 | 子目錄 | 說明 |
 | :--- | :--- |
-| `promo/` | 歷代宣傳片成品與無配樂母帶（`yanlin-demo-30s.mp4`、`yanlin-promo-53s.mp4`、`yanlin-promo-58s-v2.mp4` 與其無配樂版、封面，`yanlin-promo-100s-v3-nobgm.mp4`）。錄製與剪輯工具見 [`tools/promo/README.md`](../../tools/promo/README.md)。 |
+| `promo/` | 現行宣傳片的無配樂母帶（`yanlin-promo-100s-v3-nobgm.mp4`）；舊版已刪除，需要時可從 Git 歷史取回。錄製與剪輯工具見 [`tools/promo/README.md`](../../tools/promo/README.md)。 |
 | `threads/` | 對外社群行銷貼文文案與配圖歸檔（100 篇系列貼文）。 |
 | `parked-scooters/` | 路邊多車型停放機車功能展示截圖。 |

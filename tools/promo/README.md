@@ -1,6 +1,6 @@
 # 宣傳片錄製與剪輯工具（`tools/promo/`）
 
-線上 Wiki 首頁播放的 100 秒宣傳片（v3）（`wiki/media/promo.mp4` 與封面 `wiki/media/promo-poster.jpg`），以及歸檔於 `docs/promo-archive/promo/` 的無配樂母帶（`yanlin-promo-100s-v3-nobgm.mp4`、`yanlin-promo-58s-v2-nobgm.mp4`）與歷代展示片，都是用這裡的工具做的：畫面全部是遊戲本身實際跑出來的，用 GPU Chrome 以**固定時間步逐格錄製**（不掉幀、可重現），再用 [Remotion](https://www.remotion.dev/) 剪輯、上字幕與配樂。不進遊戲執行期，只有 `wiki/media/` 會隨 Wiki 靜態站輸出至 `dist/wiki/media/`。
+線上 Wiki 首頁播放的 100 秒宣傳片（v3）（`wiki/media/promo.mp4` 與封面 `wiki/media/promo-poster.jpg`），以及歸檔於 `docs/promo-archive/promo/` 的無配樂母帶（`yanlin-promo-100s-v3-nobgm.mp4`），都是用這裡的工具做的：畫面全部是遊戲本身實際跑出來的，用 GPU Chrome 以**固定時間步逐格錄製**（不掉幀、可重現），再用 [Remotion](https://www.remotion.dev/) 剪輯、上字幕與配樂。不進遊戲執行期，只有 `wiki/media/` 會隨 Wiki 靜態站輸出至 `dist/wiki/media/`。
 
 ## 檔案
 

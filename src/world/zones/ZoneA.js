@@ -883,7 +883,12 @@ export function buildZoneA(I, scene, data) {
     shapes = [];
   const find = (id) => data.buildings.find((b) => b.id === id);
   const baseOf = (b, x, z) => (b && Number.isFinite(b.base) ? b.base : groundY(x, z));
-  const wallC = (ax, az, bx, bz, y0, y1) => I.addWall(ax, az, bx, bz, y0, y1);
+  // I.addWall 的高度帶是「相對牆中點地形」的（src/physics/PhysWorld.js 會再加上 H）：這裡一律傳世界高度，先換算
+  // （同 src/world/zones/ZoneB.js～ZoneG.js）
+  const wallC = (ax, az, bx, bz, y0, y1) => {
+    const g = terrH((ax + bx) / 2, (az + bz) / 2);
+    I.addWall(ax, az, bx, bz, y0 - g, y1 - g);
+  };
   const boxColl = (P, y0, y1) => {
     for (let i = 0; i < P.length; i++) {
       const a = P[i],
@@ -1909,9 +1914,7 @@ export function buildZoneA(I, scene, data) {
           k.tri('skyGlass', [a[0], yk, a[1]], [b[0], yk, b[1]], [m[0], ya, m[1]]);
           k.slab('rail', a[0], a[1], c[0], c[1], 0.15, yk, yk + 0.12);
           // 底座邊的矮牆：走路會被 0.35 m 的底座擋住，跳一下就上得去、站在上面（腳離平台 0.35 m 以上）也走得下來。
-          // 碰撞牆的高度是「地形以上」（src/physics/PhysWorld.js 會加上 H()），平台底下的地形比平台低約 1.4 m，要扣掉
-          const g = terrH((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-          wallC(a[0], a[1], b[0], b[1], yP - 0.05 - g, yP + 0.6 - g);
+          wallC(a[0], a[1], b[0], b[1], yP - 0.05, yP + 0.6);
         }
         // 玻璃斜面當地板（跳上去站在玻璃上，不會掉進天窗裡）：從底座邊的 yk 斜升到四片三角的頂點（離邊 0.85r）；
         // 高度是平台面以上（src/entities/Player.js 的 y 是 surfaceAt 以上）
@@ -2077,9 +2080,10 @@ export function buildZoneA(I, scene, data) {
         c = ring[(i + 1) % N];
       k.slab('corten', a[0], a[1], c[0], c[1], 0.12, gy(a[0], a[1]) - 0.1, gy(a[0], a[1]) + 0.35);
       // 圈高 0.35 m 超過 STEP_UP（src/world/Terrain.js），比照平台邊緣擋起來，不然機車直接從草皮裡穿過去。
-      // I.addWall 的高度相對牆中點地面（廣場底）；牆頂拉到 1 m：機車車身離地 0.35 m、走路的膠囊從腳上 0.35 m 起算，
+      // 牆頂拉到地面上 1 m：機車車身離地 0.35 m、走路的膠囊從腳上 0.35 m 起算，
       // 只到圈頂的高度兩個都擋不住（src/physics/VehPhysics.js、src/entities/Walker.js）
-      wallC(a[0], a[1], c[0], c[1], -0.3, 1.0);
+      const gm = terrH((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
+      wallC(a[0], a[1], c[0], c[1], gm - 0.3, gm + 1.0);
     }
     // 白色碎石庭園＋幾顆景石
     const gv = [];
@@ -2185,10 +2189,7 @@ export function buildZoneA(I, scene, data) {
         [p1[0], yc, p1[1]],
         [q1[0], yc, q1[1]]
       );
-      // wallC（I.addWall）的高度帶是「相對牆中點地形」的（src/physics/PhysWorld.js 會再加上 H），
-      // g0、ya、yc 是世界高度，要先扣掉，不然整段碰撞帶會跟著地形高度偏掉
-      const gm = terrH((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
-      if (coll) wallC(a[0], a[1], c[0], c[1], g0 - gm, Math.max(ya, yc) - gm);
+      if (coll) wallC(a[0], a[1], c[0], c[1], g0, Math.max(ya, yc));
       if (text) {
         const m = along(a, e, e.l * 0.3, 0.12);
         sign(

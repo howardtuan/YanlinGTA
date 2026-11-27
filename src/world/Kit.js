@@ -2065,11 +2065,13 @@ export function rowTools() {
   };
   const FRONT = Math.PI; // planes facing the street
   const shopGlass = (k, x0, x1, y0, y1, tex, z = -0.02) => {
-    // lit interior + glass + thin black frame
+    // lit interior + glass + thin black frame (back to the wall at z 0; glass set back behind the facade
+    // (z > 0) keeps a frame only that thick, not one running all the way out to the street line)
+    const zb = Math.max(z, 0);
     k.plane(tex, x1 - x0, y1 - y0, (x0 + x1) / 2, (y0 + y1) / 2, z, FRONT, { emissive: 0.55 });
-    k.box(x0, x1, y1, y1 + 0.06, z - 0.05, 0, MR.black, { col: false });
+    k.box(x0, x1, y1, y1 + 0.06, z - 0.05, zb, MR.black, { col: false });
     for (const x of [x0, x1 - 0.05])
-      k.box(x, x + 0.05, y0, y1, z - 0.05, 0, MR.black, { col: false });
+      k.box(x, x + 0.05, y0, y1, z - 0.05, zb, MR.black, { col: false });
   };
   const ac = (k, x, y, z = -0.42) => {
     k.box(x, x + 0.8, y, y + 0.5, z, -0.02, MR.ac, { col: false });

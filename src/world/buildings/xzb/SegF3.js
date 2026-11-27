@@ -50,6 +50,9 @@ const cone = (C, k, x, y, z, r, h, hex) => {
   const g = new C.THREE.ConeGeometry(r, h, 10);
   g.translate(x, y + h / 2, z);
   k._part(C.VC, C.paintGeo(g, hex));
+  // 龍柏貼地長，下半身那一圈擋人（不然人會整個走進樹裡）
+  const c = r * 0.7;
+  k.wallRect(x - c, x + c, z - c, z + c, y, y + h * 0.5);
 };
 // 三角稜柱（瓦頂）：底在 y0、寬 x0～x1、高 rise，從 z0 延伸到 z1
 const prism = (C, k, x0, x1, y0, rise, z0, z1, hex) => {
@@ -116,7 +119,7 @@ const archShed = (C, k, x0, x1, z0, z1, yb, rise, hex, post = '#8a8c8c', truss) 
 const yardWall = (C, k, x0, x1, g0, g1, z, wallHex, gateHex, h = 1.1) => {
   if (g0 > x0 + 0.05) k.box(x0, g0, 0, h, z, z + 0.2, wallHex);
   if (x1 > g1 + 0.05) k.box(g1, x1, 0, h, z, z + 0.2, wallHex);
-  k.box(g0, g1, 0, 1.6, z + 0.05, z + 0.12, gateHex, NC);
+  k.box(g0, g1, 0, 1.6, z + 0.05, z + 0.12, gateHex); // 關著的鐵門也擋人
   for (let x = g0 + 0.12; x < g1 - 0.05; x += 0.16)
     k.box(x, x + 0.03, 0.1, 1.6, z + 0.03, z + 0.05, '#3a3c3e', NC);
 };
@@ -469,7 +472,7 @@ export default {
       k.plane(YHT.win(), 2.0, 2.3, 3.3, 1.15, 1.37, FRONT); // 玻璃門
       k.plane(YHT.win(), 1.2, 1.6, 4.9, 1.4, 1.37, FRONT);
       k.plane(paint(no, '#e86a8a', '#ffffff', null, 0.4, 0.2, 64), 0.4, 0.2, 2.0, 2.5, 1.35, FRONT);
-      k.box(-0.02, 0.35, 0, 15.6, -0.25, 13, WT, NC); // 白磁磚分戶柱
+      k.box(-0.02, 0.35, 0, 15.6, -0.25, 13, WT); // 白磁磚分戶柱（騎樓裡也擋人）
       pave(C, k, -0.1, W + 0.1, -1.3, 0.02, -0.6, 1.4, '#c9b89a'); // 前院木紋地磚
       // 深褐色直條格柵（南半，二到五樓）與玻璃陽台（北半）
       for (let x = 0.6; x < W / 2; x += 0.32)
@@ -603,6 +606,7 @@ export default {
       }
       // 一樓：圓角與北面都是開放的店面（騎樓停滿機車），綠色雨遮繞過轉角
       k.plane(C.openTex, 10.4, 2.3, W + 0.03, 1.15, r + 5.4, E90, { emissive: 0.3 });
+      k.wallLine(W, r, W, d, 0, 2.3); // 店面那張圖本身擋人（主體從 2 m 高起，一樓是空的）
       k.box(W, W + 1.2, 2.3, 2.4, r, d - 0.3, GREEN, NC);
       k.cyl(W - r, r, r + 1.2, 2.3, 2.4, GREEN, { seg: 20 });
       // 北面招牌：紅底白字 SYM，上方白底「機車排氣檢驗站」

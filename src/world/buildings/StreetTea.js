@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { H } from '../Terrain.js';
 import { ctex, font, T, MATS, Kit, finishRow, lcg, YHT, ROWT, rowTools } from '../Kit.js';
+import { paveGround } from './GroundDrape.js';
 
 // =====================================================================
 // 茶學苑 Tea Arts 中北店: the drink shop on 中北路 just west of the 正門 (OSM POI at (-245.5, 90.9), south side
@@ -752,8 +753,7 @@ export function buildTeaRow(I, scene) {
     const k = kits[lot],
       w = a[1] - a[0],
       d = teaApron(lot) - 1.8;
-    if (d > 0.05)
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -d, 0, MR.concrete, { col: false, surface: true });
+    if (d > 0.05) paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -d, 0, MR.concrete);
   }
   finishRow(scene, Object.values(kits));
 }

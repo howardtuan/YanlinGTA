@@ -3,6 +3,7 @@
 // 不蓋的開口：東側地下停車場車道口 s 118～121、東側中北路165巷口 s 161.5～172、西側巷口機車空地 s 180～188.4、s 211.5 以北的新中北路口；
 // 東側 s 196～222 是既有的 OSM 建物 w1559051239（芸熙美甲、麻豆子），不蓋也不刪。
 // 區域座標提醒：西側（side -1）的格子 x=0 在北端（s1）、x=w 在南端（s0）；東側（side +1）x=0 在南端、x=w 在北端。
+import { drapeLoose } from '../GroundDrape.js';
 
 const SIDE = Math.PI / 2;
 // 凸出立面的雙面燈箱招牌：x 沿立面的位置、y 中心高度、bw×bh 大小、out 離牆多遠
@@ -62,7 +63,7 @@ const steps = (k, c, col = '#a9a498') => {
 
 // 彎道內側相鄰兩格的立面之間會差一小段，用一根跟外牆同色的牆柱補上（x0～x1 是這一格的區域座標，接在北端外側）
 const pier = (k, c, x0, x1, col, dz = 1.5) =>
-  k.box(x0, x1, 0, c.top - 0.06, 0, dz, c.wallMat(col), { tile: [0.6, 0.6] });
+  k.box(x0, x1, -0.6, c.top - 0.06, 0, dz, c.wallMat(col), { tile: [0.6, 0.6] });
 // 深色玻璃（蓋在通用櫥窗前面，店裡看起來是暗的）
 const darkGlass = (k, c, x0, x1, y0 = 0.25, col = '#3c4246') =>
   k.box(x0, x1, y0, c.gf - 1.0, -0.07, -0.03, col, { col: false });
@@ -1036,7 +1037,7 @@ export default {
           k.box(1.0, 2.0, 0.05, c.gf - 1.0, -0.1, -0.07, '#8a6a4a', { col: false }); // 深色玻璃與木格柵門
           // 北邊的地下停車場車道口（s 118～121）：柏油斜坡、洗石子矮牆、黃色防撞桿、裡面的灰鐵捲門
           const m = c.wallMat('#a59a86');
-          k.box(c.w + 0.2, c.w + 3.0, -0.3, 0.16, -4.9, 3.0, '#3c3c3e', { col: false });
+          drapeLoose(k, c.w + 0.2, c.w + 3.0, -0.3, 0.16, -4.9, 3.0, '#3c3c3e');
           k.box(c.w, c.w + 0.2, 0, 0.9, -3.6, 3.0, m);
           k.box(c.w, c.w + 3.0, 0, 3.2, 3.0, 3.3, m);
           k.plane(c.shutterTex('#9a9a98'), 2.6, 2.6, c.w + 1.55, 1.3, 2.98, c.FRONT);
@@ -1358,7 +1359,7 @@ export default {
               col: false,
             });
           }
-          k.box(c.w - 0.95, c.w - 0.1, 0.05, 2.3, -0.06, -0.03, '#1e1e20', { col: false });
+          k.box(c.w - 0.95, c.w - 0.1, -0.4, 2.3, -0.06, -0.03, '#1e1e20', { col: false });
           pier(k, c, c.w, c.w + 0.41, '#d2c2a4');
         },
       },

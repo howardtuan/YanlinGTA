@@ -1,6 +1,7 @@
 // 大仁二街 E 段：西北側 s 78～120（大仁街口往西南）。街景 2024-08、國土測繪 2024 正射。
 // 實景只有兩棟：轉角的全家（2 層八角形石材樓，後半在 StreetDaren.js 的保留範圍內，這裡只補前半）
 // 與柏德廣場 9 層米色磁磚大樓（一樓由東北往西南：#15Bistro、弧形樓梯、玻璃店面、阿尼基），中間是人行通道。
+import { paveGround } from '../GroundDrape.js';
 const FONT = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
 const VC = 'd2VC'; // StreetDaren2.js 的頂點色材質
 const tint = (T, g, hex) => {
@@ -291,8 +292,9 @@ function tower(k, T) {
   k.box(0, w, 0, B, Z, 0, grey, { col: false, tile: [0.6, 0.6] });
   k.box(0, w, B, top + 1.0, Z, 0, beige, { col: false, tile: [0.6, 0.6] });
   k.wallLine(0, Z, w, Z, 0, top);
-  k.box(-0.04, 0, 0, B, Z, d, grey, { col: false, tile: [0.6, 0.6] });
-  k.box(w, w + 0.04, 0, B, Z, d, grey, { col: false, tile: [0.6, 0.6] });
+  // 往後低半公尺：兩側牆往下補到地面
+  k.box(-0.04, 0, -0.7, B, Z, d, grey, { col: false, tile: [0.6, 0.6] });
+  k.box(w, w + 0.04, -0.7, B, Z, d, grey, { col: false, tile: [0.6, 0.6] });
   for (let y = 1.0; y < B; y += 1.0) {
     k.box(-0.05, w + 0.05, y, y + 0.06, Z - 0.012, Z, blue, { col: false });
     k.box(-0.052, -0.04, y, y + 0.06, 8.6, 16, blue, { col: false });
@@ -591,7 +593,7 @@ function tower(k, T) {
   uRack(k, 6.2, -2.8);
   uRack(k, 7.4, -2.8);
   // 人行通道（s 96.5～101.5）：跟廣場一樣的灰白地磚，上面是連到全家那棟 2F 的空橋與綠色採光罩
-  k.box(-5, 0, 0, 0.06, -3.2, 17, '#c9c7c1', { col: false, surface: true });
+  paveGround(k, -5, 0, 0, 0.06, -3.2, 17, '#c9c7c1');
   const bz0 = 12.3,
     bz1 = 16.3,
     bx0 = -6.5,

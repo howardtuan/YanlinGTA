@@ -23,8 +23,8 @@ export function groundSlope(k, x0, x1, z0, z1) {
   return hi - lo;
 }
 
-// 貼著地形的鋪面網格，頂面離地 up 公尺，登記可走表面
-export function drapeGround(k, x0, x1, z0, z1, mat, up = 0.05) {
+// 貼著地形的鋪面網格，頂面離地 up 公尺，登記可走表面（surf = false 不登記：石板縫、地上畫的線）
+export function drapeGround(k, x0, x1, z0, z1, mat, up = 0.05, surf = true) {
   const nx = Math.max(1, Math.ceil((x1 - x0) / 2.5)),
     nz = Math.max(1, Math.ceil((z1 - z0) / 2.5)),
     pos = [],
@@ -49,7 +49,15 @@ export function drapeGround(k, x0, x1, z0, z1, mat, up = 0.05) {
   g.setIndex(idx);
   g.computeVertexNormals();
   k._part(mat, g);
-  k.I.addSurface(k.rect(x0, x1, z0, z1), up);
+  if (surf) k.I.addSurface(k.rect(x0, x1, z0, z1), up);
+}
+
+// 區域座標兩角順序不拘（X(s) 有時是倒過來的），坡上鋪成貼地斜面、不登記表面；平地照舊用不擋人的平板
+export function drapeLoose(k, xa, xb, y0, y1, za, zb, mat) {
+  const [x0, x1] = xa < xb ? [xa, xb] : [xb, xa],
+    [z0, z1] = za < zb ? [za, zb] : [zb, za];
+  if (groundSlope(k, x0, x1, z0, z1) > 0.08) drapeGround(k, x0, x1, z0, z1, mat, y1, false);
+  else k.box(x0, x1, y0, y1, z0, z1, mat, { col: false });
 }
 
 // 地面鋪面：這一塊高低差超過 8 cm 就鋪成貼地斜面，平地照舊用平板（和原本的 k.box 一模一樣）

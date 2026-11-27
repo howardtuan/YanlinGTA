@@ -828,7 +828,8 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     }
     if (sp.low && !glassWall)
       k.box(-0.01, w + 0.01, 0, gf, -0.05, 0, wallMat(sp.low), { col: false, tile: [0.6, 0.6] });
-    for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊
+    for (const x of [0, w - 0.12])
+      k.box(x, x + 0.12, -0.6, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊（往下補，坡上不露縫）
     // ---- 一樓 ----
     if (sp.sign) {
       const [text, bg, fg, sub, style] = sp.sign,
@@ -884,7 +885,7 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     } else if (gk === 'open') {
       k.plane(openTex, bodyW - 0.4, gh, bodyW / 2, gh / 2, -0.03, FRONT, { emissive: 0.3 });
       for (const x of [0.12, bodyW - 0.22])
-        k.box(x, x + 0.1, 0, gh, -0.1, 0, '#8a8680', { col: false });
+        k.box(x, x + 0.1, -0.6, gh, -0.1, 0, '#8a8680', { col: false });
     } else {
       const tex = sp.sh ? shutterTex(sp.sh) : ROWT.shutter();
       k.plane(tex, bodyW - 0.4, gh, bodyW / 2, gh / 2, -0.02, FRONT);

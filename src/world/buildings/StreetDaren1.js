@@ -1591,7 +1591,7 @@ export function buildDaren1Street(I, scene, X) {
         for (const x of [w / 2 - 0.92, w / 2 + 0.72])
           k.box(x, x + 0.2, 0, 0.62, z - 0.31, z + 0.31, '#1c1c1e', { col: false });
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, d, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -apron, d, MR.concrete);
   };
   const plaza = (k, w, sp) => {
     // 只有鋪面的前庭

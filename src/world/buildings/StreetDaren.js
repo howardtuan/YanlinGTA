@@ -1783,7 +1783,7 @@ export function buildDarenStreet(I, scene) {
       k.box(0.2, w - 0.2, top + 2.2, top + 2.3, 1.4, d, MR.roof, { col: false });
     } else if (sp.roof === 'tank')
       k.cyl(w / 2, d - 2, 0.6, top + 0.12, top + 1.5, '#d8d8d0', { seg: 12 });
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete, { col: false, surface: true });
+    paveGround(k, -0.01, w + 0.01, -0.5, 0.05, -DAREN_APRON, 0, MR.concrete);
     if (sp.side) sideShop(k, sp.side, (sp.side.at === 1) === L[2] > 0 ? w : 0, w, d, F, top, i);
   });
   finishRow(scene, kits);

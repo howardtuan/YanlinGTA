@@ -4634,7 +4634,7 @@ export function buildPuzhongStreet(I, scene, X) {
               col: false,
             });
         } else k.plane(shutterFine(col || '#8a8d90'), bw, dh, xa + bw / 2, dh / 2, -0.07, FRONT);
-        for (const x of [xa - 0.12, xb]) k.box(x, x + 0.12, 0, dh, -0.14, 0, pc, { col: false });
+        for (const x of [xa - 0.12, xb]) k.box(x, x + 0.12, -0.6, dh, -0.14, 0, pc, { col: false });
         k.box(xa - 0.12, xb + 0.12, dh, dh + 0.14, -0.14, 0, pc, { col: false });
       }
       if (sp.wins) {

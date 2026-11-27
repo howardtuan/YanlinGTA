@@ -50,25 +50,70 @@ export function pageScan(opts) {
     HI = 1.5,
     REACH = 0.4;
   const own = new Int32Array(NX * NZ).fill(-1); // 牆面三角形（第 1 項）
+  const ownY = new Float32Array(NX * NZ); // 那面牆站的樓層高度（世界 y）
   const any = new Uint8Array(NX * NZ); // 任何高度、任何網格（第 2 項）
-  // 地面：所有固定、不是牆和樹幹的 Rapier 碰撞體（地形、平台、樓梯、橋面、室內樓板），每 1 m 一條往下的射線
+  // 地面：所有固定、不是牆和樹幹的 Rapier 碰撞體（地形、平台、樓梯、橋面、室內樓板），每 1 m 一條往下的射線，
+  // 收集每一層的高度（學生活動中心、宿舍這種多層室內：三角形用它腳下那一層當地面，查牆也用那一層的高度）
   const GX = Math.ceil(B.maxX - B.minX) + 1,
     GZ = Math.ceil(B.maxZ - B.minZ) + 1;
-  const gh = new Float32Array(GX * GZ).fill(NaN);
+  const fl = new Array(GX * GZ),
+    terr = new Float32Array(GX * GZ).fill(NaN);
   const isG = (c) => !P.tags.walls.has(c.handle) && !P.tags.trunks.has(c.handle) && !c.parent();
+  const isT = (c) => P.tags.ground.has(c.handle);
   const ray = new R.Ray({ x: 0, y: 400, z: 0 }, { x: 0, y: -1, z: 0 });
-  const ground = (x, z) => {
+  const cellOf = (x, z) => {
     const i = Math.round(x - B.minX),
       j = Math.round(z - B.minZ);
-    if (i < 0 || j < 0 || i >= GX || j >= GZ) return 0;
-    const k = j * GX + i;
-    let v = gh[k];
-    if (Number.isNaN(v)) {
-      ray.origin = { x: B.minX + i, y: 400, z: B.minZ + j };
-      const h = P.world.castRay(ray, 800, true, undefined, undefined, undefined, undefined, isG);
-      v = gh[k] = h ? 400 - h.timeOfImpact : 0;
+    return i < 0 || j < 0 || i >= GX || j >= GZ ? -1 : j * GX + i;
+  };
+  const floors = (x, z) => {
+    const k = cellOf(x, z);
+    if (k < 0) return [0];
+    let v = fl[k];
+    if (!v) {
+      ray.origin = { x: B.minX + (k % GX), y: 400, z: B.minZ + ((k / GX) | 0) };
+      v = [];
+      P.world.intersectionsWithRay(
+        ray,
+        800,
+        true,
+        (h) => {
+          v.push(400 - h.timeOfImpact);
+          return true;
+        },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        isG
+      );
+      v.sort((a, b) => b - a);
+      if (!v.length) v.push(0);
+      fl[k] = v;
     }
     return v;
+  };
+  const terrain = (x, z) => {
+    const k = cellOf(x, z);
+    if (k < 0) return 0;
+    let v = terr[k];
+    if (Number.isNaN(v)) {
+      ray.origin = { x: B.minX + (k % GX), y: 400, z: B.minZ + ((k / GX) | 0) };
+      const h = P.world.castRay(ray, 800, true, undefined, undefined, undefined, undefined, isT);
+      v = terr[k] = h ? 400 - h.timeOfImpact : 0;
+    }
+    return v;
+  };
+  // the floor a piece standing at y0 stands on: the highest one at most 0.45 m above its foot; a foot sunk into
+  // the ground (walls go 0.5～1 m below it) takes the floor nearest to it (not the safety floor 30 m down)
+  const ground = (x, z, y0) => {
+    const v = floors(x, z);
+    let near = v[0];
+    for (const f of v) {
+      if (f <= y0 + 0.45 && f >= y0 - 2) return f;
+      if (Math.abs(f - y0) < Math.abs(near - y0)) near = f;
+    }
+    return near;
   };
   // 會動的東西不算
   const skip = new Set();
@@ -114,10 +159,14 @@ export function pageScan(opts) {
     }
     meshes.push(o);
   });
+  let curY = 0; // floor of the triangle being marked (ownY)
   const mark = (arr, x, z, id) => {
     const i = Math.floor((x - B.minX) / CS),
       j = Math.floor((z - B.minZ) / CS);
-    if (i >= 0 && j >= 0 && i < NX && j < NZ) arr[j * NX + i] = id;
+    if (i >= 0 && j >= 0 && i < NX && j < NZ) {
+      arr[j * NX + i] = id;
+      if (arr === own) ownY[j * NX + i] = curY;
+    }
   };
   const line = (arr, ax, az, bx, bz, id) => {
     const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / (CS * 0.5)));
@@ -144,7 +193,8 @@ export function pageScan(opts) {
       yhi = Math.max(A.y, Bv.y, Cv.y);
     const cx = (A.x + Bv.x + Cv.x) / 3,
       cz = (A.z + Bv.z + Cv.z) / 3;
-    const g0 = ground(cx, cz);
+    const g0 = ground(cx, cz, ylo);
+    curY = g0;
     if (yhi < g0 + LO || ylo > g0 + HI) return;
     // 第 2 項：任何高度帶內的網格都算「看得到」
     line(any, A.x, A.z, Bv.x, Bv.z, 1);
@@ -236,8 +286,14 @@ export function pageScan(opts) {
   // ---- 1. 看得到卻穿得過 ----
   const saveRes = C.reserved;
   C.reserved = null; // 保留範圍不是碰撞（resolve 不看它）
-  const free = (x, z) =>
-    !C.insideAny(x, z) && !C.blocked(x, z, REACH) && !(X && X.blocked(x, z, REACH, 0));
+  // fy: the floor (world y) the wall stands on; the game's wall bands are world heights (CollisionWorld) or heights
+  // above the local terrain (Interiors), so an upper floor is checked against its own walls
+  const free = (x, z, fy = terrain(x, z)) => {
+    const yr = Math.max(0, fy - terrain(x, z));
+    return (
+      !C.insideAny(x, z) && !C.blocked(x, z, REACH, yr, fy) && !(X && X.blocked(x, z, REACH, yr))
+    );
+  };
   // 走得到的地方：從出生點用同一套碰撞（半徑 0.3 m）往外填，0.5 m 一格；圍起來進不去的地方（擋土牆後的地坪、
   // 封死的量體內部）不報。高度不管（樓梯、平台當平地），所以偏寬鬆
   const RS = 0.5,
@@ -299,7 +355,7 @@ export function pageScan(opts) {
     if (own[k] < 0) continue;
     const x = B.minX + ((k % NX) + 0.5) * CS,
       z = B.minZ + (((k / NX) | 0) + 0.5) * CS;
-    if (!free(x, z)) continue;
+    if (!free(x, z, ownY[k])) continue;
     if (reachable(x, z)) bad[k] = 1;
     else unreach++;
   }
@@ -405,8 +461,44 @@ export function pageScan(opts) {
     }
     flush(n);
   };
+  // free-standing walls along a pond / stream (world.waterPolys): the banks keep you out of the water on purpose
+  const water = w.waterPolys || [];
+  const nearWater = (x, z) =>
+    water.some((P) => {
+      let c = false;
+      for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+        const [xi, zi] = P[i],
+          [xj, zj] = P[j];
+        if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
+        const dx = xi - xj,
+          dz = zi - zj,
+          l2 = dx * dx + dz * dz || 1,
+          t = Math.max(0, Math.min(1, ((x - xj) * dx + (z - zj) * dz) / l2));
+        if (Math.hypot(xj + dx * t - x, zj + dz * t - z) < 3) return true;
+      }
+      return c;
+    });
+  // ... and the copes along the sunken streams and ditches (MapBuilder sinkColl: world.inSink on one side)
+  const sunk = (x, z, ax, az, bx, bz) => {
+    if (!w.inSink) return false;
+    const l = Math.hypot(bx - ax, bz - az) || 1,
+      nx = (bz - az) / l,
+      nz = -(bx - ax) / l;
+    return !!(w.inSink(x + nx * 1.2, z + nz * 1.2) || w.inSink(x - nx * 1.2, z - nz * 1.2));
+  };
+  let banks = 0;
   C.segs.forEach((s, si) => {
-    const pi = segPoly.get(si);
+    const pi = segPoly.get(si),
+      mx = (s[0] + s[2]) / 2,
+      mz = (s[1] + s[3]) / 2;
+    if (
+      pi === undefined &&
+      s.length <= 4 &&
+      (nearWater(mx, mz) || sunk(mx, mz, s[0], s[1], s[2], s[3]))
+    ) {
+      banks += Math.hypot(s[2] - s[0], s[3] - s[1]);
+      return;
+    }
     const what =
       pi !== undefined
         ? `建物輪廓 #${pi}`
@@ -431,6 +523,7 @@ export function pageScan(opts) {
       reachCells: reach.reduce((a, v) => a + (v === 1), 0),
       fwdCells: fwd.reduce((a, c) => a + c.n, 0),
       invLen: Math.round(inv.reduce((a, c) => a + c.len, 0)),
+      banks: Math.round(banks),
     },
     fwd,
     inv,
@@ -573,7 +666,13 @@ async function main() {
       L.push(
         `| ${c.n} | ${c.x}, ${c.z} | ${(c.box[2] - c.box[0] + 0.25).toFixed(1)}×${(c.box[3] - c.box[1] + 0.25).toFixed(1)} | ${poi(c.x, c.z)} | ${c.who} | ${c.meshes.join('；')} |`
       );
-    L.push('', `## 2. 看不到卻被擋住（碰撞線 0.75 m 內沒有任何網格）`, '');
+    L.push(
+      '',
+      `## 2. 看不到卻被擋住（碰撞線 0.75 m 內沒有任何網格）`,
+      '',
+      `埤塘、溪邊與排水溝兩岸的獨立牆（共 ${res.stats.banks} m）是刻意擋人走進水裡、掉進溝裡的，不列。`,
+      ''
+    );
     L.push(`| 長度 m | 從 | 到 | 種類 | 附近地標 | 建物／檔案 |`, `|---:|---|---|---|---|---|`);
     for (const c of res.inv)
       L.push(

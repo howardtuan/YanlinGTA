@@ -746,6 +746,29 @@ function cutRects(items) {
 // bank, so like the open road cut the ground and draped layers are cut away over the water and
 // its banks (sinkPlan().cut, src/world/GroundCut.js) and src/world/MapBuilder.js draws water, banks, railings and caps.
 const SINK_COPE = 0.3; // concrete coping on top of a wall
+// low road bridges (OSM bridge=yes) over a sunk stream: the parapets along both deck edges across
+// the channel. near [x, z] picks the bridge (the crossing within 15 m); off = parapet line from the
+// road centre line (m; default half the road + 0.8, where the culvert used to start), the culvert
+// then starts just behind it. look 'pipe': low concrete wall + steel pipe rail; 'wave': yellow
+// wave-topped panels with white flowers, a green painted walkway and orange delineator posts inside;
+// 'wall': the concrete parapet alone. Bridges not listed keep the plain culvert ends.
+const BRIDGE_LOOK = [
+  {
+    // 中北橋（新中北路跨新街溪）：Google 街景 2026-05 兩側都是約 0.6 m 的水泥矮牆，上面一根灰藍色鐵管欄杆（約 1 m 高），
+    // 矮牆就在路緣外約 1 m 的水泥邊帶外面；國土測繪 2024 正射：溪寬約 6～7 m，斜斜穿過路
+    near: [-419.2, -49.4],
+    look: 'pipe',
+    off: 5.0,
+  },
+  {
+    // 中北橋（中北路跨新街溪，幸福街口）：Google 街景 2026-05 兩側是黃色波浪造型欄杆（白色小花圖案，約 1 m 高），
+    // 內側一條塗綠色的人行帶、一排橘色隔離桿；欄杆後面是粉紅色欄杆和溪邊大樹
+    near: [-525.6, 199.7],
+    look: 'wave',
+    off: 5.8,
+  },
+];
+const bridgeLook = (x, z) => BRIDGE_LOOK.find((b) => Math.hypot(b.near[0] - x, b.near[1] - z) < 15);
 const sideOf = (nx, nz) =>
   Math.abs(nx) > Math.abs(nz) ? (nx > 0 ? 'e' : 'w') : nz > 0 ? 's' : 'n';
 const segDist = (px, pz, ax, az, bx, bz) => {
@@ -769,7 +792,12 @@ function sinkPlan(data) {
         c = Math.max(c, x);
         d = Math.max(d, z);
       }
-      return { pts: r.pts, hw: (r.w || 4) / 2, box: [a - r.w, b - r.w, c + r.w, d + r.w] };
+      return {
+        pts: r.pts,
+        hw: (r.w || 4) / 2,
+        bridge: !!(r.bridge && !r.tunnel && !r.grade),
+        box: [a - r.w, b - r.w, c + r.w, d + r.w],
+      };
     });
   // clear distance from (x,z) to the nearest road surface
   const roadGap = (x, z) => {
@@ -849,7 +877,8 @@ function sinkPlan(data) {
   }
   // streams: the parts not under a road (crossings = culverts / bridges) and not inside a sunk area
   const inSunkArea = (x, z) => areas.some((s) => pointInPoly(x, z, s.P));
-  const runs = [];
+  const runs = [],
+    bridges = [];
   for (const w of data.waterways) {
     if (!w.sink) continue;
     const pts = w.pts,
@@ -894,9 +923,24 @@ function sinkPlan(data) {
           if (t < 0 || t > 1 || u < 0 || u > 1) continue;
           const sin = Math.max(0.35, Math.abs(cr) / (l * (Math.hypot(ex, ez) || 1))),
             cos = Math.sqrt(1 - sin * sin);
-          const c = (r.hw + 0.8) / sin + ((top / 2) * cos) / sin,
+          const X = [A[0] + dx * t, A[1] + dz * t],
+            look = r.bridge && bridgeLook(...X),
+            bl = look ? { ...look, off: look.off || r.hw + 0.8 } : null;
+          const c = (bl ? bl.off + 0.35 : r.hw + 0.8) / sin + ((top / 2) * cos) / sin,
             s = cum[i] + t * l;
           shut.push([s - c, s + c]);
+          if (bl) {
+            const el = Math.hypot(ex, ez) || 1;
+            // u along the road, t along the stream
+            bridges.push({
+              ...bl,
+              X,
+              hw: r.hw,
+              u: [ex / el, ez / el],
+              t: [dx / l, dz / l],
+              top,
+            });
+          }
         }
       }
     }
@@ -967,7 +1011,7 @@ function sinkPlan(data) {
             h.poly.some((a, i) => segDist(x, z, ...a, ...h.poly[(i + 1) % h.poly.length]) < r))
         : segDist(x, z, ...h.seg[0], ...h.seg[1]) < h.seg[2] + r
     );
-  return { areas, runs, cut, inside };
+  return { areas, runs, bridges, cut, inside };
 }
 
 const col = (h) => {
@@ -1762,6 +1806,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       earth = new Geo(),
       metal = new Geo(),
       panel = new Geo(),
+      paint = new Geo(),
       bed = new Geo(false, uvS(3));
     const C = {
       riprap: col('#8d8778'),
@@ -1774,6 +1819,10 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
       pebble: col('#ffffff'),
       dark: col('#151513'),
       white: col('#ffffff'),
+      yellow: col('#e2b12e'),
+      green: col('#3f9a7e'),
+      orange: col('#ef7a1e'),
+      pipe: col('#7f8c96'),
     };
     const geoOf = (m) =>
       m === 'grass' ? grass : m === 'earth' ? earth : m === 'pebble' ? bed : conc;
@@ -2047,6 +2096,145 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
         ]);
       }
     }
+    // low road bridges over a stream: parapets along both deck edges across the channel (BRIDGE_LOOK)
+    const done = [];
+    for (const b of sink.bridges) {
+      if (done.some((q) => Math.hypot(q[0] - b.X[0], q[1] - b.X[1]) < 2)) continue;
+      done.push(b.X);
+      const { u, t } = b,
+        nr = [-u[1], u[0]];
+      // span along the road where the line at offset o crosses the channel top (+ the coping)
+      const k1 = nr[0] * t[1] - nr[1] * t[0],
+        k2 = u[0] * t[1] - u[1] * t[0] || 0.35,
+        W2 = b.top / 2 + SINK_COPE + 0.6;
+      const yRoad = (p) => Math.max(H(...p), H(...b.X));
+      for (const sd of [1, -1]) {
+        const o = b.off * sd,
+          a0 = (-W2 - o * k1) / k2,
+          a1 = (W2 - o * k1) / k2,
+          lo = Math.min(a0, a1),
+          hi = Math.max(a0, a1);
+        const at = (a, oo = o) => [b.X[0] + u[0] * a + nr[0] * oo, b.X[1] + u[1] * a + nr[1] * oo];
+        const A = at(lo),
+          B = at(hi),
+          len = hi - lo,
+          out = [nr[0] * sd, 0, nr[1] * sd];
+        // a slab from p to q ([x,z]) th thick, y0..y1 at each end, every face both ways
+        const slab = (g, p, q, y0p, y1p, y0q, y1q, th, c) => {
+          const hp = [nr[0] * sd * (th / 2), nr[1] * sd * (th / 2)];
+          const pi = [p[0] - hp[0], p[1] - hp[1]],
+            po = [p[0] + hp[0], p[1] + hp[1]],
+            qi = [q[0] - hp[0], q[1] - hp[1]],
+            qo = [q[0] + hp[0], q[1] + hp[1]];
+          const f = (a, bb, c2, d, n) => {
+            g.quad(a, bb, c2, d, c, n);
+            g.quad(
+              d,
+              c2,
+              bb,
+              a,
+              c,
+              n.map((v) => -v)
+            );
+          };
+          f(
+            P3(pi, y0p),
+            P3(qi, y0q),
+            P3(qi, y1q),
+            P3(pi, y1p),
+            out.map((v) => -v)
+          );
+          f(P3(po, y0p), P3(qo, y0q), P3(qo, y1q), P3(po, y1p), out);
+          f(P3(pi, y1p), P3(qi, y1q), P3(qo, y1q), P3(po, y1p), [0, 1, 0]);
+          f(P3(pi, y0p), P3(po, y0p), P3(po, y1p), P3(pi, y1p), [-u[0], 0, -u[1]]);
+          f(P3(qi, y0q), P3(qo, y0q), P3(qo, y1q), P3(qi, y1q), [u[0], 0, u[1]]);
+        };
+        const yA = yRoad(A),
+          yB = yRoad(B);
+        if (b.look === 'wave') {
+          // yellow panels with a wave top (one hump per ~2.6 m), white flowers on both faces
+          const n = Math.max(2, Math.round(len / 2.6)),
+            SL = 6;
+          for (let i = 0; i < n * SL; i++) {
+            const f0 = i / (n * SL),
+              f1 = (i + 1) / (n * SL),
+              p = at(lo + len * f0),
+              q = at(lo + len * f1),
+              hump = (f) => 0.72 + 0.3 * Math.sin(((f * n) % 1) * Math.PI);
+            slab(
+              paint,
+              p,
+              q,
+              yA + (yB - yA) * f0 - 0.1,
+              yA + (yB - yA) * f0 + hump(f0),
+              yA + (yB - yA) * f1 - 0.1,
+              yA + (yB - yA) * f1 + hump(f1),
+              0.12,
+              C.yellow
+            );
+          }
+          for (let i = 0; i < n; i++) {
+            const f = (i + 0.5) / n,
+              c = at(lo + len * f),
+              y = yA + (yB - yA) * f + 0.48;
+            for (const side of [1, -1]) {
+              const cc = [c[0] + nr[0] * sd * 0.075 * side, c[1] + nr[1] * sd * 0.075 * side],
+                N = [nr[0] * sd * side, 0, nr[1] * sd * side];
+              const ring = (r, col2, dy = 0) => {
+                for (let k = 0; k < 10; k++) {
+                  const g0 = (k / 10) * Math.PI * 2,
+                    g1 = ((k + 1) / 10) * Math.PI * 2,
+                    R0 = r * (k % 2 ? 0.82 : 1),
+                    R1 = r * ((k + 1) % 2 ? 0.82 : 1);
+                  const pt = (g, R) => [
+                    cc[0] + u[0] * Math.cos(g) * R,
+                    y + dy + Math.sin(g) * R,
+                    cc[1] + u[1] * Math.cos(g) * R,
+                  ];
+                  const m = [cc[0] + N[0] * 0.002, y + dy, cc[1] + N[2] * 0.002];
+                  paint.tri(m, pt(g0, R0), pt(g1, R1), col2, N);
+                  paint.tri(m, pt(g1, R1), pt(g0, R0), col2, N);
+                }
+              };
+              ring(0.2, C.white);
+              const cc0 = cc.slice();
+              cc[0] += N[0] * 0.004;
+              cc[1] += N[2] * 0.004;
+              ring(0.07, C.yellow);
+              cc[0] = cc0[0];
+              cc[1] = cc0[1];
+            }
+          }
+          // green painted walkway between the posts and the panels, orange delineator posts on its road side
+          const g0 = Math.min(b.off - 1.35, b.hw + 0.1),
+            g1 = b.off - 0.1;
+          const wa = [at(lo, g0 * sd), at(hi, g0 * sd), at(hi, g1 * sd), at(lo, g1 * sd)];
+          const wq = wa.map((p) => P3(p, yRoad(p) + 0.13));
+          paint.quad(wq[0], wq[1], wq[2], wq[3], C.green, [0, 1, 0]);
+          paint.quad(wq[3], wq[2], wq[1], wq[0], C.green, [0, 1, 0]);
+          const np = Math.max(2, Math.round(len / 1.1));
+          for (let k = 0; k <= np; k++) {
+            const p = at(lo + (len * k) / np, (g0 - 0.12) * sd),
+              y = yRoad(p) + 0.1;
+            bar([p[0], y, p[1]], [p[0], y + 0.85, p[1]], 0.1, C.orange);
+            bar([p[0], y + 0.62, p[1]], [p[0], y + 0.72, p[1]], 0.11, C.white);
+          }
+        } else {
+          // low concrete parapet (0.6 m) with a steel pipe rail on short posts ('pipe')
+          slab(conc, A, B, yA - 0.2, yA + 0.6, yB - 0.2, yB + 0.6, 0.25, C.wall);
+          if (b.look === 'pipe') {
+            const P = (f, y) => {
+              const p = at(lo + len * f);
+              return [p[0], yA + (yB - yA) * f + y, p[1]];
+            };
+            bar(P(0, 1.02), P(1, 1.02), 0.08, C.pipe);
+            const np = Math.max(2, Math.round(len / 2));
+            for (let k = 0; k <= np; k++) bar(P(k / np, 0.58), P(k / np, 1.02), 0.06, C.pipe);
+          }
+        }
+        sinkColl.push([at(lo), at(hi)]);
+      }
+    }
     // water writes depth (nothing under it: the ground is cut away); banks / rails are ordinary meshes
     const wmat2 = new THREE.MeshStandardMaterial({
       color: '#2f4c52',
@@ -2084,6 +2272,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     bank(conc, cx.map, cx.normalMap, 0.9);
     bank(grass, gr.map, gr.normalMap, 0.95);
     bank(earth, dt.map, dt.normalMap, 0.95);
+    bank(paint, null, null, 0.7);
     if (bed.tris) {
       const pb = T.pebble();
       bank(bed, pb.map, pb.normalMap, 0.9);
@@ -2525,7 +2714,9 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
             col('#8d8a82'),
             fn
           );
-          // 1 m parapet (護欄) on the deck edge, visual only (collision stays 2D)
+          // 1 m parapet (護欄) on the deck edge, visual only (collision stays 2D);
+          // sides 'fascia': a bridge in BRIDGE_LOOK, its parapets are drawn with the stream (drawSinks)
+          if (sides === 'fascia') continue;
           const k = 0.22 / (w / 2),
             ix = nx * k * sd,
             iz = nz * k * sd,
@@ -3141,12 +3332,17 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
           ? addBridge(r.pts, r.w)
           : null;
     if (yAt) deckY.set(r, yAt);
+    const looked =
+      r.bridge &&
+      r.pts.some(
+        (p, i) => i && bridgeLook((p[0] + r.pts[i - 1][0]) / 2, (p[1] + r.pts[i - 1][1]) / 2)
+      );
     let acc = 0;
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i],
         b = r.pts[i + 1];
       const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (yAt) deckStrip(g, a, b, r.w, acc, yAt, 0.03 + TOL_LO, c, true);
+      if (yAt) deckStrip(g, a, b, r.w, acc, yAt, 0.03 + TOL_LO, c, looked ? 'fascia' : true);
       else g.strip(a, b, wPt(r, i), 0.03, c, wPt(r, i + 1));
       gridSeg(r, i);
       acc += l;

@@ -50,7 +50,6 @@ export const ZB_ST = {
     '巨林美而美',
     '笨港朝天雞',
     '阿秋鹹粥',
-    '翻滾吧～糖炒栗子',
     '圓環肉羹',
     '夢工場照相館',
     '羽之鍋',
@@ -95,6 +94,7 @@ export const ZB_ST = {
     'f2_241',
     'f2_242',
     'f2_266',
+    'f2_267', // 寶雅東側那棟的後半（noShop）
     'f2_459',
     'f2_460',
     'f2_461',
@@ -459,12 +459,7 @@ export const ZB_ST = {
       },
     ],
     // S5 中北橋西到中北路28巷（2026-05）
-    [
-      345,
-      357,
-      -1,
-      { nf: 2, wall: '#e0d8bc', ground: 'shutter', sh: '#8d9094', bal: 'grille', tin: true, d: 9 },
-    ],
+    // 中北橋西南角（s 345～357）是新街溪與河岸，原本這格蓋在河上（國土測繪 2024 正射、Google 街景 2026-05），拿掉
     [
       357,
       370,
@@ -1403,43 +1398,20 @@ export const ZB_ST = {
         roof: 'bill',
         bill: ['岡山\n炒牛羊肉', '#f4f4f2', '#d42a1f', 5, 2.4],
         roofCol: '#8fa8a8',
-        d: 7,
+        d: 4, // 後面就是新街溪（樹下），國土測繪 2024 正射
       },
     ],
-    [
-      311.8,
-      317.8,
-      1,
-      {
-        nf: 1,
-        wall: '#cfcbbd',
-        noband: true,
-        ground: 'shutter',
-        sh: '#8d9094',
-        roof: 'bill',
-        bill: ['翻滾吧！\n糖炒栗子', '#f4f4f2', '#3a5a7a', 5.6, 2.0],
-        roofCol: '#e07a3a',
-        d: 7,
-      },
-    ],
-    [
-      317.8,
-      321.8,
-      1,
-      {
-        nf: 1,
-        wall: '#cfcbbd',
-        noband: true,
-        ground: 'stall',
-        awn: ['#3a8a4a', '#ffffff'],
-        roof: 'bill',
-        bill: ['生炒羊肉', '#ffffff', '#d42a1f', 3.6, 1.2],
-        roofCol: '#8fa8a8',
-        d: 7,
-      },
-    ],
+    // s 311.8～328 是新街溪北岸的大樹、電線桿和中北橋的黃色波浪欄杆（Google 街景 2025-06、2026-05），原本兩格小攤（糖炒栗子、生炒羊肉）蓋在河上，拿掉
     // N5 中北橋西到新中北路34巷（2026-05）
-    [347.7, 352, 1, { nf: 4, bal: 'glass', glass: '#556070', ground: 'shop', d: 10 }],
+    // 寶雅東側那棟（Google 地圖使用者全景 2025-06、國土測繪 2024 正射）：深灰外牆、整排淺綠玻璃窗，
+    // 東側就是進 Times 停車場的巷子；屋頂是一大片灰色條紋鐵皮，往後一直到停車場邊（約 24 m 深）
+    [
+      347.7,
+      352,
+      1,
+      { nf: 5, wall: '#55585c', bal: 'glass', glass: '#3f4a4b', ground: 'shop', d: 24 },
+    ],
+    // 寶雅：2 層裙樓（屋頂整片太陽能板，正射量約 21 m 深），上面退縮一棟紫灰陽台的住宅高樓（陰影很長，取 11 層）
     [
       352,
       375,
@@ -1453,8 +1425,9 @@ export const ZB_ST = {
         ground: 'shop',
         bikes: 6,
         bal: 'plain',
-        tower: { nf: 9, back: 3, wall: '#e9e7e3', balc: '#6a6070' },
-        d: 12,
+        tower: { nf: 11, back: 3, depth: 12, wall: '#e9e7e3', balc: '#6a6070' },
+        solar: true,
+        d: 21,
       },
     ],
     [
@@ -2484,7 +2457,15 @@ export function buildZhongbeiStreet(I, scene, X) {
         tn = T.nf || 8,
         tw = wallMat(T.wall || '#e9e7e3'),
         th = tn * 3.0;
-      k.box(0.3, w - 0.3, top + 0.12, top + 0.12 + th, back, d - 0.5, tw);
+      k.box(
+        0.3,
+        w - 0.3,
+        top + 0.12,
+        top + 0.12 + th,
+        back,
+        T.depth ? back + T.depth : d - 0.5,
+        tw
+      );
       for (let f = 0; f < tn; f++) {
         const y = top + 0.12 + f * 3.0;
         k.box(0.3, w - 0.3, y + 0.05, y + 0.2, back - 1.0, back, T.balc || '#6a6070', {
@@ -2493,6 +2474,17 @@ export function buildZhongbeiStreet(I, scene, X) {
         win2(w / 2, y + 1.7, w - 1.6, 1.4, false);
         if (r() < 0.5) ac(k, 0.8 + r() * (w - 3), y + 0.3, back - 0.5);
       }
+    }
+    // 裙樓屋頂的太陽能板（高樓後面那段），一排排深藍色斜板；不用 r()
+    if (sp.solar) {
+      const z0 = sp.tower && sp.tower.depth ? sp.tower.back + sp.tower.depth + 1 : 1;
+      for (let z = z0; z < d - 1.6; z += 2.1)
+        for (let x = 0.8; x < w - 2.2; x += 3.4) {
+          k.box(x, x + 3.2, top + 0.3, top + 0.42, z, z + 1.7, '#2a3a5a', { col: false });
+          k.box(x + 0.1, x + 3.1, top + 0.12, top + 0.3, z + 0.7, z + 0.9, '#8a8d90', {
+            col: false,
+          });
+        }
     }
     // 後牆與沒有鄰居的側牆開窗，頂樓隨機加水塔／頂樓加蓋，從高處或巷口看才不會是一整面素牆
     if (nf > 1) {
@@ -2592,5 +2584,56 @@ export function buildZhongbeiStreet(I, scene, X) {
     }
     k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
   });
+  timesParking(I, kits, Kit, vcKit, lcg);
   finishRow(scene, kits);
+}
+
+// Times 中壢中原夜市停車場（寶雅後面，data/cycu.json 的 parking 區）：Google 衛星與國土測繪 2024 正射上是一整片平面停車場，
+// 停車格一排排和西南邊（寶雅那排的後牆）平行，中間兩條車道，平常停得很滿。白色停車格線＋停放的汽車；自己的亂數，不碰全圖亂數
+const TIMES_LOT = [
+  [-528.4, 118.3],
+  [-515.7, 138.9],
+  [-491.2, 159.0],
+  [-522.7, 183.4],
+  [-556.6, 142.1],
+];
+function timesParking(I, kits, Kit, vcKit, lcg) {
+  const inLot = (x, z) => {
+    let c = false;
+    for (let i = 0, j = TIMES_LOT.length - 1; i < TIMES_LOT.length; j = i++) {
+      const [xi, zi] = TIMES_LOT[i],
+        [xj, zj] = TIMES_LOT[j];
+      if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
+    }
+    return c;
+  };
+  // 原點在西南邊的東南端，+x 沿西南邊往西北，+z 往東北進停車場
+  const [ox, oz] = TIMES_LOT[3],
+    ux = (TIMES_LOT[4][0] - ox) / 53.43,
+    uz = (TIMES_LOT[4][1] - oz) / 53.43;
+  const k = vcKit(new Kit(I, ox, oz, Math.atan2(uz, ux)));
+  kits.push(k);
+  const W = (x, z) => [ox + x * ux - z * uz, oz + x * uz + z * ux];
+  const r = lcg(7310);
+  const CARS = ['#e8e8e6', '#1e1f22', '#9a9ea3', '#c9c9c4', '#2a3a5a', '#7a1e22', '#d8d4c8'];
+  // 停車格排（離西南邊的 z 範圍）：中間隔 6 m 車道
+  for (const [z0, z1] of [
+    [1.0, 6.0],
+    [12.0, 17.0],
+    [17.0, 22.0],
+    [28.0, 33.0],
+    [33.0, 38.0],
+  ])
+    for (let x = 2; x < 60; x += 2.5) {
+      const ok = [
+        [x, z0],
+        [x + 2.5, z0],
+        [x, z1],
+        [x + 2.5, z1],
+      ].every(([a, b]) => inLot(...W(a, b)));
+      if (!ok) continue;
+      k.box(x - 0.06, x + 0.06, 0.02, 0.05, z0, z1, '#f2f2ee', { col: false });
+      k.box(x + 2.44, x + 2.56, 0.02, 0.05, z0, z1, '#f2f2ee', { col: false });
+      if (r() < 0.72) k.car(x + 1.25, (z0 + z1) / 2, r() < 0.5 ? 0 : Math.PI, CARS[(r() * 7) | 0]);
+    }
 }

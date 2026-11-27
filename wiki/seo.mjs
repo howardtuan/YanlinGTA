@@ -52,7 +52,7 @@ export function llmsTxt(data) {
   const wikiLines = PAGES.map((p) => `- [${p.title}](${pageUrl(p.slug)})`).join('\n');
   return `# 中原順起來 · 資管要贏 票投彥霖（YanlinGTA）
 
-> YanlinGTA（Yanlin Great Times Adventure）是一款免安裝、用電腦或手機瀏覽器就能玩的 3D 開放世界網頁遊戲，以真實比例重現中原大學（桃園市中壢區）校園與中原夜市周邊。玩家扮演第 34 屆中原大學資訊管理學系系學會會長候選人「彥霖」，騎著 SYM JET SL 機車穿梭校園，完成競選任務幫自己拉票。遊戲免費，角色由真實的資管系同學、室友與開發者改編。
+> YanlinGTA（Yanlin Great Times Adventure）是一款免安裝、用電腦或手機瀏覽器就能玩的 3D 開放世界網頁遊戲，以真實比例重現中原大學（桃園市中壢區）校園與中原夜市周邊。玩家扮演第 34 屆中原大學資訊管理學系系學會會長候選人「彥霖」，騎著 JAT SM 機車穿梭校園，完成競選任務幫自己拉票。遊戲免費，角色由真實的資管系同學、室友與開發者改編。
 
 - 立即遊玩：${SITE}/
 - 遊戲百科 Wiki：${pageUrl('')}

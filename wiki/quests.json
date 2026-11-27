@@ -1,7 +1,7 @@
 {
   "_doc": [
     "Wiki 的任務清單。npcs 列出跟這個任務有關的角色 id（data/npcs.json），角色卡會自動列出他參與的任務。",
-    "type：main 主線／side 支線／case SQL 偵探案件。內容改動時請對照 docs/guide/game-design.md。"
+    "type：main 主線／side 支線／case SQL 偵探案件。內容改動時請對照 docs/specs/missions-and-quests.md。"
   ],
   "quests": [
     {

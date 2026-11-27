@@ -1199,7 +1199,7 @@
     if (s.type === 'votes') return { kind: 'votes', need: s.need, base: s.base };
     // mission 5 (布條失竊案): both `until` steps are solved at 彥霖's old desk (walk in, use the computer)
     if (s.type === 'until' && m.idx === 5 && game.interiors.yh) return { kind: 'yh' };
-    // mission 6 (宿舍拉票): the 2F doors of 力行 are not driven yet — knocked through the game's own action, reported as a fallback
+    // mission 6 (宿舍拉票): up the west scissor stair of 力行 to the 2F south gallery, E at each of the six doors
     if (s.type === 'until' && s.dorm) return { kind: 'dorm' };
     return null;
   }
@@ -1362,6 +1362,169 @@
       B._eCool = B.t + 0.6;
       ev('use-pc');
     }
+  }
+  // ------------------------------------------------------------------ mission 6: 力行宿舍 2F, 276～281
+  // Lixing's local frame (src/world/buildings/Lixing.js; I.lixing.W maps it to the world): outside the gate in the
+  // gatehouse row along 新中北路 (ANNEX gate0..gate1) -> through it onto the forecourt -> in front of the open bay on
+  // the west wing's forecourt face -> the 1F walkway -> the south landing of the west scissor stair -> its
+  // courtyard-side lane climbs north to the 2F north landing -> the main corridor -> the courtyard's east gallery ->
+  // the south gallery, where the six doorsteps are.
+  const LX_WP = [
+    [58.8, 36.0],
+    [58.8, 27.5],
+    [40.5, 26.1],
+    [36.2, 26.1],
+    [34.85, 24.2],
+    [34.85, 10.6],
+    [34.85, 8.6],
+    [32.6, 8.6],
+    [32.6, 26.1],
+  ];
+  const LX_UP = 5; // waypoints from this index on are on 2F
+  function lxWps() {
+    const L = game.interiors.lixing;
+    return LX_WP.map(([lx, lz], i) => {
+      const [x, z] = L.W(lx, lz);
+      return { x, z, up: i >= LX_UP, i };
+    });
+  }
+  function lxUp() {
+    const L = game.interiors.lixing,
+      pl = game.player;
+    return !!L && !pl.vehicle && pl.pos.y > L.B + L.FL[1] - 1.2 && inLixing();
+  }
+  function inLixing() {
+    const pl = game.player;
+    if (pl.vehicle || !game.interiors.lixing) return false;
+    const zn = game.interiors.zoneAt(pl.pos.x, pl.pos.z, pl.y);
+    return !!zn && zn.name === '力行宿舍';
+  }
+  // walk the chain toward the south gallery (dir +1) or back out to the forecourt (dir -1); true at its end
+  function lxWalk(dt, dir) {
+    const pl = game.player,
+      W = lxWps(),
+      up = lxUp();
+    let y = B._lx;
+    if (!y || y.dir !== dir) {
+      let bi = 0,
+        bd = Infinity;
+      for (const w of W) {
+        if (w.i !== LX_UP - 1 && w.i !== LX_UP && w.up !== up) continue; // the stair ends count for both floors
+        const d = hyp(w.x - pl.pos.x, w.z - pl.pos.z);
+        if (d < bd) {
+          bd = d;
+          bi = w.i;
+        }
+      }
+      y = B._lx = { dir, i: bi };
+      startNav({ x: W[bi].x, z: W[bi].z, name: dir > 0 ? '力行 2F' : '力行 前院' }, 0.3);
+      nav.purpose = 'lx';
+      ev('lx-walk', { dir, from: bi });
+    }
+    const end = dir > 0 ? W.length - 1 : 0;
+    let w = W[y.i];
+    if (hyp(w.x - pl.pos.x, w.z - pl.pos.z) < 0.4) {
+      if (y.i === end) {
+        neutral();
+        return true;
+      }
+      y.i += dir;
+      w = W[y.i];
+      nav.target = { x: w.x, z: w.z };
+      nav.bestRemain = Infinity;
+      nav.lastProgT = B.t;
+      ev('lx-wp', { i: y.i, y: +game.player.pos.y.toFixed(2) });
+    }
+    if (!nav || nav.purpose !== 'lx') {
+      startNav({ x: w.x, z: w.z, name: 'lx' }, 0.3);
+      nav.purpose = 'lx';
+    }
+    const rem = hyp(w.x - pl.pos.x, w.z - pl.pos.z);
+    if (rem < nav.bestRemain - 0.3) {
+      nav.bestRemain = rem;
+      nav.lastProgT = B.t;
+    }
+    if (B.t - nav.lastProgT > B.opts.fallbackStallSec)
+      fallback(`stuck in 力行宿舍 on the way to waypoint ${y.i}`, w);
+    footTick(dt, { x: w.x, z: w.z, walk: true });
+    return false;
+  }
+  function dormTick(dt, m) {
+    const pl = game.player,
+      left = m.dormLeft;
+    if (!left.length) {
+      neutral();
+      return;
+    }
+    const W = lxWps(),
+      rp = game.world.nearestRoadPoint(W[0].x, W[0].z),
+      gate = { x: rp.x, z: rp.z },
+      wp = pl.worldPos();
+    if (lxUp() && B._lx && B._lx.dir > 0 && B._lx.i === W.length - 1) {
+      // on the south gallery: the nearest door still to visit, E on its doorstep
+      let d = left[0];
+      for (const q of left) if (hyp(q.x - wp.x, q.z - wp.z) < hyp(d.x - wp.x, d.z - wp.z)) d = q;
+      const r = hyp(d.x - wp.x, d.z - wp.z);
+      if (!nav || nav.purpose !== 'lx-door' || nav.name !== d.name) {
+        startNav({ x: d.x, z: d.z, name: d.name }, 0.3);
+        nav.purpose = 'lx-door';
+      }
+      if (r < nav.bestRemain - 0.3) {
+        nav.bestRemain = r;
+        nav.lastProgT = B.t;
+      }
+      if (r < 0.6) {
+        neutral();
+        if (!B._eCool || B.t > B._eCool) {
+          press('KeyE');
+          B._eCool = B.t + 0.6;
+          ev('dorm-door', { room: d.no });
+        }
+        return;
+      }
+      if (B.t - nav.lastProgT > B.opts.fallbackStallSec)
+        fallback(`stuck on the 力行 2F gallery on the way to ${d.name}`, d);
+      footTick(dt, { x: d.x, z: d.z, slow: r < 1.2, walk: true });
+      return;
+    }
+    if (
+      lxUp() ||
+      (!pl.vehicle &&
+        (inLixing() ||
+          B._lx ||
+          hyp(gate.x - wp.x, gate.z - wp.z) <= 3 ||
+          hyp(W[0].x - wp.x, W[0].z - wp.z) <= 8))
+    ) {
+      lxWalk(dt, 1);
+      return;
+    }
+    if (pl.vehicle && hyp(gate.x - wp.x, gate.z - wp.z) <= 3) {
+      dismountTick();
+      return;
+    }
+    B._lx = null;
+    if (!pl.vehicle && hyp(gate.x - pl.pos.x, gate.z - pl.pos.z) >= 60 && mountTick(dt)) {
+      watchdogMount();
+      return;
+    }
+    if (!nav || nav.purpose !== 'lx-gate' || nav.mode !== (pl.vehicle ? 'vehicle' : 'foot')) {
+      startNav({ x: gate.x, z: gate.z, name: '力行宿舍' }, 2, { slowAtEnd: true });
+      nav.purpose = 'lx-gate';
+      const leg = {
+        name: '力行宿舍',
+        kind: 'dorm',
+        startT: +game.playTime.toFixed(2),
+        mode: nav.mode,
+        route: nav.route,
+        pathLen: Math.round(nav.path.sCp),
+        noPath: nav.noPath,
+      };
+      B.curStep && B.curStep.legs.push(leg);
+      ev('leg', leg);
+    }
+    watchdog();
+    if (pl.vehicle) driveTick(dt);
+    else footTick(dt);
   }
   // the terminal: open it, type `case`, crack the case with SQL, accuse, then switch the computer off.
   // Commands are typed into the terminal's input line and sent with Enter, exactly like a player.
@@ -1808,16 +1971,29 @@
       return;
     }
     if (obj.kind === 'dorm') {
-      neutral();
-      const d = m.dormLeft[0];
-      if (d && !game.hud.inDialog && (!B._dormCool || B.t > B._dormCool)) {
-        B._dormCool = B.t + 1;
-        B.curStep &&
-          B.curStep.fallbacks.push({ reason: `dorm door ${d.no}`, t: +game.playTime.toFixed(1) });
-        ev('FALLBACK_DORM', { room: d.no });
-        m.canvassDorm(d.no);
+      // still at 彥霖's old desk after mission 5: out to the street first
+      if (inYanlinHouse()) {
+        yhWalk(dt, -1);
+        return;
       }
+      if (B._yh) {
+        B._yh = null;
+        nav = null;
+      }
+      dormTick(dt, m);
       return;
+    }
+    // still upstairs in 力行 after mission 6: back down to the forecourt first
+    if (lxUp() || (inLixing() && B._lx)) {
+      if (!lxUp() && B._lx && B._lx.dir < 0 && B._lx.i === 0) B._lx = null;
+      else {
+        lxWalk(dt, -1);
+        return;
+      }
+    }
+    if (B._lx) {
+      B._lx = null;
+      nav = null;
     }
     // still inside 彥霖's old home (after mission 5): walk back out to the street first
     if (inYanlinHouse()) {

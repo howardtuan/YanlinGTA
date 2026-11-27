@@ -88,10 +88,12 @@ flowchart TD
 - **`street-encroach.test.js`**：用 `tools/street_corner_check.mjs` 檢查建物不得侵入車道（允許 1 m 誤差，地圖邊緣 30 m 內不算）；OSM 建物與填充樓的修正放在 `src/world/buildings/RoadClearance.js`，自建街屋改各自的檔案。
 - **`collision-mesh.test.js`**：`tools/collision_mesh_check.mjs` 抓到、修好的「看得到卻穿得過」位置，在 node 裡建出那幾個街區，檢查玩家站在那一點會碰到牆（#302）。
 
-### 遊戲內效能測試（`src/systems/Benchmark.js`）
-- 給玩家用的硬體測試：標題畫面 →「📊 效能測試」，選畫質後鏡頭照固定路線跑約 100 秒（校園街道白天 → 空拍 → 夜間街道，每段前 3 秒暖機不計），跑完顯示平均 FPS、1% / 0.1% 低幀、最低／最高、畫面時間分佈、卡頓次數、主執行緒每幀耗時、繪圖呼叫與三角形，並依「每幀間隔 vs. 遊戲 JS 耗時」判斷瓶頸是 CPU、GPU 還是螢幕更新率；可複製文字或下載 JSON，上一次結果存在 `localStorage`（`cycu-bench-last`）。
-- 網址加 `?bench`（或 `?bench=low` 指定畫質）會在載入完自動開跑；跑完 `game.bench.result` 有完整結果，並發出 `window` 的 `benchdone` 事件，方便自動化在不同機器上收數據。
-- 跟 `npm run profile:*`（`tools/profile_scene.mjs`，開發用的固定機位量測與基準比對）是兩回事：這個測的是玩家實際看到的整體流暢度。
+### 遊戲內效能測試與 PR 效能紀錄工具（`src/systems/Benchmark.js` & `tools/run_bench.mjs`）
+- 給玩家用的硬體測試：標題畫面 →「📊 效能測試」，選畫質後鏡頭照固定路線跑約 99 秒（校園街道白天 → 空拍 → 夜間街道，每段前 3 秒暖機不計），跑完顯示平均 FPS、1% / 0.1% 低幀、最低／最高、畫面時間分佈、卡頓次數、主執行緒耗時（並於結果物件細分純遊戲邏輯 `logicAvg` 與繪圖提交 `renderAvg`）、繪圖呼叫與三角形，並依「每幀間隔 vs. 遊戲 JS 耗時」判斷瓶頸是 CPU、GPU 還是螢幕更新率；可複製文字或下載 JSON，上一次結果存在 `localStorage`（`cycu-bench-last`）。
+- 網址加 `?bench`（或 `?bench=low` 指定畫質、`?bench=low&headless=1` 無頭模式）會在載入完自動開跑；跑完 `game.bench.result` 有完整結果，並發出 `window` 的 `benchdone` 事件。
+- **Agent 自動化 iPhone 模擬實測（`npm run bench:iphone`）**：支援 Mac M 系列（Apple Metal GPU）與 Linux（自動探測 Vulkan / EGL 硬體 GPU），預設以 iPhone 視口（`430x932@3x`、`tier=mobile-lite`）自動跑完 99 秒遊戲內 Benchmark 並強制執行 GC 量測存活 `Canvas MB`、貼圖估算 MB 與三段指標，產出可直接貼入 PR 的 `tools/e2e/out/bench/pr-perf-section.md`（含 `<!-- yanlin-perf:v1 -->` 輕量標記），或以 `npm run perf:attach -- <PR編號>` 一鍵寫入 PR 內文。
+- **按需歷史查詢與跨 PR 對比（`tools/perf_history.mjs`）**：平時開 PR 不做對比；需要檢視效能演進時，執行 `npm run perf:history` 或 `npm run perf:compare`（如 `npm run perf:compare -- --from=370 --to=372` 或 `--current`），會自動從已合併 PR 同步標記至本機輕量單檔 `tools/.cache/perf-history.jsonl`，並智慧區分跨機器通用的記憶體／幾何負載與同款 GPU 的真實幀率差異。
+- 跟 `npm run profile:*`（`tools/profile_scene.mjs`，開發用的 5 個固定機位快速採樣與基準比對）互補：`bench:iphone` 測的是完整動態巡航路線與貼近真實遊玩的綜合體驗。
 
 ### 2. WASM 精度整合測試 (`tests/integration/wasm.test.js` & `tools/check_wasm.mjs`)
 - `npm test` 會執行快速抽樣整合測試；改動貼圖核心時須另外執行 `npm run test:wasm`，對全部 FBM 噪聲與法線貼圖參數執行完整比對，驗收門檻為 **`0 mismatched`**。

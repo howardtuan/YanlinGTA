@@ -36,20 +36,26 @@ if (flag('help') || flag('h')) {
   --headful               show the browser window
   --no-shots              skip screenshots
   --strict                also count known harmless Chrome log errors (see KNOWN_NOISE)
-  --debug                 print controller state every poll`);
+  --debug                 print controller state every poll
+  --cdp=<port>            use a Chrome that is already running with remote debugging on 127.0.0.1:<port>
+                          (e.g. a tunnelled remote Chrome) instead of launching one; it is not killed
+  --serve-host=<host>     serve on 0.0.0.0 and give Chrome http://<host>:<port>/ (for a Chrome on another machine)`);
   process.exit(0);
 }
 
 const isWin = process.platform === 'win32';
 // renderer attempts: GPU is retried once and (unless --gpu was forced) falls back to SwiftShader when
 // WebGL is unavailable / lost / silently software (Chrome started from SSH runs in a non-interactive session)
-const MODES = flag('swiftshader')
-  ? ['swiftshader']
-  : flag('gpu')
-    ? ['gpu', 'gpu']
-    : isWin
-      ? ['gpu', 'gpu', 'swiftshader']
-      : ['swiftshader'];
+const CDP_PORT = +arg('cdp', 0);
+const MODES = CDP_PORT
+  ? [flag('gpu') ? 'gpu' : 'swiftshader'] // an attached Chrome has its renderer already; the mode only picks the defaults
+  : flag('swiftshader')
+    ? ['swiftshader']
+    : flag('gpu')
+      ? ['gpu', 'gpu']
+      : isWin
+        ? ['gpu', 'gpu', 'swiftshader']
+        : ['swiftshader'];
 let gpu = MODES[0];
 const modeCfg = (m) => ({
   stepsPerFrame: +arg('steps-per-frame', m === 'swiftshader' ? 4 : 1),
@@ -191,7 +197,9 @@ function webRoot() {
 }
 async function main() {
   const web = webRoot();
-  srv = await startServer({ root: web, port: 0 });
+  const serveHost = arg('serve-host', '');
+  srv = await startServer({ root: web, port: 0, host: serveHost ? '0.0.0.0' : '127.0.0.1' });
+  if (serveHost) srv.url = srv.url.replace('//0.0.0.0:', `//${serveHost}:`);
   say(`serving ${web} at ${srv.url}`);
   report.gpuAttempts = [];
   for (let ai = 0; ai < MODES.length; ai++) {
@@ -286,6 +294,12 @@ async function main() {
           say(
             `   walking ${e.dir > 0 ? 'in to the desk' : 'out to the street'} from waypoint ${e.from}`
           );
+        else if (e.type === 'lx-walk')
+          say(
+            `   力行: walking ${e.dir > 0 ? 'up to the 2F gallery' : 'out to the forecourt'} from waypoint ${e.from}`
+          );
+        else if (e.type === 'lx-wp') say(`   力行: waypoint ${e.i} (y ${e.y})`);
+        else if (e.type === 'dorm-door') say(`   E at room ${e.room}`);
         else if (e.type === 'yh-garry')
           say("!! wandered into 黃蓋瑞's flat next door, walking back to the landing");
         else if (e.type === 'use-pc') say('   E: use the computer');
@@ -368,7 +382,7 @@ async function closeBrowser() {
     page && page.close();
   } catch {}
   try {
-    chrome && (await chrome.kill());
+    chrome && chrome.kill && (await chrome.kill());
   } catch {}
   page = null;
   chrome = null;
@@ -381,14 +395,19 @@ async function openGame() {
     c: report.consoleErrors.length,
     n: report.networkErrors.length,
   };
-  say(`launching Chrome (${gpu}) ${cfg.chrome}`);
-  chrome = await launchChrome({
-    chrome: cfg.chrome,
-    gpu,
-    width: cfg.width,
-    height: cfg.height,
-    headless: !cfg.headful,
-  });
+  if (CDP_PORT) {
+    say(`attaching to Chrome at 127.0.0.1:${CDP_PORT} (${gpu} defaults)`);
+    chrome = { port: CDP_PORT };
+  } else {
+    say(`launching Chrome (${gpu}) ${cfg.chrome}`);
+    chrome = await launchChrome({
+      chrome: cfg.chrome,
+      gpu,
+      width: cfg.width,
+      height: cfg.height,
+      headless: !cfg.headful,
+    });
+  }
   page = await connectPage(chrome.port);
   const ver = await (await fetch(`http://127.0.0.1:${chrome.port}/json/version`)).json();
   report.chrome = ver.Browser;

@@ -25,6 +25,11 @@
     "profile:desktop": "node tools/profile_scene.mjs --gpu --markdown",
     "profile:safari": "node tools/profile_scene.mjs --engine=webkit --mobile --markdown",
     "profile:webkit-install": "playwright-core install webkit",
+    "bench:iphone": "node tools/run_bench.mjs",
+    "bench:desktop": "node tools/run_bench.mjs --desktop",
+    "perf:attach": "node tools/perf_history.mjs attach",
+    "perf:history": "node tools/perf_history.mjs list",
+    "perf:compare": "node tools/perf_history.mjs compare",
     "test:e2e": "node tools/e2e/story-bot.mjs",
     "test:smoke": "node tools/e2e/smoke.mjs",
     "ci": "npm run format:check && npm run lint && npm test && npm run build && npm run check:dist"

@@ -680,7 +680,7 @@ class Game {
     this.gameLoop.start();
     // ?bench: run the benchmark straight away (?bench=low picks the quality for the run)
     const bq = location.search.match(/[?&]bench(?:=(\w+))?/);
-    if (bq) this.bench.start(bq[1]);
+    if (bq) this.bench.start(bq[1], { headless: /[?&]headless\b/.test(location.search) });
   }
 
   // ---------- delegations ----------

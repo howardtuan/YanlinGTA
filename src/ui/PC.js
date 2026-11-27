@@ -98,9 +98,11 @@ export class PC {
       }
     });
   }
-  open(title = '彥霖的電腦') {
+  // own: 彥霖's own desktop / laptop show his wallpaper (assets/pc/yanlin.jpg); every other computer the blue default
+  open(title = '彥霖的電腦', own = title.startsWith('彥霖')) {
     if (this.isOpen) return;
     $('pcStart').textContent = `🪟 ${title}`;
+    $('pcScreen').classList.toggle('own', own);
     this.isOpen = true;
     this.el.classList.remove('hidden');
     this.g.input.enabled = false;

@@ -29,6 +29,40 @@ export function ctex(key, w, h, draw, repeat = true) {
   return TEX[key] || (TEX[key] = canvasTexture(w, h, draw, repeat));
 }
 export const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+// the small desktop on the 3D monitors (T.screen / T.screenOwn): blue wallpaper, icons, taskbar
+function taskbar(g) {
+  g.fillStyle = 'rgba(18,20,28,.92)';
+  g.fillRect(0, 128, 256, 16);
+  g.fillStyle = '#2f6bff';
+  g.fillRect(3, 131, 34, 10);
+  g.fillStyle = '#fff';
+  g.font = font(8, 700);
+  g.textAlign = 'right';
+  g.fillText('17:40', 250, 139);
+}
+function desktop(g) {
+  const gr = g.createRadialGradient(180, 40, 10, 150, 60, 200);
+  gr.addColorStop(0, '#3a7bd5');
+  gr.addColorStop(0.5, '#1c3f7a');
+  gr.addColorStop(1, '#0f2147');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 256, 144);
+  const ic = ['#4da3ff', '#ffd23f', '#e8323c', '#3fae49', '#9aa3b5', '#b06bff', '#2b2b2b'];
+  ic.forEach((c, i) => {
+    const x = 8 + (i % 2) * 22,
+      y = 8 + Math.floor(i / 2) * 22;
+    g.fillStyle = c;
+    g.fillRect(x, y, 14, 12);
+    g.fillStyle = 'rgba(255,255,255,.7)';
+    g.fillRect(x, y + 14, 14, 2);
+  });
+  g.fillStyle = 'rgba(255,255,255,.18)';
+  g.font = font(16);
+  g.textAlign = 'right';
+  g.fillText('資管要贏　票投彥霖', 246, 118);
+  taskbar(g);
+}
+
 export const T = {
   // 資管系館欄板：灰色洗石子（細點）＋白色菱形嵌片、內圈淺灰菱形（2020～2022 相片）
   diamond: () =>
@@ -210,56 +244,28 @@ export const T = {
       },
       false
     ),
-  // monitors show the desktop of src/ui/PC.js (blue wallpaper, icons, taskbar)
+  // monitors show the desktop of src/ui/PC.js (blue wallpaper, icons, taskbar): the 資管系館 computer lab, ...
+  screen: () => ctex('screen', 256, 144, (g) => desktop(g), false),
+  // 彥霖's own desktop at home: the same desktop with his wallpaper (assets/pc/yanlin.jpg, the same as .pc-screen.own)
   // dynamic: the wallpaper is drawn in when it has loaded, so its canvas is never released (GpuMemLifecycle)
-  screen: () =>
+  screenOwn: () =>
     markDynamic(
       ctex(
-        'screen',
+        'screenOwn',
         256,
         144,
         (g) => {
-          const gr = g.createRadialGradient(180, 40, 10, 150, 60, 200);
-          gr.addColorStop(0, '#3a7bd5');
-          gr.addColorStop(0.5, '#1c3f7a');
-          gr.addColorStop(1, '#0f2147');
-          g.fillStyle = gr;
-          g.fillRect(0, 0, 256, 144);
-          const ic = ['#4da3ff', '#ffd23f', '#e8323c', '#3fae49', '#9aa3b5', '#b06bff', '#2b2b2b'];
-          ic.forEach((c, i) => {
-            const x = 8 + (i % 2) * 22,
-              y = 8 + Math.floor(i / 2) * 22;
-            g.fillStyle = c;
-            g.fillRect(x, y, 14, 12);
-            g.fillStyle = 'rgba(255,255,255,.7)';
-            g.fillRect(x, y + 14, 14, 2);
-          });
-          g.fillStyle = 'rgba(255,255,255,.18)';
-          g.font = font(16);
-          g.textAlign = 'right';
-          g.fillText('資管要贏　票投彥霖', 246, 118);
-          g.fillStyle = 'rgba(18,20,28,.92)';
-          g.fillRect(0, 128, 256, 16);
-          g.fillStyle = '#2f6bff';
-          g.fillRect(3, 131, 34, 10);
-          g.fillStyle = '#fff';
-          g.font = font(8, 700);
-          g.fillText('17:40', 250, 139);
-          const im = new Image(); // the same wallpaper as the computer desktop (src/ui/PC.js), if the file is there
+          desktop(g);
+          const im = new Image();
           im.onload = () => {
             const s = Math.max(256 / im.width, 128 / im.height),
               w = im.width * s,
               h = im.height * s;
             g.drawImage(im, (256 - w) / 2, (128 - h) / 2, w, h);
-            g.fillStyle = 'rgba(18,20,28,.92)';
-            g.fillRect(0, 128, 256, 16);
-            g.fillStyle = '#2f6bff';
-            g.fillRect(3, 131, 34, 10);
-            g.fillStyle = '#fff';
-            g.fillText('17:40', 250, 139);
-            if (TEX.screen) TEX.screen.needsUpdate = true;
+            taskbar(g);
+            if (TEX.screenOwn) TEX.screenOwn.needsUpdate = true;
           };
-          im.src = 'assets/pc/wallpaper.jpg';
+          im.src = 'assets/pc/yanlin.jpg';
         },
         false
       )

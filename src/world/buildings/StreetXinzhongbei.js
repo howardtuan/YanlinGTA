@@ -17,6 +17,7 @@
 // 這個檔案不 import src/world/Interiors.js（Kit、材質、貼圖工具由 src/world/zones/Zones.js 呼叫 buildXinzhongbeiStreet 時從 X 傳進來），
 // src/world/zones/Zones.js 直接 import 這裡的 XZ_ST.drop 與 xzFootprints() 來刪填充樓、保留空地。
 import { makeSideShop } from './StreetZhongbei.js';
+import { H } from '../Terrain.js';
 import SegL1 from './xzb/SegL1.js';
 import SegL2 from './xzb/SegL2.js';
 import SegX1 from './xzb/SegX1.js';
@@ -427,6 +428,56 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     g.setAttribute('color', new THREE.BufferAttribute(a, 3));
     return g;
   };
+  // 貼著地形的鋪面（門前鋪面、人行道）：每 2.5 m 一個頂點照那一點的地面高度，斜坡上是連續的斜面，
+  // 不會像平板那樣一格一階、低的那頭浮起來；可走表面照樣登記（遊戲邏輯的高度本來就是離地高度）。
+  // mat 是 #hex 就用頂點色，否則直接用那個材質（例如 MR.concrete）
+  const drape = (k, x0, x1, z0, z1, mat, up = 0.05) => {
+    const nx = Math.max(1, Math.ceil((x1 - x0) / 2.5)),
+      nz = Math.max(1, Math.ceil((z1 - z0) / 2.5)),
+      pos = [],
+      uv = [],
+      idx = [];
+    for (let j = 0; j <= nz; j++)
+      for (let i = 0; i <= nx; i++) {
+        const x = x0 + ((x1 - x0) * i) / nx,
+          z = z0 + ((z1 - z0) * j) / nz,
+          [wx, wz] = k.w(x, z);
+        pos.push(x, H(wx, wz) - k.base + up, z);
+        uv.push(x / 2, z / 2);
+      }
+    for (let j = 0; j < nz; j++)
+      for (let i = 0; i < nx; i++) {
+        const a = j * (nx + 1) + i,
+          c = a + nx + 1;
+        idx.push(a, c, a + 1, a + 1, c, c + 1);
+      }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    if (typeof mat === 'string') k._part(VC, paintGeo(g, mat));
+    else k._part(mat, g);
+    k.I.addSurface(k.rect(x0, x1, z0, z1), up);
+  };
+  // 這一塊地面的高低差（四角與中間）
+  const slopeOf = (k, x0, x1, z0, z1) => {
+    let lo = 1e9,
+      hi = -1e9;
+    for (const [x, z] of [
+      [x0, z0],
+      [x1, z0],
+      [x0, z1],
+      [x1, z1],
+      [(x0 + x1) / 2, (z0 + z1) / 2],
+    ]) {
+      const [wx, wz] = k.w(x, z),
+        h = H(wx, wz);
+      lo = Math.min(lo, h);
+      hi = Math.max(hi, h);
+    }
+    return hi - lo;
+  };
   const vcKit = (k) => {
     const kb = k.box.bind(k),
       kc = k.cyl.bind(k),
@@ -674,6 +725,24 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
       k.box(0, w, gf, top, 0, d, wm, { tile: [0.6, 0.6], col: false });
       k.box(-0.02, w + 0.02, top, top + 0.12, -0.04, d, 'gray', { col: false });
     } else shell(k, w, d, top, wm);
+    // 地基：Kit 只照原點（立面線起點）的地面高度畫，地面往後或往旁邊變低時（例如幸福街、力行北街的坡），
+    // 後牆、側牆底下會露出一條縫；照這一格實際最低的地面補一段往下的地基，平地的格子不會多畫
+    {
+      let drop = 0;
+      for (const [x, z] of [
+        [0, 0],
+        [w, 0],
+        [0, d],
+        [w, d],
+        [w / 2, d],
+        [0, d / 2],
+        [w, d / 2],
+      ]) {
+        const [wx, wz] = k.w(x, z);
+        drop = Math.max(drop, k.base - H(wx, wz));
+      }
+      if (drop > 0.15) k.box(0, w, -drop - 0.2, 0.01, 0, d, wm, { col: false, tile: [0.6, 0.6] });
+    }
     if (sp.low && !glassWall)
       k.box(-0.01, w + 0.01, 0, gf, -0.05, 0, wallMat(sp.low), { col: false, tile: [0.6, 0.6] });
     for (const x of [0, w - 0.12]) k.box(x, x + 0.12, 0, top, -0.06, 0, '#b9b6ae', { col: false }); // 分戶牆邊
@@ -964,7 +1033,9 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
       // 一樓鐵皮屋：浪板屋頂往後傾
       k.box(-0.15, w + 0.15, top - 0.12, top, -0.4, d, sp.roofCol || MR.roof, { col: false });
     }
-    k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
+    // 門前鋪面：地面有坡（這一格高低差超過 8 cm）就鋪成貼地形的斜面，平地照舊用平板
+    if (slopeOf(k, 0, w, -apron, 0) > 0.08) drape(k, -0.01, w + 0.01, -apron, 0, MR.concrete);
+    else k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
   });
   // ---- 各段自己蓋的東西（機車棚、圍牆、大樓…）----
   const C = {
@@ -987,6 +1058,8 @@ export function buildXinzhongbeiStreet(I, scene, X, data, collision) {
     archRow,
     wallMat,
     paintGeo,
+    drape,
+    slopeOf,
     shell,
     win,
     ac,

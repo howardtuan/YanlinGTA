@@ -17,6 +17,17 @@
 import { H } from '../../Terrain.js';
 const R = 'LB';
 const NC = { col: false };
+// 地面鋪面：這一塊地面高低差超過 8 cm 就用 C.drape 鋪成貼地形的斜面（不會一格一階、低的那頭浮起來），平地照舊用平板
+const pave = (C, k, x0, x1, y0, y1, z0, z1, mat) =>
+  C.slopeOf(k, x0, x1, z0, z1) > 0.08
+    ? C.drape(k, x0, x1, z0, z1, mat, y1)
+    : k.box(x0, x1, y0, y1, z0, z1, mat, { col: false, surface: true });
+// 貼地的元件往下多做 d 公尺：一個 Kit 只照原點的地面高度畫，地面有坡時低的那頭才不會露出縫（高的那頭只是多埋進土裡）
+const sink = (k, d = 0.6) => {
+  const b = k.box.bind(k);
+  k.box = (x0, x1, y0, ...r) => b(x0, x1, y0 <= 0.01 ? y0 - d : y0, ...r);
+  return k;
+};
 const PI = Math.PI;
 // 貼著地形的鋪面（寫法同 StreetPuzhong.js 的 drape）：每 2.5 m 一個頂點照那一點的地面高度，
 // 斜坡上是一整片連續的斜面，不會像平板那樣一頭浮起、一頭埋進土裡；可走表面照樣登記（遊戲邏輯的高度本來就是離地高度）
@@ -313,10 +324,7 @@ export default {
     // 131 巷口窄縫：巷子裡的水泥地
     {
       const k = seg(C, 1, 14, 17);
-      k.box(-0.01, k.W + 0.01, -0.5, 0.04, -k.apron, 12, C.MR.concrete, {
-        col: false,
-        surface: true,
-      });
+      pave(C, k, -0.01, k.W + 0.01, -0.5, 0.04, -k.apron, 12, C.MR.concrete);
     }
     // 阿燁紅麵線：黑色木作招牌板，左邊一個圓形徽記（字看不清不放），樓下深色木窗框
     {
@@ -356,7 +364,7 @@ export default {
       const k = seg(C, 1, 76, 77.2);
       k.plane(C.bars, k.W, 2.0, k.W / 2, 1.0, 0.3, PI, { transparent: true, double: true });
       k.box(0, k.W, 0, 2.0, 0.3, 0.34, '#5a5c5e', { col: true });
-      k.box(0, k.W, -0.5, 0.04, -k.apron, 12, C.MR.concrete, { col: false, surface: true });
+      pave(C, k, 0, k.W, -0.5, 0.04, -k.apron, 12, C.MR.concrete);
     }
     // 灰磁磚騎樓轉角樓：騎樓柱子與樓板（一樓鐵捲門退在柱子後面）、紅色出租告示
     {
@@ -401,10 +409,7 @@ export default {
         for (let z = rr + 1.6; z < 12; z += 2.8)
           k.plane(C.YHT.win(), 1.4, 1.3, w + 0.03, 3.3 + (f - 1) * 3 + 1.5, z, PI / 2);
       k.box(cx, w + 0.02, top, top + 0.15, rr, 13, 'gray', NC);
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, rr, C.MR.concrete, {
-        col: false,
-        surface: true,
-      });
+      pave(C, k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, rr, C.MR.concrete);
     }
     // 朝天椒：屋頂上整排紅色浪板大招牌、左右直立招牌、門口木桌椅
     {
@@ -439,7 +444,7 @@ export default {
           k.box(x + dx, x + dx + 0.08, 0, 0.72, -0.95, -0.35, '#5a4028', NC);
         for (const dz of [-1.25, -0.1]) k.box(x, x + 1.4, 0.4, 0.45, dz - 0.15, dz, '#6a4a30', NC);
       }
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, C.MR.concrete, { col: false, surface: true });
+      pave(C, k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, C.MR.concrete);
     }
     // 朝天椒的屋簷：這段路上坡，三格店面各自貼地，屋簷也照三格分開蓋才會和牆對齊
     for (const [a, b] of [
@@ -461,10 +466,7 @@ export default {
       k.box(1.2, 3.0, 0.4, 1.4, 1.0, 5.6, '#e4e4e0'); // 小貨車
       k.box(1.25, 2.95, 1.4, 2.6, 2.4, 5.6, '#3f6a3a', NC); // 綠色帆布
       k.box(1.25, 2.95, 1.4, 2.2, 1.0, 2.3, '#dcdcd8', NC); // 車頭
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, 10, C.MR.concrete, {
-        col: false,
-        surface: true,
-      });
+      pave(C, k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, 10, C.MR.concrete);
     }
     // 鐵皮圍牆：灰色浪板，靠紅框店那頭立一支紅色直立招牌（店名看不清不放字）
     {
@@ -474,7 +476,7 @@ export default {
       for (const x of [0.05, w - 0.12]) k.box(x, x + 0.08, 0, 2.5, -0.06, 0.12, '#5f6264', NC);
       k.box(w - 1.1, w - 0.5, 0.6, 3.4, -0.35, -0.15, '#c8302a', NC);
       k.box(w - 0.85, w - 0.75, 0, 0.6, -0.3, -0.2, '#5f6264', NC);
-      k.box(-0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, C.MR.concrete, { col: false, surface: true });
+      pave(C, k, -0.01, w + 0.01, -0.5, 0.05, -k.apron, 0, C.MR.concrete);
     }
 
     // ================= 東北側（-1）=================
@@ -580,7 +582,7 @@ export default {
     }
     // 7 層灰色磁磚大樓：一樓深色玻璃與鐵窗，樓上整齊的窗、冷氣、陽台，屋頂太陽能板
     for (const [s0, s1, set, nf, wall, d] of TOWERS) {
-      const k = seg(C, -1, s0, s1, set),
+      const k = sink(seg(C, -1, s0, s1, set), 2),
         w = k.W,
         gf = 3.6,
         fh = 3.0,
@@ -629,7 +631,7 @@ export default {
     }
     {
       const k = seg(C, -1, 84.5, 90.5, 4.5);
-      k.box(-0.01, k.W + 0.01, -0.5, 0.06, -1.5, 9.0, '#a85a44', { col: false, surface: true });
+      pave(C, k, -0.01, k.W + 0.01, -0.5, 0.06, -1.5, 9.0, '#a85a44');
     }
     // s≈101～105 人行道上的彩繪電箱
     {

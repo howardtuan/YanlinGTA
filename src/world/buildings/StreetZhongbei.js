@@ -1405,13 +1405,24 @@ export const ZB_ST = {
     ],
     // s 311.8～328 是新街溪北岸的大樹、電線桿和中北橋的黃色波浪欄杆（Google 街景 2025-06、2026-05），原本兩格小攤（糖炒栗子、生炒羊肉）蓋在河上，拿掉
     // N5 中北橋西到新中北路34巷（2026-05）
-    // 寶雅東側那棟（Google 地圖使用者全景 2025-06、國土測繪 2024 正射）：深灰外牆、整排淺綠玻璃窗，
-    // 東側就是進 Times 停車場的巷子；屋頂是一大片灰色條紋鐵皮，往後一直到停車場邊（約 24 m 深）
+    // 寶雅東側：和寶雅是同一棟（Google 街景 2026-05 中北路 59 號前）。這格是裙樓最東那間鐵捲門空店面，
+    // 白色裙樓和紫灰陽台的住宅高樓一路延伸過來；再往東沿巷子斜出去的深灰石材那翼見 poyaEastWing()
     [
       347.7,
       352,
       1,
-      { nf: 5, wall: '#55585c', bal: 'glass', glass: '#3f4a4b', ground: 'shop', d: 24 },
+      {
+        nf: 2,
+        gf: 3.8,
+        wall: '#e8e8e6',
+        ground: 'shutter',
+        sh: '#c9c8c2',
+        noband: true,
+        door: 0,
+        bal: 'plain',
+        tower: { nf: 11, back: 3, depth: 12, wall: '#e9e7e3', balc: '#6a6070' },
+        d: 24,
+      },
     ],
     // 寶雅：2 層裙樓（屋頂整片太陽能板，正射量約 21 m 深），上面退縮一棟紫灰陽台的住宅高樓（陰影很長，取 11 層）
     [
@@ -1808,6 +1819,19 @@ export function zbLotFrame([s0, s1, side, sp]) {
     apron: Math.max(0.6, set - halfAt((s0 + s1) / 2)),
   };
 }
+// 寶雅東翼：寶雅東側那格（s 347.7～352）的區域座標（原點在 s 347.7 的立面，+x 往寶雅、+z 往後），
+// 國土測繪 2024 正射量：正面只比那格多出 2.5 m，東牆沿巷子西緣往東北斜出去約 17 m，後牆約在立面後 17.4 m（再後面是 Times 停車場）
+export const POYA_WING = [
+  [0, 0],
+  [-2.5, 0],
+  [-14.3, 11.9],
+  [-14.4, 17.4],
+  [0, 17.4],
+];
+export function zbWingFrame() {
+  const { ox, oz, ang } = zbLotFrame([347.7, 352, 1, {}]);
+  return [ox, oz, ang];
+}
 export function zbFootprints() {
   const fp = ZB_ST.fences.map(([s0, s1, side]) => {
     const { ox, oz, ang, w, apron } = zbLotFrame([s0, s1, side, { set: setAt(s0) + 0.35 }]),
@@ -1824,7 +1848,15 @@ export function zbFootprints() {
         d = L[3].d || 10;
       const p = (x, z) => [ox + x * c - z * s, oz + x * s + z * c];
       return [p(-0.1, -apron - 0.2), p(w + 0.1, -apron - 0.2), p(w + 0.1, d), p(-0.1, d)];
-    })
+    }),
+    [
+      (() => {
+        const [ox, oz, ang] = zbWingFrame(),
+          c = Math.cos(ang),
+          s = Math.sin(ang);
+        return POYA_WING.map(([x, z]) => [ox + x * c - z * s, oz + x * s + z * c]);
+      })(),
+    ]
   );
 }
 const font = (px, w = 900) => `${w} ${px}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
@@ -2587,7 +2619,72 @@ export function buildZhongbeiStreet(I, scene, X) {
     k.box(-0.01, w + 0.01, -0.5, 0.05, -apron, 0, MR.concrete, { col: false, surface: true });
   });
   timesParking(I, kits, Kit, vcKit, lcg);
+  poyaEastWing();
   finishRow(scene, kits);
+
+  // 寶雅那棟沿 Times 停車場巷子斜出去的東翼（Google 街景 2026-05、國土測繪 2024 正射）：
+  // 深灰石材外牆、2 樓一整排淺綠玻璃窗、1 樓靠街角是大樓入口，牆面一路貼著巷子西緣（和中北路約 45°）；
+  // 上面的住宅高樓往東延伸，轉角是磁磚圓弧外牆。座標用寶雅東側那格（s 347.7）的區域座標，不用 r()
+  function poyaEastWing() {
+    const k = vcKit(new Kit(I, ...zbWingFrame()));
+    kits.push(k);
+    const P = POYA_WING,
+      top = 7.2,
+      stone = def('zbPoyaStone', () => std({ color: '#686b6f', roughness: 0.7 })),
+      roofM = def('zbPoyaRoof', () => std({ color: '#8c918e' }));
+    k.prism(P, -0.8, top, stone);
+    k.prism(P, top, top + 0.15, roofM, { shadow: false, surface: true });
+    for (let i = 0; i < P.length; i++) {
+      const [x0, z0] = P[i],
+        [x1, z1] = P[(i + 1) % P.length];
+      k.wallLine(x0, z0, x1, z1, 0, top);
+    }
+    // 沿牆往外 0.04 m 貼一片（玻璃、門框）；from / to 是離這段牆起點的公尺數
+    const onWall = (i, from, to, y0, y1, col, out = 0.04, th = 0.06) => {
+      const [x0, z0] = P[i],
+        [x1, z1] = P[(i + 1) % P.length],
+        L = Math.hypot(x1 - x0, z1 - z0),
+        ux = (x1 - x0) / L,
+        uz = (z1 - z0) / L,
+        nx = -uz,
+        nz = ux; // 沿多邊形走時左手邊是牆外
+      const a = [x0 + ux * from + nx * out, z0 + uz * from + nz * out],
+        b = [x0 + ux * to + nx * out, z0 + uz * to + nz * out];
+      paintGeo(k.slab(a[0], a[1], b[0], b[1], th, y0, y1, VC, { col: false }), col);
+    };
+    // 正面（對中北路那一小段）：大樓入口，深色玻璃門＋不鏽鋼門框＋頂上的雨遮
+    onWall(0, 0.25, 2.25, 0, 2.7, '#2c3338');
+    onWall(0, 0.15, 0.25, 0, 2.8, '#b9bcbf', 0.07, 0.1);
+    onWall(0, 2.25, 2.35, 0, 2.8, '#b9bcbf', 0.07, 0.1);
+    onWall(0, 0, 2.5, 3.0, 3.15, '#3a3d42', 0.6, 1.2);
+    onWall(0, 0.3, 2.2, 4.1, 6.2, '#a9c9bd');
+    // 巷子那面：1 樓靠街角兩扇玻璃門，2 樓一整排淺綠玻璃窗（每 2.4 m 一扇，中間留窗框）
+    const L1 = Math.hypot(P[2][0] - P[1][0], P[2][1] - P[1][1]),
+      L2 = Math.hypot(P[3][0] - P[2][0], P[3][1] - P[2][1]);
+    onWall(1, 0.6, 3.4, 0, 2.6, '#2c3338');
+    onWall(1, 4.2, 5.6, 0, 2.4, '#3a4046');
+    for (let s = 0.4; s + 2.2 <= L1 - 0.2; s += 2.4) onWall(1, s, s + 2.2, 4.1, 6.2, '#a9c9bd');
+    for (let s = 0.4; s + 2.2 <= L2 - 0.2; s += 2.4) onWall(2, s, s + 2.2, 4.1, 6.2, '#a9c9bd');
+    // 1 樓和 2 樓之間的石材腰帶
+    for (const i of [0, 1, 2]) {
+      const Li = i === 0 ? 2.5 : i === 1 ? L1 : L2;
+      onWall(i, 0, Li, 3.5, 3.7, '#55585c', 0.08, 0.16);
+    }
+    // 住宅高樓往東延伸到這一翼上方：磁磚外牆、圓弧轉角、每層一條橫向窗帶
+    const t0 = 3.8 + 3.0 + 0.12, // 和寶雅那排裙樓上的高樓同高
+      th = 11 * 3.0,
+      tile = '#e4e3de',
+      band = '#7f8f90';
+    k.box(-1.6, 0.31, t0, t0 + th, 3, 15, tile);
+    k.box(-3.6, -1.6, t0, t0 + th, 5, 15, tile);
+    k.cyl(-1.6, 5, 2, t0, t0 + th, tile, { seg: 14 });
+    for (let f = 0; f < 11; f++) {
+      const y = t0 + f * 3.0;
+      k.cyl(-1.6, 5, 2.03, y + 1.1, y + 2.2, band, { seg: 14 });
+      k.box(-1.6, 0.31, y + 1.0, y + 2.3, 2.97, 3.0, band, { col: false });
+      k.box(-3.63, -3.6, y + 1.0, y + 2.3, 5, 14.4, band, { col: false });
+    }
+  }
 }
 
 // Times 中壢中原夜市停車場（寶雅後面，data/cycu.json 的 parking 區）：Google 衛星與國土測繪 2024 正射上是一整片平面停車場，

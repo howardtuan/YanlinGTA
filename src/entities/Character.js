@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildSkinnedBody } from './BodyMesh.js';
+import { buildSkinnedBody, torsoProfile } from './BodyMesh.js';
 import { buildHat } from './Hats.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { sampleAnthropometry, BASE_HEIGHT, RIDER_MASS } from '../physics/ImpactPhysics.js';
@@ -363,8 +363,18 @@ function printTexture(kind, color) {
     g.font = '900 170px Arial,sans-serif';
     g.fillText(String(10 + ((color.charCodeAt(2) * 7) % 89)), 128, 136);
   } else if (kind === 'zh') {
-    g.font = '900 96px "Noto Sans TC","Microsoft JhengHei",sans-serif';
-    g.fillText('中壢', 128, 128);
+    // I ❤ 彥霖: the heart always red
+    g.font = '900 84px Arial,sans-serif';
+    g.fillText('I', 84, 76);
+    g.fillStyle = '#e0303c';
+    g.beginPath();
+    g.moveTo(160, 112);
+    g.bezierCurveTo(108, 78, 118, 30, 160, 48);
+    g.bezierCurveTo(202, 30, 212, 78, 160, 112);
+    g.fill();
+    g.fillStyle = color;
+    g.font = '900 88px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+    g.fillText('彥霖', 128, 182);
   } else {
     // mount: two peaks over a horizon line
     g.beginPath();
@@ -380,6 +390,35 @@ function printTexture(kind, color) {
   t.colorSpace = THREE.SRGBColorSpace;
   PRINT_TEX.set(k, t);
   return t;
+}
+
+// a 0.21 m square print centred at y 1.34 (root frame), every vertex on the front of the skinned torso + 4 mm:
+// the same rings as buildSkinnedBody (src/entities/BodyMesh.js) — superellipse e 2.5, widths by build, depths by
+// (0.5 + build / 2) * girth, the tummy pushing out round y 1.12
+function chestPrint(prof, bw, gk, bel) {
+  const S = 0.21,
+    g = new THREE.PlaneGeometry(S, S, 12, 8),
+    P = g.attributes.position;
+  const ring = (y) => {
+    let j = prof.findIndex((q) => q[0] > y);
+    if (j <= 0) j = 1;
+    const a = prof[j - 1],
+      b = prof[j],
+      t = Math.min(1, Math.max(0, (y - a[0]) / (b[0] - a[0])));
+    const [rx, rz, cz] = [1, 2, 3].map((k) => a[k] + (b[k] - a[k]) * t);
+    const tum = bel * Math.exp(-(((y - 1.12) / 0.17) ** 2));
+    return [(rx + 0.035 * tum) * bw, (rz + 0.06 * tum) * (0.5 + bw / 2) * gk, cz + 0.035 * tum];
+  };
+  for (let i = 0; i < P.count; i++) {
+    const y = 1.34 + P.getY(i),
+      [rx, rz, cz] = ring(y),
+      sa = Math.min(0.999, Math.abs(P.getX(i)) / rx) ** 1.25,
+      ca = Math.sqrt(1 - sa * sa);
+    P.setY(i, y);
+    P.setZ(i, cz + rz * ca ** 0.8 + 0.004);
+  }
+  g.computeVertexNormals();
+  return g;
 }
 
 // ---------- wolf cut (瑞哲, src/entities/npcs/Ruizhe.js) ----------
@@ -947,18 +986,11 @@ export function createCharacter(opts = {}) {
     torso.add(backP);
   }
   if (opts.print && sk && !opts.jacket) {
-    // a print on the chest, bent round the torso (torsoProfile at y 1.36: half width ~0.205, front ~0.127 + 0.007),
-    // pushed out by the tummy (belly) and the torso depth (build, girth)
-    const y0 = -0.93,
-      bw = fv.build,
-      ff = female ? 1 : 0,
-      tb = belly * 0.136,
-      dz = (0.5 + bw / 2) * girth,
-      rx = (0.205 - 0.019 * ff + 0.035 * tb) * bw + 0.004,
-      rz = (0.127 + 0.004 * ff + 0.06 * tb) * dz + 0.007 + 0.035 * tb + 0.005;
-    const key = `pr${rx.toFixed(3)}|${rz.toFixed(3)}`;
+    // a print on the chest, laid on the skinned torso's own surface (torsoProfile with the build, girth and tummy)
+    const bw = fv.build,
+      key = `pr${female ? 1 : 0}|${bw.toFixed(3)}|${girth.toFixed(3)}|${belly.toFixed(2)}`;
     const pm = new THREE.Mesh(
-      geo(key, () => curvedPrint(0.21, 0.21, rx, rz, false, 12)),
+      geo(key, () => chestPrint(torsoProfile(female ? 1 : 0), bw, girth, belly)),
       new THREE.MeshStandardMaterial({
         map: printTexture(opts.print.kind, opts.print.color),
         transparent: true,
@@ -966,7 +998,7 @@ export function createCharacter(opts = {}) {
         roughness: 0.85,
       })
     );
-    pm.position.set(0, 1.34 + y0, 0);
+    pm.position.y = -0.93; // torso-pivot frame = root frame - 0.93
     torso.add(pm);
   }
   // leather biker jacket (opts.jacket colour; the sleeves come from the skinned body): open front over the tee,

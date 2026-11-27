@@ -4,10 +4,10 @@
 //
 //   node tools/profile_scene.mjs [--engine=chrome|webkit] [--gpu|--swiftshader] [--mobile]
 //     [--runs=3] [--spots=鐘塔,張靜愚紀念圖書館] [--warmup-sec=2] [--sample-sec=4] [--seed=1337]
-//     [--vsync] [--no-play] [--markdown] [--out=perf-baselines/x.json] [--compare=perf-baselines/x.json]
+//     [--vsync] [--no-play] [--markdown] [--out=tools/.cache/profile.json] [--compare=tools/.cache/profile.json]
 //     [--assert-ios-budget] [--max-canvas-mb=220] [--if-available] [--chrome=path] [--dist=dist]
 //
-// What is measured (see perf-refactor docs): deterministic numbers (canvas / texture / heap memory, draw
+// What is measured (see docs/guide/architecture.md): deterministic numbers (canvas / texture / heap memory, draw
 // calls, triangles) are the gate; frame times are reported as a distribution (p50/p95/p99/stalls) with
 // vsync released, taken at fixed camera spots with Math.random seeded and auto-quality frozen, repeated
 // --runs times and reduced to medians. Software rendering (SwiftShader) marks frame times unreliable.

@@ -319,8 +319,7 @@ class Game {
     }
 
     await stage('renderer-and-sky', 0.05, '初始化渲染管線');
-    // Phase 1B (perf-refactor/specs/phase-1-ios-memory-rescue.md): no stencil buffer (nothing uses one; three r160
-    // asks for it by default), an opaque canvas
+    // no stencil buffer (nothing uses one; three r160 asks for it by default), an opaque canvas
     const r = (this.renderer = new THREE.WebGLRenderer({
       antialias: !this.lowQ,
       powerPreference: 'high-performance',
@@ -336,7 +335,7 @@ class Game {
     r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
-    // perf-refactor Phase 2: integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
+    // integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
     // and every tier sorts opaque draws by shader program (src/graphics/RenderSort.js)
     this.halfRateShadows = this.perfProfile.tier !== 'desktop-dgpu';
     r.shadowMap.autoUpdate = !this.halfRateShadows;
@@ -346,7 +345,7 @@ class Game {
     // canvas textures (src/graphics/GpuMemLifecycle.js): phones store them at texScale, atlas sheets go to the GPU as
     // soon as they are drawn and lose their canvases. Desktops draw the same pixels as before.
     configureGpuMem(this.perfProfile, r);
-    // low / xlow walls and ground are Lambert: their textures skip the normal and roughness maps (perf-refactor Phase 2)
+    // low / xlow walls and ground are Lambert: their textures skip the normal and roughness maps
     setSurfaceDetail(!this.lowQ);
     // released canvases cannot be uploaded again after a lost context: start over (the game saves on unload)
     r.domElement.addEventListener('webglcontextrestored', () => location.reload());

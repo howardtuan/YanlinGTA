@@ -1,4 +1,4 @@
-// ---------- ground holes cut on the CPU (perf-refactor Phase 2 PR #5) ----------
+// ---------- ground holes cut on the CPU ----------
 // The ground mesh and the draped layers over it (paving, grass, roads, water, marks, rails) leave out the open
 // road cuts, the sunk ponds / streams with their banks and the pits (src/world/Terrain.js addPit, mask: true).
 // This used to be a fragment-shader discard (MapBuilder cutMask()), which cost every ground pixel a few dozen

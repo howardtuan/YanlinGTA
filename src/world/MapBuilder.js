@@ -201,9 +201,8 @@ function adaptPieces(poly, out, S) {
 // drape=true: flat helpers (flatPoly/disc/strip) follow the terrain and their
 // y argument becomes the offset above it
 const UP = [0, 1, 0];
-// ChunkedGeo cell size in metres (perf-refactor/specs/phase-2-render-and-igpu-opt.md): a Geo whose triangles spread wider
-// than two cells becomes one mesh per cell. Measured 2026-11-25 (perf-refactor/agent-handoff-log.md Session #010):
-// about -16 % triangles per view but +85 % draw calls on the M1; kept at the spec's 120 m by decision.
+// ChunkedGeo cell size in metres (docs/guide/architecture.md): a Geo whose triangles spread wider
+// than two cells becomes one mesh per cell.
 const GEO_CHUNK = 120;
 // outer buildings (Geo.routed): the fill (synthetic) and lod buildings further than this from the campus; a chunk of
 // them is not drawn while the fog hides it completely wherever it is on the screen: three's exp2 fog goes by the
@@ -246,7 +245,7 @@ class ChunkedMesh extends THREE.Object3D {
     return this._material;
   }
 }
-// outer buildings (perf-refactor Phase 2, phase-2-render-and-igpu-opt.md §三.1): while the building loop draws a
+// outer buildings (docs/guide/architecture.md): while the building loop draws a
 // far-off fill building, a routable Geo's triangles go to its twin, whose meshes are hidden under thick fog
 let ROUTE_OUTER = false;
 class Geo {
@@ -501,7 +500,7 @@ class Geo {
     }
   }
   // one mesh, or (when the triangles spread wider than two chunks) one mesh per GEO_CHUNK x GEO_CHUNK m cell, so frustum
-  // and shadow culling can drop the parts out of view (perf-refactor Phase 2, ChunkedGeo). Triangles go to the cell of
+  // and shadow culling can drop the parts out of view (ChunkedGeo). Triangles go to the cell of
   // their centroid, unchanged: the same pixels, the same random draws.
   mesh(mat) {
     const nt = this.p.length / 9;
@@ -1854,8 +1853,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   // purely visual extras (PBR upgrade) draw from their own stream so the shared sequence stays as it was
   const rnd2 = mulberry32(777034);
   const quality = opts.quality || (opts.low ? 'low' : 'high');
-  // low / xlow: walls and ground are MeshLambertMaterial, without normal or roughness / metalness maps (perf-refactor
-  // Phase 2, phase-2-render-and-igpu-opt.md §三.5; src/graphics/Textures.js setSurfaceDetail skips making those maps)
+  // low / xlow: walls and ground are MeshLambertMaterial, without normal or roughness / metalness maps
+  // (src/graphics/Textures.js setSurfaceDetail skips making those maps)
   const lite = quality === 'low';
   // ... but they still take the sky's diffuse light, as the standard material did from scene.environment
   // (src/graphics/SkySystem.js PMREM, re-baked as the sun moves): one blurred look-up of it per pixel, nothing
@@ -7806,7 +7805,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
 
   // ---------- night lights: a small pool of real point lights that follow the nearest street lamps ----------
   {
-    // integrated GPUs (src/core/PerfProfile.js desktop-igpu) keep at most 2 (perf-refactor Phase 2: was 4 on medium)
+    // integrated GPUs (src/core/PerfProfile.js desktop-igpu) keep at most 2 (was 4 on medium)
     const n0 = quality === 'high' ? 8 : quality === 'medium' ? 4 : 0,
       n = opts.tier === 'desktop-igpu' ? Math.min(n0, 2) : n0;
     const lights = [];

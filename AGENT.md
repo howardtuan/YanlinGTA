@@ -16,7 +16,7 @@
    - 凡新增、調整或修復任何遊戲機制、任務、NPC、建築互動、UI 功能或彩蛋密技，**必須在同一個 PR 內同步更新 `docs/specs/` 對應規格文件**，確保規格與程式碼對齊。
    - **`wiki/` 由使用者主導維護，Agent 不主動改寫文案**：`wiki/` 是面向玩家的趣味百科，非系統規格來源；除非使用者明確指示，Agent 開發遊戲功能時不更動 `wiki/` 內容。
 4. **架構與工程底線**
-   - **單向無環分層**：維持 `src/` 七大領域分層（`core` / `physics` / `graphics` / `world` / `entities` / `systems` / `ui`），不新增循環匯入或跨層反向依賴（由 `tests/unit/import-graph.test.js` 自動把關）。
+   - **單向無環分層**：維持 `src/` 七大領域分層（`core` / `physics` / `graphics` / `world` / `entities` / `systems` / `ui`），不新增循環匯入或跨層反向依賴（由 `tests/arch/import-graph.test.js` 自動把關）。
    - **最小必要改動**：聚焦任務本身，不順手重構或異動與任務無關的檔案；程式碼格式統一由 Prettier 與 ESLint 把關（Push 前跑 `npm run ci`）。
    - **誠實回報**：不猜測測試或指令結果；若有環境限制導致無法驗證，請如實說明。
    - **個人暫時檔不上 Git**：個人任務清單、草稿、工作記憶檔等暫時性檔案不納入版本控制，由各開發者依習慣於本機自行管理。

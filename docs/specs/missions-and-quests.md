@@ -90,4 +90,4 @@ M／W 為有實體的 3D 圓圈（`HoloAI.js`、`HoloRing.js`），走近按 `E`
 - **首次詢問**：第一次進入未破案件／Two Sum 彈窗問是否自動通關（記於存檔 `autoSolve`）；選「我自己來」後仍可隨時點「🎬 一鍵通關」。
 - **21:9 逐步教學**：左終端機／編輯器逐行打字，右說明卡解說；`▶ 下一步`、`⏩ 自動播放`、`⏭ 跳到結尾`。**真實執行**：SQL 逐行丟入 `Detective.run`，線索、指認、獎金與存檔與手動相同；Two Sum 最後真實送 Pyodide 批改，**離線載入失敗時直接判定通過**。
 - **🔁 再破一次（`practice`）**：已破任務可選手動或自動重玩，使用 `Detective.practice` 暫存狀態，**不改存檔、不再給獎金**。
-- **守門**：`tests/unit/autosolve.test.js` 在 Node sql.js 上實跑所有案件腳本，改案件資料導致腳本破不了案時 CI 失敗。
+- **守門**：`tests/integration/autosolve.test.js` 在 Node sql.js 上實跑所有案件腳本，改案件資料導致腳本破不了案時 CI 失敗。

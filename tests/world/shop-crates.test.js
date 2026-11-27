@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // #302：街屋門口的小箱子（貨箱、紙箱、冰桶、門口立牌）原本畫進整排街屋、沒有碰撞，人和車都直接穿過去。
 // 現在 finishRow 把它們收成 interiors.crates，遊戲裡變成可以撞飛的物理道具（像三角錐）。
 import { describe, it, expect, vi } from 'vitest';

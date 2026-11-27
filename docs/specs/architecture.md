@@ -6,7 +6,7 @@
 
 ## 一、 核心設計哲學
 
-1. **單向無環依賴（DAG）**：全專案劃分為 7 大領域分層，底層模組（核心、物理、圖形）嚴禁反向匯入上層業務或 UI 模組，由 `tests/unit/import-graph.test.js` 於 CI 強制把關。
+1. **單向無環依賴（DAG）**：全專案劃分為 7 大領域分層，底層模組（核心、物理、圖形）嚴禁反向匯入上層業務或 UI 模組，由 `tests/arch/import-graph.test.js` 於 CI 強制把關。
 2. **時脈與渲染解耦**：物理推進固定為離散時間步長（`1 / 60` 秒），與瀏覽器可變刷新率（`requestAnimationFrame` 60Hz～240Hz）解耦，確保跨裝置操控手感與碰撞一致。
 3. **雙軌高效能 WASM**：剛體物理（Rapier 3D）與程序化噪聲／法線貼圖（Rust Kernels）皆採用 WebAssembly 加速，並具備零誤差或輕量級純 JavaScript Fallback。
 4. **行動端記憶體防護與啟動自癒**：針對 iOS Safari / `WKWebView` 嚴格的 `<canvas>` 記憶體配額，實施依硬體分檔縮放、兩階段上傳即釋放與連續崩潰自動進入安全模式（`safeMode`）。

@@ -220,7 +220,14 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'happy-dom',
+    environment: 'node',
     include: ['tests/**/*.test.js'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.js'],
+      exclude: ['src/graphics/wasm/**'],
+      reporter: ['text-summary', 'json-summary', 'html'],
+      reportsDirectory: 'coverage',
+    },
   },
 });

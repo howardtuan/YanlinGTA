@@ -85,27 +85,21 @@ npm run dev
 
 ```mermaid
 flowchart TD
-    E2E["端對端測試 (E2E Story Bot)<br/>• 瀏覽器真實運行、劇本走查、無頭點擊 (tools/e2e/)"]
-    WASM["WASM 雙軌精度驗收 (Integration)<br/>• Rust WASM vs JS fallback 逐像素 0 誤差比對 (tests/integration/wasm.test.js & tools/check_wasm.mjs)"]
-    Unit["單元與靜態安全網 (Unit Tests)<br/>• Vitest 驅動：業務邏輯 + 架構分層 + DOM 接線 + 資料一致性 (tests/unit/)"]
+    E2E["端對端測試 (E2E Story Bot & Smoke)<br/>• 瀏覽器真實運行、劇本走查、無頭點擊 (tools/e2e/)"]
+    Integration["整合測試 (tests/integration/)<br/>• WASM 精度比對、Wiki/SEO 產物、SQL 實機解題"]
+    World["世界與碰撞回歸 (tests/world/)<br/>• 地圖圖資、道路標線、建物碰撞與幾何檢查"]
+    ArchUnit["單元與架構安全網 (tests/unit/ & tests/arch/)<br/>• 業務邏輯、物理、輸入、靜態分層與 DOM 接線"]
 
-    Unit --> WASM
-    WASM --> E2E
+    ArchUnit --> World --> Integration --> E2E
 ```
 
-### 1. 單元與靜態安全網 (`tests/unit/`)
-- **`collision.test.js`**：測試 2D 多邊形射線檢測、點是否在多邊形內、AABB 碰撞盒判定。
-- **`nav.test.js`**：測試 A* 尋路演算法、啟發函數、校園單行道權重計算。
-- **`save.test.js`**：測試進度儲存與讀取、垂直高度 `y` 同步、版本遷移與壞資料自癒。
-- **`stocks.test.js`**：測試「靈感股」買賣機制、持股均價計算、資產淨值統計。
-- **`missions.test.js`**：測試競選任務狀態機與角色預設設定。
-- **`service.test.js`**：測試義務役服役日曆與平日軍服／休假切換邏輯。
-- **`dom-ids.test.js`**：靜態掃描 `src/` 內 `getElementById` / `$()` 與 `index.html` 及動態建立節點之 ID 對應。
-- **`import-graph.test.js`**：靜態解析 `src/` 匯入圖，阻擋循環引用與違反 `AGENT.md` 分層規則的跨層依賴。
-- **`benchmark.test.js`**：測試遊戲內效能測試的統計（平均 FPS、1% / 0.1% 低幀、卡頓次數）與瓶頸判斷。
-- **`data-consistency.test.js`**：驗證 `data/npcs.json`、`data/cycu.json`、`data/terrain.json` 結構完整與資源路徑有效。
-- **`street-encroach.test.js`**：用 `tools/street_corner_check.mjs` 檢查建物不得侵入車道（允許 1 m 誤差，地圖邊緣 30 m 內不算）；OSM 建物與填充樓的修正放在 `src/world/buildings/RoadClearance.js`，自建街屋改各自的檔案。
-- **`collision-mesh.test.js`**：`tools/collision_mesh_check.mjs` 抓到、修好的「看得到卻穿得過」位置，在 node 裡建出那幾個街區，檢查玩家站在那一點會碰到牆（#302）。
+### 1. 測試目錄分層（`tests/`）
+可用 `npm test` 執行全套，或依改動範圍分層快跑（`npm run test:arch`、`npm run test:unit`、`npm run test:world`、`npm run test:integration`）：
+- **`tests/arch/`**：靜態架構與規範守門（`import-graph.test.js`、`dom-ids.test.js`、`no-backdrop-filter.test.js`、`data-consistency.test.js`）。
+- **`tests/unit/`**：純核心／系統／物理／UI／工具單元測試（含 `collision.test.js`、`nav.test.js`、`save.test.js`、`stocks.test.js`、`missions.test.js`、`service.test.js`、`veh-physics.test.js`、`input.test.js`、`benchmark.test.js` 等）。
+- **`tests/world/`**：地圖圖資與 3D 街屋碰撞回歸（如 `street-encroach.test.js`、`collision-mesh.test.js`、`map-data.test.js`、`road-marks.test.js`、`peds-walls.test.js` 等）。
+- **`tests/integration/`**：跨子系統整合測試（`wasm.test.js`、`wiki.test.js`、`seo.test.js`、`autosolve.test.js`、`learn-courses.test.js`）。
+- **覆蓋率內部指標（`npm run test:coverage`）**：由 `tools/coverage_summary.mjs` 彙總各 `src/` 模組分層覆蓋率並於 CI PR 寫入 `$GITHUB_STEP_SUMMARY`（不設強制門檻，亦不公開於 README）。
 
 ### 遊戲內效能測試與 PR 效能紀錄工具（`src/systems/Benchmark.js` & `tools/run_bench.mjs`）
 - 給玩家用的硬體測試：標題畫面 →「📊 效能測試」，選畫質後鏡頭照固定路線跑約 99 秒（校園街道白天 → 空拍 → 夜間街道，每段前 3 秒暖機不計），跑完顯示平均 FPS、1% / 0.1% 低幀、最低／最高、畫面時間分佈、卡頓次數、主執行緒耗時（並於結果物件細分純遊戲邏輯 `logicAvg` 與繪圖提交 `renderAvg`）、繪圖呼叫與三角形，並依「每幀間隔 vs. 遊戲 JS 耗時」判斷瓶頸是 CPU、GPU 還是螢幕更新率；可複製文字或下載 JSON，上一次結果存在 `localStorage`（`cycu-bench-last`）。

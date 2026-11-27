@@ -434,6 +434,7 @@ export const PZ_ST = {
               y: 0.4,
               h: 4,
               posts: 3,
+              solid: 1, // 離地 0.4 m 起的大看板，擋人
               text: '全國第一 台灣最好\nSpa\n美容洗車機',
               bg: '#3f8fd8',
               fg: '#ffe23a',
@@ -2154,6 +2155,7 @@ export const PZ_ST = {
             {
               y: 0.2,
               h: 3.3,
+              solid: 1, // 落地的大看板，擋人
               text: '車車澡堂\n自助洗車',
               sub: 'SELF-CARWASH since2009',
               bg: '#23253c',

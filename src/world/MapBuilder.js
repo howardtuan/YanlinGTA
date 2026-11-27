@@ -5744,7 +5744,11 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
                 ez = a[1] - q[1],
                 el = Math.hypot(ex, ez) || 1;
               if (Math.abs((ex / el) * tz - (ez / el) * tx) > 0.42) {
-                const w = L.corner.w ?? 0.9;
+                const w = L.corner.w ?? 0.9,
+                  cy0 = Math.max(y0, base + (L.corner.from ?? 0) * fl);
+                // a pier reaching the ground stands half outside the corner: walking stops at its face
+                if (cy0 < base + 1.5 && w >= 0.8 && ring === rings[0])
+                  lateColl.push(() => collision.addCircle(a[0], a[1], w / 2));
                 ledgeGeo.box(
                   a[0],
                   a[1],

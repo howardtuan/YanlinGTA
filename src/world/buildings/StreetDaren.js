@@ -839,7 +839,7 @@ export function buildDarenCorner(I, scene) {
     k.box(-0.05, w + 0.05, 3.35, 3.45, -1.4, 0, MR.roof, { col: false }); // tin roof over the arcade
     k.plane(CT.mjBanner(), 4.6, 0.58, w - 2.6, 2.05, -0.05, FRONT);
     shopGlass(k, 0.4, 2.2, 0, 2.3, ROWT.shop('mj', '#e9f0ea', '#4a6a58', 67));
-    for (const x of [3.0, 4.4]) k.box(x, x + 1.2, 0, 1.7, -1.1, -0.2, MC.tarp, { col: false }); // claw machines under tarps
+    for (const x of [3.0, 4.4]) k.box(x, x + 1.2, 0, 1.7, -1.1, -0.2, MC.tarp); // claw machines under tarps (they block, like #306)
     k.box(5.8, 6.8, 0, 1.1, -0.5, -0.1, '#cfd3d6', { col: false }); // drinking-water machine
     for (let f = 1; f < 4; f++) {
       const y = f * F;

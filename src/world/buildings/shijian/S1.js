@@ -675,8 +675,8 @@ export default {
           for (let x = 2.5; x < c.w - 0.6; x += 1.3)
             k.box(x, x + 0.05, c.gf - 0.1, yt - 0.3, -0.53, -0.5, '#dfe3e3', { col: false });
           k.box(-0.05, c.w + 0.05, yt - 0.3, yt, -0.6, 0, Wt, { col: false });
-          k.box(0, 1.2, 0, yt, -0.6, 0, Wt, { col: false });
-          k.box(c.w - 0.4, c.w, 0, yt, -0.6, 0, Wt, { col: false });
+          k.box(0, 1.2, 0, yt, -0.6, 0, Wt); // 白色方框的兩根柱子落地，擋人
+          k.box(c.w - 0.4, c.w, 0, yt, -0.6, 0, Wt);
           hs(k, c, 1.2, c.w - 0.4, c.gf - 0.9, c.gf - 0.1, 'FIFTY %', '#1c1c1c', '#ffffff', null, {
             z: -0.55,
           });

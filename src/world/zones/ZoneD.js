@@ -1143,6 +1143,8 @@ export function buildZoneD(I, scene, data, collision) {
           [0, 1],
         ]
       );
+      // 一樓退縮（碰撞內縮到退進去的牆），拉下來的鐵捲門在原輪廓上，本身擋人
+      ringColl(quadAt(E, s, s + 2.3, 0, 0.1), B - 0.5, B + 2.6);
     }
     // 東端白色樓梯間（OSM 沒有）：約 7×10 m、比主體高一點，藍綠直條窗
     {

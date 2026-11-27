@@ -136,6 +136,25 @@ export class ParkedScooters {
     this._visX = 1e9;
     this._visZ = 1e9;
     this._build();
+    // domino contacts are checked after every physics step, not once a frame: at 30 fps (two steps a frame) a
+    // knocked scooter met its neighbour's kinematic stand-in in the first step and was bounced off it before a
+    // per-frame check saw it touching, so a row never went down below 60 fps (#302)
+    if (Array.isArray(game.physics?.after)) {
+      this._stepHook = () => this._dominoStep();
+      game.physics.after.push(this._stepHook);
+    }
+  }
+  _dominoStep() {
+    if (!this.activeKnocks.size) return;
+    for (const rec of [...this.activeKnocks]) {
+      const b = rec.body;
+      if (!b?.rotation || !this.activeKnocks.has(rec)) continue;
+      const t = b.translation();
+      rec.x = t.x;
+      rec.y = t.y;
+      rec.z = t.z;
+      this._dominoFrom(rec, vehicleSpec(rec.slot.kind));
+    }
   }
 
   _key(ix, iz) {
@@ -1003,8 +1022,6 @@ export class ParkedScooters {
     // Domino chain knock + knocked vehicles hitting nearby pedestrians (strict Newton's 2nd & 3rd Laws)
     if (this.activeKnocks.size) {
       for (const rec of [...this.activeKnocks]) {
-        const spec1 = vehicleSpec(rec.slot.kind);
-
         // 1. Knocked scooter/car hitting pedestrians and the player on foot it really touches (its collision
         //    box in plan, src/physics/DebrisPeople.js), losing J / m along the normal
         if (rec.body?.rotation) {
@@ -1030,7 +1047,9 @@ export class ParkedScooters {
         //    contact point (r from the centre of mass): J = (1 + e) * mu_eff * vRel with
         //    1/m_eff = 1/m1 + |r x n|^2 / I1, and the body gets back -J both in its linear (J/m1) and angular
         //    (r x -nJ / I1) velocity (Newton's 3rd law), so momentum and energy are never created.
-        if (rec.body?.rotation) this._dominoFrom(rec, spec1);
+        //    Checked after every physics step (_dominoStep); here only without step hooks (tests' stand-in physics)
+        if (!this._stepHook && rec.body?.rotation)
+          this._dominoFrom(rec, vehicleSpec(rec.slot.kind));
       }
     }
   }

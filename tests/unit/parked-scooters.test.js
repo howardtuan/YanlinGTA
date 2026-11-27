@@ -775,3 +775,29 @@ describe('AI traffic hitting a parked vehicle', () => {
     expect(ai.ai.stunned).toBe(2);
   });
 });
+
+describe('domino contacts every physics step (#302)', () => {
+  it('registers a step hook that moves each flying scooter to its body and checks its neighbours', () => {
+    const { game } = makeMockGame();
+    game.physics.after = [];
+    const ps = new ParkedScooters(game);
+    expect(game.physics.after).toHaveLength(1);
+    const body = {
+      translation: () => ({ x: 3, y: 0.4, z: 4 }),
+      rotation: () => ({ x: 0, y: 0, z: 0, w: 1 }),
+      linvel: () => ({ x: 0, y: 0, z: 0 }),
+      angvel: () => ({ x: 0, y: 0, z: 0 }),
+    };
+    const rec = { slot: { kind: 'scooter', hw: 0.34 }, body, x: 0, y: 0, z: 0, vx: 0, vz: 0 };
+    ps.activeKnocks.add(rec);
+    const seen = [];
+    ps._dominoFrom = (r) => seen.push([r.x, r.y, r.z]);
+    game.physics.after[0](1 / 60, 0, 2); // the first of two steps in a 30 fps frame
+    expect(seen).toEqual([[3, 0.4, 4]]);
+    // and the frame update no longer runs it a second time
+    ps._dominoFrom = () => {
+      throw new Error('per-frame domino check');
+    };
+    expect(() => ps.update(1 / 30)).not.toThrow();
+  });
+});

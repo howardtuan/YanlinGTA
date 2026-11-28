@@ -628,6 +628,74 @@ export function cullFurniture(I) {
 }
 
 // ---------------- local-frame building kit ----------------
+// THREE.BoxGeometry(W, H, D) with one segment per side, built straight into typed arrays: the same vertices,
+// normals, uvs, index and groups in the same order and the same float arithmetic (tests/unit/kit-box.test.js
+// compares them bit for bit), without BoxGeometry's per-vertex Vector3 / JS-array work. The shop rows make tens
+// of thousands of boxes while the game loads (#464).
+// face order of BoxGeometry: px, nx, py, ny, pz, nz as [u, v, w axis, udir, vdir, which size is width/height/depth, depth sign]
+const BOX_FACES = [
+  [2, 1, 0, -1, -1, 2, 1, 0, 1],
+  [2, 1, 0, 1, -1, 2, 1, 0, -1],
+  [0, 2, 1, 1, 1, 0, 2, 1, 1],
+  [0, 2, 1, 1, -1, 0, 2, 1, -1],
+  [0, 1, 2, 1, -1, 0, 1, 2, 1],
+  [0, 1, 2, -1, -1, 0, 1, 2, -1],
+];
+const BOX_INDEX = (() => {
+  const a = [];
+  for (let f = 0; f < 6; f++) {
+    const n = f * 4;
+    a.push(n, n + 2, n + 1, n + 2, n + 3, n + 1);
+  }
+  return a;
+})();
+export function boxGeometry(width, height, depth) {
+  const dims = [width, height, depth];
+  const pos = new Float32Array(72),
+    nor = new Float32Array(72),
+    uv = new Float32Array(48);
+  let p = 0,
+    q = 0;
+  const vec = [0, 0, 0];
+  for (const [u, v, w, udir, vdir, iw, ih, id, sd] of BOX_FACES) {
+    const pw = dims[iw],
+      ph = dims[ih],
+      pd = sd > 0 ? dims[id] : -dims[id];
+    const segmentWidth = pw / 1,
+      segmentHeight = ph / 1,
+      widthHalf = pw / 2,
+      heightHalf = ph / 2,
+      depthHalf = pd / 2;
+    for (let iy = 0; iy < 2; iy++) {
+      const y = iy * segmentHeight - heightHalf;
+      for (let ix = 0; ix < 2; ix++) {
+        const x = ix * segmentWidth - widthHalf;
+        vec[u] = x * udir;
+        vec[v] = y * vdir;
+        vec[w] = depthHalf;
+        pos[p] = vec[0];
+        pos[p + 1] = vec[1];
+        pos[p + 2] = vec[2];
+        vec[u] = 0;
+        vec[v] = 0;
+        vec[w] = pd > 0 ? 1 : -1;
+        nor[p] = vec[0];
+        nor[p + 1] = vec[1];
+        nor[p + 2] = vec[2];
+        p += 3;
+        uv[q++] = ix / 1;
+        uv[q++] = 1 - iy / 1;
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setIndex(BOX_INDEX);
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  for (let f = 0; f < 6; f++) g.addGroup(f * 6, 6, f);
+  return g;
+}
 export class Kit {
   // sc: uniform scale of the whole building (local units * sc = metres); collision walls and surfaces follow it
   constructor(I, ox, oz, ang, sc = 1) {
@@ -680,7 +748,7 @@ export class Kit {
     const W = x1 - x0,
       H = y1 - y0,
       D = z1 - z0;
-    const g = new THREE.BoxGeometry(W, H, D);
+    const g = boxGeometry(W, H, D);
     if (o.tile) {
       const [tu, tv] = o.tile;
       const uv = g.attributes.uv;
@@ -763,7 +831,7 @@ export class Kit {
   slab(x0, z0, x1, z1, th, y0, y1, mat, o = {}) {
     const dx = x1 - x0,
       dz = z1 - z0,
-      g = new THREE.BoxGeometry(Math.hypot(dx, dz), y1 - y0, th);
+      g = boxGeometry(Math.hypot(dx, dz), y1 - y0, th);
     g.rotateY(-Math.atan2(dz, dx));
     g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     if (o.col !== false) this.wallLine(x0, z0, x1, z1, y0, y1);

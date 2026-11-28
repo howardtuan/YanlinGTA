@@ -38,6 +38,16 @@ export function createBootDiag({
 } = {}) {
   const t0 = now();
   let stepStart = t0;
+  let stepWait = 0; // ms the current stage spent waiting for frames it gave the loading bar (waited())
+  // a finished stage: ms is its own work (the frames it waited for in the middle are in waitMs, #464)
+  const stageRecord = (t) => {
+    const r = {
+      step: state.current.step,
+      ms: Math.max(0, Math.round(t - stepStart - stepWait)),
+    };
+    if (stepWait >= 0.5) r.waitMs = Math.round(stepWait);
+    return r;
+  };
   let state = {
     current: null,
     lastCrash: null,
@@ -145,6 +155,7 @@ export function createBootDiag({
       };
 
       stepStart = now();
+      stepWait = 0;
       state.current = {
         startedAt: Date.now(),
         step: 'init',
@@ -200,11 +211,9 @@ export function createBootDiag({
       if (!state.current) return;
       const t = now();
       if (state.current.step && state.current.step !== step) {
-        state.current.stages.push({
-          step: state.current.step,
-          ms: Math.max(0, Math.round(t - stepStart)),
-        });
+        state.current.stages.push(stageRecord(t));
         stepStart = t;
+        stepWait = 0;
       }
       state.current.step = step;
       state.current.pct = pct;
@@ -212,6 +221,22 @@ export function createBootDiag({
       state.current.elapsedMs = Math.max(0, Math.round(t - t0));
       writeStored(storage, state);
       renderOverlay();
+    },
+
+    // inside a long stage (build-interiors goes zone by zone): what the loading bar shows now, so a crash
+    // record says which part it stopped in
+    progress(pct, label = '') {
+      if (!state.current) return;
+      state.current.pct = pct;
+      state.current.label = label;
+      state.current.elapsedMs = Math.max(0, Math.round(now() - t0));
+      writeStored(storage, state);
+      renderOverlay();
+    },
+
+    // the current stage gave the browser a frame (ms): kept out of the stage's own time
+    waited(ms) {
+      if (ms > 0) stepWait += ms;
     },
 
     fail(err) {
@@ -227,10 +252,7 @@ export function createBootDiag({
       if (!state.current) return;
       const t = now();
       if (state.current.step && state.current.step !== 'complete') {
-        state.current.stages.push({
-          step: state.current.step,
-          ms: Math.max(0, Math.round(t - stepStart)),
-        });
+        state.current.stages.push(stageRecord(t));
       }
       state.current.step = 'complete';
       state.current.pct = 1;

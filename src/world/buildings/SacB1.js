@@ -338,17 +338,20 @@ export function buildSacB1(I, scene, Kit, regMat, collision = null) {
         new THREE.CylinderGeometry(0.012, 0.012, 0.44, 5).translate(x + dx, 0.22, z + dz)
       );
   };
-  for (const z of [10.2, 12.6, 15.0, 17.4])
-    for (const x of [-9.8, -7.6, -5.4, -2.2, 0, 2.6, 4.8, 7.0, 9.2]) {
-      k.box(x - 0.6, x + 0.6, 0.71, 0.75, z - 0.36, z + 0.36, MT.table, nc);
-      k.wallRect(x - 0.6, x + 0.6, z - 0.36, z + 0.36, 0, 0.75);
-      k._part(MT.steel, new THREE.CylinderGeometry(0.04, 0.04, 0.71, 8).translate(x, 0.355, z));
-      k.box(x - 0.25, x + 0.25, 0, 0.03, z - 0.2, z + 0.2, MT.steel, nc); // pedestal
-      for (const dx of [-0.3, 0.3]) {
-        chair(x + dx, z - 0.62, -1);
-        chair(x + dx, z + 0.62, 1);
+  // 36 tables, 144 chairs: their own furniture group, hidden from afar / from high above (src/world/Kit.js cullFurniture)
+  k.furniture(() => {
+    for (const z of [10.2, 12.6, 15.0, 17.4])
+      for (const x of [-9.8, -7.6, -5.4, -2.2, 0, 2.6, 4.8, 7.0, 9.2]) {
+        k.box(x - 0.6, x + 0.6, 0.71, 0.75, z - 0.36, z + 0.36, MT.table, nc);
+        k.wallRect(x - 0.6, x + 0.6, z - 0.36, z + 0.36, 0, 0.75);
+        k._part(MT.steel, new THREE.CylinderGeometry(0.04, 0.04, 0.71, 8).translate(x, 0.355, z));
+        k.box(x - 0.25, x + 0.25, 0, 0.03, z - 0.2, z + 0.2, MT.steel, nc); // pedestal
+        for (const dx of [-0.3, 0.3]) {
+          chair(x + dx, z - 0.62, -1);
+          chair(x + dx, z + 0.62, 1);
+        }
       }
-    }
+  });
   // west wall (moved out with the hall, south of the column): 餐具回收台 (steel counter with a shelf over it), two water dispensers, recycling bins
   k.box(XW + 0.3, XW + 0.95, 0, 0.9, 10.0, 12.8, MT.stove);
   k.box(XW + 0.3, XW + 0.7, 1.35, 1.39, 10.0, 12.8, MT.steel, nc);

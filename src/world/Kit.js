@@ -594,8 +594,10 @@ export class Interiors {
 }
 
 // furniture groups (Kit.furniture) are hidden while the camera is more than FURNITURE_FAR metres from their
-// bounds; checked four times a second (an Interiors updater, src/world/Interiors.js)
-export const FURNITURE_FAR = 45;
+// bounds, or more than FURNITURE_ABOVE metres above their top (looking down from the air: nothing inside shows);
+// checked four times a second (an Interiors visual updater, src/world/Interiors.js)
+export const FURNITURE_FAR = 45,
+  FURNITURE_ABOVE = 25;
 export function cullFurniture(I) {
   let t = 0;
   const box = new THREE.Box3(),
@@ -618,7 +620,7 @@ export function cullFurniture(I) {
         }
         bounds.set(g, (b = box.clone()));
       }
-      g.visible = b.distanceToPoint(c) <= FURNITURE_FAR;
+      g.visible = b.distanceToPoint(c) <= FURNITURE_FAR && c.y <= b.max.y + FURNITURE_ABOVE;
     }
   };
 }
@@ -1057,20 +1059,44 @@ function plainKey(m) {
     return null;
   return [m.roughness, m.metalness, m.envMapIntensity, m.side].join('|');
 }
+// materialMode 'lambert' (src/core/GraphicsConfig.js, low / xlow): the MERGED output of Kit.finish / finishRow
+// (the painted plain-colour meshes and the sign atlases: most of every building's and shop row's surface) is drawn with
+// MeshLambertMaterial instead of the full PBR shader — the source materials stay MeshStandardMaterial so they keep
+// merging as before (plainKey). Metallic surfaces (metalness > 0.5) keep their PBR look. The sky's diffuse light is
+// added back with the world's lambertSky (src/world/MapBuilder.js), as on the Lambert walls and ground.
+let KIT_LITE = false,
+  KIT_SKY = null;
+export function setKitMaterialMode(mode, lambertSky = null) {
+  KIT_LITE = mode === 'lambert';
+  KIT_SKY = lambertSky;
+}
+const liteOk = (src) => KIT_LITE && !(src.metalness > 0.5);
+function toLambert(src) {
+  const m = new THREE.MeshLambertMaterial();
+  THREE.Material.prototype.copy.call(m, src);
+  m.color.copy(src.color);
+  m.map = src.map;
+  m.emissive.copy(src.emissive);
+  m.emissiveMap = src.emissiveMap;
+  m.emissiveIntensity = src.emissiveIntensity;
+  m.vertexColors = src.vertexColors;
+  m.fog = src.fog;
+  return KIT_SKY ? KIT_SKY(m, src.envMapIntensity ?? 1) : m;
+}
 const PAINTED = new Map(); // shared by every row: one material per kind of surface
 function paintedMat(pk, src) {
   let m = PAINTED.get(pk);
-  if (!m)
-    PAINTED.set(
-      pk,
-      (m = new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: src.roughness,
-        metalness: src.metalness,
-        envMapIntensity: src.envMapIntensity,
-        side: src.side,
-      }))
-    );
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: src.roughness,
+      metalness: src.metalness,
+      envMapIntensity: src.envMapIntensity,
+      side: src.side,
+    });
+    if (liteOk(src)) m = toLambert(m);
+    PAINTED.set(pk, m);
+  }
   return m;
 }
 // a plain part for Kit.finish (strict): also no glow colour at all, since some buildings raise a material's
@@ -1204,7 +1230,7 @@ function batchKitPlanes(k) {
     m.dispose();
   }
   for (const { src, mesh: p, parent, sheet, geos } of groups.values()) {
-    const mat = src.clone();
+    const mat = liteOk(src) ? toLambert(src) : src.clone();
     mat.map = sheet.tex;
     if (src.emissiveMap) mat.emissiveMap = sheet.tex;
     const mesh = new THREE.Mesh(markStaticGeometry(mergeGeometries(geos, false)), mat);
@@ -1353,7 +1379,7 @@ export function finishRow(scene, kits, shadow = true) {
     m.dispose();
   }
   for (const { src, sheet, geos } of groups.values()) {
-    const mat = src.clone();
+    const mat = liteOk(src) ? toLambert(src) : src.clone();
     mat.map = sheet.tex;
     if (src.emissiveMap) mat.emissiveMap = sheet.tex;
     const mesh = new THREE.Mesh(mergeGeometries(geos, false), mat);

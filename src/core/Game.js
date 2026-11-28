@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildWorld, buildSkyline, mulberry32, LABEL_LAYER } from '../world/MapBuilder.js';
 import { installShadowDepth } from '../graphics/ShadowFix.js';
+import { installVisibleMatrices } from '../graphics/VisibleMatrices.js';
 import { Vehicle, sameLevel, bodyGap } from '../entities/Vehicles.js';
 import { Traffic, Peds } from '../entities/NPC.js';
 import { Trains } from '../entities/Trains.js';
@@ -126,7 +127,7 @@ import {
   flushShared,
   gcNudge,
 } from '../graphics/GpuMemLifecycle.js';
-import { TEX } from '../world/Kit.js';
+import { TEX, setKitMaterialMode } from '../world/Kit.js';
 import { PerfHud } from './PerfHud.js';
 import { Benchmark } from '../systems/Benchmark.js';
 import { VehicleSpawner } from './VehicleSpawner.js';
@@ -383,6 +384,7 @@ class Game {
     this.scene = new THREE.Scene();
     installShadowDepth(r, this.scene, () => this.gfx.shadows !== 'high');
     this.scene.matrixAutoUpdate = false;
+    installVisibleMatrices(this.scene); // world matrices only for visible subtrees (src/graphics/VisibleMatrices.js)
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 2600);
     this.camera.layers.enable(LABEL_LAYER); // floating name labels (hidden in photo mode)
 
@@ -433,6 +435,8 @@ class Game {
     this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
     this._applyQuality();
     await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
+    // low / xlow: the merged building and shop-row surfaces are Lambert too (src/world/Kit.js setKitMaterialMode)
+    setKitMaterialMode(this.gfx.materialMode, this.world.lambertSky);
     const interiorStart = this.scene.children.length;
     this.interiors = buildInteriors(this.scene, data, this.world.collision, {
       createCharacter,

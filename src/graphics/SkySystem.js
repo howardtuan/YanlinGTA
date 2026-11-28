@@ -98,6 +98,10 @@ const C = (h) => new THREE.Color(h);
 const lerp = (a, b, t) => a + (b - a) * t;
 // 'hemi' environment mode: the hemisphere light stands in for the sky IBL's diffuse share
 const HEMI_BOOST = 1.6;
+// PMREM re-bake throttle (exported for tests/unit/sky-env.test.js)
+export const ENV_MIN_GAP = 8;
+export const envKey = (elev, night, sunset) =>
+  `${Math.round(elev * 20)}:${Math.round(night * 8)}:${Math.round(sunset * 6)}`;
 
 export class SkySystem {
   constructor(scene, renderer, quality) {
@@ -257,13 +261,22 @@ export class SkySystem {
       this.sun.position.set(cx + L.x * 260, cy + L.y * 260, cz + L.z * 260);
       this.sun.target.updateMatrixWorld();
     }
-    // re-bake the environment map when the sky changed enough (throttled); never in 'hemi' mode
+    // re-bake the environment map when the sky changed enough; never in 'hemi' mode. A bake (PMREM: 6 cube faces +
+    // blur) is a frame spike of up to ~100 ms on a phone, so it is throttled hard (#443): coarse steps of sun height,
+    // night and sunset, and at least ENV_MIN_GAP seconds apart (the clock runs 1 game minute per 4 s, so the sky
+    // drifts slowly: about one bake every half minute while it changes, none at all on a steady day or night)
     if (this.envMode === 'hemi') return;
     this._envT -= dt;
-    const key = `${Math.round(elev * 60)}:${Math.round(night * 30)}:${Math.round(sunset * 20)}`;
-    if (key !== this._envKey && this._envT <= 0) {
+    const key = envKey(elev, night, sunset);
+    // a jump of the clock (sleeping, the benchmark's segments, a cut scene) bakes at once
+    const jump =
+      !this._envAt ||
+      Math.abs(elev - this._envAt.elev) > 0.25 ||
+      Math.abs(night - this._envAt.night) > 0.25;
+    if (key !== this._envKey && (this._envT <= 0 || this._envKey === null || jump)) {
       this._envKey = key;
-      this._envT = 0.6;
+      this._envT = ENV_MIN_GAP;
+      this._envAt = { elev, night };
       this.bakeEnv();
     }
   }
@@ -277,6 +290,7 @@ export class SkySystem {
       this.envRT = null;
     }
     this._envKey = null; // pmrem: bake on the next update
+    this._envAt = null;
     this._envT = 0;
   }
   bakeEnv() {

@@ -8835,6 +8835,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   let lastT = 0,
     outerT = 0;
   world.setLampLights = (n) => world.lampLights?.setCount(n);
+  // the sky's diffuse light for other Lambert materials (src/world/Kit.js materialMode 'lambert')
+  world.lambertSky = lite ? lambertSky : null;
   world.update = (t, night, clockMin, playerPos) => {
     const dt = Math.min(0.1, Math.max(0, t - lastT));
     lastT = t;

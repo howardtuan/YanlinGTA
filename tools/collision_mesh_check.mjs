@@ -146,7 +146,8 @@ export function pageScan(opts) {
     for (let q = o; q && q !== g.scene; q = q.parent) if (q.name) p.push(q.name);
     return p.reverse().join('/');
   };
-  g.scene.updateMatrixWorld(true);
+  // every node, hidden ones too (the scene's own updateMatrixWorld skips hidden subtrees: src/graphics/VisibleMatrices.js)
+  for (const c of g.scene.children) c.updateMatrixWorld(true);
   let noCpu = 0;
   g.scene.traverse((o) => {
     if (!o.isMesh || o.isSkinnedMesh) return;
@@ -621,6 +622,9 @@ async function main() {
     const page = await attach(port);
     const u = new URL(url);
     u.searchParams.set('keepgeo', '');
+    // the fresh tab is about:blank, which has no localStorage: open the game's origin first, then set the settings
+    await page.send('Page.navigate', { url: `${u.origin}/favicon.ico` });
+    await sleep(500);
     await page.eval(
       `localStorage.setItem('cycu-shun-settings-v2', JSON.stringify({ quality: 'low', music: 'off' })); 1`
     );

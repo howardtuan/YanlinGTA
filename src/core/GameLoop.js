@@ -184,11 +184,13 @@ export class GameLoop {
     const game = this.game;
     if ((this._lodT = (this._lodT || 0) + dt) < 0.25 || !game.traffic) return;
     this._lodT = 0;
-    const c = game.camera.position;
+    const c = game.camera.position,
+      night = game.night || 0;
     const each = (list) => {
       for (const v of list)
         v.lod?.(
-          Math.hypot(v.mesh.position.x - c.x, v.mesh.position.y - c.y, v.mesh.position.z - c.z)
+          Math.hypot(v.mesh.position.x - c.x, v.mesh.position.y - c.y, v.mesh.position.z - c.z),
+          night
         );
     };
     each(game.vehicles);

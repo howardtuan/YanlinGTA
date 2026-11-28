@@ -106,7 +106,7 @@ flowchart TD
 
 | 檔位 (`tier`) | 判定條件 | `texScale` | 圖集上限 (`atlasMaxW × H`) |
 | :--- | :--- | :---: | :---: |
-| `mobile-lite`（別名 `mobile-ios`） | 觸控裝置（手機／平板） | `0.5` | `1024 × 2048` |
+| `mobile-lite`（別名 `mobile-ios`） | 觸控裝置（手機／平板） | `0.5` | `768 × 1536`（圖集縮放 `0.375`） |
 | `desktop-igpu` | Apple M 系列、Intel Iris / UHD / HD、AMD Radeon 內顯、GeForce MX、軟體渲染或未知 GPU | `0.75` | `2048 × 2048` |
 | `desktop-dgpu` | NVIDIA GTX / RTX / Quadro、Radeon RX / Pro、Intel Arc A/B 系列獨顯 | `1.0` | `2048 × 4096` |
 
@@ -121,7 +121,7 @@ flowchart TD
   - 阻斷重整迴圈：`?diag=halt` 只要前次未完成載入即在啟動前暫停；`?diag=1` 於連續未完成載入 `>= 2` 次時暫停，等待點擊「▶ 繼續單次載入」才放行。
 - **玩家端自動安全降階與健康恢復（預設開啟，`?safemode=0` 可停用、`?safemode=1` 可強制啟用）**：
   - **觸發條件**：前次啟動未完成累計達 **連續 2 次（`crashCount >= 2`）**，或畫布曾觸發 **`webglcontextlost`** 事件（`attachCanvas` 監聽）。
-  - **降階效果**：`applySafeMode(profile)` 自動將 `texScale` 壓低至 **`<= 0.375`**（除非網址明確指定 `?texscale=`），並將圖集上限壓至 **`1024 × 1024`**，同時調降初始畫質確保順利進場。
+  - **降階效果**：`applySafeMode(profile)` 自動將 `texScale` 壓低至 **`<= 0.375`**（除非網址明確指定 `?texscale=`），並將圖集上限壓至 **`512 × 1024`**（圖集縮放 `0.25`，保有比正常 `mobile-lite` 更低一層的降階緩衝），同時調降初始畫質確保順利進場。
   - **自動恢復**：進入遊玩狀態後每幀呼叫 `tickHealthy(dt)`，累計穩定遊玩滿 **`180 秒`（`HEALTHY_RECOVERY_SEC`）** 即自動解除 `safeMode` 與 `contextLost` 標記。
 
 ---
@@ -175,7 +175,7 @@ sequenceDiagram
    - 嚴禁對靜態建築、載具、角色印花或招牌自行呼叫 `document.createElement('canvas')`。`scaledCanvas(w, h)` 會依 `PerfProfile.texScale` 縮小實體畫布並預設好 2D context 縮放，繪圖函式 `draw(g, w, h)` **必須使用傳入的邏輯寬高 `w, h`**（禁止讀取 `cv.width`，否則縮小後只畫到角落）；記憶體耗盡拿不到 context 時自動退回共用 1×1 `blankTexture()`。
    - 需透過 `getImageData` 逐像素計算的貼圖（如 `Textures.js` 法線圖、`Scooters.js` 車體法線圖、`Jersey.js` 滾邊距離場、`Garry.js` 上衣挖空、`Ruizhe.js` 印花標誌）須傳入 `{ willReadFrequently: true }` 避免 GPU 同步讀回卡頓，先以原尺寸計算再縮放或快取，並於繪入／轉完後當場呼叫 `releaseCanvas()` 釋放暫存畫布。
 2. **兩階段上傳與釋放**：
-   - 街屋與校舍門牌圖集（`finishRow`、`Kit.finish`、`Lixing`、`Sac`）於 `packAtlas()` 內逐張建妥即當場呼叫 `uploadAndRelease()` 上傳 GPU 並將畫布縮為 `1×1`（不讓多張圖集畫布同時駐留記憶體，壓低建置期 `peakCanvasMB`）；非世界層一次性靜態貼圖（載具、角色、道具、小遊戲與過場貼圖）於設妥貼圖屬性後亦應立即 `uploadAndRelease()`；`buildZones()` 期間由 `releaseAtlasSources(scene, TEX, { minBatch: 80, keepReusable: true, fromChild })` 僅針對新增子樹以固定 `TEX_SLOTS` 批次回收單店一次性招牌，保留標記 `markReusable()` 的跨街共用貼圖（`Kit.js` `T.*` / `YHT.*` / `ROWT.*`）供後續街屋複用，並於 `buildInteriors()` 全部結束後再統一釋放。
+   - 街屋與校舍門牌圖集（`finishRow`、`Kit.finish`、`Lixing`、`Sac`）於 `packAtlas()` 內採 **FFDH 跨列與 Guillotine 子空間回填**、WebGL2 `128 px` 對齊高度與 **四邊＋四角像素延伸（`ClampToEdgeWrapping`）** 防 mipmap 滲色，並於迴圈內逐張建妥即當場呼叫 `uploadAndRelease()` 上傳 GPU 與將畫布縮為 `1×1`（不讓多張圖集畫布同時駐留記憶體，壓低建置期 `peakCanvasMB`）；非世界層一次性靜態貼圖（載具、角色、道具、小遊戲與過場貼圖）於設妥貼圖屬性後亦應立即 `uploadAndRelease()`；`buildZones()` 期間由 `releaseAtlasSources(scene, TEX, { minBatch: 80, keepReusable: true, fromChild })` 僅針對新增子樹以固定 `TEX_SLOTS` 批次回收單店一次性招牌，保留標記 `markReusable()` 的跨街共用貼圖（`Kit.js` `T.*` / `YHT.*` / `ROWT.*`）供後續街屋複用，並於 `buildInteriors()` 全部結束後再統一釋放。
    - 進入標題畫面前由 `flushShared(scene)` 將所有共用靜態貼圖一次上傳 GPU 並釋放底層畫布，同時在 Apple WebKit 環境呼叫 `gcNudge()` 觸發垃圾回收。
    - **動態貼圖標記紅線**：執行期仍會重繪的畫布（螢幕、計分板、動態載入頭像海報）**必須傳入 `{ dynamic: true }` 或呼叫 `markDynamic()`**，且不得用 `k.plane()` 併入街屋圖集。
 3. **靜態幾何 CPU 陣列釋放（`markStaticGeometry`）**：

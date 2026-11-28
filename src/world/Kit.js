@@ -851,14 +851,19 @@ export class Kit {
 // Planes whose texture is tiled or alpha-tested after k.plane() (the 麥食堂 wire mesh) stay as they were,
 // and so does anything else a builder put into k.group (prisms, extra meshes).
 // ---------------------------------------------------------------------------------------------
-// Each image sits on a 16-pixel grid with 16 px of its own edge colour around it, and the sheet is a power
-// of two high: every mipmap level of the sheet then lines up with the image's own, so small text far away
-// stays as sharp as it was on its own texture (odd offsets shift and soften it).
-// Layout is in full-size pixels (ATLAS_W wide, up to atlasMaxH() high); a sheet is stored at atlasScale()
-// (phones: half) and goes to the GPU and loses its canvas as soon as its row is built (finishRow).
+// Each image sits on a 16-pixel grid with 16 px of its own edge colour (4 edges + 4 corners) around it,
+// and the sheet dimensions step by 128 px above 256 (WebGL2 native NPOT mipmaps, keeping exact integer pixels
+// across all tier scales so mipmaps line up without cross-tile bleeding or border fringes).
+// Layout is in full-size pixels (ATLAS_W wide, up to atlasMaxH() high) using FFDH with Guillotine sub-space
+// backfilling; each sheet is stored at atlasScale() and goes to the GPU and loses its canvas immediately (finishRow).
 const ATLAS_W = 2048,
   ATLAS_GAP = 16;
 const alignUp = (v) => Math.ceil(v / ATLAS_GAP) * ATLAS_GAP;
+const sheetDim = (v, max, min = 64) => {
+  const n = Math.max(min, v);
+  const d = n <= 256 ? 2 ** Math.ceil(Math.log2(n)) : Math.ceil(n / 128) * 128;
+  return max ? Math.min(max, d) : d;
+};
 function atlasable(m) {
   const kp = m.userData.kitPlane;
   if (!kp || !m.visible || m.children.length || m.userData.dynamic) return false;
@@ -884,61 +889,109 @@ function packAtlas(images) {
   const list = [...images].sort((a, b) => drawnH(b) - drawnH(a) || drawnW(b) - drawnW(a));
   if (!list.length) return new Map();
   const maxH = atlasMaxH();
+  const s = atlasScale();
   const sheets = [],
     at = new Map();
-  let sheet = null,
-    x = 0,
-    y = 0,
-    rowH = 0;
-  const newSheet = () => {
-    sheet = { items: [], w: 0, h: 0 };
-    sheets.push(sheet);
-    x = 0;
-    y = 0;
-    rowH = 0;
-  };
-  newSheet();
   for (const img of list) {
-    const w = alignUp(drawnW(img)) + ATLAS_GAP * 2,
-      h = alignUp(drawnH(img)) + ATLAS_GAP * 2; // slot: gap, image, gap
-    if (x + w > ATLAS_W) {
-      x = 0;
-      y += rowH;
-      rowH = 0;
+    const rawW = drawnW(img),
+      rawH = drawnH(img);
+    const aw = alignUp(rawW),
+      ah = alignUp(rawH);
+    const padX =
+      aw + ATLAS_GAP * 2 <= ATLAS_W
+        ? ATLAS_GAP
+        : Math.max(0, Math.floor((ATLAS_W - aw) / 2 / ATLAS_GAP) * ATLAS_GAP);
+    const padY =
+      ah + ATLAS_GAP * 2 <= maxH
+        ? ATLAS_GAP
+        : Math.max(0, Math.floor((maxH - ah) / 2 / ATLAS_GAP) * ATLAS_GAP);
+    const w = Math.min(ATLAS_W, aw + padX * 2),
+      h = Math.min(maxH, ah + padY * 2);
+    const dw = s === 1 ? rawW : Math.min(aw, Math.max(1, Math.round(rawW * s)) / s);
+    const dh = s === 1 ? rawH : Math.min(ah, Math.max(1, Math.round(rawH * s)) / s);
+    let target = null,
+      posX = 0,
+      posY = 0;
+    for (const sh of sheets) {
+      let best = -1;
+      for (let i = 0; i < sh.spaces.length; i++) {
+        const sp = sh.spaces[i];
+        if (w <= sp.w && h <= sp.h) {
+          best = i;
+          break;
+        }
+      }
+      if (best >= 0) {
+        const sp = sh.spaces[best];
+        posX = sp.x;
+        posY = sp.y;
+        sh.w = Math.max(sh.w, posX + w);
+        sh.h = Math.max(sh.h, posY + h);
+        const remR = sp.w - w,
+          remB = sp.h - h;
+        const next = [];
+        if (remB >= 48) next.push({ x: sp.x, y: sp.y + h, w, h: remB });
+        if (remR >= 48) next.push({ x: sp.x + w, y: sp.y, w: remR, h: sp.h });
+        sh.spaces.splice(best, 1, ...next);
+        target = sh;
+        break;
+      }
+      if (sh.h + h <= maxH) {
+        posX = 0;
+        posY = sh.h;
+        sh.w = Math.max(sh.w, w);
+        sh.h += h;
+        if (ATLAS_W - w >= 48) sh.spaces.push({ x: w, y: posY, w: ATLAS_W - w, h });
+        target = sh;
+        break;
+      }
     }
-    if (y + h > maxH) newSheet();
-    const ix = x + ATLAS_GAP,
-      iy = y + ATLAS_GAP;
-    sheet.items.push({ img, x: ix, y: iy });
-    at.set(img, { sheet, x: ix, y: iy, w: drawnW(img), h: drawnH(img) });
-    x += w;
-    rowH = Math.max(rowH, h);
-    sheet.w = Math.max(sheet.w, x);
-    sheet.h = Math.max(sheet.h, y + rowH);
+    if (!target) {
+      target = {
+        items: [],
+        spaces: ATLAS_W - w >= 48 ? [{ x: w, y: 0, w: ATLAS_W - w, h }] : [],
+        w,
+        h,
+      };
+      sheets.push(target);
+      posX = 0;
+      posY = 0;
+    }
+    const ix = posX + padX,
+      iy = posY + padY;
+    target.items.push({ img, x: ix, y: iy, w: dw, h: dh, padX, padY });
+    at.set(img, { sheet: target, x: ix, y: iy, w: dw, h: dh });
   }
-  const s = atlasScale();
   for (const sh of sheets) {
-    const W = Math.min(ATLAS_W, 2 ** Math.ceil(Math.log2(Math.max(64, sh.w)))),
-      H = 2 ** Math.ceil(Math.log2(Math.max(16, sh.h))),
-      { cv, g } = scaledCanvas(W, H, s),
-      P = ATLAS_GAP;
+    const W = sheetDim(sh.w, ATLAS_W, 64),
+      H = sheetDim(sh.h, maxH, 16),
+      { cv, g } = scaledCanvas(W, H, s);
     if (g)
-      for (const { img, x: X, y: Y } of sh.items) {
-        const w = drawnW(img),
-          h = drawnH(img),
-          iw = img.width, // its own pixels (fewer than w x h when stored scaled)
+      for (const { img, x: X, y: Y, w, h, padX, padY } of sh.items) {
+        const iw = img.width, // its own pixels (fewer than w x h when stored scaled)
           ih = img.height;
         if (iw === w && ih === h) g.drawImage(img, X, Y);
         else g.drawImage(img, X, Y, w, h);
-        // repeat the edge pixels into the gap so mipmaps do not pull in the neighbours
-        g.drawImage(img, 0, 0, iw, 1, X, Y - P, w, P);
-        g.drawImage(img, 0, ih - 1, iw, 1, X, Y + h, w, P);
-        g.drawImage(img, 0, 0, 1, ih, X - P, Y, P, h);
-        g.drawImage(img, iw - 1, 0, 1, ih, X + w, Y, P, h);
+        // repeat the edge pixels into the gap (4 edges + 4 corners) so mipmaps do not pull in transparent black or neighbours
+        if (padY > 0) {
+          g.drawImage(img, 0, 0, iw, 1, X, Y - padY, w, padY);
+          g.drawImage(img, 0, ih - 1, iw, 1, X, Y + h, w, padY);
+        }
+        if (padX > 0) {
+          g.drawImage(img, 0, 0, 1, ih, X - padX, Y, padX, h);
+          g.drawImage(img, iw - 1, 0, 1, ih, X + w, Y, padX, h);
+        }
+        if (padX > 0 && padY > 0) {
+          g.drawImage(img, 0, 0, 1, 1, X - padX, Y - padY, padX, padY);
+          g.drawImage(img, iw - 1, 0, 1, 1, X + w, Y - padY, padX, padY);
+          g.drawImage(img, 0, ih - 1, 1, 1, X - padX, Y + h, padX, padY);
+          g.drawImage(img, iw - 1, ih - 1, 1, 1, X + w, Y + h, padX, padY);
+        }
       }
     const t = g ? new THREE.CanvasTexture(cv) : blankTexture();
     if (g) {
       t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
       t.anisotropy = 4;
       uploadAndRelease(t);
     }

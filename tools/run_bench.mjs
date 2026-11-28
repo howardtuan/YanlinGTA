@@ -6,7 +6,7 @@
 //
 //   node tools/run_bench.mjs [--desktop] [--quality=low] [--engine=chrome|webkit]
 //     [--vsync] [--swiftshader] [--no-build|--build] [--pr=<number>] [--no-record]
-//     [--out=tools/e2e/out/bench] [--seed=1337] [--timeout=420]
+//     [--out=tools/e2e/out/bench] [--seed=1337] [--timeout=420] [--sweep] [--sweep-time=10] [--no-toplay]
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { startServer } from './e2e/serve.mjs';
 import { launchChrome, launchHardwareChrome, connectPage, defaultChromePath } from './e2e/cdp.mjs';
 import { launchWebKitDriver } from './perf/drivers.mjs';
+import { DEFAULT_SWEEP, formatSweepMarkdown } from './perf/sweep_lib.mjs';
 import {
   buildCompactRecord,
   formatPrPerfSection,
@@ -50,7 +51,12 @@ if (flag('help') || flag('h')) {
                         (e.g. ~/Workspace/scripts/remote-chrome.mjs on another machine); it is not closed
   --serve-host=<host>   serve on 0.0.0.0 and give Chrome http://<host>:<port>/ (for a Chrome on another machine)
   --seed=1337           seed for Math.random
-  --timeout=420         max seconds to wait for benchmark completion (default: 420)`);
+  --timeout=420         max seconds to wait for benchmark completion (default: 420)
+  --sweep               after the full run, switch live display settings one at a time in the same page
+                        (game.applyDisplaySettings, not saved) and sample a short fixed segment for each:
+                        writes sweep.json + sweep.md (marginal cost of every setting vs the preset)
+  --sweep-time=10       measured seconds per sweep sample (plus 3 s warm-up)
+  --no-toplay           skip measuring 「▶ 開始遊戲」→ play (boot.toPlayMs) at the end`);
   process.exit(0);
 }
 
@@ -279,6 +285,8 @@ try {
     return {
       tier: window.game.perfProfile?.tier || null,
       bootDiagMs: window.game.bootDiag?.getState?.()?.current?.elapsedMs ?? null,
+      stages: (window.game.bootDiag?.getState?.()?.current?.stages || []).map((s) => ({ step: s.step, ms: s.ms })),
+      topZones: (window.game.interiors?.zoneTimes || []).slice().sort((a, b) => b.ms - a.ms).slice(0, 5),
       resourceCount: res.length,
       transferKB: Math.round(res.reduce((a, r) => a + (r.transferSize || r.encodedBodySize || 0), 0) / 1024),
     };
@@ -339,6 +347,76 @@ try {
     return { snap, canvas, tex, programs };
   })()`);
 
+  // --sweep: marginal cost of each live display setting, same page, same fixed segment
+  let sweep = null;
+  if (flag('sweep')) {
+    const sweepTime = Number(arg('sweep-time', '10')) || 10;
+    sweep = { time: sweepTime, rows: [] };
+    const reset = await runner.eval(`JSON.stringify(window.game.gfx)`);
+    say(`sweep: ${DEFAULT_SWEEP.length} samples x ${sweepTime + 3}s (base ${reset})`);
+    for (const item of DEFAULT_SWEEP) {
+      const ok = await runner.eval(`(() => {
+        const g = window.game;
+        const clear = {};
+        for (const k of ['dprCap', 'shadows', 'envLight', 'postFx', 'nightLamps', 'viewScale', 'fogScale', 'far']) clear[k] = null;
+        g.applyDisplaySettings({ ...clear, ...${JSON.stringify(item.patch)} }, { save: false });
+        window.__benchDoneResult = null;
+        window.addEventListener('benchdone', (e) => { window.__benchDoneResult = e.detail; }, { once: true });
+        return g.bench.start(null, { headless: true, segments: [${JSON.stringify(item.seg)}], time: ${sweepTime} });
+      })()`);
+      if (!ok) throw new Error(`sweep: bench.start failed for ${item.label}`);
+      const tS = Date.now();
+      for (;;) {
+        const st = await runner.eval(
+          `({ done: Boolean(window.__benchDoneResult), running: Boolean(window.game.bench?.running) })`
+        );
+        if (st.done) break;
+        if (!st.running) throw new Error(`sweep: benchmark stopped early (${item.label})`);
+        if (Date.now() - tS > (sweepTime + 60) * 1000)
+          throw new Error(`sweep: timed out (${item.label})`);
+        await sleep(500);
+      }
+      const row = await runner.eval(`(() => {
+        const r = window.game.bench.result, o = r.overall || {};
+        return { gfx: r.gfx, programs: window.game.renderer.info.programs?.length ?? null,
+          fps: o.avgFps, low1: o.low1, p95: o.p95, logicMs: o.logicAvg, renderMs: o.renderAvg,
+          calls: r.calls, tris: r.tris, bakes: r.envBakeCount };
+      })()`);
+      sweep.rows.push({ label: item.label, seg: item.seg, patch: item.patch, ...row });
+      say(`  ${item.label}: ${row.fps?.toFixed(1)} fps, render ${row.renderMs?.toFixed(2)} ms`);
+    }
+    await runner.eval(`(() => {
+      const clear = {};
+      for (const k of ['dprCap', 'shadows', 'envLight', 'postFx', 'nightLamps', 'viewScale', 'fogScale', 'far']) clear[k] = null;
+      window.game.applyDisplaySettings(clear, { save: false });
+    })()`);
+    fs.writeFileSync(path.join(outDir, 'sweep.json'), `${JSON.stringify(sweep, null, 2)}\n`);
+    fs.writeFileSync(path.join(outDir, 'sweep.md'), `${formatSweepMarkdown(sweep)}\n`);
+    say(`wrote ${path.relative(ROOT, path.join(outDir, 'sweep.md'))}`);
+  }
+
+  // 「▶ 開始遊戲」→ play: measured in the page (rAF) so polling latency is not counted
+  let toPlayMs = null;
+  if (!flag('no-toplay')) {
+    await runner.eval(`(() => {
+      window.__toPlayMs = null;
+      const t0 = performance.now();
+      document.getElementById('btnStart')?.click();
+      const w = () => {
+        if (window.game.state === 'play') window.__toPlayMs = Math.round(performance.now() - t0);
+        else requestAnimationFrame(w);
+      };
+      w();
+    })()`);
+    const tP = Date.now();
+    while (Date.now() - tP < 30000) {
+      toPlayMs = await runner.eval('window.__toPlayMs');
+      if (toPlayMs != null) break;
+      await sleep(100);
+    }
+    say(`start -> play: ${toPlayMs == null ? 'not reached in 30 s' : `${toPlayMs} ms`}`);
+  }
+
   if (pageErrors.length) {
     throw new Error(`Runtime page exceptions during benchmark:\n${pageErrors.join('\n')}`);
   }
@@ -380,6 +458,9 @@ try {
     boot: {
       toTitleMs,
       bootDiagMs: bootInfo.bootDiagMs,
+      stages: bootInfo.stages,
+      topZones: bootInfo.topZones,
+      toPlayMs,
       resourceCount: bootInfo.resourceCount,
       transferKB: bootInfo.transferKB,
     },
@@ -401,6 +482,7 @@ try {
       domNodes: postSnap.snap.domNodes,
     },
     bench: benchResult,
+    sweep,
     screenshot: shotName,
   };
 

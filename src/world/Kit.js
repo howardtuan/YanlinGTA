@@ -377,6 +377,9 @@ export class Interiors {
     this.zones = [];
     this.actions = [];
     this.updaters = [];
+    // purely visual updaters (distance culling, night window glow): no player, doors or game state involved, so they
+    // also run on the title screen and during the benchmark (GameLoop, updateVisual)
+    this.visualUpdaters = [];
     this.furniture = []; // Kit.furniture groups, hidden from far away (cullFurniture)
     this.cones = [];
     this.stamp = 0;
@@ -583,6 +586,10 @@ export class Interiors {
   }
   update(dt, game) {
     for (const u of this.updaters) u(dt, game);
+    this.updateVisual(dt, game);
+  }
+  updateVisual(dt, game) {
+    for (const u of this.visualUpdaters) u(dt, game);
   }
 }
 

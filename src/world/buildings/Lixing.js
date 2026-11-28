@@ -2005,7 +2005,7 @@ export function buildLixing(I, scene, data, collision, Kit, regMat) {
     const WARM = new THREE.Color('#ffd59a'),
       COOL = new THREE.Color('#e9f1ff').multiplyScalar(0.8);
     let nightKey = null;
-    I.updaters.push((dt, g) => {
+    I.visualUpdaters.push((dt, g) => {
       const nk = Math.floor(((g.clock ?? 0) - 12 * 60) / 1440); // 中午換日：同一晚不會半夜換一批
       if (nk !== nightKey) {
         nightKey = nk;

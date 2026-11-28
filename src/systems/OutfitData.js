@@ -32,7 +32,7 @@ export const TOPS = [
   { name: '黑色長袖', shirt: '#1a1a1c', tag: '長袖', long: true },
   { name: '白色長袖', shirt: '#ecebe6', tag: '長袖', long: true },
   { name: '系學會幹部T', shirt: '#1d2340', tag: 'Polo', top: 'polo' }, // 深藍 polo，左胸白色獅子（34TH、CYIMSA）
-  // 胸前 CYCU VOLLEYBALL、背後「中原排球」7 號；幫吱吱洗完 10 次殘廢澡才有（src/systems/quests/ZzInjury.js）
+  // 胸前 CYCU VOLLEYBALL、背後「中原排球」7 號；幫吱吱洗完殘廢澡才有（src/systems/quests/ZzInjury.js）
   { name: '排球 T', shirt: '#c8102e', tag: '吱吱送的', top: 'volley', unlock: 'volleyTee' },
 ];
 

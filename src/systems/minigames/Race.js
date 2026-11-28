@@ -1,11 +1,12 @@
 // 新中北路障礙賽 — street race around the outside of the CYCU main campus.
 // Sign up at the door of 力行大樓 (the 力行 male dorm on 新中北路), ride your own JAT SM against 7 rivals,
-// 2 laps, you start 6th of 8. Once 霍華德's Two Sum is solved (src/systems/quests/HowardTwoSum.js) you pick your bike
+// 1 lap, you start 6th of 8. Once 霍華德's Two Sum is solved (src/systems/quests/HowardTwoSum.js) you pick your bike
 // before the start: the JAT SM or his black 忍 400 (src/entities/npcs/Howard.js lend). Normal traffic and pedestrians stay on the roads, and the organisers put
 // cones and water barriers on the course.
 //
 // The course is built from the real road graph (world.driveNodes): A* between anchor points around the
-// campus, penalising anything that cuts through campus, then smoothed and sampled every 2 m with a
+// campus, penalising anything that cuts through campus and the narrow lanes (巷 / 弄: 新中北路248巷, 環中東路708巷
+// are too narrow for 8 bikes and the traffic there), then smoothed and sampled every 2 m with a
 // corner-speed profile. Rivals ride kinematically along it (progress s + lateral offset), choose a free
 // lane when something is ahead and brake when nothing is free.
 import * as THREE from 'three';
@@ -19,8 +20,9 @@ import { dual } from '../../core/KeyHints.js';
 import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.js';
 
 const _ax = new THREE.Vector3();
-const LAPS = 2,
-  PLAYER_SLOT = 5; // 0-based grid slot -> you start 6th of 8
+const LAPS = 1,
+  PLAYER_SLOT = 5;
+const OFF_BIKE_SEC = 30; // off your own bike longer than this (a crash, walking back to it) -> out of the race // 0-based grid slot -> you start 6th of 8
 const DS = 2; // course sample spacing (m)
 const RIVALS = [
   // grid order (slot 5 is you)
@@ -84,7 +86,7 @@ function buildCourse(world, data, startNear) {
         const pen =
           (poly && pointInPoly(mx, mz, poly) ? 40 : 1) *
           (e.road.type === 'service' ? 1.15 : 1) *
-          (e.road.name ? 1 : 3);
+          (e.road.name ? (/[巷弄]/.test(e.road.name) ? 8 : 1) : 3);
         const ng = g.get(c) + L * pen;
         if (ng < (g.get(e.to) ?? 1e18)) {
           g.set(e.to, ng);
@@ -103,13 +105,15 @@ function buildCourse(world, data, startNear) {
     }
     return path;
   };
-  // 力行大樓 on 新中北路 -> 中北路 -> 大仁街 -> 環中東路 -> back onto 新中北路
+  // 力行大樓 on 新中北路 -> west to 實踐路 -> north to 中北路 -> east to the main gate (校門口) -> 大仁街 ->
+  // 大仁二街 -> 實踐路 north-east -> 環中東路 -> back onto 新中北路 (no 新中北路248巷 / 環中東路708巷: too narrow)
   const A = [
     near(startNear.x, startNear.z),
-    near(-90, 250),
-    near(120, 300),
-    near(290, 200),
-    near(71, -101),
+    near(-345, -55), // 實踐路, just north of 新中北路
+    near(-220, 90), // 中北路 at the main gate / 大仁街
+    near(-100, 236), // 大仁街
+    near(60, 495), // north-east end of 實踐路, then down 環中東路 (a divided road: no anchor on it)
+    near(71, -101), // 新中北路
   ];
   const nodes = [],
     widths = [];
@@ -314,7 +318,7 @@ export class Race {
       r: 3.6,
       y: 0,
       label: () =>
-        `按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（${this._canNinja() ? '可選 JAT SM／忍 400' : '騎自己的 JAT SM'}・2 圈・8 人）`,
+        `按 <kbd>E</kbd> 報名「🏁 新中北路障礙賽」（${this._canNinja() ? '可選 JAT SM／忍 400' : '騎自己的 JAT SM'}・1 圈・8 人）`,
       cond: () => this.state === 'idle',
       fn: (g) => this.signup(),
     });
@@ -593,10 +597,10 @@ export class Race {
     }
     g.dialog(
       [
-        ['報名處 學長', '歡迎來到新中北路障礙賽！騎自己的車繞中原大學外圍 2 圈，8 台車一起比。'],
+        ['報名處 學長', '歡迎來到新中北路障礙賽！騎自己的車繞中原大學外圍 1 圈，8 台車一起比。'],
         [
           '報名處 學長',
-          '路線：新中北路 → 中北路 → 大仁街 → 環中東路，再繞回這裡。小地圖上的粉紅線就是賽道。',
+          '路線：新中北路 → 實踐路 → 中北路到校門口 → 大仁街 → 實踐路 → 環中東路，再繞回這裡。小地圖上的粉紅線就是賽道。',
         ],
         [
           '報名處 學長',
@@ -954,8 +958,12 @@ export class Race {
       if (P.wrong > 1.5) warn = '⛔ 逆向了！迴轉！';
       if (v !== my) {
         P.notOn += dt;
-        warn = `🛵 騎回你的 ${this.rideName}！（${Math.max(0, Math.ceil(20 - P.notOn))} 秒內）`;
-        if (P.notOn > 20) {
+        const left = Math.max(0, Math.ceil(OFF_BIKE_SEC - P.notOn));
+        // on someone else's bike (a parked scooter grabbed after a crash): it doesn't count, say so
+        warn = v
+          ? `🚫 這台不是你的車！下車騎回你的 ${this.rideName}（${left} 秒內）`
+          : `🛵 騎回你的 ${this.rideName}！（${left} 秒內）`;
+        if (P.notOn > OFF_BIKE_SEC) {
           this.abandon('離開機車太久，視同棄權');
           return;
         }
@@ -1185,7 +1193,10 @@ export class Race {
     this._placeRival(r, dt);
     // contacts: traffic, pedestrians, you, cones / barriers
     const v = r.v;
-    for (const t of g.traffic.vehicles()) {
+    // a rival squeezing past (ghost) neither brakes on traffic nor stuns it: a bus dwelling at the 中北路 stop by the
+    // main gate (its contact circle is large) used to halve every rival's speed each frame and was itself kept
+    // stunned, so the whole field stopped there for good
+    for (const t of r.ghost > 0 ? [] : g.traffic.vehicles()) {
       const d = Math.hypot(t.pos.x - v.pos.x, t.pos.z - v.pos.z);
       if (d < t.radius + v.radius) {
         r.speed *= 0.5;

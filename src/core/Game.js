@@ -118,7 +118,7 @@ import {
   shadowLevel,
 } from './GraphicsConfig.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
-import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
+import { resolveRuntimeProfile } from './PerfProfile.js';
 import { createBootDiag } from './BootDiag.js';
 import {
   configureGpuMem,
@@ -168,10 +168,8 @@ class Game {
     this.perfProfile = resolveRuntimeProfile(this.settings);
     this.bootDiag = createBootDiag({
       diagMode: this.perfProfile.diagMode,
-      safeModeOverride: this.perfProfile.flags.safeMode,
     });
     await this.bootDiag.begin();
-    if (this.bootDiag.isSafeMode()) applySafeMode(this.perfProfile);
 
     const stage = async (key, p, t) => {
       setLoad(p, t);
@@ -193,12 +191,8 @@ class Game {
     loadTerrain(terrain);
     this.data = data;
     this.quality = resolveQuality(this.settings.quality, this.settings);
-    if (this.bootDiag.isSafeMode() && (this.settings.quality || 'auto') === 'auto') {
-      this.quality = 'low';
-    }
-    // display settings (src/core/GraphicsConfig.js): preset < player overrides < safe mode < URL flags
+    // display settings (src/core/GraphicsConfig.js): preset < player overrides < URL flags
     this._gfxOpts = {
-      safeMode: this.bootDiag.isSafeMode(),
       url: parseUrlFlags(location.search),
       tier: this.perfProfile.tier,
     };
@@ -468,9 +462,6 @@ class Game {
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);
     this.hud = new HUD(this.world);
-    if (this.bootDiag.isSafeMode()) {
-      this.hud.toast('已自動啟用低記憶體安全模式，穩定遊玩 3 分鐘後將自動恢復', 'good', 4500);
-    }
     this.player = new Player(this.scene);
     this.rig = new CameraRig(this.camera);
     this.fpv = new FirstPerson(this);

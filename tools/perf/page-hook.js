@@ -144,7 +144,6 @@
     return {
       state: g.state,
       tier: g.perfProfile?.tier || null,
-      safeMode: Boolean(g.perfProfile?.safeMode),
       quality: g.quality,
       render: {
         calls: r.info.render.calls,

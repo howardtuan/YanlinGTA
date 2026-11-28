@@ -68,7 +68,6 @@ npm run dev
 | `?headless=1` | 搭配 `?bench` 的無頭模式 | `Game.js` |
 | `?perf` | 本次強制開啟開發者級效能浮層（不改存檔） | `PerfHud.js` |
 | `?diag=1\|halt` | 顯示啟動診斷麵包屑；`halt` 在前次未完成載入時暫停 | `BootDiag.js`、`PerfProfile.js` |
-| `?safemode=0\|1` | 停用／強制啟用安全降階模式 | `BootDiag.js`、`PerfProfile.js` |
 | `?tier=mobile-lite\|desktop-igpu\|desktop-dgpu` | 覆寫硬體分檔（`mobile-ios` 為別名） | `PerfProfile.js` |
 | `?texscale=0.25~2` | 覆寫畫布貼圖縮放比 | `PerfProfile.js`、`GpuMemLifecycle.js` |
 | `?date=YYYY-MM-DD` | 模擬真實日期（義務役、節慶、貨運班次、真實週末判定） | `Service.js`、`Season.js`、`PinHan.js`、`Ruizhe.js` |

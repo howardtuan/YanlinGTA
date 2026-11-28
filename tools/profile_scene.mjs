@@ -214,7 +214,6 @@ async function singleRun(srvUrl, runIndex) {
     const info = {
       tier: last.tier,
       quality: last.quality,
-      safeMode: last.safeMode,
       renderer: await driver.eval('window.__bench.gpuRenderer()'),
       browser: await driver.version(),
     };
@@ -239,7 +238,6 @@ try {
     renderer: info.renderer,
     tier: info.tier,
     quality: info.quality,
-    safeMode: info.safeMode,
     viewport: `${width}x${height}${mobile ? '@3x' : ''}`,
     uncapped: engine === 'chrome' ? uncap : false,
     frameTimeReliable: !software,

@@ -467,7 +467,6 @@ try {
     perf: {
       tier: bootInfo.tier,
       quality: benchResult.quality,
-      safeMode: postSnap.snap.safeMode,
       canvasMB: postSnap.canvas.canvasMB,
       peakCanvasMB: postSnap.canvas.peakCanvasMB,
       canvasCount: postSnap.canvas.canvasCount,

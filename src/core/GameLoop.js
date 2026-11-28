@@ -66,6 +66,35 @@ export function guessGpu() {
   return (_gpuGuess = isTouch() ? 'low' : !strong && (weak || cores <= 4) ? 'low' : 'medium');
 }
 
+// auto quality state machine (pure, unit-tested: tests/unit/auto-quality.test.js)
+export const AUTOQ_FPS = 20,
+  AUTOQ_WINDOW_MS = 3000,
+  AUTOQ_WINDOWS = 2;
+export const newAutoQ = () => ({ t: 0, sum: 0, n: 0, warm: 0, low: 0 });
+export const autoQualityActive = (settings, quality) =>
+  (settings?.quality || 'auto') === 'auto' &&
+  !(settings?.gfx && Object.keys(settings.gfx).length) &&
+  quality !== 'xlow';
+// feed one frame; returns the fps that calls for a step down (null otherwise)
+export function autoQualityStep(A, frameMs) {
+  if (!(frameMs > 0) || frameMs > 250) return null; // tab was in the background
+  if ((A.warm += frameMs) < AUTOQ_WINDOW_MS) return null;
+  A.t += frameMs;
+  A.sum += frameMs;
+  A.n++;
+  if (A.t < AUTOQ_WINDOW_MS) return null;
+  const fps = 1000 / (A.sum / A.n);
+  A.t = A.sum = A.n = 0;
+  if (fps >= AUTOQ_FPS) {
+    A.low = 0;
+    return null;
+  }
+  if (++A.low < AUTOQ_WINDOWS) return null;
+  A.low = 0;
+  A.warm = 0; // the new level gets its own warm-up
+  return fps;
+}
+
 // 'auto': the level an earlier session stepped down to (settings.autoQ, _autoQuality) or the GPU guess
 export const resolveQuality = (q, s) =>
   QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu();
@@ -152,30 +181,22 @@ export class GameLoop {
     this.applyQuality();
   }
 
-  // auto quality: after a 3 s warm-up, step down one level when a 3 s window runs under 28 fps
-  // (a struggling machine steps down within the first 6 s)
+  // auto quality (only in pure 自動: quality 'auto' and no ⚙ 細部顯示設定 of the player's own): after a 3 s warm-up,
+  // step down one level when TWO 3 s windows in a row average under 20 fps (phones capped at 30 fps, a corner or a GC
+  // pause don't trip it). The step is remembered in settings.autoQ; picking 自動 again in the settings clears it.
   autoQuality(frameMs) {
     const game = this.game;
-    if ((game.settings.quality || 'auto') !== 'auto' || game.quality === 'xlow' || document.hidden)
-      return;
-    if (frameMs > 250) return; // tab was in the background
-    const A = game._aq || (game._aq = { t: 0, sum: 0, n: 0, warm: 0 });
-    if ((A.warm += frameMs) < 3000) return;
-    A.t += frameMs;
-    A.sum += frameMs;
-    A.n++;
-    if (A.t < 3000) return;
-    const fps = 1000 / (A.sum / A.n);
-    A.t = A.sum = A.n = 0;
-    if (fps >= 28) return;
+    if (!autoQualityActive(game.settings, game.quality) || document.hidden) return;
+    const A = game._aq || (game._aq = newAutoQ());
+    const fps = autoQualityStep(A, frameMs);
+    if (fps == null) return;
     const next = QUALITY[Math.max(0, QUALITY.indexOf(game.quality) - 1)];
     this.setQuality(next);
-    A.warm = 0; // give the new level its own warm-up before judging it
     // remember it: the next load starts at this level (with its lighter world, crowds and no MSAA)
     game.settings.autoQ = next;
     saveSettings(game.settings);
     game.hud.toast(
-      `偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，下次開啟會直接用這個畫質，可在設定更改`,
+      `偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，下次開啟會直接用這個畫質；到設定再點一次「自動」可重新偵測`,
       'good',
       4200
     );
@@ -276,7 +297,6 @@ export class GameLoop {
     if (game.state === 'title' || game.state === 'bench') game.interiors?.updateVisual?.(dt, game);
     else if (game.state === 'play') {
       game._update(dt);
-      game.bootDiag?.tickHealthy(dt);
     } else if (game.state === 'ending') {
       game.rig.yaw += dt * 0.1;
       game.rig.update(dt, { mdx: 0, mdy: 0 }, game.player, game.world.collision, 1, game.interiors);

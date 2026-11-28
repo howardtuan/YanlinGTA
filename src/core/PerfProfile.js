@@ -1,6 +1,7 @@
 /**
  * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?diag=`, `?safemode=`).
- * Visual quality settings (`far`, `fog`, `pr`, `shadows`, `view`, `PostFX`) remain owned solely by `GameLoop.js` (`QPROF`).
+ * Visual / display settings (pixel ratio, shadows, IBL, post-processing, view distance ...) are owned solely by
+ * `GraphicsConfig.js` (presets per quality level, player overrides, URL flags).
  */
 
 export const TIERS = Object.freeze({

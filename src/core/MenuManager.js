@@ -2,6 +2,81 @@ import { controlsHTML, bindControls } from './Controls.js';
 import { saveSettings } from '../systems/AudioSystem.js';
 import { readSave, writeSave, applySave, clearSave } from '../systems/SaveSystem.js';
 import { Q_NAME, resolveQuality } from './GameLoop.js';
+import { isCustom, reloadPending } from './GraphicsConfig.js';
+
+// 設定 → ⚙ 細部顯示設定: one row per display setting (src/core/GraphicsConfig.js); live ones switch at once
+const GFX_ROWS = [
+  {
+    key: 'shadows',
+    label: '☀ 太陽陰影',
+    opts: [
+      ['off', '關'],
+      ['low', '低'],
+      ['medium', '中'],
+      ['high', '高'],
+    ],
+  },
+  {
+    key: 'envLight',
+    label: '🌤 環境光反射',
+    opts: [
+      ['hemi', '半球光'],
+      ['pmrem', '天空 IBL'],
+    ],
+  },
+  {
+    key: 'postFx',
+    label: '✨ 後製光暈',
+    opts: [
+      ['off', '關'],
+      ['bloom-quarter', '光暈'],
+      ['bloom-half-msaa', '光暈＋MSAA'],
+    ],
+  },
+  {
+    key: 'nightLamps',
+    label: '💡 夜間路燈光源',
+    opts: [
+      [0, '0'],
+      [2, '2'],
+      [4, '4'],
+      [8, '8'],
+    ],
+  },
+  {
+    key: 'materialMode',
+    label: '🧱 材質',
+    reload: true,
+    opts: [
+      ['lambert', '輕量'],
+      ['standard', '標準 PBR'],
+    ],
+  },
+  {
+    key: 'antialias',
+    label: '〰 抗鋸齒',
+    reload: true,
+    opts: [
+      [false, '關'],
+      [true, '開'],
+    ],
+  },
+  {
+    key: 'crowdTier',
+    label: '🚶 人車密度',
+    reload: true,
+    opts: [
+      ['xlow', '超低'],
+      ['low', '低'],
+      ['full', '完整'],
+    ],
+  },
+];
+const GFX_LABEL = {
+  materialMode: '材質',
+  antialias: '抗鋸齒',
+  crowdTier: '人車密度',
+};
 
 const $ = (id) => document.getElementById(id);
 const onClick = (id, fn) => {
@@ -339,8 +414,6 @@ export class MenuManager {
     const q = (v, t) =>
       `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
     const qNow = resolveQuality(s.quality, s);
-    const fl = (v, t) =>
-      `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
     const full = !!document.fullscreenElement;
     const pf = (v, t) =>
       `<button data-perf="${v}" class="${(s.perfHud || 'off') === v ? 'on' : ''}">${t}</button>`;
@@ -355,14 +428,63 @@ export class MenuManager {
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
       <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('xlow', '超低')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
       <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this.qualityNote(qNow)}</small></div>
+      ${this.gfxHTML()}
       <div class="set-row"><label>➕ 準心</label><div class="seg" id="setAim">${['on', 'off'].map((v) => `<button data-aim="${v}" class="${(s.aim || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>
       <div class="set-row"><label>🧭 地面導航線</label><div class="seg" id="setNav">${nv('on', '開')}${nv('off', '關')}</div></div>
       <div class="set-row"><label>🖥 全螢幕</label><div class="seg" id="setFull">${fs('on', '開')}${fs('off', '關')}</div></div>
       ${document.fullscreenEnabled ? '' : '<div class="set-row"><label></label><small style="color:#a9adbf">這個瀏覽器不支援網頁全螢幕（iPhone 可用「分享 → 加入主畫面」以全螢幕開啟）</small></div>'}
       <div class="set-row"><label>📊 效能顯示</label><div class="seg" id="setPerf">${pf('off', '關閉')}${pf('fps', '簡易')}${pf('detail', '詳細')}${pf('dev', '開發者')}</div></div>
       <div class="set-row"><label></label><small style="color:#a9adbf">左上角顯示 FPS 等數據；簡易＝只有 FPS，詳細＝加上 1% 低幀、主執行緒負載、記憶體，開發者＝全部（含位置）</small></div>
-      <div class="set-row"><label>🏘 補建街區</label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
-      <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this.fillNote()}</small></div>`;
+`;
+  }
+
+  // ⚙ 細部顯示設定: collapsible block under 🖼 畫質 (values shown are the effective ones, game.gfx)
+  gfxHTML() {
+    const s = this.game.settings,
+      G = this.game.gfx;
+    const fl = (v, t) =>
+      `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
+    const rows = GFX_ROWS.map(
+      (r) =>
+        `<div class="set-row"><label>${r.label}${r.reload ? ' <small style="color:#a9adbf">（重整）</small>' : ''}</label><div class="seg" data-gfx="${r.key}">${r.opts
+          .map(
+            ([v, t]) =>
+              `<button data-v="${String(v)}" class="${G[r.key] === v ? 'on' : ''}">${t}</button>`
+          )
+          .join('')}</div></div>`
+    ).join('');
+    return `<details id="gfxMore" class="set-more"${this._gfxOpen ? ' open' : ''}><summary>⚙ 細部顯示設定</summary>
+      <div class="set-row"><label>🔍 清晰度倍率</label><input type="range" id="setDpr" min="0.5" max="2" step="0.05" value="${G.dprCap}"><span class="set-val" id="vDpr">${G.dprCap.toFixed(2)}x</span></div>
+      <div class="set-row"><label>🔭 視距</label><input type="range" id="setView" min="0.3" max="1" step="0.05" value="${G.viewScale}"><span class="set-val" id="vView">${Math.round(G.viewScale * 100)}%</span></div>
+      ${rows}
+      <div class="set-row"><label>🏘 補建街區 <small style="color:#a9adbf">（重整）</small></label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
+      <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this.fillNote()}</small></div>
+      <div class="set-row"><label></label><div class="seg"><button id="gfxReset">↺ 還原成畫質檔位預設</button></div></div>
+      <div class="set-row"><label></label><small id="gfxNote" style="color:#a9adbf">${this.gfxNote()}</small></div>
+    </details>`;
+  }
+
+  gfxNote() {
+    const game = this.game,
+      wait = reloadPending(game.gfxBuilt, game.gfx);
+    return `沒標（重整）的項目立即套用；清晰度倍率越高越清楚但越耗電${wait.length ? `・${wait.map((k) => GFX_LABEL[k] || k).join('、')}在重新整理後套用` : ''}`;
+  }
+
+  // effective values back into the controls (after a preset pick, a reset or a change clamped by safe mode / URL)
+  refreshGfx() {
+    const game = this.game,
+      G = game.gfx;
+    for (const seg of document.querySelectorAll('[data-gfx]'))
+      for (const b of seg.querySelectorAll('button'))
+        b.classList.toggle('on', b.dataset.v === String(G[seg.dataset.gfx]));
+    if ($('setDpr')) {
+      $('setDpr').value = G.dprCap;
+      $('vDpr').textContent = `${G.dprCap.toFixed(2)}x`;
+      $('setView').value = G.viewScale;
+      $('vView').textContent = `${Math.round(G.viewScale * 100)}%`;
+    }
+    if ($('gfxNote')) $('gfxNote').textContent = this.gfxNote();
+    if ($('qNote')) $('qNote').textContent = this.qualityNote(game.quality);
   }
 
   bindSettings() {
@@ -410,15 +532,41 @@ export class MenuManager {
       b.onclick = () => {
         s.quality = b.dataset.q;
         if (s.quality === 'auto') delete s.autoQ; // picking 自動 again re-detects from scratch
+        delete s.gfx; // a preset restores its own combination (⚙ 細部顯示設定 back to the preset)
         save();
         for (const o of document.querySelectorAll('#setQuality button'))
           o.classList.toggle('on', o === b);
         const qn = resolveQuality(s.quality, s);
         // sky, shadows, bloom / colour grade and lamp lights switch now
         game.setQuality(qn);
-        $('qNote').textContent = this.qualityNote(qn);
+        game.applyDisplaySettings({});
+        this.refreshGfx();
       };
     }
+    const gfxSet = (patch) => {
+      game.applyDisplaySettings(patch);
+      this.refreshGfx();
+    };
+    if ($('gfxMore')) $('gfxMore').ontoggle = (e) => (this._gfxOpen = e.target.open);
+    for (const seg of document.querySelectorAll('[data-gfx]'))
+      for (const b of seg.querySelectorAll('button'))
+        b.onclick = () => {
+          const raw = b.dataset.v,
+            v = raw === 'true' ? true : raw === 'false' ? false : /^\d+$/.test(raw) ? +raw : raw;
+          gfxSet({ [seg.dataset.gfx]: v });
+        };
+    if ($('setDpr')) {
+      $('setDpr').oninput = (e) => ($('vDpr').textContent = `${(+e.target.value).toFixed(2)}x`);
+      $('setDpr').onchange = (e) => gfxSet({ dprCap: +e.target.value });
+      $('setView').oninput = (e) =>
+        ($('vView').textContent = `${Math.round(+e.target.value * 100)}%`);
+      $('setView').onchange = (e) => gfxSet({ viewScale: +e.target.value });
+    }
+    onClick('gfxReset', () => {
+      delete s.gfx;
+      save();
+      gfxSet({});
+    });
     for (const b of document.querySelectorAll('#setAim button')) {
       b.onclick = () => {
         s.aim = b.dataset.aim;
@@ -472,9 +620,10 @@ export class MenuManager {
 
   qualityNote(q) {
     const game = this.game;
-    // the low-quality world (no MSAA, fewer 補建 rows, smaller crowds) is chosen at load time
-    const pending = (q === 'low' || q === 'xlow') !== game.lowQ || (q === 'xlow') !== game.xlowQ;
-    return `目前：${Q_NAME[q]}畫質（自動＝最高用到中：內建顯示晶片、手機用低；畫面不夠順會一路往下調到超低；要高畫質請自己選「高」）${pending ? '・抗鋸齒與人車數量在重新整理後套用' : ''}`;
+    // the reload-only settings (MSAA, materials, crowds) are chosen at load time
+    const pending = reloadPending(game.gfxBuilt, game.gfx).length > 0;
+    const custom = isCustom(q, game.settings.gfx);
+    return `目前：${Q_NAME[q]}畫質${custom ? '（自訂）' : ''}（自動＝最高用到中：內建顯示晶片、手機用低；畫面不夠順會一路往下調到超低；要高畫質請自己選「高」）${pending ? '・部分設定在重新整理後套用' : ''}`;
   }
 
   fillNote() {

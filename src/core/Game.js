@@ -108,6 +108,15 @@ import { buildNewYearDecor } from '../world/Festive.js';
 import { Firecrackers } from '../systems/Firecrackers.js';
 
 import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
+import {
+  resolveGraphics,
+  parseUrlFlags,
+  diffFromPreset,
+  mergeOverrides,
+  reloadPending,
+  postFxLevel,
+  shadowLevel,
+} from './GraphicsConfig.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { resolveRuntimeProfile, applySafeMode } from './PerfProfile.js';
 import { createBootDiag } from './BootDiag.js';
@@ -187,8 +196,17 @@ class Game {
     if (this.bootDiag.isSafeMode() && (this.settings.quality || 'auto') === 'auto') {
       this.quality = 'low';
     }
-    this.lowQ = this.quality === 'low' || this.quality === 'xlow';
-    this.xlowQ = this.quality === 'xlow';
+    // display settings (src/core/GraphicsConfig.js): preset < player overrides < safe mode < URL flags
+    this._gfxOpts = {
+      safeMode: this.bootDiag.isSafeMode(),
+      url: parseUrlFlags(location.search),
+      tier: this.perfProfile.tier,
+    };
+    this.gfx = this.resolveGfx();
+    this.gfxBuilt = { ...this.gfx }; // the reload-only settings this world is built with
+    // crowd / world density tier (people, traffic, skyline, lighter 補建 rows): read once at load
+    this.lowQ = this.gfx.crowdTier !== 'full';
+    this.xlowQ = this.gfx.crowdTier === 'xlow';
 
     const fillOn = this.settings.fill !== 'off';
     const keepSyn = (o) => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
@@ -330,7 +348,7 @@ class Game {
     await stage('renderer-and-sky', 0.05, '初始化渲染管線');
     // no stencil buffer (nothing uses one; three r160 asks for it by default), an opaque canvas
     const r = (this.renderer = new THREE.WebGLRenderer({
-      antialias: !this.lowQ,
+      antialias: this.gfx.antialias,
       powerPreference: 'high-performance',
       alpha: false,
       stencil: false,
@@ -339,9 +357,12 @@ class Game {
     r.debug.checkShaderErrors = import.meta.env.DEV || this.perfProfile.diagEnabled;
     r.setPixelRatio(this._pixelRatio());
     r.setSize(innerWidth, innerHeight);
-    // low / xlow draw no shadows (GameLoop QPROF): start without them, applyQuality() turns them on if the quality rises
-    r.shadowMap.enabled = !this.lowQ;
-    r.shadowMap.type = this.lowQ ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    // sun shadows follow gfx.shadows (off on low / xlow): GameLoop.applyQuality switches them live
+    r.shadowMap.enabled = this.gfx.shadows !== 'off';
+    r.shadowMap.type =
+      this.gfx.shadows === 'off' || this.gfx.shadows === 'low'
+        ? THREE.PCFShadowMap
+        : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
     // integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
@@ -354,13 +375,13 @@ class Game {
     // canvas textures (src/graphics/GpuMemLifecycle.js): phones store them at texScale, atlas sheets go to the GPU as
     // soon as they are drawn and lose their canvases. Desktops draw the same pixels as before.
     configureGpuMem(this.perfProfile, r);
-    // low / xlow walls and ground are Lambert: their textures skip the normal and roughness maps
-    setSurfaceDetail(!this.lowQ);
+    // materialMode 'lambert' (low / xlow): walls and ground are Lambert, their textures skip the normal and roughness maps
+    setSurfaceDetail(this.gfx.materialMode === 'standard');
     // released canvases cannot be uploaded again after a lost context: start over (the game saves on unload)
     r.domElement.addEventListener('webglcontextrestored', () => location.reload());
     document.getElementById('app').prepend(r.domElement);
     this.scene = new THREE.Scene();
-    installShadowDepth(r, this.scene, () => this.quality !== 'high');
+    installShadowDepth(r, this.scene, () => this.gfx.shadows !== 'high');
     this.scene.matrixAutoUpdate = false;
     this.camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.2, 2600);
     this.camera.layers.enable(LABEL_LAYER); // floating name labels (hidden in photo mode)
@@ -377,7 +398,7 @@ class Game {
     });
 
     this._sky();
-    this.post = new PostFX(r, this.scene, this.camera, subQ(this.quality));
+    this.post = new PostFX(r, this.scene, this.camera, postFxLevel(this.gfx.postFx));
     await stage('build-world', 0.08, '搭建中原大學');
 
     const featureTrees = (() => {
@@ -397,7 +418,10 @@ class Game {
       reserved,
       keep,
       low: this.lowQ,
-      quality: subQ(this.quality),
+      // world density follows the crowd tier; walls / ground shading follows materialMode
+      quality: this.lowQ ? 'low' : subQ(this.quality) === 'low' ? 'medium' : subQ(this.quality),
+      materialMode: this.gfx.materialMode,
+      nightLamps: this.gfx.nightLamps,
       tier: this.perfProfile.tier,
       featureTrees,
       mainGate: GUARD_SPECS(data)[0],
@@ -714,6 +738,26 @@ class Game {
   setQuality(q) {
     this.gameLoop.setQuality(q);
   }
+  // the effective display configuration for the current quality level (src/core/GraphicsConfig.js)
+  resolveGfx() {
+    return resolveGraphics(this.quality, { overrides: this.settings.gfx, ...this._gfxOpts });
+  }
+  // change display settings: patch = { dprCap, shadows, envLight, postFx, nightLamps, materialMode, ... }; a key set to
+  // null goes back to the preset. Live settings switch at once; returns the reload-only keys still waiting for a reload.
+  // save: false for experiments (the automated --sweep) that must not touch the player's saved settings
+  applyDisplaySettings(patch = {}, { save = true } = {}) {
+    const s = this.settings;
+    if (save) {
+      const gfx = diffFromPreset(this.quality, mergeOverrides(s.gfx, patch));
+      if (Object.keys(gfx).length) s.gfx = gfx;
+      else delete s.gfx;
+      saveSettings(s);
+    } else this._gfxOpts = { ...this._gfxOpts, url: mergeOverrides(this._gfxOpts.url, patch) };
+    const prev = this.gfx;
+    this.gfx = this.resolveGfx();
+    this.gameLoop.applyDisplay(prev);
+    return reloadPending(this.gfxBuilt, this.gfx);
+  }
   modal(title, html, sub = '') {
     this.menuManager.modal(title, html, sub);
   }
@@ -771,7 +815,8 @@ class Game {
 
   // ---------- sky & lighting ----------
   _sky() {
-    this.skySys = new SkySystem(this.scene, this.renderer, subQ(this.quality));
+    this.skySys = new SkySystem(this.scene, this.renderer, shadowLevel(this.gfx.shadows));
+    this.skySys.setEnvMode(this.gfx.envLight);
     this.sun = this.skySys.sun;
     this.hemi = this.skySys.hemi;
     this.headlight = new THREE.SpotLight('#fff1d0', 0, 60, 0.55, 0.5, 1.2);

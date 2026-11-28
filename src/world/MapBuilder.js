@@ -1860,7 +1860,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   const quality = opts.quality || (opts.low ? 'low' : 'high');
   // low / xlow: walls and ground are MeshLambertMaterial, without normal or roughness / metalness maps
   // (src/graphics/Textures.js setSurfaceDetail skips making those maps)
-  const lite = quality === 'low';
+  const lite = opts.materialMode ? opts.materialMode === 'lambert' : quality === 'low';
   // ... but they still take the sky's diffuse light, as the standard material did from scene.environment
   // (src/graphics/SkySystem.js PMREM, re-baked as the sun moves): one blurred look-up of it per pixel, nothing
   // else of the PBR shading. Without it the walls facing away from the sun went dark and glass black.
@@ -1897,7 +1897,8 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
   reflectedLight.indirectDiffuse += PI * textureCubeUV( skyEnv, inverseTransformDirection( normal, viewMatrix ), 1.0 ).rgb * skyEnvK * BRDF_Lambert( diffuseColor.rgb );`
         )}`;
     };
-    m.customProgramCacheKey = () => `${key.call(m)}_sky`;
+    // with / without the sky term (src/core/GraphicsConfig.js envLight 'hemi' has no scene.environment)
+    m.customProgramCacheKey = () => `${key.call(m)}_sky${scene.environment ? 1 : 0}`;
     return m;
   };
   const world = { data, bounds: B, labels: [], animated: [], named: {}, tris: {} };
@@ -7824,39 +7825,50 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
 
   // ---------- night lights: a small pool of real point lights that follow the nearest street lamps ----------
   {
-    // integrated GPUs (src/core/PerfProfile.js desktop-igpu) keep at most 2 (was 4 on medium)
-    const n0 = quality === 'high' ? 8 : quality === 'medium' ? 4 : 0,
-      n = opts.tier === 'desktop-igpu' ? Math.min(n0, 2) : n0;
+    // how many: src/core/GraphicsConfig.js nightLamps (8 high / 4 medium / 0 low; integrated GPUs at most 2),
+    // changed live with world.setLampLights(n): going down only darkens the extra lights (as the old quality switch
+    // did: no shader rebuild), going above the pool adds lights (the lit shaders rebuild once)
+    const n0 = opts.nightLamps ?? (quality === 'high' ? 8 : quality === 'medium' ? 4 : 0),
+      n = opts.nightLamps == null && opts.tier === 'desktop-igpu' ? Math.min(n0, 2) : n0;
     const lights = [];
-    for (let i = 0; i < n; i++) {
+    const addLight = () => {
       const l = new THREE.PointLight('#ffcf94', 0, 24, 2);
       l.position.set(0, -100, 0);
       scene.add(l);
       lights.push(l);
-    }
+    };
+    for (let i = 0; i < n; i++) addLight();
     const heads = lampSpots.map(([x, z, r]) => ({
       x: x + Math.sin(r) * 1.55,
       z: z + Math.cos(r) * 1.55,
       y: groundY(x, z) + 6.5,
     }));
     let tick = 0,
-      enabled = quality !== 'low';
+      active = n;
     world.lampLights = {
       update(dt, night, p) {
-        if (!lights.length) return;
+        if (!active) {
+          for (const l of lights) l.intensity = 0;
+          return;
+        }
         tick -= dt;
         if (tick <= 0 && p) {
           tick = 0.3;
           const near = heads
             .map((h) => [h, (h.x - p.x) ** 2 + (h.z - p.z) ** 2])
             .sort((a, b) => a[1] - b[1])
-            .slice(0, lights.length);
+            .slice(0, active);
           near.forEach(([h], i) => lights[i].position.set(h.x, h.y, h.z));
         }
-        for (const l of lights) l.intensity = enabled ? night * 32 : 0;
+        lights.forEach((l, i) => (l.intensity = i < active ? night * 32 : 0));
       },
-      setEnabled(on) {
-        enabled = on;
+      setCount(k) {
+        active = Math.max(0, Math.min(8, k | 0));
+        while (lights.length < active) addLight();
+        tick = 0; // place the new ones on the next update
+      },
+      get count() {
+        return active;
       },
     };
   }
@@ -8822,9 +8834,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
 
   let lastT = 0,
     outerT = 0;
-  world.setQuality = (q) => {
-    world.lampLights?.setEnabled(q !== 'low');
-  };
+  world.setLampLights = (n) => world.lampLights?.setCount(n);
   world.update = (t, night, clockMin, playerPos) => {
     const dt = Math.min(0.1, Math.max(0, t - lastT));
     lastT = t;

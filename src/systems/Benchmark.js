@@ -1,7 +1,8 @@
 // 硬體效能測試（標題畫面 → 📊 效能測試，或網址加 ?bench 自動開始）。
 // 像賽車遊戲的 benchmark：鏡頭照固定路線跑一圈，跑完出一份報告。
-//   1. 校園街道（白天）：沿校內步道網（A* 同 Navigation.js）穿過校園核心：資管系、力行大樓、學活、
-//      全人教育村、圖書館、體育館（CORE_STOPS）
+//   1. 校園街道（白天）：校門口 → 資管系館前 → 進學生活動中心（B1 大廳）→ 進力行大樓 1F 室內 →
+//      體育館（CORE_STOPS）。每段在 1 m 網格上用跟玩家走路相同的碰撞判定規劃（src/systems/BenchRoute.js），
+//      優先走馬路與人行空間，鏡頭沿折線走、不穿模，室內放慢
 //   2. 空拍：拉到 150 m 繞校園轉，畫面裡同時有最多東西
 //   3. 夜間街道：同一條路線、同樣秒數在晚上再跑一次（路燈、車燈、窗光、夜空），日夜可 1:1 對照
 // 每段開頭有幾秒暖機不計分（讓串流載入、著色器編好）。測的是每幀的間隔（fps、1% 低、卡頓）、
@@ -10,27 +11,44 @@
 // 結果放在 game.bench.result，跑完會發出 window 'benchdone' 事件（自動化用），上一次的摘要存在 localStorage。
 import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
-import { astar } from './Navigation.js';
+import { planRoute, timedPolyline } from './BenchRoute.js';
+import { pointInPoly } from '../physics/Collision.js';
 import { Q_NAME, QUALITY } from '../core/GameLoop.js';
 
 const LAST_KEY = 'cycu-bench-last';
 const WARM = 3; // seconds per segment not counted
-const SPEED = 16; // m/s minimum along the street segments (~60 km/h); a longer route is driven faster so the whole
-// route (every stop) fits the segment's time — day and night cover exactly the same path
+const INDOOR_SLOW = 4; // indoor metres take this many times as long as outdoor ones
+const EYE_OUT = 2.2,
+  EYE_IN = 1.65; // camera height above the floor (m)
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[<&>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-// route stops (named buildings; missing ones are skipped) — the street segments follow the campus paths between
-// them: the high-load core (multi-storey 力行 dorm, 學活, 全人教育村 ...) instead of the outer roads
+// route stops, in order. `at(game)` gives the world point (null: skipped); the planner reaches the nearest open spot
+// it can get to, so a building centre means "up to its front", an interior point means "walk in".
 export const CORE_STOPS = [
-  '資訊管理學系',
-  '力行大樓',
-  '學生活動中心',
-  '全人教育村',
-  '張靜愚紀念圖書館',
-  '中原大學體育館',
+  { name: '校門口', at: (g) => g.startPos || { x: -226.7, z: 43.5 } },
+  // in front of 資管系館: the campaign HQ spot of the story (src/systems/MissionSystem.js P.im)
+  { name: '資訊管理學系', at: (g) => g.missions?.P?.im || { x: 90.2, z: 135.4 } },
+  // inside 學生活動中心: across the B1 hall (atrium, stairs, benches) — the 麥當勞 inside is left out: its fittings
+  // only load when the player walks up to it, so the benchmark would see an empty room
+  { name: '學生活動中心（B1 大廳）', at: () => ({ x: -150, z: -112 }) },
+  { name: '學生活動中心（東側）', at: () => ({ x: -140, z: -100 }) },
+  // inside 力行大樓: the ground-floor hall behind the forecourt, from its west end to its east end
+  ...[
+    ['力行大樓 1F 室內（西）', 46.56, 14.26, -175],
+    ['力行大樓 1F 室內（東）', 81.56, 14.6, -140],
+  ].map(([name, lx, lz, fx]) => ({
+    name,
+    at: (g) => {
+      const L = g.interiors?.lixing;
+      if (!L) return { x: fx, z: -170 };
+      const [x, z] = L.W(lx, lz);
+      return { x, z };
+    },
+  })),
+  { name: '中原大學體育館', at: (g) => g.world.named['中原大學體育館'] || { x: -23, z: -226 } },
 ];
-const STREET_TIME = 34; // s per street segment (day and night the same): 34 + 22 + 34 + 3 x WARM = 99 s
+const STREET_TIME = 65; // s per street segment (day and night the same): 65 + 16 + 65 + 3 x WARM = 155 s
 
 export const SEGMENTS = [
   {
@@ -41,12 +59,12 @@ export const SEGMENTS = [
     clock: 10 * 60 + 30,
     time: STREET_TIME,
   },
-  { key: 'air', name: '空拍', kind: 'air', clock: 16 * 60 + 40, time: 22 },
+  { key: 'air', name: '空拍', kind: 'air', clock: 16 * 60 + 40, time: 16 },
   {
     key: 'night',
     name: '夜間街道',
     kind: 'street',
-    route: 'day', // the very same CatmullRom curve as the day segment
+    route: 'day', // the very same planned path as the day segment
     stops: CORE_STOPS,
     clock: 20 * 60 + 10,
     time: STREET_TIME,
@@ -219,61 +237,66 @@ export class Benchmark {
   }
 
   // ---------- route ----------
+  // where a person could stand at (x, z), on the ground-level floor there: interior floors are heights above the
+  // terrain surface (src/world/Kit.js groundAt, as Player.y); world height = terrain + that. The player's own
+  // collision test (reserved outlines of buildings with an interior are walls for spawning, not for walking in)
+  _floorRel(x, z) {
+    return this.game.interiors?.groundAt?.(x, z, 0.5) || 0;
+  }
+  _feet(x, z) {
+    return surfaceAt(x, z) + this._floorRel(x, z);
+  }
+  _free(x, z, r = 0.55) {
+    const C = this.game.world.collision,
+      nr = C.noReserved;
+    C.noReserved = true;
+    const rel = this._floorRel(x, z);
+    const b = C.blocked(x, z, r, rel, surfaceAt(x, z) + rel);
+    C.noReserved = nr;
+    return !b;
+  }
   _street(stops) {
-    const w = this.game.world;
-    // campus paths first (the core buildings sit inside the campus, the drive graph keeps to the outer roads)
-    const walk = !!w.walkNodes?.length;
-    const nodes = walk ? w.walkNodes : w.driveNodes;
-    const near = (x, z) => {
-      let b = null,
-        bd = Infinity;
-      for (const n of nodes) {
-        const d = (n.x - x) ** 2 + (n.z - z) ** 2;
-        if (d < bd) {
-          bd = d;
-          b = n;
-        }
+    const g = this.game;
+    const pts = stops.map((st) => st.at(g)).filter(Boolean);
+    if (pts.length < 2) return null;
+    const path = planRoute(pts, (x, z, r) => this._free(x, z, r), g.data?.roads || []);
+    if (path.length < 2) return null;
+    // indoors: an interior zone, or a walkable spot inside the outline of a building with an interior (力行's ground
+    // floor corridor has no zone of its own)
+    const res = (g.world.collision.reserved || []).map((pts) => {
+      let x0 = Infinity,
+        x1 = -Infinity,
+        z0 = Infinity,
+        z1 = -Infinity;
+      for (const [x, z] of pts) {
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        z0 = Math.min(z0, z);
+        z1 = Math.max(z1, z);
       }
-      return b;
-    };
-    const pts = [];
-    let prev = null;
-    for (const name of stops) {
-      const it = w.named[name];
-      if (!it) continue;
-      const n = near(it.x, it.z);
-      if (!n) continue;
-      if (prev && prev !== n) {
-        const r = walk
-          ? astar(prev, n, false) || astar(prev, n, true)
-          : astar(prev, n, true) || astar(prev, n, false);
-        if (r) for (const p of r) pts.push(p);
-      }
-      prev = n;
+      return { pts, x0, x1, z0, z1 };
+    });
+    const indoor = (x, z) =>
+      !!g.interiors?.zoneAt?.(x, z, this._floorRel(x, z) + 0.5) ||
+      res.some((r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1 && pointInPoly(x, z, r.pts));
+    const R = timedPolyline(path, indoor, INDOOR_SLOW);
+    // per metre, so the camera doesn't ask every frame
+    const flags = new Uint8Array(Math.ceil(R.len) + 1);
+    for (let d = 0; d < flags.length; d++) {
+      const q = R.pointAt(d);
+      flags[d] = indoor(q.x, q.z) ? 1 : 0;
     }
-    // drop near-duplicates, then a smooth curve at road height
-    const out = [];
-    for (const p of pts) {
-      const q = out[out.length - 1];
-      if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > 6) out.push(p);
-    }
-    if (out.length < 2) return null;
-    const curve = new THREE.CatmullRomCurve3(
-      out.map((p) => new THREE.Vector3(p[0], 0, p[1])),
-      false,
-      'centripetal'
-    );
-    return { curve, len: curve.getLength() };
+    R.indoorAt = (d) => flags[Math.max(0, Math.min(flags.length - 1, Math.round(d)))] === 1;
+    return R;
   }
 
   _buildRoutes() {
     if (this._routes) return this._routes;
-    const w = this.game.world;
     let cx = 0,
       cz = 0,
       k = 0;
-    for (const n of CORE_STOPS) {
-      const it = w.named[n];
+    for (const st of CORE_STOPS) {
+      const it = st.at(this.game);
       if (it) {
         cx += it.x;
         cz += it.z;
@@ -421,14 +444,15 @@ export class Benchmark {
     const run = Math.max(0, this.t - WARM) / S.time; // 0..1 through the measured part
     g.clock = S.clock;
     if (S.kind === 'street' && R) {
-      const speed = Math.max(SPEED, R.len / S.time),
-        u = Math.min(1, (run * S.time * speed) / R.len),
-        ahead = Math.min(1, u + 22 / R.len);
-      const p = R.curve.getPointAt(u),
-        a = R.curve.getPointAt(ahead);
-      const gy = surfaceAt(p.x, p.z);
-      cam.position.set(p.x, gy + 3.2, p.z); // above parked cars and scooters
-      this._v.set(a.x, surfaceAt(a.x, a.z) + 1.8, a.z);
+      // along the planned polyline (no spline: it would cut corners through walls), slower indoors
+      const d = R.distAt(run),
+        p = R.pointAt(d),
+        inside = R.indoorAt(d),
+        a = R.pointAt(d + (inside ? 6 : 16));
+      const eye = this._feet(p.x, p.z) + (inside ? EYE_IN : EYE_OUT);
+      this._eyeY = this._eyeY == null ? eye : this._eyeY + (eye - this._eyeY) * Math.min(1, dt * 6);
+      cam.position.set(p.x, this._eyeY, p.z);
+      this._v.set(a.x, this._feet(a.x, a.z) + (inside ? EYE_IN : EYE_OUT) - 0.3, a.z);
     } else {
       const c = R?.center || { x: 0, z: 0 },
         u = Math.min(1, run),
@@ -452,6 +476,7 @@ export class Benchmark {
       this.t = 0;
       this._warmFrames = 0;
       this._lookS = null;
+      this._eyeY = null;
       this.bake1 = this.bake1 || [];
       this.bake1[this.seg - 1] = g.skySys?.bakeCount ?? 0;
       if (this.seg >= this.plan.length) this.finish();

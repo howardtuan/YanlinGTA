@@ -112,7 +112,7 @@ export class XmasPudding {
   // ---------------- the crowd ----------------
   _spawn() {
     const g = this.g,
-      n = g.xlowQ ? 8 : g.lowQ ? 12 : SPOTS.length;
+      n = Math.min(SPOTS.length, g.crowdSpec?.pudding ?? Infinity);
     let seed = 0x2021c25;
     const rnd = () => {
       seed = (seed + 0x6d2b79f5) | 0;

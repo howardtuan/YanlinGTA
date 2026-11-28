@@ -13,6 +13,7 @@ const S = {
   texScale: 1, // canvas textures (Kit.ctex)
   atlasScale: 1, // shop-row atlas sheets (Kit.finishRow)
   atlasMaxH: 4096, // full-size height a sheet may grow to before a new one starts
+  anisotropy: 4, // canvas texture anisotropic filtering (PerfProfile: mobile 2, desktop 4)
   renderer: null,
 };
 
@@ -29,8 +30,14 @@ export function configureGpuMem(profile = {}, renderer = null) {
   S.texScale = s;
   S.atlasScale = Math.min(s, maxW / 2048);
   S.atlasMaxH = Math.min(4096, floorPow2(maxH / S.atlasScale));
+  S.anisotropy = Math.max(1, Math.round(profile.anisotropy || 4));
   S.renderer = renderer;
-  return { texScale: S.texScale, atlasScale: S.atlasScale, atlasMaxH: S.atlasMaxH };
+  return {
+    texScale: S.texScale,
+    atlasScale: S.atlasScale,
+    atlasMaxH: S.atlasMaxH,
+    anisotropy: S.anisotropy,
+  };
 }
 
 export const gpuMemConfig = () => ({ ...S, renderer: undefined });
@@ -67,7 +74,7 @@ export function scaledCanvas(w, h, scale = S.texScale) {
   return { cv, g };
 }
 
-// the canvas texture every builder makes: draw(g, w, h) on a w x h canvas (stored at texScale), sRGB, anisotropy 4,
+// the canvas texture every builder makes: draw(g, w, h) on a w x h canvas (stored at texScale), sRGB, the device's anisotropy,
 // repeating unless `repeat` is false. The builders keep their own key caches (Kit.ctex, the zones' ctex ...).
 // dynamic: something draws into the canvas again later (e.g. the arena ribbon, Concert.js, through the same scaled
 // context): never released (flushShared skips it)
@@ -78,7 +85,7 @@ export function canvasTexture(w, h, draw, repeat = true, { dynamic = false } = {
   draw(g, w, h);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = S.anisotropy;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (dynamic) t.userData.dynamic = true;
   else {
@@ -289,6 +296,7 @@ export function resetGpuMem() {
   S.texScale = 1;
   S.atlasScale = 1;
   S.atlasMaxH = 4096;
+  S.anisotropy = 4;
   S.renderer = null;
   PACKED.clear();
   PACKED_REUSABLE.clear();

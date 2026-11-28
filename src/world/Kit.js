@@ -593,7 +593,8 @@ export class Interiors {
   }
 }
 
-// furniture groups (Kit.furniture) are hidden while the camera is more than FURNITURE_FAR metres from their
+// furniture groups (Kit.furniture) are hidden while the camera is more than gfx.interiorCullDist metres (the quality
+// level's setting, src/core/GraphicsConfig.js; FURNITURE_FAR without one) from their
 // bounds, or more than FURNITURE_ABOVE metres above their top (looking down from the air: nothing inside shows);
 // checked four times a second (an Interiors visual updater, src/world/Interiors.js)
 export const FURNITURE_FAR = 45,
@@ -606,7 +607,8 @@ export function cullFurniture(I) {
   return (dt, game) => {
     if ((t -= dt) > 0 || !I.furniture.length) return;
     t = 0.25;
-    const c = game.camera.position;
+    const c = game.camera.position,
+      far = game.gfx?.interiorCullDist ?? FURNITURE_FAR; // GraphicsConfig interiorCullDist
     for (const g of I.furniture) {
       let b = bounds.get(g);
       if (!b) {
@@ -620,7 +622,7 @@ export function cullFurniture(I) {
         }
         bounds.set(g, (b = box.clone()));
       }
-      g.visible = b.distanceToPoint(c) <= FURNITURE_FAR && c.y <= b.max.y + FURNITURE_ABOVE;
+      g.visible = b.distanceToPoint(c) <= far && c.y <= b.max.y + FURNITURE_ABOVE;
     }
   };
 }

@@ -195,12 +195,10 @@ class Game {
     this._gfxOpts = { url: parseUrlFlags(location.search) };
     this.gfx = this.resolveGfx();
     this.gfxBuilt = { ...this.gfx }; // the reload-only settings this world is built with
-    // crowd / world density tier (people, traffic, skyline, lighter 補建 rows): read once at load
-    this.lowQ = CROWD_SPEC[this.gfx.crowdTier].lean;
-    this.xlowQ = this.gfx.crowdTier === 'xlow';
+    // crowd / world density (people, traffic, skyline, lighter 補建 rows): read once at load (GraphicsConfig CROWD_SPEC)
+    const crowd = (this.crowdSpec = CROWD_SPEC[this.gfx.crowdTier]);
 
-    const fillOn = this.gfx.fill;
-    const keepSyn = (o) => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
+    const keepSyn = (o) => !o.synthetic || (this.gfx.fill && !(crowd.lean && o.lod));
     for (const k of ['buildings', 'areas', 'barriers']) data[k] = data[k].filter(keepSyn);
 
     const DROP = new Set(zoneDrops());
@@ -356,10 +354,9 @@ class Game {
         : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
-    // gfx.shadowRate 2 draws the sun's shadow map every other frame (GameLoop.loop),
+    // gfx.shadowRate 2 draws the sun's shadow map every other frame (GameLoop.loop / applyDisplay switch it live),
     // and every level sorts opaque draws by shader program (src/graphics/RenderSort.js)
-    this.halfRateShadows = this.gfx.shadowRate === 2;
-    r.shadowMap.autoUpdate = !this.halfRateShadows;
+    r.shadowMap.autoUpdate = this.gfx.shadowRate === 1;
     installOpaqueSort(r);
     r.domElement.id = 'game';
     this.bootDiag.attachCanvas(r.domElement);
@@ -409,9 +406,9 @@ class Game {
     this.world = buildWorld(this.scene, data, (p) => setLoad(0.08 + p * 0.7, '搭建中原大學'), {
       reserved,
       keep,
-      low: this.lowQ,
+      low: crowd.lean,
       // world density follows the crowd tier; walls / ground shading follows materialMode
-      quality: CROWD_SPEC[this.gfx.crowdTier].world,
+      quality: crowd.world,
       materialMode: this.gfx.materialMode,
       nightLamps: this.gfx.nightLamps,
       featureTrees,
@@ -420,8 +417,8 @@ class Game {
       treeHide: zoneTreeHide(data),
     });
     // 縱貫線的平交道與鐵道圍籬（圍籬的碰撞要在 build-physics 之前加進 world.collision）
-    this.railway = buildRailway(this.scene, this.world, data, { low: this.lowQ });
-    this.skyline = buildSkyline(this.scene, this.xlowQ ? 40 : this.lowQ ? 70 : 180);
+    this.railway = buildRailway(this.scene, this.world, data, { low: crowd.lean });
+    this.skyline = buildSkyline(this.scene, crowd.skyline);
     this._applyQuality();
     await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
     // low / xlow: the merged building and shop-row surfaces are Lambert too (src/world/Kit.js setKitMaterialMode)
@@ -467,8 +464,8 @@ class Game {
     this.rig.fpv = this.fpv;
     this.aimGlow = new AimGlow(this.scene); // golden halo on what the crosshair picked for E
     this._aimRay = { o: this.camera.position, d: new THREE.Vector3(), floor: 0 };
-    this.traffic = new Traffic(this.scene, this.world, this.xlowQ ? 8 : this.lowQ ? 14 : 26);
-    this.peds = new Peds(this.scene, this.world, this.xlowQ ? 10 : this.lowQ ? 18 : 32);
+    this.traffic = new Traffic(this.scene, this.world, crowd.traffic);
+    this.peds = new Peds(this.scene, this.world, crowd.peds);
     this.traffic.viewK = this.peds.viewK = this.viewK;
 
     {
@@ -493,7 +490,7 @@ class Game {
         day = date.getDay();
       this.trains = new Trains(this.scene, this.railway, {
         weekend: day === 0 || day === 6,
-        low: this.lowQ,
+        low: crowd.lean,
         day: date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate(), // 今天哪幾班是貨物列車
       });
       this.traffic.gates = this.peds.gates = this.railway.gates;
@@ -635,7 +632,7 @@ class Game {
     if (isLunarNewYear()) {
       this.interiors.updaters.push(
         buildNewYearDecor(this.scene, this.world, {
-          max: this.xlowQ ? 200 : this.lowQ ? 500 : Infinity,
+          max: crowd.festive,
         })
       );
       const fc = (this.firecrackers = new Firecrackers(this.scene));

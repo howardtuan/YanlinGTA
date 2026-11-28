@@ -105,7 +105,8 @@ describe('GraphicsConfig presets', () => {
   });
 
   it('has no old compatibility helpers left', () => {
-    for (const k of ['tierClamp', 'postFxLevel', 'shadowLevel']) expect(GC[k]).toBeUndefined();
+    // the old three-word translators (…Level) and the GPU-tier clamp are gone: modules read the atomic values
+    expect(Object.keys(GC).filter((k) => /Level$|Clamp$/.test(k))).toEqual([]);
   });
 
   it('splits live and reload-only settings', () => {

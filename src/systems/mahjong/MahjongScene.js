@@ -984,7 +984,8 @@ export class MahjongScene {
     return t;
   }
   // 牌桌的像素比：牌很小，比校園畫得細（最高 2 倍），但不會讓手機吃不消——
-  // ① 總像素不超過 MJ_PIXELS（大平板、4K 螢幕不會畫到上千萬像素）② 畫質選低／極低的裝置上限再降
+  // ① 以校園的像素比（game.gameLoop.pixelRatio()，畫質檔位＋動態解析度）為基準，最多細 1.5 倍
+  // ② 總像素不超過 MJ_PIXELS（大平板、4K 螢幕不會畫到上千萬像素）
   // ③ 實際跑起來 3 秒平均不到 30 fps 就自己再降一級（最低 1 倍），之後這次牌局都照降過的畫
   _pixelRatio() {
     const now = performance.now(),
@@ -999,10 +1000,9 @@ export class MahjongScene {
         F.t = F.n = 0;
       }
     }
-    const q = this.g.quality,
-      qCap = q === 'xlow' ? 1.25 : q === 'low' ? 1.5 : 2,
+    const base = this.g.gameLoop?.pixelRatio?.() ?? 1,
       budget = Math.sqrt(MJ_PIXELS / Math.max(1, innerWidth * innerHeight));
-    return Math.max(1, Math.min(window.devicePixelRatio || 1, qCap, budget, F.cap));
+    return Math.max(1, Math.min(window.devicePixelRatio || 1, base * 1.5, budget, F.cap));
   }
   render(renderer) {
     if (!this.active || !this.set) return;

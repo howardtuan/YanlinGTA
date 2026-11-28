@@ -288,12 +288,14 @@ export function zoneDLook(b) {
     delete b.material; // 原本 OSM 材質 tiles 會蓋過 look（src/world/MapBuilder.js matKey）；look 自己有牆色
     const bar = (b.parts && b.parts[0]?.pts) || null,
       back = (b.parts && b.parts[1]?.pts) || null;
-    const tile = { base: 'tile', colour: '#7e665e' };
+    // 長條牆色：2017-09 官方街景（良善北翼步道往東北）看到的南面是偏灰的暖灰磁磚、白框格子窗，比圓筒底的咖啡磚淺、
+    // 也沒那麼紅（原本照正射推成 #7e665e 咖啡色）
+    const tile = { base: 'tile', colour: '#8c827b' };
     b.look = {
       wall: tile,
       windows: { type: 'pair', bay: 2.6, accent: '#e8e4de', glass: '#55636b' },
       plinth: { floors: 1, colour: '#cfc9c0' },
-      parapet: { h: 1.0, colour: '#6e5a52' },
+      parapet: { h: 1.0, colour: '#7a716b' },
       roof: { colour: '#6d6a65' },
     };
     if (bar && back) {
@@ -430,7 +432,34 @@ const drumSolidTex = () =>
     for (let y = 0; y < H; y += 8) g.fillRect(0, y, W, 1);
     for (let x = 0; x < W; x += 16) g.fillRect(x, 0, 1, H);
   });
-// 電學圓筒 3～4F 內縮層、5F 外挑層：灰色混凝土＋一整圈橫向帶窗（一格＝3 m 寬 × 1 層）
+// 電學圓筒 3～4F 內縮層：淺灰小磁磚牆，每格一扇白框窗、窗下掛冷氣（一格＝約 2.8 m 寬 × 1 層；2017-09 官方街景，
+// 良善北翼步道往北看：不是整圈玻璃，是一扇一扇的窗）
+const drumWinTex = () =>
+  ctex('dDrumWin', 128, 128, (g, W, H) => {
+    speckle(g, W, H, '#bdb9b2', 400, 13, 0.06, 2);
+    g.fillStyle = 'rgba(0,0,0,0.08)';
+    for (let y = 0; y < H; y += 6) g.fillRect(0, y, W, 1);
+    for (let x = 0; x < W; x += 6) g.fillRect(x, 0, 1, H);
+    const x0 = W * 0.17,
+      x1 = W * 0.83,
+      y0 = H * 0.3,
+      y1 = H * 0.72;
+    g.fillStyle = '#eceae5';
+    g.fillRect(x0 - 3, y0 - 3, x1 - x0 + 6, y1 - y0 + 6);
+    const gr = g.createLinearGradient(0, y0, 0, y1);
+    gr.addColorStop(0, '#6f7e85');
+    gr.addColorStop(1, '#3d474c');
+    g.fillStyle = gr;
+    g.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.fillStyle = '#eceae5';
+    g.fillRect(W / 2 - 2, y0, 4, y1 - y0);
+    // 窗下的冷氣室外機
+    g.fillStyle = '#d9d8d3';
+    g.fillRect(W * 0.6, y1 + 6, W * 0.2, H * 0.13);
+    g.fillStyle = '#9fa1a0';
+    g.fillRect(W * 0.62, y1 + 9, W * 0.1, H * 0.09);
+  });
+// 電學圓筒 5F 外挑層：灰色混凝土＋一整圈橫向帶窗（一格＝3 m 寬 × 1 層）
 const drumRibTex = () =>
   ctex('dDrumRib', 128, 128, (g, W, H) => {
     speckle(g, W, H, '#b9b5ae', 400, 13, 0.06, 2);
@@ -723,6 +752,7 @@ function mat(key) {
     stairStone: () => std({ color: '#55585b', roughness: 0.8 }),
     drumSolid: () => std({ map: rep(drumSolidTex(), 16, 2.4), roughness: 0.85 }),
     drumRib: () => std({ map: rep(drumRibTex(), 15, 1), roughness: 0.8 }),
+    drumWin: () => std({ map: rep(drumWinTex(), 15, 1), roughness: 0.8 }),
     drumRoof: () => std({ color: '#ecebe6', roughness: 0.8 }),
     land: () => std({ map: dLandTex(), roughness: 0.8 }),
     landRed: () => std({ map: dLandRedTex(), roughness: 0.8 }),
@@ -738,6 +768,7 @@ function mat(key) {
       }),
     terrazzo: () => std({ map: terrazzoTex(), roughness: 0.8 }),
     wood: () => std({ color: '#b98756', roughness: 0.75 }),
+    woodDark: () => std({ color: '#4a312a', roughness: 0.8 }),
     shutter: () => std({ map: shutterTex(), roughness: 0.6, metalness: 0.3 }),
     portalGlass: () => std({ map: portalGlassTex(), roughness: 0.2, metalness: 0.4 }),
     greenGlass: () => std({ map: greenGlassTex(), roughness: 0.2, metalness: 0.4 }),
@@ -1451,7 +1482,8 @@ export function buildZoneD(I, scene, data, collision) {
   const dxs = find(D_IDS.dxs);
   if (dxs) {
     // 圓筒照 2017-09 官方街景（良善北翼步道 pano _sDi0…，heading 350～0、仰角 28°，2026-11-28 重看）：
-    // 1～2F 咖啡色磁磚弧形實牆（一道直條窗、一扇小窗）；3F、4F 內縮帶窗（右側白磁磚樓梯塔同高度各有一排窗）；
+    // 1～2F 咖啡色磁磚弧形實牆（一道直條窗、一扇小窗）；3F、4F 內縮的淺灰磁磚牆，一扇一扇白框窗、窗下掛冷氣
+    // （2026-11-28 使用者給的同一張街景再比對：不是整圈玻璃）；
     // 5F 整層外挑（下緣實心欄牆＋上面一圈連續帶窗，底下是很深的挑簷）；屋頂再一圈內收、沒有窗的白灰磁磚圓筒，頂面白色（正射）
     const B = dxs.base ?? H(0, 230),
       [cx, cz] = DRUM_C,
@@ -1475,8 +1507,8 @@ export function buildZoneD(I, scene, data, collision) {
     k.cyl('drumSolid', cx, cz, r, yb, y2, 40, true);
     k.cyl('concLight', cx, cz, r + 0.1, y2 - 0.1, y2 + 0.25, 40, true);
     ring('concLight', rIn, r + 0.1, y2 + 0.25);
-    k.cyl('drumRib', cx, cz, rIn, y2, y3, 40, true);
-    k.cyl('drumRib', cx, cz, rIn, y3, y4, 40, true);
+    k.cyl('drumWin', cx, cz, rIn, y2, y3, 40, true);
+    k.cyl('drumWin', cx, cz, rIn, y3, y4, 40, true);
     k.cyl('concLight', cx, cz, rIn + 0.15, y3 - 0.1, y3 + 0.15, 40, true);
     ring('concLight', rIn, rIn + 0.15, y3 + 0.15);
     // 5F 外挑：挑簷底（深色）、實心欄牆、帶窗、屋頂板
@@ -1557,6 +1589,64 @@ export function buildZoneD(I, scene, data, collision) {
       k.flat('concLight', P, y1);
       ringColl(P, y0, y1);
       shapes.push({ name: 'dianxueStairTower', pts: P, y0, y1 });
+    }
+    // 樓梯塔東邊的深色木棚架（2017-09 官方街景，良善北翼步道往東北看）：沿長條南面一排，柱子＋兩道主梁＋密排橫木，
+    // 南側整排直條木格柵、中段一道紅色橫木；棚架底下走得過去（只擋柱子和南側格柵）
+    {
+      const G = { u0: -12.5, u1: -3.2, v0: 11.0, v1: 15.4, h: 2.9 },
+        corners = [
+          [G.u0, G.v0],
+          [G.u1, G.v0],
+          [G.u0, G.v1],
+          [G.u1, G.v1],
+        ].map(([u, v]) => dxsP(u, v)),
+        g0 = Math.max(...corners.map((p) => H(...p))),
+        yTop = g0 + G.h,
+        at = (u, v, y) => {
+          const [x, z] = dxsP(u, v);
+          return [x, y, z];
+        };
+      for (let i = 0; i <= 4; i++) {
+        const u = G.u0 + ((G.u1 - G.u0) * i) / 4;
+        for (const v of [G.v0, G.v1]) {
+          const [x, z] = dxsP(u, v);
+          k.box('woodDark', x - 0.1, x + 0.1, H(x, z) - 0.2, yTop, z - 0.1, z + 0.1);
+          ringColl(
+            [
+              [x - 0.12, z - 0.12],
+              [x + 0.12, z - 0.12],
+              [x + 0.12, z + 0.12],
+              [x - 0.12, z + 0.12],
+            ],
+            H(x, z) - 0.2,
+            yTop
+          );
+        }
+      }
+      for (const v of [G.v0, G.v1])
+        k.beam(
+          'woodDark',
+          at(G.u0 - 0.3, v, yTop + 0.15),
+          at(G.u1 + 0.3, v, yTop + 0.15),
+          0.16,
+          0.3
+        );
+      for (let u = G.u0; u <= G.u1 + 0.01; u += 0.6)
+        k.beam(
+          'woodDark',
+          at(u, G.v0 - 0.4, yTop + 0.38),
+          at(u, G.v1 + 0.4, yTop + 0.38),
+          0.08,
+          0.16
+        );
+      // 南側格柵：直條每 0.22 m 一根（1.0～2.5 m），1.0 m 處紅色橫木、頂上一道橫木
+      for (let u = G.u0 + 0.11; u < G.u1; u += 0.22)
+        k.beam('woodDark', at(u, G.v1, g0 + 1.0), at(u, G.v1, g0 + 2.5), 0.06, 0.05);
+      k.beam('red', at(G.u0, G.v1 + 0.04, g0 + 1.0), at(G.u1, G.v1 + 0.04, g0 + 1.0), 0.08, 0.14);
+      k.beam('woodDark', at(G.u0, G.v1, g0 + 2.5), at(G.u1, G.v1, g0 + 2.5), 0.1, 0.1);
+      const s0 = dxsP(G.u0, G.v1),
+        s1 = dxsP(G.u1, G.v1);
+      wallC(s0[0], s0[1], s1[0], s1[1], g0, g0 + 2.5);
     }
     k.flat('concLight', dxsAtrium(), B + 0.08); // 天井底石板地坪
     // 長條屋頂：兩支天線、小機房

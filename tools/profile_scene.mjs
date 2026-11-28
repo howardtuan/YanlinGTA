@@ -98,7 +98,7 @@ const hookSource = fs.readFileSync(path.join(HERE, 'perf', 'page-hook.js'), 'utf
   '__BENCH_CFG__',
   JSON.stringify({
     seed,
-    // fixed quality when asked; otherwise the tier/GPU-guess default is kept (and recorded in meta)
+    // fixed quality when asked; otherwise the device's first-start default is kept (and recorded in meta)
     settings: argVal('quality', '') ? { quality: argVal('quality', '') } : null,
   })
 );
@@ -129,7 +129,10 @@ async function singleRun(srvUrl, runIndex) {
         });
   try {
     await driver.addInitScript(hookSource);
-    const q = query ? (query.startsWith('?') ? query : `?${query}`) : '';
+    // the device split (src/core/PerfProfile.js) follows the simulated viewport, whatever the host's own touch support
+    const dev = `device=${mobile ? 'mobile' : 'desktop'}`;
+    const extra = query ? query.replace(/^\?/, '') : '';
+    const q = `?${extra ? `${extra}&` : ''}${dev}`;
     const tNav = Date.now();
     await driver.navigate(`${srvUrl}${q}`);
     const waitUntil = async (expr, timeoutMs = 180000) => {

@@ -204,7 +204,7 @@ export function formatMarkdown(report) {
   const peakTxt =
     report.memory.peakCanvasMB != null ? `，峰值 ${cell(report.memory.peakCanvasMB, ' MB')}` : '';
   const lines = [
-    `**${m.engine}${m.mobile ? ' · mobile' : ' · desktop'} · ${m.renderer || '?'}** — tier \`${m.tier || '-'}\`, quality \`${m.quality || '-'}\`, ${m.runs} run(s), ${
+    `**${m.engine}${m.mobile ? ' · mobile' : ' · desktop'} · ${m.renderer || '?'}** — device \`${m.tier || '-'}\`, quality \`${m.quality || '-'}\`, ${m.runs} run(s), ${
       m.uncapped ? 'vsync 解除' : 'vsync 開'
     }${reliable ? '' : '，**軟體渲染：幀時間不具代表性（僅供相對比較）**'}`,
     '',

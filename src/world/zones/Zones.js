@@ -459,15 +459,48 @@ export const zoneVegHide = (data) => ZONES.flatMap((z) => z.vegHide?.(data) || [
 export const zoneTreeHide = (data) => ZONES.flatMap((z) => z.treeHide?.(data) || []);
 // afterZone(): called after each zone (src/core/Game.js releases the sign canvases its shop rows copied into their
 // atlas sheets there, so they never pile up: src/graphics/GpuMemLifecycle.js)
-// I.zoneTimes: build time per zone (ms), read by the benchmark report (src/systems/Benchmark.js topZones)
-export function buildZones(I, scene, data, collision, afterZone = () => {}) {
-  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+// onProgress(p, label): before each zone, p = zones done / zones (0..1), label 「搭建<zone name>」 (the loading bar)
+// frame(): resolves after the browser painted (src/core/Game.js nextFrame); awaited before a zone only when the
+// zones since the last paint took yieldMs or more (#464: the bar moves through the ~6 s of zones, while a frame
+// per zone would add ~0.5 s to the load); onWait(ms) gets the time each of those waits took
+// I.zoneTimes: build time per zone (ms, the waits not included), read by the benchmark report
+// (src/systems/Benchmark.js topZones)
+export const buildZones = (I, scene, data, collision, opts) =>
+  runZones(
+    I,
+    ZONES.filter((z) => z.build),
+    [I, scene, data, collision],
+    opts
+  );
+// the loop of buildZones over `list` (each z.build(...args)); tests/unit/zones-progress.test.js
+export async function runZones(
+  I,
+  list,
+  args,
+  {
+    afterZone = () => {},
+    onProgress = null,
+    frame = null,
+    yieldMs = 70,
+    onWait = null,
+    now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+  } = {}
+) {
   I.zoneTimes = [];
-  for (const z of ZONES) {
-    if (!z.build) continue;
+  let painted = now();
+  for (let i = 0; i < list.length; i++) {
+    const z = list[i];
+    onProgress?.(i / list.length, `搭建${z.name}`);
+    if (frame && now() - painted >= yieldMs) {
+      const w0 = now();
+      await frame();
+      painted = now();
+      onWait?.(painted - w0);
+    }
     const t0 = now();
-    z.build(I, scene, data, collision);
+    z.build(...args);
     afterZone();
     I.zoneTimes.push({ name: z.name, ms: Math.round(now() - t0) });
   }
+  onProgress?.(1, '');
 }

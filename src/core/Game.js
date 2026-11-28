@@ -158,6 +158,23 @@ const nextFrame = () =>
   new Promise((r) => {
     requestAnimationFrame(() => setTimeout(r, 0));
   });
+// the same between two zones of build-interiors (#464), but back right after the paint: scheduler.yield()'s
+// continuation goes before the page's other waiting tasks (a timer, Chrome tearing down the previous document's
+// compositor, which waits for the GPU process to catch up with every texture uploaded so far: seconds on a phone),
+// so those run where they always did, after the zones; without scheduler.yield (Safari) a timer as in nextFrame
+// ms of zone work between two of those frames; ?zoneyield=<ms> overrides it, ?zoneyield=0 never waits (#464)
+const ZONE_YIELD_MS = (() => {
+  const v = Number.parseFloat(new URLSearchParams(location.search).get('zoneyield') ?? '');
+  return Number.isFinite(v) && v >= 0 ? v : 200;
+})();
+const zoneFrame = () =>
+  new Promise((r) => {
+    requestAnimationFrame(() => {
+      const y = globalThis.scheduler?.yield;
+      if (typeof y === 'function') y.call(globalThis.scheduler).then(r, r);
+      else setTimeout(r, 0);
+    });
+  });
 
 class Game {
   async init() {
@@ -403,7 +420,7 @@ class Game {
       ].map(([x, z, kind, sc]) => ({ x: ox + x * c - z * s, z: oz + x * s + z * c, kind, s: sc }));
     })();
     featureTrees.push(...zoneTrees());
-    this.world = buildWorld(this.scene, data, (p) => setLoad(0.08 + p * 0.7, '搭建中原大學'), {
+    this.world = buildWorld(this.scene, data, (p) => setLoad(0.08 + p * 0.17, '搭建中原大學'), {
       reserved,
       keep,
       low: crowd.lean,
@@ -420,12 +437,22 @@ class Game {
     this.railway = buildRailway(this.scene, this.world, data, { low: crowd.lean });
     this.skyline = buildSkyline(this.scene, crowd.skyline);
     this._applyQuality();
-    await stage('build-interiors', 0.78, '蓋資管系館、麥當勞、警衛室');
+    await stage('build-interiors', 0.25, '蓋資管系館、麥當勞、警衛室');
     // low / xlow: the merged building and shop-row surfaces are Lambert too (src/world/Kit.js setKitMaterialMode)
     setKitMaterialMode(this.gfx.materialMode, this.world.lambertSky);
     const interiorStart = this.scene.children.length;
-    this.interiors = buildInteriors(this.scene, data, this.world.collision, {
+    this.interiors = await buildInteriors(this.scene, data, this.world.collision, {
       createCharacter,
+      // the zones are over half of the load (#464): the bar goes 25% -> 78% zone by zone, painted every
+      // ZONE_YIELD_MS of work; the frames it waits for stay out of the stage's time (BootDiag waited, I.zoneTimes)
+      onProgress: (p, label) => {
+        const pct = 0.25 + p * 0.53;
+        setLoad(pct, label || '蓋資管系館、麥當勞、警衛室');
+        this.bootDiag.progress(pct, label);
+      },
+      frame: ZONE_YIELD_MS > 0 ? zoneFrame : null,
+      yieldMs: ZONE_YIELD_MS,
+      onWait: (ms) => this.bootDiag.waited(ms),
       // batch-release one-off shop sign canvases during buildZones while keeping cross-street shared kit textures
       afterZone: () =>
         releaseAtlasSources(this.scene, TEX, {
@@ -441,7 +468,7 @@ class Game {
     // 室內與停放車輛都排好之後加，才不會讓它們重排）
     this.buses = new Buses(this);
     this.buses.stopProps(this.scene, this.world.collision);
-    await stage('build-physics', 0.79, '建立物理碰撞世界');
+    await stage('build-physics', 0.78, '建立物理碰撞世界');
     try {
       this.physStats = buildPhysicsWorld(this.physics, this.world.collision, this.interiors);
     } catch (e) {
@@ -454,7 +481,7 @@ class Game {
     this.railway?.gateCollision(this.world.collision, this.physics); // 平交道柵欄桿：要在 Rapier 牆做完之後才加
     this.worldCones = spawnWorldCones(this.scene, this.physics, this.interiors.cones);
     this.worldCrates = spawnWorldCrates(this.scene, this.physics, this.interiors.crates);
-    await stage('spawn-entities', 0.82, '召喚同學與機車');
+    await stage('spawn-entities', 0.81, '召喚同學與機車');
     this.input = new Input(this.renderer.domElement);
     this.audio = new Audio(this.settings);
     this.hud = new HUD(this.world);
@@ -649,7 +676,7 @@ class Game {
     this.rig.yaw = this.player.heading;
     this.myScooter = this.spawnScooterNear(sx, sz, false, true);
 
-    await stage('init-npcs', 0.95, '準備出發');
+    await stage('init-npcs', 0.86, '準備出發');
     this.missions = new Missions(this);
     this.sunday = new Sunday(this);
     this.clubMembers = new ClubMembers(this);
@@ -680,7 +707,7 @@ class Game {
     // 力行 277 寢的迷你麻將桌：揪力行的人打台式麻將（src/systems/mahjong/Mahjong.js）
     this.mahjong = new DormMahjong(this);
 
-    await stage('compile-shaders', 0.98, '預編譯著色器');
+    await stage('compile-shaders', 0.88, '預編譯著色器');
     // bake the sky environment map before precompiling: setting scene.environment changes the program key of every
     // MeshStandardMaterial, so compiling first would build ~56 programs that are thrown away on the first frame
     this.gameLoop.updateSky(0);

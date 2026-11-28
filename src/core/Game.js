@@ -162,6 +162,11 @@ const nextFrame = () =>
 // continuation goes before the page's other waiting tasks (a timer, Chrome tearing down the previous document's
 // compositor, which waits for the GPU process to catch up with every texture uploaded so far: seconds on a phone),
 // so those run where they always did, after the zones; without scheduler.yield (Safari) a timer as in nextFrame
+// ms of zone work between two of those frames; ?zoneyield=<ms> overrides it, ?zoneyield=0 never waits (#464)
+const ZONE_YIELD_MS = (() => {
+  const v = Number.parseFloat(new URLSearchParams(location.search).get('zoneyield') ?? '');
+  return Number.isFinite(v) && v >= 0 ? v : 200;
+})();
 const zoneFrame = () =>
   new Promise((r) => {
     requestAnimationFrame(() => {
@@ -438,14 +443,15 @@ class Game {
     const interiorStart = this.scene.children.length;
     this.interiors = await buildInteriors(this.scene, data, this.world.collision, {
       createCharacter,
-      // the zones are over half of the load (#464): the bar goes 25% -> 78% zone by zone, painted every ~70 ms of
-      // work; the frames it waits for stay out of the stage's time (BootDiag waited, I.zoneTimes)
+      // the zones are over half of the load (#464): the bar goes 25% -> 78% zone by zone, painted every
+      // ZONE_YIELD_MS of work; the frames it waits for stay out of the stage's time (BootDiag waited, I.zoneTimes)
       onProgress: (p, label) => {
         const pct = 0.25 + p * 0.53;
         setLoad(pct, label || '蓋資管系館、麥當勞、警衛室');
         this.bootDiag.progress(pct, label);
       },
-      frame: zoneFrame,
+      frame: ZONE_YIELD_MS > 0 ? zoneFrame : null,
+      yieldMs: ZONE_YIELD_MS,
       onWait: (ms) => this.bootDiag.waited(ms),
       // batch-release one-off shop sign canvases during buildZones while keeping cross-street shared kit textures
       afterZone: () =>

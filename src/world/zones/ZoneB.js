@@ -12,10 +12,14 @@
 //    西面照南面推；屋頂東半白色排氣風管群、圓柱排氣筒、中間白色大設備箱、西緣一排白箱。輪廓第 0 批已平移，不動。
 //  - 恩惠堂 w492487890：單層挑高（簷高 5 m、屋脊約 9 m），紅磚牆裙＋白壁柱＋白框格子大窗，淺灰屋頂；
 //    西南正面門廊（白框＋紅磚、木門）與其上的方塔（正面紅磚＋白框）、白色四角錐尖頂與十字架（2021 地點相片、空拍）。
-//  - 恩惠堂副堂 w588976673：灰色粗水泥牆、陡雙坡深灰屋頂、東南山牆有閣樓小窗、1F 白框門，西南側白細柱平頂有頂走廊
-//    （官方 2017-09 pano b85s2jdyz2hnuTtRzbkqfQ 往 300°～330°）；OSM height 9.2。
+//  - 恩惠堂副堂 w588976673：灰色粗水泥牆、陡雙坡屋頂、東南山牆有閣樓小窗、1F 白框門，西南側白細柱平頂有頂走廊
+//    （官方 2017-09 pano b85s2jdyz2hnuTtRzbkqfQ 往 300°～330°）；OSM height 9.2。Google 2026 衛星在這塊輪廓上
+//    看得到沿長軸（西北—東南）的雙坡，和 2017 看到的山牆朝東南一致，確認灰色雙坡小樓就是副堂；屋面是中灰浪板
+//    （正射 2024、衛星 2026 都偏淺，比 2017 陰天看到的淺）。
 //  - 林森館 w588978711：白／灰白 2F 現代主義小樓，每層厚白懸挑平板屋簷、白色花磚女兒牆、白鐵窗花，
-//    東南端屋頂間（正射橘褐小屋面），東面 1F 黑底白字「兒童主日學」看板（2023-01 使用者 pano A6）。
+//    東面 1F 黑底白字「兒童主日學」看板（2023-01 使用者 pano A6）。西南面西段（約 6.5 m）2F 往內退 1.6 m、
+//    下面 1F 頂是橘褐地磚露台（正射 2024 西南邊的橘褐帶，和東側露台同色）；原本放的 3F 屋頂間沒有影像根據，拿掉。
+//    西南面面對副堂、中間只有 4～5 m 的花園，Google 地圖、維基共享資源都沒有這一面的相片，立面照東面推。
 //  - 化學館東側 1F w588979511：40×14 m 方塊在正射上大多是草坪和樹，只留一間白牆深框、灰褐坡頂的小屋
 //    （2017-01 從恩惠堂校內側大門看到）。
 //  - A6 步道：自強商學大樓西北牆外的灰色木棧道，外側一道水泥花台；A6 校門招牌：自強西北角牆上灰色長板
@@ -157,7 +161,8 @@ const SCI = {
 const CHEM = { h: 10.5, floors: 3 };
 const GRACE = { h: 5.0, floors: 1 };
 const ANNEX = { h: 6.0, floors: 2, rise: 3.2 }; // 牆 6 m＋屋脊 3.2 m = 9.2 m（OSM height）；h 不低於 6，冷氣抽取照舊
-const LINSEN = { h: 7.0, floors: 2, uEast: 8.6, h1: 3.8 };
+// sw*：西南面西段 1F 露台（沿西南邊從西角量 swLen、往內 swDepth；正射 2024 西南邊西半段橘褐地磚帶約 6.5×1.6 m）
+const LINSEN = { h: 7.0, floors: 2, uEast: 8.6, h1: 3.8, swLen: 6.5, swDepth: 1.6 };
 // 教會舊平房（紅磚牆、紅窗框、紅鐵皮屋頂）：A6 步道西側，沿自強西北牆方向，離牆 6.3～10.7 m、牆上 s 15～27 m
 const BUNG = { s0: 15, s1: 27, o0: 6.3, o1: 10.7, h: 2.9, rise: 1.1 };
 // 化學館東側小屋（w588979511 的新輪廓）：沿原本長條方向擺，約 5×7 m，中心 (55, 54)
@@ -244,7 +249,7 @@ export function zoneBLook(b) {
       wall: { base: 'smooth', colour: '#9a9690' },
       windows: { types: ['punched', 'none'], bay: 4.0, accent: '#e8e6e0', glass: '#4f5a60' },
       parapet: { h: 0, colour: '#8e8a84' },
-      roof: { shape: 'gabled', rise: ANNEX.rise, colour: '#4f5254' },
+      roof: { shape: 'gabled', rise: ANNEX.rise, colour: '#6e7173' }, // 中灰浪板（正射 2024、Google 2026 衛星）
     };
   } else if (id === B_IDS.linsen) {
     b.h = LINSEN.h;
@@ -262,9 +267,19 @@ export function zoneBLook(b) {
       uOf = ([x, z]) => (x - F.O[0]) * F.U[0] + (z - F.O[1]) * F.U[1];
     const main = clipPoly(b.pts, (q) => [LINSEN.uEast - uOf(q)]),
       east = clipPoly(b.pts, (q) => [uOf(q) - LINSEN.uEast]);
-    if (main.length > 2 && east.length > 2) {
+    // 西南面西段：2F 往內退 swDepth，下面 1F 頂是橘褐地磚露台（正射 2024；和東側已由 pano A6 證實的露台同色同做法）
+    // 西南邊 = b.pts[0]（西角）→ b.pts[7]（南角）；sOf 沿邊、dOf 往內
+    const S = frame(b.pts[0], b.pts[7], centroid(b.pts)),
+      sOf = ([x, z]) => (x - S.O[0]) * S.U[0] + (z - S.O[1]) * S.U[1],
+      dOf = ([x, z]) => (x - S.O[0]) * S.V[0] + (z - S.O[1]) * S.V[1];
+    const mainA = clipPoly(main, (q) => [dOf(q) - LINSEN.swDepth]),
+      mainB = clipPoly(main, (q) => [LINSEN.swDepth - dOf(q), sOf(q) - LINSEN.swLen]),
+      sw = clipPoly(main, (q) => [LINSEN.swDepth - dOf(q), LINSEN.swLen - sOf(q)]);
+    if (mainA.length > 2 && mainB.length > 2 && sw.length > 2 && east.length > 2) {
       b.parts = [
-        { pts: main, h: LINSEN.h, floors: LINSEN.floors, label: '2F 主體' },
+        { pts: mainA, h: LINSEN.h, floors: LINSEN.floors, label: '2F 主體' },
+        { pts: mainB, h: LINSEN.h, floors: LINSEN.floors, label: '2F 主體（西南邊東段）' },
+        { pts: sw, h: LINSEN.h1, floors: 1, label: '西南 1F＋露台' },
         { pts: east, h: LINSEN.h1, floors: 1, label: '1F＋露台' },
       ];
       b.splitAc = 1;
@@ -731,6 +746,7 @@ function mat(key) {
         side: THREE.DoubleSide,
       }),
     deck: () => std({ map: deckTex(), roughness: 0.9 }),
+    quarry: () => std({ map: deckTex(), color: '#e8a37a', roughness: 0.9 }), // 林森館露台橘褐缸磚（正射 2024）
     timber: () => std({ color: '#bfa27a', roughness: 0.8 }),
     brick: () => std({ map: brickTex(), roughness: 0.9 }),
     redBrick: () => std({ map: redBrickTex(), roughness: 0.92 }),
@@ -946,7 +962,7 @@ class Acc {
   finish(group) {
     for (const [m, list] of this.parts) {
       const mesh = new THREE.Mesh(mergeGeometries(list, false), mat(m));
-      mesh.castShadow = !['board', 'gravel', 'deck', 'skyGlass', 'door'].includes(m);
+      mesh.castShadow = !['board', 'gravel', 'deck', 'quarry', 'skyGlass', 'door'].includes(m);
       mesh.receiveShadow = true;
       group.add(mesh);
     }
@@ -1531,15 +1547,16 @@ export function buildZoneB(I, scene, data, collision) {
     }
   }
 
-  // ===== 林森館：屋頂厚平板、花磚女兒牆、東南屋頂間、「兒童主日學」看板 =====
+  // ===== 林森館：屋頂厚平板、花磚女兒牆、西南與東側 1F 露台、「兒童主日學」看板 =====
   const lin = find(B_IDS.linsen);
   if (lin) {
     const P = lin.pts,
       cen = centroid(P),
-      B = baseOf(lin),
-      top = B + lin.h;
-    // 每一塊（2F 主體、1F 露台）各自一圈屋頂平板＋花磚女兒牆；矮的那塊貼著高牆的那條邊不做
-    for (const V of lin.parts || [{ pts: P, h: lin.h }]) {
+      B = baseOf(lin);
+    // 每一塊（2F 主體、1F 露台）各自一圈屋頂平板＋花磚女兒牆；邊外側緊貼一樣高或更高的另一塊（矮塊貼高牆、
+    // 2F 主體兩塊之間的切線）不做，貼著矮塊的高牆邊照做（露台上方的 2F 屋頂女兒牆）
+    const vols = lin.parts || [{ pts: P, h: lin.h }];
+    for (const V of vols) {
       const Q = V.pts,
         vc = centroid(Q),
         vt = B + V.h,
@@ -1548,7 +1565,8 @@ export function buildZoneB(I, scene, data, collision) {
         const e = edgeOut(Q[i], Q[(i + 1) % Q.length], vc),
           ang = Math.atan2(e.tz, e.tx);
         if (e.l < 0.3) continue;
-        if (lower && pip(...along(e, e.l / 2, 0.4), P)) continue;
+        const probe = along(e, e.l / 2, 0.4);
+        if (vols.some((W) => W !== V && W.h >= V.h && pip(...probe, W.pts))) continue;
         const c = along(e, e.l / 2, 0.3);
         k.obox('white', c[0], c[1], ang, e.l + 1.4, 1.3, vt - 0.32, vt); // 屋頂平板懸挑 0.65 m
         const p = along(e, -0.55, 0.5),
@@ -1556,10 +1574,10 @@ export function buildZoneB(I, scene, data, collision) {
         k.panel('breeze', p, q, vt, vt + 0.9, 1.2, 1.2);
         k.obox('white', ...along(e, e.l / 2, 0.5), ang, e.l + 1.1, 0.2, vt + 0.9, vt + 1.0);
       }
-      if (lower)
+      if (lower && V.label === '1F＋露台')
         fbox(
           frame(P[1], P[2], cen),
-          'deck',
+          'quarry',
           LINSEN.uEast + 0.1,
           0.3,
           LINSEN.uEast + 1.6,
@@ -1568,29 +1586,21 @@ export function buildZoneB(I, scene, data, collision) {
           vt + 0.05,
           2
         ); // 露台靠牆一條橘褐地磚（正射）
+      else if (lower)
+        fbox(
+          frame(P[0], P[7], cen),
+          'quarry',
+          0,
+          -0.3,
+          LINSEN.swLen,
+          LINSEN.swDepth,
+          vt + 0.01,
+          vt + 0.05,
+          2
+        ); // 西南露台整條橘褐地磚（正射 2024）
     }
-    // 屋頂間：東南端 4×4 m（正射的橘褐小屋面），自己的小平板＋花磚
-    const Fl = frame(P[1], P[2], cen);
-    let rc = null;
-    for (const [u, v] of [
-      [5.8, 8.0],
-      [5.5, 7.5],
-      [5.0, 6.5],
-    ]) {
-      const q = Fl.rect(u - 2, v - 2, u + 2, v + 2);
-      if (q.every(([x, z]) => pip(x, z, P))) {
-        rc = [u, v];
-        break;
-      }
-    }
-    if (rc) {
-      const [u, v] = rc;
-      fbox(Fl, 'white', u - 2, v - 2, u + 2, v + 2, top, top + 2.8);
-      fbox(Fl, 'conc', u - 2.4, v - 2.4, u + 2.4, v + 2.4, top + 2.8, top + 3.05);
-      fbox(Fl, 'deck', u - 2.0, v - 2.0, u + 2.0, v + 2.0, top + 3.05, top + 3.1);
-      fbox(Fl, 'winDark', u - 0.5, v + 2.0, u + 0.5, v + 2.04, top + 1.2, top + 2.1);
-      fbox(Fl, 'woodDoor', u - 2.04, v - 0.5, u - 2.0, v + 0.5, top, top + 2.1);
-    }
+    // 原本東南端的 4×4 m 屋頂間拿掉：正射 2024 那塊橘褐面其實是西南面 1F 露台（見上），
+    // 2023-01 pano A6 與 Google 2026 衛星都看不到屋頂間
     // 東面 1F 屋簷下的黑底白字看板（2023-01）
     let east = null;
     for (let i = 0; i < P.length; i++) {

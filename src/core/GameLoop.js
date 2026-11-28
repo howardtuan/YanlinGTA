@@ -95,6 +95,40 @@ export function autoQualityStep(A, frameMs) {
   return fps;
 }
 
+// dynamic resolution state machine (pure, unit-tested: tests/unit/auto-quality.test.js)
+export const DRS_WINDOW_MS = 2000,
+  DRS_DOWN_FPS = 45,
+  DRS_UP_FPS = 57,
+  DRS_DOWN = 0.1,
+  DRS_UP = 0.05,
+  DRS_UP_HOLD_MS = 6000; // after any change, wait this long before stepping up again (no see-sawing)
+export const newDrs = (cap) => ({ cap, scale: cap, t: 0, sum: 0, n: 0, warm: 0, since: 0 });
+// dynamic resolution runs when the level asks for it and the player hasn't fixed 清晰度倍率 (nor ?dpr=)
+export const drsActive = (game) =>
+  !!game.gfx?.dynRes &&
+  game.state === 'play' &&
+  !(game.settings?.gfx && 'dprCap' in game.settings.gfx) &&
+  !(game._gfxOpts?.url && 'dprCap' in game._gfxOpts.url);
+// feed one frame; returns the new scale when it changes (null otherwise)
+export function drsStep(D, frameMs, min, cap) {
+  if (!(frameMs > 0) || frameMs > 250) return null;
+  D.since += frameMs;
+  if ((D.warm += frameMs) < AUTOQ_WINDOW_MS) return null;
+  D.t += frameMs;
+  D.sum += frameMs;
+  D.n++;
+  if (D.t < DRS_WINDOW_MS) return null;
+  const fps = 1000 / (D.sum / D.n);
+  D.t = D.sum = D.n = 0;
+  let next = D.scale;
+  if (fps < DRS_DOWN_FPS) next = Math.max(min, D.scale - DRS_DOWN);
+  else if (fps > DRS_UP_FPS && D.since >= DRS_UP_HOLD_MS) next = Math.min(cap, D.scale + DRS_UP);
+  next = Math.round(next * 100) / 100;
+  if (next === D.scale) return null;
+  D.since = 0;
+  return next;
+}
+
 // 'auto': the level an earlier session stepped down to (settings.autoQ, _autoQuality) or the GPU guess
 export const resolveQuality = (q, s) =>
   QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu();
@@ -121,8 +155,29 @@ export class GameLoop {
     }
   }
 
+  // the pixel ratio actually drawn: dprCap, or the dynamic resolution scale while it runs (drsStep)
   pixelRatio() {
-    return Math.min(devicePixelRatio, this.game.gfx.dprCap);
+    const G = this.game.gfx,
+      s = this.game._drs?.scale;
+    return Math.min(devicePixelRatio, s != null && drsActive(this.game) ? s : G.dprCap);
+  }
+
+  // dynamic resolution (low / xlow, #438): every DRS_WINDOW_MS of play the average frame decides whether the pixel
+  // ratio steps down (frames too long) or creeps back up (plenty of headroom) between gfx.dprMin and gfx.dprCap
+  dynamicResolution(frameMs) {
+    const game = this.game;
+    if (!drsActive(game) || document.hidden) return;
+    const G = game.gfx;
+    const D = game._drs && game._drs.cap === G.dprCap ? game._drs : (game._drs = newDrs(G.dprCap));
+    const next = drsStep(D, frameMs, G.dprMin, G.dprCap);
+    if (next == null) return;
+    const before = this.game.renderer.getPixelRatio();
+    D.scale = next;
+    const pr = this.pixelRatio();
+    if (pr === before) return;
+    game.renderer.setPixelRatio(pr);
+    game.renderer.setSize(innerWidth, innerHeight);
+    game.post.setSize(innerWidth, innerHeight);
   }
 
   // view distance, fog, shadows and the distant skyline follow the display settings (game.gfx)
@@ -187,6 +242,8 @@ export class GameLoop {
   autoQuality(frameMs) {
     const game = this.game;
     if (!autoQualityActive(game.settings, game.quality) || document.hidden) return;
+    // dynamic resolution goes first: the level (view distance, crowds) only steps down once it is at its floor
+    if (drsActive(game) && game._drs && game._drs.scale > game.gfx.dprMin + 1e-3) return;
     const A = game._aq || (game._aq = newAutoQ());
     const fps = autoQualityStep(A, frameMs);
     if (fps == null) return;
@@ -281,7 +338,10 @@ export class GameLoop {
     // 效能測試 (src/systems/Benchmark.js) measures every frame of its run
     const bench = game.state === 'bench' ? game.bench : null;
     bench?.frameStart(now);
-    if (game.state === 'play') this.autoQuality(now - game.last);
+    if (game.state === 'play') {
+      this.dynamicResolution(now - game.last);
+      this.autoQuality(now - game.last);
+    }
     const dt = Math.min(0.05, (now - game.last) / 1000);
     game.last = now;
     game.time = (game.time || 0) + dt;

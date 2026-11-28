@@ -29,14 +29,17 @@ describe('GraphicsConfig presets', () => {
   it('keeps the old per-level behaviour (QPROF view of the presets)', () => {
     expect(QPROF.high).toEqual({ far: 2600, fog: 1, pr: 1.6, shadows: true, view: 1 });
     expect(QPROF.medium).toEqual({ far: 1500, fog: 1.12, pr: 1.0, shadows: true, view: 0.8 });
-    expect(QPROF.low).toEqual({ far: 750, fog: 1.6, pr: 0.8, shadows: false, view: 0.45 });
-    expect(QPROF.xlow).toEqual({ far: 450, fog: 2.4, pr: 0.6, shadows: false, view: 0.3 });
+    expect(QPROF.low).toEqual({ far: 750, fog: 1.6, pr: 1.25, shadows: false, view: 0.45 });
+    expect(QPROF.xlow).toEqual({ far: 450, fog: 2.4, pr: 1.0, shadows: false, view: 0.3 });
     expect(postFxLevel(PRESETS.high.postFx)).toBe('high');
     expect(postFxLevel(PRESETS.medium.postFx)).toBe('medium');
     expect(postFxLevel(PRESETS.low.postFx)).toBe('low');
     expect(shadowLevel(PRESETS.low.shadows)).toBe('low');
     expect(PRESETS.low.materialMode).toBe('lambert');
     expect(PRESETS.medium.antialias).toBe(true);
+    // #438: phones are sharper, with dynamic resolution easing down when frames run long
+    expect(PRESETS.low).toMatchObject({ dprCap: 1.25, dprMin: 0.8, dynRes: true });
+    expect(PRESETS.high.dynRes).toBe(false);
   });
 
   it('splits live and reload-only settings', () => {
@@ -139,7 +142,7 @@ describe('player overrides bookkeeping', () => {
   });
 
   it('isCustom / diffFromPreset ignore values equal to the preset', () => {
-    expect(isCustom('low', { dprCap: 0.8 })).toBe(false);
+    expect(isCustom('low', { dprCap: 1.25 })).toBe(false);
     expect(isCustom('low', { dprCap: 1.2 })).toBe(true);
     expect(isCustom('low', undefined)).toBe(false);
     expect(diffFromPreset('medium', { shadows: 'medium', dprCap: 1.25 })).toEqual({ dprCap: 1.25 });

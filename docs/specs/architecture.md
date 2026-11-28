@@ -117,7 +117,8 @@ flowchart TD
 
 | 設定鍵 | 生效時機 | 可選值與語意 | `high` / `medium` / `low` / `xlow` 預設 |
 | :--- | :--- | :--- | :--- |
-| `dprCap` | 即時 | 渲染像素比上限 | `1.6` / `1.0` / `0.8` / `0.6` |
+| `dprCap` | 即時 | 渲染像素比上限 | `1.6` / `1.0` / `1.25` / `1.0`（#438：手機原本固定 `0.8`，430×932@3x 只畫原生 7% 像素） |
+| `dynRes` / `dprMin` | 即時 | 動態解析度：遊玩中依幀時間在 `dprMin`～`dprCap` 間調整像素比；玩家手動拉清晰度倍率或 `?dpr=` 時關閉 | `off` / `off` / `on, 0.8` / `on, 0.6` |
 | `shadows` | 即時 | `off`｜`low`（1024、PCF、微小物件不投影）｜`medium`（2048、PCFSoft）｜`high`（4096、PCFSoft、全部投影） | `high` / `medium` / `off` / `off` |
 | `envLight` | 即時 | `hemi`（只用半球光 ×1.6，不建 PMREM 天空環境貼圖、不跑執行期 `bakeEnv()`）｜`pmrem`（天空 IBL＋`lambertSky` 漫射補償） | 全部 `pmrem` |
 | `postFx` | 即時 | `off`｜`bloom-quarter`（1/4 Bloom＋調色）｜`bloom-half-msaa`（4× MSAA＋1/2 Bloom） | `bloom-half-msaa` / `bloom-quarter` / `off` / `off` |
@@ -175,6 +176,7 @@ sequenceDiagram
 1. **動態畫質調頻（`GameLoop.autoQuality`）**：
    - 畫質設為「自動」時，初始等級由 `guessGpu()` 決定：觸控裝置、舊款 Intel UHD / HD 或 `<= 4` 核裝置預設 `low`；Apple M 系列、Iris Xe、Radeon 680M/780M/880M 與獨顯預設 `medium`（`high` 僅在玩家手動選擇時啟用）。
    - 遊玩時先暖機 **3 秒**，之後每 **3 秒** 計算平均幀率；**連續 2 個 3 秒視窗**平均皆 `< 20 FPS`（任一視窗 `>= 20` 即重置）才自動降一級（`medium` → `low` → `xlow`），手機 30 FPS 上限或單次 GC 卡頓不會誤降；降級寫入 `settings.autoQ` 供下次開啟沿用，設定選單再點一次「自動」即清除並重新偵測，降級後重新暖機 3 秒。**只在純自動模式生效**：畫質為「自動」且沒有 `settings.gfx` 自訂細項（`autoQualityActive` / `autoQualityStep`，`tests/unit/auto-quality.test.js`）。
+   - **動態解析度（DRS，`low` / `xlow`，#438）**：遊玩中每 **2 秒**看一次平均幀率，`< 45 FPS` 像素比降 `0.1`（不低於 `dprMin`），`> 57 FPS` 且距上次調整 `>= 6 秒` 才回升 `0.05`（不高於 `dprCap`），避免來回跳動；`autoQuality` 只在 DRS 已降到下限後才調降檔位（先犧牲解析度、不先砍視距與人車）。`drsActive` / `drsStep` 為純函式並有單元測試。標題畫面與 benchmark 不啟用（benchmark 以 `dprCap` 量測）。
 2. **四級效能監控浮層（`src/core/PerfHud.js`）**：
    - 設定選單可選 `關閉`／`簡易`（僅色標 FPS）／`詳細`（1% 低幀、最慢幀、JS 主執行緒負載 %、Chromium JS Heap、Draw Calls、Triangles）／`開發者`（細分邏輯／物理／繪製耗時、紋理與幾何數、著色器數、實體與剛體數、硬體檔位、座標區域與 GPU 名稱）；網址帶 `?perf` 強制以開發者模式顯示（不改存檔）。關閉時完全不執行量測。
 3. **渲染與著色器最佳化契約**：

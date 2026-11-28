@@ -7,6 +7,14 @@ import { isCustom, reloadPending } from './GraphicsConfig.js';
 // 設定 → ⚙ 細部顯示設定: one row per display setting (src/core/GraphicsConfig.js); live ones switch at once
 const GFX_ROWS = [
   {
+    key: 'dynRes',
+    label: '🎚 自動調整清晰度',
+    opts: [
+      [false, '關'],
+      [true, '開'],
+    ],
+  },
+  {
     key: 'shadows',
     label: '☀ 太陽陰影',
     opts: [
@@ -427,7 +435,7 @@ export class MenuManager {
   gfxNote() {
     const game = this.game,
       wait = reloadPending(game.gfxBuilt, game.gfx);
-    return `沒標（重整）的項目立即套用；清晰度倍率越高越清楚但越耗電${wait.length ? `・${wait.map((k) => GFX_LABEL[k] || k).join('、')}在重新整理後套用` : ''}`;
+    return `沒標（重整）的項目立即套用；清晰度倍率越高越清楚但越耗電；「自動調整清晰度」開著時，畫面不順會自動降到下限、順了再慢慢調回倍率（手動拉清晰度倍率就固定不調）${wait.length ? `・${wait.map((k) => GFX_LABEL[k] || k).join('、')}在重新整理後套用` : ''}`;
   }
 
   // effective values back into the controls (after a preset pick, a reset or a change clamped by safe mode / URL)

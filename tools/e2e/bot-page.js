@@ -29,6 +29,8 @@
       fallbackStallSec: 30,
       legBudgetSec: 240,
       maxMissionFails: 2,
+      // game seconds with no objective at all (not paused, no dialog) before the run is declared stuck
+      idleStallSec: 90,
       canvassRadius: 30,
       laneOffset: 0,
       shortcutRoadMargin: 3.5,
@@ -1133,6 +1135,14 @@
   function currentObjective() {
     const m = game.missions,
       s = m.step;
+    // a section that timed out (MissionSystem.fail -> exit) waits at its ▶ start ring: ride back there and
+    // carry on (the phone's 任務 app ▶ 繼續任務 does the same as m.resumeSection())
+    if (!s && m.exited && m.exited.at)
+      return {
+        kind: 'resume',
+        target: { x: m.exited.at.x, z: m.exited.at.z, name: '▶ 任務起點' },
+        r: 4,
+      };
     if (!s) return null;
     if (s.type === 'goto') return { kind: 'goto', target: s.target, r: s.radius };
     if (s.type === 'cps') {
@@ -1746,7 +1756,8 @@
   let lastIdx = -99,
     lastPos = null,
     lastTimer = null,
-    lastBig = '';
+    lastBig = '',
+    lastExited = null;
   B.status = () => {
     const g = game,
       m = g.missions,
@@ -1771,6 +1782,8 @@
       frames: B.frames,
       renders: E.renders,
       renderMs: E.renderMs,
+      exited: m.exited ? m.exited.title : null,
+      idleStall: B.idleStall || null,
       dbg: B.dbg,
       done: B.done,
       fatal: B.fatal,
@@ -1877,15 +1890,19 @@
           title: big,
           sub: (document.getElementById('bigToastSub') || {}).textContent,
         });
-      if (big === '任務失敗' && s) {
-        s.failed = true;
-        s.fails++;
-        const a = s.attempts && s.attempts[s.attempts.length - 1];
-        if (a) a.failed = true;
-        ev('mission-fail', { idx: m.idx, fails: s.fails });
-      }
       lastBig = big;
     }
+    // a timed section that runs out of time no longer shows 任務失敗: MissionSystem.fail() exits the section
+    // (任務暫停) and parks a ▶ start ring. Count every new exit as a failed attempt.
+    if (m.exited && m.exited !== lastExited && s) {
+      s.failed = true;
+      s.fails++;
+      const a = s.attempts && s.attempts[s.attempts.length - 1];
+      if (a) a.failed = true;
+      ev('mission-fail', { idx: m.idx, fails: s.fails, title: m.exited.title });
+      nav = null;
+    }
+    lastExited = m.exited;
 
     // modal UI that steals input
     if (B._returnTo && (g.missions.step !== B._returnTo.step || B.t - B._returnTo.t > 1.5)) {
@@ -1929,6 +1946,7 @@
     }
     if (g.hud.inDialog) {
       neutral();
+      B._idleT = null;
       if (!B._eCool || B.t > B._eCool) {
         press('KeyE');
         B._eCool = B.t + 0.25;
@@ -1947,13 +1965,27 @@
 
     const obj = currentObjective();
     if (!obj) {
-      // between steps (toasts, timers): stop and wait
+      // between steps (toasts, timers): stop and wait; drop the finished leg so the status doesn't show it
+      nav = null;
       if (pl.vehicle && Math.abs(pl.vehicle.speed) > 0.5) stick(0, -0.6);
       else neutral();
+      if (B._idleT == null) B._idleT = g.playTime;
+      else if (!B.idleStall && g.playTime - B._idleT > B.opts.idleStallSec) {
+        B.idleStall = { idx: m.idx, sec: Math.round(g.playTime - B._idleT) };
+        ev('idle-stall', B.idleStall);
+      }
+      return;
+    }
+    B._idleT = null;
+    // back at the paused section's start ring: carry on with it
+    if (obj.kind === 'resume' && m.inRing) {
+      neutral();
+      nav = null;
+      if (m.resumeSection()) ev('mission-resume', { idx: m.idx, fails: s ? s.fails : 0 });
       return;
     }
     // per-mission give-up rule: a timed mission failed too often -> teleport through it (fallback)
-    if (s && s.fails >= B.opts.maxMissionFails && obj.kind !== 'votes') {
+    if (s && s.fails >= B.opts.maxMissionFails && obj.kind !== 'votes' && obj.kind !== 'resume') {
       if (!B._fbCool || B.t > B._fbCool) {
         B._fbCool = B.t + 1;
         startNav(obj.target, obj.r, { name: obj.target.name });

@@ -356,6 +356,10 @@ async function main() {
         Date.now() - lastPlayReal > 30000)
     )
       break;
+    if (st && st.idleStall)
+      throw new Error(
+        `no objective for ${st.idleStall.sec}s of game time at mission ${st.idleStall.idx} (stuck between steps)`
+      );
     if (st && st.state === 'play' && Date.now() - lastPlayReal > 120e3)
       throw new Error('game time stopped advancing for 2 min (page hung?)');
     if (Date.now() > deadline) throw new Error(`wall-clock timeout (${cfg.timeoutMin} min)`);

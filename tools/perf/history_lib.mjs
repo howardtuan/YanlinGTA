@@ -70,8 +70,15 @@ export function buildCompactRecord(report, meta = {}) {
       renderMs: r2(s.renderAvg),
       calls: rInt(s.calls),
       tris: rInt(s.tris),
+      minFps: r1(s.minFps),
+      maxFrameMs: r1(s.maxFrameMs),
+      bakes: rInt(s.envBakeCount),
+      routeM: rInt(s.routeM),
     };
   }
+  const sc = report.bench?.scene || null;
+  const stages = {};
+  for (const st of report.boot?.stages || []) stages[st.step] = rInt(st.ms);
   const rawGpu = report.hardware?.renderer || '';
   return {
     v: 1,
@@ -110,7 +117,22 @@ export function buildCompactRecord(report, meta = {}) {
     boot: {
       titleMs: rInt(report.boot?.toTitleMs),
       diagMs: rInt(report.boot?.bootDiagMs),
+      toPlayMs: rInt(report.boot?.toPlayMs),
+      stages,
+      topZones: (report.boot?.topZones || []).map((z) => ({ name: z.name, ms: rInt(z.ms) })),
     },
+    scene: sc
+      ? {
+          objects: rInt(sc.objects),
+          meshes: rInt(sc.meshes),
+          autoMatrix: rInt(sc.autoMatrix),
+          materials: rInt(sc.materials),
+          stdMats: rInt(sc.standard),
+          lambertMats: rInt(sc.lambert),
+          basicMats: rInt(sc.basic),
+          shadowCasters: rInt(sc.shadowCasters),
+        }
+      : null,
     bench: {
       fps: r1(o.avgFps),
       low1: r1(o.low1),
@@ -121,6 +143,7 @@ export function buildCompactRecord(report, meta = {}) {
       renderMs: r2(o.renderAvg),
       calls: rInt(report.bench?.calls),
       tris: rInt(report.bench?.tris),
+      bakes: rInt(report.bench?.envBakeCount),
       seg,
     },
   };
@@ -205,6 +228,32 @@ export function formatPrPerfSection(record) {
     `| JS Heap（GC 後 / 峰值） | \`${fmt(mem.heapMB, ' MB')}\` / \`${fmt(mem.heapPeakMB, ' MB')}\` | WebKit 無此欄位屬正常 |`,
     `| 載入資源數 / 傳輸量 | \`${fmt(mem.resN)}\` / \`${fmt(mem.kb, ' KB')}\` | 靜態資產與 Bundle |`,
     `| 啟動至主畫面耗時 *(硬體相依)* | \`${fmt(boot.titleMs, ' ms')}\` | BootDiag \`${fmt(boot.diagMs, ' ms')}\` |`,
+    ...(boot.toPlayMs != null
+      ? [
+          `| 點擊開始至可操控 *(硬體相依)* | \`${fmt(boot.toPlayMs, ' ms')}\` | \`#btnStart\` → \`state === 'play'\` |`,
+        ]
+      : []),
+    ...(boot.stages && Object.keys(boot.stages).length
+      ? [
+          `| 啟動分階 *(硬體相依)* | — | ${Object.entries(boot.stages)
+            .map(([k, v]) => `${k} \`${fmt(v)}\``)
+            .join('・')} |`,
+        ]
+      : []),
+    ...(boot.topZones?.length
+      ? [
+          `| 分區建置前 5 名 *(硬體相依)* | — | ${boot.topZones.map((z) => `${z.name} \`${fmt(z.ms)}\``).join('・')} |`,
+        ]
+      : []),
+    ...(record.scene
+      ? [
+          `| 場景節點 / Mesh / 自動矩陣 | \`${fmt(record.scene.objects)}\` / \`${fmt(record.scene.meshes)}\` / \`${fmt(record.scene.autoMatrix)}\` | \`matrixAutoUpdate === true\` 節點數 |`,
+          `| 材質（Standard / Lambert / Basic） | \`${fmt(record.scene.materials)}\` | \`${fmt(record.scene.stdMats)}\` / \`${fmt(record.scene.lambertMats)}\` / \`${fmt(record.scene.basicMats)}\`，投影物件 \`${fmt(record.scene.shadowCasters)}\` |`,
+        ]
+      : []),
+    ...(b.bakes != null
+      ? [`| 測試期間 PMREM 重烘次數 | \`${fmt(b.bakes)}\` | \`SkySystem.bakeEnv\` |`]
+      : []),
     '',
     '### 遊戲內 99s Benchmark（三段路線＋整體）',
     '',

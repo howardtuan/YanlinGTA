@@ -459,10 +459,15 @@ export const zoneVegHide = (data) => ZONES.flatMap((z) => z.vegHide?.(data) || [
 export const zoneTreeHide = (data) => ZONES.flatMap((z) => z.treeHide?.(data) || []);
 // afterZone(): called after each zone (src/core/Game.js releases the sign canvases its shop rows copied into their
 // atlas sheets there, so they never pile up: src/graphics/GpuMemLifecycle.js)
+// I.zoneTimes: build time per zone (ms), read by the benchmark report (src/systems/Benchmark.js topZones)
 export function buildZones(I, scene, data, collision, afterZone = () => {}) {
+  const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  I.zoneTimes = [];
   for (const z of ZONES) {
     if (!z.build) continue;
+    const t0 = now();
     z.build(I, scene, data, collision);
     afterZone();
+    I.zoneTimes.push({ name: z.name, ms: Math.round(now() - t0) });
   }
 }

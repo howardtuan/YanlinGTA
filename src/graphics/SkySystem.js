@@ -141,6 +141,7 @@ export class SkySystem {
     // 'pmrem': the sky is baked into scene.environment (IBL) and re-baked as it changes; 'hemi': no environment
     // map at all, the hemisphere light (a bit stronger) is the only ambient light (src/core/GraphicsConfig.js envLight)
     this.envMode = 'pmrem';
+    this.bakeCount = 0; // PMREM bakes so far (benchmark: envBakeCount)
 
     this.hemi = new THREE.HemisphereLight('#bcd4ff', '#4d4636', 0.5);
     scene.add(this.hemi);
@@ -286,6 +287,7 @@ export class SkySystem {
     U.envScale.value = 0.85;
     U.horizonBlend.value = 0.25;
     const old = this.envRT;
+    this.bakeCount++;
     this.envRT = this.pmrem.fromScene(this.envScene, 0.02, 0.1, 100);
     U.envScale.value = ex;
     U.horizonBlend.value = hb;

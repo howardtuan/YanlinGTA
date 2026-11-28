@@ -1,8 +1,9 @@
 // 硬體效能測試（標題畫面 → 📊 效能測試，或網址加 ?bench 自動開始）。
 // 像賽車遊戲的 benchmark：鏡頭照固定路線跑一圈，跑完出一份報告。
-//   1. 校園街道（白天）：沿道路網（world.graph，A* 同 Navigation.js）在車道高度穿過校園周邊
+//   1. 校園街道（白天）：沿校內步道網（A* 同 Navigation.js）穿過校園核心：資管系、力行大樓、學活、
+//      全人教育村、圖書館、體育館（CORE_STOPS）
 //   2. 空拍：拉到 150 m 繞校園轉，畫面裡同時有最多東西
-//   3. 夜間街道：晚上開路燈、車燈再跑一段
+//   3. 夜間街道：同一條路線、同樣秒數在晚上再跑一次（路燈、車燈、窗光、夜空），日夜可 1:1 對照
 // 每段開頭有幾秒暖機不計分（讓串流載入、著色器編好）。測的是每幀的間隔（fps、1% 低、卡頓）、
 // 主執行緒每幀花的時間（遊戲自己的 JS：更新＋送出繪圖），以及繪圖呼叫、三角形數。
 // 跑的時候車流、行人照常更新；畫質可以在開始前選，跑完換回原本的。
@@ -14,42 +15,93 @@ import { Q_NAME, QUALITY } from '../core/GameLoop.js';
 
 const LAST_KEY = 'cycu-bench-last';
 const WARM = 3; // seconds per segment not counted
-const SPEED = 16; // m/s along the street segments (~60 km/h); a long route is only driven as far as its time allows
+const SPEED = 16; // m/s minimum along the street segments (~60 km/h); a longer route is driven faster so the whole
+// route (every stop) fits the segment's time — day and night cover exactly the same path
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[<&>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
-// route stops (named buildings; missing ones are skipped) — the street segments follow the roads between them
-const DAY_STOPS = [
-  '真知教學大樓',
+// route stops (named buildings; missing ones are skipped) — the street segments follow the campus paths between
+// them: the high-load core (multi-storey 力行 dorm, 學活, 全人教育村 ...) instead of the outer roads
+export const CORE_STOPS = [
   '資訊管理學系',
-  '工學館',
-  '自強商學大樓',
+  '力行大樓',
+  '學生活動中心',
   '全人教育村',
   '張靜愚紀念圖書館',
-  '學生活動中心',
   '中原大學體育館',
 ];
-const NIGHT_STOPS = ['中原大學體育館', '力行大樓', '學生活動中心', '全人教育村', '真知教學大樓'];
+const STREET_TIME = 34; // s per street segment (day and night the same): 34 + 22 + 34 + 3 x WARM = 99 s
 
 export const SEGMENTS = [
   {
     key: 'day',
     name: '校園街道（白天）',
     kind: 'street',
-    stops: DAY_STOPS,
+    stops: CORE_STOPS,
     clock: 10 * 60 + 30,
-    time: 42,
+    time: STREET_TIME,
   },
   { key: 'air', name: '空拍', kind: 'air', clock: 16 * 60 + 40, time: 22 },
   {
     key: 'night',
     name: '夜間街道',
     kind: 'street',
-    stops: NIGHT_STOPS,
+    route: 'day', // the very same CatmullRom curve as the day segment
+    stops: CORE_STOPS,
     clock: 20 * 60 + 10,
-    time: 26,
+    time: STREET_TIME,
   },
 ];
+
+// which segments run: all by default; opts.segments picks some (the --sweep runs one short segment per setting)
+export function planSegments(opts = {}) {
+  const keys = Array.isArray(opts.segments) && opts.segments.length ? opts.segments : null;
+  const list = keys ? SEGMENTS.filter((s) => keys.includes(s.key)) : SEGMENTS;
+  const t = Number(opts.time);
+  return list.map((s) => (Number.isFinite(t) && t > 0 ? { ...s, time: t } : s));
+}
+
+// scene structure: node / mesh / material counts (pure: anything with traverse(), unit-tested)
+export function sceneStats(scene) {
+  const out = {
+    objects: 0,
+    meshes: 0,
+    autoMatrix: 0,
+    shadowCasters: 0,
+    materials: 0,
+    standard: 0,
+    lambert: 0,
+    basic: 0,
+    otherMats: 0,
+  };
+  const mats = new Set();
+  scene.traverse((o) => {
+    out.objects++;
+    if (o.matrixAutoUpdate) out.autoMatrix++;
+    if (!o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh) return;
+    out.meshes++;
+    if (o.castShadow) out.shadowCasters++;
+    const m = o.material;
+    if (m) for (const x of Array.isArray(m) ? m : [m]) mats.add(x);
+  });
+  out.materials = mats.size;
+  for (const m of mats) {
+    if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) out.standard++;
+    else if (m.isMeshLambertMaterial) out.lambert++;
+    else if (m.isMeshBasicMaterial) out.basic++;
+    else out.otherMats++;
+  }
+  return out;
+}
+
+// build time of the slowest zones (src/world/zones/Zones.js I.zoneTimes)
+export function topZones(times, n = 5) {
+  return (times || [])
+    .slice()
+    .sort((a, b) => b.ms - a.ms)
+    .slice(0, n)
+    .map((z) => ({ name: z.name, ms: z.ms }));
+}
 
 // ---------- statistics (pure, unit-tested) ----------
 const pct = (sorted, p) =>
@@ -83,6 +135,7 @@ export function frameSummary(dt, cpu = [], logic = [], render = []) {
     low01: 1000 / Math.max(1e-3, p999),
     minFps: 1000 / Math.max(1e-3, s[n - 1]),
     maxFps: 1000 / Math.max(1e-3, s[0]),
+    maxFrameMs: s[n - 1],
     p50,
     p95,
     p99,
@@ -168,7 +221,9 @@ export class Benchmark {
   // ---------- route ----------
   _street(stops) {
     const w = this.game.world;
-    const nodes = w.driveNodes?.length ? w.driveNodes : w.walkNodes;
+    // campus paths first (the core buildings sit inside the campus, the drive graph keeps to the outer roads)
+    const walk = !!w.walkNodes?.length;
+    const nodes = walk ? w.walkNodes : w.driveNodes;
     const near = (x, z) => {
       let b = null,
         bd = Infinity;
@@ -189,7 +244,9 @@ export class Benchmark {
       const n = near(it.x, it.z);
       if (!n) continue;
       if (prev && prev !== n) {
-        const r = astar(prev, n, true) || astar(prev, n, false);
+        const r = walk
+          ? astar(prev, n, false) || astar(prev, n, true)
+          : astar(prev, n, true) || astar(prev, n, false);
         if (r) for (const p of r) pts.push(p);
       }
       prev = n;
@@ -215,7 +272,7 @@ export class Benchmark {
     let cx = 0,
       cz = 0,
       k = 0;
-    for (const n of DAY_STOPS) {
+    for (const n of CORE_STOPS) {
       const it = w.named[n];
       if (it) {
         cx += it.x;
@@ -224,7 +281,17 @@ export class Benchmark {
       }
     }
     const center = k ? { x: cx / k, z: cz / k } : { x: 0, z: 0 };
-    this._routes = SEGMENTS.map((s) => (s.kind === 'street' ? this._street(s.stops) : { center }));
+    const byKey = {};
+    this._routes = SEGMENTS.map((s) => {
+      const r =
+        s.kind !== 'street'
+          ? { center }
+          : s.route && byKey[s.route]
+            ? byKey[s.route]
+            : this._street(s.stops);
+      byKey[s.key] = r;
+      return r;
+    });
     return this._routes;
   }
 
@@ -263,6 +330,12 @@ export class Benchmark {
     const g = this.game;
     if (this.running || g.state !== 'title') return false;
     this._buildRoutes();
+    this.plan = planSegments(opts);
+    this.planRoutes = this.plan.map(
+      (s) => this._routes[SEGMENTS.findIndex((x) => x.key === s.key)]
+    );
+    this.bake0 = [];
+    this.bake1 = [];
     this.prevQ = g.quality;
     if (quality && quality !== g.quality) g.setQuality(quality);
     this.headless = Boolean(opts.headless);
@@ -315,13 +388,14 @@ export class Benchmark {
   }
 
   _progress() {
-    const S = SEGMENTS[this.seg];
+    const P = this.plan,
+      S = P[this.seg];
     if (!S || !this.el) return;
-    const total = SEGMENTS.reduce((a, s) => a + s.time + WARM, 0);
+    const total = P.reduce((a, s) => a + s.time + WARM, 0);
     let done = this.t;
-    for (let i = 0; i < this.seg; i++) done += SEGMENTS[i].time + WARM;
+    for (let i = 0; i < this.seg; i++) done += P[i].time + WARM;
     const warm = this.t < WARM;
-    const txt = `📊 效能測試 · ${S.name}${warm ? '（暖機）' : ''}　${this.seg + 1}/${SEGMENTS.length}`;
+    const txt = `📊 效能測試 · ${S.name}${warm ? '（暖機）' : ''}　${this.seg + 1}/${P.length}`;
     const segEl = $('benchSeg');
     if (segEl.textContent !== txt) segEl.textContent = txt;
     $('benchBar').style.width = `${Math.min(100, (100 * done) / total).toFixed(1)}%`;
@@ -330,8 +404,9 @@ export class Benchmark {
   // GameLoop calls this instead of the title camera while state === 'bench'
   update(dt) {
     const g = this.game,
-      S = SEGMENTS[this.seg],
-      R = this._routes[this.seg];
+      S = this.plan[this.seg],
+      R = this.planRoutes[this.seg];
+    if (this.bake0[this.seg] == null) this.bake0[this.seg] = g.skySys?.bakeCount ?? 0;
     // the route runs on wall-clock time (the loop's dt is capped at 50 ms, so a slow machine would take far longer)
     const now = performance.now();
     if (!this.headless && (document.hidden || this._tabHidden)) {
@@ -346,7 +421,8 @@ export class Benchmark {
     const run = Math.max(0, this.t - WARM) / S.time; // 0..1 through the measured part
     g.clock = S.clock;
     if (S.kind === 'street' && R) {
-      const u = Math.min(1, (run * S.time * SPEED) / R.len),
+      const speed = Math.max(SPEED, R.len / S.time),
+        u = Math.min(1, (run * S.time * speed) / R.len),
         ahead = Math.min(1, u + 22 / R.len);
       const p = R.curve.getPointAt(u),
         a = R.curve.getPointAt(ahead);
@@ -376,7 +452,9 @@ export class Benchmark {
       this.t = 0;
       this._warmFrames = 0;
       this._lookS = null;
-      if (this.seg >= SEGMENTS.length) this.finish();
+      this.bake1 = this.bake1 || [];
+      this.bake1[this.seg - 1] = g.skySys?.bakeCount ?? 0;
+      if (this.seg >= this.plan.length) this.finish();
     }
   }
 
@@ -442,7 +520,7 @@ export class Benchmark {
       rec = this.rec;
     const quality = g.quality;
     const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
-    const segs = SEGMENTS.map((s, i) => {
+    const segs = this.plan.map((s, i) => {
       const idx = [];
       rec.seg.forEach((k, j) => k === i && idx.push(j));
       const pick = (arr) => idx.map((j) => arr[j]);
@@ -452,6 +530,8 @@ export class Benchmark {
         ...frameSummary(pick(rec.dt), pick(rec.cpu), pick(rec.logic), pick(rec.render)),
         calls: avg(pick(rec.calls)),
         tris: avg(pick(rec.tris)),
+        envBakeCount: (this.bake1?.[i] ?? 0) - (this.bake0[i] ?? 0),
+        routeM: this.planRoutes[i]?.len ? Math.round(this.planRoutes[i].len) : null,
       };
     });
     const overall = frameSummary(rec.dt, rec.cpu, rec.logic, rec.render);
@@ -471,6 +551,10 @@ export class Benchmark {
       bottleneck: bottleneck(overall),
       verdict: verdict(overall),
       segments: segs,
+      scene: sceneStats(g.scene),
+      envBakeCount: segs.reduce((a, s) => a + (s.envBakeCount || 0), 0),
+      topZones: topZones(g.interiors?.zoneTimes),
+      gfx: g.gfx ? { ...g.gfx } : null,
       calls: avg(rec.calls),
       tris: avg(rec.tris),
       frames: { dt: rec.dt.map((x) => +x.toFixed(2)), seg: rec.seg.slice() },
@@ -610,7 +694,7 @@ export class Benchmark {
         c.fillRect(x0, 0, x1 - x0, H);
         c.fillStyle = '#a9adbf';
         c.font = '11px system-ui,sans-serif';
-        c.fillText(SEGMENTS[seg[start]]?.name || '', x0 + 4, H - 3);
+        c.fillText((this.plan || SEGMENTS)[seg[start]]?.name || '', x0 + 4, H - 3);
         start = i;
       }
     }

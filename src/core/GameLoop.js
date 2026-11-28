@@ -269,6 +269,9 @@ export class GameLoop {
     }
     if (game.state === 'title') this.titleCam(dt);
     else if (game.state === 'bench') game.bench.update(dt);
+    // title / benchmark: furniture culling and night window glow run too (no gameplay side effects), so the
+    // benchmark measures the same scene the player sees
+    if (game.state === 'title' || game.state === 'bench') game.interiors?.updateVisual?.(dt, game);
     else if (game.state === 'play') {
       game._update(dt);
       game.bootDiag?.tickHealthy(dt);

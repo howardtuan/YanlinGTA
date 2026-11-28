@@ -3813,6 +3813,6 @@ export function buildInteriors(
   collision.extra = I;
   I.im = im;
   I.mcd = mcd;
-  I.updaters.push(cullFurniture(I)); // desks, chairs, beds, seats hidden from > 45 m (Kit.furniture)
+  I.visualUpdaters.push(cullFurniture(I)); // desks, chairs, beds, seats hidden from > 45 m (Kit.furniture)
   return I;
 }

@@ -1814,7 +1814,7 @@ export function buildZoneB(I, scene, data, collision) {
 
   k.finish(group);
   scene.add(group);
-  I.updaters.push((dt, g) => {
+  I.visualUpdaters.push((dt, g) => {
     const n = g.night || 0;
     for (const m of glowMats) m.emissiveIntensity = n * 0.35 * m.userData.glow;
   });

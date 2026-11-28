@@ -5,8 +5,9 @@
 // cones and water barriers on the course.
 //
 // The course is built from the real road graph (world.driveNodes): A* between anchor points around the
-// campus, penalising anything that cuts through campus and the narrow lanes (巷 / 弄: 新中北路248巷, 環中東路708巷
-// are too narrow for 8 bikes and the traffic there), then smoothed and sampled every 2 m with a
+// campus, penalising anything that cuts through campus and the narrow lanes (巷 / 弄, e.g. 新中北路248巷 is too narrow
+// for 8 bikes) — except 環中東路708巷 past the 設計系 side gate, kept on purpose as the most 中原 stretch of the course
+// (WANTED_LANES), then smoothed and sampled every 2 m with a
 // corner-speed profile. Rivals ride kinematically along it (progress s + lateral offset), choose a free
 // lane when something is ahead and brake when nothing is free.
 import * as THREE from 'three';
@@ -22,6 +23,7 @@ import { canvasTexture, uploadAndRelease } from '../../graphics/GpuMemLifecycle.
 const _ax = new THREE.Vector3();
 const LAPS = 1,
   PLAYER_SLOT = 5;
+const WANTED_LANES = new Set(['環中東路708巷']); // lanes the course takes on purpose (not penalised)
 const OFF_BIKE_SEC = 30; // off your own bike longer than this (a crash, walking back to it) -> out of the race // 0-based grid slot -> you start 6th of 8
 const DS = 2; // course sample spacing (m)
 const RIVALS = [
@@ -86,7 +88,11 @@ function buildCourse(world, data, startNear) {
         const pen =
           (poly && pointInPoly(mx, mz, poly) ? 40 : 1) *
           (e.road.type === 'service' ? 1.15 : 1) *
-          (e.road.name ? (/[巷弄]/.test(e.road.name) ? 8 : 1) : 3);
+          (e.road.name
+            ? /[巷弄]/.test(e.road.name) && !WANTED_LANES.has(e.road.name)
+              ? 8
+              : 1
+            : 3);
         const ng = g.get(c) + L * pen;
         if (ng < (g.get(e.to) ?? 1e18)) {
           g.set(e.to, ng);
@@ -106,13 +112,13 @@ function buildCourse(world, data, startNear) {
     return path;
   };
   // 力行大樓 on 新中北路 -> west to 實踐路 -> north to 中北路 -> east to the main gate (校門口) -> 大仁街 ->
-  // 大仁二街 -> 實踐路 north-east -> 環中東路 -> back onto 新中北路 (no 新中北路248巷 / 環中東路708巷: too narrow)
+  // 大仁二街 -> 環中東路708巷 (設計系 side gate) -> 環中東路 -> back onto 新中北路 (no 新中北路248巷: too narrow)
   const A = [
     near(startNear.x, startNear.z),
     near(-345, -55), // 實踐路, just north of 新中北路
     near(-220, 90), // 中北路 at the main gate / 大仁街
     near(-100, 236), // 大仁街
-    near(60, 495), // north-east end of 實踐路, then down 環中東路 (a divided road: no anchor on it)
+    near(161, 283), // 環中東路708巷, then down 環中東路 (a divided road: no anchor on it)
     near(71, -101), // 新中北路
   ];
   const nodes = [],
@@ -600,7 +606,7 @@ export class Race {
         ['報名處 學長', '歡迎來到新中北路障礙賽！騎自己的車繞中原大學外圍 1 圈，8 台車一起比。'],
         [
           '報名處 學長',
-          '路線：新中北路 → 實踐路 → 中北路到校門口 → 大仁街 → 實踐路 → 環中東路，再繞回這裡。小地圖上的粉紅線就是賽道。',
+          '路線：新中北路 → 實踐路 → 中北路到校門口 → 大仁街 → 環中東路708巷（設計系小門）→ 環中東路，再繞回這裡。小地圖上的粉紅線就是賽道。',
         ],
         [
           '報名處 學長',

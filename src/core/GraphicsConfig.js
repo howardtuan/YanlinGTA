@@ -340,3 +340,16 @@ export function reloadPending(built, wanted) {
   if (!built || !wanted) return [];
   return RELOAD_KEYS.filter((k) => built[k] !== wanted[k]);
 }
+
+/**
+ * 自動調畫質 and dynamic resolution thresholds per device (src/core/PerfProfile.js), read by GameLoop:
+ *   downFps    two 3 s windows in a row under this -> one level down
+ *   upFps      12 s in a row at or above this (and >= 15 s since the last change) -> one level up
+ *   drsDownFps a 2 s window under this -> pixel ratio -0.1 (not below dprMin)
+ *   drsUpFps   at or above this with 6 s since the last change -> pixel ratio +0.05 (not above dprCap)
+ * Phones run against a 30 fps target, desktops against 60.
+ */
+export const AUTO_TUNING = Object.freeze({
+  mobile: Object.freeze({ downFps: 20, upFps: 29, drsDownFps: 24, drsUpFps: 29 }),
+  desktop: Object.freeze({ downFps: 25, upFps: 55, drsDownFps: 45, drsUpFps: 57 }),
+});

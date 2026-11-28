@@ -216,7 +216,7 @@ export function formatPrPerfSection(record) {
     `| 記憶體 (RAM) | \`${fmt(hw.ram, ' GB')}\` |`,
     `| 瀏覽器 / 引擎 | \`${hw.browser || '-'}\` |`,
     `| 真實 WebGL GPU | \`${hw.gpu || '-'}\`${gpuWarn} |`,
-    `| 模擬裝置與畫質 | \`${hw.profile || '-'} · tier=${hw.tier || '-'} · ${hw.q || '-'}\`（${vsyncTxt}） |`,
+    `| 模擬裝置與畫質 | \`${hw.profile || '-'} · device=${hw.tier || '-'} · ${hw.q || '-'}\`（${vsyncTxt}） |`,
     '',
     '### iPhone 記憶體與載入帳本（跨機器通用指標）',
     '',

@@ -190,7 +190,7 @@ class Game {
     ]);
     loadTerrain(terrain);
     this.data = data;
-    this.quality = resolveQuality(this.settings.quality, this.settings);
+    this.quality = resolveQuality(this.settings.quality, this.settings, this.perfProfile);
     // display settings (src/core/GraphicsConfig.js): preset < player overrides < URL flags
     this._gfxOpts = { url: parseUrlFlags(location.search) };
     this.gfx = this.resolveGfx();

@@ -2,84 +2,84 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { Nano } from '../ui/phone/Nano.js';
 import { saveSettings } from '../systems/AudioSystem.js';
-import { QUALITY, Q_NAME } from './GraphicsConfig.js';
+import { QUALITY, Q_NAME, AUTO_TUNING } from './GraphicsConfig.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
-const isTouch = () =>
-  matchMedia('(pointer: coarse)').matches ||
-  (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
 
-// quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high' | 'ultra'. auto never goes above medium (high only when the
-// player picks it): integrated / mobile GPUs and 4-core machines -> low, everything else -> medium; it steps down
-// at runtime when the frame rate stays low (_autoQuality), as far as xlow (超低).
+// quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high' | 'ultra'. 'auto' starts at the level the last
+// session settled on (settings.autoQ) or the device's first-start level (PerfProfile defaultQuality: mobile low,
+// desktop medium) and then moves one level at a time with the frame rate (autoQuality), never above the device's
+// autoMaxQuality (mobile high, desktop ultra).
 // What each level draws is declared in src/core/GraphicsConfig.js (PRESETS, the display settings SSOT); the player
 // can override single settings on top (game.applyDisplaySettings). game.gfx is the resolved configuration.
-export { QUALITY };
-let _gpuGuess = null;
-export function guessGpu() {
-  if (_gpuGuess) return _gpuGuess;
-  let name = '';
-  // same GPU the game will use: on dual-GPU laptops the default context may be the integrated one
-  try {
-    const gl = document
-      .createElement('canvas')
-      .getContext('webgl', { powerPreference: 'high-performance' });
-    const d = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    name = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : '';
-    gl?.getExtension('WEBGL_lose_context')?.loseContext();
-  } catch (_e) {}
-  // laptop / entry GPUs: AMD APUs ("Radeon 780M Graphics"), GeForce MX; an unreadable name counts as weak too
-  // (the newer integrated GPUs below are not, see strong)
-  const weak =
-    !name ||
-    /intel|uhd|iris|hd graphics|swiftshader|llvmpipe|software|microsoft basic|mali|adreno|powervr|apple gpu|radeon\(tm\) graphics|radeon graphics|radeon(\(tm\))? \d{3,4}m\b|vega \d|geforce mx|\bmx ?\d{3}\b/i.test(
-      name
-    );
-  // a newer integrated GPU (Apple M, Intel Iris Xe, Radeon 680M / 780M / 880M) runs the lighter medium (no MSAA,
-  // quarter-size bloom: src/graphics/PostFX.js) well; the old Intel UHD / HD office ones stay on low
-  const newIgpu = /apple m\d|iris\(r\)? xe|iris xe|radeon(\(tm\))? ?[678]\d0m\b/i.test(name);
-  const strong =
-    newIgpu ||
-    (!/geforce mx|\bmx ?\d{3}\b/i.test(name) &&
-      /nvidia|geforce|rtx|gtx|quadro|radeon rx|radeon pro|arc(\(tm\))? a\d/i.test(name));
-  const cores = navigator.hardwareConcurrency || 4;
-  // a dedicated card (e.g. Intel Arc) is not 'weak' even though its name says Intel; auto stops at medium
-  return (_gpuGuess = isTouch() ? 'low' : !strong && (weak || cores <= 4) ? 'low' : 'medium');
-}
+export { QUALITY, Q_NAME };
+
+const tuning = (device) => AUTO_TUNING[device] || AUTO_TUNING.desktop;
+const qIdx = (q) => QUALITY.indexOf(q);
 
 // auto quality state machine (pure, unit-tested: tests/unit/auto-quality.test.js)
-export const AUTOQ_FPS = 20,
-  AUTOQ_WINDOW_MS = 3000,
-  AUTOQ_WINDOWS = 2;
-export const newAutoQ = () => ({ t: 0, sum: 0, n: 0, warm: 0, low: 0 });
-export const autoQualityActive = (settings, quality) =>
-  (settings?.quality || 'auto') === 'auto' &&
-  !(settings?.gfx && Object.keys(settings.gfx).length) &&
-  quality !== 'xlow';
-// feed one frame; returns the fps that calls for a step down (null otherwise)
-export function autoQualityStep(A, frameMs) {
+export const AUTOQ_WINDOW_MS = 3000,
+  AUTOQ_WINDOWS = 2, // slow windows in a row before a step down
+  AUTOQ_UP_MS = 12000, // steady good frames before a step up
+  AUTOQ_UP_GAP_MS = 15000; // and at least this long since the last change
+export const newAutoQ = () => ({
+  t: 0,
+  sum: 0,
+  n: 0,
+  warm: 0,
+  low: 0,
+  good: 0,
+  since: 0,
+  ceil: null, // the highest level this session may climb back to (a level it dropped from is not tried again)
+});
+// only in pure 自動: quality 'auto' and no ⚙ 細部顯示設定 of the player's own
+export const autoQualityActive = (settings) =>
+  (settings?.quality || 'auto') === 'auto' && !(settings?.gfx && Object.keys(settings.gfx).length);
+// feed one frame; returns { dir: -1 | 1, fps } when the frame rate calls for a step (null otherwise)
+export function autoQualityStep(A, frameMs, tune = AUTO_TUNING.desktop) {
   if (!(frameMs > 0) || frameMs > 250) return null; // tab was in the background
   if ((A.warm += frameMs) < AUTOQ_WINDOW_MS) return null;
+  A.since += frameMs;
   A.t += frameMs;
   A.sum += frameMs;
   A.n++;
   if (A.t < AUTOQ_WINDOW_MS) return null;
-  const fps = 1000 / (A.sum / A.n);
+  const win = A.t,
+    fps = 1000 / (A.sum / A.n);
   A.t = A.sum = A.n = 0;
-  if (fps >= AUTOQ_FPS) {
-    A.low = 0;
+  if (fps < tune.downFps) {
+    A.good = 0;
+    if (++A.low < AUTOQ_WINDOWS) return null;
+    A.low = A.since = 0;
+    A.warm = 0; // the new level gets its own warm-up
+    return { dir: -1, fps };
+  }
+  A.low = 0;
+  if (fps < tune.upFps) {
+    A.good = 0;
     return null;
   }
-  if (++A.low < AUTOQ_WINDOWS) return null;
-  A.low = 0;
-  A.warm = 0; // the new level gets its own warm-up
-  return fps;
+  if ((A.good += win) < AUTOQ_UP_MS || A.since < AUTOQ_UP_GAP_MS) return null;
+  A.good = A.since = 0;
+  A.warm = 0;
+  return { dir: 1, fps };
+}
+// the level one step from q (null when there is none): never above maxQ nor above the session ceiling A.ceil;
+// a step down makes the level it left the session's ceiling minus one (no see-sawing back up to it)
+export function autoQualityNext(A, q, dir, maxQ = 'ultra') {
+  const i = qIdx(q);
+  if (i < 0) return null;
+  if (dir < 0) {
+    if (i === 0) return null;
+    A.ceil = A.ceil == null ? i - 1 : Math.min(A.ceil, i - 1);
+    return QUALITY[i - 1];
+  }
+  const top = Math.min(qIdx(maxQ) < 0 ? QUALITY.length - 1 : qIdx(maxQ), A.ceil ?? Infinity);
+  return i + 1 <= top ? QUALITY[i + 1] : null;
 }
 
 // dynamic resolution state machine (pure, unit-tested: tests/unit/auto-quality.test.js)
 export const DRS_WINDOW_MS = 2000,
-  DRS_DOWN_FPS = 45,
-  DRS_UP_FPS = 57,
   DRS_DOWN = 0.1,
   DRS_UP = 0.05,
   DRS_UP_HOLD_MS = 6000; // after any change, wait this long before stepping up again (no see-sawing)
@@ -91,7 +91,7 @@ export const drsActive = (game) =>
   !(game.settings?.gfx && 'dprCap' in game.settings.gfx) &&
   !(game._gfxOpts?.url && 'dprCap' in game._gfxOpts.url);
 // feed one frame; returns the new scale when it changes (null otherwise)
-export function drsStep(D, frameMs, min, cap) {
+export function drsStep(D, frameMs, min, cap, tune = AUTO_TUNING.desktop) {
   if (!(frameMs > 0) || frameMs > 250) return null;
   D.since += frameMs;
   if ((D.warm += frameMs) < AUTOQ_WINDOW_MS) return null;
@@ -102,18 +102,23 @@ export function drsStep(D, frameMs, min, cap) {
   const fps = 1000 / (D.sum / D.n);
   D.t = D.sum = D.n = 0;
   let next = D.scale;
-  if (fps < DRS_DOWN_FPS) next = Math.max(min, D.scale - DRS_DOWN);
-  else if (fps > DRS_UP_FPS && D.since >= DRS_UP_HOLD_MS) next = Math.min(cap, D.scale + DRS_UP);
+  if (fps < tune.drsDownFps) next = Math.max(min, D.scale - DRS_DOWN);
+  else if (fps >= tune.drsUpFps && D.since >= DRS_UP_HOLD_MS)
+    next = Math.min(cap, D.scale + DRS_UP);
   next = Math.round(next * 100) / 100;
   if (next === D.scale) return null;
   D.since = 0;
   return next;
 }
 
-// 'auto': the level an earlier session stepped down to (settings.autoQ, _autoQuality) or the GPU guess
-export const resolveQuality = (q, s) =>
-  QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu();
-export { Q_NAME };
+// 'auto': the level an earlier session settled on (settings.autoQ, never above the device's autoMaxQuality) or the
+// device's first-start level
+export function resolveQuality(q, s, profile = {}) {
+  if (QUALITY.includes(q)) return q;
+  const def = QUALITY.includes(profile.defaultQuality) ? profile.defaultQuality : 'low';
+  const max = qIdx(profile.autoMaxQuality) >= 0 ? qIdx(profile.autoMaxQuality) : QUALITY.length - 1;
+  return QUALITY.includes(s?.autoQ) ? QUALITY[Math.min(qIdx(s.autoQ), max)] : def;
+}
 
 export class GameLoop {
   constructor(game) {
@@ -150,7 +155,7 @@ export class GameLoop {
     if (!drsActive(game) || document.hidden) return;
     const G = game.gfx;
     const D = game._drs && game._drs.cap === G.dprCap ? game._drs : (game._drs = newDrs(G.dprCap));
-    const next = drsStep(D, frameMs, G.dprMin, G.dprCap);
+    const next = drsStep(D, frameMs, G.dprMin, G.dprCap, tuning(game.perfProfile?.device));
     if (next == null) return;
     const before = this.game.renderer.getPixelRatio();
     D.scale = next;
@@ -218,24 +223,36 @@ export class GameLoop {
     this.applyQuality();
   }
 
-  // auto quality (only in pure 自動: quality 'auto' and no ⚙ 細部顯示設定 of the player's own): after a 3 s warm-up,
-  // step down one level when TWO 3 s windows in a row average under 20 fps (phones capped at 30 fps, a corner or a GC
-  // pause don't trip it). The step is remembered in settings.autoQ; picking 自動 again in the settings clears it.
+  // auto quality (only in pure 自動: quality 'auto' and no ⚙ 細部顯示設定 of the player's own), against the device's
+  // target (GraphicsConfig AUTO_TUNING: phones 30 fps, desktops 60): after a 3 s warm-up, one level down when TWO 3 s
+  // windows in a row are slow; one level up after 12 s of steady good frames, 15 s after the last change, never above
+  // perfProfile.autoMaxQuality nor back to a level this session dropped from. Every step is saved in settings.autoQ,
+  // so the next load starts there with that level's reload-only settings (materials, MSAA, crowds); picking 自動
+  // again in the settings clears it.
   autoQuality(frameMs) {
     const game = this.game;
-    if (!autoQualityActive(game.settings, game.quality) || document.hidden) return;
-    // dynamic resolution goes first: the level (view distance, crowds) only steps down once it is at its floor
-    if (drsActive(game) && game._drs && game._drs.scale > game.gfx.dprMin + 1e-3) return;
+    if (!autoQualityActive(game.settings) || document.hidden) return;
     const A = game._aq || (game._aq = newAutoQ());
-    const fps = autoQualityStep(A, frameMs);
-    if (fps == null) return;
-    const next = QUALITY[Math.max(0, QUALITY.indexOf(game.quality) - 1)];
+    const drs = drsActive(game) && game._drs;
+    // dynamic resolution goes first: the level (view distance, crowds) only steps down once it is at its floor,
+    // and only steps up once it is back at its cap
+    if (drs && game._drs.scale > game.gfx.dprMin + 1e-3 && game._drs.scale < game.gfx.dprCap - 1e-3)
+      return;
+    const step = autoQualityStep(A, frameMs, tuning(game.perfProfile?.device));
+    if (!step) return;
+    if (drs && step.dir < 0 && game._drs.scale > game.gfx.dprMin + 1e-3) return;
+    if (drs && step.dir > 0 && game._drs.scale < game.gfx.dprCap - 1e-3) return;
+    const next = autoQualityNext(A, game.quality, step.dir, game.perfProfile?.autoMaxQuality);
+    if (!next) return;
     this.setQuality(next);
-    // remember it: the next load starts at this level (with its lighter world, crowds and no MSAA)
     game.settings.autoQ = next;
     saveSettings(game.settings);
+    const why =
+      step.dir < 0
+        ? `偵測到畫面不夠順（${Math.round(step.fps)} fps），畫質自動調成「${Q_NAME[next]}」`
+        : `畫面很順（${Math.round(step.fps)} fps），畫質自動調高成「${Q_NAME[next]}」`;
     game.hud.toast(
-      `偵測到畫面不夠順（${Math.round(fps)} fps），畫質自動調成「${Q_NAME[next]}」，下次開啟會直接用這個畫質；到設定再點一次「自動」可重新偵測`,
+      `${why}，下次開啟會直接用這個畫質；到設定再點一次「自動」可重新偵測`,
       'good',
       4200
     );

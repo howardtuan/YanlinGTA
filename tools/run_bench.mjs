@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Cross-platform (Mac M-series Metal & Linux NVIDIA/AMD/Intel GPU) automated runner for the
 // in-game ~155-second Benchmark (src/systems/Benchmark.js), defaulting to iPhone simulation
-// (430x932@3x, tier=mobile-lite). Outputs bench-report.json, ready-to-attach PR Markdown
+// (430x932@3x, ?device=mobile). Outputs bench-report.json, ready-to-attach PR Markdown
 // (pr-perf-section.md + <!-- yanlin-perf:v1 -->), and updates tools/.cache/perf-history.jsonl.
 //
 //   node tools/run_bench.mjs [--desktop] [--quality=low] [--engine=chrome|webkit]
@@ -36,9 +36,10 @@ const arg = (k, d = '') => {
 
 if (flag('help') || flag('h')) {
   console.log(`node tools/run_bench.mjs [options]
-  (default)             iPhone simulation (430x932 @3x, touch, tier=mobile-lite) on hardware GPU
-  --desktop             switch to desktop viewport (1280x720 @1x)
-  --quality=low         benchmark quality: ultra | low | medium | high (default: low)
+  (default)             iPhone simulation (430x932 @3x, touch, ?device=mobile) on hardware GPU
+  --desktop             switch to desktop viewport (1280x720 @1x, ?device=desktop)
+  --quality=low         benchmark quality: xlow | low | medium | high | ultra
+                        (default: the device's first-start level, low on mobile / medium on desktop)
   --engine=chrome|webkit browser engine (default: chrome; webkit uses Playwright WebKit on Mac)
   --vsync               keep display vsync cap (default: uncapped in Chrome to measure true headroom)
   --swiftshader         allow CPU software WebGL (only for debugging; FPS is not representative)
@@ -301,7 +302,7 @@ try {
     return window.game.bench.start(${JSON.stringify(quality)}, { headless: true });
   })()`);
   if (!started) throw new Error('window.game.bench.start() returned false');
-  say(`running in-game Benchmark (quality=${quality}, tier=${bootInfo.tier})...`);
+  say(`running in-game Benchmark (quality=${quality}, device=${bootInfo.tier})...`);
 
   const tBench = Date.now();
   let lastSegTxt = '';

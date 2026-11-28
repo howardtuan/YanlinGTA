@@ -395,7 +395,7 @@ export class MenuManager {
       `<button data-music="${v}" class="${s.music === v ? 'on' : ''}">${t}</button>`;
     const q = (v, t) =>
       `<button data-q="${v}" class="${(s.quality || 'auto') === v ? 'on' : ''}">${t}</button>`;
-    const qNow = resolveQuality(s.quality, s);
+    const qNow = resolveQuality(s.quality, s, this.game.perfProfile);
     const full = !!document.fullscreenElement;
     const pf = (v, t) =>
       `<button data-perf="${v}" class="${(s.perfHud || 'off') === v ? 'on' : ''}">${t}</button>`;
@@ -513,7 +513,7 @@ export class MenuManager {
         save();
         for (const o of document.querySelectorAll('#setQuality button'))
           o.classList.toggle('on', o === b);
-        const qn = resolveQuality(s.quality, s);
+        const qn = resolveQuality(s.quality, s, game.perfProfile);
         // sky, shadows, bloom / colour grade and lamp lights switch now
         game.setQuality(qn);
         game.applyDisplaySettings({});
@@ -590,8 +590,9 @@ export class MenuManager {
     const game = this.game;
     // the reload-only settings (MSAA, materials, crowds) are chosen at load time
     const pending = reloadPending(game.gfxBuilt, game.gfx).length > 0;
-    const custom = isCustom(q, game.settings.gfx);
-    return `目前：${Q_NAME[q]}畫質${custom ? '（自訂）' : ''}（自動＝最高用到中：內建顯示晶片、手機用低；連續 6 秒低於 20 fps 才會往下調，最低到超低；${game.settings.autoQ ? '這是之前自動調降的結果，再點一次「自動」可重新偵測；' : ''}自訂過細部設定就不再自動調整；要高畫質請自己選「高」）${pending ? '・部分設定在重新整理後套用' : ''}`;
+    const custom = isCustom(q, game.settings.gfx),
+      mob = game.perfProfile?.device === 'mobile';
+    return `目前：${Q_NAME[q]}畫質${custom ? '（自訂）' : ''}（自動＝${mob ? '手機從低開始，最高調到高；連續 6 秒低於 20 fps 降一階，穩定 12 秒達 29 fps 升一階' : '電腦從中開始，最高調到極致；連續 6 秒低於 25 fps 降一階，穩定 12 秒達 55 fps 升一階'}，最低到超低；${game.settings.autoQ ? '這是之前自動調整的結果，再點一次「自動」可重新偵測；' : ''}自訂過細部設定就不再自動調整）${pending ? '・部分設定在重新整理後套用' : ''}`;
   }
 
   openSettings() {

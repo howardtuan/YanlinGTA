@@ -170,7 +170,7 @@ sequenceDiagram
         Loop->>Loop: accumulator -= 1/60
     end
     Loop->>Logic: 更新角色、車流、任務、相機與室內距離剔除
-    Loop->>Loop: autoQuality() 監測 3 秒區間 FPS 動態調降畫質
+    Loop->>Loop: autoQuality() 監測 3 秒區間 FPS 逐階升降畫質
     alt 電腦桌面 (pc.isOpen) 或全螢幕影片 (videoOpen) 開啟中
         Loop-->>RAF: 略過 3D 渲染（防止打字與影片掉幀）
     else 武嶺翻車影片或 277 麻將桌進行中
@@ -180,10 +180,20 @@ sequenceDiagram
     end
 ```
 
-1. **動態畫質調頻（`GameLoop.autoQuality`）**：
-   - 畫質設為「自動」時，初始等級由 `guessGpu()` 決定：觸控裝置、舊款 Intel UHD / HD 或 `<= 4` 核裝置預設 `low`；Apple M 系列、Iris Xe、Radeon 680M/780M/880M 與獨顯預設 `medium`（`high` 僅在玩家手動選擇時啟用）。
-   - 遊玩時先暖機 **3 秒**，之後每 **3 秒** 計算平均幀率；**連續 2 個 3 秒視窗**平均皆 `< 20 FPS`（任一視窗 `>= 20` 即重置）才自動降一級（`medium` → `low` → `xlow`），手機 30 FPS 上限或單次 GC 卡頓不會誤降；降級寫入 `settings.autoQ` 供下次開啟沿用，設定選單再點一次「自動」即清除並重新偵測，降級後重新暖機 3 秒。**只在純自動模式生效**：畫質為「自動」且沒有 `settings.gfx` 自訂細項（`autoQualityActive` / `autoQualityStep`，`tests/unit/auto-quality.test.js`）。
-   - **動態解析度（DRS，`low` / `xlow`，#438）**：遊玩中每 **2 秒**看一次平均幀率，`< 45 FPS` 像素比降 `0.1`（不低於 `dprMin`），`> 57 FPS` 且距上次調整 `>= 6 秒` 才回升 `0.05`（不高於 `dprCap`），避免來回跳動；`autoQuality` 只在 DRS 已降到下限後才調降檔位（先犧牲解析度、不先砍視距與人車）。`drsActive` / `drsStep` 為純函式並有單元測試。標題畫面與 benchmark 不啟用（benchmark 以 `dprCap` 量測）。
+1. **漸進式自動調畫質（`GameLoop.autoQuality`，#463）**：
+   - **起始檔位**（`resolveQuality`）：手動選的檔位 → 前次自動調整記住的 `settings.autoQ`（不超過裝置的 `autoMaxQuality`）→ 裝置首次預設 `perfProfile.defaultQuality`（`mobile → low`、`desktop → medium`）。不讀 GPU 名稱。
+   - **只在純自動模式介入**：畫質為「自動」且沒有 `settings.gfx` 自訂細項（`autoQualityActive`）。
+   - **分裝置門檻**（`GraphicsConfig.js` `AUTO_TUNING`）：遊玩中先暖機 **3 秒**，之後每 **3 秒**算一次平均幀率。
+
+     | 裝置 | 目標 | 降一階 | 升一階 | DRS 降 `0.1` | DRS 升 `0.05` |
+     | :--- | :---: | :--- | :--- | :--- | :--- |
+     | `mobile` | 30 FPS | 連續 2 個視窗 `< 20 FPS` | 連續穩定 12 秒 `>= 29 FPS`，且距上次調整 `>= 15 秒`，上限 `high` | 2 秒視窗 `< 24 FPS` | `>= 29 FPS` 且距上次調整 `>= 6 秒` |
+     | `desktop` | 60 FPS | 連續 2 個視窗 `< 25 FPS` | 連續穩定 12 秒 `>= 55 FPS`，且距上次調整 `>= 15 秒`，上限 `ultra` | 2 秒視窗 `< 45 FPS` | `>= 57 FPS` 且距上次調整 `>= 6 秒` |
+
+   - **防震盪**：每次只移動 1 階（`autoQualityNext`）；本次工作階段曾因掉幀離開的檔位記為當次上限，不再升回去；每次調整後重新暖機。
+   - **跨工作階段漸進**：每次升降檔寫入 `settings.autoQ`，下次重整直接以該檔位啟動，連帶套用它的重整類設定（`materialMode`、`antialias`、`crowdTier`）。設定選單再點一次「自動」即清除並重新從裝置預設開始。
+   - **動態解析度（DRS，`dynRes` 開啟的 `xlow` / `low`）**：每 **2 秒**依上表門檻調整像素比（`dprMin`～`dprCap`）；自動調畫質只在 DRS 已降到下限後才降檔、回到上限後才升檔（先調解析度，不先動視距與人車）。標題畫面與 benchmark 不啟用（benchmark 以 `dprCap` 量測）。
+   - `autoQualityStep` / `autoQualityNext` / `drsStep` / `resolveQuality` 為純函式，`tests/unit/auto-quality.test.js` 覆蓋兩種裝置的升降檔、防震盪上限、DRS 門檻與純自動條件；`tests/arch/no-legacy-gfx.test.js` 靜態掃描 `src/`、`tools/` 確保舊畫質符號不再出現。
 2. **四級效能監控浮層（`src/core/PerfHud.js`）**：
    - 設定選單可選 `關閉`／`簡易`（僅色標 FPS）／`詳細`（1% 低幀、最慢幀、JS 主執行緒負載 %、Chromium JS Heap、Draw Calls、Triangles）／`開發者`（細分邏輯／物理／繪製耗時、紋理與幾何數、著色器數、實體與剛體數、硬體檔位、座標區域與 GPU 名稱）；網址帶 `?perf` 強制以開發者模式顯示（不改存檔）。關閉時完全不執行量測。
 3. **渲染與著色器最佳化契約**：

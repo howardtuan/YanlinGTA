@@ -8953,9 +8953,10 @@ body.mahjong #dialog {
   opacity: 0.9;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
+/* 跟著畫面大小：手機橫放約 112px、筆電約 130px、大螢幕最大 144px（圖檔 256px，Retina 也不糊） */
 #mjUI .mj-bubble.sticker img {
-  width: 96px;
-  height: 96px;
+  width: clamp(112px, 17vmin, 144px);
+  height: clamp(112px, 17vmin, 144px);
   display: block;
   transform-origin: 50% 85%;
   animation: mj-sticker-pop 0.25s ease-out;

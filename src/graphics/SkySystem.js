@@ -96,6 +96,8 @@ void main() {
 
 const C = (h) => new THREE.Color(h);
 const lerp = (a, b, t) => a + (b - a) * t;
+// 'hemi' environment mode: the hemisphere light stands in for the sky IBL's diffuse share
+const HEMI_BOOST = 1.6;
 
 export class SkySystem {
   constructor(scene, renderer, quality) {
@@ -136,6 +138,9 @@ export class SkySystem {
     this.envRT = null;
     this._envKey = null;
     this._envT = 0;
+    // 'pmrem': the sky is baked into scene.environment (IBL) and re-baked as it changes; 'hemi': no environment
+    // map at all, the hemisphere light (a bit stronger) is the only ambient light (src/core/GraphicsConfig.js envLight)
+    this.envMode = 'pmrem';
 
     this.hemi = new THREE.HemisphereLight('#bcd4ff', '#4d4636', 0.5);
     scene.add(this.hemi);
@@ -232,7 +237,7 @@ export class SkySystem {
         .lerp(C('#4a5c90'), night)
     );
     this.hemi.groundColor.copy(C('#5a5242').lerp(C('#1a1a22'), night));
-    this.hemi.intensity = lerp(0.55, 0.32, night);
+    this.hemi.intensity = lerp(0.55, 0.32, night) * (this.envMode === 'hemi' ? HEMI_BOOST : 1);
     // shadow frustum follows the focus point, snapped to shadow texels (no shimmering)
     if (focus) {
       const L = this._L.copy(lightDir).normalize();
@@ -251,7 +256,8 @@ export class SkySystem {
       this.sun.position.set(cx + L.x * 260, cy + L.y * 260, cz + L.z * 260);
       this.sun.target.updateMatrixWorld();
     }
-    // re-bake the environment map when the sky changed enough (throttled)
+    // re-bake the environment map when the sky changed enough (throttled); never in 'hemi' mode
+    if (this.envMode === 'hemi') return;
     this._envT -= dt;
     const key = `${Math.round(elev * 60)}:${Math.round(night * 30)}:${Math.round(sunset * 20)}`;
     if (key !== this._envKey && this._envT <= 0) {
@@ -260,7 +266,20 @@ export class SkySystem {
       this.bakeEnv();
     }
   }
+  setEnvMode(mode) {
+    const m = mode === 'hemi' ? 'hemi' : 'pmrem';
+    if (m === this.envMode) return;
+    this.envMode = m;
+    if (m === 'hemi') {
+      this.scene.environment = null;
+      if (this.envRT) this.envRT.dispose();
+      this.envRT = null;
+    }
+    this._envKey = null; // pmrem: bake on the next update
+    this._envT = 0;
+  }
   bakeEnv() {
+    if (this.envMode === 'hemi') return;
     const U = this.uniforms;
     const ex = U.envScale.value,
       hb = U.horizonBlend.value;

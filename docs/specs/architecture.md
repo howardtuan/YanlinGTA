@@ -110,7 +110,28 @@ flowchart TD
 | `desktop-igpu` | Apple M 系列、Intel Iris / UHD / HD、AMD Radeon 內顯、GeForce MX、軟體渲染或未知 GPU | `0.75` | `2048 × 2048` |
 | `desktop-dgpu` | NVIDIA GTX / RTX / Quadro、Radeon RX / Pro、Intel Arc A/B 系列獨顯 | `1.0` | `2048 × 4096` |
 
-> **單一畫質職責邊界**：`PerfProfile` 僅管轄貼圖縮放、圖集尺寸與診斷旗標；視覺畫質（視距 `far`、霧濃度 `fog`、像素比 `pr`、陰影、後製 `PostFX`）統一由 `GameLoop.js` 的 `QPROF` 單一持有。
+> **單一畫質職責邊界**：`PerfProfile` 僅管轄貼圖縮放、圖集尺寸與診斷旗標；所有視覺／顯示設定統一由 `src/core/GraphicsConfig.js` 單一持有（見下節）。`GameLoop.js` 的 `QPROF` 僅為由 `PRESETS` 推導的相容唯讀視圖。
+
+### 1-1. 顯示與畫質設定單一規格 (`src/core/GraphicsConfig.js`)
+四個畫質檔位（`xlow` / `low` / `medium` / `high`）只是**原子顯示設定的宣告式預設表**（`PRESETS`）；遊戲執行期一律讀取解析後的 `game.gfx`。
+
+| 設定鍵 | 生效時機 | 可選值與語意 | `high` / `medium` / `low` / `xlow` 預設 |
+| :--- | :--- | :--- | :--- |
+| `dprCap` | 即時 | 渲染像素比上限 | `1.6` / `1.0` / `0.8` / `0.6` |
+| `shadows` | 即時 | `off`｜`low`（1024、PCF、微小物件不投影）｜`medium`（2048、PCFSoft）｜`high`（4096、PCFSoft、全部投影） | `high` / `medium` / `off` / `off` |
+| `envLight` | 即時 | `hemi`（只用半球光 ×1.6，不建 PMREM 天空環境貼圖、不跑執行期 `bakeEnv()`）｜`pmrem`（天空 IBL＋`lambertSky` 漫射補償） | 全部 `pmrem` |
+| `postFx` | 即時 | `off`｜`bloom-quarter`（1/4 Bloom＋調色）｜`bloom-half-msaa`（4× MSAA＋1/2 Bloom） | `bloom-half-msaa` / `bloom-quarter` / `off` / `off` |
+| `nightLamps` | 即時 | 夜間跟隨最近路燈的 `PointLight` 數（0–8；`desktop-igpu` 最多 2）。調低只把多的燈熄掉不重編 Shader，超過現有燈池才新增 | `8` / `4` / `0` / `0` |
+| `viewScale` / `fogScale` / `far` | 即時 | 人車植栽繪製距離倍率、霧濃度、相機遠平面 | `1/1/2600`、`0.8/1.12/1500`、`0.45/1.6/750`、`0.3/2.4/450` |
+| `materialMode` | 重整 | `lambert`（外牆地面 Lambert、不產生法線／粗糙度貼圖）｜`standard` | `standard` / `standard` / `lambert` / `lambert` |
+| `antialias` | 重整 | WebGL 原生 MSAA | `true` / `true` / `false` / `false` |
+| `crowdTier` | 重整 | `full`｜`low`｜`xlow`：人車、天際線、停車密度與較輕的補建街區（`game.lowQ` / `game.xlowQ` 由此推導） | `full` / `full` / `low` / `xlow` |
+
+- **解析優先序**（`resolveGraphics`）：`畫質檔位預設 < 玩家自訂細項（settings.gfx）< safeMode 安全降階鉗制 < URL 旗標`。safeMode 將 `dprCap` 壓至 `<= 0.8`、關陰影／後製／路燈光源，材質改 `lambert`、關抗鋸齒。
+- **URL 實驗參數**：`?dpr=`、`?shadows=`（`off|low|medium|high`，`0/1`）、`?ibl=`（`hemi|pmrem`，`0/1`）、`?postfx=`（`off|quarter|half`）、`?lamps=`、`?mat=`（`lambert|standard`），另有 `?aa=`、`?view=`、`?fog=`。
+- **執行期熱切換**：`game.applyDisplaySettings(patch, { save })` 合併玩家細項（值為 `null` 表示回到檔位預設）、重新解析並由 `GameLoop.applyDisplay(prev)` 同步更新 `renderer`、`SkySystem`（`setShadowQuality` / `setEnvMode`）、`PostFX`、`MapBuilder`（`world.setLampLights`）；回傳仍待重整的設定鍵。`save: false` 供自動化掃描使用，不寫入玩家存檔。`game.setQuality(q)` 切換檔位預設（保留玩家細項）。
+- **持久化**：玩家細項只存與檔位預設不同的鍵於 `cycu-shun-settings-v2` 的 `gfx` 欄位；舊存檔沒有 `gfx` 即等同純檔位預設。設定選單點選任一畫質檔位會清除 `gfx`（一鍵還原）。
+- **設定選單**：「🖼 畫質」下方可展開「⚙ 細部顯示設定」：清晰度倍率、視距、太陽陰影、環境光反射、後製光暈、夜間路燈光源、材質／抗鋸齒／人車密度／補建街區（標示「重整」）與「還原成畫質檔位預設」；偏離預設時畫質說明顯示「（自訂）」。
 
 ### 2. 啟動檢查點與自癒安全模式 (`src/core/BootDiag.js`)
 為防止行動端在載入階段因記憶體尖峰遭瀏覽器強制重整並陷入無限迴圈，`BootDiag` 將啟動麵包屑持久化於 `localStorage`（金鑰 `yanlinGTA.bootDiag.v1`）：
@@ -161,8 +182,8 @@ sequenceDiagram
    - 設定選單可選 `關閉`／`簡易`（僅色標 FPS）／`詳細`（1% 低幀、最慢幀、JS 主執行緒負載 %、Chromium JS Heap、Draw Calls、Triangles）／`開發者`（細分邏輯／物理／繪製耗時、紋理與幾何數、著色器數、實體與剛體數、硬體檔位、座標區域與 GPU 名稱）；網址帶 `?perf` 強制以開發者模式顯示（不改存檔）。關閉時完全不執行量測。
 3. **渲染與著色器最佳化契約**：
    - **WebGL 初始化**：停用專案未使用的模版緩衝（`stencil: false`）；非開發環境且未帶 `?diag` 時關閉 `renderer.debug.checkShaderErrors` 避免同步 GPU 往返卡頓。
-   - **後製管線（`PostFX.js`）**：`low` / `xlow` 直接渲染至畫面，後製模組於首次升上中高畫質時才動態 `import()`；`medium` 關閉 MSAA 並使用 1/4 解析度 Bloom；`high` 啟用 4× MSAA 與 1/2 Bloom，色調映射與調色合併為單一 Pass。
-   - **隔幀陰影與材質降階**：`low` / `xlow` 預設關閉陰影貼圖；非 `desktop-dgpu` 檔位太陽陰影每兩幀更新一次（額外呼叫 `renderer.render()` 如 `FirstPerson.renderMirrors` 須先保存 `shadowMap.needsUpdate` 並於繪後還原）。`low` / `xlow` 外牆與地面改用 `MeshLambertMaterial` 搭配 `lambertSky()` 天空漫射補償，並跳過法線與粗糙度貼圖生成。
+   - **後製管線（`PostFX.js`）**：`postFx: off`（`low` / `xlow` 預設）直接渲染至畫面，後製模組於首次需要時才動態 `import()`；`bloom-quarter` 關閉 MSAA 並使用 1/4 解析度 Bloom；`bloom-half-msaa` 啟用 4× MSAA 與 1/2 Bloom，色調映射與調色合併為單一 Pass。
+   - **隔幀陰影與材質降階**：`shadows: off`（`low` / `xlow` 預設）關閉陰影貼圖；非 `desktop-dgpu` 檔位太陽陰影每兩幀更新一次（額外呼叫 `renderer.render()` 如 `FirstPerson.renderMirrors` 須先保存 `shadowMap.needsUpdate` 並於繪後還原）。`materialMode: lambert`（`low` / `xlow` 預設）外牆與地面改用 `MeshLambertMaterial` 搭配 `lambertSky()` 天空漫射補償（其 Shader 快取鍵含有無 `scene.environment`，切換 `envLight` 會重編），並跳過法線與粗糙度貼圖生成。
    - **重型子系統按需動態分包（`import()`）**：277 麻將 3D 場景與連線（`MahjongScene.js` / `P2P.js` + `trystero`）、資管學堂課程題庫（`LearnCourses.js`）與地圖外林口體育館（`Arena.js`；純座標票區常數抽離至 `ArenaSpec.js`）皆不進入首屏主包，僅於玩家互動觸發時按需 `import()` 載入；體育館首次建置後透過 `PhysWorld.mountStaticWallsAndSurfaces()` 補掛牆體與看台樓板 Rapier 碰撞器，並以 `flushShared()` 釋放場館靜態畫布。
    - **不透明排序與按需資源**：`RenderSort.js` 依 `groupOrder` $\rightarrow$ `renderOrder` $\rightarrow$ shader program $\rightarrow$ 距離排序以減少狀態切換；第一人稱後照鏡 RenderTarget 與 `localClippingEnabled` 僅在坐進車內時啟用；小地圖僅在位移 `> 0.35m`、轉角 `> 0.02 rad`、縮放變更或逾 `50ms` 時重繪。
 

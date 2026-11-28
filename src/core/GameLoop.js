@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { Nano } from '../ui/phone/Nano.js';
 import { saveSettings } from '../systems/AudioSystem.js';
+import { QUALITY, PRESETS, postFxLevel, shadowLevel } from './GraphicsConfig.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const isTouch = () =>
@@ -11,18 +12,27 @@ const isTouch = () =>
 // quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high'. auto never goes above medium (high only when the
 // player picks it): integrated / mobile GPUs and 4-core machines -> low, everything else -> medium; it steps down
 // at runtime when the frame rate stays low (_autoQuality), as far as xlow (超低).
-// xlow is 'low' for the world, sky, post-processing and trees (subQ) plus its own, harsher profile here.
-export const QUALITY = ['xlow', 'low', 'medium', 'high'];
+// What each level draws is declared in src/core/GraphicsConfig.js (PRESETS, the display settings SSOT); the player
+// can override single settings on top (game.applyDisplaySettings). game.gfx is the resolved configuration.
+export { QUALITY };
 export const subQ = (q) => (q === 'xlow' ? 'low' : q);
 
-// per quality: view distance (m), fog thickness, max pixel ratio, sun shadows
-export const QPROF = {
-  // view: how far pedestrians, traffic and parked vehicles are drawn (x their normal range)
-  high: { far: 2600, fog: 1, pr: 1.6, shadows: true, view: 1 },
-  medium: { far: 1500, fog: 1.12, pr: 1.0, shadows: true, view: 0.8 },
-  low: { far: 750, fog: 1.6, pr: 0.8, shadows: false, view: 0.45 },
-  xlow: { far: 450, fog: 2.4, pr: 0.6, shadows: false, view: 0.3 },
-};
+// legacy view of the presets (view distance, fog, max pixel ratio, sun shadows); read game.gfx instead
+export const QPROF = Object.fromEntries(
+  QUALITY.map((q) => {
+    const P = PRESETS[q];
+    return [
+      q,
+      {
+        far: P.far,
+        fog: P.fogScale,
+        pr: P.dprCap,
+        shadows: P.shadows !== 'off',
+        view: P.viewScale,
+      },
+    ];
+  })
+);
 
 let _gpuGuess = null;
 export function guessGpu() {
@@ -83,35 +93,63 @@ export class GameLoop {
   }
 
   pixelRatio() {
-    return Math.min(devicePixelRatio, QPROF[this.game.quality].pr);
+    return Math.min(devicePixelRatio, this.game.gfx.dprCap);
   }
 
-  // view distance, fog, shadows and the distant skyline follow the quality level
+  // view distance, fog, shadows and the distant skyline follow the display settings (game.gfx)
   applyQuality() {
     const game = this.game;
-    const P = QPROF[game.quality];
-    game.camera.far = P.far;
+    const G = game.gfx;
+    game.camera.far = G.far;
     game.camera.updateProjectionMatrix();
-    game.skySys.fogK = P.fog;
-    game.viewK = P.view;
-    if (game.traffic) game.traffic.viewK = P.view;
-    if (game.peds) game.peds.viewK = P.view;
-    if (game.world?.vegetation) game.world.vegetation.viewDist = 700 * P.view; // tree chunks
+    game.skySys.fogK = G.fogScale;
+    game.viewK = G.viewScale;
+    if (game.traffic) game.traffic.viewK = G.viewScale;
+    if (game.peds) game.peds.viewK = G.viewScale;
+    if (game.world?.vegetation) game.world.vegetation.viewDist = 700 * G.viewScale; // tree chunks
     // outer fill buildings (src/world/MapBuilder.js Geo.routed) are not drawn where the fog hides them: the camera
     if (game.world) game.world.viewer = game.camera;
-    if (game.skyline) game.skyline.scale.setScalar(Math.min(1, (P.far * 0.92) / 2000)); // the backdrop sits 1.5-2 km out
-    const sh = game.renderer.shadowMap;
-    if (sh.enabled !== P.shadows) {
-      sh.enabled = P.shadows;
-      game.skySys.sun.castShadow = P.shadows;
-      game.scene.traverse((o) => {
-        const m = o.material;
-        if (m)
-          (Array.isArray(m) ? m : [m]).forEach((x) => {
-            x.needsUpdate = true;
-          });
-      });
+    if (game.skyline) game.skyline.scale.setScalar(Math.min(1, (G.far * 0.92) / 2000)); // the backdrop sits 1.5-2 km out
+    const sh = game.renderer.shadowMap,
+      on = G.shadows !== 'off',
+      type = G.shadows === 'low' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    if (sh.enabled !== on || (on && sh.type !== type)) {
+      sh.enabled = on;
+      sh.type = type;
+      game.skySys.sun.castShadow = on;
+      this.recompile();
     }
+  }
+
+  // every material builds its shader again on its next draw (shadow / environment on-off changes their defines)
+  recompile() {
+    this.game.scene.traverse((o) => {
+      const m = o.material;
+      if (m)
+        (Array.isArray(m) ? m : [m]).forEach((x) => {
+          x.needsUpdate = true;
+        });
+    });
+  }
+
+  // live display settings (src/core/GraphicsConfig.js LIVE_KEYS): pixel ratio, sun shadows, sky environment light,
+  // post-processing, lamp lights, view distance and fog. prev: the configuration before the change (or null)
+  applyDisplay(prev) {
+    const game = this.game,
+      G = game.gfx;
+    if (!prev || prev.dprCap !== G.dprCap) {
+      game.renderer.setPixelRatio(this.pixelRatio());
+      game.renderer.setSize(innerWidth, innerHeight);
+    }
+    game.skySys.setShadowQuality(shadowLevel(G.shadows));
+    game.post.setQuality(postFxLevel(G.postFx));
+    game.post.setSize(innerWidth, innerHeight);
+    game.world?.setLampLights?.(G.nightLamps);
+    if (!prev || prev.envLight !== G.envLight) {
+      game.skySys.setEnvMode(G.envLight);
+      if (prev) this.recompile();
+    }
+    this.applyQuality();
   }
 
   // auto quality: after a 3 s warm-up, step down one level when a 3 s window runs under 28 fps
@@ -143,18 +181,14 @@ export class GameLoop {
     );
   }
 
-  // live quality switch: pixel ratio, shadow map, post-processing and lamp lights
+  // live quality switch: the level's preset (plus the player's overrides) for every live display setting
   setQuality(q) {
     const game = this.game;
     if (!QUALITY.includes(q) || q === game.quality) return;
+    const prev = game.gfx;
     game.quality = q;
-    game.renderer.setPixelRatio(this.pixelRatio());
-    game.renderer.setSize(innerWidth, innerHeight);
-    game.skySys.setShadowQuality(subQ(q));
-    game.post.setQuality(subQ(q));
-    game.post.setSize(innerWidth, innerHeight);
-    game.world.setQuality?.(subQ(q));
-    this.applyQuality();
+    game.gfx = game.resolveGfx();
+    this.applyDisplay(prev);
   }
 
   updateSky(dt) {

@@ -7,8 +7,8 @@ export const TIERS = Object.freeze({
   'mobile-lite': Object.freeze({
     tier: 'mobile-lite',
     texScale: 0.5,
-    atlasMaxW: 1024,
-    atlasMaxH: 2048,
+    atlasMaxW: 768,
+    atlasMaxH: 1536,
   }),
   'desktop-igpu': Object.freeze({
     tier: 'desktop-igpu',
@@ -100,7 +100,7 @@ export function applySafeMode(profile) {
   if (profile.flags?.texScale == null) {
     profile.texScale = Math.min(profile.texScale, 0.375);
   }
-  profile.atlasMaxW = Math.min(profile.atlasMaxW, 1024);
+  profile.atlasMaxW = Math.min(profile.atlasMaxW, 512);
   profile.atlasMaxH = Math.min(profile.atlasMaxH, 1024);
   profile.safeMode = true;
   return profile;

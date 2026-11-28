@@ -80,10 +80,22 @@ describe('PerfProfile', () => {
       expect(probeGpu).not.toHaveBeenCalled();
       expect(profile.tier).toBe('mobile-lite');
       expect(profile.texScale).toBe(0.35);
-      expect(profile.atlasMaxW).toBe(1024);
-      expect(profile.atlasMaxH).toBe(2048);
+      expect(profile.atlasMaxW).toBe(768);
+      expect(profile.atlasMaxH).toBe(1536);
       expect(profile.diagMode).toBe('on');
       expect(profile.diagEnabled).toBe(true);
+    });
+
+    it('keeps desktop-dgpu and desktop-igpu quality & atlas caps unchanged', () => {
+      const dgpu = resolveRuntimeProfile({}, { search: '', touch: false, gpuRenderer: 'RTX 4060' });
+      expect(dgpu.texScale).toBe(1);
+      expect(dgpu.atlasMaxW).toBe(2048);
+      expect(dgpu.atlasMaxH).toBe(4096);
+
+      const igpu = resolveRuntimeProfile({}, { search: '', touch: false, gpuRenderer: 'Apple M2' });
+      expect(igpu.texScale).toBe(0.75);
+      expect(igpu.atlasMaxW).toBe(2048);
+      expect(igpu.atlasMaxH).toBe(4096);
     });
 
     it('supports ?safemode=1 / ?safemode=0 and clamps budgets via applySafeMode while honoring ?texscale=', () => {
@@ -93,7 +105,7 @@ describe('PerfProfile', () => {
       );
       expect(safe.safeMode).toBe(true);
       expect(safe.texScale).toBe(0.375);
-      expect(safe.atlasMaxW).toBe(1024);
+      expect(safe.atlasMaxW).toBe(512);
       expect(safe.atlasMaxH).toBe(1024);
 
       const customTex = resolveRuntimeProfile(
@@ -103,7 +115,7 @@ describe('PerfProfile', () => {
       applySafeMode(customTex);
       expect(customTex.safeMode).toBe(true);
       expect(customTex.texScale).toBe(0.5);
-      expect(customTex.atlasMaxW).toBe(1024);
+      expect(customTex.atlasMaxW).toBe(512);
       expect(customTex.atlasMaxH).toBe(1024);
 
       const bypassed = resolveRuntimeProfile(

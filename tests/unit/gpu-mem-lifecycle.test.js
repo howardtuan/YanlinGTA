@@ -49,11 +49,11 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     });
     expect(configureGpuMem(profile('mobile-lite'))).toEqual({
       texScale: 0.5,
-      atlasScale: 0.5,
-      atlasMaxH: 4096, // a 1024 x 2048 sheet
+      atlasScale: 0.375,
+      atlasMaxH: 4096, // a 768 x 1536 sheet
     });
     const safe = applySafeMode(profile('mobile-lite'));
-    expect(configureGpuMem(safe)).toEqual({ texScale: 0.375, atlasScale: 0.375, atlasMaxH: 2048 });
+    expect(configureGpuMem(safe)).toEqual({ texScale: 0.375, atlasScale: 0.25, atlasMaxH: 4096 });
     const flagged = profile('desktop-dgpu', { texScale: 0.6, flags: { texScale: 0.6 } });
     expect(configureGpuMem(flagged).texScale).toBe(0.6);
   });

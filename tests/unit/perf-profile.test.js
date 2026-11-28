@@ -154,6 +154,8 @@ describe('PerfProfile', () => {
       );
       expect(profile.tier).toBe('desktop-igpu');
       expect(profile.texScale).toBe(TIERS['desktop-igpu'].texScale);
+      expect(profile.atlasMaxW).toBe(2048);
+      expect(profile.atlasMaxH).toBe(4096);
       expect(profile.diagMode).toBe('off');
       expect(profile.flags).toEqual({
         tier: null,

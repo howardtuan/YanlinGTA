@@ -46,6 +46,9 @@ if (flag('help') || flag('h')) {
   --repo=<owner/name>   GitHub repo for --pr (default: howardtuan/YanlinGTA)
   --no-record           do not save record into tools/.cache/perf-history.jsonl
   --out=<dir>           output directory (default: tools/e2e/out/bench)
+  --cdp=<port>          use a Chrome already running with remote debugging on 127.0.0.1:<port>
+                        (e.g. ~/Workspace/scripts/remote-chrome.mjs on another machine); it is not closed
+  --serve-host=<host>   serve on 0.0.0.0 and give Chrome http://<host>:<port>/ (for a Chrome on another machine)
   --seed=1337           seed for Math.random
   --timeout=420         max seconds to wait for benchmark completion (default: 420)`);
   process.exit(0);
@@ -71,6 +74,8 @@ const dbPath = path.resolve(ROOT, 'tools', '.cache', 'perf-history.jsonl');
 const prNum = arg('pr', '') ? +arg('pr', '') : null;
 const repo = arg('repo', 'howardtuan/YanlinGTA');
 const chromePath = arg('chrome', defaultChromePath());
+const CDP_PORT = +arg('cdp', 0);
+const serveHost = arg('serve-host', '');
 
 const sleep = (ms) =>
   new Promise((r) => {
@@ -139,7 +144,10 @@ async function openRunner() {
   let isSoftware = false;
   let gpuAttempts = [];
 
-  if (useSwiftShader) {
+  if (CDP_PORT) {
+    browser = { port: CDP_PORT, kill: async () => {} };
+    page = await connectPage(CDP_PORT);
+  } else if (useSwiftShader) {
     browser = await launchChrome({
       chrome: chromePath,
       gpu: 'swiftshader',
@@ -220,7 +228,13 @@ async function openRunner() {
   };
 }
 
-const srv = await startServer({ root: distDir, port: 0, basePath: '/YanlinGTA/' });
+const srv = await startServer({
+  root: distDir,
+  port: 0,
+  basePath: '/YanlinGTA/',
+  host: serveHost ? '0.0.0.0' : '127.0.0.1',
+});
+if (serveHost) srv.url = srv.url.replace('//0.0.0.0:', `//${serveHost}:`);
 let runner = null;
 
 try {

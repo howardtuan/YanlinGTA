@@ -14,7 +14,9 @@ export const TIERS = Object.freeze({
     tier: 'desktop-igpu',
     texScale: 0.75,
     atlasMaxW: 2048,
-    atlasMaxH: 2048,
+    // WebGL2 iGPUs (Apple M, Iris Xe / UHD, Radeon iGPU) all take >= 8192 px textures; a taller cap keeps long
+    // shophouse rows in fewer atlases (#388)
+    atlasMaxH: 4096,
   }),
   'desktop-dgpu': Object.freeze({
     tier: 'desktop-dgpu',

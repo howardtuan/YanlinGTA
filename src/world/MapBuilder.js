@@ -203,9 +203,11 @@ function adaptPieces(poly, out, S) {
 // drape=true: flat helpers (flatPoly/disc/strip) follow the terrain and their
 // y argument becomes the offset above it
 const UP = [0, 1, 0];
-// ChunkedGeo cell size in metres (docs/guide/architecture.md): a Geo whose triangles spread wider
-// than two cells becomes one mesh per cell.
-const GEO_CHUNK = 120;
+// ChunkedGeo cell size in metres (docs/specs/world-and-entities.md): a Geo with at least GEO_CHUNK_MIN_TRIS triangles
+// spread wider than two cells becomes one mesh per cell. Smaller layers (road markings, kerbs, manholes, roof trims)
+// stay one mesh: cutting them into tiny chunks cost far more draw calls than the culling saved (#388).
+const GEO_CHUNK = 240,
+  GEO_CHUNK_MIN_TRIS = 16000;
 // outer buildings (Geo.routed): the fill (synthetic) and lod buildings further than this from the campus; a chunk of
 // them is not drawn while the fog hides it completely wherever it is on the screen: three's exp2 fog goes by the
 // view depth, and anything on screen is at least cos(half the diagonal field of view) x its distance deep, so a
@@ -501,12 +503,13 @@ class Geo {
       this.c3 = C3;
     }
   }
-  // one mesh, or (when the triangles spread wider than two chunks) one mesh per GEO_CHUNK x GEO_CHUNK m cell, so frustum
+  // one mesh, or (when there are GEO_CHUNK_MIN_TRIS triangles or more and they spread wider than two chunks) one mesh
+  // per GEO_CHUNK x GEO_CHUNK m cell, so frustum
   // and shadow culling can drop the parts out of view (ChunkedGeo). Triangles go to the cell of
   // their centroid, unchanged: the same pixels, the same random draws.
   mesh(mat) {
     const nt = this.p.length / 9;
-    if (nt > 0) {
+    if (nt >= GEO_CHUNK_MIN_TRIS) {
       const cells = new Map();
       let x0 = Infinity,
         x1 = -Infinity,

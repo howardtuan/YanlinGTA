@@ -8,8 +8,8 @@
 
 1. **真實地理骨架**：
    - 以 OpenStreetMap（ODbL）道路與建物輪廓搭配內政部 20m 網格數值地形模型（`data/cycu.json`、`data/terrain.json`）建構中原大學校園、新中北路與中原夜市商圈；地表高程查詢統一走 `Terrain.js` 的 `H(x, z)`（地形基準）與 `surfaceAt(x, z, refY)`（含橋面、平台與下沉廣場）。
-2. **120m 空間網格分塊（`ChunkedMesh`）**：
-   - `MapBuilder` 的 `Geo.mesh()` 當幾何三角形橫跨超過兩個 `120m` 網格時，自動切分為 `ChunkedMesh`（`isChunkedMesh = true`），每格一個獨立子 mesh 供視錐剔除與陰影貼圖裁剪。
+2. **240m 空間網格分塊（`ChunkedMesh`）**：
+   - `MapBuilder` 的 `Geo.mesh()` 當幾何至少有 `16,000` 個三角形（`GEO_CHUNK_MIN_TRIS`）且橫跨超過兩個 `240m` 網格時，自動切分為 `ChunkedMesh`（`isChunkedMesh = true`），每格一個獨立子 mesh 供視錐剔除與陰影貼圖裁剪；道路標線、路緣、人孔蓋等中小型圖層維持單一 mesh，避免切碎後 Draw Calls 暴增（#388）。
    - **材質與屬性契約**：容器本身刻意不設 `material` 與 `geometry`（避免 Three.js 將空容器送入繪製管線），存取材質請一律透過 **`chunkMaterial`**；設定 `castShadow`、`receiveShadow`、`frustumCulled`、`renderOrder` 時會自動同步至所有子 mesh。
 3. **建置期 CPU 地面挖洞（`src/world/GroundCut.js`）**：
    - 地下道開口、下沉廣場／水池／水溝（含岸坡）及 `addPit()`（`mask: true`）登記之坑洞，一律於建置地圖時在 **CPU 端沿洞口邊界切開地面與貼地圖層三角形**，洞內不產生幾何。

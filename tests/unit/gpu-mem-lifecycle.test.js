@@ -41,11 +41,11 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
       atlasScale: 1,
       atlasMaxH: 4096,
     });
-    // M-series / Iris Xe laptops: 0.75, sheets at most 2048 tall (stored 1536 x 1536)
+    // M-series / Iris Xe laptops: 0.75, sheets at most 4096 tall (stored 1536 x 3072, #388)
     expect(configureGpuMem(profile('desktop-igpu'))).toEqual({
       texScale: 0.75,
       atlasScale: 0.75,
-      atlasMaxH: 2048,
+      atlasMaxH: 4096,
     });
     expect(configureGpuMem(profile('mobile-lite'))).toEqual({
       texScale: 0.5,

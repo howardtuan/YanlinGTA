@@ -42,7 +42,7 @@ export function secretsUI(root, game, { wide = false, reveal = null } = {}) {
         )
         .join('')}</div>
       ${s.vs ? `<div class="sc-vs">${s.vs.map(([k, v]) => `<div><b>${esc(k)}</b><p>${esc(v)}</p></div>`).join('')}</div>` : ''}
-      <p class="sc-foot">照片中的人臉已打馬賽克。</p></article>`;
+      ${s.mosaic === false ? '' : '<p class="sc-foot">照片中的人臉已打馬賽克。</p>'}</article>`;
 
   // overlays (unlock card, photo viewer) cover the whole app screen / window, not the scrolled content
   const layer = () => root.closest('.ph-appview, .pc-body') || root;

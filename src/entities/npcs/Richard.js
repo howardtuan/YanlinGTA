@@ -6,6 +6,7 @@
 // 一天（遊戲時鐘）：
 //   03:00–10:00 睡覺；10:00–13:00、17:00–21:00、01:00–03:00 在書桌前開發這個遊戲（地圖與建模）；
 //   13:00–17:00 羊明衫在系館前練舞的時候去跟她尬舞（battle），她不在就在寢室自己練嘻哈；21:00–01:00 打 ARAM 大亂鬥。
+// 在 280 寢跳舞的時候第一次跟他說話，解鎖 🏆 隱藏成就「280舞王」（src/systems/Secrets.js 的 dance，真實事件：2020/10/30 室友的限動）。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { DevNPC, M, gameScreen, addCurls } from './DevNPC.js';
@@ -123,6 +124,25 @@ export class Richard extends DevNPC {
   }
   doing() {
     return { code: '寫程式', game: '打 ARAM', dorm: '跳舞', battle: '尬舞' }[this.mode] || '';
+  }
+  // dancing in 280 (mode 'dorm'): the first talk unlocks 🏆 隱藏成就「280舞王」(src/systems/Secrets.js 'dance')
+  talk() {
+    const g = this.g;
+    if (this.mode !== 'dorm' || g.secrets?.got?.dance != null) return super.talk();
+    this.state.met = true;
+    g.dialog(
+      [
+        ['理查', '（雙手在胸前交叉、手指張開，一下蹲低一下側身）……🕺'],
+        ['彥霖', '理查？你在幹嘛？'],
+        ['理查', '喔！彥霖！你什麼時候進來的 😳 ……嘻研社的 routine 啦，練一下。'],
+        ['彥霖', '你是不是喝醉了？'],
+        ['理查', '沒有啦！！大一的時候室友也這樣問，還錄下來發限動 😂'],
+        ['理查', '算了，看都被看到了——（繼續跳）280 舞王就是我！'],
+      ],
+      () => {
+        if (g.secrets?.unlock('dance')) setTimeout(() => g.phone?.revealSecret?.('dance'), 900);
+      }
+    );
   }
   sleepLines() {
     return [

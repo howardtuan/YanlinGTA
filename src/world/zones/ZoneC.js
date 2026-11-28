@@ -24,10 +24,12 @@
 //    橘、朱紅、黃大色塊，一二樓灰褐粗洗石子，橘色雨遮、鋁框玻璃雙開門、木平台、橘色「商業設計學系」牌；東面素牆
 //    （兩根白色落水管），北、西面依東面推。名稱改「商業設計館」（src/world/MapBuilder.js STYLE_BY_NAME 同為 white）。
 //  - 工學館 w328790267：正射是口字形加缺口：東北 8F 長樓與東翼（L 形）、中間約 20×30 m 中庭、西側 4F 低樓
-//    （紅磁磚屋頂露台、桌椅、南端弧形棚架）、南側 3F 方格玻璃帷幕低樓；外牆灰色小口磚（#8c8680）零星嵌暗紅小方磚，
+//    （紅磁磚屋頂露台、桌椅；2017-09 使用者全景：灰褐小口磚、西南角是半徑約 8 m 的圓弧轉角、每層橫向帶窗，
+//    屋頂一圈深色鋼構棚架沿西面、繞過圓弧往外挑，正射上那條方格帶就是它）、南側 3F 方格玻璃帷幕低樓；外牆灰色小口磚（#8c8680）零星嵌暗紅小方磚，
 //    頂層淺藍板＋東北角藍色圓形校徽、東北面轉角實牆上金色直書「中原大學工學院」、東面一層層錯開懸挑的混凝土盒狀樓梯平台（2018～2025
 //    相片、2025-05 官方街景）；南面入口：細高樓梯塔（垂直藍玻璃帶、比主樓高一層）、塔右側主牆直書「化學工程學系」（墨綠）
-//    「生物醫學工程學系」（藍）「機械工程學系」（橘紅）、金屬雨遮「工 學 館 Engineering Building」。輪廓不改。
+//    「生物醫學工程學系」（藍）「機械工程學系」（橘紅）、金屬雨遮「工 學 館 Engineering Building」。輪廓不改
+//    （整棟碰撞縮掉、只留分段擋人，西南圓弧外那一角走得過去）。
 //
 // 共用亂數：五棟都維持 kind campus；管理、自強、工學、資管的輪廓 pts 不動，商業設計館換輪廓但 b.acPts 留住原輪廓，
 // 分段的建物都設 splitAc，src/world/MapBuilder.js 屋頂冷氣的 rnd2 抽取次數因此不變（落在中庭的冷氣只是不畫）。
@@ -111,13 +113,8 @@ const GX_PARTS = {
     [0.62, 22],
     [-1.9, 16.6],
   ],
-  W: [
-    [0.62, 22],
-    [14, 22],
-    [31, 50],
-    [28, 59.4],
-    [19.6, 62.7],
-  ],
+  // 西南角是半徑約 8 m 的圓弧（2017-09 使用者全景、正射棚架外緣弧），見 GX_ARC
+  W: null,
   S: [
     [31, 50],
     [48, 47],
@@ -125,6 +122,34 @@ const GX_PARTS = {
     [28, 59.4],
   ],
 };
+// 西側低樓西南角的圓弧（u,v）：西面 (0.62,22)→(19.6,62.7) 與南面 (19.6,62.7)→(28,59.4) 的轉角倒成半徑 R 的圓弧，
+// 圓心 c、起訖切點 t1（西面上）、t2（南面上）；pts 由 t1 沿弧到 t2（不含端點，n 段）
+const GX_ARC = (() => {
+  const A = [0.62, 22],
+    P = [19.6, 62.7],
+    Bp = [28, 59.4],
+    R = 8,
+    n = 10;
+  const u1 = unit(A, P),
+    u2 = unit(P, Bp),
+    half = Math.acos(-(u1[0] * u2[0] + u1[1] * u2[1])) / 2, // 內角的一半
+    t = R / Math.tan(half),
+    t1 = [P[0] - u1[0] * t, P[1] - u1[1] * t],
+    t2 = [P[0] + u2[0] * t, P[1] + u2[1] * t],
+    bis = unit([0, 0], [-u1[0] + u2[0], -u1[1] + u2[1]]),
+    cl = R / Math.sin(half),
+    c = [P[0] + bis[0] * cl, P[1] + bis[1] * cl];
+  const a1 = Math.atan2(t1[1] - c[1], t1[0] - c[0]);
+  let a2 = Math.atan2(t2[1] - c[1], t2[0] - c[0]);
+  // 走短的那一邊（約 86°）
+  while (a2 - a1 > Math.PI) a2 -= 2 * Math.PI;
+  while (a2 - a1 < -Math.PI) a2 += 2 * Math.PI;
+  const at = (a, r = R) => [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r];
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(at(a1 + ((a2 - a1) * i) / n).map((x) => +x.toFixed(2)));
+  return { R, c, t1, t2, a1, a2, at, pts };
+})();
+GX_PARTS.W = [[0.62, 22], [14, 22], [31, 50], [28, 59.4], ...GX_ARC.pts.slice().reverse()];
 // 商業設計館：u 沿北面由西往東，v 往南
 const SS_O = [133.3, 117.5],
   SS_U = unit(SS_O, [159.6, 125.3]);
@@ -371,10 +396,12 @@ export function zoneCLook(b) {
         h: 13.8,
         floors: 4,
         label: '西側低樓',
+        // 2017-09 使用者全景（西南角旁停車道）：和主樓同一種灰褐小口磚；西面上層是一組組細長直窗、
+        // 西南圓弧面一樓一排橫向帶窗，二～四樓各一條細細的深色窗帶（buildZoneC 自己貼）
         look: {
           ...GX_BASE,
-          wall: { base: 'tile', colour: '#c9b5a2' },
-          bands: [{ colour: '#e6d6c3', h: 0.3, depth: 0.1, from: 1, to: 3 }],
+          windows: { ...GX_BASE.windows, types: ['pair', 'slit', 'slit', 'slit'] },
+          faces: [{ on: 'sw', windows: { type: 'none', ground: 'ribbon', bay: 1.6, types: null } }],
         },
       },
       {
@@ -842,6 +869,8 @@ function mat(key) {
     rail: () => std({ color: '#c9ccce', roughness: 0.45, metalness: 0.5 }),
     darkRail: () => std({ color: '#3a3d40', roughness: 0.5, metalness: 0.5 }),
     steel: () => std({ color: '#6c7074', roughness: 0.55, metalness: 0.5, side: THREE.DoubleSide }),
+    pergola: () => std({ color: '#3b3d40', roughness: 0.6, metalness: 0.4 }),
+    arcSlot: () => std({ color: '#2f3438', roughness: 0.3, metalness: 0.3 }),
     slab: () => std({ color: '#9a948c', roughness: 0.9 }),
     brickPave: () =>
       std({
@@ -2094,7 +2123,7 @@ export function buildZoneC(I, scene, data, collision) {
         tree(p[0], p[1], sc, r);
       }
     }
-    // --- 西側低樓屋頂：紅磁磚露台、桌椅陽傘、花台、南端弧形棚架 ---
+    // --- 西側低樓屋頂：紅磁磚露台、桌椅陽傘、花台、沿西面與西南圓弧外挑的鋼構棚架 ---
     {
       const Wp = gx.parts[1],
         yR = B + Wp.h,
@@ -2122,8 +2151,8 @@ export function buildZoneC(I, scene, data, collision) {
       }
       for (const [u, v] of [
         [3.5, 25],
-        [5, 33],
-        [7, 40],
+        [7.2, 33],
+        [10, 40],
         [17, 45],
         [21.5, 52],
       ]) {
@@ -2131,32 +2160,71 @@ export function buildZoneC(I, scene, data, collision) {
         k.box('planter', p[0] - 0.6, p[0] + 0.6, yR, yR + 0.6, p[1] - 0.6, p[1] + 0.6);
         k.blob('leaf2', p[0], yR + 1.0, p[1], 0.7, 0.8);
       }
-      // 弧形棚架：圓心在南端，半徑 3.5～6.5 m 兩圈柱子、徑向與環向鋼梁
-      const cc = [19.5, 53.5],
-        A0 = 0.35,
-        A1 = 2.75,
-        yP = yR + 2.7,
-        ring = (rr, t) => gxW(cc[0] + Math.cos(t) * rr, cc[1] + Math.sin(t) * rr * 0.9);
-      const pts0 = [],
-        pts1 = [];
-      for (let i = 0; i <= 6; i++) {
-        const t = A0 + ((A1 - A0) * i) / 6,
-          a = ring(3.5, t),
-          c2 = ring(6.2, t);
-        pts0.push(a);
-        pts1.push(c2);
-        if (!pip(a[0], a[1], gx.parts[1].pts) || !pip(c2[0], c2[1], gx.parts[1].pts)) continue;
-        k.cyl('steel', a[0], a[1], 0.08, yR, yP, 6);
-        k.cyl('steel', c2[0], c2[1], 0.08, yR, yP, 6);
-        k.beam('steel', [a[0], yP, a[1]], [c2[0], yP, c2[1]], 0.14, 0.1, [0, 1]);
-      }
-      for (const L of [pts0, pts1])
-        for (let i = 0; i < L.length - 1; i++) {
-          const a = L[i],
-            c2 = L[i + 1];
-          if (!pip(a[0], a[1], gx.parts[1].pts) || !pip(c2[0], c2[1], gx.parts[1].pts)) continue;
-          k.beam('steel', [a[0], yP + 0.12, a[1]], [c2[0], yP + 0.12, c2[1]], 0.12, 0.1, [0, 1]);
+      // 西南圓弧面二～四樓的細窗帶：每層窗台上 1.0 m、高 0.45 m，貼在牆外 3 cm
+      for (let f = 1; f < Wp.floors; f++) {
+        const y0 = B + f * (Wp.h / Wp.floors) + 1.0;
+        for (let i = 0; i < GX_ARC.pts.length - 1; i++) {
+          const a = gxW(...GX_ARC.pts[i]),
+            c2 = gxW(...GX_ARC.pts[i + 1]),
+            mx = (a[0] + c2[0]) / 2,
+            mz = (a[1] + c2[1]) / 2,
+            cc = gxW(...GX_ARC.c);
+          wallOut('arcSlot', a, c2, [mx - cc[0], mz - cc[1]], y0, y0 + 0.45, 0.03, 2, 0.45);
         }
+      }
+      // 外挑鋼構棚架（2017-09 使用者全景：屋頂一圈深色鋼梁沿西面、繞過西南圓弧往外挑，上面爬藤；
+      // 正射 2024 的方格帶從西面中段一路繞到南面）：徑向挑梁每 1.4 m 一根，從牆內 0.9 m 挑到牆外 2.6 m，
+      // 牆內、牆外 0.9 m、外緣三道縱梁，牆內那道每三根挑梁一根立柱落在露台上
+      {
+        const wallUV = [
+          [0.62 + (GX_ARC.t1[0] - 0.62) * 0.35, 22 + (GX_ARC.t1[1] - 22) * 0.35],
+          ...GX_ARC.pts,
+          [28, 59.4],
+        ];
+        const Wp2 = wallUV.map(([u, v]) => gxW(u, v)),
+          yP = yR + 1.5,
+          cum = [0];
+        for (let i = 1; i < Wp2.length; i++)
+          cum.push(cum[i - 1] + Math.hypot(Wp2[i][0] - Wp2[i - 1][0], Wp2[i][1] - Wp2[i - 1][1]));
+        const total = cum[cum.length - 1];
+        // s 處的牆點與朝外法線（用分段的 pts 判斷哪一側在樓外）
+        const at = (s) => {
+          let i = 1;
+          while (i < Wp2.length - 1 && cum[i] < s) i++;
+          const a = Wp2[i - 1],
+            c2 = Wp2[i],
+            l = cum[i] - cum[i - 1],
+            f = l > 0 ? (s - cum[i - 1]) / l : 0,
+            p = [a[0] + (c2[0] - a[0]) * f, a[1] + (c2[1] - a[1]) * f];
+          let nx = (c2[1] - a[1]) / l,
+            nz = -(c2[0] - a[0]) / l;
+          if (pip(p[0] + nx * 0.5, p[1] + nz * 0.5, Wp.pts)) [nx, nz] = [-nx, -nz];
+          return { p, nx, nz };
+        };
+        const off = (q, o) => [q.p[0] + q.nx * o, q.p[1] + q.nz * o];
+        const N = Math.max(2, Math.round(total / 1.4)),
+          ribs = [];
+        for (let i = 0; i <= N; i++) ribs.push(at((total * i) / N));
+        ribs.forEach((q, i) => {
+          const a = off(q, -0.9),
+            c2 = off(q, 2.6);
+          k.beam('pergola', [a[0], yP, a[1]], [c2[0], yP, c2[1]], 0.26, 0.1, [q.nz, -q.nx]);
+          if (i % 3 === 0) k.cyl('pergola', a[0], a[1], 0.07, yR, yP, 6);
+        });
+        for (const o of [-0.9, 0.9, 2.6])
+          for (let i = 0; i < N; i++) {
+            const a = off(ribs[i], o),
+              c2 = off(ribs[i + 1], o);
+            k.beam('pergola', [a[0], yP + 0.16, a[1]], [c2[0], yP + 0.16, c2[1]], 0.12, 0.1);
+          }
+        // 爬藤：沿棚架零星幾叢（自己的 lcg，不動共用亂數）
+        const rv = lcg(71);
+        for (let i = 1; i < N; i += 2) {
+          if (rv() < 0.35) continue;
+          const c2 = off(ribs[i], 0.4 + rv() * 1.6);
+          k.blob(rv() < 0.5 ? 'leaf' : 'leaf2', c2[0], yP + 0.35, c2[1], 0.7 + rv() * 0.5, 0.45);
+        }
+      }
       // 露台外緣白欄杆（在 0.8 m 女兒牆上）
       for (let i = 0; i < inset.length; i++) {
         const a = inset[i],
@@ -2164,6 +2232,9 @@ export function buildZoneC(I, scene, data, collision) {
         k.beam('rail', [a[0], yR + 1.15, a[1]], [c2[0], yR + 1.15, c2[1]], 0.05, 0.05, [0, 1]);
       }
     }
+    // 碰撞：整棟輪廓的多邊形縮到中庭裡一小點，只剩三塊分段擋人（西南圓弧外那一角走得過去；
+    // 中庭四周都是分段的牆，照樣進不去）
+    collapse(gx.pts, gxW(32, 35));
   }
 
   k.finish(group);

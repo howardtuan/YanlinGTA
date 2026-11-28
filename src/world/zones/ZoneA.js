@@ -16,6 +16,9 @@
 //    1～3F 磁磚退縮，4F 深色帶狀玻璃、5F 混凝土方塊與細長直窗交錯，出挑下緣是一排倒三角折板；南面入口左側
 //    兩片並排的斜切楔形塔（灰磁磚、中間一道窄縫，頂面斜切，約 22 m）；屋頂 3 條東西向鋸齒採光帶（北側立面是
 //    玻璃）、四角各一塊 4×4 m 天窗、北側機電區（冷卻水塔）。
+//    西面、北面沒有街景與近照，改照 1985 年原設計圖（M+ 典藏王秋華檔案 CA39.4.2.3.2：四向立面圖、各層平面圖；同組圖的
+//    東面室外樓梯位置與實景差不到 1 m）：北面凸出那塊是從地面直上、高出屋頂約 2.4 m 的樓梯塔（2021 空拍也看得到）；
+//    西面是東面的鏡像——貼牆室外樓梯由北往南上二樓、接到西南角的二樓平台，3F 一排直立鰭片，4F 和 5F 城垛連成實牆厚帶。
 //  - 科學館 w392023392：正射量到主樓（西段）整體偏北東，西段往西 2.5 m、往南 1.5 m（東端接理學大樓那段不動）。
 //    主樓磚紅、每層白色窗台窗楣帶；西面（山牆）是淺灰白磁磚、樓梯塔北側每層一片懸挑白色陽台＋冷氣；西南角磚紅圓角
 //    樓梯塔，直排金色大字「中原大學」，塔頂白色格柵（2019-04 相片；先前說的粉紅是掛上去的布條）；天文台圓頂
@@ -61,6 +64,35 @@ const LIB_PTS = [
 ];
 // 圖書館樓層：5F／17.1 m，上 2 層外推 2.5 m（倒階梯）
 const LIB = { h: 17.1, floors: 5, over: 2.5, tfFloors: 2 };
+// 北面凸出那塊（LIB_PTS 第 2～6 點）是北側樓梯塔，不是機電區：1985 年原設計圖（M+ 王秋華檔案：廣場層平面圖、
+// 北向／東向立面圖）在東北段畫了一座凸出北牆、從地面直上、高出屋頂的實心塔（兩片磁磚板中間一道窄縫，底層一樘門），
+// 位置與 OSM 這塊凸出吻合；2021 空拍（東南高處）也看得到它高出屋頂。主體與塔分成兩塊（b.parts），塔不跟著倒階梯外推。
+const LIB_MAIN = [LIB_PTS[0], LIB_PTS[1], LIB_PTS[5], LIB_PTS[6], LIB_PTS[7], LIB_PTS[8]];
+// 塔往南接到主體一～三樓的北牆（出挑內縮 2.5 m 那道牆），中間不留空隙
+const LIB_TOWER = [
+  [LIB_PTS[1][0], LIB_PTS[1][1] + 2.5],
+  LIB_PTS[2],
+  LIB_PTS[3],
+  LIB_PTS[4],
+  [LIB_PTS[5][0], LIB_PTS[5][1] + 2.5],
+];
+const LIB_TOWER_H = 19.5; // 立面圖塔頂比主體女兒牆高約 1/8（約 2.4 m）
+// 西面（1985 原設計圖：西向立面圖與廣場層平面圖兩張對得起來；同一組圖的東面樓梯位置與實景差不到 1 m）：
+// 外牆是東面的鏡像——室外直跑樓梯貼著西牆由北往南爬到二樓（z -27.2～-18.3），接一段到西南角的二樓平台，平台下一樓一樘門；
+// 中段 3F 是一排淺直立磁磚壁柱（取代窗），2F 窗只在壁柱下，北段 2F～4F 是實牆，1F 窗只在北半段。
+const LIB_W = {
+  x: LIB_PTS[0][0], // 西牆
+  w: 1.85, // 樓梯寬（同東面）
+  zB: -27.2, // 樓梯底（北）
+  zT: -18.3, // 樓梯頂（南）接二樓平台
+  zL: -10.2, // 平台南端（西南角）
+  door: [-17.0, -14.6], // 平台下一樓的門
+  fins: [-37.4, -11.9], // 3F 直立鰭片範圍
+  win1: [
+    [-45.9, -38.0],
+    [-37.1, -29.5],
+  ], // 1F 兩組窗
+};
 
 // ---------------- 圖書館南面平台（data.levels：可以走上去的平台與兩段階梯） ----------------
 // 正射 2024 量：平台西緣 x -191.9（靠雙塔那段到 -195.5）、南緣 z 15.6，東北角斜邊沿圖書館東側草坪。
@@ -278,7 +310,26 @@ export function zoneALook(b) {
       topFloor: { floors: LIB.tfFloors, setback: -LIB.over, colour: '#6f675f' },
       parapet: { h: 0.8, colour: '#6f675f' },
       roof: { colour: '#4c4945', ac: false }, // 採光帶、天窗、機電由 buildZoneA 照正射位置蓋
+      // 西面：1F 只有北半段兩組窗、2F 只有壁柱之間的帶狀窗（都由 buildZoneA 畫，其餘實牆）、3F 壁柱段、4F 出挑段都是實牆（4F 和 5F 城垛連成一整條厚帶，同原設計西向立面圖）
+      faces: [{ on: 'w', windows: { types: ['none', 'none', 'none', 'none', 'slit'] } }],
     };
+    // 主體＋北側樓梯塔兩塊；b.pts 仍是整個輪廓（種樹、碰撞外框不變），冷氣照原輪廓抽亂數（splitAc：塊數不影響抽取次數）
+    b.parts = [
+      { pts: LIB_MAIN.map((p) => p.slice()), h: LIB.h, floors: LIB.floors, label: '主體' },
+      {
+        pts: LIB_TOWER.map((p) => p.slice()),
+        h: LIB_TOWER_H,
+        floors: 6,
+        label: '北側樓梯塔',
+        look: {
+          wall: { base: 'tile', colour: '#a89f92' },
+          windows: { type: 'none' },
+          parapet: { h: 0.5, colour: '#6f675f' },
+          roof: { colour: '#4c4945', ac: false },
+        },
+      },
+    ];
+    b.splitAc = 1;
   } else if (b.id === A_IDS.sci) {
     b.acPts = mv(b.pts, ...SCI_SHIFT); // 平移不改冷氣抽取次數，冷氣落在實際屋頂上
     b.pts = b.pts.map(([x, z]) =>
@@ -1172,7 +1223,7 @@ export function buildZoneA(I, scene, data) {
   // ===== 張靜愚紀念圖書館 =====
   const lib = find(A_IDS.lib);
   if (lib) {
-    const P = lib.pts,
+    const P = LIB_MAIN, // 倒三角折板只沿主體（北側樓梯塔不外推）
       B = baseOf(lib, -183, -30),
       fl = (lib.h - 0.6) / lib.floors,
       top = B + lib.h,
@@ -1257,7 +1308,128 @@ export function buildZoneA(I, scene, data) {
       k.cyl('darkBox', cx, cz, 0.9, top + 2.2, top + 2.5, 12);
     }
     k.box('darkBox', -192.7, -188.7, top, top + 2.5, -42.0, -38.0);
-    k.box('cool', -168.5, -163.5, top, top + 1.6, -53.5, -49.5);
+    // ---- 北側樓梯塔（量體是 b.parts 第二塊，src/world/MapBuilder.js 蓋磁磚實牆）：北面兩片板中間一道深色窄縫、
+    // 西片底層一樘深色門（原設計北向立面圖）；塔頂西半是冷卻設備（正射 2024：凸出那塊西半有一排圓形風扇） ----
+    {
+      const yTw = B + LIB_TOWER_H,
+        a = LIB_PTS[2],
+        c = LIB_PTS[3],
+        e = edge(a, c),
+        g0 = groundY(-168.0, -57.0) - 0.2,
+        sS = e.l - 0.9; // 窄縫在北面東端往西 0.9 m（x ≈ -165）
+      strip('slot', a, e, sS - 0.45, sS + 0.45, 0, 0.06, B + fl, yTw - 0.6);
+      strip('slot', a, e, 1.4, 3.6, 0, 0.06, g0, B + 2.5); // 門
+      strip('conc', a, e, 1.2, 3.8, 0, 0.5, B + 2.5, B + 2.75); // 門頂雨遮
+      k.box('cool', -172.0, -168.0, yTw, yTw + 1.6, -56.0, -50.0);
+    }
+    // ---- 西面（原設計西向立面圖＋廣場層平面圖；樓梯、平台都在出挑底下，正射看不到） ----
+    {
+      const xw = LIB_W.x + LIB.over, // 一～三樓外牆（出挑內縮 2.5 m）
+        xo = xw - LIB_W.w,
+        yTop = B + fl, // 二樓樓板
+        gS = groundY((xw + xo) / 2, LIB_W.zB - 0.5),
+        n = 18;
+      // 3F 淺直立磁磚壁柱（約 2.6 m 一片，凸出 0.25 m；1985 東面相片同款），2F 帶狀窗只開在壁柱之間
+      const [f0, f1] = LIB_W.fins,
+        nf = Math.round((f1 - f0) / 2.6),
+        st = (f1 - f0) / nf;
+      for (let i = 0; i <= nf; i++) {
+        const z = f0 + i * st;
+        k.box('libTile', xw - 0.25, xw, B + 2 * fl - 0.1, yT, z - 0.3, z + 0.3);
+        if (i < nf)
+          k.box(
+            'slot',
+            xw - 0.04,
+            xw + 0.01,
+            B + fl + 0.6,
+            B + 2 * fl - 0.3,
+            z + 0.35,
+            z + st - 0.35
+          );
+      }
+      // 1F 窗只在北半段兩組（樓梯以北）；南半段是樓梯、平台下的門與實牆
+      for (const [g0, g1] of LIB_W.win1) {
+        const nw = Math.round((g1 - g0) / 2.6),
+          sw = (g1 - g0) / nw;
+        for (let i = 0; i < nw; i++)
+          k.box(
+            'slot',
+            xw - 0.04,
+            xw + 0.01,
+            B + 0.9,
+            B + fl - 0.5,
+            g0 + i * sw + 0.2,
+            g0 + (i + 1) * sw - 0.2
+          );
+      }
+      // 室外直跑樓梯：貼著西牆由北往南爬到二樓，踏階紅褐磁磚、外側磚造實心欄牆＋混凝土扶手（同東面）
+      for (let i = 0; i < n; i++) {
+        const z0 = LIB_W.zB + ((LIB_W.zT - LIB_W.zB) * i) / n,
+          z1 = LIB_W.zB + ((LIB_W.zT - LIB_W.zB) * (i + 1)) / n,
+          y = gS + ((yTop - gS) * (i + 1)) / n;
+        k.box('step', xo + 0.25, xw, y - 0.16, y, z0, z1);
+        k.box('redWall', xo + 0.25, xw, y - 0.02, y + 0.01, z0, z0 + 0.06);
+      }
+      // 樓梯底下封實（斜面下的三角牆，朝外那面）
+      k.quad(
+        'terraceBrick',
+        [xo, gS - 0.2, LIB_W.zT],
+        [xo, gS - 0.2, LIB_W.zB],
+        [xo, gS + 0.9, LIB_W.zB],
+        [xo, yTop + 0.9, LIB_W.zT],
+        [
+          [0, 0],
+          [(LIB_W.zT - LIB_W.zB) / 1.6, 0],
+          [(LIB_W.zT - LIB_W.zB) / 1.6, 1.1 / 1.6],
+          [0, (yTop + 1.1 - gS) / 1.6],
+        ]
+      );
+      k.quad(
+        'terraceBrick',
+        [xo + 0.25, gS - 0.2, LIB_W.zB],
+        [xo + 0.25, gS - 0.2, LIB_W.zT],
+        [xo + 0.25, yTop + 0.9, LIB_W.zT],
+        [xo + 0.25, gS + 0.9, LIB_W.zB]
+      );
+      k.quad(
+        'terraceBrick',
+        [xo, gS - 0.2, LIB_W.zB],
+        [xo + 0.25, gS - 0.2, LIB_W.zB],
+        [xo + 0.25, gS + 0.9, LIB_W.zB],
+        [xo, gS + 0.9, LIB_W.zB]
+      );
+      k.quad(
+        'rail',
+        [xo - 0.05, gS + 0.9, LIB_W.zB - 0.05],
+        [xo + 0.3, gS + 0.9, LIB_W.zB - 0.05],
+        [xo + 0.3, yTop + 0.9, LIB_W.zT],
+        [xo - 0.05, yTop + 0.9, LIB_W.zT]
+      );
+      // 二樓平台：樓梯頂一路到西南角，樓板＋外側與南端磚欄牆＋混凝土壓頂；平台下一樓牆上一樘深色門
+      k.box('step', xo, xw, yTop - 0.3, yTop, LIB_W.zT, LIB_W.zL);
+      k.box('terraceBrick', xo, xo + 0.25, yTop, yTop + 0.9, LIB_W.zT, LIB_W.zL);
+      k.box('terraceBrick', xo, xw, yTop, yTop + 0.9, LIB_W.zL - 0.25, LIB_W.zL);
+      k.box('rail', xo - 0.05, xo + 0.3, yTop + 0.9, yTop + 1.02, LIB_W.zT, LIB_W.zL);
+      k.box('rail', xo - 0.05, xw, yTop + 0.9, yTop + 1.02, LIB_W.zL - 0.3, LIB_W.zL + 0.05);
+      const gD = groundY(xw - 0.5, (LIB_W.door[0] + LIB_W.door[1]) / 2);
+      k.box('slot', xw - 0.04, xw + 0.01, gD - 0.1, gD + 2.4, LIB_W.door[0], LIB_W.door[1]);
+      const stairPts = [
+        [xo, LIB_W.zB],
+        [xw, LIB_W.zB],
+        [xw, LIB_W.zT],
+        [xo, LIB_W.zT],
+      ];
+      boxColl(stairPts, gS - 0.2, yTop + 0.9);
+      shapes.push({ name: 'libWestStair', pts: stairPts, y0: gS, y1: yTop + 0.9 });
+      const landPts = [
+        [xo, LIB_W.zT],
+        [xw, LIB_W.zT],
+        [xw, LIB_W.zL],
+        [xo, LIB_W.zL],
+      ];
+      boxColl(landPts, yTop - 0.3, yTop + 0.9); // 平台下面可以走（門口）
+      shapes.push({ name: 'libWestLanding', pts: landPts, y0: yTop - 0.3, y1: yTop + 0.9 });
+    }
     // 南面入口左側的斜切楔形雙塔：兩片並排的灰磁磚板塊、中間一道窄縫，頂面北高南低
     const zA = -9.9 - LIB.over,
       zB = -6.6;

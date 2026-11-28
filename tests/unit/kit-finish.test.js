@@ -8,7 +8,7 @@ import {
   releaseAtlasSources,
   resetGpuMem,
 } from '../../src/graphics/GpuMemLifecycle.js';
-import { TIERS } from '../../src/core/PerfProfile.js';
+import { DEVICES } from '../../src/core/PerfProfile.js';
 
 const fakeContext = () => {
   const ctx = {
@@ -40,7 +40,7 @@ const fakeContext = () => {
   return { ctx, spy };
 };
 
-const profile = (tier) => ({ ...TIERS[tier], flags: { texScale: null } });
+const profile = (tier, extra = {}) => ({ ...DEVICES[tier], flags: { texScale: null }, ...extra });
 const fakeRenderer = () => ({ initTexture: vi.fn() });
 
 afterEach(() => {
@@ -54,7 +54,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
   it('小數量門牌圖集寬度對齊 128px 步進並保持正確 UV 與 ClampToEdge', () => {
     fakeContext();
     const renderer = fakeRenderer();
-    configureGpuMem(profile('desktop-dgpu'), renderer);
+    configureGpuMem(profile('desktop'), renderer);
     const scene = new THREE.Scene();
 
     // 2 張 256x64 門牌 -> 單張含 padding 288px，合計 576px -> 對齊 128px 收斂為 640 x 128（非寫死 2048）
@@ -93,7 +93,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
 
   it('FFDH 跨列與子空間回填、128px NPOT 高度對齊、四邊四角延伸且零重疊', () => {
     const { ctx } = fakeContext();
-    configureGpuMem(profile('desktop-dgpu'), fakeRenderer());
+    configureGpuMem(profile('desktop'), fakeRenderer());
     const scene = new THREE.Scene();
     const I = new Interiors(scene);
     const k = new Kit(I, 0, 0, 0);
@@ -164,7 +164,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
 
   it('超過 2048px 高度時對齊 128px 倍數而非跳至 4096，且非 8 倍數尺寸於 0.375 / 0.75 對齊整數像素', () => {
     const { ctx } = fakeContext();
-    configureGpuMem(profile('mobile-lite'), fakeRenderer());
+    configureGpuMem(profile('mobile'), fakeRenderer());
     const scene = new THREE.Scene();
     const I = new Interiors(scene);
     const k = new Kit(I, 0, 0, 0);
@@ -183,7 +183,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
     const tex = scene.children
       .find((o) => o.name === 'shopRow')
       ?.children.find((o) => o.name === 'row:planes')?.material.map;
-    // mobile-lite atlasScale = 0.375 -> 1152*0.375 = 432, 2688*0.375 = 1008 (非 1536 翻倍)
+    // mobile atlasScale = 0.375 -> 1152*0.375 = 432, 2688*0.375 = 1008 (非 1536 翻倍)
     expect(tex.userData.gpuW).toBe(432);
     expect(tex.userData.gpuH).toBe(1008);
     // 檢查最後一次 drawImage 的邏輯尺寸 * 0.375 是否為整數像素
@@ -196,7 +196,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
 
   it('跨區共用貼圖（YHT / ROWT）在 buildZones 期間保留不重繪，單店一次性 sg() 中途釋放', () => {
     const { spy } = fakeContext();
-    configureGpuMem(profile('mobile-lite'), fakeRenderer());
+    configureGpuMem(profile('mobile'), fakeRenderer());
     const scene = new THREE.Scene();
     const I = new Interiors(scene);
 
@@ -268,8 +268,8 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
         liveSheetCanvases.push(tex.image.width * tex.image.height);
       }),
     };
-    // desktop-igpu: atlasMaxH = 2048 -> 超過 2 張 1024x1024 會拆成多張 sheet
-    configureGpuMem(profile('desktop-igpu'), renderer);
+    // 0.75 texScale desktop: atlasMaxH = 2048 -> 超過 2 張 1024x1024 會拆成多張 sheet
+    configureGpuMem(profile('desktop', { texScale: 0.75 }), renderer);
     const scene = new THREE.Scene();
     const I = new Interiors(scene);
     const k = new Kit(I, 0, 0, 0);
@@ -292,7 +292,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
 
   it('保留 T.screenOwn 動態標記，不進圖集且不被 releaseAtlasSources / flushShared 釋放', () => {
     fakeContext();
-    configureGpuMem(profile('mobile-lite'), fakeRenderer());
+    configureGpuMem(profile('mobile'), fakeRenderer());
     const scene = new THREE.Scene();
     const I = new Interiors(scene);
     const k = new Kit(I, 0, 0, 0);
@@ -306,7 +306,7 @@ describe('Kit.js 圖集寬度收斂、跨區共用貼圖快取與立即釋放', 
     expect(k.group.children).toContain(scrMesh);
     expect(releaseAtlasSources(scene, TEX)).toBe(2);
     flushShared(scene);
-    expect(scr.image.width).toBe(128); // mobile-lite 0.5x of 256 -> kept alive
+    expect(scr.image.width).toBe(128); // mobile 0.5x of 256 -> kept alive
     expect(scr.userData.canvasReleased).toBeUndefined();
   });
 });

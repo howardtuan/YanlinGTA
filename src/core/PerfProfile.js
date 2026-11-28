@@ -1,40 +1,35 @@
 /**
- * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?diag=`).
- * Visual / display settings (pixel ratio, shadows, IBL, post-processing, view distance ...) are owned solely by
- * `GraphicsConfig.js` (presets per quality level, player overrides, URL flags).
+ * Device detection (mobile / desktop) and URL experiment flag parser (`?device=`, `?texscale=`, `?diag=`).
+ *
+ * The game tells exactly two kinds of device apart, once, from touch capability: `mobile` (touch first) and
+ * `desktop` (mouse and keyboard). The device decides the quality level a first start uses, how far 自動 may climb,
+ * and the load-time asset budget (canvas texture scale, shop-row atlas sheet size, texture anisotropy).
+ * Everything else about how the game is drawn (pixel ratio, shadows, IBL, post-processing, view distance ...) is
+ * owned solely by `GraphicsConfig.js` (presets per quality level, player overrides, URL flags).
  */
 
-export const TIERS = Object.freeze({
-  'mobile-lite': Object.freeze({
-    tier: 'mobile-lite',
+export const DEVICES = Object.freeze({
+  mobile: Object.freeze({
+    device: 'mobile',
+    defaultQuality: 'low',
+    autoMaxQuality: 'high',
     texScale: 0.5,
     atlasMaxW: 768,
     atlasMaxH: 1536,
+    anisotropy: 2,
+    targetFps: 30,
   }),
-  'desktop-igpu': Object.freeze({
-    tier: 'desktop-igpu',
-    texScale: 0.75,
-    atlasMaxW: 2048,
-    // WebGL2 iGPUs (Apple M, Iris Xe / UHD, Radeon iGPU) all take >= 8192 px textures; a taller cap keeps long
-    // shophouse rows in fewer atlases (#388)
-    atlasMaxH: 4096,
-  }),
-  'desktop-dgpu': Object.freeze({
-    tier: 'desktop-dgpu',
+  desktop: Object.freeze({
+    device: 'desktop',
+    defaultQuality: 'medium',
+    autoMaxQuality: 'ultra',
     texScale: 1,
     atlasMaxW: 2048,
     atlasMaxH: 4096,
+    anisotropy: 4,
+    targetFps: 60,
   }),
 });
-
-const TIER_ALIASES = Object.freeze({
-  'mobile-ios': 'mobile-lite',
-});
-
-const IGPU_RE =
-  /geforce\s*mx\d+|\b(iris|uhd|hd\s*graphics)\b|apple\s*(m\d|gpu)|\bradeon\b.*\b\d{3}m\b|\bradeon\s*(graphics|vega)\b|swiftshader|llvmpipe|software/i;
-const DGPU_RE =
-  /nvidia|geforce|\b(rtx|gtx)\s*\d|quadro|\bradeon\s*(rx|pro)\b|\brx\s*\d{3,4}|\barc\s*[ab]\d{3}/i;
 
 function detectTouch() {
   if (typeof matchMedia === 'function') {
@@ -46,34 +41,21 @@ function detectTouch() {
   return typeof navigator !== 'undefined' && (navigator.maxTouchPoints || 0) > 0;
 }
 
-function probeGpuRenderer() {
-  if (typeof document === 'undefined') return '';
-  let gl = null;
-  try {
-    gl = document
-      .createElement('canvas')
-      .getContext('webgl', { powerPreference: 'high-performance' });
-    const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
-    return ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '') : '';
-  } catch (_e) {
-    return '';
-  } finally {
-    try {
-      gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    } catch (_e) {}
-  }
-}
-
 /**
- * Classify device hardware into a conservative tier from touch capability and GPU renderer string.
+ * 'mobile' for touch-first devices, 'desktop' otherwise; `?device=mobile|desktop` wins.
+ * @param {{ touch?: boolean, search?: string }} env  (defaults: the browser's own touch capability and location.search)
  */
-export function detectTier({ touch = false, gpuRenderer = '' } = {}) {
-  if (touch) return 'mobile-lite';
-  const gpu = String(gpuRenderer || '').trim();
-  if (!gpu) return 'desktop-igpu';
-  if (IGPU_RE.test(gpu)) return 'desktop-igpu';
-  if (DGPU_RE.test(gpu)) return 'desktop-dgpu';
-  return 'desktop-igpu';
+export function detectDevice(env = {}) {
+  const search =
+    env.search !== undefined
+      ? String(env.search)
+      : typeof location !== 'undefined'
+        ? location.search
+        : '';
+  const flag = new URLSearchParams(search).get('device')?.trim().toLowerCase();
+  if (flag && Object.hasOwn(DEVICES, flag)) return flag;
+  const touch = env.touch !== undefined ? Boolean(env.touch) : detectTouch();
+  return touch ? 'mobile' : 'desktop';
 }
 
 function resolveDiagMode(params) {
@@ -86,7 +68,7 @@ function resolveDiagMode(params) {
 }
 
 /**
- * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?diag=` URL overrides.
+ * The runtime profile: the device's defaults and budget plus the `?device=` / `?texscale=` / `?diag=` overrides.
  */
 export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const search =
@@ -97,43 +79,28 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
         : '';
   const params = new URLSearchParams(search);
 
-  const rawTierParam = params.get('tier')?.trim().toLowerCase() || '';
-  const tierParam = TIER_ALIASES[rawTierParam] || rawTierParam;
-  const hasValidTierOverride = Object.hasOwn(TIERS, tierParam);
-
   const touch = env.touch !== undefined ? Boolean(env.touch) : detectTouch();
-  let gpuRenderer = env.gpuRenderer !== undefined ? String(env.gpuRenderer) : '';
-  if (env.gpuRenderer === undefined && !touch && !hasValidTierOverride) {
-    gpuRenderer =
-      typeof env.probeGpu === 'function' ? String(env.probeGpu() || '') : probeGpuRenderer();
-  }
-
-  const tier = hasValidTierOverride ? tierParam : detectTier({ touch, gpuRenderer });
-  const base = TIERS[tier];
+  const device = detectDevice({ touch, search });
+  const base = DEVICES[device];
+  const rawDevice = params.get('device')?.trim().toLowerCase() || '';
 
   const texScaleParam = params.get('texscale');
   const parsedTex = texScaleParam !== null ? Number.parseFloat(texScaleParam) : NaN;
-  const texScale =
-    Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : base.texScale;
+  const texOk = Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2;
 
   const diagParam = params.has('diag') ? params.get('diag') : null;
   const diagMode = resolveDiagMode(params);
 
-  const profile = {
-    tier,
-    texScale,
-    atlasMaxW: base.atlasMaxW,
-    atlasMaxH: base.atlasMaxH,
+  return {
+    ...base,
+    texScale: texOk ? parsedTex : base.texScale,
     diagMode,
     diagEnabled: diagMode !== 'off',
     touch,
-    gpuRenderer,
     flags: {
-      tier: hasValidTierOverride ? tierParam : null,
-      texScale:
-        Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : null,
+      device: Object.hasOwn(DEVICES, rawDevice) ? rawDevice : null,
+      texScale: texOk ? parsedTex : null,
       diag: diagParam,
     },
   };
-  return profile;
 }

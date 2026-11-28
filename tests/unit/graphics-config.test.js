@@ -13,10 +13,30 @@ import {
   isCustom,
   diffFromPreset,
   reloadPending,
-  postFxLevel,
-  shadowLevel,
+  CROWD_SPEC,
+  Q_NAME,
 } from '../../src/core/GraphicsConfig.js';
-import { QPROF } from '../../src/core/GameLoop.js';
+import * as GC from '../../src/core/GraphicsConfig.js';
+
+// the order every setting improves in, worst first (numbers that improve as they shrink are listed with -1)
+const ORDER = {
+  shadows: ['off', 'low', 'medium', 'high'],
+  envLight: ['hemi', 'pmrem'],
+  postFx: ['off', 'bloom-quarter', 'bloom-half-msaa'],
+  materialMode: ['lambert', 'standard'],
+  crowdTier: QUALITY,
+};
+const SHRINKS = new Set(['fogScale', 'shadowRate']); // thinner fog, shadows drawn more often = better
+const rank = (k, v) =>
+  ORDER[k]
+    ? ORDER[k].indexOf(v)
+    : typeof v === 'boolean'
+      ? k === 'dynRes'
+        ? Number(!v) // dynamic resolution trades sharpness for frames: the low levels have it
+        : Number(v)
+      : SHRINKS.has(k)
+        ? -v
+        : v;
 
 describe('GraphicsConfig presets', () => {
   it('every quality level declares every setting with a valid value', () => {
@@ -26,27 +46,74 @@ describe('GraphicsConfig presets', () => {
     }
   });
 
-  it('keeps the old per-level behaviour (QPROF view of the presets)', () => {
-    expect(QPROF.high).toEqual({ far: 2600, fog: 1, pr: 1.6, shadows: true, view: 1 });
-    expect(QPROF.medium).toEqual({ far: 1500, fog: 1.12, pr: 1.0, shadows: true, view: 0.8 });
-    expect(QPROF.low).toEqual({ far: 750, fog: 1.6, pr: 1.25, shadows: false, view: 0.45 });
-    expect(QPROF.xlow).toEqual({ far: 450, fog: 2.4, pr: 1.0, shadows: false, view: 0.3 });
-    expect(postFxLevel(PRESETS.high.postFx)).toBe('high');
-    expect(postFxLevel(PRESETS.medium.postFx)).toBe('medium');
-    expect(postFxLevel(PRESETS.low.postFx)).toBe('low');
-    expect(shadowLevel(PRESETS.low.shadows)).toBe('low');
-    expect(PRESETS.low.materialMode).toBe('lambert');
-    expect(PRESETS.medium.antialias).toBe(true);
-    // #438: phones are sharper, with dynamic resolution easing down when frames run long
-    expect(PRESETS.low).toMatchObject({ dprCap: 1.25, dprMin: 0.8, dynRes: true });
-    expect(PRESETS.high.dynRes).toBe(false);
+  it('has five levels xlow < low < medium < high < ultra (#460)', () => {
+    expect(QUALITY).toEqual(['xlow', 'low', 'medium', 'high', 'ultra']);
+    expect(QUALITY.map((q) => Q_NAME[q])).toEqual(['超低', '低', '中', '高', '極致']);
+    expect(Object.keys(PRESETS).sort()).toEqual([...QUALITY].sort());
+  });
+
+  it('every setting is monotonic: no level is worse than the one below it (#458 had low > medium)', () => {
+    for (const k of Object.keys(SPEC))
+      for (let i = 1; i < QUALITY.length; i++) {
+        const lo = PRESETS[QUALITY[i - 1]][k],
+          hi = PRESETS[QUALITY[i]][k];
+        expect(
+          rank(k, hi),
+          `${k}: ${QUALITY[i - 1]} ${lo} -> ${QUALITY[i]} ${hi}`
+        ).toBeGreaterThanOrEqual(rank(k, lo));
+      }
+    // the ones that grow strictly level by level
+    for (const k of ['dprCap', 'viewScale', 'far', 'interiorCullDist'])
+      for (let i = 1; i < QUALITY.length; i++)
+        expect(PRESETS[QUALITY[i]][k], k).toBeGreaterThan(PRESETS[QUALITY[i - 1]][k]);
+    for (let i = 1; i < QUALITY.length; i++)
+      expect(PRESETS[QUALITY[i]].fogScale).toBeLessThan(PRESETS[QUALITY[i - 1]].fogScale);
+  });
+
+  it('matches the #461 table', () => {
+    expect(QUALITY.map((q) => PRESETS[q].dprCap)).toEqual([0.75, 1.0, 1.15, 1.4, 1.6]);
+    expect(QUALITY.map((q) => PRESETS[q].dprMin)).toEqual([0.6, 0.8, 1.0, 1.15, 1.4]);
+    expect(QUALITY.map((q) => PRESETS[q].shadows)).toEqual(['off', 'off', 'low', 'medium', 'high']);
+    expect(QUALITY.map((q) => PRESETS[q].shadowRate)).toEqual([2, 2, 2, 2, 1]);
+    expect(QUALITY.map((q) => PRESETS[q].postFx)).toEqual([
+      'off',
+      'off',
+      'off',
+      'bloom-quarter',
+      'bloom-half-msaa',
+    ]);
+    expect(QUALITY.map((q) => PRESETS[q].nightLamps)).toEqual([0, 0, 2, 4, 8]);
+    expect(QUALITY.map((q) => PRESETS[q].far)).toEqual([500, 800, 1400, 2000, 2600]);
+    expect(QUALITY.map((q) => PRESETS[q].interiorCullDist)).toEqual([30, 45, 70, 100, 150]);
+    expect(QUALITY.map((q) => PRESETS[q].antialias)).toEqual([false, false, false, true, true]);
+    expect(QUALITY.map((q) => PRESETS[q].crowdTier)).toEqual(QUALITY);
+    expect(QUALITY.every((q) => PRESETS[q].fill === true)).toBe(true);
+  });
+
+  it('CROWD_SPEC declares every crowd tier, never shrinking as the tier grows', () => {
+    expect(Object.keys(CROWD_SPEC)).toEqual(QUALITY);
+    const W = ['low', 'medium', 'high'];
+    for (let i = 1; i < QUALITY.length; i++) {
+      const a = CROWD_SPEC[QUALITY[i - 1]],
+        b = CROWD_SPEC[QUALITY[i]];
+      for (const k of ['skyline', 'traffic', 'peds', 'festive', 'pudding', 'parkedDist'])
+        expect(b[k], k).toBeGreaterThanOrEqual(a[k]);
+      expect(W.indexOf(b.world)).toBeGreaterThanOrEqual(W.indexOf(a.world));
+      expect(Number(!b.lean)).toBeGreaterThanOrEqual(Number(!a.lean));
+    }
+    expect(CROWD_SPEC.xlow).toMatchObject({ skyline: 40, traffic: 8, peds: 10, lean: true });
+  });
+
+  it('has no old compatibility helpers left', () => {
+    for (const k of ['tierClamp', 'postFxLevel', 'shadowLevel']) expect(GC[k]).toBeUndefined();
   });
 
   it('splits live and reload-only settings', () => {
     expect(LIVE_KEYS).toEqual(
       expect.arrayContaining(['dprCap', 'shadows', 'envLight', 'postFx', 'nightLamps'])
     );
-    expect(RELOAD_KEYS).toEqual(expect.arrayContaining(['materialMode', 'antialias', 'crowdTier']));
+    expect(LIVE_KEYS).toEqual(expect.arrayContaining(['shadowRate', 'interiorCullDist']));
+    expect(RELOAD_KEYS).toEqual(['materialMode', 'antialias', 'crowdTier', 'fill']);
     expect(LIVE_KEYS.some((k) => RELOAD_KEYS.includes(k))).toBe(false);
   });
 });
@@ -56,6 +123,8 @@ describe('sanitize / cleanPatch', () => {
     expect(
       cleanPatch({
         shadows: 'ultra',
+        shadowRate: 3,
+        fill: 'no',
         envLight: 'hemi',
         dprCap: '9',
         nightLamps: 3.4,
@@ -65,6 +134,11 @@ describe('sanitize / cleanPatch', () => {
     ).toEqual({ envLight: 'hemi', dprCap: 3, nightLamps: 3 });
     expect(cleanPatch(null)).toEqual({});
     expect(sanitize('dprCap', 'abc')).toBeUndefined();
+    expect(cleanPatch({ shadowRate: 1, fill: false, crowdTier: 'full' })).toEqual({
+      shadowRate: 1,
+      fill: false,
+    });
+    expect(sanitize('shadowRate', '2')).toBe(2);
   });
 });
 
@@ -106,16 +180,9 @@ describe('resolveGraphics priority: preset < player < URL', () => {
     });
   });
 
-  it('integrated GPUs keep at most 2 lamp lights unless the URL asks', () => {
-    expect(resolveGraphics('high', { tier: 'desktop-igpu' }).nightLamps).toBe(2);
-    expect(resolveGraphics('high', { tier: 'desktop-dgpu' }).nightLamps).toBe(8);
-    expect(
-      resolveGraphics('high', { tier: 'desktop-igpu', url: parseUrlFlags('?lamps=8') }).nightLamps
-    ).toBe(8);
-  });
-
   it('an unknown level falls back to low', () => {
-    expect(resolveGraphics('ultra')).toMatchObject(PRESETS.low);
+    expect(resolveGraphics('full')).toMatchObject(PRESETS.low);
+    expect(resolveGraphics('ultra')).toMatchObject(PRESETS.ultra);
   });
 });
 
@@ -128,7 +195,13 @@ describe('parseUrlFlags', () => {
     expect(parseUrlFlags('?shadows=1')).toEqual({ shadows: 'medium' });
     expect(parseUrlFlags('?shadows=off')).toEqual({ shadows: 'off' });
     expect(parseUrlFlags('?mat=lite&aa=0')).toEqual({ materialMode: 'lambert', antialias: false });
-    expect(parseUrlFlags('?bench&tier=mobile-lite')).toEqual({});
+    expect(parseUrlFlags('?bench&device=mobile')).toEqual({});
+    expect(parseUrlFlags('?shadowrate=1&fill=0&dynres=1')).toEqual({
+      shadowRate: 1,
+      fill: false,
+      dynRes: true,
+    });
+    expect(parseUrlFlags('?shadowrate=3&fill=maybe')).toEqual({});
     expect(parseUrlFlags('?dpr=nope&lamps=99')).toEqual({ nightLamps: 8 });
   });
 });
@@ -142,14 +215,15 @@ describe('player overrides bookkeeping', () => {
   });
 
   it('isCustom / diffFromPreset ignore values equal to the preset', () => {
-    expect(isCustom('low', { dprCap: 1.25 })).toBe(false);
+    expect(isCustom('low', { dprCap: 1.0 })).toBe(false);
     expect(isCustom('low', { dprCap: 1.2 })).toBe(true);
+    expect(isCustom('low', { fill: false })).toBe(true);
     expect(isCustom('low', undefined)).toBe(false);
-    expect(diffFromPreset('medium', { shadows: 'medium', dprCap: 1.25 })).toEqual({ dprCap: 1.25 });
+    expect(diffFromPreset('medium', { shadows: 'low', dprCap: 1.25 })).toEqual({ dprCap: 1.25 });
   });
 
   it('old saves without settings.gfx resolve to the plain preset', () => {
-    const old = { quality: 'medium', fill: 'on', autoQ: 'low' };
+    const old = { quality: 'medium', autoQ: 'low' };
     expect(resolveGraphics('medium', { overrides: old.gfx })).toMatchObject(PRESETS.medium);
   });
 
@@ -159,7 +233,14 @@ describe('player overrides bookkeeping', () => {
       []
     );
     expect(reloadPending(built, resolveGraphics('medium'))).toEqual(
-      expect.arrayContaining(['materialMode', 'antialias', 'crowdTier'])
+      expect.arrayContaining(['materialMode', 'crowdTier'])
+    );
+    // 補建街區 goes through the same reload bookkeeping (it used to be settings.fill on its own)
+    expect(reloadPending(built, resolveGraphics('low', { overrides: { fill: false } }))).toEqual([
+      'fill',
+    ]);
+    expect(reloadPending(built, resolveGraphics('low', { overrides: { shadowRate: 1 } }))).toEqual(
+      []
     );
   });
 });

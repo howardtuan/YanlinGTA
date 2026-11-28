@@ -7828,8 +7828,7 @@ export function buildWorld(scene, data, onProgress = () => {}, opts = {}) {
     // how many: src/core/GraphicsConfig.js nightLamps (8 high / 4 medium / 0 low; integrated GPUs at most 2),
     // changed live with world.setLampLights(n): going down only darkens the extra lights (as the old quality switch
     // did: no shader rebuild), going above the pool adds lights (the lit shaders rebuild once)
-    const n0 = opts.nightLamps ?? (quality === 'high' ? 8 : quality === 'medium' ? 4 : 0),
-      n = opts.nightLamps == null && opts.tier === 'desktop-igpu' ? Math.min(n0, 2) : n0;
+    const n = opts.nightLamps ?? (quality === 'high' ? 8 : quality === 'medium' ? 4 : 0);
     const lights = [];
     const addLight = () => {
       const l = new THREE.PointLight('#ffcf94', 0, 24, 2);

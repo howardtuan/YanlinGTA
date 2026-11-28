@@ -256,7 +256,7 @@ try {
     });
   }
 
-  const query = mobile ? '?tier=mobile-lite' : '';
+  const query = mobile ? '?device=mobile' : '?device=desktop';
   const tNav = Date.now();
   await runner.navigate(`${srv.url}${query}`);
 
@@ -283,7 +283,7 @@ try {
   const bootInfo = await runner.eval(`(() => {
     const res = performance.getEntriesByType('resource');
     return {
-      tier: window.game.perfProfile?.tier || null,
+      tier: window.game.perfProfile?.device || null,
       bootDiagMs: window.game.bootDiag?.getState?.()?.current?.elapsedMs ?? null,
       stages: (window.game.bootDiag?.getState?.()?.current?.stages || []).map((s) => ({ step: s.step, ms: s.ms })),
       topZones: (window.game.interiors?.zoneTimes || []).slice().sort((a, b) => b.ms - a.ms).slice(0, 5),

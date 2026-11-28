@@ -38,7 +38,7 @@ function makeReport(overrides = {}) {
       transferKB: 11600,
     },
     perf: {
-      tier: 'mobile-lite',
+      tier: 'mobile',
       quality: 'low',
       canvasMB: 185.4,
       canvasCount: 120,

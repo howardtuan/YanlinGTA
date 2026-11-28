@@ -108,15 +108,14 @@ import { isLunarNewYear, seasonDate } from '../world/Season.js';
 import { buildNewYearDecor } from '../world/Festive.js';
 import { Firecrackers } from '../systems/Firecrackers.js';
 
-import { GameLoop, resolveQuality, subQ } from './GameLoop.js';
+import { GameLoop, resolveQuality } from './GameLoop.js';
 import {
   resolveGraphics,
   parseUrlFlags,
   diffFromPreset,
   mergeOverrides,
   reloadPending,
-  postFxLevel,
-  shadowLevel,
+  CROWD_SPEC,
 } from './GraphicsConfig.js';
 import { MenuManager, lockPointer } from './MenuManager.js';
 import { resolveRuntimeProfile } from './PerfProfile.js';
@@ -193,17 +192,14 @@ class Game {
     this.data = data;
     this.quality = resolveQuality(this.settings.quality, this.settings);
     // display settings (src/core/GraphicsConfig.js): preset < player overrides < URL flags
-    this._gfxOpts = {
-      url: parseUrlFlags(location.search),
-      tier: this.perfProfile.tier,
-    };
+    this._gfxOpts = { url: parseUrlFlags(location.search) };
     this.gfx = this.resolveGfx();
     this.gfxBuilt = { ...this.gfx }; // the reload-only settings this world is built with
     // crowd / world density tier (people, traffic, skyline, lighter 補建 rows): read once at load
-    this.lowQ = this.gfx.crowdTier !== 'full';
+    this.lowQ = CROWD_SPEC[this.gfx.crowdTier].lean;
     this.xlowQ = this.gfx.crowdTier === 'xlow';
 
-    const fillOn = this.settings.fill !== 'off';
+    const fillOn = this.gfx.fill;
     const keepSyn = (o) => !o.synthetic || (fillOn && !(this.lowQ && o.lod));
     for (const k of ['buildings', 'areas', 'barriers']) data[k] = data[k].filter(keepSyn);
 
@@ -360,9 +356,9 @@ class Game {
         : THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.toneMappingExposure = 1.0;
-    // integrated / mobile GPUs draw the sun's shadow map every other frame (GameLoop.loop),
-    // and every tier sorts opaque draws by shader program (src/graphics/RenderSort.js)
-    this.halfRateShadows = this.perfProfile.tier !== 'desktop-dgpu';
+    // gfx.shadowRate 2 draws the sun's shadow map every other frame (GameLoop.loop),
+    // and every level sorts opaque draws by shader program (src/graphics/RenderSort.js)
+    this.halfRateShadows = this.gfx.shadowRate === 2;
     r.shadowMap.autoUpdate = !this.halfRateShadows;
     installOpaqueSort(r);
     r.domElement.id = 'game';
@@ -394,7 +390,7 @@ class Game {
     });
 
     this._sky();
-    this.post = new PostFX(r, this.scene, this.camera, postFxLevel(this.gfx.postFx));
+    this.post = new PostFX(r, this.scene, this.camera, this.gfx.postFx);
     await stage('build-world', 0.08, '搭建中原大學');
 
     const featureTrees = (() => {
@@ -415,10 +411,9 @@ class Game {
       keep,
       low: this.lowQ,
       // world density follows the crowd tier; walls / ground shading follows materialMode
-      quality: this.lowQ ? 'low' : subQ(this.quality) === 'low' ? 'medium' : subQ(this.quality),
+      quality: CROWD_SPEC[this.gfx.crowdTier].world,
       materialMode: this.gfx.materialMode,
       nightLamps: this.gfx.nightLamps,
-      tier: this.perfProfile.tier,
       featureTrees,
       mainGate: GUARD_SPECS(data)[0],
       vegHide: zoneVegHide(data),
@@ -810,7 +805,7 @@ class Game {
 
   // ---------- sky & lighting ----------
   _sky() {
-    this.skySys = new SkySystem(this.scene, this.renderer, shadowLevel(this.gfx.shadows));
+    this.skySys = new SkySystem(this.scene, this.renderer, this.gfx.shadows);
     this.skySys.setEnvMode(this.gfx.envLight);
     this.sun = this.skySys.sun;
     this.hemi = this.skySys.hemi;

@@ -150,7 +150,7 @@ export class SkySystem {
     this.hemi = new THREE.HemisphereLight('#bcd4ff', '#4d4636', 0.5);
     scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight('#fff1de', 3);
-    this.sun.castShadow = quality !== 'low'; // low / xlow: no shadows (GameLoop.applyQuality switches them later)
+    this.sun.castShadow = quality !== 'off'; // gfx.shadows 'off': no shadows (GameLoop.applyQuality switches them later)
     this.shadowR = 85;
     this.setShadowQuality(quality);
     const sc = this.sun.shadow.camera;
@@ -169,7 +169,7 @@ export class SkySystem {
   }
   setShadowQuality(q) {
     const size = q === 'high' ? 4096 : q === 'medium' ? 2048 : 1024;
-    const R = q === 'low' ? 60 : this.shadowR;
+    const R = q === 'off' || q === 'low' ? 60 : this.shadowR;
     const s = this.sun.shadow;
     if (s.mapSize.x !== size) {
       s.mapSize.set(size, size);

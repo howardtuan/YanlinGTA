@@ -19,8 +19,8 @@ const S = {
 const clampScale = (v) => Math.min(1, Math.max(0.25, Number(v) || 1));
 const floorPow2 = (v) => 2 ** Math.floor(Math.log2(Math.max(16, v)));
 
-// called once by src/core/Game.js after the renderer exists and before the world builds: every tier stores its
-// canvas textures at PerfProfile's texScale (desktop-dgpu 1, desktop-igpu 0.75, mobile-lite 0.5, safe mode 0.375,
+// called once by src/core/Game.js after the renderer exists and before the world builds: every device stores its
+// canvas textures at PerfProfile's texScale (desktop 1, mobile 0.5, safe mode 0.375,
 // or ?texscale=) and its atlas sheets within atlasMaxW x atlasMaxH (docs/guide/architecture.md)
 export function configureGpuMem(profile = {}, renderer = null) {
   const s = clampScale(profile.texScale ?? 1);

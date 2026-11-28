@@ -564,7 +564,7 @@ export class Benchmark {
     this.result = {
       date: new Date().toLocaleString('zh-TW', { hour12: false }),
       quality,
-      tier: g.perfProfile?.tier || null,
+      tier: g.perfProfile?.device || null,
       res,
       pixelRatio: r.getPixelRatio(),
       gpu: gpuName(r),

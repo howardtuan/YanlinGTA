@@ -61,8 +61,8 @@ function gradedOutputPass(OutputPass) {
   return pass;
 }
 
-// bloom buffer size: a quarter of the screen on medium, half on high
-const bloomDiv = (q) => (q === 'high' ? 2 : 4);
+// bloom buffer size: a quarter of the screen ('bloom-quarter'), half with MSAA ('bloom-half-msaa')
+const bloomDiv = (q) => (q === 'bloom-half-msaa' ? 2 : 4);
 
 export class PostFX {
   constructor(renderer, scene, camera, quality) {
@@ -81,7 +81,7 @@ export class PostFX {
       q = this.quality;
     const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, {
       type: THREE.HalfFloatType,
-      samples: q === 'high' ? 4 : 0,
+      samples: q === 'bloom-half-msaa' ? 4 : 0,
     });
     const c = new M.EffectComposer(r, rt);
     c.setPixelRatio(pr);
@@ -108,8 +108,8 @@ export class PostFX {
     if (q === this.quality) return;
     this.quality = q;
     this._drop();
-    if (q === 'low') return;
-    // until the modules are in (the first time only), frames draw straight to the screen as on low
+    if (q === 'off') return;
+    // until the modules are in (the first time only), frames draw straight to the screen as with 'off'
     loadFX().then((M) => {
       if (this.quality !== q || this.composer) return;
       this._build(M);

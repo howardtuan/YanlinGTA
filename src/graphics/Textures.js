@@ -81,11 +81,11 @@ function canvas(w, h) {
 }
 // canvases whose pixels are read back (getImageData) stay on the CPU: a GPU readback stalls for seconds under software rendering
 const READBACK = { willReadFrequently: true };
-// textures are stored at the tier's texture scale (PerfProfile texScale: desktop-igpu 0.75, phones 0.5;
+// textures are stored at the device's texture scale (PerfProfile texScale: desktop 1, phones 0.5;
 // src/graphics/GpuMemLifecycle.js). The ground textures are generated straight at that size (tierSize: noise,
 // normals and pattern drawing in the smaller canvas, the pattern drawn in full-size logical units through a canvas
 // transform); the others are generated at full size and scaled down here, the full-size canvas released at once.
-// texScale 1 (desktop-dgpu, unit tests): nothing changes, pixel for pixel.
+// texScale 1 (desktop, unit tests): nothing changes, pixel for pixel.
 const AT_TIER = new WeakSet(); // canvases already generated at the tier's size
 function tierSize(S) {
   const s = texScale();

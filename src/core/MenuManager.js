@@ -96,13 +96,6 @@ export const lockPointer = (el) => {
   } catch (_e) {}
 };
 
-const setLoad = (p, t) => {
-  const f = $('loadFill');
-  if (f) f.style.width = `${p * 100}%`;
-  const tx = $('loadText');
-  if (tx) tx.textContent = `${t || '載入中 LOADING'} · ${Math.round(p * 100)}%`;
-};
-
 export class MenuManager {
   constructor(game) {
     this.game = game;
@@ -120,12 +113,13 @@ export class MenuManager {
       game._starting = true;
       game.audio.init(); // music starts on this click (browsers need a gesture)
       $('title').classList.add('hidden');
-      await this.splash(5000);
+      // straight into the game: the world, interiors, physics and shaders are all built before the title screen
+      // shows, so the old 5 s progress bar after 「▶ 開始遊戲」 only made people wait (#442)
       $('hud').classList.remove('hidden');
       if (game.input.touch) $('touch').classList.remove('hidden');
       game.state = 'play';
       game.input.enabled = true;
-      // pointer lock needs a fresh click after the splash
+      // pointer lock needs a fresh click (the Start click went to the menu button)
       if (!game.input.touch && !game.prompts.pad)
         game.hud.toast('點一下畫面鎖定滑鼠視角', 'good', 3000);
       const d = readSave();
@@ -211,40 +205,6 @@ export class MenuManager {
         game.mahjong?.playing;
       if (cine || performance.now() - lockReqAt < 1200) return;
       if (game.state === 'play' && !game.input.touch && !game.mouseOwnedByUI()) this.pause();
-    });
-  }
-
-  // artwork + 5 s progress bar shown after pressing Start
-  splash(ms) {
-    const stages = [
-      '建立地形中',
-      '鋪設中北路與實踐路',
-      '種下校園的樹',
-      '蓋資管系館與電腦教室',
-      '炸好麥當勞的薯條',
-      '幫 JAT SM 加滿油',
-      '召喚同學與競選幹部',
-      '印好「資管要贏 票投彥霖」傳單',
-      '準備出發！',
-    ];
-    $('loading').classList.remove('hidden');
-    return new Promise((res) => {
-      const t0 = performance.now();
-      const tick = () => {
-        const k = Math.min(1, (performance.now() - t0) / ms);
-        const ease = k < 1 ? k * (0.9 + 0.1 * Math.sin(k * 20)) : 1;
-        setLoad(
-          Math.min(1, ease),
-          stages[Math.min(stages.length - 1, Math.floor(k * stages.length))]
-        );
-        if (k < 1) requestAnimationFrame(tick);
-        else
-          setTimeout(() => {
-            $('loading').classList.add('hidden');
-            res();
-          }, 250);
-      };
-      tick();
     });
   }
 

@@ -9,6 +9,10 @@
  *
  * LIVE settings switch at once (game.applyDisplaySettings / GameLoop.applyDisplay):
  *   dprCap      max renderer pixel ratio
+ *   dynRes      dynamic resolution (low / xlow): in play the pixel ratio moves between dprMin and dprCap with the
+ *               frame time (GameLoop drsStep) instead of sitting at one fixed, blurry value; off when the player sets
+ *               清晰度倍率 by hand or ?dpr= is given
+ *   dprMin      the floor dynamic resolution may go down to
  *   shadows     'off' | 'low' (1024 + tiny casters skipped) | 'medium' (2048) | 'high' (4096, PCFSoft, all casters)
  *   envLight    'hemi' (hemisphere light only: no PMREM sky environment, no runtime bakeEnv) | 'pmrem' (sky IBL)
  *   postFx      'off' (straight to screen) | 'bloom-quarter' (1/4 bloom + grade) | 'bloom-half-msaa' (4x MSAA, 1/2 bloom)
@@ -30,6 +34,8 @@ export const QUALITY = ['xlow', 'low', 'medium', 'high'];
 export const PRESETS = Object.freeze({
   high: Object.freeze({
     dprCap: 1.6,
+    dprMin: 1.6,
+    dynRes: false,
     shadows: 'high',
     envLight: 'pmrem',
     postFx: 'bloom-half-msaa',
@@ -43,6 +49,8 @@ export const PRESETS = Object.freeze({
   }),
   medium: Object.freeze({
     dprCap: 1.0,
+    dprMin: 1.0,
+    dynRes: false,
     shadows: 'medium',
     envLight: 'pmrem',
     postFx: 'bloom-quarter',
@@ -55,7 +63,11 @@ export const PRESETS = Object.freeze({
     crowdTier: 'full',
   }),
   low: Object.freeze({
-    dprCap: 0.8,
+    // phones (#438): was a fixed 0.8 (344 x 745 px on a 430 x 932 @3x iPhone, 7 % of its pixels); now up to 1.25
+    // (over twice the pixels), dynamic resolution easing down to 0.8 when frames run long
+    dprCap: 1.25,
+    dprMin: 0.8,
+    dynRes: true,
     shadows: 'off',
     envLight: 'pmrem',
     postFx: 'off',
@@ -68,7 +80,9 @@ export const PRESETS = Object.freeze({
     crowdTier: 'low',
   }),
   xlow: Object.freeze({
-    dprCap: 0.6,
+    dprCap: 1.0,
+    dprMin: 0.6,
+    dynRes: true,
     shadows: 'off',
     envLight: 'pmrem',
     postFx: 'off',
@@ -85,6 +99,8 @@ export const PRESETS = Object.freeze({
 // allowed values of every setting (numbers: [min, max]); anything else is ignored
 export const SPEC = Object.freeze({
   dprCap: { live: true, range: [0.4, 3] },
+  dprMin: { live: true, range: [0.4, 3] },
+  dynRes: { live: true, bool: true },
   shadows: { live: true, values: ['off', 'low', 'medium', 'high'] },
   envLight: { live: true, values: ['hemi', 'pmrem'] },
   postFx: { live: true, values: ['off', 'bloom-quarter', 'bloom-half-msaa'] },

@@ -99,6 +99,7 @@ export function writeSave(g) {
     pin: g.nav?.target || null,
     stocks: g.market?.toJSON() || null,
     news: g.news?.toJSON() || null,
+    secrets: g.secrets?.toJSON() || null,
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(d));
@@ -155,6 +156,7 @@ export function applySave(g, d) {
   if (d.pin && g.nav) g.nav.set(d.pin.x, d.pin.z);
   if (d.stocks && g.market) g.market.load(d.stocks);
   g.news?.load(d.news);
+  g.secrets?.load(d.secrets);
   if (d.look) wearLook(g.player, d.look); // old saves (shirt / shorts / pants / top only) still fit: src/systems/OutfitData.js
   if (d.pos) {
     g.player.place(d.pos.x, d.pos.z, d.pos.h || 0);

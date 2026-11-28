@@ -12,6 +12,7 @@
 // and a solved one offers 🔁 再破一次 (by hand or automatic, on a throw-away state).
 import { stockUI } from './phone/StockUI.js';
 import { newsUI } from './phone/NewsUI.js';
+import { secretsUI } from './phone/SecretsUI.js';
 import { learnUI, hl } from '../systems/minigames/Learn.js';
 import { TWO_SUM_STARTER } from '../systems/quests/HowardTwoSum.js';
 import { askAutoSolve, askReplay, playAutoSolve } from './AutoSolveUI.js';
@@ -53,6 +54,7 @@ const APPS = [
   ['news', '📰', 'PYtoday'],
   ['learn', '🎓', '資管學堂'],
   ['case', '🕵️', '案件檔案'],
+  ['secrets', '🏆', '隱藏成就'], // real stories behind side quests (src/systems/Secrets.js, src/ui/phone/SecretsUI.js)
   ['term', '💻', '終端機'],
   ['leet', '🧩', 'Two Sum'], // 霍華德 sent it (src/systems/quests/HowardTwoSum.js): only on the desktop once he has
 ];
@@ -61,7 +63,7 @@ const LAYOUT = {
   term: ['0px', '0px', '60%', 'calc(100% - 42px)'],
   case: ['60%', '0px', '40%', 'calc(100% - 42px)'],
 };
-const MAXED = new Set(['learn', 'leet']); // opened maximized
+const MAXED = new Set(['learn', 'leet', 'secrets']); // opened maximized
 const DEFAULT_NOTES =
   '競選待辦：\n- 掃街拉票，發完傳單\n- 去麥當勞打工賺零用錢\n- 新中北路障礙賽要拿第一\n- 記得月底前繳房租！\n';
 
@@ -565,6 +567,11 @@ export class PC {
     const ui = newsUI(body, this.g, { wide: true });
     const t = setInterval(() => ui.refresh(), 1000);
     this.wins.news.cleanup = () => clearInterval(t);
+  }
+  // ---------------- 🏆 隱藏成就 (wide layout: entries on the left, the real story on the right) ----------------
+  _secrets(body) {
+    const ui = secretsUI(body, this.g, { wide: true });
+    this.wins.secrets.cleanup = () => ui.stop();
   }
   // ---------------- 🧩 Two Sum from 霍華德 (src/systems/quests/HowardTwoSum.js): Python3, O(N), typed by hand ----------------
   _leet(body) {

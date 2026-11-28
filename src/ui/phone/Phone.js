@@ -2,6 +2,7 @@
 // App：訊息（兩種回覆擇一，Tab 傳送）、相機、照片、Peach Pay 錢包、地圖、音樂、選情、天氣、麥當勞、設定。
 import { stockUI } from './StockUI.js';
 import { newsUI } from './NewsUI.js';
+import { secretsUI } from './SecretsUI.js';
 import { locateUI } from '../../world/Locate.js';
 import { RIDE_PLACES } from '../../systems/minigames/PinHanRide.js';
 import { CONTACTS } from './Chats.js';
@@ -44,6 +45,13 @@ const APPS = [
   },
   { id: 'drone', name: '無人機', icon: '🛸', bg: 'linear-gradient(#3a4256,#0d111a)', noArt: true }, // connects to 彥霖's drone (src/entities/Drone.js)
   { id: 'tix', name: '皮元系統', icon: '🎫', bg: 'linear-gradient(#ff4fa3,#7b5bff)', noArt: true }, // 演唱會 (src/systems/minigames/Concert.js)
+  {
+    id: 'secrets',
+    name: '隱藏成就',
+    icon: '🏆',
+    bg: 'linear-gradient(#4a3500,#f2c230)',
+    noArt: true,
+  }, // real stories behind side quests (src/systems/Secrets.js)
   { id: 'camera', name: '相機', icon: '📷', bg: 'linear-gradient(#d9d9de,#9a9aa2)' },
   { id: 'photos', name: '照片', icon: '🌸', bg: 'linear-gradient(#fff,#f0f0f0)' },
   { id: 'wallet', name: 'Peach Pay', icon: '💳', bg: 'linear-gradient(#ffb38a,#ff6f61)' },
@@ -424,7 +432,9 @@ export class Phone {
             ? this.fresh.pcard
             : id === 'news'
               ? this.g.news?.unread || 0
-              : 0;
+              : id === 'secrets'
+                ? this.g.secrets?.unseen || 0
+                : 0;
     const icon = (a) => {
       const n = badgeN(a.id),
         badge = n ? `<b class="ph-badge">${n}</b>` : '';
@@ -754,6 +764,21 @@ export class Phone {
     const c = this._frame('PYtoday', '<div class="nw-host"></div>', { cls: 'ph-news' });
     this._nw = newsUI(c.querySelector('.nw-host'), this.g, { wide: false });
   }
+  // ---------------- 🏆 隱藏成就 (src/ui/phone/SecretsUI.js) ----------------
+  _secrets(reveal = null) {
+    const c = this._frame('隱藏成就', '<div class="sc-host"></div>', { cls: 'ph-secrets' });
+    this._sc = secretsUI(c.querySelector('.sc-host'), this.g, { wide: false, reveal });
+  }
+  // a side quest based on a real story was just finished: unlock it, take the phone out and play the unlock card
+  revealSecret(id) {
+    const g = this.g;
+    g.secrets?.unlock(id);
+    if (this.call) return; // never over a ringing call: the app's badge shows it instead
+    if (!this.open) g.openPhone();
+    this.app = 'secrets';
+    this.cur = null;
+    this._secrets(id);
+  }
   // ---------------- 靈感股 ----------------
   _stock() {
     const c = this._frame('靈感股', '<div class="sk-host"></div>', { cls: 'ph-stock' });
@@ -791,6 +816,7 @@ export class Phone {
     if (id === 'missions') return this._missions();
     if (id === 'stock') return this._stock();
     if (id === 'news') return this._news();
+    if (id === 'secrets') return this._secrets();
     if (id === 'locate') return this._locate();
     if (id === 'burger') return this._burger();
     if (id === 'drone') return this._drone();

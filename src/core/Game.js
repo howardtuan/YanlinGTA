@@ -93,6 +93,7 @@ import { LibraryLink } from '../world/buildings/Library.js';
 import { Hank } from '../entities/npcs/Hank.js';
 import { FirstPerson } from '../entities/FirstPerson.js';
 import { NewsDesk } from '../ui/phone/NewsUI.js';
+import { SecretBook } from '../systems/Secrets.js';
 import { initKernels } from '../graphics/wasm/kernels.js';
 import { Physics, G } from '../physics/Physics.js';
 import { solvePersonImpact, solvePersonPersonImpact } from '../physics/ImpactPhysics.js';
@@ -506,6 +507,7 @@ class Game {
     this.photo = new PhotoMode(this);
     this.market = new Market(this);
     this.news = new NewsDesk(this);
+    this.secrets = new SecretBook(this); // 🏆 隱藏成就 (src/systems/Secrets.js)
     this.library = new LibraryLink(this);
     this.gordon = new Gordon(this);
     this.friends = new Friends(this);

@@ -13,13 +13,17 @@
 //    與學活之間空橋寬 3.3 m，牆米灰偏紫磁磚，西南玻璃門廳（2017-09）；東北角金色直書館名。
 //  - 全人教育村 w392023429：北棟西段褐磚（2026-05）；南棟圓柱玻璃磚樓梯塔、半圓玻璃磚低量體、主牆褐紅磚
 //    （官方街景 2026-05）。中棟是瑞麗堂：3F 褐磚底座＋淺灰圓筒、深色窗帶、淺圓頂（Google 衛星標名、正射 2024、評論相片）；
-//    北棟西段的半圓端部是雨嘉演藝廳（藝術中心），先保持。
+//    北棟西段（輪廓往北凸出那段）是雨嘉演藝廳：灰色金屬板盒、比東段高、上半部直立細長窗、西端外伸牆與頂部框架樑
+//    （官方街景 2026-05 兩個方向）；東段褐磚。衛星上西段屋頂的半圓形看不出立面，沒有另外做。
 //  - 室內游泳池 w392023430：屋脊偏北的不對稱雙坡、玫瑰紅浪板，東西兩端各一條約 5 m 藍灰玻璃帶（正射）；
 //    西面橘紅門框（兩根方柱加橫樑、直書白字）、右側玻璃帶、左側黑色拱形雕塑，沒有小披簷（2017-09）。
 //  - 體育館 w392023437：紅瓦斜裙主要在西側（約 7 m 寬），其他邊窄（正射）；西北角米褐圓柱樓梯塔、直立縫窗、
 //    頂有天線，橘紅屋簷與腰帶，旁邊橘紅平頂雨廊亭（2017-09）；西面入口橘紅門廊框架加倒 V 斜撐、兩根灰圓柱。
 //  - 力行大樓 w392023431：藍色偏粉 #6f86b8；東端山牆灰色清水混凝土空白牆、比本體高、掛紫紅大布條（2026-05）；
 //    東面每層橫向長窗加白色出挑遮陽板（2017-09）。
+//  - 喜樂樓 w392023432：東山牆墨綠／米白水平條紋、一樓白牆鐵花門、樓上每層一扇小窗＝4F（官方街景 2017-09）。
+//    Google 衛星的「喜樂樓」標籤落在北側較大的淺色平屋頂上，實景是一層樓平頂小店（粉紅條紋遮陽篷、屋頂招牌與水塔，
+//    同一批街景），OSM 沒有，這裡先不蓋。
 // 沒有影像的面照同棟看得到的面推，入口、招牌等特殊構件不編。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -28,6 +32,17 @@ import { canvasTexture } from '../../graphics/GpuMemLifecycle.js';
 
 // 瑞麗堂（全人中棟）：底座高、圓筒頂高（底座以上）、圓心與半徑（正射 2024）
 const QR_RL = { baseH: 11.5, drumH: 17.0, cx: -6.5, cz: -89.9, r: 8.5 };
+// 雨嘉演藝廳（全人北棟西段）：輪廓西緣、東緣、北面、東段內凹處、南面，褐磚屋頂高、金屬盒頂高、西端北牆外伸長度
+const QR_YJ = {
+  x0: -78.8,
+  x1: -40.7,
+  zN: -119.6,
+  zStep: -114.8,
+  zS: -100.3,
+  brick: 20.4,
+  top: 25.5,
+  blade: 2.5,
+};
 export const G_IDS = {
   sac: 'w392023427',
   bio: 'w392023428',
@@ -35,6 +50,7 @@ export const G_IDS = {
   pool: 'w392023430',
   gym: 'w392023437',
   lx: 'w392023431',
+  xile: 'w392023432',
 };
 
 // ---------------- 學活的幾何（世界座標，x 向東、z 向南） ----------------
@@ -106,6 +122,15 @@ export function zoneGLook(b) {
       mid.h = QR_RL.baseH;
       mid.floors = 3;
     }
+  } else if (b.id === G_IDS.xile) {
+    // 喜樂樓：Google 街景 2017-09 從東側看東山牆，一樓白牆加鐵花門、上面 3 層各一扇小窗＝4F，平頂矮女兒牆
+    b.h = 13.8;
+    b.floors = 4;
+    // 東西兩端山牆只在正中開一列小窗（buildZoneG），短邊不畫整排窗；西山牆沒有影像，照東山牆
+    b.look = {
+      ...(b.look || {}),
+      faces: [{ on: 'short', windows: { type: 'none', ground: 'none' } }],
+    };
   } else if (b.id === G_IDS.pool) {
     // 單層挑高（簷高約 8.5 m）、大型鋼框窗間距約 9 m；屋頂由 buildZoneG 蓋不對稱雙坡
     b.h = 8.5;
@@ -578,6 +603,25 @@ const lxEastTex = () =>
       }
     }
   });
+// 雨嘉演藝廳北面的灰色金屬板：一塊約 3 m × 1.5 m，上下兩排錯縫，一張貼圖 6 m × 3 m
+const metalPanelTex = () =>
+  ctex('gMetalPanel', 512, 256, (g, W, Hh) => {
+    const r = lcg(71),
+      m = W / 6;
+    for (let row = 0; row < 2; row++)
+      for (let i = -1; i < 3; i++) {
+        const x0 = (i * 3 + (row ? 1.5 : 0)) * m,
+          y0 = row * 1.5 * m,
+          v = 128 + Math.floor(r() * 12);
+        g.fillStyle = `rgb(${v},${v + 1},${v - 1})`;
+        g.fillRect(x0, y0, 3 * m, 1.5 * m);
+        g.fillStyle = 'rgba(255,255,255,0.08)';
+        g.fillRect(x0, y0, 3 * m, 0.25 * m);
+        g.fillStyle = 'rgba(55,58,60,0.4)';
+        g.fillRect(x0, y0, 3, 1.5 * m);
+        g.fillRect(x0, y0, 3 * m, 3);
+      }
+  });
 function textTex(key, w, h, draw) {
   return ctex(key, w, h, draw, false);
 }
@@ -858,6 +902,7 @@ function mat(key) {
     conc: () => std({ map: concTex(), roughness: 0.95 }),
     lxEast: () => std({ map: lxEastTex(), roughness: 0.9 }),
     white: () => std({ color: '#e8e7e2', roughness: 0.8 }),
+    metalPanel: () => std({ map: metalPanelTex(), roughness: 0.5, metalness: 0.4 }),
     foreGranite: () => std({ map: foreGraniteTex(), roughness: 0.8 }),
     foreBrick: () => std({ map: foreBrickTex(), roughness: 0.9 }),
   }[key];
@@ -2084,6 +2129,88 @@ export function buildZoneG(I, scene, data, collision = null) {
       dome = new THREE.SphereGeometry(R, 40, 6, 0, Math.PI * 2, 0, Math.asin(r / R));
     dome.translate(cx, yg + 0.35 + hd - R, cz);
     k.add('ruiliDome', dome);
+  }
+
+  // ===== 全人北棟西段＝雨嘉演藝廳（Google 衛星標名「雨嘉演藝廳」「藝術中心」；官網：北棟 6 層含演藝廳）=====
+  // 官方街景 2026-05（新中北路與 249 巷口朝東南、370 號前朝西）：北棟西段（x -78.8～-40.7，輪廓外凸那段）北面是
+  // 整片灰色金屬板（約 3 m × 1.5 m、上下錯縫），上半部幾道直立細長窗；量體比東段褐磚高約一層半（照仰角估頂約 25.5 m，
+  // 東段 20.4 m）。西端北牆往西伸出約 2.5 m，頂上一根粗樑往南框住比較矮、偏米褐色的西立面。東段照舊褐磚。
+  // 南面（中庭那側）與西立面下半部沒有清楚影像，屋頂以下維持原本的褐磚
+  if (qr) {
+    const Q = QR_YJ,
+      B = baseOf(qr, (Q.x0 + Q.x1) / 2, Q.zN),
+      yB = B + Q.brick,
+      yT = B + Q.top,
+      zf = Q.zN - 0.12, // 金屬板貼在北牆外 0.12 m
+      xb = Q.x0 - Q.blade;
+    // 北面（含往西伸出的那片牆，正反兩面與端面）
+    k.wall('metalPanel', Q.x1 + 0.12, zf, xb, zf, B - 0.3, yT, 6, 3);
+    k.wall('metalPanel', xb, zf + 0.3, Q.x0, zf + 0.3, B - 0.3, yT, 6, 3);
+    k.wall('metalPanel', xb, zf, xb, zf + 0.3, B - 0.3, yT, 6, 3);
+    wallC(Q.x0, Q.zN, xb, Q.zN, B - 0.3, yT);
+    // 東端（北段內凹處那面整層高；褐磚屋頂以上整面）
+    k.wall('metalPanel', Q.x1 + 0.12, Q.zStep, Q.x1 + 0.12, zf, B - 0.3, yT, 6, 3);
+    k.wall('metalPanel', Q.x1 + 0.12, Q.zS + 0.12, Q.x1 + 0.12, Q.zStep, yB - 0.2, yT, 6, 3);
+    // 褐磚屋頂以上：南面金屬板、西面米褐、屋頂
+    k.wall('metalPanel', Q.x0 - 0.12, Q.zS + 0.12, Q.x1 + 0.12, Q.zS + 0.12, yB - 0.2, yT, 6, 3);
+    k.wall('drum', Q.x0 - 0.12, zf, Q.x0 - 0.12, Q.zS + 0.12, yB - 0.2, yT, 4, 4);
+    k.flat(
+      'conc',
+      [
+        [Q.x0 - 0.12, zf],
+        [Q.x1 + 0.12, zf],
+        [Q.x1 + 0.12, Q.zS + 0.12],
+        [Q.x0 - 0.12, Q.zS + 0.12],
+      ],
+      yT - 0.05
+    );
+    k.box('greyCol', Q.x0 - 0.12, Q.x1 + 0.12, yT - 0.05, yT + 0.35, zf - 0.05, zf + 0.25); // 北緣壓頂
+    // 西端頂上的框架：從北牆伸出的那片牆頂往南一根粗樑，與西立面之間一片頂板
+    k.box('greyCol', xb, xb + 1.0, yT - 1.2, yT + 0.35, zf, Q.zS + 0.12);
+    k.box('greyCol', xb + 1.0, Q.x0, yT - 0.45, yT + 0.35, zf, Q.zS + 0.12);
+    // 直立細長窗
+    for (const x of [3, 6.5, 10.5, 15, 20.5, 27]) {
+      const xs = Q.x1 - x;
+      k.wall('slit', xs + 0.3, zf - 0.03, xs - 0.3, zf - 0.03, B + 10.5, B + 18.5, 1, 1);
+    }
+  }
+
+  // ===== 喜樂樓：兩端山牆正中每層一扇小窗加混凝土小雨遮、一樓白牆中間一扇鐵花門（官方街景 2017-09 東山牆）=====
+  const xile = find(G_IDS.xile);
+  if (xile) {
+    const P = xile.pts,
+      cx = P.reduce((a, p) => a + p[0], 0) / P.length,
+      cz = P.reduce((a, p) => a + p[1], 0) / P.length,
+      B = baseOf(xile, cx, cz);
+    for (let i = 0; i < P.length; i++) {
+      const a = P[i],
+        c = P[(i + 1) % P.length],
+        l = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (l > 12) continue;
+      const t = [(c[0] - a[0]) / l, (c[1] - a[1]) / l],
+        m = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2];
+      let n = [t[1], -t[0]];
+      if ((m[0] - cx) * n[0] + (m[1] - cz) * n[1] < 0) n = [-n[0], -n[1]];
+      // 沿山牆、離牆 o 公尺、寬 w 的直立板
+      const pl = (mat, w, o, th, y0, y1) =>
+        k.slab(
+          mat,
+          m[0] - (t[0] * w) / 2 + n[0] * o,
+          m[1] - (t[1] * w) / 2 + n[1] * o,
+          m[0] + (t[0] * w) / 2 + n[0] * o,
+          m[1] + (t[1] * w) / 2 + n[1] * o,
+          th,
+          y0,
+          y1
+        );
+      pl('black', 1.2, 0.03, 0.06, B, B + 2.3); // 鐵花門
+      pl('door', 1.0, 0.07, 0.02, B + 0.05, B + 2.2);
+      for (let f = 1; f < 4; f++) {
+        const y = B + f * 3.3;
+        pl('win', 0.9, 0.03, 0.06, y + 0.9, y + 2.2);
+        pl('white', 1.3, 0.28, 0.5, y + 2.3, y + 2.42); // 混凝土小雨遮
+      }
+    }
   }
 
   // ===== 室內游泳池：不對稱雙坡、兩端玻璃帶、西面橘紅門框 =====

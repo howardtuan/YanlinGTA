@@ -21,7 +21,9 @@
 // Sources: Google 街景 2024-08 (大仁街 80 號 pano P5ZW4SkfzKWabogzqeBhGw, pzUfCbkM9SefO-bOIYz_6Q; A2 門前
 // A45C3cQiAJY6cKhaSdFTRA), 2017-09 (北側步道 _sDi0ujaYYVk0n-uqe1jlA, DJi8z4TIZ4DLKl4C6HHrGQ), 2025-03 使用者 360
 // (大仁二街), NLSC 2024 正射. Survey notes: campus-survey/zone-F.md. Not seen: 良善 north-east side (follows the
-// south-west face), 恩慈 east end (kept as it is). The 「恩慈北翼西端往西延 5～8 m」 seen on the ortho is not built: the
+// south-west face). 恩慈 east-facing gables (2025-03 user 360 on 大仁二街): plain white render, no ribbon windows or
+// ochre bands; one column of single windows in the middle of the north and south wings' east ends.
+// The 「恩慈北翼西端往西延 5～8 m」 seen on the ortho is not built: the
 // 2017 street view from the north path shows a 5-6 m walkway between the two buildings (a pergola, a low brick wall,
 // palms), and the extension would run into 良善樓's north wing; the ortho's lean of the tall roofs made it look joined.
 import * as THREE from 'three';
@@ -78,9 +80,12 @@ export function enciLook(L) {
   o.windows = { type: 'ribbon', bay: 3.0, accent: '#8d9296', glass: '#55636c', ground: 'punched' };
   delete o.fins;
   o.bands = [
-    { on: ['s', 'sw', 'se'], colour: '#c9a24a', h: 0.85, depth: 0.06, at: 0.18, from: 1, to: 2 },
-    { on: ['n', 'ne', 'nw', 'e', 'w'], colour: '#cf9a3c', h: 0.7, depth: 0.06, at: 0.2, from: 1 },
+    { on: ['s', 'sw'], colour: '#c9a24a', h: 0.85, depth: 0.06, at: 0.18, from: 1, to: 2 },
+    { on: ['n', 'ne', 'nw', 'w'], colour: '#cf9a3c', h: 0.7, depth: 0.06, at: 0.2, from: 1 },
   ];
+  // 朝東的山牆（北翼東端、連接棟與南翼的東端，沿大仁二街）是整片白灰粗面實牆：沒有橫向窗帶、沒有橘黃窗台帶
+  // （2025-03 大仁二街使用者 360、Google 衛星斜視）；南北翼東端正中那一列單窗由 buildEnci 畫
+  o.faces = [{ on: 'e', windows: { type: 'none', ground: 'none' } }];
   o.parapet = { h: 0.6, colour: '#d2d0ca' };
   if (o.roof) delete o.roof.boxes; // the roof plant is drawn in buildEnci (from the ortho)
   return o;
@@ -559,6 +564,7 @@ function mat(key) {
     glassBlock: () => std({ map: glassBlockTex(), roughness: 0.25, metalness: 0.1 }),
     mesh: () => std({ map: meshTex(), roughness: 0.6, metalness: 0.3 }),
     white: () => std({ color: '#eeece6', roughness: 0.7 }),
+    winGlass: () => std({ color: '#3d4a52', roughness: 0.15, metalness: 0.45 }),
     offwhite: () => std({ color: '#e3ddd0', roughness: 0.8 }),
     redTile: () => std({ color: '#c8342c', roughness: 0.6 }),
     blue: () => std({ color: '#2b4fa8', roughness: 0.4, metalness: 0.2 }),
@@ -1086,6 +1092,35 @@ function buildEnci(I, k, group, b) {
       ]) {
         const p = N.P(s, o);
         k.beam('stainless', [p[0], y, p[1]], [p[0], y + 0.92, p[1]], 0.05, 0.05);
+      }
+    }
+  }
+  // --- 朝東的山牆：整片白灰粗面實牆，正中一列單窗（深色窗框、上下兩扇），一樓被校界牆擋住。
+  // 北翼東端（朝大仁二街）：2025-03 使用者 360（恩慈小門東邊約 36 m，朝西仰 25°）圍牆上看得到 5 扇，最上面那扇窗頂
+  // 離屋頂約 3 m，窗與窗間距約 4.1 m（照 OSM 距離量的仰角；比每層 3.3 m 大，可能是樓梯間的窗，不是每層一扇）。
+  // 南翼東端：Google 衛星斜視（往東南傾倒）一樣是白牆加一列窗，間距照北翼。連接棟朝東那面沒看到，維持實牆 ---
+  {
+    const parts = b.parts || [];
+    for (const [a, c, fl] of [
+      [EC.n1, [53.5, 304.6], 8],
+      [[39.1, 313.6], EC.s0, 10],
+    ]) {
+      const E = edge(a, c, pts),
+        part = parts.find((p) => (fl === 8 ? p.floors === 8 : p.floors !== 8)),
+        yR = B + (part ? part.h : EC_TOP),
+        sc = E.len / 2,
+        w = 0.55;
+      for (let yt = yR - 3.0; yt > B + 5.5; yt -= 4.1) {
+        const yb = yt - 2.4;
+        k.ebox('winGlass', E, sc - w, sc + w, -0.05, 0.03, yb, yt);
+        for (const [s0, s1, y0, y1] of [
+          [sc - w - 0.07, sc - w, yb - 0.07, yt + 0.07],
+          [sc + w, sc + w + 0.07, yb - 0.07, yt + 0.07],
+          [sc - w, sc + w, yt, yt + 0.07],
+          [sc - w, sc + w, yb - 0.07, yb],
+          [sc - w, sc + w, yt - 0.75, yt - 0.69],
+        ])
+          k.ebox('black', E, s0, s1, 0.0, 0.06, y0, y1);
       }
     }
   }

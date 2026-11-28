@@ -49,4 +49,32 @@ describe('world matrices only for visible subtrees', () => {
     scene.add(g);
     expect(g.getWorldPosition(new THREE.Vector3()).x).toBe(3);
   });
+
+  it('keeps a skinned mesh bound to its bones as its owner moves (character bodies)', () => {
+    const scene = installVisibleMatrices(new THREE.Scene());
+    const root = new THREE.Group(),
+      bone = new THREE.Bone();
+    root.add(bone);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+    g.setAttribute(
+      'skinIndex',
+      new THREE.Uint16BufferAttribute([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 4)
+    );
+    g.setAttribute(
+      'skinWeight',
+      new THREE.Float32BufferAttribute([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], 4)
+    );
+    const mesh = new THREE.SkinnedMesh(g, new THREE.MeshBasicMaterial());
+    root.add(mesh);
+    scene.add(root);
+    scene.updateMatrixWorld();
+    mesh.bind(new THREE.Skeleton([bone]), mesh.matrixWorld);
+    root.position.set(7, 0, 3);
+    scene.updateMatrixWorld();
+    // AttachedBindMode: bindMatrixInverse follows the mesh's world matrix
+    const expect3 = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+    expect(mesh.bindMatrixInverse.equals(expect3)).toBe(true);
+    expect(new THREE.Vector3().setFromMatrixPosition(mesh.matrixWorld).x).toBe(7);
+  });
 });

@@ -11,9 +11,19 @@
 // Code that needs a hidden object's world matrix keeps working as before through updateWorldMatrix() /
 // getWorldPosition() / obj.updateMatrixWorld(true), which are untouched.
 
+import * as THREE from 'three';
+
 const SKIPPED = '__mwSkipped';
+const BASE = THREE.Object3D.prototype.updateMatrixWorld;
 
 export function updateVisibleWorld(o, force) {
+  // classes with their own updateMatrixWorld (SkinnedMesh keeps bindMatrixInverse in step with its matrixWorld,
+  // cameras their matrixWorldInverse): let three.js do the whole subtree the usual way, or the skinned bodies of the
+  // people are drawn where they were bound (#457 regression: characters without a body)
+  if (o.updateMatrixWorld !== BASE && o.parent) {
+    o.updateMatrixWorld(force);
+    return;
+  }
   if (o.matrixAutoUpdate) o.updateMatrix();
   if (o.matrixWorldNeedsUpdate || force) {
     if (o.matrixWorldAutoUpdate !== false) {

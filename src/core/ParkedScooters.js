@@ -488,7 +488,7 @@ export class ParkedScooters {
     if ((wx - this._visX) ** 2 + (wz - this._visZ) ** 2 <= 64) return;
     this._visX = wx;
     this._visZ = wz;
-    const maxD = this.game.quality === 'low' ? 115 : 260;
+    const maxD = this.game.crowdSpec?.parkedDist ?? 260; // GraphicsConfig CROWD_SPEC
     for (let i = 0; i < this.chunks.length; i++) {
       const ch = this.chunks[i];
       const vis = Math.hypot(ch.midX - wx, ch.midZ - wz) - ch.radius < maxD;

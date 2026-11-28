@@ -41,7 +41,7 @@ describe('PerfProfile', () => {
     });
 
     it('has no GPU renderer guessing left', () => {
-      for (const k of ['TIERS', 'detectTier', 'probeGpuRenderer']) expect(PP[k]).toBeUndefined();
+      expect(Object.keys(PP).sort()).toEqual(['DEVICES', 'detectDevice', 'resolveRuntimeProfile']);
     });
   });
 

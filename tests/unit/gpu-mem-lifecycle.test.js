@@ -40,17 +40,20 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
       texScale: 1,
       atlasScale: 1,
       atlasMaxH: 4096,
+      anisotropy: 4,
     });
     // M-series / Iris Xe laptops: 0.75, sheets at most 4096 tall (stored 1536 x 3072, #388)
     expect(configureGpuMem(profile('desktop', { texScale: 0.75 }))).toEqual({
       texScale: 0.75,
       atlasScale: 0.75,
       atlasMaxH: 4096,
+      anisotropy: 4,
     });
     expect(configureGpuMem(profile('mobile'))).toEqual({
       texScale: 0.5,
       atlasScale: 0.375,
       atlasMaxH: 4096, // a 768 x 1536 sheet
+      anisotropy: 2, // phones filter canvas textures less (#462)
     });
     const flagged = profile('desktop', { texScale: 0.6, flags: { texScale: 0.6 } });
     expect(configureGpuMem(flagged).texScale).toBe(0.6);
@@ -79,6 +82,10 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     expect(t.isCanvasTexture).toBe(true);
     expect(t.colorSpace).toBe(THREE.SRGBColorSpace);
     expect(t.wrapS).toBe(THREE.RepeatWrapping);
+    expect(t.anisotropy).toBe(2); // the device's anisotropy (mobile 2)
+    configureGpuMem(profile('desktop'));
+    expect(canvasTexture(64, 32, draw).anisotropy).toBe(4);
+    configureGpuMem(profile('mobile'));
     expect(canvasTexture(64, 32, draw, false).wrapS).toBe(THREE.ClampToEdgeWrapping);
     expect(t.image.width).toBe(32);
   });

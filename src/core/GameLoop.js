@@ -2,38 +2,19 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { Nano } from '../ui/phone/Nano.js';
 import { saveSettings } from '../systems/AudioSystem.js';
-import { QUALITY, PRESETS, Q_NAME } from './GraphicsConfig.js';
+import { QUALITY, Q_NAME } from './GraphicsConfig.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const isTouch = () =>
   matchMedia('(pointer: coarse)').matches ||
   (navigator.maxTouchPoints > 0 && !matchMedia('(pointer: fine)').matches);
 
-// quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high'. auto never goes above medium (high only when the
+// quality setting: 'auto' | 'xlow' | 'low' | 'medium' | 'high' | 'ultra'. auto never goes above medium (high only when the
 // player picks it): integrated / mobile GPUs and 4-core machines -> low, everything else -> medium; it steps down
 // at runtime when the frame rate stays low (_autoQuality), as far as xlow (超低).
 // What each level draws is declared in src/core/GraphicsConfig.js (PRESETS, the display settings SSOT); the player
 // can override single settings on top (game.applyDisplaySettings). game.gfx is the resolved configuration.
 export { QUALITY };
-export const subQ = (q) => (q === 'xlow' ? 'low' : q);
-
-// legacy view of the presets (view distance, fog, max pixel ratio, sun shadows); read game.gfx instead
-export const QPROF = Object.fromEntries(
-  QUALITY.map((q) => {
-    const P = PRESETS[q];
-    return [
-      q,
-      {
-        far: P.far,
-        fog: P.fogScale,
-        pr: P.dprCap,
-        shadows: P.shadows !== 'off',
-        view: P.viewScale,
-      },
-    ];
-  })
-);
-
 let _gpuGuess = null;
 export function guessGpu() {
   if (_gpuGuess) return _gpuGuess;
@@ -226,6 +207,7 @@ export class GameLoop {
       game.renderer.setSize(innerWidth, innerHeight);
     }
     game.skySys.setShadowQuality(G.shadows);
+    game.renderer.shadowMap.autoUpdate = G.shadowRate === 1;
     game.post.setQuality(G.postFx);
     game.post.setSize(innerWidth, innerHeight);
     game.world?.setLampLights?.(G.nightLamps);
@@ -385,9 +367,9 @@ export class GameLoop {
     for (const b of game.beams) {
       if (b.visible) b.material.opacity = 0.22 + Math.sin(game.time * 4) * 0.06;
     }
-    // integrated / mobile GPUs draw the sun's shadow map every other frame (30 Hz at 60 fps; Game.init turns
-    // shadowMap.autoUpdate off for them): the shadow map and its matrix are kept as a pair, so nothing shifts
-    if (game.halfRateShadows) {
+    // gfx.shadowRate 2 draws the sun's shadow map every other frame (30 Hz at 60 fps; shadowMap.autoUpdate is off
+    // then, see applyDisplay): the shadow map and its matrix are kept as a pair, so nothing shifts
+    if (game.gfx.shadowRate === 2) {
       this._shadowTick = !this._shadowTick;
       if (this._shadowTick) game.renderer.shadowMap.needsUpdate = true;
     }

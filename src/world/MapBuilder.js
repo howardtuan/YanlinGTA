@@ -212,7 +212,7 @@ const GEO_CHUNK = 240,
 // them is not drawn while the fog hides it completely wherever it is on the screen: three's exp2 fog goes by the
 // view depth, and anything on screen is at least cos(half the diagonal field of view) x its distance deep, so a
 // chunk farther than OUTER_FOG / (density * that cosine) is under 97 % fog or more (exp(-(density depth)^2) <= 0.03).
-// The far plane already clips the rest (QPROF far).
+// The far plane already clips the rest (gfx.far).
 const OUTER_FROM_CAMPUS = 250,
   OUTER_FOG = Math.sqrt(Math.log(1 / 0.03));
 // what Geo.mesh returns for a chunked Geo: the chunks as children, and the Mesh settings the builders use passed on to

@@ -2763,12 +2763,38 @@ export const KNOCK_MIN = 0.85;
 // - Children added to v.mesh after construction (riders, labels) are never touched.
 const LOD_FAR = 32,
   LOD_NEAR = 28; // m from the camera, with hysteresis
-const LOD_TINY = 0.045; // parts smaller than this (bounding radius, m) are left out of the far copy
+const LOD_TINY = 0.045; // parts smaller than this (bounding radius, m) are left out of the far copy (lamps excepted)
 const farMat = new THREE.MeshStandardMaterial({
   vertexColors: true,
   roughness: 0.55,
   metalness: 0.1,
 });
+// Night lamps on the far copy: the near parts' lamps are emissive, but baked into plain vertex colour they go dark
+// at night and only "switch on" when a vehicle comes within LOD_NEAR. Each far vertex carries a `lamp` weight
+// (the lamp material's emissiveIntensity / 2, 0 for every other part); vehicles with a driver (traffic, buses,
+// the player's ride) draw their far copy with farMatLit, which adds vertex colour x lamp x FAR_GLOW as emission.
+// FAR_GLOW follows game.night (passed in by lod()), so by day it is 0 and the copy looks exactly like farMat.
+// Parked vehicles (no driver) keep farMat: their far copy stays unlit.
+const FAR_GLOW = { value: 0 };
+const farMatLit = new THREE.MeshStandardMaterial({
+  vertexColors: true,
+  roughness: 0.55,
+  metalness: 0.1,
+});
+farMatLit.onBeforeCompile = (sh) => {
+  sh.uniforms.farGlow = FAR_GLOW;
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\nattribute float lamp;\nvarying float vLamp;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvLamp = lamp;');
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', '#include <common>\nuniform float farGlow;\nvarying float vLamp;')
+    .replace(
+      '#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vColor.rgb * vLamp * 2.0 * farGlow;'
+    );
+};
+farMatLit.customProgramCacheKey = () => 'vehFarLit';
+const isLamp = (mat) => !!(mat.emissive && mat.emissiveIntensity > 0.5 && mat.emissive.getHex());
 const FAR_GEO = new Map(); // shape + colour signature -> geometry, shared by every identical model + colour
 const _wm = new THREE.Matrix4();
 // content key of a geometry (many builders make a fresh BoxGeometry per vehicle, so the uuid never repeats)
@@ -2793,7 +2819,7 @@ function geoKey(g) {
   return k;
 }
 function partColour(mat) {
-  if (mat.emissive && mat.emissiveIntensity > 0.5 && mat.emissive.getHex()) return mat.emissive; // lamps
+  if (isLamp(mat)) return mat.emissive; // lamps
   return mat.map ? DARK : mat.color; // textured parts (plates, decals): a neutral dark tone
 }
 const DARK = new THREE.Color('#1c1c1e');
@@ -2807,7 +2833,8 @@ function farGeometry(root, parts) {
     colSig = '';
   for (let i = 0; i < parts.length; i++) {
     shapeSig += `${geoKey(parts[i].geometry) + rel[i].elements.map((v) => v.toFixed(3)).join(',')};`;
-    colSig += partColour(parts[i].material).getHexString();
+    const pm = parts[i].material;
+    colSig += partColour(pm).getHexString() + (isLamp(pm) ? `*${pm.emissiveIntensity}` : '');
   }
   const key = `${shapeSig}|${colSig}`;
   if (FAR_GEO.has(key)) return FAR_GEO.get(key);
@@ -2852,23 +2879,29 @@ function farGeometry(root, parts) {
     };
     FAR_SHAPE.set(shapeSig, shape);
   }
-  const col = new Uint8Array(shape.position.count * 3);
-  let o = 0;
+  const col = new Uint8Array(shape.position.count * 3),
+    lamp = new Uint8Array(shape.position.count);
+  let o = 0,
+    li = 0;
   for (let i = 0; i < parts.length; i++) {
-    const c = partColour(parts[i].material),
+    const pm = parts[i].material,
+      c = partColour(pm),
       r = Math.round(c.r * 255),
       g = Math.round(c.g * 255),
-      b = Math.round(c.b * 255);
-    for (let j = 0; j < shape.counts[i]; j++, o += 3) {
+      b = Math.round(c.b * 255),
+      lw = isLamp(pm) ? Math.round(Math.min(1, pm.emissiveIntensity / 2) * 255) : 0;
+    for (let j = 0; j < shape.counts[i]; j++, o += 3, li++) {
       col[o] = r;
       col[o + 1] = g;
       col[o + 2] = b;
+      lamp[li] = lw;
     }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', shape.position);
   geo.setAttribute('normal', shape.normal);
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3, true));
+  geo.setAttribute('lamp', new THREE.BufferAttribute(lamp, 1, true));
   geo.boundingSphere = shape.sphere.clone();
   FAR_GEO.set(key, geo);
   return geo;
@@ -3088,7 +3121,12 @@ export class Vehicle {
       near.push(o);
       if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
       const r = o.geometry.boundingSphere.radius * o.matrixWorld.getMaxScaleOnAxis();
-      if (!Array.isArray(o.material) && !o.material.transparent && r >= LOD_TINY) bake.push(o);
+      if (
+        !Array.isArray(o.material) &&
+        !o.material.transparent &&
+        (r >= LOD_TINY || isLamp(o.material))
+      )
+        bake.push(o);
     });
     const geo = near.length > 2 ? farGeometry(root, bake) : null;
     if (!geo) {
@@ -3109,13 +3147,16 @@ export class Vehicle {
       skip: wheels,
     };
   }
-  // dist: camera distance (m); called a few times a second for every vehicle (src/core/GameLoop.js vehicleLod)
-  lod(dist) {
+  // dist: camera distance (m); night: game.night 0..1 (lights the far copy's lamps of driven vehicles);
+  // called a few times a second for every vehicle (src/core/GameLoop.js vehicleLod)
+  lod(dist, night = 0) {
     const L = this._lod;
     if (!L) return;
+    FAR_GLOW.value = night;
     if (!L.isFar) this.lodCheck();
     if (!this._lod) return;
     const far = L.isFar ? dist > LOD_NEAR : dist > LOD_FAR;
+    if (far) L.far.material = this.driver ? farMatLit : farMat;
     if (far === L.isFar) return;
     L.isFar = far;
     L.far.visible = far;

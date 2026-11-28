@@ -3,7 +3,7 @@
 //   09:00–18:30 在商業設計館（src/world/zones/ZoneC.js 的 SS）南面入口前的步道上走來走去（去上課、等同學、講電話）；
 //   有些晚上（大約 10 天有 4 天）19:00–21:00 跟吱吱手牽手在校園步道散步——吱吱那段時間沒打工、也沒受傷才會出去；
 //   其他時間回宿舍，學校裡看不到她。
-// 可以加好友（src/ui/phone/Friends.js 的 yulu）；加了之後的支線「幫 Yulu 送無糖茶給吱吱」在 src/systems/quests/YuluTea.js。
+// 可以加好友（src/ui/phone/Friends.js 的 yulu）；散步時吱吱和她各自有 E 互動，可以分開加好友（Friends.js 的 zz.walk / yulu.walk）；加了之後的支線「幫 Yulu 送無糖茶給吱吱」在 src/systems/quests/YuluTea.js。
 import * as THREE from 'three';
 import { createCharacter } from '../Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
@@ -105,6 +105,7 @@ export class Yulu {
     // the walk with 吱吱: his figure on her left (the one in his room is hidden meanwhile, src/entities/npcs/Zz.js)
     this.walkOn = false;
     this.wait = 1.5;
+    const self = this;
     game.interiors.actions.push({
       get x() {
         return ch.root.position.x;
@@ -118,6 +119,21 @@ export class Yulu {
       cond: () => ch.root.visible && (this.mode === 'ssd' || this.walkOn),
       label: () => '按 <kbd>E</kbd> 和 Yulu 聊天',
       fn: () => this.talk(),
+    });
+    // 吱吱 on the walk: his own chat / add friend, separate from hers (nearest of the two wins, src/world/Kit.js actionAt)
+    game.interiors.actions.push({
+      get x() {
+        return self.bf ? self.bf.root.position.x : 1e9;
+      },
+      get z() {
+        return self.bf ? self.bf.root.position.z : 1e9;
+      },
+      r: 2.2,
+      y: 0,
+      anyY: true,
+      cond: () => this.walkOn && !!this.bf?.root.visible,
+      label: () => '按 <kbd>E</kbd> 和吱吱聊天',
+      fn: () => this.talkZz(),
     });
   }
   // some evenings she walks with 吱吱: not while he is hurt or working
@@ -148,6 +164,16 @@ export class Yulu {
     this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
     this.pause = 4;
     g.friends?.talk('yulu', this.mode === 'walk' ? 'walk' : null, () => {
+      this.pause = 0.6;
+    });
+  }
+  // talking to 吱吱 on the walk: they both stop and turn to you
+  talkZz() {
+    const g = this.g,
+      p = g.player.worldPos();
+    this.face = Math.atan2(p.x - this.pos.x, p.z - this.pos.z);
+    this.pause = 4;
+    g.friends?.talk('zz', 'walk', () => {
       this.pause = 0.6;
     });
   }

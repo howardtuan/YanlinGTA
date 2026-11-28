@@ -81,12 +81,23 @@ function canvas(w, h) {
 }
 // canvases whose pixels are read back (getImageData) stay on the CPU: a GPU readback stalls for seconds under software rendering
 const READBACK = { willReadFrequently: true };
-// every texture here is generated at its full size (the patterns are drawn in pixels), then stored at the tier's
-// texture scale (PerfProfile texScale: desktop-igpu 0.75, phones 0.5; src/graphics/GpuMemLifecycle.js): same look,
-// fewer pixels; the full-size canvas is released at once
+// textures are stored at the tier's texture scale (PerfProfile texScale: desktop-igpu 0.75, phones 0.5;
+// src/graphics/GpuMemLifecycle.js). The ground textures are generated straight at that size (tierSize: noise,
+// normals and pattern drawing in the smaller canvas, the pattern drawn in full-size logical units through a canvas
+// transform); the others are generated at full size and scaled down here, the full-size canvas released at once.
+// texScale 1 (desktop-dgpu, unit tests): nothing changes, pixel for pixel.
+const AT_TIER = new WeakSet(); // canvases already generated at the tier's size
+function tierSize(S) {
+  const s = texScale();
+  return s >= 1 || S <= 64 ? S : Math.max(1, Math.round(S * s));
+}
+function atTier(cv) {
+  if (cv.width !== undefined) AT_TIER.add(cv);
+  return cv;
+}
 function forTier(cv) {
   const s = texScale();
-  if (s >= 1 || cv.width <= 64 || cv.height <= 64) return cv;
+  if (s >= 1 || cv.width <= 64 || cv.height <= 64 || AT_TIER.has(cv)) return cv;
   const out = canvas(Math.max(1, Math.round(cv.width * s)), Math.max(1, Math.round(cv.height * s))),
     g = out.getContext('2d');
   if (!g) return cv;
@@ -139,7 +150,7 @@ function heightFromCanvas(cv) {
   for (let i = 0; i < f.length; i++) f[i] = d[i * 4] / 255;
   return f;
 }
-// pixel loop helper writing rgb from a callback
+// pixel loop helper writing rgb from a callback (size: the canvas size in pixels)
 function paint(size, fn) {
   const cv = canvas(size, size),
     g = cv.getContext('2d'),
@@ -164,19 +175,23 @@ export const groundTex = {
   // low-frequency luminance noise, used to break up tiling over large areas
   macro: () =>
     cached('macro', () => {
-      const S = 256,
+      const S = tierSize(256),
         f = fbmField(S, 4, 5, 901, 0.55);
       return toTex(
-        paint(S, (x, y, i) => {
-          const v = clamp255(f[i] * 255);
-          return [v, v, v];
-        }),
+        atTier(
+          paint(S, (x, y, i) => {
+            const v = clamp255(f[i] * 255);
+            return [v, v, v];
+          })
+        ),
         { srgb: false }
       );
     }),
   asphalt: () =>
     cached('asphalt', () => {
-      const S = 512,
+      const L = 512,
+        S = tierSize(L),
+        k = S / L,
         r = rng(11);
       const big = fbmField(S, 6, 4, 3),
         fine = fbmField(S, 64, 2, 5);
@@ -188,13 +203,15 @@ export const groundTex = {
         hf[i] = fine[i] * 0.6 + grain * 0.4;
         return [clamp255(v), clamp255(v + 1), clamp255(v + 4)];
       });
-      // cracks & patch repairs
+      // cracks & patch repairs (drawn in full-size units)
+      atTier(col);
       const g = col.getContext('2d');
+      if (k !== 1) g.setTransform(k, 0, 0, k, 0, 0);
       g.strokeStyle = 'rgba(18,18,20,0.75)';
       g.lineCap = 'round';
       for (let k = 0; k < 7; k++) {
-        let x = r() * S,
-          y = r() * S,
+        let x = r() * L,
+          y = r() * L,
           a = r() * 6.28;
         g.lineWidth = 0.8 + r() * 1.3;
         g.beginPath();
@@ -211,7 +228,7 @@ export const groundTex = {
       for (let k = 0; k < 3; k++) {
         const w = 40 + r() * 90,
           h = 30 + r() * 70;
-        g.fillRect(r() * S, r() * S, w, h);
+        g.fillRect(r() * L, r() * L, w, h);
       }
       if (lite) return { map: toTex(col) };
       const rough = paint(S, (x, y, i) => [
@@ -221,27 +238,33 @@ export const groundTex = {
       ]);
       return {
         map: toTex(col),
-        normalMap: toTex(normalFromHeight(hf, S, S, 2.2), { srgb: false }),
-        roughnessMap: toTex(rough, { srgb: false }),
+        normalMap: toTex(atTier(normalFromHeight(hf, S, S, 2.2 * k)), { srgb: false }),
+        roughnessMap: toTex(atTier(rough), { srgb: false }),
       };
     }),
   // interlocking concrete pavers (campus plazas, main gate)
   paving: () =>
     cached('paving', () => {
-      const S = 512,
-        cv = canvas(S, S),
+      const L = 512,
+        S = tierSize(L),
+        k = S / L,
+        cv = atTier(canvas(S, S)),
         g = cv.getContext('2d', READBACK),
         r = rng(21);
       const hc = canvas(S, S),
         hg = hc.getContext('2d', READBACK);
+      if (k !== 1) {
+        g.setTransform(k, 0, 0, k, 0, 0);
+        hg.setTransform(k, 0, 0, k, 0, 0);
+      }
       g.fillStyle = '#6f6c66';
-      g.fillRect(0, 0, S, S);
+      g.fillRect(0, 0, L, L);
       hg.fillStyle = '#000';
-      hg.fillRect(0, 0, S, S);
+      hg.fillRect(0, 0, L, L);
       const bw = 32,
         bh = 16;
-      for (let row = 0; row < S / bh; row++)
-        for (let c = -1; c < S / bw + 1; c++) {
+      for (let row = 0; row < L / bh; row++)
+        for (let c = -1; c < L / bw + 1; c++) {
           const x = c * bw + (row % 2 ? bw / 2 : 0),
             y = row * bh;
           const t = r();
@@ -277,26 +300,32 @@ export const groundTex = {
       const t = toTex(cv);
       return {
         map: t,
-        normalMap: toTex(normalFromHeight(hf, S, S, 3.5), { srgb: false }),
-        roughnessMap: toTex(rough, { srgb: false }),
+        normalMap: toTex(atTier(normalFromHeight(hf, S, S, 3.5 * k)), { srgb: false }),
+        roughnessMap: toTex(atTier(rough), { srgb: false }),
       };
     }),
   // 30 cm square sidewalk tiles (town footways / 騎樓)
   sidewalk: () =>
     cached('sidewalk', () => {
-      const S = 512,
-        cv = canvas(S, S),
+      const L = 512,
+        S = tierSize(L),
+        k = S / L,
+        cv = atTier(canvas(S, S)),
         g = cv.getContext('2d', READBACK),
         r = rng(41);
       const hc = canvas(S, S),
         hg = hc.getContext('2d', READBACK);
+      if (k !== 1) {
+        g.setTransform(k, 0, 0, k, 0, 0);
+        hg.setTransform(k, 0, 0, k, 0, 0);
+      }
       g.fillStyle = '#5a5250';
-      g.fillRect(0, 0, S, S);
+      g.fillRect(0, 0, L, L);
       hg.fillStyle = '#000';
-      hg.fillRect(0, 0, S, S);
+      hg.fillRect(0, 0, L, L);
       const t = 32;
-      for (let y = 0; y < S; y += t)
-        for (let x = 0; x < S; x += t) {
+      for (let y = 0; y < L; y += t)
+        for (let x = 0; x < L; x += t) {
           const red = (x / t + y / t) % 5 === 0;
           const v = (r() - 0.5) * 18;
           g.fillStyle = red
@@ -322,90 +351,113 @@ export const groundTex = {
       }
       const hf = heightFromCanvas(hc);
       releaseCanvas(hc); // scratch: only its heights were needed
-      return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 3), { srgb: false }) };
+      return {
+        map: toTex(cv),
+        normalMap: toTex(atTier(normalFromHeight(hf, S, S, 3 * k)), { srgb: false }),
+      };
     }),
   grass: () =>
     cached('grass', () => {
-      const S = 512,
+      const L = 512,
+        S = tierSize(L),
+        k = S / L,
         big = fbmField(S, 4, 4, 51),
         mid = fbmField(S, 24, 3, 53);
       const hf = new Float32Array(S * S);
-      const cv = paint(S, (x, y, i) => {
-        const b = hash(x, y, 55),
-          blade = hash(x >> 1, y, 57);
-        const dry = Math.max(0, big[i] - 0.58) * 2.2;
-        const l = 0.75 + mid[i] * 0.35 + (b - 0.5) * 0.25 + (blade > 0.8 ? 0.12 : 0);
-        hf[i] = b * 0.5 + mid[i] * 0.5;
-        const R = (72 + dry * 64) * l,
-          G = (100 + dry * 26) * l,
-          B = (52 + dry * 8) * l;
-        return [clamp255(R), clamp255(G), clamp255(B)];
-      });
+      const cv = atTier(
+        paint(S, (x, y, i) => {
+          const b = hash(x, y, 55),
+            blade = hash(x >> 1, y, 57);
+          const dry = Math.max(0, big[i] - 0.58) * 2.2;
+          const l = 0.75 + mid[i] * 0.35 + (b - 0.5) * 0.25 + (blade > 0.8 ? 0.12 : 0);
+          hf[i] = b * 0.5 + mid[i] * 0.5;
+          const R = (72 + dry * 64) * l,
+            G = (100 + dry * 26) * l,
+            B = (52 + dry * 8) * l;
+          return [clamp255(R), clamp255(G), clamp255(B)];
+        })
+      );
       if (lite) return { map: toTex(cv) };
-      return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 1.6), { srgb: false }) };
+      return {
+        map: toTex(cv),
+        normalMap: toTex(atTier(normalFromHeight(hf, S, S, 1.6 * k)), { srgb: false }),
+      };
     }),
   // packed earth / concrete mix for the generic ground between things
   ground: () =>
     cached('ground', () => {
-      const S = 512,
+      const L = 512,
+        S = tierSize(L),
+        k = S / L,
         big = fbmField(S, 5, 5, 61),
         mid = fbmField(S, 32, 3, 63);
       const hf = new Float32Array(S * S);
-      const cv = paint(S, (x, y, i) => {
-        const n = hash(x, y, 65);
-        hf[i] = mid[i] * 0.6 + n * 0.4;
-        const green = Math.min(1, Math.max(0, big[i] - 0.38) * 2.2 + (mid[i] - 0.5) * 0.6);
-        const v = 0.8 + mid[i] * 0.3 + (n - 0.5) * 0.18;
-        return [
-          clamp255((116 - green * 42) * v),
-          clamp255((108 - green * 4) * v),
-          clamp255((94 - green * 40) * v),
-        ];
-      });
+      const cv = atTier(
+        paint(S, (x, y, i) => {
+          const n = hash(x, y, 65);
+          hf[i] = mid[i] * 0.6 + n * 0.4;
+          const green = Math.min(1, Math.max(0, big[i] - 0.38) * 2.2 + (mid[i] - 0.5) * 0.6);
+          const v = 0.8 + mid[i] * 0.3 + (n - 0.5) * 0.18;
+          return [
+            clamp255((116 - green * 42) * v),
+            clamp255((108 - green * 4) * v),
+            clamp255((94 - green * 40) * v),
+          ];
+        })
+      );
       if (lite) return { map: toTex(cv) };
-      return { map: toTex(cv), normalMap: toTex(normalFromHeight(hf, S, S, 1.8), { srgb: false }) };
+      return {
+        map: toTex(cv),
+        normalMap: toTex(atTier(normalFromHeight(hf, S, S, 1.8 * k)), { srgb: false }),
+      };
     }),
   // red PU running track
   track: () =>
     cached('track', () => {
-      const S = 256,
+      const S = tierSize(256),
         f = fbmField(S, 16, 3, 71);
       return {
         map: toTex(
-          paint(S, (x, y, i) => {
-            const n = hash(x, y, 73);
-            const v = 0.85 + f[i] * 0.2 + (n - 0.5) * 0.12;
-            return [clamp255(168 * v), clamp255(78 * v), clamp255(62 * v)];
-          })
+          atTier(
+            paint(S, (x, y, i) => {
+              const n = hash(x, y, 73);
+              const v = 0.85 + f[i] * 0.2 + (n - 0.5) * 0.12;
+              return [clamp255(168 * v), clamp255(78 * v), clamp255(62 * v)];
+            })
+          )
         ),
       };
     }),
   // blue PU running track (中原大學操場, src/world/Stadium.js)
   trackBlue: () =>
     cached('trackBlue', () => {
-      const S = 256,
+      const S = tierSize(256),
         f = fbmField(S, 16, 3, 75);
       return {
         map: toTex(
-          paint(S, (x, y, i) => {
-            const n = hash(x, y, 77);
-            const v = 0.85 + f[i] * 0.2 + (n - 0.5) * 0.12;
-            return [clamp255(66 * v), clamp255(100 * v), clamp255(160 * v)];
-          })
+          atTier(
+            paint(S, (x, y, i) => {
+              const n = hash(x, y, 77);
+              const v = 0.85 + f[i] * 0.2 + (n - 0.5) * 0.12;
+              return [clamp255(66 * v), clamp255(100 * v), clamp255(160 * v)];
+            })
+          )
         ),
       };
     }),
   dirt: () =>
     cached('dirt', () => {
-      const S = 256,
+      const S = tierSize(256),
         f = fbmField(S, 8, 4, 81);
       return {
         map: toTex(
-          paint(S, (x, y, i) => {
-            const n = hash(x, y, 83);
-            const v = 0.75 + f[i] * 0.4 + (n - 0.5) * 0.2;
-            return [clamp255(140 * v), clamp255(116 * v), clamp255(86 * v)];
-          })
+          atTier(
+            paint(S, (x, y, i) => {
+              const n = hash(x, y, 83);
+              const v = 0.75 + f[i] * 0.4 + (n - 0.5) * 0.2;
+              return [clamp255(140 * v), clamp255(116 * v), clamp255(86 * v)];
+            })
+          )
         ),
       };
     }),
@@ -457,9 +509,9 @@ export const groundTex = {
     }),
   waterNormal: () =>
     cached('waterN', () => {
-      const S = 256,
+      const S = tierSize(256),
         f = fbmField(S, 8, 4, 91, 0.6);
-      const t = toTex(normalFromHeight(f, S, S, 6), { srgb: false });
+      const t = toTex(atTier(normalFromHeight(f, S, S, (6 * S) / 256)), { srgb: false });
       return t;
     }),
 };

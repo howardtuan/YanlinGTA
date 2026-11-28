@@ -174,6 +174,7 @@ sequenceDiagram
 
 1. **統一透過 `canvasTexture` / `scaledCanvas` 建立靜態畫布**：
    - 嚴禁對靜態建築、載具、角色印花或招牌自行呼叫 `document.createElement('canvas')`。`scaledCanvas(w, h)` 會依 `PerfProfile.texScale` 縮小實體畫布並預設好 2D context 縮放，繪圖函式 `draw(g, w, h)` **必須使用傳入的邏輯寬高 `w, h`**（禁止讀取 `cv.width`，否則縮小後只畫到角落）；記憶體耗盡拿不到 context 時自動退回共用 1×1 `blankTexture()`。
+   - **程序化地面貼圖低檔位直繪（`src/graphics/Textures.js` `tierSize` / `atTier`）**：`texScale < 1` 時，柏油、鋪面、人行道、草地、泥土、跑道、水面法線與 macro 噪聲直接以縮放後的目標尺寸計算 FBM 噪聲、法線（強度依比例縮放以維持相同起伏）並以畫布變換用全尺寸邏輯座標繪製圖樣，免除全尺寸運算與二次縮放；其餘貼圖仍由 `forTier()` 產生後縮小。`texScale === 1`（`desktop-dgpu` 與單元測試）維持逐像素一致，`npm run test:wasm` 保持 `0 mismatched`。
    - 需透過 `getImageData` 逐像素計算的貼圖（如 `Textures.js` 法線圖、`Scooters.js` 車體法線圖、`Jersey.js` 滾邊距離場、`Garry.js` 上衣挖空、`Ruizhe.js` 印花標誌）須傳入 `{ willReadFrequently: true }` 避免 GPU 同步讀回卡頓，先以原尺寸計算再縮放或快取，並於繪入／轉完後當場呼叫 `releaseCanvas()` 釋放暫存畫布。
 2. **兩階段上傳與釋放**：
    - 街屋與校舍門牌圖集（`finishRow`、`Kit.finish`、`Lixing`、`Sac`）於 `packAtlas()` 內採 **FFDH 跨列與 Guillotine 子空間回填**、WebGL2 `128 px` 對齊高度與 **四邊＋四角像素延伸（`ClampToEdgeWrapping`）** 防 mipmap 滲色，並於迴圈內逐張建妥即當場呼叫 `uploadAndRelease()` 上傳 GPU 與將畫布縮為 `1×1`（不讓多張圖集畫布同時駐留記憶體，壓低建置期 `peakCanvasMB`）；非世界層一次性靜態貼圖（載具、角色、道具、小遊戲與過場貼圖）於設妥貼圖屬性後亦應立即 `uploadAndRelease()`；`buildZones()` 期間由 `releaseAtlasSources(scene, TEX, { minBatch: 80, keepReusable: true, fromChild })` 僅針對新增子樹以固定 `TEX_SLOTS` 批次回收單店一次性招牌，保留標記 `markReusable()` 的跨街共用貼圖（`Kit.js` `T.*` / `YHT.*` / `ROWT.*`）供後續街屋複用，並於 `buildInteriors()` 全部結束後再統一釋放。

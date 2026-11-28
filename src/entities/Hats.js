@@ -61,6 +61,21 @@ export function buildHat(kind, color) {
     const pom = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), hatMat('#f2f0ea'));
     pom.position.set(0, 0.3, -0.01);
     g.add(dome, cuff, pom);
+  } else if (kind === 'santa') {
+    // 聖誕老人帽（src/entities/XmasPudding.js 男宿的聖誕夜）：紅色軟圓錐往後垂，白色毛邊和毛球
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 20, 1, true), m);
+    cone.position.set(0, 0.26, -0.03);
+    cone.rotation.x = -0.55;
+    const cuff = new THREE.Mesh(
+      new THREE.TorusGeometry(0.142, 0.032, 8, 24).rotateX(Math.PI / 2),
+      hatMat('#f4f2ee')
+    );
+    cuff.scale.set(1, 1, 1.06);
+    cuff.position.set(0, 0.135, -0.006);
+    cuff.rotation.x = -0.12;
+    const pom = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 8), hatMat('#f4f2ee'));
+    pom.position.set(0, 0.36, -0.17);
+    g.add(cone, cuff, pom);
   }
   return g;
 }

@@ -5,6 +5,9 @@
 //   23:00–10:00 在力行宿舍 279 寢（2 號床，中間那張書桌）：彈吉他，或跟女朋友講電話；他彈的是一首要練給女朋友聽的歌
 //     （assets/sfx/hank/guitar.mp3，走近 14 m 內聽得到、越近越大聲，一直重播）；
 //     00:00–06:00 睡在 2 號床（上舖）。室友是 4 號床的肉舖老闆；
+//   11、12 月（src/world/Season.js）有些天的 07:00–07:40 或 22:20–23:00：在力行 2 樓西側浴廁（吱吱洗殘廢澡那區）蹲在地上，
+//     拿著蓮蓬頭刷牙——宿舍洗手台沒熱水，他想說蓮蓬頭總該有熱水，結果也是冷的（真實事件）。跟他說完話解鎖
+//     🏆 隱藏成就「冬天沒有熱水的男宿」（src/systems/Secrets.js 的 coldwater）。
 //   其他時間以 90 分鐘為一段，大多騎他的 ZMAX（155cc 白牌大速克達）在校園外圍和附近道路兜風（跟著車流跑），
 //   有時候把車停好、背著吉他在校園散步，跟他說話他會把吉他拿到身前，從頭彈那首歌給你聽。
 // 他同一時間只會出現在一個地方。說完話可以選擇要不要加好友（src/ui/phone/Friends.js 的 hank）。
@@ -14,6 +17,7 @@ import { dressCrew } from '../../systems/minigames/McUniform.js';
 import { makeLabel } from '../../world/MapBuilder.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import { Vehicle } from '../Vehicles.js';
+import { seasonDate } from '../../world/Season.js';
 
 export const HANK_LOOK = {
   skin: '#a8714c',
@@ -34,6 +38,19 @@ const H32 = (n) => {
   n ^= n >>> 16;
   return (n >>> 0) / 4294967296;
 };
+// 11、12 月的某些早上／晚上，他在浴廁用蓮蓬頭刷牙（約一半的時段；每個時段固定，不會一下有一下沒有）
+export const BRUSH_SLOTS = [
+  [7 * 60, 7 * 60 + 40],
+  [22 * 60 + 20, 23 * 60],
+];
+export function brushTime(clock, date = seasonDate()) {
+  const mo = date.getMonth();
+  if (mo !== 10 && mo !== 11) return false;
+  const day = Math.floor(clock / 1440),
+    m = ((clock % 1440) + 1440) % 1440,
+    i = BRUSH_SLOTS.findIndex(([a, b]) => m >= a && m < b);
+  return i >= 0 && H32(day * 2 + i + 331) < 0.5;
+}
 
 // acoustic guitar: two-lobed body, sound hole, neck and headstock (local: +y up the neck, +z out of the top)
 function buildGuitar() {
@@ -155,6 +172,148 @@ export class Hank {
     this.lent = false;
     this.lentIdle = 0;
     this._dorm(game);
+    this._brush(game);
+  }
+  // ---- 11、12 月：力行 2F 西側浴廁，蹲在地上拿蓮蓬頭刷牙（冷水） ----
+  _brush(game) {
+    const L = game.interiors.lixing,
+      Bw = L?.bathW;
+    if (!Bw) return;
+    // 吱吱洗澡那片空地的南側，靠淋浴隔間的隔板（隔板在外牆往內 1.5 m）：隔板上一支蓮蓬頭，他面向隔板蹲著
+    const wx = Bw.x0 + 1.55,
+      lz = Bw.z1 - 1.15,
+      y = L.B + L.FL[1];
+    const at = (lx, lz2) => {
+      const [x, z] = L.W(lx, lz2);
+      return { x, z, y };
+    };
+    const spot = at(wx + 0.62, lz),
+      wall = at(wx, lz),
+      h = Math.atan2(wall.x - spot.x, wall.z - spot.z);
+    // 灰藍色外套、白色短褲、黑色拖鞋（照片）
+    const ch = createCharacter({
+      ...HANK_LOOK,
+      shirt: '#3c4f63',
+      jacket: '#3c4f63',
+      shorts: '#e9e7f2',
+      pants: false,
+      shoes: '#111111',
+    });
+    const tag = makeLabel('🪥 漢克', { height: 0.24, size: 40 });
+    tag.position.set(0, 1.25, 0);
+    ch.root.add(tag);
+    // toothbrush in his left hand, in his mouth
+    const brush = new THREE.Group(),
+      white = new THREE.MeshStandardMaterial({ color: '#f4f4f2', roughness: 0.4 });
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.17, 6), white);
+    const bristle = new THREE.Mesh(
+      new THREE.BoxGeometry(0.012, 0.025, 0.014),
+      new THREE.MeshStandardMaterial({ color: '#5bb8e8', roughness: 0.8 })
+    );
+    bristle.position.y = 0.075;
+    brush.add(stick, bristle);
+    brush.position.set(0, -0.3, 0.04);
+    brush.rotation.x = -1.2;
+    ch.arms[1].el.add(brush);
+    ch.root.position.set(spot.x, y - 0.18, spot.z);
+    ch.root.rotation.y = h;
+    ch.root.visible = false;
+    game.scene.add(ch.root);
+    // the shower: valve on the partition, a hose down to the head lying in front of him, a thin cold spray
+    const steel = new THREE.MeshStandardMaterial({
+      color: '#c9ced4',
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+    const set = new THREE.Group();
+    const valveP = new THREE.Vector3(wall.x, y + 1.0, wall.z),
+      headP = new THREE.Vector3(
+        spot.x + (wall.x - spot.x) * 0.45,
+        y + 0.12,
+        spot.z + (wall.z - spot.z) * 0.45
+      ),
+      mid = valveP.clone().lerp(headP, 0.5);
+    mid.y = y + 0.05;
+    const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 12), steel);
+    valve.position.copy(valveP);
+    const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.0, 8), steel);
+    riser.position.set(wall.x, y + 1.55, wall.z);
+    const hose = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3([valveP, mid, headP]), 20, 0.009, 6),
+      steel
+    );
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.05, 14), steel);
+    head.position.copy(headP);
+    head.rotation.set(0, h, Math.PI / 2);
+    const spray = new THREE.Mesh(
+      new THREE.ConeGeometry(0.06, 0.1, 10, 1, true).translate(0, -0.05, 0),
+      new THREE.MeshBasicMaterial({
+        color: '#cfe8ff',
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+      })
+    );
+    spray.position.set(headP.x, y + 0.1, headP.z);
+    set.add(valve, riser, hose, head, spray);
+    set.visible = false;
+    game.scene.add(set);
+    this.brushing = { ch, set, spray, spot, y, h, talk: false, face: null };
+    game.interiors.actions.push({
+      x: spot.x,
+      z: spot.z,
+      r: 1.8,
+      y: y - surfaceAt(spot.x, spot.z),
+      cond: () => this.mode === 'brush',
+      label: () => '按 <kbd>E</kbd> 和蹲在地上刷牙的漢克說話',
+      fn: () => this.brushTalk(),
+    });
+  }
+  brushTalk() {
+    const g = this.g,
+      B = this.brushing,
+      p = g.player.worldPos();
+    B.talk = true;
+    B.face = Math.atan2(p.x - B.spot.x, p.z - B.spot.z);
+    const first = g.secrets?.got?.coldwater == null;
+    const lines = first
+      ? [
+          ['漢克', '（嘴裡含著牙刷，蹲在地上拿著蓮蓬頭）唔……彥霖？'],
+          ['彥霖', '你蹲在淋浴間幹嘛？'],
+          ['漢克', '刷牙啊。洗手台的水冰到牙齒會痛，我想說淋浴間的蓮蓬頭總該有熱水吧……'],
+          ['漢克', '（把蓮蓬頭轉到最左邊，等了很久）……'],
+          ['漢克', '結果這個也是冷的啦！！🥶 這棟男宿冬天根本沒有熱水'],
+          ['彥霖', '好好笑，還想用熱水刷牙啊 😂'],
+          ['漢克', '算了，冷水刷牙比較提神……嘶——好冰'],
+        ]
+      : [
+          [
+            ['漢克', '（咕嚕咕嚕）……今天也是冷的 🥶'],
+            ['漢克', '我已經放棄了，冷水刷牙，很提神'],
+          ],
+          [['漢克', '洗手台冷、蓮蓬頭也冷，這棟樓冬天只有棉被是熱的']],
+          [['漢克', '你要不要也來試試看？蓮蓬頭借你 🚿']],
+        ][Math.floor(Math.random() * 3)];
+    g.dialog(lines, () => {
+      B.talk = false;
+      if (first && g.secrets?.unlock('coldwater'))
+        setTimeout(() => g.phone?.revealSecret?.('coldwater'), 900);
+    });
+  }
+  _brushTick(dt) {
+    const B = this.brushing;
+    if (!B) return;
+    const p = this.g.player.pos,
+      d = Math.hypot(p.x - B.spot.x, p.z - B.spot.z),
+      on = this.mode === 'brush' && d < 40 && Math.abs(p.y - B.y) < 4;
+    B.ch.root.visible = B.set.visible = on;
+    if (!on) return;
+    B.spray.scale.y = 1 + Math.sin(this.g.time * 23) * 0.15;
+    const r = B.ch.root,
+      want = B.talk && B.face != null ? B.face : B.h;
+    r.rotation.y += angDiff(want, r.rotation.y) * Math.min(1, dt * 5);
+    B.ch.setDetail(d < 12);
+    B.ch.update(dt, { speed: 0, mode: 'sit', pose: B.talk ? 'talk' : 'feed' });
   }
   // ---- 23:00–10:00 in 力行 279: the middle desk on bed 2's side, playing guitar or on the phone with his girlfriend ----
   _dorm(game) {
@@ -335,6 +494,7 @@ export class Hank {
   _modeAt(clock) {
     const m = ((clock % 1440) + 1440) % 1440;
     if (m >= 18 * 60 && m < 22 * 60) return 'work';
+    if (brushTime(clock)) return 'brush';
     if (m >= 23 * 60 || m < 10 * 60) return 'dorm';
     return H32(Math.floor(clock / 90) + 77) < 0.35 ? 'walk' : 'ride';
   }
@@ -431,6 +591,7 @@ export class Hank {
     if (this.zmax && g.player.vehicle === this.zmax && z) z.hold = true; // you borrowed it: it stays out of the traffic
     this._lend(dt);
     this._dormTick(dt);
+    this._brushTick(dt);
     // on foot
     if (mode !== 'walk' && !this.playing) return;
     const p = g.player.worldPos();

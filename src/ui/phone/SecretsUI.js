@@ -17,7 +17,7 @@ export function secretsUI(root, game, { wide = false, reveal = null } = {}) {
   const card = (s) =>
     s.open
       ? `<button class="sc-card${s.id === cur ? ' on' : ''}" data-s="${s.id}">
-          <img src="${s.cover}" alt="" loading="lazy"><span class="sc-shade"></span>
+          <img src="${s.cover}" alt="" loading="lazy" onerror="this.remove()"><span class="sc-shade"></span>
           ${book.seen.has(s.id) ? '' : '<i class="sc-new">NEW</i>'}
           <span class="sc-cap"><small>${s.icon} ${esc(s.tag)}・真實事件改編</small><b>${esc(s.title)}</b><em>${esc(s.real)}</em></span></button>`
       : `<div class="sc-card sc-lock"><span class="sc-q">？</span>
@@ -30,7 +30,7 @@ export function secretsUI(root, game, { wide = false, reveal = null } = {}) {
         <div class="sc-card sc-lock sc-more"><span class="sc-q">⋯</span><span class="sc-cap"><small>敬請期待</small><b>更多真實故事</b><em>其他支線的真實版本陸續解鎖中</em></span></div></div>`;
   };
   const detail = (s) => `<article class="sc-art">
-      <div class="sc-hero"><img src="${s.cover}" alt=""><span class="sc-shade"></span>
+      <div class="sc-hero"><img src="${s.cover}" alt="" onerror="this.remove()"><span class="sc-shade"></span>
         <div class="sc-hcap"><span class="sc-badge">🏆 隱藏成就・真實事件改編</span><h2>${esc(s.title)}</h2><p>${esc(s.real)}</p><small>${dayLabel(s.at)}</small></div></div>
       <dl class="sc-facts">${s.facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
       <div class="sc-story">${s.story.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
@@ -38,7 +38,7 @@ export function secretsUI(root, game, { wide = false, reveal = null } = {}) {
         .map((m, k) =>
           m.type === 'video'
             ? `<figure class="sc-vid"><video src="${m.src}" poster="${m.poster || ''}" controls playsinline preload="metadata"></video><figcaption>🎥 ${esc(m.cap)}</figcaption></figure>`
-            : `<figure><button class="sc-ph" data-k="${k}"><img src="${m.src}" alt="" loading="lazy"></button><figcaption>${esc(m.cap)}</figcaption></figure>`
+            : `<figure><button class="sc-ph" data-k="${k}"><img src="${m.src}" alt="" loading="lazy" onerror="this.closest('figure').remove()"></button><figcaption>${esc(m.cap)}</figcaption></figure>`
         )
         .join('')}</div>
       ${s.vs ? `<div class="sc-vs">${s.vs.map(([k, v]) => `<div><b>${esc(k)}</b><p>${esc(v)}</p></div>`).join('')}</div>` : ''}

@@ -363,7 +363,6 @@ async function main() {
   report.perf = {
     quality: perfSnap.snap.quality,
     tier: perfSnap.snap.tier,
-    safeMode: perfSnap.snap.safeMode,
     render: perfSnap.snap.render,
     canvasMB: perfSnap.canvas.canvasMB,
     canvasCount: perfSnap.canvas.canvasCount,

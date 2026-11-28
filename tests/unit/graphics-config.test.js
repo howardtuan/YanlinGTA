@@ -65,7 +65,7 @@ describe('sanitize / cleanPatch', () => {
   });
 });
 
-describe('resolveGraphics priority: preset < player < safe mode < URL', () => {
+describe('resolveGraphics priority: preset < player < URL', () => {
   it('expands the preset', () => {
     const c = resolveGraphics('medium');
     expect(c).toMatchObject(PRESETS.medium);
@@ -79,22 +79,18 @@ describe('resolveGraphics priority: preset < player < safe mode < URL', () => {
     expect(c.postFx).toBe('off');
   });
 
-  it('safe mode clamps the player overrides', () => {
+  it('has no safe-mode clamp (#455): overrides stay as chosen', () => {
     const c = resolveGraphics('high', {
       overrides: { dprCap: 1.5, shadows: 'high' },
       safeMode: true,
     });
-    expect(c.dprCap).toBe(0.8);
-    expect(c.shadows).toBe('off');
-    expect(c.postFx).toBe('off');
-    expect(c.nightLamps).toBe(0);
-    expect(c.materialMode).toBe('lambert');
+    expect(c.dprCap).toBe(1.5);
+    expect(c.shadows).toBe('high');
   });
 
-  it('URL flags win over everything, including safe mode', () => {
+  it('URL flags win over everything', () => {
     const c = resolveGraphics('low', {
       overrides: { dprCap: 1.0 },
-      safeMode: true,
       url: parseUrlFlags('?dpr=1.5&shadows=high&ibl=0&postfx=half&lamps=4&mat=pbr'),
     });
     expect(c).toMatchObject({

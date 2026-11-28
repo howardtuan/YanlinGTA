@@ -5,8 +5,7 @@
  * declarative presets of those settings; the player may override single settings on top of a preset (設定 →
  * ⚙ 細部顯示設定), and URL flags override everything for experiments and automated sweeps.
  *
- * Resolution order (later wins):  preset of the quality level  <  player overrides (settings.gfx)
- *                                 <  safe-mode clamp (self-healing boot, src/core/BootDiag.js)  <  URL flags
+ * Resolution order (later wins):  preset of the quality level  <  player overrides (settings.gfx)  <  URL flags
  *
  * LIVE settings switch at once (game.applyDisplaySettings / GameLoop.applyDisplay):
  *   dprCap      max renderer pixel ratio
@@ -172,21 +171,6 @@ export function parseUrlFlags(search = '') {
   return cleanPatch(raw);
 }
 
-// self-healing safe mode (a previous boot crashed): heavy live features are clamped to the low preset at most
-export function safeClamp(c) {
-  const L = PRESETS.low;
-  return {
-    ...c,
-    dprCap: Math.min(c.dprCap, L.dprCap),
-    shadows: 'off',
-    postFx: 'off',
-    nightLamps: 0,
-    materialMode: 'lambert',
-    antialias: false,
-    crowdTier: c.crowdTier === 'xlow' ? 'xlow' : 'low',
-  };
-}
-
 // integrated GPUs keep at most 2 lamp lights (was MapBuilder's own rule)
 export function tierClamp(c, tier) {
   return tier === 'desktop-igpu' ? { ...c, nightLamps: Math.min(c.nightLamps, 2) } : c;
@@ -195,16 +179,12 @@ export function tierClamp(c, tier) {
 /**
  * The effective display configuration.
  * @param {string} quality  resolved quality level (xlow / low / medium / high)
- * @param {object} opts     { overrides: settings.gfx, safeMode, url: parsed URL flags, tier }
+ * @param {object} opts     { overrides: settings.gfx, url: parsed URL flags, tier }
  */
-export function resolveGraphics(
-  quality,
-  { overrides = null, safeMode = false, url = null, tier } = {}
-) {
+export function resolveGraphics(quality, { overrides = null, url = null, tier } = {}) {
   const preset = PRESETS[quality] || PRESETS.low;
   let c = { ...preset, ...cleanPatch(overrides) };
   c = tierClamp(c, tier);
-  if (safeMode) c = safeClamp(c);
   c = { ...c, ...cleanPatch(url) };
   c.quality = quality;
   return c;

@@ -1,5 +1,5 @@
 /**
- * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?diag=`, `?safemode=`).
+ * Runtime hardware-tier detection and URL experiment flag parser (`?tier=`, `?texscale=`, `?diag=`).
  * Visual / display settings (pixel ratio, shadows, IBL, post-processing, view distance ...) are owned solely by
  * `GraphicsConfig.js` (presets per quality level, player overrides, URL flags).
  */
@@ -85,30 +85,8 @@ function resolveDiagMode(params) {
   return 'off';
 }
 
-function resolveSafeModeOverride(params) {
-  if (!params.has('safemode')) return null;
-  const norm = (params.get('safemode') ?? '').trim().toLowerCase();
-  if (norm === '0' || norm === 'false' || norm === 'off') return false;
-  if (norm === '' || norm === '1' || norm === 'true' || norm === 'on') return true;
-  return null;
-}
-
 /**
- * Clamp texture & atlas budgets when self-healing safe mode is active (preserving explicit `?texscale=`).
- */
-export function applySafeMode(profile) {
-  if (!profile) return profile;
-  if (profile.flags?.texScale == null) {
-    profile.texScale = Math.min(profile.texScale, 0.375);
-  }
-  profile.atlasMaxW = Math.min(profile.atlasMaxW, 512);
-  profile.atlasMaxH = Math.min(profile.atlasMaxH, 1024);
-  profile.safeMode = true;
-  return profile;
-}
-
-/**
- * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?diag=` / `?safemode=` URL overrides.
+ * Resolve runtime hardware profile and `?tier=` / `?texscale=` / `?diag=` URL overrides.
  */
 export function resolveRuntimeProfile(_settings = {}, env = {}) {
   const search =
@@ -140,7 +118,6 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
 
   const diagParam = params.has('diag') ? params.get('diag') : null;
   const diagMode = resolveDiagMode(params);
-  const safeModeOverride = resolveSafeModeOverride(params);
 
   const profile = {
     tier,
@@ -149,7 +126,6 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
     atlasMaxH: base.atlasMaxH,
     diagMode,
     diagEnabled: diagMode !== 'off',
-    safeMode: false,
     touch,
     gpuRenderer,
     flags: {
@@ -157,12 +133,7 @@ export function resolveRuntimeProfile(_settings = {}, env = {}) {
       texScale:
         Number.isFinite(parsedTex) && parsedTex >= 0.25 && parsedTex <= 2 ? parsedTex : null,
       diag: diagParam,
-      safeMode: safeModeOverride,
     },
   };
-
-  if (safeModeOverride === true || (safeModeOverride === null && env.safeMode === true)) {
-    applySafeMode(profile);
-  }
   return profile;
 }

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { BOOT_DIAG_KEY, HEALTHY_RECOVERY_SEC, createBootDiag } from '../../src/core/BootDiag.js';
+import { BOOT_DIAG_KEY, createBootDiag } from '../../src/core/BootDiag.js';
 
 function createMemoryStorage() {
   const map = new Map();
@@ -26,7 +26,7 @@ describe('BootDiag', () => {
 
     const saved = JSON.parse(storage.getItem(BOOT_DIAG_KEY));
     expect(saved.crashCount).toBe(0);
-    expect(saved.safeMode).toBe(false);
+    expect(saved.safeMode).toBeUndefined();
     expect(saved.current.completed).toBe(true);
     expect(saved.current.step).toBe('complete');
     expect(saved.current.stages).toEqual([
@@ -52,7 +52,7 @@ describe('BootDiag', () => {
     const run2 = createBootDiag({ diagMode: 'on', storage, doc: document, now: () => t });
     const s2 = await run2.begin();
     expect(s2.crashCount).toBe(1);
-    expect(s2.safeMode).toBe(false);
+    expect(s2.safeMode).toBeUndefined();
     expect(s2.lastCrash.step).toBe('build-world');
     expect(s2.lastCrash.pct).toBe(0.08);
     expect(s2.lastCrash.stages).toEqual([
@@ -63,57 +63,33 @@ describe('BootDiag', () => {
     run2.complete();
   });
 
-  it('auto-enables safeMode after 2 unfinished boots even with diagMode=off, and clears after healthy play', async () => {
+  it('never turns on a safe mode (#455): repeated unfinished boots or a lost context only leave diagnostics', async () => {
     const storage = createMemoryStorage();
-
-    // Crash 1
-    const r1 = createBootDiag({ diagMode: 'off', storage });
-    await r1.begin();
-    r1.checkpoint('build-world', 0.08, '搭建中原大學');
-
-    // Crash 2
-    const r2 = createBootDiag({ diagMode: 'off', storage });
-    const s2 = await r2.begin();
-    expect(s2.crashCount).toBe(1);
-    expect(r2.isSafeMode()).toBe(false);
-    r2.checkpoint('build-world', 0.08, '搭建中原大學');
-
-    // Boot 3 automatically enters self-healing safeMode without URL flags
-    const r3 = createBootDiag({ diagMode: 'off', storage });
-    const s3 = await r3.begin();
-    expect(s3.crashCount).toBe(2);
-    expect(r3.isSafeMode()).toBe(true);
-    r3.complete();
-
-    // Persists across subsequent boot until healthy recovery completes
-    const r4 = createBootDiag({ diagMode: 'off', storage });
-    await r4.begin();
-    expect(r4.isSafeMode()).toBe(true);
-    expect(r4.tickHealthy(60)).toBe(false);
-    expect(r4.isSafeMode()).toBe(true);
-    expect(r4.tickHealthy(HEALTHY_RECOVERY_SEC)).toBe(true);
-    expect(r4.isSafeMode()).toBe(false);
-  });
-
-  it('enters safeMode on webglcontextlost unless ?safemode=0 overrides it', async () => {
-    const storage = createMemoryStorage();
+    // an old stored state with the removed safe-mode flags
+    storage.setItem(
+      BOOT_DIAG_KEY,
+      JSON.stringify({ current: null, crashCount: 3, safeMode: true, contextLost: true })
+    );
+    for (let i = 0; i < 3; i++) {
+      const r = createBootDiag({ diagMode: 'off', storage });
+      await r.begin();
+      r.checkpoint('build-world', 0.08, '搭建中原大學');
+      expect(r.isSafeMode).toBeUndefined();
+      expect(r.tickHealthy).toBeUndefined();
+    }
     const fakeCanvas = document.createElement('canvas');
-
-    const r1 = createBootDiag({ diagMode: 'off', storage });
-    await r1.begin();
-    r1.attachCanvas(fakeCanvas);
+    const r = createBootDiag({ diagMode: 'off', storage });
+    const st = await r.begin();
+    expect(st.safeMode).toBeUndefined();
+    expect(st.contextLost).toBeUndefined();
+    expect(st.crashCount).toBe(3);
+    r.attachCanvas(fakeCanvas);
     fakeCanvas.dispatchEvent(new Event('webglcontextlost'));
-    expect(r1.isSafeMode()).toBe(true);
-
-    // Next boot inherits safeMode
-    const r2 = createBootDiag({ diagMode: 'off', storage });
-    await r2.begin();
-    expect(r2.isSafeMode()).toBe(true);
-
-    // ?safemode=0 explicitly bypasses safeMode
-    const r3 = createBootDiag({ diagMode: 'off', safeModeOverride: false, storage });
-    await r3.begin();
-    expect(r3.isSafeMode()).toBe(false);
+    const saved = JSON.parse(storage.getItem(BOOT_DIAG_KEY));
+    expect(saved.safeMode).toBeUndefined();
+    expect(saved.current.contextLost).toBe(1);
+    r.complete();
+    expect(JSON.parse(storage.getItem(BOOT_DIAG_KEY)).crashCount).toBe(0);
   });
 
   it('halts reload loops in ?diag=halt until user clicks continue', async () => {

@@ -583,7 +583,7 @@ export class MenuManager {
     // the reload-only settings (MSAA, materials, crowds) are chosen at load time
     const pending = reloadPending(game.gfxBuilt, game.gfx).length > 0;
     const custom = isCustom(q, game.settings.gfx);
-    return `目前：${Q_NAME[q]}畫質${custom ? '（自訂）' : ''}（自動＝最高用到中：內建顯示晶片、手機用低；畫面不夠順會一路往下調到超低；要高畫質請自己選「高」）${pending ? '・部分設定在重新整理後套用' : ''}`;
+    return `目前：${Q_NAME[q]}畫質${custom ? '（自訂）' : ''}（自動＝最高用到中：內建顯示晶片、手機用低；連續 6 秒低於 20 fps 才會往下調，最低到超低；${game.settings.autoQ ? '這是之前自動調降的結果，再點一次「自動」可重新偵測；' : ''}自訂過細部設定就不再自動調整；要高畫質請自己選「高」）${pending ? '・部分設定在重新整理後套用' : ''}`;
   }
 
   fillNote() {

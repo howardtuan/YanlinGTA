@@ -18,7 +18,7 @@ import {
   texScale,
   uploadAndRelease,
 } from '../../src/graphics/GpuMemLifecycle.js';
-import { TIERS, applySafeMode } from '../../src/core/PerfProfile.js';
+import { TIERS } from '../../src/core/PerfProfile.js';
 
 // happy-dom has no 2D canvas: getContext() is null unless a test hands out a stand-in
 const fakeContext = () => {
@@ -52,8 +52,6 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
       atlasScale: 0.375,
       atlasMaxH: 4096, // a 768 x 1536 sheet
     });
-    const safe = applySafeMode(profile('mobile-lite'));
-    expect(configureGpuMem(safe)).toEqual({ texScale: 0.375, atlasScale: 0.25, atlasMaxH: 4096 });
     const flagged = profile('desktop-dgpu', { texScale: 0.6, flags: { texScale: 0.6 } });
     expect(configureGpuMem(flagged).texScale).toBe(0.6);
   });

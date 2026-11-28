@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  TIERS,
-  detectTier,
-  applySafeMode,
-  resolveRuntimeProfile,
-} from '../../src/core/PerfProfile.js';
+import { TIERS, detectTier, resolveRuntimeProfile } from '../../src/core/PerfProfile.js';
 
 describe('PerfProfile', () => {
   describe('TIERS single-responsibility separation', () => {
@@ -52,8 +47,8 @@ describe('PerfProfile', () => {
     });
   });
 
-  describe('resolveRuntimeProfile & safeMode', () => {
-    it('uses hardware tier defaults and keeps diag and safeMode disabled by default', () => {
+  describe('resolveRuntimeProfile', () => {
+    it('uses hardware tier defaults and keeps diag disabled by default', () => {
       const profile = resolveRuntimeProfile(
         {},
         { search: '', touch: false, gpuRenderer: 'RTX 4060' }
@@ -64,7 +59,7 @@ describe('PerfProfile', () => {
       expect(profile.atlasMaxH).toBe(4096);
       expect(profile.diagMode).toBe('off');
       expect(profile.diagEnabled).toBe(false);
-      expect(profile.safeMode).toBe(false);
+      expect(profile.safeMode).toBeUndefined();
     });
 
     it('applies valid ?tier=, ?texscale=, and ?diag URL overrides without probing GPU', () => {
@@ -98,32 +93,15 @@ describe('PerfProfile', () => {
       expect(igpu.atlasMaxH).toBe(4096);
     });
 
-    it('supports ?safemode=1 / ?safemode=0 and clamps budgets via applySafeMode while honoring ?texscale=', () => {
-      const safe = resolveRuntimeProfile(
+    it('has no safe mode any more (#455): ?safemode= is ignored', () => {
+      const p = resolveRuntimeProfile(
         {},
         { search: '?safemode=1', touch: false, gpuRenderer: 'NVIDIA GeForce RTX 4060' }
       );
-      expect(safe.safeMode).toBe(true);
-      expect(safe.texScale).toBe(0.375);
-      expect(safe.atlasMaxW).toBe(512);
-      expect(safe.atlasMaxH).toBe(1024);
-
-      const customTex = resolveRuntimeProfile(
-        {},
-        { search: '?texscale=0.5', touch: true, gpuRenderer: 'Apple GPU' }
-      );
-      applySafeMode(customTex);
-      expect(customTex.safeMode).toBe(true);
-      expect(customTex.texScale).toBe(0.5);
-      expect(customTex.atlasMaxW).toBe(512);
-      expect(customTex.atlasMaxH).toBe(1024);
-
-      const bypassed = resolveRuntimeProfile(
-        {},
-        { search: '?safemode=0', touch: true, safeMode: true }
-      );
-      expect(bypassed.safeMode).toBe(false);
-      expect(bypassed.flags.safeMode).toBe(false);
+      expect(p.safeMode).toBeUndefined();
+      expect(p.flags.safeMode).toBeUndefined();
+      expect(p.texScale).toBe(1);
+      expect(p.atlasMaxW).toBe(2048);
     });
 
     it('supports bare ?diag and ?diag=halt flags', () => {
@@ -173,7 +151,6 @@ describe('PerfProfile', () => {
         tier: null,
         texScale: null,
         diag: 'weird',
-        safeMode: null,
       });
     });
   });

@@ -9,7 +9,7 @@
 1. **單向無環依賴（DAG）**：全專案劃分為 7 大領域分層，底層模組（核心、物理、圖形）嚴禁反向匯入上層業務或 UI 模組，由 `tests/arch/import-graph.test.js` 於 CI 強制把關。
 2. **時脈與渲染解耦**：物理推進固定為離散時間步長（`1 / 60` 秒），與瀏覽器可變刷新率（`requestAnimationFrame` 60Hz～240Hz）解耦，確保跨裝置操控手感與碰撞一致。
 3. **雙軌高效能 WASM**：剛體物理（Rapier 3D）與程序化噪聲／法線貼圖（Rust Kernels）皆採用 WebAssembly 加速，並具備零誤差或輕量級純 JavaScript Fallback。
-4. **行動端記憶體防護與啟動自癒**：針對 iOS Safari / `WKWebView` 嚴格的 `<canvas>` 記憶體配額，實施依硬體分檔縮放、兩階段上傳即釋放與連續崩潰自動進入安全模式（`safeMode`）。
+4. **行動端記憶體防護與啟動自癒**：針對 iOS Safari / `WKWebView` 嚴格的 `<canvas>` 記憶體配額，實施依硬體分檔縮放、兩階段上傳即釋放；啟動分階計時與 `?diag=` 開發者診斷（玩家端自動安全模式已於 #455 移除）。
 5. **集中式版本化持久化**：遊戲進度經 `SaveSystem` 統一校驗與序列化，獨立子系統（資管學堂、啟動診斷、手機相簿）分區隔離儲存。
 
 ---
@@ -99,7 +99,7 @@ flowchart TD
 
 ---
 
-## 四、 硬體分檔、啟動診斷與安全降階自癒 (`PerfProfile.js` & `BootDiag.js`)
+## 四、 硬體分檔與啟動診斷 (`PerfProfile.js` & `BootDiag.js`)
 
 ### 1. 執行期硬體分檔 (`src/core/PerfProfile.js`)
 啟動時依觸控能力（`matchMedia('(pointer: coarse)')` / `maxTouchPoints`）與 WebGL `UNMASKED_RENDERER_WEBGL` 字串，將裝置歸類為三檔（可用 `?tier=`、`?texscale=` 覆寫）：
@@ -127,23 +127,20 @@ flowchart TD
 | `antialias` | 重整 | WebGL 原生 MSAA | `true` / `true` / `false` / `false` |
 | `crowdTier` | 重整 | `full`｜`low`｜`xlow`：人車、天際線、停車密度與較輕的補建街區（`game.lowQ` / `game.xlowQ` 由此推導） | `full` / `full` / `low` / `xlow` |
 
-- **解析優先序**（`resolveGraphics`）：`畫質檔位預設 < 玩家自訂細項（settings.gfx）< safeMode 安全降階鉗制 < URL 旗標`。safeMode 將 `dprCap` 壓至 `<= 0.8`、關陰影／後製／路燈光源，材質改 `lambert`、關抗鋸齒。
+- **解析優先序**（`resolveGraphics`）：`畫質檔位預設 < 玩家自訂細項（settings.gfx）< URL 旗標`（沒有 safeMode 鉗制：玩家選的細部設定一定生效）。
 - **URL 實驗參數**：`?dpr=`、`?shadows=`（`off|low|medium|high`，`0/1`）、`?ibl=`（`hemi|pmrem`，`0/1`）、`?postfx=`（`off|quarter|half`）、`?lamps=`、`?mat=`（`lambert|standard`），另有 `?aa=`、`?view=`、`?fog=`。
 - **執行期熱切換**：`game.applyDisplaySettings(patch, { save })` 合併玩家細項（值為 `null` 表示回到檔位預設）、重新解析並由 `GameLoop.applyDisplay(prev)` 同步更新 `renderer`、`SkySystem`（`setShadowQuality` / `setEnvMode`）、`PostFX`、`MapBuilder`（`world.setLampLights`）；回傳仍待重整的設定鍵。`save: false` 供自動化掃描使用，不寫入玩家存檔。`game.setQuality(q)` 切換檔位預設（保留玩家細項）。
 - **持久化**：玩家細項只存與檔位預設不同的鍵於 `cycu-shun-settings-v2` 的 `gfx` 欄位；舊存檔沒有 `gfx` 即等同純檔位預設。設定選單點選任一畫質檔位會清除 `gfx`（一鍵還原）。
 - **設定選單**：「🖼 畫質」下方可展開「⚙ 細部顯示設定」：清晰度倍率、視距、太陽陰影、環境光反射、後製光暈、夜間路燈光源、材質／抗鋸齒／人車密度／補建街區（標示「重整」）與「還原成畫質檔位預設」；偏離預設時畫質說明顯示「（自訂）」。
 
-### 2. 啟動檢查點與自癒安全模式 (`src/core/BootDiag.js`)
+### 2. 啟動檢查點與開發者診斷 (`src/core/BootDiag.js`)
 為防止行動端在載入階段因記憶體尖峰遭瀏覽器強制重整並陷入無限迴圈，`BootDiag` 將啟動麵包屑持久化於 `localStorage`（金鑰 `yanlinGTA.bootDiag.v1`）：
 
 - **生命週期追蹤**：`begin()` 讀取前次狀態並寫入 `completed: false` $\rightarrow$ 各載入階段呼叫 `checkpoint(step, pct, label)` 記錄耗時 $\rightarrow$ 進入標題畫面呼叫 `complete()` 將 `completed` 標為 `true` 並歸零 `crashCount`（若拋出例外則呼叫 `fail(err)`）。
 - **開發者診斷浮層（`?diag=1` / `?diag=halt`）**：
   - 於畫面左下角顯示前次未完成階段、錯誤訊息與本次各階段耗時麵包屑。
   - 阻斷重整迴圈：`?diag=halt` 只要前次未完成載入即在啟動前暫停；`?diag=1` 於連續未完成載入 `>= 2` 次時暫停，等待點擊「▶ 繼續單次載入」才放行。
-- **玩家端自動安全降階與健康恢復（預設開啟，`?safemode=0` 可停用、`?safemode=1` 可強制啟用）**：
-  - **觸發條件**：前次啟動未完成累計達 **連續 2 次（`crashCount >= 2`）**，或畫布曾觸發 **`webglcontextlost`** 事件（`attachCanvas` 監聽）。
-  - **降階效果**：`applySafeMode(profile)` 自動將 `texScale` 壓低至 **`<= 0.375`**（除非網址明確指定 `?texscale=`），並將圖集上限壓至 **`512 × 1024`**（圖集縮放 `0.25`，保有比正常 `mobile-lite` 更低一層的降階緩衝），同時調降初始畫質確保順利進場。
-  - **自動恢復**：進入遊玩狀態後每幀呼叫 `tickHealthy(dt)`，累計穩定遊玩滿 **`180 秒`（`HEALTHY_RECOVERY_SEC`）** 即自動解除 `safeMode` 與 `contextLost` 標記。
+- **不再有玩家端自動安全模式（#455）**：早期為防 iOS 載入崩潰迴圈，連續 2 次未完成載入或 `webglcontextlost` 會自動壓低貼圖預算並鎖住顯示設定；它會被一般重整、iOS 切背景誤觸，且無聲鎖死「⚙ 細部顯示設定」，在 `mobile-lite` 記憶體收斂（#390）後已移除（含 `applySafeMode`、`?safemode=`、`tickHealthy`）。舊存檔殘留的 `safeMode` / `contextLost` 欄位在下次 `begin()` 時丟棄；`webglcontextlost` 只記在本次紀錄的 `current.contextLost` 供診斷。
 
 ---
 
@@ -177,7 +174,7 @@ sequenceDiagram
 
 1. **動態畫質調頻（`GameLoop.autoQuality`）**：
    - 畫質設為「自動」時，初始等級由 `guessGpu()` 決定：觸控裝置、舊款 Intel UHD / HD 或 `<= 4` 核裝置預設 `low`；Apple M 系列、Iris Xe、Radeon 680M/780M/880M 與獨顯預設 `medium`（`high` 僅在玩家手動選擇時啟用）。
-   - 遊玩時先暖機 **3 秒**，之後每 **3 秒** 計算平均幀率；若 `< 28 FPS` 則自動降一級（`medium` $\rightarrow$ `low` $\rightarrow$ `xlow`）並寫入 `settings.autoQ`，降級後重新暖機 3 秒。
+   - 遊玩時先暖機 **3 秒**，之後每 **3 秒** 計算平均幀率；**連續 2 個 3 秒視窗**平均皆 `< 20 FPS`（任一視窗 `>= 20` 即重置）才自動降一級（`medium` → `low` → `xlow`），手機 30 FPS 上限或單次 GC 卡頓不會誤降；降級寫入 `settings.autoQ` 供下次開啟沿用，設定選單再點一次「自動」即清除並重新偵測，降級後重新暖機 3 秒。**只在純自動模式生效**：畫質為「自動」且沒有 `settings.gfx` 自訂細項（`autoQualityActive` / `autoQualityStep`，`tests/unit/auto-quality.test.js`）。
 2. **四級效能監控浮層（`src/core/PerfHud.js`）**：
    - 設定選單可選 `關閉`／`簡易`（僅色標 FPS）／`詳細`（1% 低幀、最慢幀、JS 主執行緒負載 %、Chromium JS Heap、Draw Calls、Triangles）／`開發者`（細分邏輯／物理／繪製耗時、紋理與幾何數、著色器數、實體與剛體數、硬體檔位、座標區域與 GPU 名稱）；網址帶 `?perf` 強制以開發者模式顯示（不改存檔）。關閉時完全不執行量測。
 3. **渲染與著色器最佳化契約**：
@@ -225,7 +222,7 @@ flowchart LR
         CoreState["位置・金錢・選票・設定・記事本"]
         Progress["主線 (mv=3)・支線・衣櫃造型・股市・麻將戰績"]
         LearnState["資管學堂 28 章解題進度"]
-        BootState["啟動階段麵包屑與 safeMode"]
+        BootState["啟動階段麵包屑"]
         AlbumState["相機拍攝與小畫家 JPEG 圖片"]
     end
 

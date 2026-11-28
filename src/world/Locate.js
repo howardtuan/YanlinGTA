@@ -129,6 +129,15 @@ export function friendLocations(g) {
               ? '在力行宿舍 279 寢跟女朋友講電話'
               : '在力行宿舍 279 寢彈吉他'
         );
+      else if (m === 'brush')
+        add(
+          'hank',
+          '漢克',
+          '🎸',
+          '#2b2f3a',
+          H.brushing?.spot,
+          '在力行宿舍 2 樓浴廁蹲著刷牙（沒熱水）'
+        );
       else if (m === 'walk' && H.walkOn)
         add('hank', '漢克', '🎸', '#2b2f3a', H.pos, '背著吉他在校園散步');
       else if (m === 'ride' && H.zmax && !H.zmax.ai?.dormant)

@@ -68,6 +68,7 @@ import { TeaShop } from '../systems/minigames/TeaShop.js';
 import { garryOutline } from '../world/buildings/GarryHome.js';
 import { clubFootprint } from '../world/buildings/ClubRoom.js';
 import { ClubMembers } from '../entities/npcs/ClubMembers.js';
+import { XmasPudding } from '../entities/XmasPudding.js';
 import { Concerts } from '../systems/minigames/Concert.js';
 import { Garry } from '../entities/npcs/Garry.js';
 import { Jianyu } from '../entities/npcs/Jianyu.js';
@@ -641,6 +642,7 @@ class Game {
     this.missions = new Missions(this);
     this.sunday = new Sunday(this);
     this.clubMembers = new ClubMembers(this);
+    this.xmasPudding = new XmasPudding(this); // 12 月 21:00–23:00 力行天井的聖誕布丁事件（🏆 隱藏成就）
     this.garry = new Garry(this);
     this.jianyu = new Jianyu(this);
     this.mingshan = new Mingshan(this);
@@ -1861,7 +1863,10 @@ class Game {
       this._showerSpot = { x: sx, z: sz, y: L.FL?.[1] ?? 3.4 };
     }
     const shower = this._showerSpot
-      ? { ...this._showerSpot, active: !!this.zzQuest?.bathActive }
+      ? {
+          ...this._showerSpot,
+          active: !!this.zzQuest?.bathActive || this.hank?.mode === 'brush', // 漢克用蓮蓬頭刷牙 (src/entities/npcs/Hank.js)
+        }
       : null;
     this.audio.ambient(dt, {
       x: wp.x,

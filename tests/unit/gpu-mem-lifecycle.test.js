@@ -18,7 +18,7 @@ import {
   texScale,
   uploadAndRelease,
 } from '../../src/graphics/GpuMemLifecycle.js';
-import { TIERS } from '../../src/core/PerfProfile.js';
+import { DEVICES } from '../../src/core/PerfProfile.js';
 
 // happy-dom has no 2D canvas: getContext() is null unless a test hands out a stand-in
 const fakeContext = () => {
@@ -26,7 +26,7 @@ const fakeContext = () => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ctx);
   return ctx;
 };
-const profile = (tier, extra = {}) => ({ ...TIERS[tier], flags: { texScale: null }, ...extra });
+const profile = (tier, extra = {}) => ({ ...DEVICES[tier], flags: { texScale: null }, ...extra });
 const fakeRenderer = () => ({ initTexture: vi.fn() });
 
 afterEach(() => {
@@ -35,30 +35,30 @@ afterEach(() => {
 });
 
 describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
-  it('every tier stores textures at its PerfProfile texScale, atlas sheets within atlasMaxW x atlasMaxH', () => {
-    expect(configureGpuMem(profile('desktop-dgpu'))).toEqual({
+  it('every device stores textures at its PerfProfile texScale, atlas sheets within atlasMaxW x atlasMaxH', () => {
+    expect(configureGpuMem(profile('desktop'))).toEqual({
       texScale: 1,
       atlasScale: 1,
       atlasMaxH: 4096,
     });
     // M-series / Iris Xe laptops: 0.75, sheets at most 4096 tall (stored 1536 x 3072, #388)
-    expect(configureGpuMem(profile('desktop-igpu'))).toEqual({
+    expect(configureGpuMem(profile('desktop', { texScale: 0.75 }))).toEqual({
       texScale: 0.75,
       atlasScale: 0.75,
       atlasMaxH: 4096,
     });
-    expect(configureGpuMem(profile('mobile-lite'))).toEqual({
+    expect(configureGpuMem(profile('mobile'))).toEqual({
       texScale: 0.5,
       atlasScale: 0.375,
       atlasMaxH: 4096, // a 768 x 1536 sheet
     });
-    const flagged = profile('desktop-dgpu', { texScale: 0.6, flags: { texScale: 0.6 } });
+    const flagged = profile('desktop', { texScale: 0.6, flags: { texScale: 0.6 } });
     expect(configureGpuMem(flagged).texScale).toBe(0.6);
   });
 
   it('a scaled canvas keeps the size it is drawn at, and the drawing is scaled to fit', () => {
     const ctx = fakeContext();
-    configureGpuMem(profile('mobile-lite'));
+    configureGpuMem(profile('mobile'));
     const { cv, g } = scaledCanvas(256, 192);
     expect([cv.width, cv.height, cv.lw, cv.lh]).toEqual([128, 96, 256, 192]);
     expect(g).toBe(ctx);
@@ -73,7 +73,7 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     expect(canvasTexture(64, 32, draw)).toBe(blankTexture());
     expect(draw).not.toHaveBeenCalled();
     fakeContext();
-    configureGpuMem(profile('mobile-lite'));
+    configureGpuMem(profile('mobile'));
     const t = canvasTexture(64, 32, draw);
     expect(draw).toHaveBeenCalledWith(expect.anything(), 64, 32);
     expect(t.isCanvasTexture).toBe(true);
@@ -89,7 +89,7 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
     expect(uploadAndRelease(t)).toBe(false);
     expect(t.image.width).toBe(64);
     const r = fakeRenderer();
-    configureGpuMem(profile('desktop-dgpu'), r);
+    configureGpuMem(profile('desktop'), r);
     expect(uploadAndRelease(t)).toBe(true);
     expect(r.initTexture).toHaveBeenCalledWith(t);
     expect([t.image.width, t.image.height]).toEqual([1, 1]);
@@ -102,7 +102,7 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
 
   it('atlas sources: released unless the scene still shows them, and their cache keys go', () => {
     fakeContext();
-    configureGpuMem(profile('desktop-dgpu'), fakeRenderer());
+    configureGpuMem(profile('desktop'), fakeRenderer());
     const shown = canvasTexture(32, 32, () => {}),
       shaderTex = canvasTexture(32, 32, () => {}),
       packed = canvasTexture(32, 32, () => {});
@@ -135,7 +135,7 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
 
   it('atlas sources: minBatch, keepReusable, and fromChild batch release without scanning MapBuilder meshes', () => {
     fakeContext();
-    configureGpuMem(profile('desktop-dgpu'), fakeRenderer());
+    configureGpuMem(profile('desktop'), fakeRenderer());
     const worldTex = canvasTexture(16, 16, () => {}),
       reusable = markReusable(canvasTexture(32, 32, () => {})),
       oneOff1 = canvasTexture(24, 24, () => {}),
@@ -199,7 +199,7 @@ describe('GpuMemLifecycle：手機縮圖、上傳後釋放畫布', () => {
   it('flushShared: shared canvases go to the GPU (clones too) and are released; dynamic ones stay; a later upload redraws', () => {
     fakeContext();
     const r = fakeRenderer();
-    configureGpuMem(profile('desktop-dgpu'), r);
+    configureGpuMem(profile('desktop'), r);
     const draw = vi.fn();
     const shared = canvasTexture(64, 64, draw),
       clone = shared.clone(),

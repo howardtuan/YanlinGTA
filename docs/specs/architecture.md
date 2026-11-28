@@ -99,40 +99,46 @@ flowchart TD
 
 ---
 
-## 四、 硬體分檔與啟動診斷 (`PerfProfile.js` & `BootDiag.js`)
+## 四、 裝置判定、畫質與啟動診斷 (`PerfProfile.js`、`GraphicsConfig.js` & `BootDiag.js`)
 
-### 1. 執行期硬體分檔 (`src/core/PerfProfile.js`)
-啟動時依觸控能力（`matchMedia('(pointer: coarse)')` / `maxTouchPoints`）與 WebGL `UNMASKED_RENDERER_WEBGL` 字串，將裝置歸類為三檔（可用 `?tier=`、`?texscale=` 覆寫）：
+### 1. 裝置二分 (`src/core/PerfProfile.js`)
+全專案只判定一次裝置類型：觸控優先（`matchMedia('(pointer: coarse)')` / `maxTouchPoints`）為 `mobile`，其餘為 `desktop`（`detectDevice()`，可用 `?device=mobile|desktop` 覆寫，`?texscale=` 另可覆寫貼圖縮放）。不讀取 WebGL `UNMASKED_RENDERER_WEBGL`、不猜 GPU 型號。裝置決定**首次開機預設檔位**、自動調畫質的上限與目標幀率，以及**重整類基礎資產預算**：
 
-| 檔位 (`tier`) | 判定條件 | `texScale` | 圖集上限 (`atlasMaxW × H`) |
-| :--- | :--- | :---: | :---: |
-| `mobile-lite`（別名 `mobile-ios`） | 觸控裝置（手機／平板） | `0.5` | `768 × 1536`（圖集縮放 `0.375`） |
-| `desktop-igpu` | Apple M 系列、Intel Iris / UHD / HD、AMD Radeon 內顯、GeForce MX、軟體渲染或未知 GPU | `0.75` | `2048 × 2048` |
-| `desktop-dgpu` | NVIDIA GTX / RTX / Quadro、Radeon RX / Pro、Intel Arc A/B 系列獨顯 | `1.0` | `2048 × 4096` |
+| 裝置 (`device`) | `defaultQuality` | `autoMaxQuality` | `targetFps` | `texScale` | 圖集上限 (`atlasMaxW × H`) | `anisotropy` |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `mobile` | `low` | `high` | `30` | `0.5` | `768 × 1536`（圖集縮放 `0.375`） | `2` |
+| `desktop` | `medium` | `ultra` | `60` | `1.0` | `2048 × 4096` | `4` |
 
-> **單一畫質職責邊界**：`PerfProfile` 僅管轄貼圖縮放、圖集尺寸與診斷旗標；所有視覺／顯示設定統一由 `src/core/GraphicsConfig.js` 單一持有（見下節）。`GameLoop.js` 的 `QPROF` 僅為由 `PRESETS` 推導的相容唯讀視圖。
+> **單一畫質職責邊界**：`PerfProfile` 僅管轄裝置類型、首次預設、貼圖縮放、圖集尺寸、異向過濾與診斷旗標；所有視覺／顯示設定統一由 `src/core/GraphicsConfig.js` 單一持有（見下節）。
 
 ### 1-1. 顯示與畫質設定單一規格 (`src/core/GraphicsConfig.js`)
-四個畫質檔位（`xlow` / `low` / `medium` / `high`）只是**原子顯示設定的宣告式預設表**（`PRESETS`）；遊戲執行期一律讀取解析後的 `game.gfx`。
+五個畫質檔位 `xlow`（超低）< `low`（低）< `medium`（中）< `high`（高）< `ultra`（極致）只是**原子顯示設定的宣告式預設表**（`PRESETS`），每項設定逐階**不退步**（單元測試把關，#460 修正 #458 `low` 比 `medium` 清楚的倒掛）；遊戲執行期一律讀取解析後的 `game.gfx`。
 
-| 設定鍵 | 生效時機 | 可選值與語意 | `high` / `medium` / `low` / `xlow` 預設 |
+| 設定鍵 | 生效 | 可選值與語意 | `xlow` / `low` / `medium` / `high` / `ultra` |
 | :--- | :--- | :--- | :--- |
-| `dprCap` | 即時 | 渲染像素比上限 | `1.6` / `1.0` / `1.25` / `1.0`（#438：手機原本固定 `0.8`，430×932@3x 只畫原生 7% 像素） |
-| `dynRes` / `dprMin` | 即時 | 動態解析度：遊玩中依幀時間在 `dprMin`～`dprCap` 間調整像素比；玩家手動拉清晰度倍率或 `?dpr=` 時關閉 | `off` / `off` / `on, 0.8` / `on, 0.6` |
-| `shadows` | 即時 | `off`｜`low`（1024、PCF、微小物件不投影）｜`medium`（2048、PCFSoft）｜`high`（4096、PCFSoft、全部投影） | `high` / `medium` / `off` / `off` |
-| `envLight` | 即時 | `hemi`（只用半球光 ×1.6，不建 PMREM 天空環境貼圖、不跑執行期 `bakeEnv()`）｜`pmrem`（天空 IBL＋`lambertSky` 漫射補償） | 全部 `pmrem` |
-| `postFx` | 即時 | `off`｜`bloom-quarter`（1/4 Bloom＋調色）｜`bloom-half-msaa`（4× MSAA＋1/2 Bloom） | `bloom-half-msaa` / `bloom-quarter` / `off` / `off` |
-| `nightLamps` | 即時 | 夜間跟隨最近路燈的 `PointLight` 數（0–8；`desktop-igpu` 最多 2）。調低只把多的燈熄掉不重編 Shader，超過現有燈池才新增 | `8` / `4` / `0` / `0` |
-| `viewScale` / `fogScale` / `far` | 即時 | 人車植栽繪製距離倍率、霧濃度、相機遠平面 | `1/1/2600`、`0.8/1.12/1500`、`0.45/1.6/750`、`0.3/2.4/450` |
-| `materialMode` | 重整 | `lambert`（外牆地面 Lambert、不產生法線／粗糙度貼圖）｜`standard` | `standard` / `standard` / `lambert` / `lambert` |
-| `antialias` | 重整 | WebGL 原生 MSAA | `true` / `true` / `false` / `false` |
-| `crowdTier` | 重整 | `full`｜`low`｜`xlow`：人車、天際線、停車密度與較輕的補建街區（`game.lowQ` / `game.xlowQ` 由此推導） | `full` / `full` / `low` / `xlow` |
+| `dprCap` | 即時 | 渲染像素比上限 | `0.75` / `1.0` / `1.15` / `1.4` / `1.6` |
+| `dprMin` | 即時 | 動態解析度可降到的下限 | `0.6` / `0.8` / `1.0` / `1.15` / `1.4` |
+| `dynRes` | 即時 | 動態解析度：遊玩中依幀時間在 `dprMin`～`dprCap` 間調整像素比；玩家手動拉清晰度倍率或 `?dpr=` 時關閉 | `on` / `on` / `off` / `off` / `off` |
+| `shadows` | 即時 | `off`｜`low`（1024、PCF、微小物件不投影）｜`medium`（2048、PCFSoft）｜`high`（4096、PCFSoft、全部投影） | `off` / `off` / `low` / `medium` / `high` |
+| `shadowRate` | 即時 | 太陽陰影貼圖更新頻率：`1` 每幀、`2` 隔幀 | `2` / `2` / `2` / `2` / `1` |
+| `envLight` | 即時 | `hemi`（只用半球光 ×1.6，不建 PMREM 天空環境貼圖、不跑執行期 `bakeEnv()`）｜`pmrem`（天空 IBL＋`lambertSky` 漫射補償） | `hemi` / `hemi` / `pmrem` / `pmrem` / `pmrem` |
+| `postFx` | 即時 | `off`｜`bloom-quarter`（1/4 Bloom＋調色）｜`bloom-half-msaa`（4× MSAA＋1/2 Bloom） | `off` / `off` / `off` / `bloom-quarter` / `bloom-half-msaa` |
+| `nightLamps` | 即時 | 夜間跟隨最近路燈的 `PointLight` 數（0–8）。調低只把多的燈熄掉不重編 Shader，超過現有燈池才新增 | `0` / `0` / `2` / `4` / `8` |
+| `viewScale` | 即時 | 人車、停放車、植栽繪製距離倍率 | `0.35` / `0.5` / `0.75` / `0.9` / `1.0` |
+| `fogScale` | 即時 | 霧濃度倍率 | `2.2` / `1.5` / `1.15` / `1.05` / `1.0` |
+| `far` | 即時 | 相機遠平面（m） | `500` / `800` / `1400` / `2000` / `2600` |
+| `interiorCullDist` | 即時 | 室內家具剔除距離（m） | `30` / `45` / `70` / `100` / `150` |
+| `materialMode` | 重整 | `lambert`（外牆地面 Lambert、不產生法線／粗糙度貼圖）｜`standard` | `lambert` / `lambert` / `standard` / `standard` / `standard` |
+| `antialias` | 重整 | WebGL 原生 MSAA | `false` / `false` / `false` / `true` / `true` |
+| `crowdTier` | 重整 | 人車與世界密度檔（查 `CROWD_SPEC`） | `xlow` / `low` / `medium` / `high` / `ultra` |
+| `fill` | 重整 | 補建街區（`tools/block_survey.json` 依街景／衛星補上的示意建物與地面） | 全部 `true` |
 
+- **`CROWD_SPEC[crowdTier]`**：宣告每一檔的天際線建物數（`skyline` 40 / 70 / 180…）、車流數（`traffic` 8 / 14 / 26…）、路人數（`peds` 10 / 18 / 32…）、過年裝飾上限（`festive`）、聖誕布丁人數（`pudding`）、停放機車繪製距離（`parkedDist` 115 / 115 / 260…）、`MapBuilder` 世界密度（`world`：`low` / `low` / `medium` / `high` / `high`）與 `lean`（較輕的補建街區、不建遠景補建 LOD、鐵道／火車／路燈較少投影）。數值逐檔不減少。
 - **解析優先序**（`resolveGraphics`）：`畫質檔位預設 < 玩家自訂細項（settings.gfx）< URL 旗標`（沒有 safeMode 鉗制：玩家選的細部設定一定生效）。
-- **URL 實驗參數**：`?dpr=`、`?shadows=`（`off|low|medium|high`，`0/1`）、`?ibl=`（`hemi|pmrem`，`0/1`）、`?postfx=`（`off|quarter|half`）、`?lamps=`、`?mat=`（`lambert|standard`），另有 `?aa=`、`?view=`、`?fog=`。
-- **執行期熱切換**：`game.applyDisplaySettings(patch, { save })` 合併玩家細項（值為 `null` 表示回到檔位預設）、重新解析並由 `GameLoop.applyDisplay(prev)` 同步更新 `renderer`、`SkySystem`（`setShadowQuality` / `setEnvMode`）、`PostFX`、`MapBuilder`（`world.setLampLights`）；回傳仍待重整的設定鍵。`save: false` 供自動化掃描使用，不寫入玩家存檔。`game.setQuality(q)` 切換檔位預設（保留玩家細項）。
-- **持久化**：玩家細項只存與檔位預設不同的鍵於 `cycu-shun-settings-v2` 的 `gfx` 欄位；舊存檔沒有 `gfx` 即等同純檔位預設。設定選單點選任一畫質檔位會清除 `gfx`（一鍵還原）。
-- **設定選單**：「🖼 畫質」下方可展開「⚙ 細部顯示設定」：清晰度倍率、視距、太陽陰影、環境光反射、後製光暈、夜間路燈光源、材質／抗鋸齒／人車密度／補建街區（標示「重整」）與「還原成畫質檔位預設」；偏離預設時畫質說明顯示「（自訂）」。
+- **URL 實驗參數**：`?dpr=`、`?shadows=`（`off|low|medium|high`，`0/1`）、`?shadowrate=1|2`、`?ibl=`（`hemi|pmrem`，`0/1`）、`?postfx=`（`off|quarter|half`）、`?lamps=`、`?mat=`（`lambert|standard`）、`?fill=0|1`、`?dynres=0|1`，另有 `?aa=`、`?view=`、`?fog=`。
+- **執行期熱切換**：`game.applyDisplaySettings(patch, { save })` 合併玩家細項（值為 `null` 表示回到檔位預設）、重新解析並由 `GameLoop.applyDisplay(prev)` 同步更新 `renderer`、`SkySystem`（`setShadowQuality(gfx.shadows)` / `setEnvMode(gfx.envLight)`）、`PostFX`（`setQuality(gfx.postFx)`）、`MapBuilder`（`world.setLampLights`）；回傳仍待重整的設定鍵（`reloadPending`，含 `fill`）。`save: false` 供自動化掃描使用，不寫入玩家存檔。`game.setQuality(q)` 切換檔位預設（保留玩家細項）。
+- **持久化**：玩家細項只存與檔位預設不同的鍵於 `cycu-shun-settings-v2` 的 `gfx` 欄位；舊存檔沒有 `gfx` 即等同純檔位預設，舊的獨立 `fill` 欄位在載入時丟棄。設定選單點選任一畫質檔位會清除 `gfx`（一鍵還原）。
+- **設定選單**：「🖼 畫質」為 自動／超低／低／中／高／極致；下方可展開「⚙ 細部顯示設定」：清晰度倍率、視距、自動調整清晰度、太陽陰影、陰影更新（每幀／隔幀）、環境光反射、後製光暈、夜間路燈光源、材質／抗鋸齒／人車密度／補建街區（標示「重整」，全部走 `[data-gfx]` 與 `gfxSet()` 同一條管線）與「還原成畫質檔位預設」；偏離預設時畫質說明顯示「（自訂）」。
 
 ### 2. 啟動檢查點與開發者診斷 (`src/core/BootDiag.js`)
 為防止行動端在載入階段因記憶體尖峰遭瀏覽器強制重整並陷入無限迴圈，`BootDiag` 將啟動麵包屑持久化於 `localStorage`（金鑰 `yanlinGTA.bootDiag.v1`）：
@@ -141,7 +147,7 @@ flowchart TD
 - **開發者診斷浮層（`?diag=1` / `?diag=halt`）**：
   - 於畫面左下角顯示前次未完成階段、錯誤訊息與本次各階段耗時麵包屑。
   - 阻斷重整迴圈：`?diag=halt` 只要前次未完成載入即在啟動前暫停；`?diag=1` 於連續未完成載入 `>= 2` 次時暫停，等待點擊「▶ 繼續單次載入」才放行。
-- **不再有玩家端自動安全模式（#455）**：早期為防 iOS 載入崩潰迴圈，連續 2 次未完成載入或 `webglcontextlost` 會自動壓低貼圖預算並鎖住顯示設定；它會被一般重整、iOS 切背景誤觸，且無聲鎖死「⚙ 細部顯示設定」，在 `mobile-lite` 記憶體收斂（#390）後已移除（含 `applySafeMode`、`?safemode=`、`tickHealthy`）。舊存檔殘留的 `safeMode` / `contextLost` 欄位在下次 `begin()` 時丟棄；`webglcontextlost` 只記在本次紀錄的 `current.contextLost` 供診斷。
+- **不再有玩家端自動安全模式（#455）**：早期為防 iOS 載入崩潰迴圈，連續 2 次未完成載入或 `webglcontextlost` 會自動壓低貼圖預算並鎖住顯示設定；它會被一般重整、iOS 切背景誤觸，且無聲鎖死「⚙ 細部顯示設定」，在手機記憶體收斂（#390）後已移除（含 `applySafeMode`、`?safemode=`、`tickHealthy`）。舊存檔殘留的 `safeMode` / `contextLost` 欄位在下次 `begin()` 時丟棄；`webglcontextlost` 只記在本次紀錄的 `current.contextLost` 供診斷。
 
 ---
 
@@ -196,7 +202,7 @@ sequenceDiagram
 
 1. **統一透過 `canvasTexture` / `scaledCanvas` 建立靜態畫布**：
    - 嚴禁對靜態建築、載具、角色印花或招牌自行呼叫 `document.createElement('canvas')`。`scaledCanvas(w, h)` 會依 `PerfProfile.texScale` 縮小實體畫布並預設好 2D context 縮放，繪圖函式 `draw(g, w, h)` **必須使用傳入的邏輯寬高 `w, h`**（禁止讀取 `cv.width`，否則縮小後只畫到角落）；記憶體耗盡拿不到 context 時自動退回共用 1×1 `blankTexture()`。
-   - **程序化地面貼圖低檔位直繪（`src/graphics/Textures.js` `tierSize` / `atTier`）**：`texScale < 1` 時，柏油、鋪面、人行道、草地、泥土、跑道、水面法線與 macro 噪聲直接以縮放後的目標尺寸計算 FBM 噪聲、法線（強度依比例縮放以維持相同起伏）並以畫布變換用全尺寸邏輯座標繪製圖樣，免除全尺寸運算與二次縮放；其餘貼圖仍由 `forTier()` 產生後縮小。`texScale === 1`（`desktop-dgpu` 與單元測試）維持逐像素一致，`npm run test:wasm` 保持 `0 mismatched`。
+   - **程序化地面貼圖低檔位直繪（`src/graphics/Textures.js` `tierSize` / `atTier`）**：`texScale < 1` 時，柏油、鋪面、人行道、草地、泥土、跑道、水面法線與 macro 噪聲直接以縮放後的目標尺寸計算 FBM 噪聲、法線（強度依比例縮放以維持相同起伏）並以畫布變換用全尺寸邏輯座標繪製圖樣，免除全尺寸運算與二次縮放；其餘貼圖仍由 `forTier()` 產生後縮小。`texScale === 1`（`desktop` 與單元測試）維持逐像素一致，`npm run test:wasm` 保持 `0 mismatched`。
    - 需透過 `getImageData` 逐像素計算的貼圖（如 `Textures.js` 法線圖、`Scooters.js` 車體法線圖、`Jersey.js` 滾邊距離場、`Garry.js` 上衣挖空、`Ruizhe.js` 印花標誌）須傳入 `{ willReadFrequently: true }` 避免 GPU 同步讀回卡頓，先以原尺寸計算再縮放或快取，並於繪入／轉完後當場呼叫 `releaseCanvas()` 釋放暫存畫布。
 2. **兩階段上傳與釋放**：
    - 街屋與校舍門牌圖集（`finishRow`、`Kit.finish`、`Lixing`、`Sac`）於 `packAtlas()` 內採 **FFDH 跨列與 Guillotine 子空間回填**、WebGL2 `128 px` 對齊高度與 **四邊＋四角像素延伸（`ClampToEdgeWrapping`）** 防 mipmap 滲色，並於迴圈內逐張建妥即當場呼叫 `uploadAndRelease()` 上傳 GPU 與將畫布縮為 `1×1`（不讓多張圖集畫布同時駐留記憶體，壓低建置期 `peakCanvasMB`）；非世界層一次性靜態貼圖（載具、角色、道具、小遊戲與過場貼圖）於設妥貼圖屬性後亦應立即 `uploadAndRelease()`；`buildZones()` 期間由 `releaseAtlasSources(scene, TEX, { minBatch: 80, keepReusable: true, fromChild })` 僅針對新增子樹以固定 `TEX_SLOTS` 批次回收單店一次性招牌，保留標記 `markReusable()` 的跨街共用貼圖（`Kit.js` `T.*` / `YHT.*` / `ROWT.*`）供後續街屋複用，並於 `buildInteriors()` 全部結束後再統一釋放。

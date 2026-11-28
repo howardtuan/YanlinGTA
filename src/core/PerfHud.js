@@ -177,7 +177,7 @@ export class PerfHud {
         `邏輯 ${(A.logic / A.n).toFixed(1)}  物理 ${(A.phys / A.n).toFixed(1)}  繪製 ${(A.render / A.n).toFixed(1)} ms`,
         `紋理 ${mem?.textures ?? '-'}  幾何 ${mem?.geometries ?? '-'}  著色器 ${r?.info.programs?.length ?? '-'}`,
         `車流 ${cars}  行人 ${peds}  NPC ${g.npcs?.length ?? 0}  物理 ${ph ? `${ph.bodies.len()} 剛體 ${ph.colliders.len()} 碰撞體` : '關'}`,
-        `畫質 ${g.quality}  檔位 ${g.perfProfile?.tier || '-'}  WASM ${kernelsReady() ? '開' : '關'}  ${cv ? `${cv.width}×${cv.height}` : ''} @${pr.toFixed(2)}x`,
+        `畫質 ${g.quality}  裝置 ${g.perfProfile?.device || '-'}  WASM ${kernelsReady() ? '開' : '關'}  ${cv ? `${cv.width}×${cv.height}` : ''} @${pr.toFixed(2)}x`,
         wp ? `位置 ${wp.x.toFixed(0)}, ${wp.y.toFixed(1)}, ${wp.z.toFixed(0)}  ${area}` : '',
         this._gpuName()
       );

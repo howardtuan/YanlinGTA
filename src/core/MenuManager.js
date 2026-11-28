@@ -1,8 +1,8 @@
 import { controlsHTML, bindControls } from './Controls.js';
 import { saveSettings } from '../systems/AudioSystem.js';
 import { readSave, writeSave, applySave, clearSave } from '../systems/SaveSystem.js';
-import { Q_NAME, resolveQuality } from './GameLoop.js';
-import { isCustom, reloadPending } from './GraphicsConfig.js';
+import { resolveQuality } from './GameLoop.js';
+import { QUALITY, Q_NAME, isCustom, reloadPending } from './GraphicsConfig.js';
 
 // 設定 → ⚙ 細部顯示設定: one row per display setting (src/core/GraphicsConfig.js); live ones switch at once
 const GFX_ROWS = [
@@ -22,6 +22,14 @@ const GFX_ROWS = [
       ['low', '低'],
       ['medium', '中'],
       ['high', '高'],
+    ],
+  },
+  {
+    key: 'shadowRate',
+    label: '🔁 陰影更新',
+    opts: [
+      [1, '每幀'],
+      [2, '隔幀'],
     ],
   },
   {
@@ -73,10 +81,15 @@ const GFX_ROWS = [
     key: 'crowdTier',
     label: '🚶 人車密度',
     reload: true,
+    opts: QUALITY.map((q) => [q, Q_NAME[q]]),
+  },
+  {
+    key: 'fill',
+    label: '🏘 補建街區',
+    reload: true,
     opts: [
-      ['xlow', '超低'],
-      ['low', '低'],
-      ['full', '完整'],
+      [true, '開'],
+      [false, '關'],
     ],
   },
 ];
@@ -84,6 +97,7 @@ const GFX_LABEL = {
   materialMode: '材質',
   antialias: '抗鋸齒',
   crowdTier: '人車密度',
+  fill: '補建街區',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -394,7 +408,7 @@ export class MenuManager {
       <div class="set-row"><label>音效音量</label><input type="range" id="setSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"><span class="set-val" id="vSfx">${Math.round(s.sfxVol * 100)}%</span></div>
       <div class="set-row"><label>🐦 環境音</label><div class="seg" id="setAmb">${['on', 'off'].map((v) => `<button data-amb="${v}" class="${(s.amb || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>
       <div class="set-row"><label>滑鼠靈敏度</label><input type="range" id="setSens" min="0.3" max="2.5" step="0.1" value="${s.sens}"><span class="set-val" id="vSens">${s.sens.toFixed(1)}</span></div>
-      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${q('xlow', '超低')}${q('low', '低')}${q('medium', '中')}${q('high', '高')}</div></div>
+      <div class="set-row"><label>🖼 畫質</label><div class="seg" id="setQuality">${q('auto', '自動')}${QUALITY.map((v) => q(v, Q_NAME[v])).join('')}</div></div>
       <div class="set-row"><label></label><small id="qNote" style="color:#a9adbf">${this.qualityNote(qNow)}</small></div>
       ${this.gfxHTML()}
       <div class="set-row"><label>➕ 準心</label><div class="seg" id="setAim">${['on', 'off'].map((v) => `<button data-aim="${v}" class="${(s.aim || 'on') === v ? 'on' : ''}">${v === 'on' ? '開' : '關'}</button>`).join('')}</div></div>
@@ -408,10 +422,7 @@ export class MenuManager {
 
   // ⚙ 細部顯示設定: collapsible block under 🖼 畫質 (values shown are the effective ones, game.gfx)
   gfxHTML() {
-    const s = this.game.settings,
-      G = this.game.gfx;
-    const fl = (v, t) =>
-      `<button data-fill="${v}" class="${(s.fill || 'on') === v ? 'on' : ''}">${t}</button>`;
+    const G = this.game.gfx;
     const rows = GFX_ROWS.map(
       (r) =>
         `<div class="set-row"><label>${r.label}${r.reload ? ' <small style="color:#a9adbf">（重整）</small>' : ''}</label><div class="seg" data-gfx="${r.key}">${r.opts
@@ -425,8 +436,6 @@ export class MenuManager {
       <div class="set-row"><label>🔍 清晰度倍率</label><input type="range" id="setDpr" min="0.5" max="2" step="0.05" value="${G.dprCap}"><span class="set-val" id="vDpr">${G.dprCap.toFixed(2)}x</span></div>
       <div class="set-row"><label>🔭 視距</label><input type="range" id="setView" min="0.3" max="1" step="0.05" value="${G.viewScale}"><span class="set-val" id="vView">${Math.round(G.viewScale * 100)}%</span></div>
       ${rows}
-      <div class="set-row"><label>🏘 補建街區 <small style="color:#a9adbf">（重整）</small></label><div class="seg" id="setFill">${fl('on', '開')}${fl('off', '關')}</div></div>
-      <div class="set-row"><label></label><small id="fNote" style="color:#a9adbf">${this.fillNote()}</small></div>
       <div class="set-row"><label></label><div class="seg"><button id="gfxReset">↺ 還原成畫質檔位預設</button></div></div>
       <div class="set-row"><label></label><small id="gfxNote" style="color:#a9adbf">${this.gfxNote()}</small></div>
     </details>`;
@@ -435,7 +444,7 @@ export class MenuManager {
   gfxNote() {
     const game = this.game,
       wait = reloadPending(game.gfxBuilt, game.gfx);
-    return `沒標（重整）的項目立即套用；清晰度倍率越高越清楚但越耗電；「自動調整清晰度」開著時，畫面不順會自動降到下限、順了再慢慢調回倍率（手動拉清晰度倍率就固定不調）${wait.length ? `・${wait.map((k) => GFX_LABEL[k] || k).join('、')}在重新整理後套用` : ''}`;
+    return `沒標（重整）的項目立即套用；補建街區＝空白街區依街景／衛星判斷用途後由程式補上建物與地面（示意，不是真實建物）；陰影「隔幀」比較省電；清晰度倍率越高越清楚但越耗電；「自動調整清晰度」開著時，畫面不順會自動降到下限、順了再慢慢調回倍率（手動拉清晰度倍率就固定不調）${wait.length ? `・${wait.map((k) => GFX_LABEL[k] || k).join('、')}在重新整理後套用` : ''}`;
   }
 
   // effective values back into the controls (after a preset pick, a reset or a change clamped by safe mode / URL)
@@ -575,15 +584,6 @@ export class MenuManager {
           o.classList.toggle('on', o === b);
       };
     }
-    for (const b of document.querySelectorAll('#setFill button')) {
-      b.onclick = () => {
-        s.fill = b.dataset.fill;
-        save();
-        for (const o of document.querySelectorAll('#setFill button'))
-          o.classList.toggle('on', o === b);
-        $('fNote').textContent = this.fillNote();
-      };
-    }
   }
 
   qualityNote(q) {
@@ -592,18 +592,6 @@ export class MenuManager {
     const pending = reloadPending(game.gfxBuilt, game.gfx).length > 0;
     const custom = isCustom(q, game.settings.gfx);
     return `目前：${Q_NAME[q]}畫質${custom ? '（自訂）' : ''}（自動＝最高用到中：內建顯示晶片、手機用低；連續 6 秒低於 20 fps 才會往下調，最低到超低；${game.settings.autoQ ? '這是之前自動調降的結果，再點一次「自動」可重新偵測；' : ''}自訂過細部設定就不再自動調整；要高畫質請自己選「高」）${pending ? '・部分設定在重新整理後套用' : ''}`;
-  }
-
-  fillNote() {
-    const game = this.game;
-    const on = (game.settings.fill || 'on') !== 'off',
-      now =
-        game.data.buildings.some((b) => b.synthetic) || game.data.areas.some((a) => a.synthetic);
-    return (
-      (on
-        ? '空白街區依街景／衛星判斷用途後由程式補上建物與地面（示意，不是真實建物）'
-        : 'OSM 沒有資料的街區保持空白') + (on !== now ? '・重新整理後套用' : '')
-    );
   }
 
   openSettings() {

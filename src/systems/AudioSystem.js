@@ -53,21 +53,20 @@ const SFX_DECODED = [
   'crossing_bell',
 ];
 export function loadSettings() {
-  // fill: 補建街區 (synthetic buildings / ground from tools/block_survey.json), 'on' | 'off'
   // amb: 環境音 (birds / insects / night market), 'on' | 'off' — still under sfxVol
   const def = {
     music: 'scene', // 情境配樂 is the default; the old synthesized 'default' loop was removed
     musicVol: 0.6,
     sfxVol: 0.8,
     sens: 1,
-    quality: 'auto',
-    fill: 'on',
+    quality: 'auto', // display settings: quality + settings.gfx overrides (src/core/GraphicsConfig.js)
     amb: 'on',
     perfHud: 'off', // 效能顯示 (src/core/PerfHud.js): 'off' | 'fps' | 'detail' | 'dev'
   };
   try {
     const s = { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
     if (s.music === 'default') s.music = 'scene'; // 預設音樂 (the synthesized loop) no longer exists
+    delete s.fill; // 補建街區 is a display setting now (gfx.fill)
     return s;
   } catch (e) {
     return def;

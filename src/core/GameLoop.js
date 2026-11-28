@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { surfaceAt } from '../world/Terrain.js';
 import { Nano } from '../ui/phone/Nano.js';
 import { saveSettings } from '../systems/AudioSystem.js';
-import { QUALITY, PRESETS, postFxLevel, shadowLevel } from './GraphicsConfig.js';
+import { QUALITY, PRESETS, Q_NAME } from './GraphicsConfig.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const isTouch = () =>
@@ -132,7 +132,7 @@ export function drsStep(D, frameMs, min, cap) {
 // 'auto': the level an earlier session stepped down to (settings.autoQ, _autoQuality) or the GPU guess
 export const resolveQuality = (q, s) =>
   QUALITY.includes(q) ? q : QUALITY.includes(s?.autoQ) ? s.autoQ : guessGpu();
-export const Q_NAME = { xlow: '超低', low: '低', medium: '中', high: '高（電影感）' };
+export { Q_NAME };
 
 export class GameLoop {
   constructor(game) {
@@ -225,8 +225,8 @@ export class GameLoop {
       game.renderer.setPixelRatio(this.pixelRatio());
       game.renderer.setSize(innerWidth, innerHeight);
     }
-    game.skySys.setShadowQuality(shadowLevel(G.shadows));
-    game.post.setQuality(postFxLevel(G.postFx));
+    game.skySys.setShadowQuality(G.shadows);
+    game.post.setQuality(G.postFx);
     game.post.setSize(innerWidth, innerHeight);
     game.world?.setLampLights?.(G.nightLamps);
     if (!prev || prev.envLight !== G.envLight) {

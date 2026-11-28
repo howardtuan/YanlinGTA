@@ -13,6 +13,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from './serve.mjs';
 import { launchChrome, connectPage, defaultChromePath } from './cdp.mjs';
+import { QUALITY, SPEC, LIVE_KEYS } from '../../src/core/GraphicsConfig.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -37,7 +38,13 @@ if (flag('help') || flag('h')) {
   --no-shots            skip saving screenshots
   --strict              also fail on known harmless Chrome log errors
   --load-timeout=120    seconds to wait for title screen (default: 120)
-  --play-timeout=45     seconds to wait for play state after clicking start (default: 45)`);
+  --play-timeout=45     seconds to wait for play state after clicking start (default: 45)
+  --query=<q>           extra URL query, e.g. --query=device=mobile
+  --sweep               in play, switch through every quality level and every live display option
+                        (src/core/GraphicsConfig.js) and fail on any error it causes
+  --cdp=<port>          use a Chrome already running with remote debugging on 127.0.0.1:<port>
+                        (e.g. ~/Workspace/scripts/remote-chrome.mjs on another machine)
+  --serve-host=<host>   serve on 0.0.0.0 and give Chrome http://<host>:<port>/ (for a Chrome on another machine)`);
   process.exit(0);
 }
 
@@ -56,6 +63,10 @@ const cfg = {
   strict: flag('strict'),
   loadTimeoutMs: +arg('load-timeout', 120) * 1000,
   playTimeoutMs: +arg('play-timeout', 45) * 1000,
+  query: arg('query', ''),
+  sweep: flag('sweep'),
+  cdp: +arg('cdp', 0),
+  serveHost: arg('serve-host', ''),
 };
 
 const KNOWN_NOISE = [
@@ -148,16 +159,24 @@ async function captureShot(name) {
 }
 
 async function main() {
-  srv = await startServer({ root: cfg.dist, port: 0, basePath: cfg.basePath });
+  srv = await startServer({
+    root: cfg.dist,
+    port: 0,
+    basePath: cfg.basePath,
+    host: cfg.serveHost ? '0.0.0.0' : '127.0.0.1',
+  });
+  if (cfg.serveHost) srv.url = srv.url.replace('//0.0.0.0:', `//${cfg.serveHost}:`);
   say(`serving ${cfg.dist} at ${srv.url}`);
 
-  browser = await launchChrome({
-    chrome: cfg.chrome,
-    gpu: cfg.gpu,
-    width: cfg.width,
-    height: cfg.height,
-    headless: true,
-  });
+  browser = cfg.cdp
+    ? { port: cfg.cdp, kill: async () => {} }
+    : await launchChrome({
+        chrome: cfg.chrome,
+        gpu: cfg.gpu,
+        width: cfg.width,
+        height: cfg.height,
+        headless: true,
+      });
   page = await connectPage(browser.port);
   await page.send('Page.enable');
   await page.send('Runtime.enable');
@@ -217,7 +236,7 @@ async function main() {
 
   // Stage 1: Boot through loading bar into title screen
   const tNav = Date.now();
-  await page.send('Page.navigate', { url: srv.url });
+  await page.send('Page.navigate', { url: cfg.query ? `${srv.url}?${cfg.query}` : srv.url });
   for (;;) {
     const state = await page.eval(`window.game?.state ?? null`).catch(() => null);
     if (state === 'title') break;
@@ -374,6 +393,42 @@ async function main() {
   };
 
   await captureShot('play');
+  if (cfg.sweep) await sweep();
+}
+
+// every quality level, then every value of every live display setting on top of the current level: each switch
+// must leave a running, error-free renderer (errors land in report.* through the listeners above)
+async function sweep() {
+  const steps = await page.eval(
+    `(async () => {
+    const g = window.game;
+    const { QUALITY, SPEC, LIVE_KEYS } = ${JSON.stringify({ QUALITY, SPEC, LIVE_KEYS })};
+    const wait = (n) => new Promise((r) => { let i = 0; const f = () => (++i >= n ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+    const out = [];
+    for (const q of [...QUALITY, ...[...QUALITY].reverse()]) {
+      g.setQuality(q);
+      await wait(20);
+      out.push(\`q=\${q} calls=\${g.renderer.info.render.calls} pr=\${g.renderer.getPixelRatio()}\`);
+    }
+    for (const k of LIVE_KEYS) {
+      const s = SPEC[k];
+      const vals = s.values || (s.bool ? [true, false] : [s.range[0], s.range[1]]);
+      for (const v of vals) {
+        g.applyDisplaySettings({ [k]: v }, { save: false });
+        await wait(12);
+      }
+      g.applyDisplaySettings({ [k]: null }, { save: false });
+      await wait(4);
+      out.push(\`\${k}: \${vals.join('/')}\`);
+    }
+    return { out, lost: g.renderer.getContext().isContextLost(), state: g.state };
+  })()`,
+    { timeoutMs: 600000 }
+  );
+  for (const l of steps.out) say('sweep', l);
+  if (steps.lost) throw new Error('WebGL context lost during the display settings sweep');
+  if (steps.state !== 'play') throw new Error(`left play during the sweep (${steps.state})`);
+  report.checks.sweep = { ok: true, detail: `${steps.out.length} steps` };
 }
 
 function formatSummaryMarkdown() {

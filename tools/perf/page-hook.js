@@ -143,7 +143,7 @@
     const r = g.renderer;
     return {
       state: g.state,
-      tier: g.perfProfile?.tier || null,
+      tier: g.perfProfile?.device || null,
       quality: g.quality,
       render: {
         calls: r.info.render.calls,

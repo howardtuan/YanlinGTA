@@ -34,14 +34,8 @@ const WALL_LO = -100,
 // (25 000 separate ones: ~1.5-4 ms every step even with nothing moving; compounds: ~0.05 ms).
 const TILE = 100;
 
-export function buildPhysicsWorld(physics, collision, interiors) {
-  const R = physics.R,
-    world = physics.world;
-  if (!world) return null;
-  const t0 = performance.now();
+function createStaticAssembler(R, world, tags) {
   const stats = { terrainTris: 0, decks: 0, levels: 0, walls: 0, trunks: 0, floors: 0 };
-  // collider handles by kind (debugging / tools; physics.tags.walls.has(collider.handle))
-  const tags = (physics.tags = { walls: new Set(), trunks: new Set(), ground: new Set() });
   const WG = groups(G.WORLD);
   const fixed = (desc) => world.createCollider(desc.setCollisionGroups(WG).setFriction(0.9));
   const q = new THREE.Quaternion(),
@@ -106,6 +100,62 @@ export function buildPhysicsWorld(physics, collision, interiors) {
   const trimesh = (verts, idx) => {
     if (idx.length) fixed(R.ColliderDesc.trimesh(new Float32Array(verts), new Uint32Array(idx)));
   };
+  const mountInterior = (walls, surfaces) => {
+    for (const w of walls) {
+      const g = H((w[0] + w[2]) / 2, (w[1] + w[3]) / 2);
+      wall(w[0], w[1], w[2], w[3], g + w[4], g + w[5]);
+    }
+    for (const s of surfaces) {
+      const tris = THREE.ShapeUtils.triangulateShape(
+        s.pts.map(([x, z]) => new THREE.Vector2(x, z)),
+        []
+      );
+      const verts = [],
+        idx = [];
+      for (const [x, z] of s.pts) verts.push(x, H(x, z) + s.h(x, z), z);
+      for (const t of tris) idx.push(t[0], t[2], t[1], t[0], t[1], t[2]);
+      trimesh(verts, idx);
+      stats.floors++;
+    }
+  };
+  const flushCompounds = () => {
+    // the compounds (tags: a wall / trunk compound's handle is in tags.walls / tags.trunks)
+    for (const b of batch.values()) {
+      const c = fixed(
+        R.ColliderDesc.compound(b.shapes, b.pos, b.rot).setTranslation(b.cx, 0, b.cz)
+      );
+      if (b.kind === 'wall') tags.walls.add(c.handle);
+      else if (b.kind === 'trunk') tags.trunks.add(c.handle);
+    }
+    stats.compounds = batch.size;
+  };
+  return { stats, fixed, put, slab, wall, trimesh, mountInterior, flushCompounds };
+}
+
+/**
+ * Mount static interior walls and walkable floor surfaces into an existing Rapier physics world
+ * (used by lazy-built off-map arenas such as Arena.js on first shuttle entry).
+ */
+export function mountStaticWallsAndSurfaces(physics, walls = [], surfaces = []) {
+  const R = physics?.R,
+    world = physics?.world;
+  if (!R || !world) return { walls: 0, floors: 0 };
+  const tags = (physics.tags ||= { walls: new Set(), trunks: new Set(), ground: new Set() });
+  const a = createStaticAssembler(R, world, tags);
+  a.mountInterior(walls, surfaces);
+  a.flushCompounds();
+  return { walls: a.stats.walls, floors: a.stats.floors };
+}
+
+export function buildPhysicsWorld(physics, collision, interiors) {
+  const R = physics.R,
+    world = physics.world;
+  if (!world) return null;
+  const t0 = performance.now();
+  // collider handles by kind (debugging / tools; physics.tags.walls.has(collider.handle))
+  const tags = (physics.tags = { walls: new Set(), trunks: new Set(), ground: new Set() });
+  const { stats, fixed, put, slab, wall, trimesh, mountInterior, flushCompounds } =
+    createStaticAssembler(R, world, tags);
 
   // ---------- terrain ----------
   const T = terrainGrid();
@@ -312,31 +362,8 @@ export function buildPhysicsWorld(physics, collision, interiors) {
   }
   // interiors: wall bands and floor heights are above the local ground (the terrain is flattened under
   // these buildings by tools/build_terrain.py), outdoor wall bands above are world heights
-  if (interiors) {
-    for (const w of interiors.walls) {
-      const g = H((w[0] + w[2]) / 2, (w[1] + w[3]) / 2);
-      wall(w[0], w[1], w[2], w[3], g + w[4], g + w[5]);
-    }
-    for (const s of interiors.surfaces) {
-      const tris = THREE.ShapeUtils.triangulateShape(
-        s.pts.map(([x, z]) => new THREE.Vector2(x, z)),
-        []
-      );
-      const verts = [],
-        idx = [];
-      for (const [x, z] of s.pts) verts.push(x, H(x, z) + s.h(x, z), z);
-      for (const t of tris) idx.push(t[0], t[2], t[1], t[0], t[1], t[2]);
-      trimesh(verts, idx);
-      stats.floors++;
-    }
-  }
-  // the compounds (tags: a wall / trunk compound's handle is in tags.walls / tags.trunks)
-  for (const b of batch.values()) {
-    const c = fixed(R.ColliderDesc.compound(b.shapes, b.pos, b.rot).setTranslation(b.cx, 0, b.cz));
-    if (b.kind === 'wall') tags.walls.add(c.handle);
-    else if (b.kind === 'trunk') tags.trunks.add(c.handle);
-  }
-  stats.compounds = batch.size;
+  if (interiors) mountInterior(interiors.walls, interiors.surfaces);
+  flushCompounds();
   stats.ms = Math.round(performance.now() - t0);
   stats.colliders = world.colliders.len();
   return stats;

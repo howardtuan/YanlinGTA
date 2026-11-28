@@ -7,9 +7,7 @@
 // 散場後他們照當下時間的作息回去（該睡的回床、該上班的回店裡）。輸贏用 g.earn／g.pay 記帳；戰績存檔（src/systems/SaveSystem.js 的 mahjong）。
 import { MahjongEngine } from './Engine.js';
 import { makeAI, SKILL_DEFAULT, effectiveSkill, skillTier, adjustSkill } from './AI.js';
-import { MahjongScene } from './MahjongScene.js';
-import { RemoteMahjongEngine, normalizeRoomCode } from './Net.js';
-import { createHostRoom, joinGuestRoom, normAng } from './P2P.js';
+import { RemoteMahjongEngine, normalizeRoomCode, normAng } from './Net.js';
 import { TurnTimer, timeoutAction } from './TurnTimer.js';
 import { surfaceAt } from '../../world/Terrain.js';
 import {
@@ -271,14 +269,41 @@ export class DormMahjong {
     }
     this.openMenu();
   }
+  _ensureScene() {
+    if (this.scene) return Promise.resolve(this.scene);
+    this._sceneP ||= import('./MahjongScene.js').then(({ MahjongScene }) => {
+      this.scene ||= new MahjongScene(this.g, this);
+      return this.scene;
+    });
+    return this._sceneP;
+  }
+  _loadP2P() {
+    return (this._p2pP ||= import('./P2P.js'));
+  }
   openMenu() {
     const g = this.g;
     this.state = 'play';
     this.mpMode = null;
     document.exitPointerLock?.();
-    this.scene ||= new MahjongScene(g, this);
-    this.scene.open(['彥霖', '室友', '室友', '室友']);
-    this.scene.chooseMode();
+    const launch = (sc) => {
+      sc.open(['彥霖', '室友', '室友', '室友']);
+      sc.chooseMode();
+    };
+    if (this.scene) {
+      launch(this.scene);
+      return;
+    }
+    this._ensureScene()
+      .then((sc) => {
+        if (this.state === 'play') launch(sc);
+      })
+      .catch((e) => {
+        console.error(e);
+        if (this.state === 'play') {
+          this.release();
+          g.hud?.toast('⚠️ 麻將桌載入失敗，請確認網路後再試', 'bad', 3000);
+        }
+      });
   }
   closeMenu() {
     this.mp?.close();
@@ -346,6 +371,7 @@ export class DormMahjong {
       spectators: [],
     });
     try {
+      const { createHostRoom } = await this._loadP2P();
       this.mp = await createHostRoom({
         name: clean,
         look: g.player.look, // 衣櫃造型（src/systems/OutfitData.js），牌桌上別人看到的你
@@ -422,6 +448,7 @@ export class DormMahjong {
       spectators: [],
     });
     try {
+      const { joinGuestRoom } = await this._loadP2P();
       this.mp = await joinGuestRoom({
         code: roomCode,
         name: clean,
@@ -835,15 +862,32 @@ export class DormMahjong {
     };
     this._seatAIs();
     document.exitPointerLock?.();
-    this.scene ||= new MahjongScene(g, this);
-    this.scene.open(this.seatNames());
-    // first the stakes (底／台), then the first hand
-    this.scene.chooseStake(this.stats.stake || 0, (i) => {
-      const [base, perTai] = STAKES[i] || STAKES[0];
-      this.stats.stake = i;
-      Object.assign(this.sess, { base, perTai });
-      this.seatDraw();
-    });
+    const launch = (sc) => {
+      sc.open(this.seatNames());
+      // first the stakes (底／台), then the first hand
+      sc.chooseStake(this.stats.stake || 0, (i) => {
+        const [base, perTai] = STAKES[i] || STAKES[0];
+        this.stats.stake = i;
+        Object.assign(this.sess, { base, perTai });
+        this.seatDraw();
+      });
+    };
+    if (this.scene) {
+      launch(this.scene);
+      return;
+    }
+    this._ensureScene()
+      .then((sc) => {
+        if (this.state === 'play') launch(sc);
+      })
+      .catch((e) => {
+        console.error(e);
+        if (this.state === 'play') {
+          this.release();
+          this.sess = null;
+          g.hud?.toast('⚠️ 麻將桌載入失敗，請確認網路後再試', 'bad', 3000);
+        }
+      });
   }
   aiSkill() {
     return effectiveSkill(this.stats.skill, {

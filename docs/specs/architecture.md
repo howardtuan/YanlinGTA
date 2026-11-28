@@ -163,6 +163,7 @@ sequenceDiagram
    - **WebGL 初始化**：停用專案未使用的模版緩衝（`stencil: false`）；非開發環境且未帶 `?diag` 時關閉 `renderer.debug.checkShaderErrors` 避免同步 GPU 往返卡頓。
    - **後製管線（`PostFX.js`）**：`low` / `xlow` 直接渲染至畫面，後製模組於首次升上中高畫質時才動態 `import()`；`medium` 關閉 MSAA 並使用 1/4 解析度 Bloom；`high` 啟用 4× MSAA 與 1/2 Bloom，色調映射與調色合併為單一 Pass。
    - **隔幀陰影與材質降階**：`low` / `xlow` 預設關閉陰影貼圖；非 `desktop-dgpu` 檔位太陽陰影每兩幀更新一次（額外呼叫 `renderer.render()` 如 `FirstPerson.renderMirrors` 須先保存 `shadowMap.needsUpdate` 並於繪後還原）。`low` / `xlow` 外牆與地面改用 `MeshLambertMaterial` 搭配 `lambertSky()` 天空漫射補償，並跳過法線與粗糙度貼圖生成。
+   - **重型子系統按需動態分包（`import()`）**：277 麻將 3D 場景與連線（`MahjongScene.js` / `P2P.js` + `trystero`）、資管學堂課程題庫（`LearnCourses.js`）與地圖外林口體育館（`Arena.js`；純座標票區常數抽離至 `ArenaSpec.js`）皆不進入首屏主包，僅於玩家互動觸發時按需 `import()` 載入；體育館首次建置後透過 `PhysWorld.mountStaticWallsAndSurfaces()` 補掛牆體與看台樓板 Rapier 碰撞器，並以 `flushShared()` 釋放場館靜態畫布。
    - **不透明排序與按需資源**：`RenderSort.js` 依 `groupOrder` $\rightarrow$ `renderOrder` $\rightarrow$ shader program $\rightarrow$ 距離排序以減少狀態切換；第一人稱後照鏡 RenderTarget 與 `localClippingEnabled` 僅在坐進車內時啟用；小地圖僅在位移 `> 0.35m`、轉角 `> 0.02 rad`、縮放變更或逾 `50ms` 時重繪。
 
 ---

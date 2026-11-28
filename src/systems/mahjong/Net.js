@@ -22,6 +22,12 @@ export function normalizeRoomCode(raw) {
 export const rotateSeat = (s, mySeat) => (s - mySeat + 4) % 4;
 export const unrotateSeat = (ls, mySeat) => (ls + mySeat) % 4;
 
+// 觀戰者繞著牌桌站的角度（度）：房主座位框架，座位 s 在 s × 90°（0 = 房主背後）
+export const normAng = (a) => {
+  const n = Number(a);
+  return Number.isFinite(n) ? Math.round((((n % 360) + 360) % 360) * 10) / 10 : null;
+};
+
 // 別家的暗槓對你蓋著：快照裡只說「這裡有一組暗槓」，牌種跟暗手牌一樣用未知牌池填（攤牌時才翻開）
 export const hideKong = (m, s, visibleSeat, reveal) =>
   !!m.closed && m.type === 'kong' && !reveal && s !== visibleSeat;

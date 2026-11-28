@@ -61,8 +61,10 @@ describe('隱藏成就 entries', () => {
       expect(s.media.length).toBeGreaterThan(0);
     });
   }
-  it('pudding photos are in assets/secrets/pudding/', () => {
-    const s = SECRETS.find((x) => x.id === 'pudding');
-    for (const m of s.media) expect(existsSync(m.src)).toBe(true);
-  });
+  for (const id of ['pudding', 'coldwater'])
+    it(`${id} photos are in assets/secrets/${id}/`, () => {
+      const s = SECRETS.find((x) => x.id === id);
+      expect(existsSync(s.cover)).toBe(true);
+      for (const m of s.media) expect(existsSync(m.src)).toBe(true);
+    });
 });

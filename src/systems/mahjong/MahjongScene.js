@@ -22,8 +22,14 @@ import {
 } from './Rules.js';
 import { DiceSet } from './Dice.js';
 import { normalizeRoomCode } from './Net.js';
-import { SPECTATE_REACTS, reactSticker } from './P2P.js';
-import { npcReactions, npcSticker, NPC_STICKERS, NPC_STICKER_KINDS } from './NpcStickers.js';
+import {
+  SPECTATE_REACTS,
+  reactSticker,
+  npcReactions,
+  npcSticker,
+  NPC_STICKERS,
+  NPC_STICKER_KINDS,
+} from './NpcStickers.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeOutfitFigure } from '../Outfits.js';
 

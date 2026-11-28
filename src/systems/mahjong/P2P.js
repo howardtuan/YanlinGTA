@@ -10,25 +10,15 @@ import {
   serializeStateFor,
   rotateEventsFor,
   unrotateSeat,
+  normAng,
 } from './Net.js';
 import { normalizeLook } from '../OutfitData.js';
-import { stickerByText } from './NpcStickers.js';
+import { SPECTATE_REACTS, reactSticker } from './NpcStickers.js';
+
+export { normAng, SPECTATE_REACTS, reactSticker };
 
 const APP_ID = 'yanlin-gta-mahjong-v1';
 const peerIdOf = (ctx) => (typeof ctx === 'string' ? ctx : ctx?.peerId || null);
-
-// 觀戰表情：畫面上是彥霖貼圖（assets/mahjong/react-*.webp，家裡 GPU 的 Qwen-Image 畫的）。
-// 連線時照舊只傳 text（舊版客端也看得懂），收到後用 reactSticker 換回貼圖
-export const SPECTATE_REACTS = [
-  { id: 'clap', text: '👏 好牌！', label: '好牌！' },
-  { id: 'shock', text: '😱 放槍了', label: '放槍了' },
-  { id: 'fire', text: '🔥 聽牌！', label: '聽牌！' },
-  { id: 'lol', text: '😂 笑死', label: '笑死' },
-  { id: 'pray', text: '🙏 自摸！', label: '自摸！' },
-].map((r) => ({ ...r, img: `assets/mahjong/react-${r.id}.webp` }));
-// 同學貼圖（玩家丟已加好友同學的貼圖）傳的是貼圖上的字，一樣換得回圖；舊版客端收到就顯示文字
-export const reactSticker = (text) =>
-  SPECTATE_REACTS.find((r) => r.text === text) || stickerByText(text);
 
 // 封裝 trystero@0.27 MessageAction（{ send(data, { target }), onMessage(cb(data, ctx)) }）
 function bindAction(room, name) {
@@ -53,11 +43,7 @@ async function defaultJoinRoom(roomId) {
   return mod.joinRoom({ appId: APP_ID, identity: 'none' }, roomId);
 }
 
-// 觀戰者繞著牌桌站的角度（度）：房主座位框架，座位 s 在 s × 90°（0 = 房主背後）
-export const normAng = (a) => {
-  const n = Number(a);
-  return Number.isFinite(n) ? Math.round((((n % 360) + 360) % 360) * 10) / 10 : null;
-};
+// 觀戰者繞著牌桌站的角度（度）：房主座位框架，座位 s 在 s × 90°（0 = 房主背後）——實作已移至 Net.js
 // 新來的觀戰者先站在房主背後附近（看房主那家），一個一個錯開
 export const specStartAng = (order) => normAng(((order * 47) % 70) - 35);
 

@@ -72,6 +72,20 @@ export function stickerByText(text) {
   return null;
 }
 
+// 觀戰表情：畫面上是彥霖貼圖（assets/mahjong/react-*.webp，家裡 GPU 的 Qwen-Image 畫的）。
+// 連線時照舊只傳 text（舊版客端也看得懂），收到後用 reactSticker 換回貼圖
+export const SPECTATE_REACTS = [
+  { id: 'clap', text: '👏 好牌！', label: '好牌！' },
+  { id: 'shock', text: '😱 放槍了', label: '放槍了' },
+  { id: 'fire', text: '🔥 聽牌！', label: '聽牌！' },
+  { id: 'lol', text: '😂 笑死', label: '笑死' },
+  { id: 'pray', text: '🙏 自摸！', label: '自摸！' },
+].map((r) => ({ ...r, img: `assets/mahjong/react-${r.id}.webp` }));
+
+// 同學貼圖（玩家丟已加好友同學的貼圖）傳的是貼圖上的字，一樣換得回圖；舊版客端收到就顯示文字
+export const reactSticker = (text) =>
+  SPECTATE_REACTS.find((r) => r.text === text) || stickerByText(text);
+
 // 一個牌局事件該讓哪些座位跳哪種貼圖：回傳 [{ seat, kind, delay }]（delay 秒）。
 // ids[s] = 坐在 s 位的同學 id（0 是你、空的是真人或沒人）；ting(s) = s 現在有沒有聽牌；
 // told = 這一局已經跳過「聽牌」的座位（會被更新）；rnd 讓測試可以固定

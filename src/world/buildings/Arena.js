@@ -8,8 +8,12 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { canvasTexture, scaledCanvas, blankTexture } from '../../graphics/GpuMemLifecycle.js';
+import { ARENA, ARENA_ZONES, PLAZA, STALLS } from './ArenaSpec.js';
 
-export const ARENA = { ox: 3000, oz: -3000, FX: 24, FZ: 34, R: 10, ROOF: 26 };
+export { ARENA, ARENA_ZONES, PLAZA, STALLS };
+
+const arenaRng = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+
 const { FX, FZ, R: CR } = ARENA;
 const STAGE_Z = 24; // front edge of the main stage; the floor runs from -FZ to here
 const RISE = 0.3,
@@ -19,32 +23,6 @@ const CONC = { d0: LOW.n * RUN, w: 2.6, y: 6.2 }; // white walkway between the r
 const UP = { n: 14, y0: CONC.y + RISE, d0: CONC.d0 + CONC.w }; // upper ring: navy seats
 const OUTER = UP.d0 + UP.n * RUN; // outer wall of the bowl (offset from the floor edge)
 const BACK = FZ + 8; // back wall behind the stage
-
-// ticket zones (src/systems/minigames/Concert.js sells them): floor standing blocks, then the two seat rings
-export const ARENA_ZONES = [
-  { name: '搖滾站區 A', price: 6880, seats: 1200, kind: 'floor', z0: 8, z1: 19 },
-  { name: '搖滾站區 B', price: 5880, seats: 1500, kind: 'floor', z0: -12, z1: 4 },
-  { name: '搖滾站區 C', price: 4880, seats: 1800, kind: 'floor', z0: -31, z1: -15 },
-  {
-    name: '下層看台 黃橙區',
-    price: 3880,
-    seats: 3000,
-    kind: 'ring',
-    ring: 'low',
-    row: 5,
-    side: true,
-  },
-  {
-    name: '下層看台 藍區',
-    price: 2880,
-    seats: 2500,
-    kind: 'ring',
-    ring: 'low',
-    row: 7,
-    side: false,
-  },
-  { name: '上層看台', price: 1880, seats: 4500, kind: 'ring', ring: 'up', row: 6, side: false },
-];
 
 // ---- the bowl's outline at offset d from the floor edge: an open U from the stage end on +x, round the
 // back, to the stage end on -x. Fixed piece counts so every offset has the same topology (ribbons between rows).
@@ -200,7 +178,8 @@ export function buildArena(I, scene, Kit, regMat) {
     g.lineWidth = 6;
     g.strokeRect(0, 0, 256, 256);
     g.fillStyle = 'rgba(255,255,255,.025)';
-    for (let i = 0; i < 300; i++) g.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
+    const r = arenaRng(17);
+    for (let i = 0; i < 300; i++) g.fillRect(r() * 256, r() * 256, 3, 3);
   });
   MT.floor.map.wrapS = MT.floor.map.wrapT = THREE.RepeatWrapping;
   MT.floor.map.repeat.set(60, 60);
@@ -893,24 +872,6 @@ const xz = (k, x, z) => {
 // - 演唱會當天：建築底部圍一圈深色巡演大布條，入口前一台 LED 螢幕車，排隊欄杆和人潮，旁邊一排流動廁所；
 //   往接駁車站的路上是白色快搭帳篷的攤販。
 // =====================================================================
-export const PLAZA = {
-  cx: 0,
-  cz: -8,
-  R: 71,
-  baseH: 2.4,
-  colH: 17.5,
-  beamH: 4.2,
-  gateZ: -81,
-  busZ: -150,
-};
-export const STALLS = [
-  { id: 'stick', name: '應援手燈', color: '#ff4fa3', x: -15, z: -110 },
-  { id: 'card', name: '小卡・手幅', color: '#7b5bff', x: -15, z: -122 },
-  { id: 'food', name: '雞排・珍奶', color: '#ff9f1a', x: -15, z: -134 },
-  { id: 'sausage', name: '烤香腸', color: '#d0352b', x: 15, z: -110 },
-  { id: 'towel', name: '應援毛巾', color: '#1aa3c4', x: 15, z: -122 },
-  { id: 'free', name: '粉絲應援發放', color: '#3fae49', x: 15, z: -134 },
-];
 function buildPlaza(I, scene, k) {
   const P = PLAZA,
     g0 = new THREE.Group();
@@ -941,10 +902,11 @@ function buildPlaza(I, scene, k) {
         tex(256, 256, (g) => {
           g.fillStyle = '#4a4c50';
           g.fillRect(0, 0, 256, 256);
+          const r = arenaRng(23);
           for (let i = 0; i < 1500; i++) {
-            const v = (60 + Math.random() * 40) | 0;
+            const v = (60 + r() * 40) | 0;
             g.fillStyle = `rgb(${v},${v},${v + 3})`;
-            g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+            g.fillRect(r() * 256, r() * 256, 2, 2);
           }
         }),
         300,
@@ -957,9 +919,10 @@ function buildPlaza(I, scene, k) {
         tex(256, 256, (g) => {
           g.fillStyle = '#8f4436';
           g.fillRect(0, 0, 256, 256);
+          const r = arenaRng(29);
           for (let y = 0; y < 256; y += 16)
             for (let x = (y / 16) % 2 ? 16 : 0; x < 256; x += 32) {
-              g.fillStyle = `rgb(${(150 + Math.random() * 30) | 0},${(66 + Math.random() * 18) | 0},${(52 + Math.random() * 12) | 0})`;
+              g.fillStyle = `rgb(${(150 + r() * 30) | 0},${(66 + r() * 18) | 0},${(52 + r() * 12) | 0})`;
               g.fillRect(x + 1, y + 1, 30, 14);
             }
         }),

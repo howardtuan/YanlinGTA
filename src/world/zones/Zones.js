@@ -53,7 +53,6 @@ import {
   buildXinzhongbeiStreet,
 } from '../buildings/StreetXinzhongbei.js';
 import { gordonFootprint, buildGordon } from '../buildings/GordonShop.js';
-import { buildArena } from '../buildings/Arena.js';
 import { gateExtrasFootprints, gateTrees, buildGateExtras } from '../buildings/GateExtras.js';
 import {
   WEICHE_ID,
@@ -143,12 +142,6 @@ export const ZONES = [
       I.gordon = buildGordon(I, scene);
     },
   }, // 校史館西南側草坪
-  {
-    name: '林口體育館（地圖外，演唱會）',
-    build: (I, scene) => {
-      I.arena = buildArena(I, scene, Kit, regMat);
-    },
-  }, // src/systems/minigames/Concert.js
   // ---------------- 校內各區 ----------------
   {
     // 正門：混凝土校名牆、校園導覽牌、停車場入口、P 字塔

@@ -4,9 +4,12 @@
 // - 林口體育館在地圖外（src/world/buildings/Arena.js）。19:00 開演：主螢幕疊上 YouTube 播放器（youtube-nocookie，官方頻道的 MV），
 //   依序輪播該團的播放清單，播不了的（不給嵌入）自動跳下一首；播完就散場。音樂和畫面都直接來自官方影片，遊戲裡不存任何檔案。
 import * as THREE from 'three';
-import { ARENA_ZONES } from '../../world/buildings/Arena.js';
+import { ARENA_ZONES } from '../../world/buildings/ArenaSpec.js';
 import { createCharacter, randomStudent } from '../../entities/Character.js';
 import { makeLabel } from '../../world/MapBuilder.js';
+import { mountStaticWallsAndSurfaces } from '../../physics/PhysWorld.js';
+import { Kit, regMat } from '../../world/Kit.js';
+import { flushShared } from '../../graphics/GpuMemLifecycle.js';
 
 // official M/Vs (checked with YouTube oEmbed: JYP Entertainment / SMTOWN channels)
 export const CONCERTS = [
@@ -123,14 +126,21 @@ function loadYT() {
 export class Concerts {
   constructor(game) {
     this.g = game;
-    this.ar = game.interiors.arena;
+    this.ar = game.interiors.arena || null;
+    this._actionsMounted = false;
     this.tickets = {}; // id -> { show (day), zone (index), seat }
     this.inArena = null; // { c, show, zone, back: {x,z,h} } while you are at the 林口體育館
     this.state = 'off'; // off | wait | live | over
     this.told = new Set(); // reminder toasts already shown (sale opening / show day)
     this.t = 0;
     this.beat = 0;
-    const I = game.interiors,
+    if (this.ar) this._mountActions();
+    game.interiors.updaters.push((dt) => this.update(dt));
+  }
+  _mountActions() {
+    if (this._actionsMounted || !this.ar) return;
+    this._actionsMounted = true;
+    const I = this.g.interiors,
       P = this.ar.plaza,
       out = () => this.inArena && !this.inArena.inside;
     for (const ex of this.ar.exits)
@@ -172,7 +182,28 @@ export class Concerts {
         label: () => `按 <kbd>E</kbd> 逛攤販：${st.name}`,
         fn: () => this.stall(st),
       });
-    game.interiors.updaters.push((dt) => this.update(dt));
+  }
+  _ensureArena() {
+    if (this.ar) return Promise.resolve(this.ar);
+    this._arenaP ||= import('../../world/buildings/Arena.js')
+      .then(({ buildArena }) => {
+        const g = this.g,
+          I = g.interiors;
+        const w0 = I.walls.length,
+          s0 = I.surfaces.length;
+        const ar = buildArena(I, g.scene, Kit, regMat);
+        this.ar = I.arena = ar;
+        mountStaticWallsAndSurfaces(g.physics, I.walls.slice(w0), I.surfaces.slice(s0));
+        flushShared(ar.shell);
+        if (ar.plaza?.group) flushShared(ar.plaza.group);
+        this._mountActions();
+        return ar;
+      })
+      .catch((e) => {
+        this._arenaP = null;
+        throw e;
+      });
+    return this._arenaP;
   }
   // ---------------- schedule ----------------
   // the next show of c that hasn't finished yet: { show (day), open (sale start, min), sold (min) }
@@ -457,8 +488,16 @@ export class Concerts {
     el.textContent = text;
     el.classList.add('on');
     this._moving = true;
-    setTimeout(() => {
-      mid();
+    setTimeout(async () => {
+      try {
+        await mid();
+      } catch (e) {
+        console.error(e);
+        el.classList.remove('on');
+        this._moving = false;
+        this.g.hud?.toast('⚠️ 場館載入失敗，請確認網路後再試', 'bad', 3000);
+        return;
+      }
       setTimeout(() => {
         el.classList.remove('on');
         this._moving = false;
@@ -479,12 +518,14 @@ export class Concerts {
     }
     g.phone.close();
     g.phone._last = null;
+    const arenaReady = this._ensureArena();
     const wp = pl.worldPos(),
-      back = { x: wp.x, z: wp.z, h: pl.worldHeading() },
-      P = this.ar.plaza;
+      back = { x: wp.x, z: wp.z, h: pl.worldHeading() };
     this.fade(
       '🚌 搭接駁車前往林口體育館…',
-      () => {
+      async () => {
+        const ar = await arenaReady;
+        const P = ar.plaza;
         if (pl.seat) pl.standUp();
         g.clock = Math.max(g.clock + 50, n.show * DAY + 17 * 60 + 30);
         g.hud.setClock?.(g.clock);

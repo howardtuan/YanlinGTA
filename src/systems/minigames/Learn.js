@@ -15,37 +15,49 @@ const KEY = 'yanlinGTA.learn.v1';
 const PY_URL = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
 const SQL_URL = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/';
 
-// ---------------------------------------------------------------- courses (content in src/systems/minigames/LearnCourses.js)
-import { PY, SQ, AG, SEED, SCHEMA } from './LearnCourses.js';
-const COURSES = [
-  {
-    id: 'py',
-    name: 'Python 入門',
-    icon: '🐍',
-    color: '#3776ab',
-    desc: '從 print 到函式，9 堂課學會 Python 基本功',
-    lessons: PY,
-    lang: 'python',
-  },
-  {
-    id: 'sq',
-    name: 'MySQL 入門',
-    icon: '🐬',
-    color: '#00758f',
-    desc: '用系上投票資料庫練習 SELECT、GROUP BY、JOIN',
-    lessons: SQ,
-    lang: 'sql',
-  },
-  {
-    id: 'ag',
-    name: 'AI Agent 入門',
-    icon: '🤖',
-    color: '#6a3fd6',
-    desc: '用 Python 一步步做出會感知、規劃、用工具、記憶、查資料、自我檢查的 AI 代理',
-    lessons: AG,
-    lang: 'python',
-  },
-];
+// ---------------------------------------------------------------- courses (content in src/systems/minigames/LearnCourses.js, lazy-loaded)
+let coursesCache = null;
+let coursesPromise = null;
+function loadCourses() {
+  if (coursesCache) return Promise.resolve(coursesCache);
+  coursesPromise ||= import('./LearnCourses.js').then((m) => {
+    coursesCache = {
+      SEED: m.SEED,
+      SCHEMA: m.SCHEMA,
+      COURSES: [
+        {
+          id: 'py',
+          name: 'Python 入門',
+          icon: '🐍',
+          color: '#3776ab',
+          desc: '從 print 到函式，9 堂課學會 Python 基本功',
+          lessons: m.PY,
+          lang: 'python',
+        },
+        {
+          id: 'sq',
+          name: 'MySQL 入門',
+          icon: '🐬',
+          color: '#00758f',
+          desc: '用系上投票資料庫練習 SELECT、GROUP BY、JOIN',
+          lessons: m.SQ,
+          lang: 'sql',
+        },
+        {
+          id: 'ag',
+          name: 'AI Agent 入門',
+          icon: '🤖',
+          color: '#6a3fd6',
+          desc: '用 Python 一步步做出會感知、規劃、用工具、記憶、查資料、自我檢查的 AI 代理',
+          lessons: m.AG,
+          lang: 'python',
+        },
+      ],
+    };
+    return coursesCache;
+  });
+  return coursesPromise;
+}
 
 // ---------------------------------------------------------------- progress
 function load() {
@@ -150,8 +162,8 @@ export function sqlEngine() {
 }
 // run statements on a fresh copy of the practice database: { res: last result set or null, err, changes }
 async function runSql(code, check) {
-  const S = await sqlEngine(),
-    db = new S.Database();
+  const [{ SEED }, S] = await Promise.all([loadCourses(), sqlEngine()]);
+  const db = new S.Database();
   try {
     db.exec(SEED);
     let res = null;
@@ -271,10 +283,11 @@ export function learnUI(root, game) {
   const doneIn = (c) => c.lessons.filter((l) => st.done[l.id]).length;
 
   function home() {
+    if (!coursesCache) return;
     lesson = null;
     root.innerHTML = `<div class="lr"><div class="lr-top"><b>🎓 資管學堂</b><span>iCode · 線上程式課</span></div>
       <div class="lr-home"><div class="lr-hero"><h2>寫程式，從今天開始</h2><p>每一課都有說明、範例和練習；程式在網頁裡直接執行，寫對了自動打勾 ✅</p></div>
-      <div class="lr-cards">${COURSES.map((c) => {
+      <div class="lr-cards">${coursesCache.COURSES.map((c) => {
         const n = doneIn(c),
           all = c.lessons.length;
         return `<button class="lr-card" data-c="${c.id}" style="--c:${c.color}">
@@ -284,7 +297,9 @@ export function learnUI(root, game) {
       <p class="lr-note">第一次執行程式時會下載執行環境（Python 約 10 MB），需要網路，請稍等一下。</p></div></div>`;
     root
       .querySelectorAll('[data-c]')
-      .forEach((b) => (b.onclick = () => open(COURSES.find((c) => c.id === b.dataset.c))));
+      .forEach(
+        (b) => (b.onclick = () => open(coursesCache.COURSES.find((c) => c.id === b.dataset.c)))
+      );
   }
 
   function open(c, l) {
@@ -294,7 +309,7 @@ export function learnUI(root, game) {
       sql = c.lang === 'sql';
     root.innerHTML = `<div class="lr"><div class="lr-top"><button class="lr-home-b">← 課程</button><b>${c.icon} ${c.name}</b><span>${doneIn(c)} / ${c.lessons.length} 完成</span></div>
       <div class="lr-cols"><nav class="lr-nav">${c.lessons.map((x, k) => `<button data-l="${k}" class="${x === L ? 'on' : ''}">${st.done[x.id] ? '✅' : `<i>${k + 1}</i>`} ${esc(x.t)}</button>`).join('')}
-        ${sql ? `<div class="lr-schema"><b>📋 範例資料庫</b>${SCHEMA.map(([n, z, cols]) => `<div><code>${n}</code> ${z}<small>${cols}</small></div>`).join('')}</div>` : ''}</nav>
+        ${sql ? `<div class="lr-schema"><b>📋 範例資料庫</b>${coursesCache.SCHEMA.map(([n, z, cols]) => `<div><code>${n}</code> ${z}<small>${cols}</small></div>`).join('')}</div>` : ''}</nav>
       <main class="lr-main"><h2>第 ${i + 1} 課　${esc(L.t)}</h2>
         <div class="lr-sec"><div class="lr-h">📖 觀念說明</div><div class="lr-text">${L.intro}</div></div>
         ${L.ex
@@ -499,6 +514,21 @@ export function learnUI(root, game) {
     if (!t) return '<div class="lr-dim">（沒有資料）</div>';
     return `<div class="lr-tbl"><table><tr>${t.columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>${t.values.map((r) => `<tr>${r.map((v) => `<td>${v === null ? '<i>NULL</i>' : esc(typeof v === 'number' && !Number.isInteger(v) ? Math.round(v * 100) / 100 : v)}</td>`).join('')}</tr>`).join('')}</table></div><div class="lr-dim">${t.values.length} 筆</div>`;
   }
-  home();
-  return { home };
+  if (coursesCache) {
+    home();
+    return { home, ready: Promise.resolve() };
+  }
+  root.innerHTML = `<div class="lr"><div class="lr-wait">⏳ 正在載入資管學堂教材…</div></div>`;
+  const waitEl = root.firstElementChild;
+  const ready = loadCourses()
+    .then(() => {
+      if (root.firstElementChild === waitEl) home();
+    })
+    .catch((e) => {
+      console.error(e);
+      if (root.firstElementChild === waitEl) {
+        root.innerHTML = `<div class="lr"><div class="lr-bad">❌ 教材載入失敗：${esc(e?.message || e)}</div></div>`;
+      }
+    });
+  return { home, ready };
 }

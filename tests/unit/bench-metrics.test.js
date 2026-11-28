@@ -17,17 +17,17 @@ describe('benchmark route plan', () => {
     expect(night.route).toBe('day');
     expect(night.stops).toEqual(day.stops);
     expect(night.time).toBe(day.time);
-    for (const n of [
+    // #452: 校門口 → 資管樓 → 進活動中心 → 進力行大樓 → 體育館
+    expect(CORE_STOPS.map((s) => s.name)).toEqual([
+      '校門口',
       '資訊管理學系',
-      '力行大樓',
-      '學生活動中心',
-      '全人教育村',
-      '張靜愚紀念圖書館',
+      '學生活動中心（B1 大廳）',
+      '學生活動中心（東側）',
+      '力行大樓 1F 室內（西）',
+      '力行大樓 1F 室內（東）',
       '中原大學體育館',
-    ])
-      expect(CORE_STOPS).toContain(n);
-    // 3 s warm-up per segment: still the 99 s benchmark
-    expect(SEGMENTS.reduce((a, s) => a + s.time + 3, 0)).toBe(99);
+    ]);
+    expect(SEGMENTS.reduce((a, s) => a + s.time + 3, 0)).toBe(155);
   });
 
   it('planSegments picks segments and overrides their time', () => {

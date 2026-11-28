@@ -255,7 +255,7 @@ export function formatPrPerfSection(record) {
       ? [`| 測試期間 PMREM 重烘次數 | \`${fmt(b.bakes)}\` | \`SkySystem.bakeEnv\` |`]
       : []),
     '',
-    '### 遊戲內 99s Benchmark（三段路線＋整體）',
+    '### 遊戲內 Benchmark（三段路線＋整體）',
     '',
     '| 段落 | 平均 FPS | 1% 低 | p50 / p95 (ms) | 卡頓 | 邏輯 JS (ms) | 繪圖提交 (ms) | Draw Calls | Triangles |',
     '| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',

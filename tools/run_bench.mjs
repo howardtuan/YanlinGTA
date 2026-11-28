@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Cross-platform (Mac M-series Metal & Linux NVIDIA/AMD/Intel GPU) automated runner for the
-// in-game 99-second Benchmark (src/systems/Benchmark.js), defaulting to iPhone simulation
+// in-game ~155-second Benchmark (src/systems/Benchmark.js), defaulting to iPhone simulation
 // (430x932@3x, tier=mobile-lite). Outputs bench-report.json, ready-to-attach PR Markdown
 // (pr-perf-section.md + <!-- yanlin-perf:v1 -->), and updates tools/.cache/perf-history.jsonl.
 //
@@ -292,7 +292,7 @@ try {
     };
   })()`);
 
-  // Start the real in-game 99s Benchmark (day -> air -> night)
+  // Start the real in-game Benchmark (day -> air -> night)
   const started = await runner.eval(`(() => {
     window.__benchDoneResult = null;
     window.addEventListener('benchdone', (e) => {
@@ -301,7 +301,7 @@ try {
     return window.game.bench.start(${JSON.stringify(quality)}, { headless: true });
   })()`);
   if (!started) throw new Error('window.game.bench.start() returned false');
-  say(`running in-game 99s Benchmark (quality=${quality}, tier=${bootInfo.tier})...`);
+  say(`running in-game Benchmark (quality=${quality}, tier=${bootInfo.tier})...`);
 
   const tBench = Date.now();
   let lastSegTxt = '';

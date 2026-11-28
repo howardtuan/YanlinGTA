@@ -52,7 +52,7 @@ describe('漢克 brushing his teeth with the shower head (src/entities/npcs/Hank
 });
 
 describe('隱藏成就 entries', () => {
-  for (const id of ['pudding', 'coldwater']) {
+  for (const id of ['pudding', 'coldwater', 'dance']) {
     it(`${id} is listed with its story`, () => {
       const s = SECRETS.find((x) => x.id === id);
       expect(s).toBeTruthy();
@@ -61,10 +61,13 @@ describe('隱藏成就 entries', () => {
       expect(s.media.length).toBeGreaterThan(0);
     });
   }
-  for (const id of ['pudding', 'coldwater'])
+  for (const id of ['pudding', 'coldwater', 'dance'])
     it(`${id} photos are in assets/secrets/${id}/`, () => {
       const s = SECRETS.find((x) => x.id === id);
       expect(existsSync(s.cover)).toBe(true);
-      for (const m of s.media) expect(existsSync(m.src)).toBe(true);
+      for (const m of s.media) {
+        expect(existsSync(m.src)).toBe(true);
+        if (m.poster) expect(existsSync(m.poster)).toBe(true);
+      }
     });
 });

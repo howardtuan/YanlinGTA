@@ -16,7 +16,8 @@
 //    藍綠玻璃；北面中段偏東兩層高門廊：兩根灰圓柱（柱腳橘紅）、二樓高度混凝土雨遮帶、門廊頂招牌帶右至左「篤信電學大樓」
 //    （2019-06 相片）；屋頂一圈橘紅欄杆、不鏽鋼圓水塔、白色機房。
 //  - 電學大樓（南棟）w430346971：overrides 的切法反了。東西向長條才是高樓（正射倒向 7.7 m、天井相片 9 層）→ 9F；
-//    南側「後塔」其實是圓筒（Google「中原電機系」，咖啡色磁磚環＋白色圓形屋頂，外徑約 15 m），層數先用 5F；
+//    南側「後塔」其實是圓筒（Google「中原電機系」，咖啡色磁磚環＋白色圓形屋頂，外徑約 15 m）：5F（1～2F 磚牆、3～4F 內縮、
+//    5F 整層外挑）＋屋頂一圈沒有窗的內收圓筒（2017-09 官方街景重看）；
 //    圓筒北邊一塊白色平頂連接量體（約 13×9 m）。圓筒用 parts 的低矮基座＋自建圓柱表達（輪廓不動）。名稱不改（任務用）。
 //  - 智信樓（招牌「中正樓」）w392023405：淺灰清水混凝土、圓角大壁柱；北面中段拱形凹陽台＋金色「中正樓」（右至左），
 //    東段一條深色玻璃帷幕直條；屋頂白色圓筒水塔（頂上欄杆）、西北角兩座冷卻水塔（正射）。
@@ -90,7 +91,7 @@ const DXS = {
   connH: 10.8,
   connFloors: 3, // 白色連接量體
   podH: 1.2, // 圓筒外圈咖啡色磁磚環狀台基（正射 v2；輪廓裡圓筒以外的角落）
-  drum: { u: 7.7, v: 14.0, r: 7.5, h: 17.0, floors: 5 }, // 圓筒（外徑約 15 m）；圓心局部座標。5F（2017-09 官方街景）
+  drum: { u: 7.7, v: 14.0, r: 7.5, h: 20.4, floors: 5 }, // 圓筒（外徑約 15 m）；圓心局部座標。5F＋屋頂無窗內收圓筒（2017-09 官方街景）
   vConn: 6.5, // v < 6.5 是連接量體
 };
 const dxsF = frame([7.9, 232.0], [-14.7, -4.7]);
@@ -429,7 +430,7 @@ const drumSolidTex = () =>
     for (let y = 0; y < H; y += 8) g.fillRect(0, y, W, 1);
     for (let x = 0; x < W; x += 16) g.fillRect(x, 0, 1, H);
   });
-// 電學圓筒 3～5F：灰色混凝土＋一整圈橫向帶窗（一格＝3 m 寬 × 1 層）
+// 電學圓筒 3～4F 內縮層、5F 外挑層：灰色混凝土＋一整圈橫向帶窗（一格＝3 m 寬 × 1 層）
 const drumRibTex = () =>
   ctex('dDrumRib', 128, 128, (g, W, H) => {
     speckle(g, W, H, '#b9b5ae', 400, 13, 0.06, 2);
@@ -1446,48 +1447,51 @@ export function buildZoneD(I, scene, data, collision) {
     shapes.push({ name: 'duxinDianxueLink', pts: P, y0, y1: y1 + 0.5 });
   }
 
-  // ===== 電學大樓：圓筒（咖啡色磁磚環＋白色圓形屋頂，5F）、長條屋頂天線與機房 =====
+  // ===== 電學大樓：圓筒（咖啡色磁磚環、5F 外挑、屋頂內收圓筒＋白色頂面）、長條屋頂天線與機房 =====
   const dxs = find(D_IDS.dxs);
   if (dxs) {
-    // 圓筒照 2017-09 官方街景（良善北翼步道 pano _sDi0…往北看）：1～2F 咖啡色磁磚弧形實牆（一道直條窗、一扇小窗）；
-    // 3F 內縮灰色混凝土帶窗；4F 外挑弧形陽台板＋實心欄牆；5F 帶窗；頂上內收的灰色圓頂、頂面白色（正射）
+    // 圓筒照 2017-09 官方街景（良善北翼步道 pano _sDi0…，heading 350～0、仰角 28°，2026-11-28 重看）：
+    // 1～2F 咖啡色磁磚弧形實牆（一道直條窗、一扇小窗）；3F、4F 內縮帶窗（右側白磁磚樓梯塔同高度各有一排窗）；
+    // 5F 整層外挑（下緣實心欄牆＋上面一圈連續帶窗，底下是很深的挑簷）；屋頂再一圈內收、沒有窗的白灰磁磚圓筒，頂面白色（正射）
     const B = dxs.base ?? H(0, 230),
       [cx, cz] = DRUM_C,
       r = DXS.drum.r,
       yb = H(cx, cz) - 0.6,
       fl = 3.4;
-    const y2 = B + 7.2,
-      y3 = y2 + fl,
-      y4 = y3 + fl,
+    const y2 = B + 7.2, // 磚牆頂（3F 樓板）
+      y3 = y2 + fl, // 4F 樓板
+      y4 = y3 + fl, // 5F 外挑樓板
+      y5 = y4 + fl, // 屋頂板
+      rIn = r - 0.8, // 3～4F 內縮牆
+      rOut = r + 1.1, // 5F 外挑（挑簷約 1.9 m 深）
+      rTop = r * 0.8, // 屋頂內收圓筒
       yt = B + DXS.drum.h;
-    k.cyl('drumSolid', cx, cz, r, yb, y2, 40, true);
-    k.cyl('drumRib', cx, cz, r - 0.4, y2, y3, 40, true);
-    k.cyl('drumRib', cx, cz, r - 0.2, y3, y4, 40, true);
-    k.cyl('drumRib', cx, cz, r - 0.2, y4, yt, 40, true);
     const ring = (m, r0, r1, y, down = false) => {
       const g = new THREE.RingGeometry(r0, r1, 40);
       g.rotateX(down ? Math.PI / 2 : -Math.PI / 2);
       g.translate(cx, y, cz);
       k.add(m, g);
     };
+    k.cyl('drumSolid', cx, cz, r, yb, y2, 40, true);
     k.cyl('concLight', cx, cz, r + 0.1, y2 - 0.1, y2 + 0.25, 40, true);
-    ring('concLight', r - 0.4, r + 0.1, y2 + 0.25);
-    k.cyl('concLight', cx, cz, r + 0.9, y3 - 0.05, y3 + 1.25, 40, true);
-    k.cyl('concLight', cx, cz, r + 0.75, y3 + 0.3, y3 + 1.25, 40, true);
-    ring('concLight', r - 0.2, r + 0.75, y3 + 0.3);
-    ring('concLight', r - 0.2, r + 0.9, y3 - 0.05, true);
-    ring('concLight', r + 0.75, r + 0.9, y3 + 1.25);
-    k.cyl('concLight', cx, cz, r + 0.25, y4 - 0.1, y4 + 0.25, 40, true);
-    ring('concLight', r - 0.2, r + 0.25, y4 + 0.25);
-    {
-      const g = new THREE.CylinderGeometry(r * 0.86, r + 0.05, 1.3, 40, 1, true);
-      g.translate(cx, yt + 0.65, cz);
-      k.add('concDark', g);
-      const g2 = new THREE.CylinderGeometry(r * 0.62, r * 0.86, 0.9, 40, 1, true);
-      g2.translate(cx, yt + 1.75, cz);
-      k.add('concDark', g2);
-      k.cyl('drumRoof', cx, cz, r * 0.62, yt + 2.15, yt + 2.25, 40);
-    }
+    ring('concLight', rIn, r + 0.1, y2 + 0.25);
+    k.cyl('drumRib', cx, cz, rIn, y2, y3, 40, true);
+    k.cyl('drumRib', cx, cz, rIn, y3, y4, 40, true);
+    k.cyl('concLight', cx, cz, rIn + 0.15, y3 - 0.1, y3 + 0.15, 40, true);
+    ring('concLight', rIn, rIn + 0.15, y3 + 0.15);
+    // 5F 外挑：挑簷底（深色）、實心欄牆、帶窗、屋頂板
+    ring('concDark', rIn, rOut, y4 - 0.3, true);
+    k.cyl('concLight', cx, cz, rOut, y4 - 0.3, y4 + 1.5, 40, true); // 實心欄牆比帶窗高
+    k.cyl('drumRib', cx, cz, rOut - 0.15, y4, y5, 40, true);
+    ring('concLight', rOut - 0.15, rOut, y4 + 1.5);
+    k.cyl('concLight', cx, cz, rOut, y5 - 0.1, y5 + 0.3, 40, true);
+    ring('concLight', rOut - 0.15, rOut, y5 - 0.1, true);
+    ring('concLight', rTop, rOut, y5 + 0.3);
+    // 屋頂內收圓筒（沒有窗）＋白色頂面
+    k.cyl('concLight', cx, cz, rTop, y5 + 0.3, yt - 0.3, 40, true);
+    k.cyl('concLight', cx, cz, rTop + 0.15, yt - 0.3, yt, 40, true);
+    ring('concLight', rTop, rTop + 0.15, yt - 0.3, true);
+    k.cyl('drumRoof', cx, cz, rTop + 0.15, yt, yt + 0.05, 40);
     {
       const l = Math.hypot(-0.29, 0.96),
         nx = -0.29 / l,
@@ -1528,8 +1532,22 @@ export function buildZoneD(I, scene, data, collision) {
         0.02
       );
     }
-    ringColl(circle(cx, cz, r, 24), yb, yt);
-    shapes.push({ name: 'dianxueDrum', pts: circle(cx, cz, r, 24), y0: yb, y1: yt + 2.25 });
+    ringColl(circle(cx, cz, r, 24), yb, y4 - 0.3);
+    ringColl(circle(cx, cz, rOut, 24), y4 - 0.3, y5 + 0.3);
+    ringColl(circle(cx, cz, rTop, 24), y5 + 0.3, yt);
+    shapes.push({ name: 'dianxueDrum', pts: circle(cx, cz, r, 24), y0: yb, y1: y4 - 0.3 });
+    shapes.push({
+      name: 'dianxueDrum5F',
+      pts: circle(cx, cz, rOut, 24),
+      y0: y4 - 0.3,
+      y1: y5 + 0.3,
+    });
+    shapes.push({
+      name: 'dianxueDrumTop',
+      pts: circle(cx, cz, rTop, 24),
+      y0: y5 + 0.3,
+      y1: yt + 0.05,
+    });
     {
       const T = DXS_STAIR,
         P = [dxsP(T.u1, T.v0), dxsP(T.u0, T.v0), dxsP(T.u0, T.v1), dxsP(T.u1, T.v1)],

@@ -64,11 +64,12 @@ npm run dev
 
 | 參數 | 用途 | 對應模組 |
 | :--- | :--- | :--- |
-| `?bench[=xlow\|low\|medium\|high]` | 載入完自動開跑遊戲內效能測試（可指定畫質） | `Game.js`、`Benchmark.js` |
+| `?bench[=xlow\|low\|medium\|high\|ultra]` | 載入完自動開跑遊戲內效能測試（可指定畫質） | `Game.js`、`Benchmark.js` |
 | `?headless=1` | 搭配 `?bench` 的無頭模式 | `Game.js` |
 | `?perf` | 本次強制開啟開發者級效能浮層（不改存檔） | `PerfHud.js` |
 | `?diag=1\|halt` | 顯示啟動診斷麵包屑；`halt` 在前次未完成載入時暫停 | `BootDiag.js`、`PerfProfile.js` |
-| `?tier=mobile-lite\|desktop-igpu\|desktop-dgpu` | 覆寫硬體分檔（`mobile-ios` 為別名） | `PerfProfile.js` |
+| `?device=mobile\|desktop` | 覆寫裝置判定（首次預設檔位、貼圖預算） | `PerfProfile.js` |
+| `?shadowrate=1\|2`、`?fill=0\|1`、`?dynres=0\|1` | 覆寫陰影更新頻率、補建街區、動態解析度（另見 `GraphicsConfig.js` 其他實驗參數） | `GraphicsConfig.js` |
 | `?texscale=0.25~2` | 覆寫畫布貼圖縮放比 | `PerfProfile.js`、`GpuMemLifecycle.js` |
 | `?date=YYYY-MM-DD` | 模擬真實日期（義務役、節慶、貨運班次、真實週末判定） | `Service.js`、`Season.js`、`PinHan.js`、`Ruizhe.js` |
 | `?mj=房號` | 直接加入 277 麻將多人房間 | `MahjongScene.js` |
@@ -103,7 +104,7 @@ flowchart TD
 ### 遊戲內效能測試與 PR 效能紀錄工具（`src/systems/Benchmark.js` & `tools/run_bench.mjs`）
 - 給玩家用的硬體測試：標題畫面 →「📊 效能測試」，選畫質後鏡頭照固定路線跑約 155 秒（校園街道白天 65 秒 → 空拍 16 秒 → 夜間街道 65 秒，每段前 3 秒暖機不計；街道段依序 **校門口 → 資管系館前 → 進學生活動中心 B1 大廳 → 進力行大樓 1F 室內走廊 → 體育館**，每段在 1 m 網格上用與玩家走路相同的碰撞判定（含室內牆、`noReserved`、地板相對地形高度）規劃，優先走馬路與人行空間，拉直時不多切草地，鏡頭沿折線（不用樣條、不切角）在室外約 2.2 m、室內 1.65 m 眼高前進，室內放慢 4 倍（`src/systems/BenchRoute.js`）；**夜間段複用白天同一條路線與秒數**，日夜可 1:1 對照；測試與標題畫面期間也會執行室內家具距離剔除與夜間窗光等純視覺更新器 `Interiors.visualUpdaters`），跑完顯示平均 FPS、1% / 0.1% 低幀、最低／最高、畫面時間分佈、卡頓次數、主執行緒耗時（並於結果物件細分純遊戲邏輯 `logicAvg` 與繪圖提交 `renderAvg`）、繪圖呼叫與三角形，並依「每幀間隔 vs. 遊戲 JS 耗時」判斷瓶頸是 CPU、GPU 還是螢幕更新率；可複製文字或下載 JSON，上一次結果存在 `localStorage`（`cycu-bench-last`）。
 - 網址加 `?bench`（或 `?bench=low` 指定畫質、`?bench=low&headless=1` 無頭模式）會在載入完自動開跑；跑完 `game.bench.result` 有完整結果，並發出 `window` 的 `benchdone` 事件。
-- **Agent 自動化 iPhone 模擬實測（`npm run bench:iphone`）**：支援 Mac M 系列（Apple Metal GPU）與 Linux（自動探測 Vulkan / EGL 硬體 GPU），預設以 iPhone 視口（`430x932@3x`、`tier=mobile-lite`）自動跑完 99 秒遊戲內 Benchmark 並強制執行 GC 量測存活 `Canvas MB`、貼圖估算 MB 與三段指標，產出可直接貼入 PR 的 `tools/e2e/out/bench/pr-perf-section.md`（含 `<!-- yanlin-perf:v1 -->` 輕量標記），或以 `npm run perf:attach -- <PR編號>` 一鍵寫入 PR 內文。
+- **Agent 自動化 iPhone 模擬實測（`npm run bench:iphone`）**：支援 Mac M 系列（Apple Metal GPU）與 Linux（自動探測 Vulkan / EGL 硬體 GPU），預設以 iPhone 視口（`430x932@3x`、`?device=mobile`）自動跑完 99 秒遊戲內 Benchmark 並強制執行 GC 量測存活 `Canvas MB`、貼圖估算 MB 與三段指標，產出可直接貼入 PR 的 `tools/e2e/out/bench/pr-perf-section.md`（含 `<!-- yanlin-perf:v1 -->` 輕量標記），或以 `npm run perf:attach -- <PR編號>` 一鍵寫入 PR 內文。
 - **按需歷史查詢與跨 PR 對比（`tools/perf_history.mjs`）**：平時開 PR 不做對比；需要檢視效能演進時，執行 `npm run perf:history` 或 `npm run perf:compare`（如 `npm run perf:compare -- --from=370 --to=372` 或 `--current`），會自動從已合併 PR 同步標記至本機輕量單檔 `tools/.cache/perf-history.jsonl`，並智慧區分跨機器通用的記憶體／幾何負載與同款 GPU 的真實幀率差異。
 - **擴充指標**：報告另含 `boot.stages`（BootDiag 8 階段毫秒）、`boot.topZones`（`buildZones` 最慢 5 區）、`boot.toPlayMs`（點「▶ 開始遊戲」到 `play`，`--no-toplay` 略過）、`scene.*`（節點、Mesh、`matrixAutoUpdate` 節點、Standard / Lambert / Basic 材質、投影物件）與各段 `envBakeCount`（PMREM 重烘次數）、`minFps`、`maxFrameMs`、`routeM`，全部寫入 `bench-report.json` 與 `<!-- yanlin-perf:v1 -->`。
 - **顯示設定邊際成本掃描（`npm run bench:iphone -- --sweep [--sweep-time=10]`）**：跑完整段後在同一頁面以 `game.applyDisplaySettings(patch, { save: false })` 逐項切換 `dprCap`、`shadows`、`envLight`、`postFx`、`nightLamps`（項目見 `tools/perf/sweep_lib.mjs`），每項跑一段短的固定路線，輸出 `sweep.json` 與 `sweep.md`（相對檔位預設的 Δ FPS / Δ 繪圖提交）。需重整的設定（`materialMode` 等）請用 `?mat=` 等網址參數分兩次跑比較。

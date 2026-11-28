@@ -70,7 +70,7 @@ npm run ci
     # 若已建立 PR，亦可一鍵將剛跑完的結果與輕量標記自動寫入該 PR 內文：
     npm run perf:attach -- <PR編號>
     ```
-    > **沙盒權限提醒**：若 AI Agent 預設在受限沙盒內執行指令，執行 `npm run bench:iphone` 時**必須申請宿主機執行權限（跳脫沙盒）**，才能存取本機 Chrome 與真實硬體 GPU（Mac Apple Metal / Linux Vulkan·EGL 獨顯或內顯），避免退回軟體渲染。腳本會自動以 iPhone 模擬環境（`430x932@3x`、`tier=mobile-lite`）跑完遊戲內 99 秒三段 Benchmark 並連同**完整宿主機硬體資訊**與 `<!-- yanlin-perf:v1 -->` 輕量標記輸出至 `tools/e2e/out/bench/pr-perf-section.md`，嚴禁手填數字而省略硬體環境表。
+    > **沙盒權限提醒**：若 AI Agent 預設在受限沙盒內執行指令，執行 `npm run bench:iphone` 時**必須申請宿主機執行權限（跳脫沙盒）**，才能存取本機 Chrome 與真實硬體 GPU（Mac Apple Metal / Linux Vulkan·EGL 獨顯或內顯），避免退回軟體渲染。腳本會自動以 iPhone 模擬環境（`430x932@3x`、`?device=mobile`）跑完遊戲內 99 秒三段 Benchmark 並連同**完整宿主機硬體資訊**與 `<!-- yanlin-perf:v1 -->` 輕量標記輸出至 `tools/e2e/out/bench/pr-perf-section.md`，嚴禁手填數字而省略硬體環境表。
   - **按需對比原則（平時不自動做對比）**：開 PR 時僅記錄當次真實數據，不做前後對比輸出；**僅當使用者主動要求檢視歷史演進或比對特定 PR／修改前後差異時**，Agent 才執行 `npm run perf:history` 或 `npm run perf:compare`（自動從 GitHub Merged PRs 增量同步至本機輕量單檔 `tools/.cache/perf-history.jsonl`，自動區分跨機通用的 iPhone 記憶體／Draw Calls／三角形與同款 GPU 的 FPS／耗時）。
 
 若改動涉及特定子系統的進階驗證（如 WASM 精度測試、E2E 劇本測試、室內平面圖產圖等），請依改動性質視需要補跑，完整指令清冊見 [docs/dev/developer-guide.md](docs/dev/developer-guide.md)。
